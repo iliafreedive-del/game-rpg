@@ -204,3 +204,58 @@ export function matTex(name) {
   if (!cache.has(k)) cache.set(k, tex(MATS[name][0](), false));
   return cache.get(k);
 }
+
+// ---------------------------------------------------------------- листва (альфа-вырез): кроны и ёлки — «карточки» с этой текстурой
+// Рисуется светло-серо-зелёным: оттенок даёт цвет вершины (низ кроны темнее, верх и сторона к солнцу — тёплый жёлто-зелёный).
+// в правом верхнем углу — сплошной квадрат 40 px: туда смотрят UV ствола и веток (та же текстура, один материал на всё дерево)
+// рисунок кисти занимает левый нижний квадрат 212 px (UV карточек 0…0.828), сплошной квадрат — правый верхний угол
+export const LEAF_UV = 212 / 256;
+function leafCanvas(S, seed, draw) {
+  const c = canvas(S), x = c.getContext('2d'), sub = canvas(212); draw(sub.getContext('2d'), rng(seed), 212);
+  x.clearRect(0, 0, S, S); x.drawImage(sub, 0, S - 212); x.fillStyle = 'hsl(90,10%,72%)'; x.fillRect(S - 40, 0, 40, 40); return c;
+}
+function leafAlpha(c) { const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.generateMipmaps = true; t.minFilter = THREE.LinearMipmapLinearFilter; t.anisotropy = 4; return t; }
+// кисть листвы: ~90 заострённых листиков веером из центра, кромка неровная, к низу темнее
+export function leafTex() {
+  if (cache.has('leaf')) return cache.get('leaf');
+  const c = leafCanvas(256, 131, (x, R, S) => {
+    const C = S / 2;
+    const leaf = (X, Y, len, w, ang, l) => {
+      x.save(); x.translate(X, Y); x.rotate(ang);
+      x.beginPath(); x.moveTo(-len * 0.5, 0); x.quadraticCurveTo(0, -w, len * 0.5, 0); x.quadraticCurveTo(0, w, -len * 0.5, 0); x.closePath();
+      const g = x.createLinearGradient(0, -w, 0, w); g.addColorStop(0, `hsl(85,35%,${Math.min(96, l + 14)}%)`); g.addColorStop(1, `hsl(95,35%,${l - 10}%)`);
+      x.fillStyle = g; x.fill(); x.strokeStyle = `hsla(110,40%,${l - 30}%,0.55)`; x.lineWidth = 1.2; x.stroke();
+      x.strokeStyle = `hsla(100,30%,${l - 22}%,0.5)`; x.lineWidth = 0.8; x.beginPath(); x.moveTo(-len * 0.45, 0); x.lineTo(len * 0.4, 0); x.stroke();
+      x.restore();
+    };
+    // слои от тёмных (внутри) к светлым (снаружи сверху)
+    for (let pass = 0; pass < 3; pass++) {
+      const n = [34, 40, 28][pass];
+      for (let i = 0; i < n; i++) {
+        const a = R() * 6.283, rr = Math.sqrt(R()) * C * [0.55, 0.72, 0.78][pass], X = C + Math.cos(a) * rr, Y = C + Math.sin(a) * rr * 0.9;
+        const shade = 1 - (Y / S) * 0.45;   // низ кисти темнее
+        const l = ([46, 62, 78][pass] + R() * 12) * shade;
+        leaf(X, Y, 26 + R() * 18, 8 + R() * 5, a + (R() - 0.5) * 0.9, l);
+      }
+    }
+  });
+  const t = leafAlpha(c); cache.set('leaf', t); return t;
+}
+// лапа ели: центральная ветка и хвоинки-штрихи, свисающие вниз-наружу; треугольный силуэт
+export function pineTex() {
+  if (cache.has('pine')) return cache.get('pine');
+  const c = leafCanvas(256, 137, (x, R, S) => {
+    x.lineCap = 'round';
+    // силуэт лапы: треугольник, расширяющийся книзу, с рваным краем из хвоинок
+    for (let b = 0; b < 5; b++) {
+      const bx = S * (0.2 + b * 0.15), top = S * 0.06, len = S * (0.86 - Math.abs(b - 2) * 0.08);
+      for (let i = 0; i < 120; i++) {
+        const t = Math.sqrt(R()), px = S / 2 + (bx - S / 2) * t, py = top + len * t, side = R() < 0.5 ? -1 : 1, nl = (8 + 20 * t) * (0.6 + R() * 0.5);
+        const l = 34 + R() * 26 + (1 - t) * 22 - (b === 2 ? 0 : 6);
+        x.strokeStyle = `hsl(${95 + R() * 25},32%,${l}%)`; x.lineWidth = 2.5 + R() * 2;
+        x.beginPath(); x.moveTo(px, py); x.lineTo(px + side * nl, py + nl * 0.55); x.stroke();
+      }
+    }
+  });
+  const t = leafAlpha(c); cache.set('pine', t); return t;
+}

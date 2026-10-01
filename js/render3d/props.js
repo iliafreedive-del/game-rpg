@@ -93,7 +93,7 @@ export class PropLayer {
     const ol = this.outlineFor(def), meshes = [];
     root.traverse(o => { if (o.isMesh) { const g = o.geometry.clone(); g.applyMatrix4(o.matrixWorld); meshes.push({ geo: g, mat: o.material }); } });
     const parts = meshes.map(({ geo, mat }) => {
-      const im = new THREE.InstancedMesh(geo, mat, list.length); im.name = def.id; im.frustumCulled = false; im.castShadow = def.shadow !== false; im.receiveShadow = true;
+      const im = new THREE.InstancedMesh(geo, mat, list.length); im.name = def.id; im.frustumCulled = false; im.castShadow = def.shadow !== false; im.receiveShadow = def.receive !== false;
       this.scene.add(im); this.items.push(im);
       let oim = null;
       if (ol) { oim = new THREE.InstancedMesh(geo, ol, list.length); oim.name = def.id; oim.instanceMatrix = im.instanceMatrix; oim.frustumCulled = false; oim.userData.isOutline = true; this.scene.add(oim); this.items.push(oim); }

@@ -147,6 +147,7 @@ export function toon(color = 0xffffff, o = {}) {
   const m = new THREE.MeshToonMaterial({
     color, gradientMap: ramp(), vertexColors: !!o.vc, side: o.side ?? THREE.FrontSide,
     transparent: !!o.transparent, opacity: o.opacity ?? 1,
+    map: o.map ?? null, alphaTest: o.alphaTest ?? 0,
   });
   const sw = o.sway;
   m.userData.flash = { value: 0 };
