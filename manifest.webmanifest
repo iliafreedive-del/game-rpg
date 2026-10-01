@@ -1,0 +1,10 @@
+{
+  "name": "DARK ASCENT — Пробуждение под катакомбами",
+  "short_name": "DARK ASCENT",
+  "start_url": "./index.html",
+  "display": "fullscreen",
+  "orientation": "any",
+  "background_color": "#0d0b0e",
+  "theme_color": "#0d0b0e",
+  "icons": [{ "src": "assets/sprites/icon_app.png", "sizes": "256x256", "type": "image/png" }]
+}

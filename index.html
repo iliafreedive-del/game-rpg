@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0d0b0e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="description" content="DARK ASCENT — мрачная изометрическая ролевая игра в духе классики: катакомбы, нежить, добыча и прокачка героя прямо в браузере.">
+<title>DARK ASCENT — Пробуждение под катакомбами</title>
+<link rel="icon" href="assets/sprites/icon_app.png">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<div id="ui" class="hidden">
+  <div id="hudL">
+    <div id="portrait" title="Персонаж (C)"><div id="lvl">1</div></div>
+    <div class="bars">
+      <div class="bar" id="hpBar"><i></i><b></b></div>
+      <div class="bar" id="mpBar"><i></i><b></b></div>
+      <div class="bar" id="xpBar"><i></i></div>
+      <div id="buffs"></div>
+    </div>
+  </div>
+  <div id="hudR">
+    <div id="menu">
+      <button class="mbtn" id="btnAuto" title="Автобой: герой сражается сам">АВТО</button>
+      <button class="mbtn big" id="btnHero" data-open="inventory" title="Герой и снаряжение (I)"><svg viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 5-3.5 8.5-7 10-3.5-1.5-7-5-7-10V6z"/><path d="M9 11l2 2 4-4"/></svg><span class="lbl">Герой</span><span class="dot hidden" id="dotInv"></span></button>
+      <button class="mbtn big" id="btnMenu" title="Меню"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg><span class="lbl">Меню</span><span class="dot hidden" id="dotMenu"></span></button>
+    </div>
+    <div id="goldBox"><span id="gold">0</span><span id="shards" class="c-shard">0◆</span><span id="torchN">🔥0</span></div>
+    <div id="bossBar" class="hidden"><div class="n"></div><div class="bar"><i></i><b></b></div></div>
+    <div id="tracker"></div>
+    <canvas id="minimap" width="240" height="240"></canvas>
+  </div>
+  <div id="toasts"></div>
+  <div id="levelUp">Новый уровень!</div>
+
+  <div id="joyZone"><div id="joyBase"><div id="joyKnob"></div></div></div>
+  <button id="btnAct" class="hidden"></button>
+  <div id="pad">
+    <button id="btnAtk" class="cbtn" title="Атака (Пробел)"><canvas width="96" height="96"></canvas></button>
+    <button id="sk0" class="cbtn sk" data-slot="0"></button>
+    <button id="sk1" class="cbtn sk" data-slot="1"></button>
+    <button id="sk2" class="cbtn sk" data-slot="2"></button>
+    <button id="sk3" class="cbtn sk" data-slot="3"></button>
+    <button id="btnScroll" class="cbtn" title="Свиток возврата (T)"><svg viewBox="0 0 24 24"><path d="M7 4h10v16H7z"/><path d="M5 4h4M15 20h4M10 9h4M10 13h4"/></svg><span class="pcount" id="scrollCount">0</span></button>
+    <button id="btnDodge" class="cbtn" title="Уклонение (Shift)"><svg viewBox="0 0 24 24"><path d="M4 16c4 0 6-8 16-8"/><path d="M16 4l4 4-4 4"/></svg></button>
+    <button id="potHP" class="cbtn" title="Зелье здоровья (Q)"><canvas width="96" height="96"></canvas><span class="pcount" id="hpCount">0</span></button>
+    <button id="potMP" class="cbtn" title="Зелье маны (E)"><canvas width="96" height="96"></canvas><span class="pcount" id="mpCount">0</span></button>
+  </div>
+</div>
+
+<div id="title">
+  <div class="hero" id="titleHero"></div>
+  <h1>DARK ASCENT</h1>
+  <div class="sub">Глава I. Пробуждение под катакомбами</div>
+  <div id="loadbar"><i></i></div>
+  <div id="loadtxt" class="muted">Загрузка…</div>
+  <div id="titleBtns" class="row hidden" style="flex-direction:column"></div>
+</div>
+<div id="death" class="hidden"></div>
+<noscript>Для игры нужен JavaScript.</noscript>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>

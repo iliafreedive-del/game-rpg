@@ -1,0 +1,95 @@
+// Save System: versioned profile in localStorage (+ optional cloud via platform), migrations from build 1.x.
+import { makeItem, makeStarterGear, sellValue } from './items.js';
+import { CLASSES, SLOTS } from '../data/items.js';
+
+export const SAVE_KEY = 'dark_ascent_save_v2';
+export const LEGACY_KEYS = ['dark_ascent_chapter1_save', 'dark_ascent_v03_save'];
+export const SAVE_VERSION = 3;
+
+export function newProfile(cls = 'warrior') {
+  const p = {
+    cls,
+    v: SAVE_VERSION, created: Date.now(), saved: 0,
+    level: 1, xp: 0, gold: 25,
+    attrs: { str: 10, dex: 10, int: 10, vit: 10 }, attrPts: 0, skillPts: 1,
+    skills: {}, slots: [null, null, null, null],
+    gear: {}, bag: [], bagSize: 30,
+    potions: { hp: 3, mp: 1 }, scrolls: 1,
+    story: { stage: 0, counters: {}, flags: {}, done: [] },
+    repeat: {},            // id -> {accepted, base, completions}
+    stats: { kills: 0, skeletons: 0, elites: 0, chests: 0, meters: 0, gold: 0, bossKills: 0, deaths: 0, bossNoDeath: 0, playTime: 0 },
+    world: { opened: {}, lastZone: 'town' },   // persistent story objects (key sarcophagus, secret wall, gate…)
+    boosts: { xpUntil: 0, goldUntil: 0 },
+    ads: { used: {} }, iap: { tx: {} },
+    shop: { seed: 1, refreshedAtLevel: 1, stock: [] },
+    epicPity: 0, bossFirstKill: false, chapterDone: false,
+    settings: { sfx: 0.7, music: 0.5, shake: true, quality: 'auto' },
+    tutorial: {},
+  };
+  const g = makeStarterGear(cls);
+  p.gear.weapon = g.weapon; p.gear.chest = g.chest;
+  p.attrs = { ...CLASSES[cls].attrs };
+  return p;
+}
+
+// ----- migrations
+function migrateV1(old) {
+  // Build 1.x stored level/xp/gold/attributes/skills as flat numbers. Keep what maps cleanly.
+  const p = newProfile('warrior');
+  p.level = Math.max(1, Math.min(30, old.level | 0 || 1));
+  p.gold = Math.max(0, old.gold | 0);
+  if (old.attributes) for (const k of ['str', 'dex', 'int', 'vit']) p.attrs[k] = Math.max(10, Math.min(200, old.attributes[k] | 0 || 10));
+  // Old per-branch skill numbers become refundable skill points (new tree has real nodes)
+  let oldSkill = 0; if (old.skills) for (const k in old.skills) oldSkill += Math.max(0, old.skills[k] | 0);
+  p.skillPts = 1 + (p.level - 1) + 0 * oldSkill;
+  const spent = Object.values(p.attrs).reduce((a, b) => a + b, 0) - 40;
+  p.attrPts = Math.max(0, (p.level - 1) * 5 - spent) + Math.max(0, old.points | 0);
+  p.potions.hp = Math.min(20, Math.max(3, old.potions | 0));
+  // Old items had ad-hoc shapes; convert only weapon type & level to new items.
+  // old 1.x items don't map to the new 4-slot system — they're converted to gold
+  if (Array.isArray(old.bag)) p.gold += old.bag.length * 10;
+  if ((old.quest | 0) > 0) { p.story.stage = 1; p.story.done = ['talk_elder']; }
+  p.migratedFrom = 1;
+  return p;
+}
+const MIGRATIONS = {
+  // v2 → v3: hero classes + 4 gear slots. Items that no longer fit are sold automatically.
+  2: p => {
+    const wt = p.gear && p.gear.weapon && p.gear.weapon.wt;
+    p.cls = p.cls || (wt === 'bow' ? 'archer' : wt === 'staff' ? 'mage' : 'warrior');
+    const C = CLASSES[p.cls]; let gold = 0, n = 0;
+    for (const k of Object.keys(p.gear || {})) if (!SLOTS.includes(k) && p.gear[k]) { gold += sellValue(p.gear[k]); n++; delete p.gear[k]; }
+    p.bag = (p.bag || []).filter(it => { const ok = SLOTS.includes(it.slot) && (it.slot !== 'weapon' || C.weapons.includes(it.wt)); if (!ok) { gold += sellValue(it); n++; } return ok; });
+    p.gold = (p.gold || 0) + gold; if (n) p.simplified = { n, gold };
+    p.v = 3; return p;
+  },
+};
+
+export function migrate(p) {
+  if (!p || typeof p !== 'object') return null;
+  if (!p.v || p.v < 2) return migrateV1(p);
+  while (p.v < SAVE_VERSION) { const m = MIGRATIONS[p.v]; if (!m) break; p = m(p); }
+  // fill any fields added later with defaults (forward-compatible)
+  const d = newProfile();
+  for (const k in d) if (!(k in p)) p[k] = d[k];
+  for (const k of ['stats', 'story', 'world', 'boosts', 'ads', 'iap', 'settings', 'potions', 'shop', 'tutorial'])
+    for (const kk in d[k]) if (!(kk in p[k])) p[k][kk] = d[k][kk];
+  return p;
+}
+
+export function loadLocal() {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (raw) return migrate(JSON.parse(raw));
+    for (const k of LEGACY_KEYS) {
+      const r = localStorage.getItem(k);
+      if (r) { const p = migrate(JSON.parse(r)); if (p) { p.legacyKey = k; return p; } }
+    }
+  } catch (e) { console.warn('save load failed', e); }
+  return null;
+}
+export function saveLocal(p) {
+  try { p.saved = Date.now(); localStorage.setItem(SAVE_KEY, JSON.stringify(p)); return true; }
+  catch (e) { console.warn('save failed', e); return false; }
+}
+export function wipeLocal() { try { localStorage.removeItem(SAVE_KEY); } catch { } }
