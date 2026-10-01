@@ -1,6 +1,6 @@
 // Dark Ascent · единый модуль стиля. Решения закреплены в docs/ART_BIBLE.md; числа живут ТОЛЬКО здесь.
 // Фирменный стиль: «кость, латунь и бездна» (общая палитра) + два набора окружения: 'torch' (основной, утверждён) и 'dark' (холодный, сравнение).
-// Цвета заданы hex, цвета вершин в геометрии рисуются из этих значений (текстур нет).
+// Цвета заданы hex, цвета вершин в геометрии рисуются из этих значений; рисованные фактуры поверх — js/render3d/textures.js.
 
 // ---------- бренд-палитра (общая для всех видов) ----------
 export const PAL = {
@@ -122,11 +122,11 @@ export const GRASS_K = { low: 0.3, med: 0.6, high: 1 };
 export const GRASS = { base: 0x2c4a1a, tip: 0x9ccc48, dry: 0xd6c46a };
 export const WIND = [{ name: 'Штиль', s: 0.35 }, { name: 'Ветер', s: 1 }, { name: 'Буря', s: 2.1 }];
 
-// ---------- лимиты нагрузки (High, 1280×720). Замерено на torch.html ----------
+// ---------- лимиты нагрузки (High, 1280×720, деревня; draw calls — весь кадр: тени + сцена + постобработка). См. ART_BIBLE, раздел 9 ----------
 export const BUDGET = {
-  drawCalls: { limit: 260, high: 220, med: 220, low: 126, afterSkinning: 120 },   // герой 28 + мобы ≈ 126 мешей; после SkinnedMesh цель ≈ 120
-  triangles: { limit: 350000, high: 266000, med: 226000, low: 159000 },
-  texturesBytes: 0, externalAssets: 0, realLights: 2, shadowMaps: 0,              // тени только блобами, без текстур
+  drawCalls: { limit: 260, high: 162, low: 74, phone: 121, before: 254 },        // before — до теней/постобработки/скининга
+  triangles: { limit: 350000, shadowLimit: 100000, high: 348000, highShadow: 77000, low: 210000, phone: 256000 },
+  texturesBytes: 0, textureVRAM: 6e6, externalAssets: 0, realLights: 3, shadowMaps: 1,   // фактуры генерируются на canvas; свет: солнце + 2 точечных
 };
 
 // ---------- какой вид включён ----------
