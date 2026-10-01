@@ -1,5 +1,5 @@
 // Колодец-рунный круг (в деревне «колодец» заменён рунным кругом): каменное кольцо с бирюзовыми рунами.
-export default { id: 'runebed', kind: 'prop', batch: true, outline: 'stone',
+export default { id: 'runebed', kind: 'prop', batch: true, outline: false,
   build(kit) {
     const { THREE, PAL, part, merge } = kit;
     const L = [part(new THREE.CylinderGeometry(1.1, 1.2, 0.18, 14), 0x3a362c, [0, 0.09, 0], 0, 1, { top: 0x8a8068, tex: 'stone' }), part(new THREE.CylinderGeometry(0.85, 0.85, 0.2, 14), 0x1c2c30, [0, 0.12, 0], 0, 1, { top: 0x2a4a50 })];

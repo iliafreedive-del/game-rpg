@@ -1,5 +1,5 @@
 // Камешки у троп: четыре гранёных камня, верх тронут мхом. Декор земли.
-export default { id: 'pebbles', kind: 'prop', batch: true, outline: 'small', shadow: false, ao: 0.6, aoH: 0.25,
+export default { id: 'pebbles', kind: 'prop', batch: true, outline: false, shadow: false, ao: 0.6, aoH: 0.25,
   build(kit) {
     const { THREE, geo, merge } = kit, R = geo.rng(41);
     const mk = (r, x, z, sy, moss) => { const g = new THREE.DodecahedronGeometry(r, 0); g.scale(1, sy, 0.8 + R() * 0.3); geo.jitter(g, r * 0.35, R); g.rotateY(R() * 6); g.translate(x, r * sy * 0.35, z); return geo.paint(g, 0x4a4438, { top: moss ? 0x6a8a3a : 0xb0a488 }); };

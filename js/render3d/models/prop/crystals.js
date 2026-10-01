@@ -1,5 +1,5 @@
 // Кластер бирюзово-фиолетовых кристаллов (свет — из zone.lights).
-export default { id: 'crystals', kind: 'prop', batch: true, outline: 'small', rim: 0.6, rimColor: 0xbfffee,
+export default { id: 'crystals', kind: 'prop', batch: true, outline: false, rim: 0.6, rimColor: 0xbfffee,
   build(kit) {
     const { THREE, part, merge } = kit;
     const L = []; [[0, 0, 1.2, 0.2, 0], [0.3, 0.1, 0.8, 0.14, 0.4], [-0.28, 0.05, 0.7, 0.13, -0.45], [0.05, -0.28, 0.55, 0.1, 0.15], [-0.1, 0.3, 0.5, 0.1, -0.2]].forEach(([x, z, h, r, tilt], i) =>

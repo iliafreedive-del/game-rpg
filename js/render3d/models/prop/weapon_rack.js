@@ -1,5 +1,5 @@
 // Стойка с оружием: рама с фасками, три меча (латунные гарды), круглый щит Ордена, копьё.
-export default { id: 'weapon_rack', kind: 'prop', batch: true, outline: 'small',
+export default { id: 'weapon_rack', kind: 'prop', batch: true, outline: false,
   build(kit) {
     const { THREE, PAL, part, merge, bbox } = kit;
     const T = 0x3a2416, TL = 0x6e4a2a;

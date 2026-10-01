@@ -1,5 +1,5 @@
 // Доска заданий: два столба, щит из досок под двускатным козырьком, пергаменты на гвоздях, латунная табличка.
-export default { id: 'board', kind: 'prop', batch: true, outline: 'small',
+export default { id: 'board', kind: 'prop', batch: true, outline: false,
   build(kit) {
     const { THREE, PAL, part, merge, bbox } = kit;
     const L = [bbox(1.5, 1.0, 0.1, 0.02, 0x4a3220, [0, 1.35, 0], 0, { top: 0x8a6a40, tex: 'woodH' })];

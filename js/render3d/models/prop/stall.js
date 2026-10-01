@@ -1,5 +1,5 @@
 // Торговый прилавок: стол из досок на козлах, полосатый навес-ткань с бахромой, товары (горшки, тыквы, свёртки, ящики).
-export default { id: 'stall', kind: 'prop', batch: true, outline: 'small',
+export default { id: 'stall', kind: 'prop', batch: true, outline: false,
   build(kit) {
     const { THREE, PAL, part, merge, bbox } = kit;
     const T = 0x3a2416, TL = 0x6e4a2a, L = [];

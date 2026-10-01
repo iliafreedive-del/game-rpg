@@ -1,5 +1,5 @@
 // Фонарный столб: кованый столб с завитком, фонарь-клетка со стеклом (самосвечение), латунный колпак. Свет задаёт зона.
-export default { id: 'lamp', kind: 'prop', batch: true, outline: 'small',
+export default { id: 'lamp', kind: 'prop', batch: true, outline: false,
   build(kit) {
     const { THREE, PAL, part, merge, bbox } = kit;
     const IRON = 0x24242a, IRON_L = 0x5a5a64, L = [];

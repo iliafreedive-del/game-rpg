@@ -1,5 +1,5 @@
 // Знамя Ордена на высоком древке: перекладина с латунными навершиями, полотно Бездны с вышитой руной и кистями, зубчатый низ.
-export default { id: 'banner', kind: 'prop', batch: true, outline: 'small', sway: { base: 1.2, amt: 0.04, flutter: 0.03 },
+export default { id: 'banner', kind: 'prop', batch: true, outline: false, sway: { base: 1.2, amt: 0.04, flutter: 0.03 },
   build(kit) {
     const { THREE, PAL, part, merge, bbox } = kit;
     const cloth = new THREE.PlaneGeometry(0.8, 1.4, 4, 6); const p = cloth.attributes.position;

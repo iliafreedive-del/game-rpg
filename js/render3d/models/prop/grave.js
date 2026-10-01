@@ -1,5 +1,5 @@
 // Могила: надгробие с крестом-руной и холмик.
-export default { id: 'grave', kind: 'prop', batch: true, outline: 'stone',
+export default { id: 'grave', kind: 'prop', batch: true, outline: false,
   build(kit) {
     const { THREE, part, merge } = kit;
     const root = new THREE.Group(); root.add(new THREE.Mesh(merge([

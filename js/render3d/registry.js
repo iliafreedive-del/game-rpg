@@ -14,8 +14,11 @@ import sword_rust from './models/weapon/sword_rust.js';
 import shield_bone from './models/weapon/shield_bone.js';
 import tree_0 from './models/prop/tree_0.js';
 import tree_1 from './models/prop/tree_1.js';
-import tree_0_far from './models/prop/tree_0_far.js';
-import tree_1_far from './models/prop/tree_1_far.js';
+import tree_birch from './models/prop/tree_birch.js';
+import tree_autumn from './models/prop/tree_autumn.js';
+import tree_elm from './models/prop/tree_elm.js';
+import tree_pine_tall from './models/prop/tree_pine_tall.js';
+import tree_fir_blue from './models/prop/tree_fir_blue.js';
 import deadtree from './models/prop/deadtree.js';
 import house_0 from './models/prop/house_0.js';
 import house_1 from './models/prop/house_1.js';
@@ -52,9 +55,19 @@ export const HEROES = by(warrior);                       // ключ — кла�
 export const MOBS = by(skel_warrior, ghoul);             // ключ — тип врага (ENEMIES)
 export const NPCS = by(npc_elder, npc_smith, npc_merchant, npc_trainer);
 export const WEAPONS = by(sword_iron, shield_round, sword_rust, shield_bone);
-export const PROPS = by(tree_0, tree_1, tree_0_far, tree_1_far, deadtree, house_0, house_1, house_2, rocks, grave, fence_x, fence_y, barrel, crate, hay, lamp, runebed, forge, stall, board, altar, banner, statue, weapon_rack, crystals, portal,
+export const PROPS = by(tree_0, tree_1, tree_birch, tree_autumn, tree_elm, tree_pine_tall, tree_fir_blue, deadtree, house_0, house_1, house_2, rocks, grave, fence_x, fence_y, barrel, crate, hay, lamp, runebed, forge, stall, board, altar, banner, statue, weapon_rack, crystals, portal,
   fern, flowers, pebbles, mushrooms, bush, sacks, logpile, stump);   // последние восемь — декор земли и хлам у домов (js/render3d/props.js, scatterDecor), в картах не стоят
 
 // какая модель оружия соответствует типу оружия игры (wt); недостающие пока подменяются мечом
 export const WEAPON_MODEL = { sword: 'sword_iron', greatsword: 'sword_iron', axe: 'sword_iron' };
 export const OFFHAND_MODEL = { warrior: 'shield_round' };
+
+// породы деревьев: tree_0/tree_1 в карте — «лиственное»/«хвойное», а какая именно порода — решает слой окружения по позиции.
+// Для леса за краем карты у каждой породы есть облегчённая копия «_far» (реже листва).
+export const TREE_KINDS = {
+  tree_0: [['tree_0', 3], ['tree_elm', 3], ['tree_birch', 2.5], ['tree_autumn', 1.6], ['tree_1', 1]],
+  tree_1: [['tree_1', 3], ['tree_pine_tall', 2.5], ['tree_fir_blue', 1.5], ['tree_elm', 1.6], ['tree_birch', 0.8], ['tree_autumn', 0.7]],
+};
+for (const id of [...TREE_KINDS.tree_0, ...TREE_KINDS.tree_1].map(k => k[0])) {
+  const d = PROPS[id]; PROPS[id + '_far'] = { ...d, id: id + '_far', density: d.leaf === 'pine' ? 0.6 : Math.max(5, Math.round(d.density * 0.3)) };
+}

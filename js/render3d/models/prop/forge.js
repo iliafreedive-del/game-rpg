@@ -1,5 +1,5 @@
 // Кузня: горн из каменных блоков с раскалённым зевом, дымоход, наковальня на чурбаке, мех из кожи, бочка с водой, инструменты.
-export default { id: 'forge', kind: 'prop', batch: true, outline: 'stone',
+export default { id: 'forge', kind: 'prop', batch: true, outline: false,
   build(kit) {
     const { THREE, PAL, part, merge, bbox } = kit;
     const ST = 0x3e3a32, STL = 0x8a8068, IR = 0x24242c, IRL = 0x6a6a7a;

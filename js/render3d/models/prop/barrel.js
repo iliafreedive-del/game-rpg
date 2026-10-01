@@ -1,5 +1,5 @@
 // Бочка: выпуклые клёпки (бочкообразный профиль), два железных обруча с заклёпками, крышка из досок.
-export default { id: 'barrel', kind: 'prop', batch: true, outline: 'small',
+export default { id: 'barrel', kind: 'prop', batch: true, outline: false,
   build(kit) {
     const { THREE, PAL, part, merge } = kit;
     const prof = []; for (let i = 0; i <= 8; i++) { const t = i / 8; prof.push(new THREE.Vector2(0.27 + Math.sin(t * Math.PI) * 0.06, t * 0.86)); }

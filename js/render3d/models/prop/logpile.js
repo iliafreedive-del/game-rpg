@@ -1,5 +1,5 @@
 // Поленница: брёвна с корой и светлыми торцами, сложенные пирамидой. У стены дома.
-export default { id: 'logpile', kind: 'prop', batch: true, outline: 'small', ao: 0.6, aoH: 0.6,
+export default { id: 'logpile', kind: 'prop', batch: true, outline: false, ao: 0.6, aoH: 0.6,
   build(kit) {
     const { THREE, part, merge, geo } = kit, L = [], R = geo.rng(5);
     const rows = [[-0.3, 0, 0.3], [-0.15, 0.15], [0]];

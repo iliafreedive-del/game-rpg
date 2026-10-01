@@ -1,5 +1,5 @@
 // Ящик: доски с фасками, рамка по рёбрам, диагональная планка, гвозди. Чуть повёрнут.
-export default { id: 'crate', kind: 'prop', batch: true, outline: 'small',
+export default { id: 'crate', kind: 'prop', batch: true, outline: false,
   build(kit) {
     const { THREE, part, merge, bbox, geo } = kit;
     const S = 0.68, L = [bbox(S - 0.04, S - 0.04, S - 0.04, 0.02, 0x6a4a2a, [0, S / 2, 0], 0, { top: 0xb08a54, tex: 'woodH' })];

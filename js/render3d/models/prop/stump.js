@@ -1,5 +1,5 @@
 // Пень с корнями, мхом и топором; или поваленное бревно (variant). Кромка леса.
-export default { id: 'stump', kind: 'prop', batch: true, outline: 'small', ao: 0.55, aoH: 0.5,
+export default { id: 'stump', kind: 'prop', batch: true, outline: false, ao: 0.55, aoH: 0.5,
   build(kit) {
     const { THREE, part, merge, geo } = kit, L = [];
     L.push(part(new THREE.CylinderGeometry(0.3, 0.38, 0.45, 9), 0x3a2618, [0, 0.22, 0], 0, 1, { top: 0x6a4a30, tex: 'bark' }));

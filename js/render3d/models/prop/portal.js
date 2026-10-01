@@ -1,5 +1,5 @@
 // Портал: каменная арка и вихрь (шейдер, самосвечение). opts.color — цвет вихря (берётся из света зоны). Арка смотрит на камеру.
-export default { id: 'portal', kind: 'prop', outline: 'stone',
+export default { id: 'portal', kind: 'prop', outline: false,
   build(kit, opts = {}) {
     const { THREE, PAL, part, merge } = kit;
     const col = new THREE.Color(opts.color ?? PAL.abyss);

@@ -1,4 +1,4 @@
-export default { id: 'hay', kind: 'prop', batch: true, outline: 'small',
+export default { id: 'hay', kind: 'prop', batch: true, outline: false,
   build(kit) {
     const { THREE, part, merge } = kit;
     const root = new THREE.Group(); root.add(new THREE.Mesh(merge([

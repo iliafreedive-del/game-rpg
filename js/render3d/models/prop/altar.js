@@ -1,5 +1,5 @@
 // Алтарь / святилище благословений: ступенчатое каменное основание и чаша с огнём Бездны.
-export default { id: 'altar', kind: 'prop', batch: true, outline: 'stone',
+export default { id: 'altar', kind: 'prop', batch: true, outline: false,
   build(kit) {
     const { THREE, PAL, part, merge } = kit;
     const root = new THREE.Group(); root.add(new THREE.Mesh(merge([

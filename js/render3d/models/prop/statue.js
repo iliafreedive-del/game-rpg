@@ -1,5 +1,5 @@
 // Статуя рыцаря на постаменте (камень с бирюзовыми рунами).
-export default { id: 'statue', kind: 'prop', batch: true, outline: 'stone',
+export default { id: 'statue', kind: 'prop', batch: true, outline: false,
   build(kit) {
     const { THREE, PAL, part, merge } = kit;
     const S = 0x6a6a74, T = 0xb4b6c4;

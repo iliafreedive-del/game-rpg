@@ -1,5 +1,5 @@
 // Мешки с зерном: три мешковины с перевязью (ткань), один привален к другим. Хлам у домов.
-export default { id: 'sacks', kind: 'prop', batch: true, outline: 'small', ao: 0.6, aoH: 0.5,
+export default { id: 'sacks', kind: 'prop', batch: true, outline: false, ao: 0.6, aoH: 0.5,
   build(kit) {
     const { THREE, part, merge, geo } = kit, L = [];
     for (const [x, z, s, tilt] of [[0, 0, 1, 0], [0.42, 0.1, 0.9, 0.1], [0.2, 0.35, 0.85, -0.9]]) {

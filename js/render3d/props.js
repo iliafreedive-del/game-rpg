@@ -2,12 +2,16 @@
 // остальные — отдельные группы с update(t). Деревьев вне карты добавляется кольцо-фон, чтобы за краем не было пустоты.
 import * as THREE from '../vendor/three.module.min.js';
 import { addOutlines, outlineMat } from './actor.js';
-import { PROPS } from './registry.js';
+import { PROPS, TREE_KINDS } from './registry.js';
 import { OUTLINE, QUALITY } from './style.js';
 import { fbm } from './geo.js';
 
 const hash = (x, y) => { let h = (Math.round(x * 31) * 374761393 + Math.round(y * 31) * 668265263) >>> 0; h = (h ^ (h >>> 13)) * 1274126177 >>> 0; return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
 const warned = new Set();
+// порода дерева по позиции: взвешенный выбор из TREE_KINDS (tree_0 — лиственные, tree_1 — хвойные)
+function pickTree(spr, h) { const L = TREE_KINDS[spr]; if (!L) return spr; let t = h * L.reduce((a, k) => a + k[1], 0); for (const [id, w] of L) { if ((t -= w) < 0) return id; } return L[0][0]; }
+// оттенок экземпляра: светлее/темнее, теплее/холоднее — соседние деревья одной породы не одинаковые
+function tintOf(x, y, k) { const a = hash(x * 1.3 + 7, y * 0.7), b = hash(y * 1.9, x * 2.7 + 3), l = 1 + (a - 0.5) * 2 * k, w = (b - 0.5) * k; return new THREE.Color(l * (1 + w * 0.6), l * (1 + w * 0.25), l * (1 - w * 0.8)); }
 let _proxyMat = null;
 const proxyMat = () => _proxyMat || (_proxyMat = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false }));
 
@@ -16,20 +20,20 @@ export class PropLayer {
     this.scene = scene; this.kit = kit; this.items = []; this.batches = []; this.dyn = [];
     const lists = new Map();   // id → [{x,y,rot,s,q}]
     this._lists = lists; this.decorK = 1;
-    const push = (id, x, y, rot, s, opts) => { if (!lists.has(id)) lists.set(id, []); lists.get(id).push({ x, y, rot, s, opts }); };
+    const push = (id, x, y, rot, s, opts) => { if (!lists.has(id)) lists.set(id, []); const t = PROPS[id] && PROPS[id].tint; lists.get(id).push({ x, y, rot, s, opts, col: t ? tintOf(x, y, t) : null }); };
     for (const d of zone.statics) {
       if (d.hidden || d.flat) continue;
       if (!PROPS[d.spr]) { if (!warned.has(d.spr)) { warned.add(d.spr); console.warn('[3D] нет модели предмета «' + d.spr + '» — не показан'); } continue; }
       const h = hash(d.x, d.y), isTree = d.spr === 'tree_0' || d.spr === 'tree_1' || d.spr === 'deadtree';
       const light = zone.lights.find(L => Math.hypot(L.x - d.x, L.y - d.y) < 0.3);
-      push(d.spr, d.x, d.y, isTree ? h * 6.283 : 0, isTree ? 0.9 + h * 0.5 : 1, light ? { color: new THREE.Color(light.c[0] / 255, light.c[1] / 255, light.c[2] / 255) } : null);
+      push(isTree ? pickTree(d.spr, hash(d.x * 3.1 + 1, d.y * 1.7 + 2)) : d.spr, d.x, d.y, isTree ? h * 6.283 : 0, isTree ? 0.85 + h * 0.55 : 1, light ? { color: new THREE.Color(light.c[0] / 255, light.c[1] / 255, light.c[2] / 255) } : null);
     }
     if (wantBackdrop) {  // лес за краем карты
       const m = zone.map, G = 3.4, ring = 11;
       for (let y = -ring; y < m.h + ring; y += G) for (let x = -ring; x < m.w + ring; x += G) {
         if (x > -1.5 && y > -1.5 && x < m.w + 1.5 && y < m.h + 1.5) continue;
         const h = hash(x + 3, y - 7); if (h > 0.7) continue;
-        push(h > 0.4 ? 'tree_1_far' : 'tree_0_far', x + (hash(x, y) - 0.5) * 2, y + (hash(y, x) - 0.5) * 2, h * 6.28, 1 + hash(x * 2, y) * 0.6);
+        push(pickTree(h > 0.4 ? 'tree_1' : 'tree_0', hash(x * 2.3, y * 1.1 + 5)) + '_far', x + (hash(x, y) - 0.5) * 2, y + (hash(y, x) - 0.5) * 2, h * 6.28, 1 + hash(x * 2, y) * 0.6);
       }
     }
     if (wantBackdrop) this.scatterDecor(zone, push);
@@ -49,9 +53,9 @@ export class PropLayer {
       for (const b of m.rects) if (x > b.x0 - r && x < b.x1 + r && y > b.y0 - r && y < b.y1 + r) return false;
       return true;
     };
-    const trees = zone.statics.filter(d => d.spr === 'tree_0' || d.spr === 'tree_1');
+    const trees = zone.statics.filter(d => d.spr === 'tree_0' || d.spr === 'tree_1');   // в статике карты — исходные tree_0/tree_1
     // хлам у домов: у видимых стен (+x, +z) — бочки, ящики, мешки, поленница; вплотную к стене, где герой почти не ходит
-    const HB = { house_0: [1.45, 1.15], house_1: [1.75, 1.3], house_2: [1.25, 1.25] };
+    const HB = { house_0: [2.3, 1.8], house_1: [2.7, 2.0], house_2: [2.0, 1.9] };
     for (const d of zone.statics) {
       const hb = HB[d.spr]; if (!hb) continue;
       const h = hash(d.x, d.y), [hx, hz] = hb;
@@ -80,12 +84,14 @@ export class PropLayer {
     }
   }
   lastPushedQ(id, q) { const l = this._lists.get(id); l[l.length - 1].q = q; }
-  outlineFor(def) { const k = def.outline === undefined ? 'prop' : def.outline; return k ? outlineMat(k, true) : null; }
+  // окружение без обводки по умолчанию (как на референсах Torchlight); контур только у персонажей и оружия
+  outlineFor(def) { const k = def.outline || null; return k ? outlineMat(k, true) : null; }
   addSingle(def, it) {
     const model = def.build(this.kit, it.opts || {}), g = new THREE.Group(); g.add(model.root);
     g.position.set(it.x, 0, it.y); g.rotation.y = it.rot; g.scale.setScalar(it.s); this.scene.add(g);
     const ol = this.outlineFor(def); if (ol) addOutlines(model.root, ol);
-    model.root.traverse(o => { if (o.isMesh && !o.userData.isOutline) { o.castShadow = def.shadow !== false; o.receiveShadow = true; } });
+    model.root.traverse(o => { if (o.isMesh && !o.userData.isOutline) { o.castShadow = def.shadow !== false && !def.shadowProxy; o.receiveShadow = true; } });
+    if (def.shadowProxy) { const pm = new THREE.Mesh(def.shadowProxy(this.kit), proxyMat()); pm.castShadow = true; pm.layers.set(1); pm.userData.isOutline = true; model.root.add(pm); }
     this.items.push(g); if (model.update) this.dyn.push(model);
   }
   addBatch(def, list) {
@@ -93,7 +99,8 @@ export class PropLayer {
     const ol = this.outlineFor(def), meshes = [];
     root.traverse(o => { if (o.isMesh) { const g = o.geometry.clone(); g.applyMatrix4(o.matrixWorld); meshes.push({ geo: g, mat: o.material }); } });
     const parts = meshes.map(({ geo, mat }) => {
-      const im = new THREE.InstancedMesh(geo, mat, list.length); im.name = def.id; im.frustumCulled = false; im.castShadow = def.shadow !== false; im.receiveShadow = def.receive !== false;
+      const im = new THREE.InstancedMesh(geo, mat, list.length); im.name = def.id;
+      if (def.tint) im.setColorAt(0, new THREE.Color(1, 1, 1)); im.frustumCulled = false; im.castShadow = def.shadow !== false; im.receiveShadow = def.receive !== false;
       this.scene.add(im); this.items.push(im);
       let oim = null;
       if (ol) { oim = new THREE.InstancedMesh(geo, ol, list.length); oim.name = def.id; oim.instanceMatrix = im.instanceMatrix; oim.frustumCulled = false; oim.userData.isOutline = true; this.scene.add(oim); this.items.push(oim); }
@@ -123,10 +130,10 @@ export class PropLayer {
         if (it.q !== undefined && it.q > this.decorK) continue;
         if (!this.fr.intersectsSphere(sp)) continue;
         m.compose(p.set(it.x, 0, it.y), q.setFromEuler(e.set(0, it.rot, 0)), s.setScalar(it.s));
-        for (const { im, proxy } of b.parts) if (!proxy) im.setMatrixAt(n, m);
+        for (const { im, proxy } of b.parts) if (!proxy) { im.setMatrixAt(n, m); if (it.col && im.instanceColor) im.setColorAt(n, it.col); }
         n++;
       }
-      for (const { im, oim } of b.parts) { im.count = n; im.instanceMatrix.needsUpdate = true; if (oim) oim.count = n; }
+      for (const { im, oim } of b.parts) { im.count = n; im.instanceMatrix.needsUpdate = true; if (im.instanceColor) im.instanceColor.needsUpdate = true; if (oim) oim.count = n; }
     }
   }
   setQuality(q) { this.quality = q; const k = QUALITY[q] ? QUALITY[q].decor : 1; if (k !== this.decorK) { this.decorK = k; this.lastK = 1e9; } }

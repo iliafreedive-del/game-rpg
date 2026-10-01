@@ -13,4 +13,4 @@ export function fence(kit, def, alongZ) {
   if (alongZ) root.rotation.y = Math.PI / 2;
   return { root };
 }
-export default { id: 'fence_x', kind: 'prop', batch: true, outline: 'small', build(kit) { return fence(kit, this, false); } };
+export default { id: 'fence_x', kind: 'prop', batch: true, outline: false, build(kit) { return fence(kit, this, false); } };
