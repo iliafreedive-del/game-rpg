@@ -73,6 +73,7 @@ function updateCamera(dt) {
   camera.position.copy(camTarget).add(off);
   if (shake > 0) { shake = Math.max(0, shake - dt * 2.5); const m = shake * shake * 0.4; camera.position.x += (Math.random() - .5) * m; camera.position.y += (Math.random() - .5) * m; }
   camera.lookAt(camTarget);
+  if (window.__dbgCam) { const y = hero.yaw; camera.position.set(hero.pos.x + Math.cos(y) * 5.6 * window.__dbgCam, hero.pos.y + 1.2, hero.pos.z - Math.sin(y) * 5.6 * window.__dbgCam); camera.lookAt(hero.pos.x, hero.pos.y + 0.9, hero.pos.z); }   // debug: side view for animation checks
   U.uCam.value.copy(camera.position); U.uFocus.value.set(hero.pos.x, hero.pos.y + 1.0, hero.pos.z);
   moon.position.copy(camTarget).add(new THREE.Vector3(9, 12, 3)); moon.target.position.copy(camTarget);
 }

@@ -6,6 +6,7 @@ import { part, merge } from '../geo.js';
 import { blobShadow } from '../hero.js';
 import { ARENA, heightAt } from '../world.js';
 import { PAL, toWorld } from './world.js';
+import { clamp, lerp, footTarget, legIK } from './rig.js';
 
 const BONE = 0xe4d8ba, BONE_D = 0x9a8c70, RUST = 0x8a5a3c, IRON = 0x59627a, DARKS = 0x0d0a16, EYE = 0xc9a8ff;
 const SKIN = 0x6d7b72, SKIN_L = 0xaebca6, ROBE = 0x2c1f5c, ROBE_L = 0x5b44b0;
@@ -33,7 +34,8 @@ const sk = {
     part(new THREE.TorusGeometry(0.235, 0.025, 4, 14), PAL.brassD, [0, 0.24, 0], [Math.PI / 2, 0, 0]),
     part(new THREE.BoxGeometry(0.04, 0.14, 0.26), PAL.brass, [0, 0.46, 0]),
   ])),
-  arm: () => G('sa', () => merge([part(new THREE.CapsuleGeometry(0.04, 0.5, 2, 6), BONE, [0, -0.3, 0]), ball(0.075, BONE, [0, -0.6, 0])])),
+  arm: () => G('sa', () => merge([part(new THREE.CapsuleGeometry(0.04, 0.2, 2, 6), BONE, [0, -0.17, 0]), ball(0.055, BONE_D, [0, -0.34, 0])])),
+  fore: () => G('sf', () => merge([part(new THREE.CapsuleGeometry(0.035, 0.2, 2, 6), BONE, [0, -0.17, 0]), ball(0.075, BONE, [0, -0.38, 0])])),
   blade: () => G('sbl', () => merge([
     part(new THREE.CylinderGeometry(0.025, 0.025, 0.18, 5), 0x3a2418, [0, 0, 0]),
     part(new THREE.BoxGeometry(0.3, 0.05, 0.07), RUST, [0, 0.11, 0]),
@@ -46,10 +48,9 @@ const sk = {
     part(new THREE.TorusGeometry(0.3, 0.03, 4, 16), PAL.brassD, [0, 0, 0], [0, Math.PI / 2, 0]),
     ball(0.1, BONE, [0.06, 0.02, 0], [0.5, 1, 1]), ball(0.025, EYE, [0.1, 0.04, 0.035], 1, { emit: true }), ball(0.025, EYE, [0.1, 0.04, -0.035], 1, { emit: true }),
   ])),
-  leg: () => G('sl', () => merge([
-    part(new THREE.CapsuleGeometry(0.045, 0.34, 2, 6), BONE, [0, -0.25, 0]), ball(0.06, BONE_D, [0, -0.45, 0.02]),
-    part(new THREE.CapsuleGeometry(0.04, 0.3, 2, 6), BONE, [0, -0.64, 0]), part(new THREE.BoxGeometry(0.1, 0.07, 0.2), BONE_D, [0, -0.82, 0.05]),
-  ])),
+  thigh: () => G('sth', () => merge([ball(0.06, BONE_D, [0, 0, 0]), part(new THREE.CapsuleGeometry(0.045, 0.24, 2, 6), BONE, [0, -0.2, 0])])),
+  shin: () => G('ssh', () => merge([ball(0.06, BONE_D, [0, 0, 0.015]), part(new THREE.CapsuleGeometry(0.04, 0.22, 2, 6), BONE, [0, -0.2, 0])])),
+  foot: () => G('sfo', () => merge([part(new THREE.BoxGeometry(0.1, 0.07, 0.22), BONE_D, [0, -0.03, 0.05], 0, 1, { top: BONE })])),
 };
 
 // ---------- ghoul: hunched, long arms, wide mouth ----------
@@ -70,14 +71,12 @@ const gh = {
     ball(0.02, DARKS, [0.075, 0.2, 0.185], [1, 2, 1]), ball(0.02, DARKS, [-0.075, 0.2, 0.185], [1, 2, 1]),
     part(new THREE.ConeGeometry(0.05, 0.08, 4), SKIN, [0, 0.17, 0.17], [Math.PI / 2, 0, 0], 1, { top: SKIN_L }),
   ])),
-  arm: () => G('ga', () => merge([
-    part(new THREE.CapsuleGeometry(0.055, 0.7, 3, 6), SKIN, [0, -0.4, 0], 0, 1, { top: SKIN_L }), ball(0.08, SKIN, [0, -0.8, 0.02]),
-    ...[-0.04, 0, 0.04].map(x => part(new THREE.ConeGeometry(0.018, 0.17, 4), BONE, [x, -0.9, 0.04], [Math.PI + 0.25, 0, x * 3])),
-  ])),
-  leg: () => G('gl', () => merge([
-    part(new THREE.CapsuleGeometry(0.075, 0.26, 3, 6), SKIN, [0, -0.2, 0]), part(new THREE.CapsuleGeometry(0.055, 0.28, 3, 6), SKIN, [0, -0.5, 0.04], [0.3, 0, 0]),
-    part(new THREE.BoxGeometry(0.12, 0.06, 0.22), SKIN_L, [0, -0.7, 0.1]),
-  ])),
+  arm: () => G('ga', () => merge([part(new THREE.CapsuleGeometry(0.06, 0.3, 3, 6), SKIN, [0, -0.25, 0], 0, 1, { top: SKIN_L }), ball(0.07, SKIN, [0, -0.48, 0])])),
+  fore: () => G('gf', () => merge([part(new THREE.CapsuleGeometry(0.05, 0.36, 3, 6), SKIN, [0, -0.25, 0], 0, 1, { top: SKIN_L }), ball(0.085, SKIN, [0, -0.5, 0.02]),
+    ...[-0.04, 0, 0.04].map(x => part(new THREE.ConeGeometry(0.018, 0.17, 4), BONE, [x, -0.6, 0.04], [Math.PI + 0.25, 0, x * 3]))])),
+  thigh: () => G('gth', () => merge([ball(0.09, SKIN, [0, 0, 0]), part(new THREE.CapsuleGeometry(0.075, 0.18, 3, 6), SKIN, [0, -0.17, 0])])),
+  shin: () => G('gsh', () => merge([ball(0.07, SKIN, [0, 0, 0]), part(new THREE.CapsuleGeometry(0.055, 0.2, 3, 6), SKIN, [0, -0.18, 0], [0.15, 0, 0])])),
+  foot: () => G('gfo', () => merge([part(new THREE.BoxGeometry(0.12, 0.06, 0.24), SKIN_L, [0, -0.03, 0.07])])),
 };
 
 // ---------- bone mage: floating robe, antlered skull, staff with an abyss orb ----------
@@ -126,17 +125,19 @@ class Mob {
     if (type === 'skel') {
       this.body = grp([0, 0.85, 0], this.rig); this.body.add(M(sk.body()));
       this.head = grp([0, 0.68, 0], this.body); this.head.add(M(sk.head()));
-      this.armR = grp([-0.36, 0.62, 0], this.body); this.armR.add(M(sk.arm()));
-      this.armL = grp([0.36, 0.62, 0], this.body); this.armL.add(M(sk.arm()));
-      const bl = grp([0, -0.6, 0.03], this.armR); bl.rotation.x = 1.3; bl.add(M(sk.blade()));
-      const sh = grp([0.1, -0.45, 0.1], this.armL); sh.rotation.y = -0.4; sh.add(M(sk.shield()));
-      this.legL = grp([0.12, 0.85, 0], this.rig); this.legL.add(M(sk.leg())); this.legR = grp([-0.12, 0.85, 0], this.rig); this.legR.add(M(sk.leg()));
+      this.armR = grp([-0.36, 0.62, 0], this.body); this.armR.add(M(sk.arm())); this.elR = grp([0, -0.34, 0], this.armR); this.elR.add(M(sk.fore()));
+      this.armL = grp([0.36, 0.62, 0], this.body); this.armL.add(M(sk.arm())); this.elL = grp([0, -0.34, 0], this.armL); this.elL.add(M(sk.fore()));
+      const bl = grp([0, -0.38, 0.03], this.elR); bl.rotation.x = 1.3; bl.add(M(sk.blade()));
+      const sh = grp([0.1, -0.3, 0.1], this.elL); sh.rotation.y = -0.4; sh.add(M(sk.shield()));
+      this.legSpec = { L1: 0.4, L2: 0.38, ankle: 0.07, hip: 0.9, stride: 0.5, lift: 0.14, cyc: 1.2 };
+      this.legL = this.mkLeg(grp, M, sk, 0.12, this.legSpec); this.legR = this.mkLeg(grp, M, sk, -0.12, this.legSpec);
     } else if (type === 'ghoul') {
       this.body = grp([0, 0.78, 0], this.rig); this.body.add(M(gh.body()));
       this.head = grp([0, 0.52, 0.12], this.body); this.head.add(M(gh.head()));
-      this.armR = grp([-0.3, 0.45, 0.05], this.body); this.armR.add(M(gh.arm()));
-      this.armL = grp([0.3, 0.45, 0.05], this.body); this.armL.add(M(gh.arm()));
-      this.legL = grp([0.13, 0.78, 0], this.rig); this.legL.add(M(gh.leg())); this.legR = grp([-0.13, 0.78, 0], this.rig); this.legR.add(M(gh.leg()));
+      this.armR = grp([-0.3, 0.45, 0.05], this.body); this.armR.add(M(gh.arm())); this.elR = grp([0, -0.5, 0], this.armR); this.elR.add(M(gh.fore()));
+      this.armL = grp([0.3, 0.45, 0.05], this.body); this.armL.add(M(gh.arm())); this.elL = grp([0, -0.5, 0], this.armL); this.elL.add(M(gh.fore()));
+      this.legSpec = { L1: 0.36, L2: 0.36, ankle: 0.06, hip: 0.72, stride: 0.6, lift: 0.16, cyc: 1.0 };
+      this.legL = this.mkLeg(grp, M, gh, 0.13, this.legSpec); this.legR = this.mkLeg(grp, M, gh, -0.13, this.legSpec);
     } else {
       this.body = grp([0, 0.55, 0], this.rig); this.body.add(M(mg.robe()));
       this.head = grp([0, 1.38, 0], this.body); this.head.add(M(mg.head()));
@@ -149,7 +150,26 @@ class Mob {
     this.shadow = blobShadow(this.cfg.shadow * 1.4, 0.55); scene.add(this.shadow);
     this.tele = tele; scene.add(tele.m);
     this.pos = this.root.position; this.vel = new THREE.Vector2(); this.yaw = 0;
-    this.t = Math.random() * 10; this.flash = 0; this.squash = 0; this.dead = 0;
+    this.t = Math.random() * 10; this.gp = Math.random(); this.flash = 0; this.squash = 0; this.dead = 0;
+  }
+
+  // thigh → knee → shin → ankle chain driven by legIK
+  mkLeg(grp, M, G_, x, sp) {
+    const g = grp([x, sp.hip, 0], this.rig); g.add(M(G_.thigh()));
+    const k = grp([0, -sp.L1, 0], g); k.add(M(G_.shin()));
+    const f = grp([0, -sp.L2, 0], k); f.add(M(G_.foot()));
+    g.knee = k; g.foot = f; return g;
+  }
+  walkLegs(sp, speed, wu, lu) {
+    const S = this.legSpec, w = clamp(speed / 1.6), cyc = clamp(speed / (S.cyc * 3.2), 0, 1);
+    const hipY = S.hip - 0.05 * w + 0.025 * w * Math.abs(Math.cos(this.gp * 6.283 - 1.9)) - wu * 0.08 + lu * 0.03;
+    [[this.legR, 0], [this.legL, 0.5]].forEach(([lg, off], i) => {
+      const ft = footTarget(this.gp + off, S.stride * (0.5 + 0.5 * cyc), S.lift);
+      let dz = ft.z * w + (i ? -0.03 : 0.03) * (1 - w), lift = ft.y * w;
+      dz += (i === 0 ? 0.18 : -0.1) * wu + (i === 0 ? 0.25 : -0.15) * lu;        // brace before attacking, step into the lunge
+      lg.position.y = hipY;
+      legIK(lg, lg.knee, lg.foot, S.L1, S.L2, hipY - S.ankle, dz, lift, ft.pitch * w);
+    });
   }
 
   spawn(x, z, idle) {
@@ -244,22 +264,26 @@ class Mob {
     this.squash = Math.max(0, this.squash - dt * 4);
     const sq = Math.sin(this.squash * Math.PI) * 0.18;
     if (this.type === 'skel') {
-      const ph = t * (4.5 + sp * 1.8), s = Math.sin(ph);
-      this.legL.rotation.x = s * 0.75 * w; this.legR.rotation.x = -s * 0.75 * w;
-      this.body.position.y = 0.85 + Math.abs(Math.cos(ph)) * 0.04 * w + Math.sin(t * 3) * 0.01;
-      this.body.rotation.z = Math.sin(ph) * 0.07 * w; this.body.rotation.x = 0.08 * w - wu * 0.3 + lu * 0.4;
-      this.head.rotation.z = Math.sin(t * 2.1) * 0.1; this.head.rotation.x = -wu * 0.25;
-      this.armL.rotation.x = -s * 0.5 * w - 0.2 - wu * 0.4; this.armL.rotation.z = 0.15;
-      this.armR.rotation.x = s * 0.5 * w - 0.2 - wu * 2.5 + lu * 2.7; this.armR.rotation.z = -0.2;
+      const s = Math.sin(this.gp * 6.283);
+      if (sp > 0.25) this.gp = (this.gp + dt * sp / 1.25) % 1;
+      this.walkLegs(sp, sp, wu, lu);
+      this.body.position.y = this.legL.position.y - 0.02 + Math.sin(t * 3) * 0.008;
+      this.body.rotation.z = Math.sin(this.gp * 6.283) * 0.06 * w; this.body.rotation.x = 0.08 * w - wu * 0.3 + lu * 0.45;
+      this.body.rotation.y = Math.cos(this.gp * 6.283) * 0.15 * w + wu * 0.5 - lu * 0.7;               // shoulders counter-twist, wind back then whip through
+      this.head.rotation.z = Math.sin(t * 2.1) * 0.1; this.head.rotation.x = -wu * 0.25; this.head.rotation.y = -this.body.rotation.y * 0.6;
+      this.armL.rotation.x = Math.cos(this.gp * 6.283) * 0.5 * w - 0.2 - wu * 0.5; this.armL.rotation.z = 0.15; this.elL.rotation.x = -0.6 - wu * 0.6;
+      this.armR.rotation.x = -Math.cos(this.gp * 6.283) * 0.4 * w - 0.2 - wu * 2.6 + lu * 2.9; this.armR.rotation.z = -0.2 - wu * 0.5 + lu * 0.7; this.elR.rotation.x = -0.5 - wu * 1.1 + lu * 0.9;
       this.rig.scale.set(1 + sq, 1 - sq, 1 + sq);
     } else if (this.type === 'ghoul') {
-      const ph = t * (7 + sp * 1.6), s = Math.sin(ph);
-      this.legL.rotation.x = s * 0.9 * w; this.legR.rotation.x = -s * 0.9 * w;
-      this.body.rotation.x = 0.6 + 0.08 * w + wu * 0.4 - lu * 0.5; this.body.position.y = 0.78 + Math.abs(Math.cos(ph)) * 0.06 * w - wu * 0.15;
-      this.body.rotation.z = Math.sin(ph) * 0.1 * w;
-      this.head.rotation.x = -0.45 - wu * 0.2; this.head.rotation.z = Math.sin(t * 2.4) * 0.08;
-      this.armL.rotation.x = -s * 0.9 * w - 0.5 - wu * 1.3 + lu * 1.8; this.armR.rotation.x = s * 0.9 * w - 0.5 - wu * 1.3 + lu * 1.8;
-      this.armL.rotation.z = 0.2 + wu * 0.2; this.armR.rotation.z = -0.2 - wu * 0.2;
+      if (sp > 0.25) this.gp = (this.gp + dt * sp / 1.5) % 1;
+      const th = this.gp * 6.283, s = Math.sin(th);
+      this.walkLegs(sp, sp, wu, lu);
+      this.body.rotation.x = 0.6 + 0.08 * w + wu * 0.4 - lu * 0.5; this.body.position.y = this.legL.position.y + 0.02 - wu * 0.08;
+      this.body.rotation.z = Math.sin(th) * 0.12 * w; this.body.rotation.y = Math.cos(th) * 0.2 * w;
+      this.head.rotation.x = -0.45 - wu * 0.2; this.head.rotation.z = Math.sin(t * 2.4) * 0.08; this.head.rotation.y = -this.body.rotation.y * 0.5;
+      this.armL.rotation.x = -s * 0.8 * w - 0.4 - wu * 1.3 + lu * 1.9; this.armR.rotation.x = s * 0.8 * w - 0.4 - wu * 1.3 + lu * 1.9;
+      this.elL.rotation.x = -0.5 - 0.4 * w - wu * 0.5 + lu * 0.7; this.elR.rotation.x = -0.5 - 0.4 * w - wu * 0.5 + lu * 0.7;     // knuckle-dragging elbows
+      this.armL.rotation.z = 0.2 + wu * 0.25; this.armR.rotation.z = -0.2 - wu * 0.25;
       this.rig.scale.set(1 + sq, 1 - sq, 1 + sq);
     } else {
       const c = this.casting = casting ? wu : Math.max(0, (this.casting || 0) - dt * 4);

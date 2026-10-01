@@ -2,7 +2,7 @@
 // Same budget rules as the cute prototype: no textures, instancing for repeated stuff, one real warm light + one violet light.
 import * as THREE from '../../vendor/three.module.min.js';
 import { U, toon, outline } from '../toon.js';
-import { rng, fbm, noise, part, paint, place, merge, jitter, blobTexture } from '../geo.js';
+import { rng, fbm, noise, part, paint, place, merge, spherify, jitter, blobTexture } from '../geo.js';
 import { ARENA, heightAt, GRASS_VS, GRASS_FS, bladeGeometry, smoothstep } from '../world.js';
 
 export const PAL = { abyss: 0xb48cff, abyssD: 0x6b3fd0, brass: 0xd6a548, brassD: 0x8a6428, bone: 0xe8dcc0, boneD: 0xa89a7c, fire: 0xff9a3c };
@@ -293,15 +293,56 @@ export function buildWorld(scene, look = 'dark') {
     return out;
   };
   {
-    const dead = [], pines = [];
-    for (const t of [...spots(16, 6, ARENA - 1, 1.4), ...spots(70, ARENA - 1, 40, 1.5)]) {
-      const s = 0.9 + R() * 0.5, tint = tintC(0.85 + R() * 0.3, 0, 0);
-      (R() < 0.5 ? dead : pines).push({ ...t, s, tint });
+    const dead = [], pines = [], broad = [];
+    for (const t of [...spots(16, 6, ARENA - 1, 1.4), ...spots(TORCH ? 38 : 70, ARENA - 1, 40, 1.5)]) {
+      const s = 0.9 + R() * 0.5, tint = tintC(0.85 + R() * 0.3, 0, 0), pick = R();
+      if (TORCH) (pick < 0.42 ? broad : pick < 0.86 ? pines : dead).push({ ...t, s: pick < 0.42 ? s * 1.15 : s, tint });
+      else (pick < 0.5 ? dead : pines).push({ ...t, s, tint });
       if (Math.hypot(t.x, t.z) < ARENA) colliders.push({ x: t.x, z: t.z, r: 0.35 * s });
       shadowSpots.push({ x: t.x, z: t.z, r: 1.4 * s });
     }
-    instanced(deadTree(), treeMat, dead, treeOl); instanced(pine(), treeMat, pines, treeOl);
-    fadeMats.push(treeMat);
+    if (TORCH) {
+      // stylised-realistic fluffy foliage: the crown is a cloud of ~36 lumpy leaf clumps, light on top and dark inside, normals pulled to the crown centre
+      const crownMat = toon(0xffffff, { vc: true, rim: 0.55, rimColor: 0xe8ffb0, fade: true, sway: { base: 1.3, amt: 0.03, flutter: 0.045 } });
+            const trunkMat = toon(0xffffff, { vc: true, rim: 0.4, rimColor: 0xffd8a0, fade: true, sway: { base: 0.8, amt: 0.012, flutter: 0 } });
+      const trunkOl = outline({ width: 0.03, color: 0x1c0f08, fade: true, sway: { base: 0.8, amt: 0.012, flutter: 0 } });
+      const cr = rng(5), blobs = [], C = new THREE.Vector3(0, 3.05, 0);
+      for (let i = 0; i < 28; i++) {
+        let x, y, z; do { x = (cr() - .5) * 2.6; y = (cr() - .5) * 2.0; z = (cr() - .5) * 2.6; } while ((x * x) / 1.69 + (y * y) / 1.0 + (z * z) / 1.69 > 1);
+        const d = Math.hypot(x / 1.3, y, z / 1.3), up = y / 1.0, r = 0.52 - d * 0.14 + cr() * 0.14;
+        const hue = new THREE.Color().setHSL(0.3 + (cr() - .5) * 0.06, 0.5, 0.1 + 0.12 * (up * 0.5 + 0.5) + d * 0.04), tip = new THREE.Color().setHSL(0.22 + cr() * 0.05, 0.6, 0.3 + 0.1 * up);
+        blobs.push(part(new THREE.IcosahedronGeometry(r, 1), hue, [x, C.y + y, z], [cr() * 3, cr() * 3, 0], [1, 0.78 + cr() * 0.2, 1], { top: tip, y0: C.y + y - r * 0.6, y1: C.y + y + r }));
+        for (let k = 0; k < 5; k++) {        // leaf spikes: a fuzzy, frond-like edge on every clump
+          const dv = new THREE.Vector3(cr() - .5, cr() - .35, cr() - .5).normalize(), q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dv);
+          const g = new THREE.ConeGeometry(0.08, 0.3, 3); g.translate(0, 0.12, 0); g.applyQuaternion(q); g.translate(x + dv.x * r * 0.92, C.y + y + dv.y * r * 0.8, z + dv.z * r * 0.92);
+          blobs.push(paint(g, hue.clone().multiplyScalar(1.15), { top: tip.clone().offsetHSL(0, 0, 0.06), y0: C.y + y - r, y1: C.y + y + r + 0.3 }));
+        }
+      }
+      const crown = merge(blobs); spherify(crown, C, 0.55);
+      const T = [part(new THREE.CylinderGeometry(0.15, 0.3, 2.3, 8, 3), 0x3a2616, [0, 1.15, 0], [0, 0, 0.04], 1, { top: 0x6a4a2c }), part(new THREE.CylinderGeometry(0.06, 0.13, 1.1, 6), 0x4a3220, [0.38, 2.45, 0], [0, 0, -0.75], 1, { top: 0x6a4a2c }),
+                 part(new THREE.CylinderGeometry(0.06, 0.12, 1.0, 6), 0x4a3220, [-0.33, 2.4, 0.1], [0.2, 0, 0.7], 1, { top: 0x6a4a2c })];
+      for (let a = 0; a < 4; a++) T.push(part(new THREE.ConeGeometry(0.16, 0.7, 5), 0x3a2616, [Math.cos(a * 1.57 + 0.4) * 0.28, 0.12, Math.sin(a * 1.57 + 0.4) * 0.28], [Math.sin(a * 1.57 + 0.4) * 0.9, 0, -Math.cos(a * 1.57 + 0.4) * 0.9]));   // root flare
+      const trunk = merge(T);
+      // pines: a core cone plus rings of drooping boughs
+      const P = [part(new THREE.CylinderGeometry(0.09, 0.2, 1.3, 6), 0x34221a, [0, 0.65, 0])];
+      for (let tier = 0; tier < 7; tier++) {
+        const y = 0.9 + tier * 0.55, rad = 0.95 - tier * 0.11, n = 8 - (tier > 4 ? 2 : 0);
+        for (let k = 0; k < n; k++) {
+          const a = k / n * 6.283 + tier * 0.5, g = new THREE.ConeGeometry(0.3 - tier * 0.025, 1.0 - tier * 0.06, 5);
+          g.translate(0, -0.5, 0); g.rotateZ(-1.15); g.rotateY(-a);      // tip points outward and down
+          P.push(paint(place(g, [Math.cos(a) * 0.12, y + 0.18, Math.sin(a) * 0.12], 0, [1, 1, 1.1]), new THREE.Color().setHSL(0.4 + cr() * 0.03, 0.5, 0.13 + tier * 0.012), { top: new THREE.Color().setHSL(0.3 + cr() * 0.04, 0.55, 0.36 + tier * 0.03), y0: y - rad * 0.8, y1: y + 0.3 }));
+        }
+        P.push(part(new THREE.ConeGeometry(0.42 - tier * 0.05, 0.9, 6), 0x1a3a2a, [0, y + 0.25, 0], 0, 1, { top: 0x4a8a56, y0: y - 0.2, y1: y + 0.7 }));
+      }
+      const pineG = merge(P);
+      const pineMat = toon(0xffffff, { vc: true, rim: 0.5, rimColor: 0xd8ffc8, fade: true, sway: { base: 0.8, amt: 0.02, flutter: 0.022 } });
+      const pineOl = outline({ width: 0.03, color: 0x0c1810, fade: true, sway: { base: 0.8, amt: 0.02, flutter: 0.022 } });
+      instanced(trunk, trunkMat, broad, trunkOl); instanced(crown, crownMat, broad); instanced(pineG, pineMat, pines.map(p => ({ ...p, s: p.s * 1.15 })), pineOl); instanced(deadTree(), treeMat, dead, treeOl);
+      fadeMats.push(treeMat, crownMat, trunkMat, pineMat);
+    } else {
+      instanced(deadTree(), treeMat, dead, treeOl); instanced(pine(), treeMat, pines, treeOl);
+      fadeMats.push(treeMat);
+    }
   }
   // rocks
   {
