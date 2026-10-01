@@ -128,7 +128,7 @@ export class DarkHero {
   }
 
   update(dt, move, t) {
-    const SPEED = 5.0, ATK_T = 0.5;
+    const SPEED = 4.2, ATK_T = 0.5, ST = 0.42;
     const attacking = this.atk >= 0;
     const want = new THREE.Vector2(move.x, move.y).multiplyScalar(attacking ? SPEED * 0.3 : SPEED);
     this.vel.lerp(want, 1 - Math.exp(-14 * dt));
@@ -144,7 +144,8 @@ export class DarkHero {
     // ---- gait: phase advances with ground speed so feet never skate ----
     this.run += ((sp > 0.4 ? 1 : 0) - this.run) * (1 - Math.exp(-10 * dt));
     const r = this.run, spN = clamp(sp / SPEED);
-    if (sp > 0.25) this.phase = (this.phase + dt * sp / 1.55) % 1;
+    const stride = clamp(0.3 + 0.15 * sp, 0.3, 0.9);          // long strides, slow cadence: foot travel per stance = stride, so no skating
+    if (sp > 0.25) this.phase = (this.phase + dt * sp * ST / stride) % 1;
     const th = this.phase * Math.PI * 2, breath = Math.sin(t * 2.0) * (1 - r);
     this.aw += ((attacking ? 1 : 0) - this.aw) * (1 - Math.exp(-16 * dt));
     const aw = this.aw;
@@ -161,10 +162,10 @@ export class DarkHero {
     const wind = k1 * (1 - k2), hitK = k2 * (1 - k3), crouchA = 0.1 * (k1 * (1 - k2) + 0.7 * k2 * (1 - k3));
 
     // ---- pelvis + legs (IK) ----
-    const hipY = 0.97 - 0.06 * r + 0.03 * r * Math.abs(Math.cos(th - 1.885)) - crouchA * aw + breath * 0.008;
+    const hipY = 0.97 - 0.14 * r + 0.03 * r * Math.abs(Math.cos(th - 1.885)) - crouchA * aw + breath * 0.008;
     const legs = [[this.legR, 0], [this.legL, 0.5]];
     legs.forEach(([lg, off], i) => {
-      const ft = footTarget(this.phase + off, 0.2 + 0.38 * spN, 0.07 + 0.2 * spN);
+      const ft = footTarget(this.phase + off, stride, 0.08 + 0.16 * spN, ST);
       let dz = ft.z * r + (i ? -0.03 : 0.03) * (1 - r), lift = ft.y * r, toe = ft.pitch * r;
       // attack stance: sword-side foot steps forward, the other braces behind
       const front = (dir > 0) === (i === 0);

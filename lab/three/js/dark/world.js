@@ -302,43 +302,74 @@ export function buildWorld(scene, look = 'dark') {
       shadowSpots.push({ x: t.x, z: t.z, r: 1.4 * s });
     }
     if (TORCH) {
-      // stylised-realistic fluffy foliage: the crown is a cloud of ~36 lumpy leaf clumps, light on top and dark inside, normals pulled to the crown centre
-      const crownMat = toon(0xffffff, { vc: true, rim: 0.55, rimColor: 0xe8ffb0, fade: true, sway: { base: 1.3, amt: 0.03, flutter: 0.045 } });
-            const trunkMat = toon(0xffffff, { vc: true, rim: 0.4, rimColor: 0xffd8a0, fade: true, sway: { base: 0.8, amt: 0.012, flutter: 0 } });
-      const trunkOl = outline({ width: 0.03, color: 0x1c0f08, fade: true, sway: { base: 0.8, amt: 0.012, flutter: 0 } });
-      const cr = rng(5), blobs = [], C = new THREE.Vector3(0, 3.05, 0);
-      for (let i = 0; i < 28; i++) {
-        let x, y, z; do { x = (cr() - .5) * 2.6; y = (cr() - .5) * 2.0; z = (cr() - .5) * 2.6; } while ((x * x) / 1.69 + (y * y) / 1.0 + (z * z) / 1.69 > 1);
-        const d = Math.hypot(x / 1.3, y, z / 1.3), up = y / 1.0, r = 0.52 - d * 0.14 + cr() * 0.14;
-        const hue = new THREE.Color().setHSL(0.3 + (cr() - .5) * 0.06, 0.5, 0.1 + 0.12 * (up * 0.5 + 0.5) + d * 0.04), tip = new THREE.Color().setHSL(0.22 + cr() * 0.05, 0.6, 0.3 + 0.1 * up);
-        blobs.push(part(new THREE.IcosahedronGeometry(r, 1), hue, [x, C.y + y, z], [cr() * 3, cr() * 3, 0], [1, 0.78 + cr() * 0.2, 1], { top: tip, y0: C.y + y - r * 0.6, y1: C.y + y + r }));
-        for (let k = 0; k < 5; k++) {        // leaf spikes: a fuzzy, frond-like edge on every clump
-          const dv = new THREE.Vector3(cr() - .5, cr() - .35, cr() - .5).normalize(), q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dv);
-          const g = new THREE.ConeGeometry(0.08, 0.3, 3); g.translate(0, 0.12, 0); g.applyQuaternion(q); g.translate(x + dv.x * r * 0.92, C.y + y + dv.y * r * 0.8, z + dv.z * r * 0.92);
-          blobs.push(paint(g, hue.clone().multiplyScalar(1.15), { top: tip.clone().offsetHSL(0, 0, 0.06), y0: C.y + y - r, y1: C.y + y + r + 0.3 }));
+      // stylised low-poly foliage: crowns are layered faceted leaf plates (each a lifted pentagon, so every plate catches light differently)
+      const cr = rng(5), V = (x, y, z) => new THREE.Vector3(x, y, z), UPV = V(0, 1, 0), Zax = V(0, 0, 1);
+      const acc = { P: [], N: [], C: [] };
+      const plate = (c, dir, size, base, tip) => {
+        const g = new THREE.CircleGeometry(1, 5), p = g.attributes.position, f = [0, 1, 2, 3, 4].map(() => 0.78 + cr() * 0.45);
+        p.setZ(0, 0.3);
+        for (let i = 1; i < p.count; i++) { const k = f[(i - 1) % 5]; p.setX(i, p.getX(i) * k); p.setY(i, p.getY(i) * k); p.setZ(i, (cr() - .5) * 0.08); }
+        g.scale(size, size * (0.75 + cr() * 0.3), size); g.rotateZ(cr() * 6.283);
+        g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(Zax, dir)); g.translate(c.x, c.y, c.z);
+        const ng = g.toNonIndexed(); ng.computeVertexNormals();
+        const pp = ng.attributes.position, nn = ng.attributes.normal;
+        for (let i = 0; i < pp.count; i++) {
+          const n = V(nn.getX(i), nn.getY(i), nn.getZ(i)).multiplyScalar(0.6).addScaledVector(dir, 0.4).normalize(), col = i % 3 === 0 ? tip : base.clone().lerp(tip, 0.25);
+          acc.P.push(pp.getX(i), pp.getY(i), pp.getZ(i)); acc.N.push(n.x, n.y, n.z); acc.C.push(col.r, col.g, col.b, 1);
         }
-      }
-      const crown = merge(blobs); spherify(crown, C, 0.55);
-      const T = [part(new THREE.CylinderGeometry(0.15, 0.3, 2.3, 8, 3), 0x3a2616, [0, 1.15, 0], [0, 0, 0.04], 1, { top: 0x6a4a2c }), part(new THREE.CylinderGeometry(0.06, 0.13, 1.1, 6), 0x4a3220, [0.38, 2.45, 0], [0, 0, -0.75], 1, { top: 0x6a4a2c }),
-                 part(new THREE.CylinderGeometry(0.06, 0.12, 1.0, 6), 0x4a3220, [-0.33, 2.4, 0.1], [0.2, 0, 0.7], 1, { top: 0x6a4a2c })];
-      for (let a = 0; a < 4; a++) T.push(part(new THREE.ConeGeometry(0.16, 0.7, 5), 0x3a2616, [Math.cos(a * 1.57 + 0.4) * 0.28, 0.12, Math.sin(a * 1.57 + 0.4) * 0.28], [Math.sin(a * 1.57 + 0.4) * 0.9, 0, -Math.cos(a * 1.57 + 0.4) * 0.9]));   // root flare
-      const trunk = merge(T);
-      // pines: a core cone plus rings of drooping boughs
-      const P = [part(new THREE.CylinderGeometry(0.09, 0.2, 1.3, 6), 0x34221a, [0, 0.65, 0])];
-      for (let tier = 0; tier < 7; tier++) {
-        const y = 0.9 + tier * 0.55, rad = 0.95 - tier * 0.11, n = 8 - (tier > 4 ? 2 : 0);
-        for (let k = 0; k < n; k++) {
-          const a = k / n * 6.283 + tier * 0.5, g = new THREE.ConeGeometry(0.3 - tier * 0.025, 1.0 - tier * 0.06, 5);
-          g.translate(0, -0.5, 0); g.rotateZ(-1.15); g.rotateY(-a);      // tip points outward and down
-          P.push(paint(place(g, [Math.cos(a) * 0.12, y + 0.18, Math.sin(a) * 0.12], 0, [1, 1, 1.1]), new THREE.Color().setHSL(0.4 + cr() * 0.03, 0.5, 0.13 + tier * 0.012), { top: new THREE.Color().setHSL(0.3 + cr() * 0.04, 0.55, 0.36 + tier * 0.03), y0: y - rad * 0.8, y1: y + 0.3 }));
+      };
+      const raw = g => { const ng = g.index ? g.toNonIndexed() : g; ng.computeVertexNormals(); const pp = ng.attributes.position, nn = ng.attributes.normal, cc = ng.attributes.color;
+        for (let i = 0; i < pp.count; i++) { acc.P.push(pp.getX(i), pp.getY(i), pp.getZ(i)); acc.N.push(nn.getX(i), nn.getY(i), nn.getZ(i)); acc.C.push(cc.getX(i), cc.getY(i), cc.getZ(i), 1); } };
+      const limb = (a, b, r0, r1, c0, c1) => { const d = b.clone().sub(a), L = d.length(), g = new THREE.CylinderGeometry(r1, r0, L, 6); g.translate(0, L / 2, 0);
+        g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(UPV, d.clone().normalize())); g.translate(a.x, a.y, a.z); raw(paint(g, c0, { top: c1, y0: Math.min(a.y, b.y), y1: Math.max(a.y, b.y) })); };
+      const lobeSet = (lobes, y0, y1, density = 42) => {
+        for (const [x, y, z, r] of lobes) {
+          const c = V(x, y, z);
+          raw(paint(new THREE.IcosahedronGeometry(r * 0.8, 0), 0x12301c, { top: 0x1f4a26 }).translate(x, y, z));                      // dark core fills gaps between plates
+          const n = Math.round(density * r * r + 10);
+          for (let i = 0; i < n; i++) {
+            const d = V(cr() - .5, cr() - .42, cr() - .5).normalize(), pos = c.clone().addScaledVector(d, r * (0.8 + cr() * 0.28)), hgt = clamp01((pos.y - y0) / (y1 - y0));
+            const base = new THREE.Color().setHSL(0.29 + (cr() - .5) * 0.05, 0.66, 0.13 + 0.17 * hgt + (d.y < 0 ? -0.05 : 0)), tip = new THREE.Color().setHSL(0.24 + (cr() - .5) * 0.05, 0.74, 0.31 + 0.2 * hgt + d.y * 0.08);
+            plate(pos, d.clone().multiplyScalar(0.8).addScaledVector(UPV, 0.35 + cr() * 0.25).add(V(cr() - .5, 0, cr() - .5).multiplyScalar(0.5)).normalize(), 0.3 + r * 0.26 * (0.6 + cr() * 0.7), base, tip);
+          }
         }
-        P.push(part(new THREE.ConeGeometry(0.42 - tier * 0.05, 0.9, 6), 0x1a3a2a, [0, y + 0.25, 0], 0, 1, { top: 0x4a8a56, y0: y - 0.2, y1: y + 0.7 }));
-      }
-      const pineG = merge(P);
-      const pineMat = toon(0xffffff, { vc: true, rim: 0.5, rimColor: 0xd8ffc8, fade: true, sway: { base: 0.8, amt: 0.02, flutter: 0.022 } });
-      const pineOl = outline({ width: 0.03, color: 0x0c1810, fade: true, sway: { base: 0.8, amt: 0.02, flutter: 0.022 } });
-      instanced(trunk, trunkMat, broad, trunkOl); instanced(crown, crownMat, broad); instanced(pineG, pineMat, pines.map(p => ({ ...p, s: p.s * 1.15 })), pineOl); instanced(deadTree(), treeMat, dead, treeOl);
-      fadeMats.push(treeMat, crownMat, trunkMat, pineMat);
+      };
+      const clamp01 = x => Math.min(1, Math.max(0, x));
+      const finish = () => { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(acc.P, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(acc.N, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(acc.C, 4)); g.computeBoundingSphere(); acc.P = []; acc.N = []; acc.C = []; return g; };
+      const BARK = 0x3a2416, BARK_L = 0x8a5a34;
+      const broadTree = (lobes, trunkH, bend) => {
+        limb(V(0, 0, 0), V(bend, trunkH, 0), 0.3, 0.14, BARK, BARK_L);
+        for (let a = 0; a < 4; a++) limb(V(Math.cos(a * 1.7) * 0.1, 0.05, Math.sin(a * 1.7) * 0.1), V(Math.cos(a * 1.7) * 0.5, -0.02, Math.sin(a * 1.7) * 0.5), 0.14, 0.04, BARK, BARK);     // root flare
+        for (const [x, y, z] of lobes) limb(V(bend, trunkH * 0.85, 0), V(x * 0.7, y - 0.2, z * 0.7), 0.1, 0.045, BARK, BARK_L);
+        lobeSet(lobes, 1.6, 4.6, 46);
+        return finish();
+      };
+      const treeA = broadTree([[0, 3.1, 0, 1.0], [0.95, 2.65, 0.2, 0.72], [-0.9, 2.75, -0.2, 0.78], [0.2, 2.55, 0.95, 0.66], [-0.1, 3.75, 0.1, 0.72], [0.3, 2.7, -0.85, 0.66]], 2.2, 0.08);
+      const treeB = broadTree([[0, 3.3, 0, 0.9], [0.1, 4.15, 0, 0.7], [0.75, 2.85, 0.1, 0.62], [-0.75, 3.0, 0.2, 0.62], [-0.1, 2.6, 0.7, 0.55]], 2.0, -0.05);
+      const small = (() => { limb(V(0, 0, 0), V(0.03, 1.15, 0), 0.1, 0.05, BARK, BARK_L); lobeSet([[0, 1.75, 0, 0.62]], 1.0, 2.5, 40); return finish(); })();
+      // pines: tiers of drooping leaf plates around a trunk, bright tips on top of each tier
+      const pineG = (() => {
+        limb(V(0, 0, 0), V(0, 1.4, 0), 0.16, 0.08, BARK, BARK_L);
+        for (let t = 0; t < 8; t++) {
+          const y = 0.95 + t * 0.46, R = 1.0 - t * 0.115, n = 11 - Math.floor(t * 0.7);
+          raw(paint(new THREE.ConeGeometry(R * 0.72, 0.8, 6), 0x0f2a1c, { top: 0x1d4a30 }).translate(0, y + 0.1, 0));
+          for (let k = 0; k < n; k++) {
+            const a = k / n * 6.283 + t * 0.7 + (cr() - .5) * 0.3, out = V(Math.cos(a), 0, Math.sin(a)), pos = out.clone().multiplyScalar(R * (0.62 + cr() * 0.3)).add(V(0, y + (cr() - .5) * 0.12, 0));
+            const base = new THREE.Color().setHSL(0.36 + cr() * 0.03, 0.55, 0.14 + t * 0.012), tip = new THREE.Color().setHSL(0.27 + cr() * 0.04, 0.7, 0.34 + t * 0.025);
+            plate(pos, out.clone().multiplyScalar(0.62).addScaledVector(UPV, 0.62).add(V(cr() - .5, 0, cr() - .5).multiplyScalar(0.25)).normalize(), 0.42 - t * 0.03, base, tip);
+          }
+        }
+        raw(paint(new THREE.ConeGeometry(0.2, 0.6, 5), 0x1d4a30, { top: 0x7ac45a }).translate(0, 4.75, 0));
+        return finish();
+      })();
+      const treeMatF = toon(0xffffff, { vc: true, side: THREE.DoubleSide, rim: 0.5, rimColor: 0xe8ffb0, fade: true, sway: { base: 1.4, amt: 0.026, flutter: 0.035 } });
+      const pineMatF = toon(0xffffff, { vc: true, side: THREE.DoubleSide, rim: 0.5, rimColor: 0xd8ffc8, fade: true, sway: { base: 1.0, amt: 0.02, flutter: 0.022 } });
+      const A = [], B = [], S = [];
+      broad.forEach((t, i) => (i % 5 === 4 ? S : i % 2 ? B : A).push(i % 5 === 4 ? { ...t, s: t.s * 0.75 } : t));
+      instanced(treeA, treeMatF, A); instanced(treeB, treeMatF, B); instanced(small, treeMatF, S);
+      instanced(pineG, pineMatF, pines.map(p => ({ ...p, s: p.s * 1.1 })));
+      instanced(deadTree(), treeMat, dead, treeOl);
+      fadeMats.push(treeMat, treeMatF, pineMatF);
     } else {
       instanced(deadTree(), treeMat, dead, treeOl); instanced(pine(), treeMat, pines, treeOl);
       fadeMats.push(treeMat);

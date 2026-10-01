@@ -7,9 +7,8 @@ export const easeIn = x => { x = clamp(x); return x * x * x; };
 export const lerp = (a, b, t) => a + (b - a) * t;
 
 // Foot target (forward offset z and lift y relative to the hip joint's vertical) for gait phase p in [0,1): 60% stance (foot slides back on the ground), 40% swing.
-export function footTarget(p, stride, lift) {
+export function footTarget(p, stride, lift, ST = 0.6) {
   p = ((p % 1) + 1) % 1;
-  const ST = 0.6;
   if (p < ST) { const k = p / ST; return { z: stride * (0.5 - k), y: 0, pitch: k > 0.8 ? (k - 0.8) / 0.2 * 0.55 : 0 }; }   // late stance: heel lifts, toe pushes off
   const k = (p - ST) / (1 - ST);
   return { z: stride * (-0.5 + smooth(k)), y: lift * Math.sin(Math.PI * k), pitch: 0.55 * (1 - smooth(k * 2.2)) - 0.3 * smooth((k - 0.7) / 0.3) };
