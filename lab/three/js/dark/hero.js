@@ -5,17 +5,17 @@ import * as THREE from '../../vendor/three.module.min.js';
 import { U, toon, outline, addOutlines } from '../toon.js';
 import { part, merge } from '../geo.js';
 import { Cape, blobShadow } from '../hero.js';
-import { PAL } from './world.js';
+import { PAL, HERO, OUTLINE } from '../style.js';
 import { clamp, smooth, easeOut, lerp, footTarget, legIK } from './rig.js';
 
-const STEEL = 0x56607e, STEEL_L = 0xaab6d6, STEEL_D = 0x2a3050, DARK = 0x1c2036, BONE = PAL.bone, BONE_D = PAL.boneD, BR = PAL.brass, BR_D = PAL.brassD;
-const CAPE = 0x6a3fd0, CAPE_HEM = 0x24134e;
+const STEEL = HERO.steel, STEEL_L = HERO.steelL, STEEL_D = HERO.steelD, DARK = HERO.dark, BONE = PAL.bone, BONE_D = PAL.boneD, BR = PAL.brass, BR_D = PAL.brassD;
+const CAPE = HERO.cape, CAPE_HEM = HERO.capeHem;
 
 export class DarkHero {
   constructor(scene) {
     this.root = new THREE.Group(); scene.add(this.root);
-    this.mat = toon(0xffffff, { vc: true, rim: 0.75, rimColor: 0xb48cff });
-    this.olMat = outline({ width: 0.028, color: 0x07050f });
+    this.mat = toon(0xffffff, { vc: true, rim: HERO.rim, rimColor: HERO.rimColor });
+    this.olMat = outline({ width: OUTLINE.hero, color: OUTLINE.heroColor });
     const M = g => new THREE.Mesh(g, this.mat);
 
     this.hips = new THREE.Group(); this.hips.position.y = 0.97; this.root.add(this.hips);
@@ -128,7 +128,7 @@ export class DarkHero {
   }
 
   update(dt, move, t) {
-    const SPEED = 4.2, ATK_T = 0.5, ST = 0.42;
+    const SPEED = HERO.speed, ATK_T = HERO.attackTime, ST = HERO.stanceFraction;
     const attacking = this.atk >= 0;
     const want = new THREE.Vector2(move.x, move.y).multiplyScalar(attacking ? SPEED * 0.3 : SPEED);
     this.vel.lerp(want, 1 - Math.exp(-14 * dt));
@@ -156,7 +156,7 @@ export class DarkHero {
       this.atk += dt / ATK_T;
       const a = this.atk;
       k1 = smooth(a / 0.32); k2 = easeOut((a - 0.32) / 0.23); k3 = smooth((a - 0.58) / 0.42);
-      if (!this.atkHit && a >= 0.42) { this.atkHit = true; this.onHit && this.onHit(this.pos, this.yaw, dir); }
+      if (!this.atkHit && a >= HERO.hitAt) { this.atkHit = true; this.onHit && this.onHit(this.pos, this.yaw, dir); }
       if (a >= 1) this.atk = -1;
     }
     const wind = k1 * (1 - k2), hitK = k2 * (1 - k3), crouchA = 0.1 * (k1 * (1 - k2) + 0.7 * k2 * (1 - k3));

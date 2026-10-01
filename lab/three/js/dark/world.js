@@ -5,7 +5,8 @@ import { U, toon, outline } from '../toon.js';
 import { rng, fbm, noise, part, paint, place, merge, spherify, jitter, blobTexture } from '../geo.js';
 import { ARENA, heightAt, GRASS_VS, GRASS_FS, bladeGeometry, smoothstep } from '../world.js';
 
-export const PAL = { abyss: 0xb48cff, abyssD: 0x6b3fd0, brass: 0xd6a548, brassD: 0x8a6428, bone: 0xe8dcc0, boneD: 0xa89a7c, fire: 0xff9a3c };
+import { PAL, LOOKS, OUTLINE, RIM, FOLIAGE, GRASS_K } from '../style.js';
+export { PAL };   // палитра живёт в js/style.js
 const YAW = Math.PI / 4;                       // the gate faces the camera
 export const ARCH = { x: -6.2, z: -6.2, yaw: YAW };
 const SY = Math.sin(YAW), CY = Math.cos(YAW);
@@ -29,13 +30,7 @@ function block(w, h, d, seed, base = ST.base, top = ST.top) {
 }
 const BLOCKS = [[1.4, 0.8, 1.2, 11], [1.0, 0.8, 1.2, 12], [0.7, 0.8, 1.2, 13]];   // wall courses
 const deg = Math.PI / 180;
-// two looks share one scene: 'dark' (cold, near-black) and 'torch' (warmer, brighter, saturated — the Torchlight-like reading)
-const LOOKS = {
-  dark: { base: 0x30364c, top: 0x8089a6, slabB: 0x2c3248, slabT: 0x6a7390, capB: 0x3a4058, capT: 0x959db8, lintB: 0x363c54, lintT: 0x8a93b0, hue: 0.62, sat: 0.1, lk: 1, ol: 0x07050f,
-    gA: 0x232a3b, gB: 0x2f3a4a, gM: 0x1f3a3a, gS: 0x3a3f55, rim: 0xa9b4ff, mist: [0x4a4f8c, 0x3c3a78, 0x2c2c66], mistK: 1, grass: [0x10282c, 0x4e8f8c, 0x8c78c8, [0.8, 0.85, 1]] },
-  torch: { base: 0x3e3a30, top: 0x9a8c68, slabB: 0x40361f, slabT: 0x9c8450, capB: 0x4a4636, capT: 0xa89a74, lintB: 0x443e30, lintT: 0xa49670, hue: 0.11, sat: 0.3, lk: 1.0, ol: 0x1c0f08,
-    gA: 0x2c2a1c, gB: 0x3a3422, gM: 0x1e4034, gS: 0x3a2e1a, rim: 0xffe2a8, mist: [0x3f7a70, 0x2f6a62, 0x275a56], mistK: 0.8, grass: [0x143a26, 0x5aa65a, 0xb8b45a, [0.9, 0.95, 0.9]] },
-};
+// два вида делят одну сцену: параметры в js/style.js (LOOKS)
 let ST = LOOKS.dark, TORCH = false;
 
 // ---- additive glow sprites (billboards for flames/halos, flat discs for floor pools); one draw call each ----
@@ -126,7 +121,7 @@ export function buildWorld(scene, look = 'dark') {
   // ---------- gate: pillars, lintel, walls, rubble (all chunky blocks, 5 geometries) ----------
   {
     const mat = toon(0xffffff, { vc: true, rim: 0.32, rimColor: ST.rim });
-    const ol = outline({ width: 0.035, color: ST.ol });
+    const ol = outline({ width: OUTLINE.stone, color: ST.ol });
     const geos = BLOCKS.map(([w, h, d, sd]) => block(w, h, d, sd));
     const pillarG = block(1.35, 0.85, 1.35, 21), capG = block(1.8, 0.45, 1.8, 22, ST.capB, ST.capT), lintelG = block(6.4, 0.9, 1.45, 23, ST.lintB, ST.lintT);
     const lists = [[], [], [], [], [], []];            // wall A/B/C, pillar, cap, lintel
@@ -178,7 +173,7 @@ export function buildWorld(scene, look = 'dark') {
       bone.push(part(new THREE.SphereGeometry(0.34, 8, 6), PAL.boneD, [sx * 2.55, 5.2, 0], 0, [1, 0.7, 1], { top: PAL.bone }));
     }
     const trim = merge([...brass, ...bone, ...rune].map(g => { const w = g.clone(); w.rotateY(YAW); w.translate(ARCH.x, 0, ARCH.z); return w; }));
-    const trimMesh = new THREE.Mesh(trim, toon(0xffffff, { vc: true, rim: 0.25, rimColor: 0xffe2a0 })); scene.add(trimMesh);
+    const trimMesh = new THREE.Mesh(trim, toon(0xffffff, { vc: true, rim: RIM.trim, rimColor: RIM.trimColor })); scene.add(trimMesh);
     const tol = new THREE.Mesh(trim, ol); scene.add(tol); outlined.push(tol);
   }
 
@@ -239,8 +234,8 @@ export function buildWorld(scene, look = 'dark') {
       }
       colliders.push({ x: w.x, z: w.z, r: 0.3 }); shadowSpots.push({ x: w.x, z: w.z, r: 0.7 });
     }
-    const fm = new THREE.Mesh(merge(parts), toon(0xffffff, { vc: true, rim: 0.4, rimColor: 0xffd890 })); scene.add(fm);
-    const fo = new THREE.Mesh(fm.geometry, outline({ width: 0.02, color: ST.ol })); scene.add(fo); outlined.push(fo);
+    const fm = new THREE.Mesh(merge(parts), toon(0xffffff, { vc: true, rim: RIM.prop, rimColor: RIM.torchColor })); scene.add(fm);
+    const fo = new THREE.Mesh(fm.geometry, outline({ width: OUTLINE.small, color: ST.ol })); scene.add(fo); outlined.push(fo);
     torches.forEach((t, i) => {
       glows.push({ x: t.x, y: t.y + 0.2, z: t.z, s: t.s ? 0.75 : 1.5, c: PAL.fire, k: t.s ? 0.6 : 0.75 });
       pools.push({ x: t.x, y: 0.07, z: t.z, s: t.s ? 1.9 : i < 2 ? 3.0 : 4.2, c: 0xff7a24, k: t.s ? 0.3 : 0.5 });
@@ -262,8 +257,8 @@ export function buildWorld(scene, look = 'dark') {
 
   // ---------- trees (dead, twisted + dark pines), rocks, columns, graves, rune stones ----------
   const swayO = { base: 0.5, amt: 0.02, flutter: 0.006 };
-  const treeMat = toon(0xffffff, { vc: true, rim: 0.4, rimColor: ST.rim, fade: true, sway: swayO });
-  const treeOl = outline({ width: 0.03, color: ST.ol, fade: true, sway: swayO });
+  const treeMat = toon(0xffffff, { vc: true, rim: RIM.prop, rimColor: ST.rim, fade: true, sway: swayO });
+  const treeOl = outline({ width: OUTLINE.prop, color: ST.ol, fade: true, sway: swayO });
   function deadTree() {
     const L = [part(new THREE.CylinderGeometry(0.1, 0.3, 2.2, 7), 0x2a2230, [0, 1.1, 0], [0, 0, 0.05], 1, { top: 0x4a3f55 }),
                part(new THREE.CylinderGeometry(0.05, 0.1, 1.5, 6), 0x2a2230, [0.12, 2.65, 0], [0, 0, -0.18], 1, { top: 0x4a3f55 }),
@@ -325,18 +320,18 @@ export function buildWorld(scene, look = 'dark') {
       const lobeSet = (lobes, y0, y1, density = 42) => {
         for (const [x, y, z, r] of lobes) {
           const c = V(x, y, z);
-          raw(paint(new THREE.IcosahedronGeometry(r * 0.8, 0), 0x12301c, { top: 0x1f4a26 }).translate(x, y, z));                      // dark core fills gaps between plates
+          raw(paint(new THREE.IcosahedronGeometry(r * 0.8, 0), FOLIAGE.core, { top: FOLIAGE.coreTop }).translate(x, y, z));                      // dark core fills gaps between plates
           const n = Math.round(density * r * r + 10);
           for (let i = 0; i < n; i++) {
             const d = V(cr() - .5, cr() - .42, cr() - .5).normalize(), pos = c.clone().addScaledVector(d, r * (0.8 + cr() * 0.28)), hgt = clamp01((pos.y - y0) / (y1 - y0));
-            const base = new THREE.Color().setHSL(0.29 + (cr() - .5) * 0.05, 0.66, 0.13 + 0.17 * hgt + (d.y < 0 ? -0.05 : 0)), tip = new THREE.Color().setHSL(0.24 + (cr() - .5) * 0.05, 0.74, 0.31 + 0.2 * hgt + d.y * 0.08);
+            const base = new THREE.Color().setHSL(FOLIAGE.leafHue + (cr() - .5) * 0.05, 0.66, 0.13 + 0.17 * hgt + (d.y < 0 ? -0.05 : 0)), tip = new THREE.Color().setHSL(FOLIAGE.leafTipHue + (cr() - .5) * 0.05, 0.74, 0.31 + 0.2 * hgt + d.y * 0.08);
             plate(pos, d.clone().multiplyScalar(0.8).addScaledVector(UPV, 0.35 + cr() * 0.25).add(V(cr() - .5, 0, cr() - .5).multiplyScalar(0.5)).normalize(), 0.3 + r * 0.26 * (0.6 + cr() * 0.7), base, tip);
           }
         }
       };
       const clamp01 = x => Math.min(1, Math.max(0, x));
       const finish = () => { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(acc.P, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(acc.N, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(acc.C, 4)); g.computeBoundingSphere(); acc.P = []; acc.N = []; acc.C = []; return g; };
-      const BARK = 0x3a2416, BARK_L = 0x8a5a34;
+      const BARK = FOLIAGE.bark, BARK_L = FOLIAGE.barkL;
       const broadTree = (lobes, trunkH, bend) => {
         limb(V(0, 0, 0), V(bend, trunkH, 0), 0.3, 0.14, BARK, BARK_L);
         for (let a = 0; a < 4; a++) limb(V(Math.cos(a * 1.7) * 0.1, 0.05, Math.sin(a * 1.7) * 0.1), V(Math.cos(a * 1.7) * 0.5, -0.02, Math.sin(a * 1.7) * 0.5), 0.14, 0.04, BARK, BARK);     // root flare
@@ -355,15 +350,15 @@ export function buildWorld(scene, look = 'dark') {
           raw(paint(new THREE.ConeGeometry(R * 0.72, 0.8, 6), 0x0f2a1c, { top: 0x1d4a30 }).translate(0, y + 0.1, 0));
           for (let k = 0; k < n; k++) {
             const a = k / n * 6.283 + t * 0.7 + (cr() - .5) * 0.3, out = V(Math.cos(a), 0, Math.sin(a)), pos = out.clone().multiplyScalar(R * (0.62 + cr() * 0.3)).add(V(0, y + (cr() - .5) * 0.12, 0));
-            const base = new THREE.Color().setHSL(0.36 + cr() * 0.03, 0.55, 0.14 + t * 0.012), tip = new THREE.Color().setHSL(0.27 + cr() * 0.04, 0.7, 0.34 + t * 0.025);
+            const base = new THREE.Color().setHSL(FOLIAGE.pineHue + cr() * 0.03, 0.55, 0.14 + t * 0.012), tip = new THREE.Color().setHSL(FOLIAGE.pineTipHue + cr() * 0.04, 0.7, 0.34 + t * 0.025);
             plate(pos, out.clone().multiplyScalar(0.62).addScaledVector(UPV, 0.62).add(V(cr() - .5, 0, cr() - .5).multiplyScalar(0.25)).normalize(), 0.42 - t * 0.03, base, tip);
           }
         }
         raw(paint(new THREE.ConeGeometry(0.2, 0.6, 5), 0x1d4a30, { top: 0x7ac45a }).translate(0, 4.75, 0));
         return finish();
       })();
-      const treeMatF = toon(0xffffff, { vc: true, side: THREE.DoubleSide, rim: 0.5, rimColor: 0xe8ffb0, fade: true, sway: { base: 1.4, amt: 0.026, flutter: 0.035 } });
-      const pineMatF = toon(0xffffff, { vc: true, side: THREE.DoubleSide, rim: 0.5, rimColor: 0xd8ffc8, fade: true, sway: { base: 1.0, amt: 0.02, flutter: 0.022 } });
+      const treeMatF = toon(0xffffff, { vc: true, side: THREE.DoubleSide, rim: RIM.tree, rimColor: RIM.treeColor, fade: true, sway: { base: 1.4, amt: 0.026, flutter: 0.035 } });
+      const pineMatF = toon(0xffffff, { vc: true, side: THREE.DoubleSide, rim: RIM.tree, rimColor: RIM.pineColor, fade: true, sway: { base: 1.0, amt: 0.02, flutter: 0.022 } });
       const A = [], B = [], S = [];
       broad.forEach((t, i) => (i % 5 === 4 ? S : i % 2 ? B : A).push(i % 5 === 4 ? { ...t, s: t.s * 0.75 } : t));
       instanced(treeA, treeMatF, A); instanced(treeB, treeMatF, B); instanced(small, treeMatF, S);
@@ -380,7 +375,7 @@ export function buildWorld(scene, look = 'dark') {
     const mk = sd => { const g = new THREE.DodecahedronGeometry(0.5, 0).toNonIndexed(); g.scale(1, 0.62, 0.85); jitter(g, 0.16, rng(sd)); return paint(g, 0x2a3040, { top: 0x7e88a4 }); };
     const items = spots(26, 4, 34, 0.7).map(p => ({ ...p, y: heightAt(p.x, p.z) + 0.08, s: 0.6 + R() * 1.1 }));
     items.forEach(b => { if (Math.hypot(b.x, b.z) < ARENA) colliders.push({ x: b.x, z: b.z, r: 0.42 * b.s }); shadowSpots.push({ x: b.x, z: b.z, r: 0.6 * b.s }); });
-    const mat = toon(0xffffff, { vc: true, rim: 0.4, rimColor: ST.rim }), ol = outline({ width: 0.035, color: ST.ol });
+    const mat = toon(0xffffff, { vc: true, rim: RIM.prop, rimColor: ST.rim }), ol = outline({ width: OUTLINE.stone, color: ST.ol });
     instanced(mk(3), mat, items.filter((_, i) => i % 2 === 0), ol); instanced(mk(9), mat, items.filter((_, i) => i % 2 === 1), ol);
   }
   // broken columns (bone-pale, brass ring)
@@ -388,10 +383,10 @@ export function buildWorld(scene, look = 'dark') {
     const col = merge([part(new THREE.CylinderGeometry(0.42, 0.5, 0.35, 8), 0x3a4058, [0, 0.17, 0], 0, 1, { top: 0x6a7390 }),
                        jitter(paint(place(new THREE.CylinderGeometry(0.34, 0.38, 1.9, 8, 3), [0, 1.3, 0]), 0x3c435c, { top: 0x9aa3c0 }), 0.05, rng(8)),
                        part(new THREE.CylinderGeometry(0.4, 0.4, 0.1, 8), PAL.brassD, [0, 1.0, 0], 0, 1, { top: PAL.brass })]);
-    const mat = toon(0xffffff, { vc: true, rim: 0.4, rimColor: ST.rim });
+    const mat = toon(0xffffff, { vc: true, rim: RIM.prop, rimColor: ST.rim });
     const ps = [[7.5, -0.5], [4.0, -10.5], [-10.5, 4.5], [-3.5, 9.5], [10.5, -8.0], [-14, -1]].map(([x, z]) => ({ x, z, s: 0.9 + R() * 0.4, rot: R() * 6 }));
     ps.forEach(b => { free.push({ x: b.x, z: b.z, r: 1 }); colliders.push({ x: b.x, z: b.z, r: 0.5 * b.s }); shadowSpots.push({ x: b.x, z: b.z, r: 0.8 }); });
-    instanced(col, mat, ps, outline({ width: 0.03, color: ST.ol }));
+    instanced(col, mat, ps, outline({ width: OUTLINE.prop, color: ST.ol }));
   }
   // graves + two rune stones with violet glow
   {
@@ -400,7 +395,7 @@ export function buildWorld(scene, look = 'dark') {
                          part(new THREE.BoxGeometry(0.75, 0.14, 0.45), 0x2e3448, [0, 0.07, 0], 0, 1, { top: 0x555d78 })]);
     const items = [[-9, 7.0, 0.3], [-10.8, 8.0, -0.2], [-7.6, 8.8, 0.1], [-11.4, 5.6, 0.5], [6.5, 9.5, 2.6], [8.6, 10.2, 3.4]].map(([x, z, rot]) => ({ x, z, rot, s: 0.9 + R() * 0.3, rx: (R() - .5) * 0.1 }));
     items.forEach(b => { free.push({ x: b.x, z: b.z, r: 0.8 }); colliders.push({ x: b.x, z: b.z, r: 0.4 }); shadowSpots.push({ x: b.x, z: b.z, r: 0.6 }); });
-    instanced(grave, toon(0xffffff, { vc: true, rim: 0.4, rimColor: ST.rim }), items, outline({ width: 0.03, color: ST.ol }));
+    instanced(grave, toon(0xffffff, { vc: true, rim: RIM.prop, rimColor: ST.rim }), items, outline({ width: OUTLINE.prop, color: ST.ol }));
     const rune = merge([jitter(paint(place(new THREE.CylinderGeometry(0.32, 0.5, 2.3, 6, 3), [0, 1.15, 0]), 0x30364c, { top: 0x8a93b0 }), 0.07, rng(4)),
                         part(new THREE.BoxGeometry(0.09, 0.44, 0.05), PAL.abyss, [0, 1.4, 0.4], 0, 1, { emit: true }), part(new THREE.BoxGeometry(0.3, 0.07, 0.05), PAL.abyss, [0, 1.48, 0.4], 0, 1, { emit: true }),
                         part(new THREE.BoxGeometry(0.07, 0.24, 0.05), PAL.abyss, [0.05, 0.98, 0.42], [0, 0, 0.6], 1, { emit: true })]);
@@ -408,12 +403,12 @@ export function buildWorld(scene, look = 'dark') {
     rs.forEach(r => { r.s = 1; free.push({ x: r.x, z: r.z, r: 1 }); colliders.push({ x: r.x, z: r.z, r: 0.5 }); shadowSpots.push({ x: r.x, z: r.z, r: 0.9 });
       const fx = Math.sin(r.rot), fz = Math.cos(r.rot);
       glows.push({ x: r.x + fx * 0.5, y: 1.4, z: r.z + fz * 0.5, s: 1.1, c: PAL.abyssD, k: 0.7 }); pools.push({ x: r.x + fx * 0.7, y: 0.07, z: r.z + fz * 0.7, s: 2.6, c: PAL.abyssD, k: 0.6 }); });
-    instanced(rune, toon(0xffffff, { vc: true, rim: 0.4, rimColor: ST.rim }), rs, outline({ width: 0.035, color: ST.ol }));
+    instanced(rune, toon(0xffffff, { vc: true, rim: RIM.prop, rimColor: ST.rim }), rs, outline({ width: OUTLINE.stone, color: ST.ol }));
   }
 
   if (TORCH) {
     // teal stone sarcophagi with a glowing carved strip, and crystal clusters: the cold-teal counterpart to the warm candles
-    const TEAL = 0x2b6a5c, TEAL_L = 0x86e0c6, GLOW = 0x4af0cc;
+    const TEAL = 0x2b6a5c, TEAL_L = 0x86e0c6, GLOW = PAL.teal;
     const sarc = merge([part(new THREE.BoxGeometry(1.15, 0.55, 2.3), TEAL, [0, 0.28, 0], 0, 1, { top: TEAL_L }),
                         jitter(paint(place(new THREE.BoxGeometry(1.0, 0.3, 2.1, 2, 1, 3).toNonIndexed(), [0, 0.7, 0]), TEAL, { top: TEAL_L }), 0.05, rng(31)),
                         part(new THREE.BoxGeometry(0.1, 0.05, 1.5), GLOW, [0, 0.87, 0], 0, 1, { emit: true }),
@@ -422,12 +417,12 @@ export function buildWorld(scene, look = 'dark') {
     const sp = [[-7.4, 3.2], [7.4, 3.2], [-10.2, 7.8], [10.2, 7.8], [-2.6, 12.4], [2.6, 12.4]].map(([lx, lz]) => { const w = toWorld(lx, lz); return { x: w.x, z: w.z, rot: YAW + (lx > 0 ? 0.35 : -0.35), s: 1 }; });
     sp.forEach(b => { colliders.push({ x: b.x, z: b.z, r: 0.75 }); colliders.push({ x: b.x + Math.sin(b.rot) * 0.8, z: b.z + Math.cos(b.rot) * 0.8, r: 0.6 }); colliders.push({ x: b.x - Math.sin(b.rot) * 0.8, z: b.z - Math.cos(b.rot) * 0.8, r: 0.6 });
       shadowSpots.push({ x: b.x, z: b.z, r: 1.4 }); pools.push({ x: b.x, y: 0.07, z: b.z, s: 3.2, c: GLOW, k: 0.28 }); });
-    instanced(sarc, toon(0xffffff, { vc: true, rim: 0.4, rimColor: 0xbfffee }), sp, outline({ width: 0.03, color: ST.ol }));
+    instanced(sarc, toon(0xffffff, { vc: true, rim: RIM.prop, rimColor: RIM.crystalColor }), sp, outline({ width: OUTLINE.prop, color: ST.ol }));
     const cry = merge([[0, 0, 0, 0.5, 1.5], [0.4, 0, 0.2, 0.34, 0.9], [-0.35, 0, 0.25, 0.3, 0.7], [0.1, 0, -0.4, 0.3, 1.0]].map(([x, y, z, r, h]) =>
       part(new THREE.ConeGeometry(r, h, 5), 0x1f7a6e, [x, h / 2, z], [(x) * 0.3, 0, -(z) * 0.3], 1, { top: 0xc4fff0 })));
     const cs = [[-9.8, 10.8], [9.4, 11.4], [-12.4, 3.2], [12.2, 3.6]].map(([lx, lz]) => { const w = toWorld(lx, lz); return { x: w.x, z: w.z, rot: lx, s: 1 }; });
     cs.forEach(b => { colliders.push({ x: b.x, z: b.z, r: 0.6 }); shadowSpots.push({ x: b.x, z: b.z, r: 0.9 }); glows.push({ x: b.x, y: 0.9, z: b.z, s: 2.2, c: GLOW, k: 0.6 }); pools.push({ x: b.x, y: 0.07, z: b.z, s: 3.8, c: GLOW, k: 0.4 }); });
-    instanced(cry, toon(0xffffff, { vc: true, rim: 0.6, rimColor: 0xbfffee }), cs, outline({ width: 0.025, color: ST.ol }));
+    instanced(cry, toon(0xffffff, { vc: true, rim: RIM.crystal, rimColor: RIM.crystalColor }), cs, outline({ width: OUTLINE.small, color: ST.ol }));
   }
 
   // contact shadows (one instanced draw)
@@ -510,7 +505,7 @@ export function buildWorld(scene, look = 'dark') {
   const api = {
     colliders, grass, grassU, torches, moteMat, mist, glowMesh, poolMesh, abyssMat, fadeMats,
     setQuality(q) {
-      const k = q === 'low' ? 0.3 : q === 'med' ? 0.6 : 1;
+      const k = GRASS_K[q];
       for (const g of grass) g.count = Math.floor(g.userData.max * k);
       for (const o of outlined) o.visible = q !== 'low';
       mist[1].visible = mist[2].visible = q !== 'low';

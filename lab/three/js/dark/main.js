@@ -7,36 +7,34 @@ import { ARENA, heightAt } from '../world.js';
 import { buildWorld, toWorld, ARCH } from './world.js';
 import { DarkHero } from './hero.js';
 import { Mobs } from './mobs.js';
+import { LIGHT, CAMERA, QUALITY, WIND, lookName } from '../style.js';
 
 const params = new URLSearchParams(location.search);
-const LOOK = window.LOOK || params.get('look') || 'dark', TORCH = LOOK === 'torch';
+const LOOK = lookName(), TORCH = LOOK === 'torch';
+const L = LIGHT[LOOK] || LIGHT.dark, CAM = CAMERA[LOOK] || CAMERA.dark;       // все числа стиля: js/style.js
 const dpr = window.devicePixelRatio || 1;
 const canvas = document.getElementById('c');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: dpr < 2, powerPreference: 'high-performance', preserveDrawingBuffer: params.has('shot') });
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(30, 1, 0.5, 160);
-const FOG = TORCH ? 0x1d3836 : 0x12102a;
-renderer.setClearColor(FOG);
-scene.fog = TORCH ? new THREE.Fog(FOG, 38, 95) : new THREE.Fog(FOG, 22, 50);
+const camera = new THREE.PerspectiveCamera(CAMERA.fov, 1, CAMERA.near, CAMERA.far);
+renderer.setClearColor(L.clear);
+scene.fog = new THREE.Fog(L.fog.color, L.fog.near, L.fog.far);
 
-const WARM = TORCH ? 26 : 18;
-// night: cold sky/ground ambient, a moon key from the camera side, ONE roaming warm torch light and ONE violet light at the gate
-const hemi = TORCH ? new THREE.HemisphereLight(0x8fb0a4, 0x4a3826, 1.1) : new THREE.HemisphereLight(0x6a86c8, 0x121a34, 1.2); scene.add(hemi);
-const moon = TORCH ? new THREE.DirectionalLight(0xffd8a0, 1.7) : new THREE.DirectionalLight(0x9fb2ff, 1.5); scene.add(moon, moon.target);
-const warm = new THREE.PointLight(0xff9a4a, WARM, TORCH ? 15 : 11, 1.5); scene.add(warm);
-const violet = new THREE.PointLight(0x9a62ff, 9, 9, 1.6); scene.add(violet);
+// ночь: холодный ambient, «луна» со стороны камеры, ОДИН бродячий тёплый свет у факелов и ОДИН фиолетовый у врат
+const hemi = new THREE.HemisphereLight(L.hemi.sky, L.hemi.ground, L.hemi.i); scene.add(hemi);
+const moon = new THREE.DirectionalLight(L.key.color, L.key.i); scene.add(moon, moon.target);
+const warm = new THREE.PointLight(L.warm.color, L.warm.i, L.warm.dist, L.warm.decay); scene.add(warm);
+const violet = new THREE.PointLight(L.violet.color, L.violet.i, L.violet.dist, L.violet.decay); scene.add(violet);
 
 const world = buildWorld(scene, LOOK);
-const gate = toWorld(0, 1.0); violet.position.set(gate.x, 2.0, gate.z);
+const gate = toWorld(0, 1.0); violet.position.set(gate.x, L.violet.y, gate.z);
 const fx = new FX(scene);
-fx.slashes.forEach(x => x.mesh.material.uniforms.uColor.value.set(0xc9a8ff));      // abyss-violet slash arcs
+fx.slashes.forEach(x => x.mesh.material.uniforms.uColor.value.set(LIGHT.slashColor));      // abyss-violet slash arcs
 const hero = new DarkHero(scene);
 const mobs = params.get('mobs') === '0' ? null : new Mobs(scene, fx);
 const input = new Input(document.getElementById('joyBase'), document.getElementById('joyKnob'), document.getElementById('atk'));
 
 // ---------- settings ----------
-const QUALITY = { low: { name: 'Низкое', pr: 1 }, med: { name: 'Среднее', pr: 1.5 }, high: { name: 'Высокое', pr: 2 } };
-const WIND = [{ name: 'Штиль', s: 0.35 }, { name: 'Ветер', s: 1 }, { name: 'Буря', s: 2.1 }];
 const state = { quality: params.get('q') || (matchMedia('(pointer: coarse)').matches ? 'med' : 'high'), outlines: true, wind: 1, autoTuned: false };
 const ui = { quality: document.getElementById('bQuality'), outline: document.getElementById('bOutline'), wind: document.getElementById('bWind'), stats: document.getElementById('stats') };
 function applyOutlines() {
@@ -56,26 +54,26 @@ ui.outline.onclick = () => { state.outlines = !state.outlines; applyOutlines(); 
 ui.wind.onclick = () => { state.wind = (state.wind + 1) % WIND.length; applyWind(); };
 
 // ---------- camera: hero sits in the lower third so the tall gate stays in frame ----------
-const CAM_YAW = Math.PI / 4, CAM_PITCH = TORCH ? 0.64 : 0.74, AIM = TORCH ? 1.0 : 2.6   // torch: low, forward-tilted camera, hero high in frame;
+const CAM_YAW = CAMERA.yaw, CAM_PITCH = CAM.pitch, AIM = CAM.aim;
 const camTarget = new THREE.Vector3();
-const BASE = TORCH ? 30 : 15;
+const BASE = CAM.dist;
 let camDist = BASE, shake = 0;
 function resize() {
   const w = innerWidth, h = innerHeight; renderer.setSize(w, h, false); camera.aspect = w / h;
-  camDist = w / h < 1 ? BASE * Math.min(1.5, 1 / (w / h) * 0.85) : BASE;
+  camDist = w / h < 1 ? BASE * Math.min(CAMERA.portrait.maxScale, 1 / (w / h) * CAMERA.portrait.refAspect) : BASE;
   camera.updateProjectionMatrix();
 }
 addEventListener('resize', resize);
 function updateCamera(dt) {
-  const goal = new THREE.Vector3(hero.pos.x - Math.SQRT1_2 * AIM + hero.vel.x * 0.25, hero.pos.y + 0.8, hero.pos.z - Math.SQRT1_2 * AIM + hero.vel.y * 0.25);
-  camTarget.lerp(goal, 1 - Math.exp(-5 * dt));
+  const goal = new THREE.Vector3(hero.pos.x - Math.SQRT1_2 * AIM + hero.vel.x * CAMERA.follow.lead, hero.pos.y + CAMERA.follow.targetY, hero.pos.z - Math.SQRT1_2 * AIM + hero.vel.y * CAMERA.follow.lead);
+  camTarget.lerp(goal, 1 - Math.exp(-CAMERA.follow.smooth * dt));
   const off = new THREE.Vector3(Math.sin(CAM_YAW) * Math.cos(CAM_PITCH), Math.sin(CAM_PITCH), Math.cos(CAM_YAW) * Math.cos(CAM_PITCH)).multiplyScalar(camDist);
   camera.position.copy(camTarget).add(off);
-  if (shake > 0) { shake = Math.max(0, shake - dt * 2.5); const m = shake * shake * 0.4; camera.position.x += (Math.random() - .5) * m; camera.position.y += (Math.random() - .5) * m; }
+  if (shake > 0) { shake = Math.max(0, shake - dt * CAMERA.shake.decay); const m = shake * shake * CAMERA.shake.amp; camera.position.x += (Math.random() - .5) * m; camera.position.y += (Math.random() - .5) * m; }
   camera.lookAt(camTarget);
   if (window.__dbgCam) { const y = hero.yaw; camera.position.set(hero.pos.x + Math.cos(y) * 5.6 * window.__dbgCam, hero.pos.y + 1.2, hero.pos.z - Math.sin(y) * 5.6 * window.__dbgCam); camera.lookAt(hero.pos.x, hero.pos.y + 0.9, hero.pos.z); }   // debug: side view for animation checks
   U.uCam.value.copy(camera.position); U.uFocus.value.set(hero.pos.x, hero.pos.y + 1.0, hero.pos.z);
-  moon.position.copy(camTarget).add(new THREE.Vector3(9, 12, 3)); moon.target.position.copy(camTarget);
+  moon.position.copy(camTarget).add(new THREE.Vector3(...L.key.offset)); moon.target.position.copy(camTarget);
 }
 
 // ---------- gameplay glue ----------
@@ -83,7 +81,7 @@ let hitStop = 0;
 hero.onHit = (p, yaw, dir) => {
   fx.slash(p, yaw, dir);
   const n = mobs ? mobs.slash(p, yaw) : 0;
-  if (n) { hitStop = 0.06; shake = Math.min(1, shake + 0.4); }
+  if (n) { hitStop = CAMERA.hitStop; shake = Math.min(1, shake + 0.4); }
 };
 const origTakeHit = hero.takeHit.bind(hero);
 hero.takeHit = d => { origTakeHit(d); shake = Math.min(1, shake + 0.5); fx.burst({ x: hero.pos.x, y: hero.pos.y + 0.8, z: hero.pos.z }, 0xff6a5a, 8, 3); };
@@ -93,7 +91,7 @@ const mv = new THREE.Vector2();
 function lights(t) {
   // warm light hops to the torch nearest to the hero and flickers; violet breathes
   const f = 0.82 + Math.sin(t * 13) * 0.08 + Math.sin(t * 23.7) * 0.06 + Math.sin(t * 5.1) * 0.06;
-  warm.intensity = WARM * f; violet.intensity = 9 * (0.85 + Math.sin(t * 2.1) * 0.15);
+  warm.intensity = L.warm.i * f; violet.intensity = L.violet.i * (0.85 + Math.sin(t * 2.1) * 0.15);
   let best = world.torches[0], bd = 1e9;
   for (const q of world.torches) { const d = Math.hypot(q.x - hero.pos.x, q.z - hero.pos.z); if (d < bd) { bd = d; best = q; } }
   warm.position.lerp(best, 0.06);

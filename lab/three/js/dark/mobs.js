@@ -5,11 +5,12 @@ import { toon, outline, addOutlines } from '../toon.js';
 import { part, merge } from '../geo.js';
 import { blobShadow } from '../hero.js';
 import { ARENA, heightAt } from '../world.js';
-import { PAL, toWorld } from './world.js';
+import { toWorld } from './world.js';
+import { PAL, MOB, OUTLINE } from '../style.js';
 import { clamp, lerp, footTarget, legIK } from './rig.js';
 
-const BONE = 0xe4d8ba, BONE_D = 0x9a8c70, RUST = 0x8a5a3c, IRON = 0x59627a, DARKS = 0x0d0a16, EYE = 0xc9a8ff;
-const SKIN = 0x6d7b72, SKIN_L = 0xaebca6, ROBE = 0x2c1f5c, ROBE_L = 0x5b44b0;
+const BONE = MOB.bone, BONE_D = MOB.boneD, RUST = MOB.rust, IRON = MOB.iron, DARKS = MOB.dark, EYE = MOB.eye;
+const SKIN = MOB.skin, SKIN_L = MOB.skinL, ROBE = MOB.robe, ROBE_L = MOB.robeL;
 const cache = {}; const G = (k, f) => cache[k] || (cache[k] = f());
 const ball = (r, c, p, s, o) => part(new THREE.SphereGeometry(r, 10, 8), c, p, 0, s, o);
 
@@ -67,7 +68,7 @@ const gh = {
     part(new THREE.BoxGeometry(0.24, 0.1, 0.14), DARKS, [0, 0.03, 0.12]),
     ...[-0.08, -0.03, 0.03, 0.08].map(x => part(new THREE.ConeGeometry(0.014, 0.05, 4), BONE, [x, 0.065, 0.19], [Math.PI, 0, 0])),
     ...[-0.07, 0, 0.07].map(x => part(new THREE.ConeGeometry(0.012, 0.04, 4), BONE, [x, -0.01, 0.19])),
-    ball(0.045, 0xffd45a, [0.075, 0.2, 0.15], [1, 1, 0.6], { emit: true }), ball(0.045, 0xffd45a, [-0.075, 0.2, 0.15], [1, 1, 0.6], { emit: true }),
+    ball(0.045, MOB.ghoulEye, [0.075, 0.2, 0.15], [1, 1, 0.6], { emit: true }), ball(0.045, MOB.ghoulEye, [-0.075, 0.2, 0.15], [1, 1, 0.6], { emit: true }),
     ball(0.02, DARKS, [0.075, 0.2, 0.185], [1, 2, 1]), ball(0.02, DARKS, [-0.075, 0.2, 0.185], [1, 2, 1]),
     part(new THREE.ConeGeometry(0.05, 0.08, 4), SKIN, [0, 0.17, 0.17], [Math.PI / 2, 0, 0], 1, { top: SKIN_L }),
   ])),
@@ -119,7 +120,7 @@ class Mob {
   constructor(scene, type, olMat, tele) {
     this.type = type; this.cfg = TYPES[type];
     this.root = new THREE.Group(); scene.add(this.root);
-    this.mat = toon(0xffffff, { vc: true, rim: 0.7, rimColor: type === 'ghoul' ? 0xd8ffb0 : type === 'mage' ? 0xc9aaff : 0xffe2b8 });
+    this.mat = toon(0xffffff, { vc: true, rim: MOB.rim, rimColor: MOB.rimColor[type] });
     const M = g => new THREE.Mesh(g, this.mat), grp = (p, par) => { const g = new THREE.Group(); g.position.set(...p); par.add(g); return g; };
     this.rig = grp([0, 0, 0], this.root);
     if (type === 'skel') {
@@ -361,7 +362,7 @@ class Bolts {
 export class Mobs {
   constructor(scene, fx) {
     this.fx = fx; this.bolts = new Bolts(scene);
-    this.olMat = outline({ width: 0.026, color: 0x07050f });
+    this.olMat = outline({ width: OUTLINE.mob, color: OUTLINE.heroColor });
     this.list = [];
     const telGeo = new THREE.CircleGeometry(1, 28); telGeo.rotateX(-Math.PI / 2);
     const plan = [['skel', -2.4, 2.0], ['ghoul', 2.8, 2.6], ['mage', 0.2, 1.2], ['skel', -7, 4.2], ['ghoul', 7.2, 5.5], ['mage', 5.6, 2.2]];
