@@ -11,12 +11,14 @@ import { PropLayer } from './props.js';
 import { buildGround } from './ground.js';
 import { glowSet } from './glow.js';
 import { HEROES, MOBS, NPCS, WEAPONS, WEAPON_MODEL, OFFHAND_MODEL } from './registry.js';
-import { LIGHT, CAMERA, QUALITY } from './style.js';
+import { LIGHT, CAMERA, QUALITY, SHADOW } from './style.js';
+import { Post } from './post.js';
 
 const params = new URLSearchParams(location.search);
 const SQ = Math.SQRT1_2;
 let canvas, renderer, scene, camera, kit, W = 800, H = 450, DPR = 1;
-let zone = null, world = null, lights = null, quality = '';
+let zone = null, world = null, lights = null, quality = '', post = null;
+const LV = LIGHT.village3;
 const actors = new Map();            // сущность игры → Actor
 const camTarget = new THREE.Vector3();
 let camDist = CAMERA.village.dist, last = performance.now(), tAll = 0, spawned = false;
@@ -44,15 +46,20 @@ export function init() {
   renderer = new THREE.WebGLRenderer({ canvas, antialias: (window.devicePixelRatio || 1) < 2, powerPreference: 'high-performance', preserveDrawingBuffer: params.has('shot') });
   scene = new THREE.Scene(); camera = new THREE.PerspectiveCamera(CAMERA.fov, 1, CAMERA.near, CAMERA.far);
   kit = makeKit(scene);
-  const L = LIGHT.village;
+  renderer.info.autoReset = false;                      // считаем все проходы кадра (тень, сцена, постобработка) вместе
+  renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  post = new Post(renderer);
+  const L = LV;
   renderer.setClearColor(L.clear); scene.fog = new THREE.Fog(L.fog.color, L.fog.near, L.fog.far);
   lights = {
     hemi: new THREE.HemisphereLight(L.hemi.sky, L.hemi.ground, L.hemi.i), moon: new THREE.DirectionalLight(L.key.color, L.key.i),
     warm: new THREE.PointLight(L.warm.color, L.warm.i, L.warm.dist, L.warm.decay), accent: new THREE.PointLight(L.violet.color, L.violet.i, L.violet.dist, L.violet.decay),
   };
   scene.add(lights.hemi, lights.moon, lights.moon.target, lights.warm, lights.accent);
+  const sc = lights.moon.shadow.camera; sc.left = sc.bottom = -SHADOW.half; sc.right = sc.top = SHADOW.half; sc.near = 1; sc.far = 90;
+  lights.moon.shadow.bias = SHADOW.bias; lights.moon.shadow.normalBias = SHADOW.normalBias; lights.moon.shadow.radius = SHADOW.radius; lights.moon.shadow.intensity = SHADOW.intensity; sc.updateProjectionMatrix();
   U.uWindStr.value = 1;
-  window.__R3 = { scene, camera, renderer, actors, get zone() { return zone; }, get world() { return world; } };
+  window.__R3 = { scene, camera, renderer, actors, post, lights, get zone() { return zone; }, get world() { return world; } };
 }
 export function show(on) { if (canvas) canvas.style.display = on ? 'block' : 'none'; G.cam.proj = on ? proj : null; }
 
@@ -69,8 +76,17 @@ function qualityNow() {
 }
 function applyQuality(force) {
   const q = qualityNow(); if (q === quality && !force) return; quality = q;
-  DPR = Math.min(window.devicePixelRatio || 1, QUALITY[q].pr); renderer.setPixelRatio(DPR);
-  setOutlinesVisible(q !== 'low'); if (world) world.ground.setQuality(q);
+  const Q = QUALITY[q];
+  DPR = Math.min(window.devicePixelRatio || 1, Q.pr); renderer.setPixelRatio(DPR);
+  setOutlinesVisible(q !== 'low'); if (world) { world.ground.setQuality(q); world.props.setQuality(q); }
+  const sm = Q.shadow;
+  lights.hemi.intensity = LV.hemi.i * (Q.light ?? 1); lights.moon.intensity = LV.key.i * (Q.light ?? 1);
+  if (lights.moon.castShadow !== !!sm || lights.moon.shadow.mapSize.x !== sm) {
+    lights.moon.castShadow = !!sm;
+    if (sm) { lights.moon.shadow.mapSize.set(sm, sm); if (lights.moon.shadow.map) { lights.moon.shadow.map.dispose(); lights.moon.shadow.map = null; } }
+    scene.traverse(o => { if (o.material && o.material.isMaterial) o.material.needsUpdate = true; });
+  }
+  post.setup(Math.round(W * DPR), Math.round(H * DPR), { enabled: Q.post, samples: DPR < 1.5 ? Q.msaa : 0, levels: Q.bloom });
 }
 
 // ---------------------------------------------------------------- мир зоны
@@ -158,11 +174,18 @@ function updateCamera() {
   if (cam.sx || cam.sy) { camera.position.addScaledVector(_right.set(Math.cos(CAMERA.yaw), 0, -Math.sin(CAMERA.yaw)), -cam.sx / ppm); camera.position.y += cam.sy / ppm; }
   camera.updateMatrixWorld(true);
   const P = G.player; if (P) { U.uCam.value.copy(camera.position); U.uFocus.value.set(P.x, 1.0, P.y); }
-  lights.moon.position.copy(camTarget).add(_off.set(...LIGHT.village.key.offset)); lights.moon.target.position.copy(camTarget);
+  // тень: центр ортокамеры чуть вглубь кадра, привязка к текселю карты, чтобы края теней не дрожали при движении
+  const sm = lights.moon.shadow, tex = (2 * SHADOW.half) / (sm.mapSize.x || 1024);
+  _sc.set(camTarget.x - SQ * SHADOW.ahead, 0, camTarget.z - SQ * SHADOW.ahead);
+  _ld.set(...LV.key.offset).normalize();
+  _basis.lookAt(_ld, _zero, _up); _inv.copy(_basis).invert();
+  _sc.applyMatrix4(_inv); _sc.x = Math.round(_sc.x / tex) * tex; _sc.y = Math.round(_sc.y / tex) * tex; _sc.applyMatrix4(_basis);
+  lights.moon.target.position.copy(_sc); lights.moon.position.copy(_sc).addScaledVector(_ld, 45);
 }
 const _right = new THREE.Vector3(), _off = new THREE.Vector3(), _c = new THREE.Color();
+const _sc = new THREE.Vector3(), _ld = new THREE.Vector3(), _zero = new THREE.Vector3(), _up = new THREE.Vector3(0, 1, 0), _basis = new THREE.Matrix4(), _inv = new THREE.Matrix4();
 function updateLights(t) {
-  const P = G.player, Lw = LIGHT.village, f = 0.82 + Math.sin(t * 13) * 0.08 + Math.sin(t * 23.7) * 0.06 + Math.sin(t * 5.1) * 0.06;
+  const P = G.player, Lw = LV, f = 0.82 + Math.sin(t * 13) * 0.08 + Math.sin(t * 23.7) * 0.06 + Math.sin(t * 5.1) * 0.06;
   const near = zone.lights.filter(l => l.on).map(l => ({ l, d: Math.hypot(l.x - P.x, l.y - P.y) })).sort((a, b) => a.d - b.d);
   for (const [lt, base, idx] of [[lights.warm, Lw.warm, 0], [lights.accent, Lw.violet, 1]]) {
     const n = near[idx]; lt.visible = !!n; if (!n) continue;
@@ -183,7 +206,9 @@ export function render() {
   world.props.cull(camera); world.props.update(tAll);
   world.ground.update([{ x: G.player.x, z: G.player.y, r: 0.7, w: 1 }, ...G.enemies.filter(e => !e.dead).slice(0, 10).map(e => ({ x: e.x, z: e.y, r: e.r * 1.6, w: 1 }))]);
   devSpawn();
-  renderer.render(scene, camera);
+  world.ground.shadow(lights.moon);
+  renderer.info.reset();
+  post.render(scene, camera, tAll);
 }
 
 // ---------------------------------------------------------------- отладка: ?spawn=skel_warrior,ghoul — враги рядом с героем (в деревне врагов нет)

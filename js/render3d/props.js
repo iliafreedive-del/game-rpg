@@ -39,6 +39,7 @@ export class PropLayer {
     const model = def.build(this.kit, it.opts || {}), g = new THREE.Group(); g.add(model.root);
     g.position.set(it.x, 0, it.y); g.rotation.y = it.rot; g.scale.setScalar(it.s); this.scene.add(g);
     const ol = this.outlineFor(def); if (ol) addOutlines(model.root, ol);
+    model.root.traverse(o => { if (o.isMesh && !o.userData.isOutline) { o.castShadow = def.shadow !== false; o.receiveShadow = true; } });
     this.items.push(g); if (model.update) this.dyn.push(model);
   }
   addBatch(def, list) {
@@ -46,7 +47,7 @@ export class PropLayer {
     const ol = this.outlineFor(def), meshes = [];
     root.traverse(o => { if (o.isMesh) { const g = o.geometry.clone(); g.applyMatrix4(o.matrixWorld); meshes.push({ geo: g, mat: o.material }); } });
     const parts = meshes.map(({ geo, mat }) => {
-      const im = new THREE.InstancedMesh(geo, mat, list.length); im.frustumCulled = false;
+      const im = new THREE.InstancedMesh(geo, mat, list.length); im.frustumCulled = false; im.castShadow = def.shadow !== false; im.receiveShadow = true;
       this.scene.add(im); this.items.push(im);
       let oim = null;
       if (ol) { oim = new THREE.InstancedMesh(geo, ol, list.length); oim.instanceMatrix = im.instanceMatrix; oim.frustumCulled = false; oim.userData.isOutline = true; this.scene.add(oim); this.items.push(oim); }
@@ -66,7 +67,7 @@ export class PropLayer {
     for (const b of this.batches) {
       let n = 0;
       for (const it of b.list) {
-        sp.center.set(it.x, 2.2 * it.s, it.y); sp.radius = b.r * it.s;
+        sp.center.set(it.x, 2.2 * it.s, it.y); sp.radius = b.r * it.s + 4;   // запас: тень от предмета за краем кадра падает в кадр
         if (!this.fr.intersectsSphere(sp)) continue;
         m.compose(p.set(it.x, 0, it.y), q.setFromEuler(e.set(0, it.rot, 0)), s.setScalar(it.s));
         for (const { im } of b.parts) im.setMatrixAt(n, m);
@@ -75,6 +76,7 @@ export class PropLayer {
       for (const { im, oim } of b.parts) { im.count = n; im.instanceMatrix.needsUpdate = true; if (oim) oim.count = n; }
     }
   }
+  setQuality(q) { this.quality = q; }
   update(t) { for (const d of this.dyn) d.update(t); }
   dispose() { for (const o of this.items) { o.removeFromParent(); if (o.isInstancedMesh) o.dispose(); } this.items = []; }
 }

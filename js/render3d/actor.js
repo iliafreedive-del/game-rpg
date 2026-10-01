@@ -19,6 +19,48 @@ export function outlineMat(kind, fade = false) {
 }
 export const setOutlinesVisible = on => { for (const m of olCache.values()) m.visible = on; };
 
+// «Жёсткий скининг»: все меши модели с одним материалом сливаются в один SkinnedMesh, где каждая вершина привязана
+// к своему исходному мешу как к кости (вес 1). Кости остаются теми же Object3D, анимации модели не меняются,
+// а персонаж рисуется 1 вызовом (+1 обводка, +1 в тень) вместо ≈ 28. Исходные меши выключаются через layers.
+const _inv = new THREE.Matrix4();
+export function bakeRigid(modelRoot, holder) {
+  modelRoot.updateMatrixWorld(true);
+  _inv.copy(modelRoot.matrixWorld).invert();
+  const groups = new Map();
+  modelRoot.traverse(o => { if (o.isMesh && !o.isSkinnedMesh && !o.userData.isOutline && !o.userData.noBake) { if (!groups.has(o.material)) groups.set(o.material, []); groups.get(o.material).push(o); } });
+  const out = [];
+  for (const [mat, list] of groups) {
+    if (list.length < 2) continue;
+    let n = 0; for (const m of list) n += m.geometry.attributes.position.count;
+    const P = new Float32Array(n * 3), N = new Float32Array(n * 3), C = new Float32Array(n * 4), SI = new Uint16Array(n * 4), SW = new Float32Array(n * 4);
+    const inv = [], bones = [], v = new THREE.Vector3(), nm = new THREE.Matrix3(), rel = new THREE.Matrix4();
+    let o = 0;
+    list.forEach((m, bi) => {
+      const g = m.geometry, pa = g.attributes.position, na = g.attributes.normal, ca = g.attributes.color, c = pa.count;
+      rel.multiplyMatrices(_inv, m.matrixWorld); nm.getNormalMatrix(rel);
+      for (let i = 0; i < c; i++) {
+        v.fromBufferAttribute(pa, i).applyMatrix4(rel); P.set([v.x, v.y, v.z], (o + i) * 3);
+        if (na) { v.fromBufferAttribute(na, i).applyMatrix3(nm).normalize(); N.set([v.x, v.y, v.z], (o + i) * 3); }
+        if (ca) C.set([ca.getX(i), ca.getY(i), ca.getZ(i), ca.itemSize > 3 ? ca.getW(i) : 1], (o + i) * 4); else C.fill(1, (o + i) * 4, (o + i) * 4 + 4);
+        SI[(o + i) * 4] = bi; SW[(o + i) * 4] = 1;
+      }
+      o += c; bones.push(m); inv.push(rel.clone().invert());
+      m.layers.disableAll(); m.userData.noOutline = true;
+    });
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(P, 3)); geo.setAttribute('normal', new THREE.BufferAttribute(N, 3));
+    geo.setAttribute('color', new THREE.BufferAttribute(C, 4)); geo.setAttribute('skinIndex', new THREE.BufferAttribute(SI, 4)); geo.setAttribute('skinWeight', new THREE.BufferAttribute(SW, 4));
+    const sk = new THREE.SkinnedMesh(geo, mat);
+    // кости — исходные меши; SkinnedMesh стоит в корне актёра (attached: bindMatrixInverse = обратная его matrixWorld),
+    // а обратные матрицы костей переводят из пространства корня модели, поэтому корень актёра и модели должны совпадать
+    sk.frustumCulled = false; sk.castShadow = true;
+    holder.add(sk);
+    sk.bind(new THREE.Skeleton(bones, inv), new THREE.Matrix4());
+    out.push(sk);
+  }
+  return out;
+}
+
 const clamp01 = x => Math.min(1, Math.max(0, x));
 // перенос момента удара: игра бьёт на progress=impact, модель — на clips[clip].hit; всё остальное растягивается линейно
 function warp(k, impact, hit) {
@@ -34,7 +76,13 @@ export class Actor {
     this.scene = scene;
     this.mats = this.model.materials || [];
     this.olMat = outlineMat(def.outline || (def.kind === 'hero' ? 'hero' : def.kind === 'prop' ? 'prop' : 'mob'));
+    this.skinned = o.bake === false ? [] : bakeRigid(this.model.root, this.root);
+    for (const sk of this.skinned) {
+      const ol = new THREE.SkinnedMesh(sk.geometry, this.olMat); ol.frustumCulled = false; ol.userData.isOutline = true;
+      ol.bind(sk.skeleton, sk.bindMatrix); this.root.add(ol);
+    }
     addOutlines(this.model.root, this.olMat);
+    this.model.root.traverse(m => { if (m.isMesh && !m.userData.isOutline) m.castShadow = true; });
     this.shadow = blobShadow(this.model.shadow ?? 1.2, 0.5); scene.add(this.shadow);
     this.bones = Object.values(this.model.bones || {});
     this.snap = new Map();

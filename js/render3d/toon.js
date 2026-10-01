@@ -68,6 +68,19 @@ const FADE_F = /* glsl */`
   if (ign < f * 0.8) discard;
 }
 `;
+// «AO по высоте»: низ предметов и персонажей темнеет у земли (контактное затенение без SSAO)
+const AO_V = /* glsl */`
+#ifdef USE_INSTANCING
+  vAOY = (modelMatrix * instanceMatrix * vec4(transformed, 1.0)).y;
+#else
+  vAOY = (modelMatrix * vec4(transformed, 1.0)).y;
+#endif
+`;
+const addAO = (sh, k, h) => {
+  sh.vertexShader = 'varying float vAOY;\n' + sh.vertexShader.replace('#include <project_vertex>', '#include <project_vertex>\n' + AO_V);
+  sh.fragmentShader = 'varying float vAOY;\n' + sh.fragmentShader.replace('#include <opaque_fragment>',
+    `outgoingLight *= mix(${k.toFixed(3)}, 1.0, smoothstep(0.0, ${h.toFixed(3)}, vAOY));\n#include <opaque_fragment>`);
+};
 const addFade = sh => {
   sh.vertexShader = FADE_VS + sh.vertexShader.replace('#include <project_vertex>', '#include <project_vertex>\n' + FADE_V);
   sh.fragmentShader = FADE_FS + sh.fragmentShader.replace('void main() {', 'void main() {\n' + FADE_F);
@@ -93,6 +106,7 @@ const RIM = /* glsl */`
  *  sway     – { base, amt, flutter } wind bending
  *  fade     – dither away when standing between camera and hero
  *  side     – THREE side
+ *  ao, aoH  – darken to `ao` at ground level, fading out by height aoH (m)
  */
 export function toon(color = 0xffffff, o = {}) {
   const m = new THREE.MeshToonMaterial({
@@ -115,8 +129,9 @@ export function toon(color = 0xffffff, o = {}) {
     sh.fragmentShader = 'uniform float uFlash; uniform vec3 uFlashColor; uniform float uRim; uniform vec3 uRimColor; uniform float uGlow;\n' +
       sh.fragmentShader.replace('#include <opaque_fragment>', RIM + '#include <opaque_fragment>');
     if (o.fade) addFade(sh);
+    if (o.ao) addAO(sh, o.ao, o.aoH ?? 0.8);
   };
-  m.customProgramCacheKey = () => 'toon' + (sw ? '-sway' : '') + (o.fade ? '-fade' : '');
+  m.customProgramCacheKey = () => 'toon' + (sw ? '-sway' : '') + (o.fade ? '-fade' : '') + (o.ao ? '-ao' + o.ao + '-' + (o.aoH ?? 0.8) : '');
   return m;
 }
 

@@ -70,6 +70,15 @@ export const LIGHT = {
     warm: { color: 0xff9a4a, i: 20, dist: 14, decay: 1.5 },
     violet: { color: 0x9a62ff, i: 12, dist: 11, decay: 1.6, y: 2.0 },
   },
+  // деревня с тенями и постобработкой (основной пресет игры): солнце слева сверху от экрана, тени падают вправо-вниз,
+  // холодное бирюзовое небо (заполняющий свет) против тёплого золотого солнца, как на референсах
+  village3: {
+    clear: 0x2c4a48, fog: { color: 0x3a5a56, near: 34, far: 92 },
+    hemi: { sky: 0xa8d0d4, ground: 0x6a5038, i: 1.6 },
+    key: { color: 0xffd49a, i: 3.0, offset: [-11, 24, 20] },     // экран: сверху слева, чуть со стороны камеры
+    warm: { color: 0xff9a4a, i: 24, dist: 14, decay: 1.5 },
+    violet: { color: 0x9a62ff, i: 14, dist: 11, decay: 1.6, y: 2.0 },
+  },
   slashColor: 0xc9a8ff,
 };
 
@@ -85,8 +94,28 @@ export const CAMERA = {
   shake: { decay: 2.5, amp: 0.4 }, hitStop: 0.06,
 };
 
+// ---------- тени (одна shadow map направленного света вокруг цели камеры) ----------
+export const SHADOW = {
+  half: 19, ahead: 3.0,           // полуразмер ортокамеры тени, м; сдвиг центра от цели камеры вглубь кадра (туда видно дальше)
+  bias: -0.0006, normalBias: 0.03, radius: 3, intensity: 0.8,   // intensity: доля света, которую забирает тень (мягкие цветные тени)
+  grassDark: 0.58, groundAO: 0.62, // яркость травы в тени; затенение у земли (низ предметов и персонажей) — запечённый «AO по высоте»
+};
+// ---------- постобработка (js/render3d/post.js) ----------
+export const POST = {
+  exposure: 1.25, contrast: 1.0, saturation: 1.06,
+  shadowTint: 0x9fc4cc,          // тени уходят в холодную бирюзу
+  highTint: 0xfff0d4,            // света — в тёплое золото
+  vignette: 0.42, grain: 0.012,
+  bloom: { threshold: 0.92, knee: 0.35, strength: 0.75 },
+};
+
 // ---------- качество и ветер ----------
-export const QUALITY = { low: { name: 'Низкое', pr: 1 }, med: { name: 'Среднее', pr: 1.5 }, high: { name: 'Высокое', pr: 2 } };
+// shadow — размер shadow map (0 — без теней), post — постобработка (bloom, цветокоррекция, виньетка), msaa — сглаживание цели постобработки
+export const QUALITY = {
+  low: { name: 'Низкое', pr: 1, shadow: 0, post: false, msaa: 0, bloom: 0, decor: 0.35, light: 0.8 },   // light: без кривой тонов свет чуть слабее
+  med: { name: 'Среднее', pr: 1.5, shadow: 1024, post: true, msaa: 0, bloom: 3, decor: 0.7 },
+  high: { name: 'Высокое', pr: 2, shadow: 2048, post: true, msaa: 4, bloom: 4, decor: 1 },
+};
 export const GRASS_K = { low: 0.3, med: 0.6, high: 1 };
 export const WIND = [{ name: 'Штиль', s: 0.35 }, { name: 'Ветер', s: 1 }, { name: 'Буря', s: 2.1 }];
 

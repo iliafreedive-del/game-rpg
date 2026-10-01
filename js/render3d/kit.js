@@ -5,7 +5,7 @@ import { toon } from './toon.js';
 import * as geo from './geo.js';
 import * as rig from './rig.js';
 import { Cape, blobShadow } from './cape.js';
-import { PAL, HERO, MOB, OUTLINE, RIM, FOLIAGE, LOOKS } from './style.js';
+import { PAL, HERO, MOB, OUTLINE, RIM, FOLIAGE, LOOKS, SHADOW } from './style.js';
 
 export function makeKit(scene) {
   const { part, merge } = geo;
@@ -22,7 +22,7 @@ export function makeKit(scene) {
     mesh: (geometry, material) => new THREE.Mesh(geometry, material),
     // материал персонажа: тон-рамп, rim-свет, самосвечение по альфе цвета вершины, вспышка при ударе
     // материал предмета окружения: ветер (def.sway), растворение между камерой и героем (fade), rim-свет
-    propMat: (def = {}) => toon(0xffffff, { vc: true, rim: def.rim ?? RIM.prop, rimColor: def.rimColor ?? LOOKS.torch.rim, fade: true, sway: def.sway, side: def.side === 'double' ? THREE.DoubleSide : undefined }),
-    mat: (o = {}) => toon(0xffffff, { vc: true, rim: o.rim ?? 0.7, rimColor: o.rimColor ?? 0xffe2b8, side: o.side }),
+    propMat: (def = {}) => toon(0xffffff, { vc: true, rim: def.rim ?? RIM.prop, rimColor: def.rimColor ?? LOOKS.torch.rim, fade: true, sway: def.sway, side: def.side === 'double' ? THREE.DoubleSide : undefined, ao: def.ao ?? SHADOW.groundAO, aoH: def.aoH ?? 0.9 }),
+    mat: (o = {}) => toon(0xffffff, { vc: true, rim: o.rim ?? 0.7, rimColor: o.rimColor ?? 0xffe2b8, side: o.side, ao: 0.72, aoH: 0.55 }),
   };
 }
