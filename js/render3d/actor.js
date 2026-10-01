@@ -7,7 +7,7 @@ import { blobShadow } from './cape.js';
 import { OUTLINE } from './style.js';
 
 // если у модели нет клипа, берём ближайший (так можно отдавать модель с минимумом клипов)
-export const CLIP_FALLBACK = { run: 'walk', dodge: 'walk', talk: 'idle', attack2: 'attack', slam: 'attack', roar: 'cast', special: 'cast', stun: 'hit', spawn: 'idle' };
+export const CLIP_FALLBACK = { run: 'walk', dodge: 'walk', talk: 'idle', attack2: 'attack', slam: 'attack', lunge: 'attack', roar: 'cast', special: 'cast', stun: 'hit', spawn: 'idle' };
 export const REQUIRED_CLIPS = ['idle', 'walk', 'attack', 'hit', 'death', 'cast'];
 
 const olCache = new Map();

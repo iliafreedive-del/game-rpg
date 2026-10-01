@@ -118,7 +118,7 @@ function setPointCount(n) {
 }
 function lightSets(z) {
   const on = z.lights.filter(l => l.on);
-  const glow = glowSet(on.map(l => ({ x: l.x, y: l.z || 1, z: l.y, s: 0.35 + l.r * 0.2, c: hex(l.c), k: 0.9 })), false);
+  const glow = glowSet(on.map(l => ({ x: l.x, y: l.z || 1, z: l.y, s: 0.3 + l.r * 0.09, c: hex(l.c), k: 0.7 })), false);   // ореол небольшой: не «засвечивает» тех, кто рядом
   const pool = glowSet(on.map(l => ({ x: l.x, y: 0.05, z: l.y, s: l.r * 0.55, c: hex(l.c), k: z.id === 'town' ? 0.35 : 0.5 })), true);
   scene.add(glow, pool); return { glow, pool, onKey: on.length };
 }
@@ -174,7 +174,7 @@ function syncEnemies(dt) {
     const a = getActor(e, def, { scale: (e.champion ? 1.25 : 1) * (def === MOBS[e.type] ? 1 : e.r / 0.34) }); a.isEnemy = true;
     const c = measure(a, e, dt), an = e.anim; let clip = 'idle', k, impact, speed = 0;
     if (e.dead) { clip = 'death'; k = an.prog; }
-    else if (e.state === 'attack') { clip = e.D.proj ? 'cast' : 'attack'; k = an.prog; impact = e.atk ? e.atk.impact : undefined; }
+    else if (e.state === 'attack') { clip = e.D.proj ? 'cast' : (e.atk && e.atk.kind) || 'attack';   /* у босса: attack2, slam, roar */ k = an.prog; impact = e.atk ? e.atk.impact : undefined; }
     else if (e.hitStun > 0) { clip = 'hit'; k = an.prog; }
     else if (c.moving) { clip = 'walk'; speed = c.v; }
     a.place(e.x, e.y); a.faceAngle(yawOfDir(e.dir));
@@ -223,7 +223,7 @@ function updateLights(t, dt) {
   for (const s of slots) {
     const L = s.L; if (!L) { s.lt.intensity = 0; continue; }
     if (want.includes(L)) s.k = Math.min(1, s.k + dt * 3);
-    s.lt.color.setRGB(L.c[0] / 255, L.c[1] / 255, L.c[2] / 255); s.lt.position.set(L.x, L.z || 1.4, L.y);
+    s.lt.color.setRGB(L.c[0] / 255, L.c[1] / 255, L.c[2] / 255); s.lt.position.set(L.x, Math.max(L.z || 1.4, 2.0), L.y);   // не ниже 2 м: стоящие вплотную не «выгорают»
     const fl = L.flicker > 0.6 ? f : 0.92 + Math.sin(t * 2.1 + L.seed) * 0.08 * (L.flicker || 0.3);
     s.lt.distance = Math.max(town ? 8 : 6, L.r * (town ? 2.6 : 2.0)); s.lt.decay = base.decay;
     s.lt.intensity = base.i * fl * s.k * (town ? Math.min(1, 1.6 - Math.hypot(L.x - P.x, L.y - P.y) / 22) : 1);

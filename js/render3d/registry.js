@@ -4,6 +4,11 @@
 import warrior from './models/hero/warrior.js';
 import skel_warrior from './models/mob/skel_warrior.js';
 import ghoul from './models/mob/ghoul.js';
+import skel_archer from './models/mob/skel_archer.js';
+import skel_mage from './models/mob/skel_mage.js';
+import beast from './models/mob/beast.js';
+import elite_guard from './models/mob/elite_guard.js';
+import boss from './models/mob/boss.js';
 import npc_elder from './models/npc/npc_elder.js';
 import npc_smith from './models/npc/npc_smith.js';
 import npc_merchant from './models/npc/npc_merchant.js';
@@ -12,6 +17,9 @@ import sword_iron from './models/weapon/sword_iron.js';
 import shield_round from './models/weapon/shield_round.js';
 import sword_rust from './models/weapon/sword_rust.js';
 import shield_bone from './models/weapon/shield_bone.js';
+import bow_bone from './models/weapon/bow_bone.js';
+import staff_bone from './models/weapon/staff_bone.js';
+import axe_great from './models/weapon/axe_great.js';
 import tree_0 from './models/prop/tree_0.js';
 import tree_1 from './models/prop/tree_1.js';
 import tree_birch from './models/prop/tree_birch.js';
@@ -81,9 +89,9 @@ import stump from './models/prop/stump.js';
 
 const by = (...l) => Object.fromEntries(l.map(m => [m.id, m]));
 export const HEROES = by(warrior);                       // ключ — класс героя
-export const MOBS = by(skel_warrior, ghoul);             // ключ — тип врага (ENEMIES)
+export const MOBS = by(skel_warrior, ghoul, skel_archer, skel_mage, beast, elite_guard, boss);             // ключ — тип врага (ENEMIES)
 export const NPCS = by(npc_elder, npc_smith, npc_merchant, npc_trainer);
-export const WEAPONS = by(sword_iron, shield_round, sword_rust, shield_bone);
+export const WEAPONS = by(sword_iron, shield_round, sword_rust, shield_bone, bow_bone, staff_bone, axe_great);
 export const PROPS = by(tree_0, tree_1, tree_birch, tree_autumn, tree_elm, tree_pine_tall, tree_fir_blue, deadtree, house_0, house_1, house_2, rocks, grave, fence_x, fence_y, barrel, crate, hay, lamp, runebed, forge, stall, board, altar, banner, statue, weapon_rack, crystals, portal,
   fern, flowers, pebbles, mushrooms, bush, sacks, logpile, stump,
   dwall_hi, dwall_lo, dwall_buttress, dwall_niche, wall_block, torch_sconce, pillar, brazier, bones, skulls, rubble, candles, chest, chest_open, chest_rich, chest_rich_open, sarcophagus, sarcophagus_open, door, door_open, gate_sealed, altar_medallion, stalagmite, lavarock, puddle, rug, bookshelf, throne, well);   // подземелье (стены dwall_* ставит dungeon.js по тайлам)   // последние восемь — декор земли и хлам у домов (js/render3d/props.js, scatterDecor), в картах не стоят

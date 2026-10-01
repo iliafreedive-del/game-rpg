@@ -77,7 +77,7 @@ export const LIGHT = {
     clear: 0x2c4a48, fog: { color: 0x3a5a56, near: 34, far: 92 },
     hemi: { sky: 0xa8d0d4, ground: 0x8a6a48, i: 1.6 },
     key: { color: 0xffd49a, i: 3.0, offset: [-11, 24, 20] },     // экран: сверху слева, чуть со стороны камеры
-    warm: { color: 0xff9a4a, i: 24, dist: 14, decay: 1.5 },
+    warm: { color: 0xff9a4a, i: 13, dist: 14, decay: 1.8 },
     violet: { color: 0x9a62ff, i: 14, dist: 11, decay: 1.6, y: 2.0 },
   },
   // подземелья (катакомбы, глубины): холодная синева вместо неба, тёплые факелы — пул ближайших точечных огней;
@@ -86,7 +86,7 @@ export const LIGHT = {
     clear: 0x05060a, fog: { color: 0x0a0c14, near: 26, far: 64 },
     hemi: { sky: 0x6a8ab8, ground: 0x3a2c20, i: 1.65 },
     key: { color: 0x9ab4ff, i: 1.1, offset: [-11, 24, 20] },
-    point: { i: 30, dist: 11, decay: 1.6 },
+    point: { i: 18, dist: 11, decay: 1.7 },
     biome: { flooded: { sky: 0x4a90a8, fog: 0x08181e }, ash: { sky: 0xa0583a, fog: 0x1a0a06 }, abyss: { sky: 0x7a5ab8, fog: 0x120a20 } },
   },
   // цитадель Ордена и арена: светло и читаемо (тёплый камень, золото)
@@ -94,7 +94,7 @@ export const LIGHT = {
     clear: 0x141218, fog: { color: 0x2a2630, near: 34, far: 90 },
     hemi: { sky: 0xb0b8d0, ground: 0x5a4a38, i: 1.5 },
     key: { color: 0xffe0b0, i: 2.0, offset: [-11, 24, 20] },
-    point: { i: 18, dist: 10, decay: 1.6 },
+    point: { i: 12, dist: 10, decay: 1.7 },
   },
   slashColor: 0xc9a8ff,
 };

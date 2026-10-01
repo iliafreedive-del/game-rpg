@@ -166,4 +166,5 @@ export function taperTube(pts, r0, r1, radial = 6) {
   return g;
 }
 // Тело вращения по профилю [[r, y], …] (нагрудники, поножи, наручи, черепа): segs граней по кругу
-export const lathe = (prof, segs = 12) => new THREE.LatheGeometry(prof.map(([r, y]) => new THREE.Vector2(r, y)), segs);
+// профиль, заданный сверху вниз, разворачивается — иначе грани смотрят внутрь (чёрные капюшоны и мантии)
+export const lathe = (prof, segs = 12) => { const p = prof[prof.length - 1][1] < prof[0][1] ? prof.slice().reverse() : prof; return new THREE.LatheGeometry(p.map(([r, y]) => new THREE.Vector2(r, y)), segs); };
