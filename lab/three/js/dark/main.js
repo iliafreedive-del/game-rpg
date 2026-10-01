@@ -9,7 +9,7 @@ import { DarkHero } from './hero.js';
 import { Mobs } from './mobs.js';
 
 const params = new URLSearchParams(location.search);
-const LOOK = window.LOOK || params.get('look') || 'dark', TORCH = LOOK === 'torch';
+const LOOK = window.LOOK || params.get('look') || 'dark', TORCH = LOOK === 'torch', CAM2 = window.CAMV === 2;   // CAM2: lower, more forward-tilted camera, hero higher in frame
 const dpr = window.devicePixelRatio || 1;
 const canvas = document.getElementById('c');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: dpr < 2, powerPreference: 'high-performance', preserveDrawingBuffer: params.has('shot') });
@@ -56,9 +56,9 @@ ui.outline.onclick = () => { state.outlines = !state.outlines; applyOutlines(); 
 ui.wind.onclick = () => { state.wind = (state.wind + 1) % WIND.length; applyWind(); };
 
 // ---------- camera: hero sits in the lower third so the tall gate stays in frame ----------
-const CAM_YAW = Math.PI / 4, CAM_PITCH = TORCH ? 0.8 : 0.74, AIM = TORCH ? 4.2 : 2.6;
+const CAM_YAW = Math.PI / 4, CAM_PITCH = CAM2 ? 0.64 : TORCH ? 0.8 : 0.74, AIM = CAM2 ? 1.0 : TORCH ? 4.2 : 2.6;
 const camTarget = new THREE.Vector3();
-const BASE = TORCH ? 28 : 15;
+const BASE = CAM2 ? 30 : TORCH ? 28 : 15;
 let camDist = BASE, shake = 0;
 function resize() {
   const w = innerWidth, h = innerHeight; renderer.setSize(w, h, false); camera.aspect = w / h;
