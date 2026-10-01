@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#1b1424">
+<title>Dark Ascent — Three.js стиль</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #1b1424; touch-action: none; user-select: none; -webkit-user-select: none; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  #c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+  #vignette { position: fixed; inset: 0; pointer-events: none; background: radial-gradient(ellipse at 50% 45%, rgba(0,0,0,0) 55%, rgba(10,6,20,.42) 100%); }
+  #top { position: fixed; left: max(12px, env(safe-area-inset-left)); top: max(10px, env(safe-area-inset-top)); right: 12px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; pointer-events: none; }
+  #top h1 { margin: 0 8px 0 0; font: 700 16px/1 Georgia, serif; letter-spacing: .08em; color: #f3dfa6; text-shadow: 0 2px 0 #1b1424, 0 0 12px rgba(0,0,0,.6); }
+  #top button { pointer-events: auto; font: 600 12px/1 system-ui, sans-serif; color: #f6ecd2; background: rgba(27,20,36,.72); border: 1px solid rgba(243,223,166,.35); border-radius: 999px; padding: 7px 11px; cursor: pointer; }
+  #top button:active { transform: translateY(1px); }
+  #stats { position: fixed; left: max(12px, env(safe-area-inset-left)); bottom: max(8px, env(safe-area-inset-bottom)); font: 11px/1 ui-monospace, monospace; color: rgba(255,255,255,.75); text-shadow: 0 1px 0 #000; pointer-events: none; }
+  #hint { position: fixed; left: 50%; transform: translateX(-50%); bottom: max(10px, env(safe-area-inset-bottom)); font: 12px/1.3 system-ui, sans-serif; color: rgba(255,255,255,.8); text-shadow: 0 1px 2px #000; pointer-events: none; text-align: center; max-width: 60vw; }
+  #joyZone { position: fixed; left: 0; top: 56px; bottom: 0; width: 55%; }
+  #joyBase { position: fixed; width: 120px; height: 120px; margin: -60px 0 0 -60px; border-radius: 50%; background: rgba(255,255,255,.08); border: 2px solid rgba(255,255,255,.22); opacity: 0; transition: opacity .12s; pointer-events: none; }
+  #joyBase.on { opacity: 1; }
+  #joyKnob { position: absolute; left: 50%; top: 50%; width: 52px; height: 52px; border-radius: 50%; background: radial-gradient(circle at 40% 35%, #f6e2a8, #b88a3e); box-shadow: 0 3px 8px rgba(0,0,0,.5); transform: translate(-50%,-50%); }
+  #atk { position: fixed; right: max(22px, env(safe-area-inset-right)); bottom: max(28px, env(safe-area-inset-bottom)); width: 86px; height: 86px; border-radius: 50%; border: 3px solid #e2b04a; background: radial-gradient(circle at 40% 35%, #4a3a5e, #1b1424); color: #f3dfa6; font-size: 34px; box-shadow: 0 4px 14px rgba(0,0,0,.5); cursor: pointer; }
+  #atk.on { transform: scale(.94); filter: brightness(1.3); }
+  #loading { position: fixed; inset: 0; display: grid; place-items: center; color: #f3dfa6; font: 600 15px Georgia, serif; background: #1b1424; }
+  @media (max-width: 560px) { #top h1 { width: 100%; } #hint { display: none; } }
+</style>
+<script type="importmap">{ "imports": { "three": "./vendor/three.module.min.js" } }</script>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="vignette"></div>
+<div id="joyZone"></div>
+<div id="joyBase"><div id="joyKnob"></div></div>
+<button id="atk" aria-label="Атака">⚔</button>
+<div id="top">
+  <h1>DARK ASCENT · 3D</h1>
+  <button id="bPreset"></button>
+  <button id="bWind"></button>
+  <button id="bQuality"></button>
+  <button id="bOutline"></button>
+</div>
+<div id="stats"></div>
+<div id="hint">WASD / джойстик — бег · Пробел / ⚔ — удар · встаньте рядом с врагом — герой бьёт сам</div>
+<div id="loading">Загрузка…</div>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>

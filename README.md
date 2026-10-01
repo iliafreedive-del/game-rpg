@@ -62,3 +62,6 @@ python3 build_hero.py && python3 build_monsters.py && python3 build_props.py
 cd ../level && python3 levels.py && python3 bake.py
 ```
 Нужны Python 3.10+, numpy, Pillow. Полная сборка ~40 минут на одном ядре.
+
+## Прототип 3D-графики (Three.js)
+`lab/three/` — демо-сцена в стилизованном 3D: трава и деревья на ветру, плащ на физике, чиби-герой и мобы. Запуск и план переноса в игру описаны в `lab/three/README.md`, обоснование стиля — в `docs/GRAPHICS_STYLE.md`. В архив для Яндекс Игр папки `lab/`, `docs/` и `tools/` не включаются.
