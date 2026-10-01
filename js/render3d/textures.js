@@ -259,3 +259,32 @@ export function pineTex() {
   });
   const t = leafAlpha(c); cache.set('pine', t); return t;
 }
+
+// плиты пола подземелья: ряды каменных плит разной длины, швы, стёртые края, трещины, сколы (серый множитель; цвет — в шейдере)
+export function flagTex() {
+  if (cache.has('flag')) return cache.get('flag');
+  const S = 512, c = canvas(S), x = c.getContext('2d'), R = rng(151), rows = 5, rh = S / rows;
+  x.fillStyle = gray(38); x.fillRect(0, 0, S, S);
+  for (let r = 0; r < rows; r++) {
+    let X = -R() * 80;
+    while (X < S) {
+      const w = 70 + R() * 90, y0 = r * rh, tone = 110 + R() * 60, j = () => (R() - 0.5) * 5;
+      const poly = [[X + 3 + j(), y0 + 3 + j()], [X + w - 3 + j(), y0 + 3 + j()], [X + w - 3 + j(), y0 + rh - 3 + j()], [X + 3 + j(), y0 + rh - 3 + j()]];
+      const blobs = Array.from({ length: 10 }, () => [R(), R(), 8 + R() * 22, tone + (R() - 0.5) * 40]);
+      const crack = R() < 0.3 ? Array.from({ length: 5 }, () => [(R() - 0.5) * 24, rh / 5]) : null, cx0 = R();
+      for (const ox of [0, -S]) {
+        if (ox && X + w <= S) continue;
+        x.save(); x.translate(ox, 0);
+        x.fillStyle = gray(tone); x.beginPath(); poly.forEach(([a, b], i) => i ? x.lineTo(a, b) : x.moveTo(a, b)); x.closePath(); x.fill(); x.clip();
+        for (const [u, v, rr, t] of blobs) { x.fillStyle = gray(t, 0.25); x.beginPath(); x.ellipse(X + u * w, y0 + v * rh, rr, rr * 0.7, 0, 0, 6.28); x.fill(); }
+        // стёртые края: светлая верхняя кромка, тёмная нижняя
+        const g = x.createLinearGradient(0, y0, 0, y0 + rh); g.addColorStop(0, gray(215, 0.35)); g.addColorStop(0.15, gray(128, 0)); g.addColorStop(0.85, gray(128, 0)); g.addColorStop(1, gray(20, 0.4));
+        x.fillStyle = g; x.fillRect(X, y0, w, rh);
+        if (crack) { x.strokeStyle = gray(28, 0.85); x.lineWidth = 1.3; x.beginPath(); let a = X + cx0 * w, b = y0 + 4; x.moveTo(a, b); for (const [dx, dy] of crack) { a += dx; b += dy; x.lineTo(a, b); } x.stroke(); }
+        x.restore();
+      }
+      X += w;
+    }
+  }
+  const t = tex(c, false); cache.set('flag', t); return t;
+}

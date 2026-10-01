@@ -9,6 +9,7 @@ import { makeKit } from './kit.js';
 import { Actor, setOutlinesVisible } from './actor.js';
 import { PropLayer } from './props.js';
 import { buildGround } from './ground.js';
+import { buildDungeonFloor } from './dungeon.js';
 import { glowSet } from './glow.js';
 import { HEROES, MOBS, NPCS, WEAPONS, WEAPON_MODEL, OFFHAND_MODEL } from './registry.js';
 import { LIGHT, CAMERA, QUALITY, SHADOW, HERO } from './style.js';
@@ -18,7 +19,8 @@ const params = new URLSearchParams(location.search);
 const SQ = Math.SQRT1_2;
 let canvas, renderer, scene, camera, kit, W = 800, H = 450, DPR = 1;
 let zone = null, world = null, lights = null, quality = '', post = null;
-const LV = LIGHT.village3;
+let LV = LIGHT.village3;                 // пресет света текущей зоны (presetFor)
+const slots = [];                        // пул точечных огней: { lt, L, k } — ближайшие огни зоны, плавно появляются и гаснут
 const actors = new Map();            // сущность игры → Actor
 const camTarget = new THREE.Vector3();
 let camDist = CAMERA.village.dist, last = performance.now(), tAll = 0, spawned = false;
@@ -38,7 +40,8 @@ export function webglAvailable() {
   try { const c = document.createElement('canvas'); return !!(c.getContext('webgl2') || c.getContext('webgl')); } catch { return false; }
 }
 // что умеет 3D-срез прямо сейчас: деревня и герой-воин (остальное рисует 2D-рендерер)
-export function supports(z, profile) { return !!z && z.id === 'town' && !!HEROES[(profile && profile.cls) || 'warrior']; }
+// что умеет 3D: деревня и все подземелья (катакомбы, глубины, цитадель, арена) для героя-воина; лучник и маг пока идут в 2D
+export function supports(z, profile) { return !!z && !!HEROES[(profile && profile.cls) || 'warrior']; }
 
 export function init() {
   canvas = document.createElement('canvas'); canvas.id = 'game3d';
@@ -53,9 +56,8 @@ export function init() {
   renderer.setClearColor(L.clear); scene.fog = new THREE.Fog(L.fog.color, L.fog.near, L.fog.far);
   lights = {
     hemi: new THREE.HemisphereLight(L.hemi.sky, L.hemi.ground, L.hemi.i), moon: new THREE.DirectionalLight(L.key.color, L.key.i),
-    warm: new THREE.PointLight(L.warm.color, L.warm.i, L.warm.dist, L.warm.decay), accent: new THREE.PointLight(L.violet.color, L.violet.i, L.violet.dist, L.violet.decay),
   };
-  scene.add(lights.hemi, lights.moon, lights.moon.target, lights.warm, lights.accent);
+  scene.add(lights.hemi, lights.moon, lights.moon.target);
   const sc = lights.moon.shadow.camera; sc.left = sc.bottom = -SHADOW.half; sc.right = sc.top = SHADOW.half; sc.near = 1; sc.far = 90;
   lights.moon.shadow.bias = SHADOW.bias; lights.moon.shadow.normalBias = SHADOW.normalBias; lights.moon.shadow.radius = SHADOW.radius; lights.moon.shadow.intensity = SHADOW.intensity; sc.updateProjectionMatrix(); sc.layers.enable(1);   // слой 1 — заменители теней крон
   U.uWindStr.value = 1;
@@ -81,6 +83,7 @@ function applyQuality(force) {
   setOutlinesVisible(q !== 'low'); if (world) { world.ground.setQuality(q); world.props.setQuality(q); }
   const sm = Q.shadow;
   lights.hemi.intensity = LV.hemi.i * (Q.light ?? 1); lights.moon.intensity = LV.key.i * (Q.light ?? 1);
+  setPointCount(zone && zone.id === 'town' ? 2 : Q.points);
   if (lights.moon.castShadow !== !!sm || lights.moon.shadow.mapSize.x !== sm) {
     lights.moon.castShadow = !!sm;
     if (sm) { lights.moon.shadow.mapSize.set(sm, sm); if (lights.moon.shadow.map) { lights.moon.shadow.map.dispose(); lights.moon.shadow.map = null; } }
@@ -96,13 +99,37 @@ function disposeWorld() {
   world.ground.dispose(); world.props.dispose(); world.glow.removeFromParent(); world.pool.removeFromParent(); world = null;
 }
 const hex = c => (c[0] << 16) | (c[1] << 8) | c[2];
-function setZone(z) {
-  disposeWorld(); zone = z;
-  const ground = buildGround(scene, z), props = new PropLayer(scene, kit, z);
+// пресет света по зоне: деревня, подземелье (с биомом глубин), цитадель/арена
+function presetFor(z) {
+  if (z.id === 'town') return { ...LIGHT.village3, look: null };
+  if (z.id === 'castle' || z.id === 'survival') return { ...LIGHT.castle, look: { floor: 0x9a8e7a, grime: 0x4a4034, moss: 0x5a6a3a } };
+  const C = LIGHT.crypt, b = C.biome[z.json && z.json.biome];
+  const look = { floor: 0x7a7266, grime: 0x3a3028, moss: 0x3a5a3a };
+  if (z.json && z.json.biome === 'flooded') Object.assign(look, { floor: 0x6a7a80, moss: 0x2a6a6a });
+  if (z.json && z.json.biome === 'ash') Object.assign(look, { floor: 0x5a4a40, grime: 0x2a1a12, moss: 0x6a3a1a });
+  if (z.json && z.json.biome === 'abyss') Object.assign(look, { floor: 0x5a5470, moss: 0x5a3a8a });
+  return { ...C, look, hemi: b ? { ...C.hemi, sky: b.sky } : C.hemi, fog: b ? { ...C.fog, color: b.fog } : C.fog, clear: b ? b.fog : C.clear };
+}
+function setPointCount(n) {
+  if (slots.length === n) return;
+  while (slots.length > n) slots.pop().lt.removeFromParent();
+  while (slots.length < n) { const lt = new THREE.PointLight(0xff9a4a, 0, 10, 1.6); scene.add(lt); slots.push({ lt, L: null, k: 0 }); }
+  scene.traverse(o => { if (o.material && o.material.isMaterial) o.material.needsUpdate = true; });
+}
+function lightSets(z) {
   const on = z.lights.filter(l => l.on);
   const glow = glowSet(on.map(l => ({ x: l.x, y: l.z || 1, z: l.y, s: 0.35 + l.r * 0.2, c: hex(l.c), k: 0.9 })), false);
-  const pool = glowSet(on.map(l => ({ x: l.x, y: 0.05, z: l.y, s: l.r * 0.55, c: hex(l.c), k: 0.35 })), true);
-  scene.add(glow, pool); world = { ground, props, glow, pool };
+  const pool = glowSet(on.map(l => ({ x: l.x, y: 0.05, z: l.y, s: l.r * 0.55, c: hex(l.c), k: z.id === 'town' ? 0.35 : 0.5 })), true);
+  scene.add(glow, pool); return { glow, pool, onKey: on.length };
+}
+function setZone(z) {
+  disposeWorld(); zone = z; LV = presetFor(z);
+  renderer.setClearColor(LV.clear); scene.fog.color.setHex(LV.fog.color); scene.fog.near = LV.fog.near; scene.fog.far = LV.fog.far;
+  lights.hemi.color.setHex(LV.hemi.sky); lights.hemi.groundColor.setHex(LV.hemi.ground); lights.moon.color.setHex(LV.key.color);
+  for (const s of slots) { s.L = null; s.k = 0; s.lt.intensity = 0; }
+  const town = z.id === 'town';
+  const ground = town ? buildGround(scene, z) : buildDungeonFloor(scene, z, LV.look), props = new PropLayer(scene, kit, z, town);
+  world = { ground, props, ...lightSets(z) };
   props.cull(camera, true); applyQuality(true); ground.setQuality(quality); spawned = false;
 }
 
@@ -184,14 +211,32 @@ function updateCamera() {
 }
 const _right = new THREE.Vector3(), _off = new THREE.Vector3(), _c = new THREE.Color();
 const _sc = new THREE.Vector3(), _ld = new THREE.Vector3(), _zero = new THREE.Vector3(), _up = new THREE.Vector3(0, 1, 0), _basis = new THREE.Matrix4(), _inv = new THREE.Matrix4();
-function updateLights(t) {
-  const P = G.player, Lw = LV, f = 0.82 + Math.sin(t * 13) * 0.08 + Math.sin(t * 23.7) * 0.06 + Math.sin(t * 5.1) * 0.06;
-  const near = zone.lights.filter(l => l.on).map(l => ({ l, d: Math.hypot(l.x - P.x, l.y - P.y) })).sort((a, b) => a.d - b.d);
-  for (const [lt, base, idx] of [[lights.warm, Lw.warm, 0], [lights.accent, Lw.violet, 1]]) {
-    const n = near[idx]; lt.visible = !!n; if (!n) continue;
-    const L = n.l; _c.setRGB(L.c[0] / 255, L.c[1] / 255, L.c[2] / 255);
-    lt.color.lerp(_c, 0.08); lt.position.lerp(_off.set(L.x, L.z || 1.4, L.y), 0.08);
-    lt.distance = Math.max(8, L.r * 2.6); lt.intensity = base.i * (idx ? 0.85 + Math.sin(t * 2.1) * 0.15 : f) * Math.min(1, 1.6 - n.d / 22);
+function updateLights(t, dt) {
+  const P = G.player, f = 0.82 + Math.sin(t * 13) * 0.08 + Math.sin(t * 23.7) * 0.06 + Math.sin(t * 5.1) * 0.06;
+  const on = zone.lights.filter(l => l.on);
+  if (on.length !== world.onKey) { world.glow.removeFromParent(); world.pool.removeFromParent(); Object.assign(world, lightSets(zone)); }   // портал проявился, алтарь погас
+  const want = on.map(l => ({ l, d: Math.hypot(l.x - P.x, l.y - P.y) })).sort((a, b) => a.d - b.d).slice(0, slots.length).map(n => n.l);
+  // огонь, выпавший из ближних, плавно гаснет; освободившийся слот плавно зажигает новый — без «прыжков» света
+  for (const s of slots) if (s.L && !want.includes(s.L)) { s.k -= dt * 3; if (s.k <= 0) { s.L = null; s.k = 0; } }
+  for (const L of want) if (!slots.some(s => s.L === L)) { const s = slots.find(s => !s.L); if (s) { s.L = L; s.k = 0; } }
+  const town = zone.id === 'town', base = town ? LV.warm : LV.point;
+  for (const s of slots) {
+    const L = s.L; if (!L) { s.lt.intensity = 0; continue; }
+    if (want.includes(L)) s.k = Math.min(1, s.k + dt * 3);
+    s.lt.color.setRGB(L.c[0] / 255, L.c[1] / 255, L.c[2] / 255); s.lt.position.set(L.x, L.z || 1.4, L.y);
+    const fl = L.flicker > 0.6 ? f : 0.92 + Math.sin(t * 2.1 + L.seed) * 0.08 * (L.flicker || 0.3);
+    s.lt.distance = Math.max(town ? 8 : 6, L.r * (town ? 2.6 : 2.0)); s.lt.decay = base.decay;
+    s.lt.intensity = base.i * fl * s.k * (town ? Math.min(1, 1.6 - Math.hypot(L.x - P.x, L.y - P.y) / 22) : 1);
+  }
+}
+
+// персонажи вне кадра не рисуются (их SkinnedMesh без авто-отсечения): сфера по росту вокруг каждого
+const _fr = new THREE.Frustum(), _pv = new THREE.Matrix4(), _sph = new THREE.Sphere();
+function cullActors() {
+  _pv.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse); _fr.setFromProjectionMatrix(_pv);
+  for (const a of actors.values()) {
+    _sph.center.set(a.root.position.x, a.size * 0.5, a.root.position.z); _sph.radius = a.size * 0.9 + 1.5;   // запас: тень и оружие
+    a.setVisible(_fr.intersectsSphere(_sph));
   }
 }
 
@@ -201,8 +246,8 @@ export function render() {
   const now = performance.now(), dt = Math.min(0.05, (now - last) / 1000); last = now; tAll += dt; U.uTime.value = tAll;
   if (Z !== zone) setZone(Z);
   applyQuality();
-  updateCamera(); updateLights(tAll);
-  syncPlayer(dt); syncEnemies(dt); syncNpcs(dt);
+  updateCamera(); updateLights(tAll, dt);
+  syncPlayer(dt); syncEnemies(dt); syncNpcs(dt); cullActors();
   world.props.cull(camera); world.props.update(tAll);
   world.ground.update([{ x: G.player.x, z: G.player.y, r: 0.7, w: 1 }, ...G.enemies.filter(e => !e.dead).slice(0, 10).map(e => ({ x: e.x, z: e.y, r: e.r * 1.6, w: 1 }))]);
   devSpawn();

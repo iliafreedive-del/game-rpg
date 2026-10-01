@@ -64,7 +64,7 @@ void main(){
   vec2 q = vUv - 0.5; q.x *= uRes.x / uRes.y * 0.75;
   c *= 1.0 - uVignette * smoothstep(0.35, 0.95, length(q));
   float n = fract(sin(dot(gl_FragCoord.xy + uTime, vec2(12.9898, 78.233))) * 43758.5453) - 0.5;
-  c += n * uGrain;
+  c += n * uGrain * smoothstep(0.03, 0.25, l);   // зерно только на светлом: пустота за стенами остаётся чистой
   gl_FragColor = vec4(c, 1.0);
   #include <colorspace_fragment>
 }`;

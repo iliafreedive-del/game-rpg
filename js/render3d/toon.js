@@ -110,9 +110,17 @@ const TEX_F = /* glsl */`
   diffuseColor.rgb *= clamp(1.0 + (d - 0.5) * amp, 0.3, 1.6);
 }
 `;
-const addTex = sh => {
+// world: фактура в мировых координатах (стены подземелья — кладка не повторяется блок к блоку)
+const TEX_WORLD = `
+#ifdef USE_INSTANCING
+  mat4 txM = modelMatrix * instanceMatrix;
+#else
+  mat4 txM = modelMatrix;
+#endif
+  vTP = (txM * vec4(position, 1.0)).xyz; vTN = mat3(txM) * normal;`;
+const addTex = (sh, world) => {
   Object.assign(sh.uniforms, texUniforms());
-  sh.vertexShader = 'attribute float aTex; varying float vTexId; varying vec3 vTP; varying vec3 vTN;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvTexId = aTex; vTP = position; vTN = normal;');
+  sh.vertexShader = 'attribute float aTex; varying float vTexId; varying vec3 vTP; varying vec3 vTN;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvTexId = aTex; ' + (world ? TEX_WORLD : 'vTP = position; vTN = normal;'));
   sh.fragmentShader = 'uniform sampler2D t_wood, t_stone, t_roof, t_plaster, t_metal, t_cloth, t_bark; varying float vTexId; varying vec3 vTP; varying vec3 vTN;\n' +
     sh.fragmentShader.replace('#include <color_fragment>', '#include <color_fragment>\n' + TEX_F);
 };
@@ -166,9 +174,9 @@ export function toon(color = 0xffffff, o = {}) {
       sh.fragmentShader.replace('#include <opaque_fragment>', RIM + '#include <opaque_fragment>');
     if (o.fade) addFade(sh);
     if (o.ao) addAO(sh, o.ao, o.aoH ?? 0.8);
-    if (o.tex) addTex(sh);
+    if (o.tex) addTex(sh, o.texWorld);
   };
-  m.customProgramCacheKey = () => 'toon' + (sw ? '-sway' : '') + (o.fade ? '-fade' : '') + (o.ao ? '-ao' + o.ao + '-' + (o.aoH ?? 0.8) : '') + (o.tex ? '-tex' : '');
+  m.customProgramCacheKey = () => 'toon' + (sw ? '-sway' : '') + (o.fade ? '-fade' : '') + (o.ao ? '-ao' + o.ao + '-' + (o.aoH ?? 0.8) : '') + (o.tex ? (o.texWorld ? '-texw' : '-tex') : '');
   return m;
 }
 

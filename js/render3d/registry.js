@@ -46,6 +46,35 @@ import flowers from './models/prop/flowers.js';
 import pebbles from './models/prop/pebbles.js';
 import mushrooms from './models/prop/mushrooms.js';
 import bush from './models/prop/bush.js';
+import dwall_hi from './models/prop/dwall_hi.js';
+import dwall_lo from './models/prop/dwall_lo.js';
+import dwall_buttress from './models/prop/dwall_buttress.js';
+import dwall_niche from './models/prop/dwall_niche.js';
+import wall_block from './models/prop/wall_block.js';
+import torch_sconce from './models/prop/torch_sconce.js';
+import pillar from './models/prop/pillar.js';
+import brazier from './models/prop/brazier.js';
+import bones from './models/prop/bones.js';
+import skulls from './models/prop/skulls.js';
+import rubble from './models/prop/rubble.js';
+import candles from './models/prop/candles.js';
+import chest from './models/prop/chest.js';
+import chest_open from './models/prop/chest_open.js';
+import chest_rich from './models/prop/chest_rich.js';
+import chest_rich_open from './models/prop/chest_rich_open.js';
+import sarcophagus from './models/prop/sarcophagus.js';
+import sarcophagus_open from './models/prop/sarcophagus_open.js';
+import door from './models/prop/door.js';
+import door_open from './models/prop/door_open.js';
+import gate_sealed from './models/prop/gate_sealed.js';
+import altar_medallion from './models/prop/altar_medallion.js';
+import stalagmite from './models/prop/stalagmite.js';
+import lavarock from './models/prop/lavarock.js';
+import puddle from './models/prop/puddle.js';
+import rug from './models/prop/rug.js';
+import bookshelf from './models/prop/bookshelf.js';
+import throne from './models/prop/throne.js';
+import well from './models/prop/well.js';
 import sacks from './models/prop/sacks.js';
 import logpile from './models/prop/logpile.js';
 import stump from './models/prop/stump.js';
@@ -56,7 +85,8 @@ export const MOBS = by(skel_warrior, ghoul);             // ключ — тип 
 export const NPCS = by(npc_elder, npc_smith, npc_merchant, npc_trainer);
 export const WEAPONS = by(sword_iron, shield_round, sword_rust, shield_bone);
 export const PROPS = by(tree_0, tree_1, tree_birch, tree_autumn, tree_elm, tree_pine_tall, tree_fir_blue, deadtree, house_0, house_1, house_2, rocks, grave, fence_x, fence_y, barrel, crate, hay, lamp, runebed, forge, stall, board, altar, banner, statue, weapon_rack, crystals, portal,
-  fern, flowers, pebbles, mushrooms, bush, sacks, logpile, stump);   // последние восемь — декор земли и хлам у домов (js/render3d/props.js, scatterDecor), в картах не стоят
+  fern, flowers, pebbles, mushrooms, bush, sacks, logpile, stump,
+  dwall_hi, dwall_lo, dwall_buttress, dwall_niche, wall_block, torch_sconce, pillar, brazier, bones, skulls, rubble, candles, chest, chest_open, chest_rich, chest_rich_open, sarcophagus, sarcophagus_open, door, door_open, gate_sealed, altar_medallion, stalagmite, lavarock, puddle, rug, bookshelf, throne, well);   // подземелье (стены dwall_* ставит dungeon.js по тайлам)   // последние восемь — декор земли и хлам у домов (js/render3d/props.js, scatterDecor), в картах не стоят
 
 // какая модель оружия соответствует типу оружия игры (wt); недостающие пока подменяются мечом
 export const WEAPON_MODEL = { sword: 'sword_iron', greatsword: 'sword_iron', axe: 'sword_iron' };

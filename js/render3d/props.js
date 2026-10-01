@@ -5,9 +5,12 @@ import { addOutlines, outlineMat } from './actor.js';
 import { PROPS, TREE_KINDS } from './registry.js';
 import { OUTLINE, QUALITY } from './style.js';
 import { fbm } from './geo.js';
+import { wallPieces } from './dungeon.js';
 
 const hash = (x, y) => { let h = (Math.round(x * 31) * 374761393 + Math.round(y * 31) * 668265263) >>> 0; h = (h ^ (h >>> 13)) * 1274126177 >>> 0; return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
 const warned = new Set();
+// предметы, которые игра меняет на лету: открытие дверей, сундуков, саркофагов, проявление порталов, секретная стена
+const DYN = new Set(['door', 'door_open', 'gate_sealed', 'chest', 'chest_open', 'chest_rich', 'chest_rich_open', 'sarcophagus', 'sarcophagus_open', 'altar', 'altar_medallion', 'portal']);
 // порода дерева по позиции: взвешенный выбор из TREE_KINDS (tree_0 — лиственные, tree_1 — хвойные)
 function pickTree(spr, h) { const L = TREE_KINDS[spr]; if (!L) return spr; let t = h * L.reduce((a, k) => a + k[1], 0); for (const [id, w] of L) { if ((t -= w) < 0) return id; } return L[0][0]; }
 // оттенок экземпляра: светлее/темнее, теплее/холоднее — соседние деревья одной породы не одинаковые
@@ -19,16 +22,29 @@ export class PropLayer {
   constructor(scene, kit, zone, wantBackdrop = true) {
     this.scene = scene; this.kit = kit; this.items = []; this.batches = []; this.dyn = [];
     const lists = new Map();   // id → [{x,y,rot,s,q}]
-    this._lists = lists; this.decorK = 1;
+    this._lists = lists; this.decorK = 1; this.zoneLights = zone.lights;
     const push = (id, x, y, rot, s, opts) => { if (!lists.has(id)) lists.set(id, []); const t = PROPS[id] && PROPS[id].tint; lists.get(id).push({ x, y, rot, s, opts, col: t ? tintOf(x, y, t) : null }); };
+    const dungeon = zone.id !== 'town', m = zone.map;
+    this.live = [];   // предметы, которые игра меняет на лету: { d, rot, cur, g }
     for (const d of zone.statics) {
-      if (d.hidden || d.flat) continue;
+      if (dungeon && d.wall && /^wall_/.test(d.spr)) {   // стены подземелья строятся по тайлам (dungeon.js); тут — факелы и секретная стена
+        const tx = Math.floor(d.x), ty = Math.floor(d.y);
+        if (m.ch(tx, ty) === 'S') { this.live.push({ d, rot: 0, model: 'wall_block' }); continue; }
+        if (d.spr === 'wall_torch') {
+          const f = [[1, 0], [0, 1], [-1, 0], [0, -1]].find(([dx, dy]) => { const c = m.ch(tx + dx, ty + dy); return c !== '#' && c !== ' '; });
+          if (f) push('torch_sconce', d.x + f[0] * 0.5, d.y + f[1] * 0.5, Math.atan2(f[0], f[1]), 1);
+        }
+        continue;
+      }
+      if (d.tag || d.hidden !== undefined || DYN.has(d.spr)) { this.live.push({ d, rot: d.flip ? Math.PI / 2 : 0 }); continue; }
+      if (d.hidden || (d.flat && !PROPS[d.spr])) continue;
       if (!PROPS[d.spr]) { if (!warned.has(d.spr)) { warned.add(d.spr); console.warn('[3D] нет модели предмета «' + d.spr + '» — не показан'); } continue; }
       const h = hash(d.x, d.y), isTree = d.spr === 'tree_0' || d.spr === 'tree_1' || d.spr === 'deadtree';
       const light = zone.lights.find(L => Math.hypot(L.x - d.x, L.y - d.y) < 0.3);
       push(isTree ? pickTree(d.spr, hash(d.x * 3.1 + 1, d.y * 1.7 + 2)) : d.spr, d.x, d.y, isTree ? h * 6.283 : 0, isTree ? 0.85 + h * 0.55 : 1, light ? { color: new THREE.Color(light.c[0] / 255, light.c[1] / 255, light.c[2] / 255) } : null);
     }
-    if (wantBackdrop) {  // лес за краем карты
+    if (dungeon) for (const w of wallPieces(zone)) push(w.id === 'dwall_lo' ? 'dwall_lo' : w.v < 0.62 ? 'dwall_hi' : w.v < 0.86 ? 'dwall_buttress' : 'dwall_niche', w.x, w.y, w.rot, 1);
+    if (wantBackdrop && !dungeon) {  // лес за краем карты
       const m = zone.map, G = 3.4, ring = 11;
       for (let y = -ring; y < m.h + ring; y += G) for (let x = -ring; x < m.w + ring; x += G) {
         if (x > -1.5 && y > -1.5 && x < m.w + 1.5 && y < m.h + 1.5) continue;
@@ -36,11 +52,12 @@ export class PropLayer {
         push(pickTree(h > 0.4 ? 'tree_1' : 'tree_0', hash(x * 2.3, y * 1.1 + 5)) + '_far', x + (hash(x, y) - 0.5) * 2, y + (hash(y, x) - 0.5) * 2, h * 6.28, 1 + hash(x * 2, y) * 0.6);
       }
     }
-    if (wantBackdrop) this.scatterDecor(zone, push);
+    if (wantBackdrop && !dungeon) this.scatterDecor(zone, push);
     for (const [id, list] of lists) {
       const def = PROPS[id];
       if (def.batch) this.addBatch(def, list); else for (const it of list) this.addSingle(def, it);
     }
+    this.syncLive();
     this.lastK = 1e9; this.pv = new THREE.Matrix4(); this.fr = new THREE.Frustum();
   }
   // Декор земли по карте: папоротники и кусты у кромки леса, цветы пятнами в траве, камешки у троп, грибы под деревьями.
@@ -86,6 +103,22 @@ export class PropLayer {
   lastPushedQ(id, q) { const l = this._lists.get(id); l[l.length - 1].q = q; }
   // окружение без обводки по умолчанию (как на референсах Torchlight); контур только у персонажей и оружия
   outlineFor(def) { const k = def.outline || null; return k ? outlineMat(k, true) : null; }
+  // предметы «на лету»: если игра поменяла d.spr (дверь открылась, сундук открыт) — пересобрать модель; d.hidden — спрятать
+  syncLive() {
+    for (const r of this.live) {
+      const want = r.model || r.d.spr;
+      if (want !== r.cur) {
+        if (r.g) { r.g.removeFromParent(); this.items = this.items.filter(o => o !== r.g); this.dyn = this.dyn.filter(o => o !== r.mdl); }
+        r.cur = want; r.g = null;
+        const def = PROPS[want];
+        if (!def) { if (!warned.has(want)) { warned.add(want); console.warn('[3D] нет модели предмета «' + want + '» — не показан'); } continue; }
+        const light = this.zoneLights && this.zoneLights.find(L => Math.hypot(L.x - r.d.x, L.y - r.d.y) < 0.3);
+        r.g = this.addSingle(def, { x: r.d.x, y: r.d.y, rot: r.rot, s: 1, opts: light ? { color: new THREE.Color(light.c[0] / 255, light.c[1] / 255, light.c[2] / 255) } : {} });
+        r.mdl = this.dyn[this.dyn.length - 1];
+      }
+      if (r.g) r.g.visible = !r.d.hidden;
+    }
+  }
   addSingle(def, it) {
     const model = def.build(this.kit, it.opts || {}), g = new THREE.Group(); g.add(model.root);
     g.position.set(it.x, 0, it.y); g.rotation.y = it.rot; g.scale.setScalar(it.s); this.scene.add(g);
@@ -93,6 +126,7 @@ export class PropLayer {
     model.root.traverse(o => { if (o.isMesh && !o.userData.isOutline) { o.castShadow = def.shadow !== false && !def.shadowProxy; o.receiveShadow = true; } });
     if (def.shadowProxy) { const pm = new THREE.Mesh(def.shadowProxy(this.kit), proxyMat()); pm.castShadow = true; pm.layers.set(1); pm.userData.isOutline = true; model.root.add(pm); }
     this.items.push(g); if (model.update) this.dyn.push(model);
+    return g;
   }
   addBatch(def, list) {
     const model = def.build(this.kit), root = model.root; root.updateMatrixWorld(true);
@@ -137,6 +171,6 @@ export class PropLayer {
     }
   }
   setQuality(q) { this.quality = q; const k = QUALITY[q] ? QUALITY[q].decor : 1; if (k !== this.decorK) { this.decorK = k; this.lastK = 1e9; } }
-  update(t) { for (const d of this.dyn) d.update(t); }
+  update(t) { this.syncLive(); for (const d of this.dyn) d.update(t); }
   dispose() { for (const o of this.items) { o.removeFromParent(); if (o.isInstancedMesh) o.dispose(); } this.items = []; }
 }

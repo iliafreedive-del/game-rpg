@@ -80,6 +80,22 @@ export const LIGHT = {
     warm: { color: 0xff9a4a, i: 24, dist: 14, decay: 1.5 },
     violet: { color: 0x9a62ff, i: 14, dist: 11, decay: 1.6, y: 2.0 },
   },
+  // подземелья (катакомбы, глубины): холодная синева вместо неба, тёплые факелы — пул ближайших точечных огней;
+  // луна сверху даёт тени колонн и стен. Биомы глубин подкрашивают заливку и туман (biome)
+  crypt: {
+    clear: 0x05060a, fog: { color: 0x0a0c14, near: 26, far: 64 },
+    hemi: { sky: 0x6a8ab8, ground: 0x3a2c20, i: 1.65 },
+    key: { color: 0x9ab4ff, i: 1.1, offset: [-11, 24, 20] },
+    point: { i: 30, dist: 11, decay: 1.6 },
+    biome: { flooded: { sky: 0x4a90a8, fog: 0x08181e }, ash: { sky: 0xa0583a, fog: 0x1a0a06 }, abyss: { sky: 0x7a5ab8, fog: 0x120a20 } },
+  },
+  // цитадель Ордена и арена: светло и читаемо (тёплый камень, золото)
+  castle: {
+    clear: 0x141218, fog: { color: 0x2a2630, near: 34, far: 90 },
+    hemi: { sky: 0xb0b8d0, ground: 0x5a4a38, i: 1.5 },
+    key: { color: 0xffe0b0, i: 2.0, offset: [-11, 24, 20] },
+    point: { i: 18, dist: 10, decay: 1.6 },
+  },
   slashColor: 0xc9a8ff,
 };
 
@@ -106,16 +122,16 @@ export const POST = {
   exposure: 1.25, contrast: 1.0, saturation: 1.06,
   shadowTint: 0x9fc4cc,          // тени уходят в холодную бирюзу
   highTint: 0xfff0d4,            // света — в тёплое золото
-  vignette: 0.42, grain: 0.012,
+  vignette: 0.42, grain: 0.006,
   bloom: { threshold: 0.92, knee: 0.35, strength: 0.75 },
 };
 
 // ---------- качество и ветер ----------
 // shadow — размер shadow map (0 — без теней), post — постобработка (bloom, цветокоррекция, виньетка), msaa — сглаживание цели постобработки
 export const QUALITY = {
-  low: { name: 'Низкое', pr: 1, shadow: 0, post: false, msaa: 0, bloom: 0, decor: 0.35, light: 0.8 },   // light: без кривой тонов свет чуть слабее
-  med: { name: 'Среднее', pr: 1.5, shadow: 1024, post: true, msaa: 0, bloom: 3, decor: 0.7 },
-  high: { name: 'Высокое', pr: 2, shadow: 2048, post: true, msaa: 4, bloom: 4, decor: 1 },
+  low: { name: 'Низкое', pr: 1, shadow: 0, post: false, msaa: 0, bloom: 0, decor: 0.35, light: 0.8, points: 3 },   // light: без кривой тонов свет чуть слабее
+  med: { name: 'Среднее', pr: 1.5, shadow: 1024, post: true, msaa: 0, bloom: 3, decor: 0.7, points: 4 },
+  high: { name: 'Высокое', pr: 2, shadow: 2048, post: true, msaa: 4, bloom: 4, decor: 1, points: 6 },   // points — настоящих огней в подземелье
 };
 export const GRASS_K = { low: 0.3, med: 0.6, high: 1 };
 // трава деревни (пучки по 5 травинок): низ сливается с рисованной землёй, кончики — сочный жёлто-зелёный, редкие сухие
