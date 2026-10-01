@@ -15,10 +15,11 @@ export const PAL = {
 export const HERO = {
   height: 2.0, headHeight: 0.5, ratio: 4,       // рост 2.0 м, голова 0.5 м → 1:4 (рога и гребень не считаются)
   speed: 4.2, stanceFraction: 0.42, attackTime: 0.5, hitAt: 0.42,
-  steel: 0x56607e, steelL: 0xaab6d6, steelD: 0x2a3050, dark: 0x1c2036,
+  steel: 0x5a6486, steelL: 0x9eaacc, steelD: 0x2e3656, dark: 0x1c2036,   // светлее окружения: герой — самый светлый силуэт
   cape: 0x6a3fd0, capeHem: 0x24134e,
   visor: 0xe9dcff, blade: 0xaab4cc, shield: 0x2c2650, shieldL: 0x5a46a0,
   rim: 0.75, rimColor: 0xb48cff,
+  scale: 1.1,                                    // героя рисуем на 10 % крупнее (Torchlight: герой крупнее окружения); коллизии не меняются
 };
 
 // ---------- нежить Палача Бездны ----------

@@ -14,6 +14,9 @@ export function makeKit(scene) {
     part, merge,
     // бокс с фасками: размеры, фаска, цвет, позиция, поворот, опции покраски ({ top, tex, emit })
     bbox: (w, h, d, b, c, p, r, o) => part(geo.chamferBox(w, h, d, b), c, p, r, 1, o),
+    // сужающаяся трубка по точкам (рога, рёбра, когти) и тело вращения по профилю [[r, y], …]
+    tube: (pts, r0, r1, c, o, radial) => geo.paint(geo.taperTube(pts, r0, r1, radial), c, o || {}),
+    lathe: (prof, c, p, r, s, o, segs) => part(geo.lathe(prof, segs), c, p, r, s, o),
     // шар: радиус, цвет, позиция, масштаб, опции покраски ({ top, emit })
     ball: (r, c, p, s, o) => part(new THREE.SphereGeometry(r, 10, 8), c, p, 0, s, o),
     // Group в позиции p внутри parent

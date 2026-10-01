@@ -145,3 +145,25 @@ export function warp(geo, amt, seed = 1) {
   }
   geo.computeVertexNormals(); return geo;
 }
+
+// Сужающаяся трубка вдоль ломаной (рога, рёбра, когти, корни): радиус r0 → r1, radial граней, кончик закрыт конусом
+export function taperTube(pts, r0, r1, radial = 6) {
+  const V = pts.map(p => new THREE.Vector3(...p)), n = V.length, P = [];
+  const rings = V.map((p, i) => {
+    const t = i / (n - 1), r = r0 + (r1 - r0) * t;
+    const dir = (i < n - 1 ? V[i + 1].clone().sub(p) : p.clone().sub(V[i - 1])).normalize();
+    const side = Math.abs(dir.y) < 0.9 ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(1, 0, 0);
+    const a = new THREE.Vector3().crossVectors(dir, side).normalize(), b = new THREE.Vector3().crossVectors(dir, a).normalize();
+    return Array.from({ length: radial }, (_, k) => { const ang = k / radial * Math.PI * 2; return p.clone().addScaledVector(a, Math.cos(ang) * r).addScaledVector(b, Math.sin(ang) * r); });
+  });
+  for (let i = 0; i < n - 1; i++) for (let k = 0; k < radial; k++) {
+    const a = rings[i][k], b = rings[i][(k + 1) % radial], c = rings[i + 1][k], d = rings[i + 1][(k + 1) % radial];
+    P.push(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z, b.x, b.y, b.z, d.x, d.y, d.z, c.x, c.y, c.z);
+  }
+  const tip = V[n - 1].clone().add(V[n - 1].clone().sub(V[n - 2]).normalize().multiplyScalar(r1 * 2.5 + 0.005));
+  for (let k = 0; k < radial; k++) { const a = rings[n - 1][k], b = rings[n - 1][(k + 1) % radial]; P.push(a.x, a.y, a.z, b.x, b.y, b.z, tip.x, tip.y, tip.z); }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); g.computeVertexNormals();
+  return g;
+}
+// Тело вращения по профилю [[r, y], …] (нагрудники, поножи, наручи, черепа): segs граней по кругу
+export const lathe = (prof, segs = 12) => new THREE.LatheGeometry(prof.map(([r, y]) => new THREE.Vector2(r, y)), segs);

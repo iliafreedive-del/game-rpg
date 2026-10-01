@@ -13,47 +13,79 @@ export default {
     const spin = group([0, 0.9, 0], root);            // ось падения/кувырка на высоте таза; в обычных клипах не вращается
     const body = group([0, -0.9, 0], spin);
     const hips = group([0, 0.97, 0], body);
+    // рисованные фактуры: сталь — metal, кожа и сюрко — cloth; формы — тела вращения, пластины с фасками, заклёпки
+    const MT = { tex: 'metal' }, TOP = c => ({ top: c, tex: 'metal' }), LEATHER = 0x3a2418, LEATHER_L = 0x6a4428;
+    const rivets = (pts, r = 0.018) => pts.map(p => part(new THREE.SphereGeometry(r, 5, 4), BR, p));
+    const pauldron = sx => [   // наплечник: купол + три ламели внахлёст, латунная кайма, заклёпки, костяной шип
+      part(new THREE.SphereGeometry(0.25, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2), STEEL, [sx * 0.46, 0.56, 0], [0, 0, -sx * 0.25], [1.08, 0.85, 1.12], TOP(STEEL_L)),
+      ...[0, 1, 2].map(i => part(new THREE.CylinderGeometry(0.25 - i * 0.01, 0.27 - i * 0.008, 0.09, 14, 1, true, sx > 0 ? -0.2 : Math.PI - 0.2 + 0.4, Math.PI * 0.95), i % 2 ? STEEL_D : STEEL, [sx * (0.5 + i * 0.025), 0.53 - i * 0.075, 0], [0, 0, -sx * (0.35 + i * 0.12)], [1.05, 1, 1.1], TOP(STEEL_L))),
+      part(new THREE.TorusGeometry(0.255, 0.022, 4, 16, Math.PI), BR, [sx * 0.46, 0.56, 0], [Math.PI / 2, 0, sx > 0 ? -0.25 : Math.PI + 0.25], [1.08, 1.12, 1]),
+      ...rivets([[sx * 0.66, 0.5, 0.12], [sx * 0.66, 0.5, -0.12], [sx * 0.6, 0.66, 0.16], [sx * 0.6, 0.66, -0.16]]),
+      kit.tube([[sx * 0.5, 0.74, 0], [sx * 0.62, 0.86, 0], [sx * 0.66, 1.0, -0.02]], 0.07, 0.02, BONE_D, { top: 0xffffff }),
+    ];
     const torso = M(merge([
-      part(new THREE.CylinderGeometry(0.17, 0.2, 0.24, 10), DARK, [0, 0.1, 0]),
-      part(new THREE.SphereGeometry(0.3, 14, 10), STEEL, [0, 0.42, 0], 0, [1.1, 1, 0.78], { top: STEEL_L, y0: 0.15, y1: 0.72 }),
-      part(new THREE.CylinderGeometry(0.235, 0.215, 0.1, 12), BR_D, [0, 0.05, 0], 0, 1, { top: BR }),
-      part(new THREE.BoxGeometry(0.1, 0.1, 0.04), BR, [0, 0.05, 0.22], [0, 0, Math.PI / 4]),
-      part(new THREE.BoxGeometry(0.34, 0.62, 0.05), 0x35205f, [0, -0.2, 0.2], [0.06, 0, 0], 1, { top: 0x7a4cd8 }),
-      part(new THREE.BoxGeometry(0.1, 0.1, 0.02), BR, [0, 0.32, 0.245], [0, 0, Math.PI / 4]),
-      part(new THREE.BoxGeometry(0.03, 0.18, 0.02), PAL.abyss, [0, 0.32, 0.257], 0, 1, { emit: true }),
-      part(new THREE.CylinderGeometry(0.15, 0.2, 0.12, 10), STEEL_D, [0, 0.68, 0], 0, 1, { top: STEEL }),
-      ...[-1, 1].flatMap(sx => [
-        part(new THREE.SphereGeometry(0.235, 14, 10), STEEL, [sx * 0.46, 0.58, 0], 0, [1.05, 0.78, 1.1], { top: STEEL_L }),
-        part(new THREE.TorusGeometry(0.205, 0.028, 5, 14), BR, [sx * 0.46, 0.5, 0], [Math.PI / 2, 0, 0], [1.02, 1.1, 1]),
-        part(new THREE.ConeGeometry(0.075, 0.3, 6), BONE, [sx * 0.55, 0.8, 0], [0, 0, -sx * 0.5], 1, { top: 0xffffff }),
-      ]),
+      // кольчужная юбка и пояс с пряжкой
+      kit.lathe([[0.2, -0.32], [0.26, -0.3], [0.25, -0.05], [0.2, 0.05]], DARK, [0, 0, 0], 0, 1, { top: 0x3a4060, tex: 'cloth' }, 12),
+      kit.lathe([[0.235, 0], [0.245, 0.03], [0.245, 0.09], [0.235, 0.12]], LEATHER, [0, 0, 0], 0, 1, { top: LEATHER_L, tex: 'cloth' }, 12),
+      kit.bbox(0.14, 0.12, 0.05, 0.015, BR_D, [0, 0.06, 0.24], 0, { top: BR }),
+      // набедренные пластины (тассеты) по бокам
+      ...[-1, 1].map(sx => kit.bbox(0.2, 0.22, 0.05, 0.015, STEEL, [sx * 0.2, -0.12, 0.13], [0.15, sx * 0.55, sx * 0.15], TOP(STEEL_L))),
+      // кираса: бочкообразная грудь, рёбра жёсткости, ворот
+      kit.lathe([[0.2, 0.1], [0.27, 0.2], [0.33, 0.38], [0.33, 0.5], [0.28, 0.62], [0.17, 0.7]], STEEL, [0, 0, 0], 0, [1.12, 1, 0.82], TOP(STEEL_L), 14),
+      kit.bbox(0.05, 0.5, 0.06, 0.015, STEEL_L, [0, 0.42, 0.265], [-0.12, 0, 0], { top: 0xffffff, tex: 'metal' }),
+      ...[0.22, 0.3].map(y => kit.lathe([[0.27 + (y - 0.22) * 0.6, 0], [0.285 + (y - 0.22) * 0.6, 0.02], [0.27 + (y - 0.22) * 0.6, 0.04]], BR_D, [0, y, 0], 0, [1.12, 1, 0.82], { top: BR }, 14)),
+      part(new THREE.CylinderGeometry(0.16, 0.2, 0.13, 12), STEEL_D, [0, 0.69, 0], 0, 1, TOP(STEEL)),
+      part(new THREE.TorusGeometry(0.18, 0.02, 4, 14), BR, [0, 0.63, 0], [Math.PI / 2, 0, 0], [1.12, 0.82, 1]),
+      // руна Бездны на груди в латунной оправе
+      part(new THREE.BoxGeometry(0.12, 0.12, 0.02), BR, [0, 0.4, 0.275], [0, 0, Math.PI / 4]),
+      part(new THREE.BoxGeometry(0.03, 0.17, 0.02), PAL.abyss, [0, 0.4, 0.288], 0, 1, { emit: true }),
+      // сюрко (табард) Ордена: полотно с латунной каймой ниже пояса
+      kit.bbox(0.34, 0.64, 0.035, 0.01, 0x35205f, [0, -0.22, 0.24], [0.06, 0, 0], { top: 0x7a4cd8, tex: 'cloth' }),
+      ...[-1, 1].map(sx => part(new THREE.BoxGeometry(0.025, 0.62, 0.04), BR_D, [sx * 0.17, -0.22, 0.245], [0.06, 0, 0])),
+      part(new THREE.ConeGeometry(0.17, 0.14, 3), 0x35205f, [0, -0.6, 0.265], [Math.PI, 0, 0], [1, 1, 0.15], { tex: 'cloth' }),
+      // ремень перевязи через грудь
+      kit.bbox(0.07, 0.75, 0.03, 0.01, LEATHER, [0.05, 0.38, 0.268], [-0.12, 0, 0.62], { top: LEATHER_L, tex: 'cloth' }),
+      ...pauldron(-1), ...pauldron(1),
     ]));
     hips.add(torso);
 
     const head = group([0, 0.7, 0], torso);
     head.add(M(merge([
-      part(new THREE.SphereGeometry(0.255, 18, 14), STEEL, [0, 0.22, 0], 0, [1, 1.0, 1.05], { top: STEEL_L }),
-      part(new THREE.CylinderGeometry(0.262, 0.25, 0.06, 18), BR, [0, 0.07, 0]),
-      part(new THREE.BoxGeometry(0.04, 0.2, 0.46), BR, [0, 0.45, -0.02], [0.1, 0, 0], 1, { top: 0xf0c868 }),
-      part(new THREE.BoxGeometry(0.34, 0.09, 0.1), 0x07050f, [0, 0.22, 0.225]),
-      part(new THREE.BoxGeometry(0.085, 0.045, 0.02), 0xe9dcff, [0.085, 0.22, 0.275], 0, 1, { emit: true }),
-      part(new THREE.BoxGeometry(0.085, 0.045, 0.02), 0xe9dcff, [-0.085, 0.22, 0.275], 0, 1, { emit: true }),
-      part(new THREE.BoxGeometry(0.035, 0.15, 0.04), DARK, [0, 0.12, 0.25]),
+      // топхельм: купол + цилиндр, латунный обод, гребень, узкая смотровая щель со светом Бездны, дыхальца, нащёчники
+      kit.lathe([[0.235, 0.0], [0.26, 0.06], [0.265, 0.2], [0.25, 0.32], [0.2, 0.42], [0.1, 0.48], [0.0, 0.5]], STEEL, [0, 0, 0], 0, [1, 1, 1.06], TOP(STEEL_L), 16),
+      part(new THREE.CylinderGeometry(0.27, 0.262, 0.05, 16), BR_D, [0, 0.06, 0], 0, [1, 1, 1.06], { top: BR }),
+      kit.bbox(0.045, 0.24, 0.5, 0.012, BR_D, [0, 0.44, -0.02], [0.12, 0, 0], { top: 0xf0c868 }),
+      kit.bbox(0.36, 0.07, 0.12, 0.012, 0x07050f, [0, 0.24, 0.215]),
+      part(new THREE.BoxGeometry(0.1, 0.035, 0.02), 0xe9dcff, [0.085, 0.24, 0.275], 0, 1, { emit: true }),
+      part(new THREE.BoxGeometry(0.1, 0.035, 0.02), 0xe9dcff, [-0.085, 0.24, 0.275], 0, 1, { emit: true }),
+      kit.bbox(0.04, 0.2, 0.05, 0.01, STEEL_D, [0, 0.13, 0.27], 0, TOP(STEEL)),
       ...[-1, 1].flatMap(sx => [
-        part(new THREE.ConeGeometry(0.075, 0.34, 8), BONE_D, [sx * 0.3, 0.32, 0], [0, 0, -sx * 1.15], 1, { top: BONE }),
-        part(new THREE.ConeGeometry(0.06, 0.34, 8), BONE_D, [sx * 0.48, 0.5, 0], [0, 0, sx * 0.1], 1, { top: 0xffffff }),
+        ...[0, 1, 2].map(i => part(new THREE.BoxGeometry(0.035, 0.012, 0.02), 0x07050f, [sx * (0.06 + i * 0.05), 0.12, 0.27 - i * 0.012])),
+        // рога: изогнутые сужающиеся трубки кости
+        kit.tube([[sx * 0.24, 0.3, 0], [sx * 0.38, 0.36, 0.02], [sx * 0.48, 0.5, 0], [sx * 0.5, 0.66, -0.06]], 0.075, 0.018, BONE_D, { top: 0xffffff }, 7),
+        part(new THREE.TorusGeometry(0.07, 0.016, 4, 8), BR, [sx * 0.26, 0.3, 0], [0, Math.PI / 2, 0]),
       ]),
+      ...rivets([[0.2, 0.06, 0.18], [-0.2, 0.06, 0.18], [0.26, 0.06, 0], [-0.26, 0.06, 0]], 0.016),
     ])));
 
     const arm = side => {
       const g = group([side * 0.46, 0.52, 0], torso);
-      g.add(M(merge([part(new THREE.CapsuleGeometry(0.08, 0.2, 3, 8), DARK, [0, -0.17, 0]), part(new THREE.SphereGeometry(0.09, 8, 6), STEEL_D, [0, -0.35, 0])])));
+      // плечо: кольчужный рукав; локоть: налокотник с крылом
+      g.add(M(merge([
+        kit.lathe([[0.08, 0], [0.095, -0.08], [0.09, -0.25], [0.08, -0.33]], DARK, [0, 0, 0], 0, 1, { top: 0x3a4060, tex: 'cloth' }, 8),
+        kit.bbox(0.17, 0.14, 0.17, 0.03, STEEL, [0, -0.17, 0], 0, TOP(STEEL_L)),
+        part(new THREE.SphereGeometry(0.1, 10, 7), STEEL_D, [0, -0.35, 0], 0, 1, TOP(STEEL)),
+        part(new THREE.ConeGeometry(0.08, 0.12, 4), STEEL, [side * 0.06, -0.35, -0.04], [0, 0, side * 1.7], [1, 1, 0.4], TOP(STEEL_L)),
+      ])));
       const el = group([0, -0.35, 0], g);
+      // наруч расширяется к кисти, латная перчатка — крупная, с пластинами пальцев и шипами на костяшках
       el.add(M(merge([
-        part(new THREE.CapsuleGeometry(0.07, 0.2, 3, 8), DARK, [0, -0.15, 0]),
-        part(new THREE.CylinderGeometry(0.1, 0.085, 0.22, 8), STEEL, [0, -0.19, 0], 0, 1, { top: STEEL_L }),
-        part(new THREE.CylinderGeometry(0.105, 0.105, 0.04, 8), BR, [0, -0.09, 0]),
-        part(new THREE.SphereGeometry(0.125, 10, 8), STEEL, [0, -0.36, 0], 0, [1, 0.95, 1.1], { top: STEEL_L }),
+        kit.lathe([[0.075, 0], [0.085, -0.06], [0.11, -0.2], [0.12, -0.25]], STEEL, [0, 0, 0], 0, 1, TOP(STEEL_L), 10),
+        part(new THREE.CylinderGeometry(0.118, 0.118, 0.035, 10), BR, [0, -0.11, 0]),
+        kit.bbox(0.2, 0.17, 0.22, 0.04, STEEL, [0, -0.34, 0.01], 0, TOP(STEEL_L)),
+        ...[0, 1, 2].map(i => kit.bbox(0.21, 0.04, 0.07, 0.012, STEEL_D, [0, -0.4 - i * 0.025, 0.09 + i * 0.02], [0.4 + i * 0.25, 0, 0], TOP(STEEL))),
+        ...[-1, 0, 1].map(i => part(new THREE.ConeGeometry(0.018, 0.05, 4), BR, [i * 0.06, -0.31, 0.12], [Math.PI / 2, 0, 0])),
+        part(new THREE.SphereGeometry(0.07, 7, 5), STEEL_D, [-side * 0.09, -0.32, 0.05], 0, 1, TOP(STEEL)),
       ])));
       g.elbow = el; return g;
     };
@@ -66,11 +98,27 @@ export default {
     const L1 = 0.44, L2 = 0.43, ANKLE = 0.115;
     const leg = side => {
       const g = group([side * 0.15, 0.97, 0], body);
-      g.add(M(merge([part(new THREE.CapsuleGeometry(0.095, 0.26, 3, 8), DARK, [0, -0.2, 0]), part(new THREE.SphereGeometry(0.11, 8, 6), STEEL_D, [0, -0.02, 0])])));
+      // бедро: кольчуга и набедренник
+      g.add(M(merge([
+        kit.lathe([[0.1, 0.02], [0.115, -0.1], [0.1, -0.38], [0.085, -0.42]], DARK, [0, 0, 0], 0, 1, { top: 0x3a4060, tex: 'cloth' }, 8),
+        kit.lathe([[0.12, -0.04], [0.128, -0.15], [0.11, -0.33]], STEEL, [0, 0, 0.012], 0, [1, 1, 1.05], TOP(STEEL_L), 10),
+      ])));
       const k = group([0, -L1, 0], g);
-      k.add(M(merge([part(new THREE.SphereGeometry(0.105, 8, 6), BR_D, [0, 0, 0.06], 0, 1, { top: BR }), part(new THREE.CapsuleGeometry(0.078, 0.26, 3, 8), STEEL, [0, -0.2, 0], 0, 1, { top: STEEL_L })])));
+      // колено: наколенник с крылом и латунной заклёпкой; голень: поножь
+      k.add(M(merge([
+        part(new THREE.SphereGeometry(0.11, 10, 7), STEEL, [0, 0, 0.06], 0, [1, 1.1, 0.9], TOP(STEEL_L)),
+        part(new THREE.ConeGeometry(0.08, 0.1, 4), STEEL_D, [side * 0.09, 0, 0.03], [0, 0, side * 1.6], [1, 1, 0.4], TOP(STEEL)),
+        ...rivets([[0, 0, 0.165]], 0.022),
+        kit.lathe([[0.075, -0.05], [0.1, -0.14], [0.095, -0.3], [0.08, -0.4]], STEEL, [0, 0, 0.012], 0, [1, 1, 1.12], TOP(STEEL_L), 10),
+        kit.bbox(0.04, 0.26, 0.03, 0.01, STEEL_L, [0, -0.22, 0.115], [0.04, 0, 0], { top: 0xffffff, tex: 'metal' }),
+      ])));
       const f = group([0, -L2, 0], k);
-      f.add(M(merge([part(new THREE.BoxGeometry(0.18, 0.15, 0.32), STEEL_D, [0, -0.045, 0.07], 0, 1, { top: STEEL })])));
+      // сабатон: ступенчатые пластины к носку, кожаная подошва
+      f.add(M(merge([
+        kit.bbox(0.2, 0.08, 0.34, 0.025, LEATHER, [0, -0.08, 0.07], 0, { top: LEATHER_L, tex: 'cloth' }),
+        kit.bbox(0.19, 0.12, 0.2, 0.035, STEEL_D, [0, -0.01, 0.0], 0, TOP(STEEL)),
+        ...[0, 1, 2].map(i => kit.bbox(0.18 - i * 0.015, 0.07, 0.08, 0.02, i % 2 ? STEEL_D : STEEL, [0, -0.03 - i * 0.012, 0.13 + i * 0.06], [0.25 + i * 0.1, 0, 0], TOP(STEEL_L))),
+      ])));
       g.knee = k; g.foot = f; return g;
     };
     const legL = leg(1), legR = leg(-1);

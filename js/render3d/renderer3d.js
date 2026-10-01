@@ -11,7 +11,7 @@ import { PropLayer } from './props.js';
 import { buildGround } from './ground.js';
 import { glowSet } from './glow.js';
 import { HEROES, MOBS, NPCS, WEAPONS, WEAPON_MODEL, OFFHAND_MODEL } from './registry.js';
-import { LIGHT, CAMERA, QUALITY, SHADOW } from './style.js';
+import { LIGHT, CAMERA, QUALITY, SHADOW, HERO } from './style.js';
 import { Post } from './post.js';
 
 const params = new URLSearchParams(location.search);
@@ -126,7 +126,7 @@ function flashOf(e) { return e.flash > 0 ? Math.min(1, e.flash * 8) : 0; }
 
 function syncPlayer(dt) {
   const P = G.player; if (!P) return;
-  const cls = (G.profile && G.profile.cls) || 'warrior', a = getActor(P, HEROES[cls]);
+  const cls = (G.profile && G.profile.cls) || 'warrior', a = getActor(P, HEROES[cls], { scale: HERO.scale });
   const wt = P.weaponType(), key = wt + cls;
   if (a.gear !== key) { a.gear = key; a.equip('handR', WEAPONS[WEAPON_MODEL[wt] || 'sword_iron']); a.equip('handL', OFFHAND_MODEL[cls] ? WEAPONS[OFFHAND_MODEL[cls]] : null); }
   const c = measure(a, P, dt), an = P.anim; let clip = 'idle', k, impact, speed = 0;

@@ -106,7 +106,8 @@ const TEX_F = /* glsl */`
   else if (id < 6.5) { TRI(t_metal); }
   else if (id < 7.5) { TRI(t_cloth); }
   else { TRI(t_bark); }
-  diffuseColor.rgb *= clamp(1.0 + (d - 0.5) * 3.2, 0.3, 1.6);
+  float amp = id < 4.5 ? 3.2 : id < 5.5 ? 2.5 : id < 6.5 ? 1.4 : id < 7.5 ? 2.2 : 3.2;   // металл спокойнее дерева и камня
+  diffuseColor.rgb *= clamp(1.0 + (d - 0.5) * amp, 0.3, 1.6);
 }
 `;
 const addTex = sh => {
