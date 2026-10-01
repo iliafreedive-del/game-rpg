@@ -1,10 +1,10 @@
 # Промт для Opus: довести 3D до уровня Torchlight
 
-Прикрепите к сессии 4 референса Torchlight и скриншоты `docs/screenshots/3d_01…04.jpg`. Ветка с переносом: `claude/loving-albattani-avnt41`.
+Референсы Torchlight лежат в `docs/reference/torchlight_1…4.webp`, наши кадры — `docs/screenshots/3d_01…04.jpg`. Ветка: `claude/loving-albattani-avnt41`.
 
 ---
 
-Ты арт-директор и 3D-программист браузерной игры Dark Ascent (корень репозитория, ES-модули, Three.js локально в `js/vendor/`). Ветка `claude/loving-albattani-avnt41`. Прочитай `docs/RENDER3D_PLAN.md`, `docs/MODEL_SPEC.md`, `docs/ART_BIBLE.md`, затем `js/render3d/` (renderer3d.js, ground.js, props.js, actor.js, toon.js, style.js, models/*).
+Ты арт-директор и 3D-программист браузерной игры Dark Ascent (корень репозитория, ES-модули, Three.js локально в `js/vendor/`). Ветка `claude/loving-albattani-avnt41`. Сначала открой и внимательно рассмотри референсы `docs/reference/torchlight_1…4.webp` (чужие кадры, только как образец качества и света, не копировать) и наши кадры `docs/screenshots/3d_01…04.jpg`. Затем прочитай `docs/RENDER3D_PLAN.md`, `docs/MODEL_SPEC.md`, `docs/ART_BIBLE.md`, затем `js/render3d/` (renderer3d.js, ground.js, props.js, actor.js, toon.js, style.js, models/*).
 
 ## Задача
 Сейчас 3D-деревня работает, но выглядит как поделка: плоские цвета вершин, модели из капсул и сфер, трава из огромных острых лезвий, деревья из крупных пластин, нет теней, нет постобработки, свет плоский. Цель: **картинка уровня Torchlight 2 / Torchlight Frontiers** (4 приложенных референса). Свой стиль («кость, латунь и бездна») сохраняем, но качество исполнения, плотность и свет должны быть как на референсах. Чужих ассетов, моделей и логотипов не копируем, всё процедурное или нарисованное кодом.
