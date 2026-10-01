@@ -14,10 +14,12 @@ export function blobShadow(size = 1, opacity = 0.42) {
   return m;
 }
 
-class Cape {
-  constructor(scene, color) {
-    this.W = 6; this.H = 9; this.len = 0.88;
-    this.top = 0.36; this.bottom = 0.68;      // width at shoulders → flared hem
+export class Cape {
+  // o: optional size/collision overrides (the dark demo has a taller hero); defaults reproduce the chibi cape
+  constructor(scene, color, o = {}) {
+    this.W = 6; this.H = 9; this.len = o.len ?? 0.88;
+    this.top = o.top ?? 0.36; this.bottom = o.bottom ?? 0.68;      // width at shoulders → flared hem
+    this.R = o.R ?? 0.27; this.back = o.back ?? -0.12; this.bodyTop = o.bodyTop ?? 1.05; this.backMin = o.backMin ?? 0.45;
     const n = this.W * this.H;
     this.p = new Float32Array(n * 3); this.o = new Float32Array(n * 3);
     this.geo = new THREE.PlaneGeometry(1, 1, this.W - 1, this.H - 1);
@@ -79,9 +81,9 @@ class Cape {
           const k = (j * W + i) * 3;
           const l = this._l.set(P[k], P[k + 1], P[k + 2]).applyMatrix4(inv);
           let moved = false;
-          const cy = Math.min(Math.max(l.y, 0.25), 0.95), dx = l.x, dz = l.z + 0.02, rr = Math.hypot(dx, dz), R = 0.27;
-          if (rr < R && l.y < 1.05) { l.x = dx / (rr || 1) * R; l.z = dz / (rr || 1) * R - 0.02; moved = true; }
-          if (l.z > -0.12 && l.y > 0.45) { l.z = -0.12; moved = true; }
+          const cy = Math.min(Math.max(l.y, 0.25), 0.95), dx = l.x, dz = l.z + 0.02, rr = Math.hypot(dx, dz), R = this.R;
+          if (rr < R && l.y < this.bodyTop) { l.x = dx / (rr || 1) * R; l.z = dz / (rr || 1) * R - 0.02; moved = true; }
+          if (l.z > this.back && l.y > this.backMin) { l.z = this.back; moved = true; }
           if (l.y < 0.03) { l.y = 0.03; moved = true; }
           if (moved) { l.applyMatrix4(body); P[k] = l.x; P[k + 1] = l.y; P[k + 2] = l.z; }
           void cy;

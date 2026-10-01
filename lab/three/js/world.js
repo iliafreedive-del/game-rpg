@@ -18,10 +18,10 @@ export function heightAt(x, z) {
   const r = Math.hypot(x, z), k = smoothstep(ARENA - 1, ARENA + 9, r);
   return k * (fbm(x * 0.06 + 3, z * 0.06) * 5.5 + 0.6);
 }
-function smoothstep(a, b, x) { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); }
+export function smoothstep(a, b, x) { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); }
 
 // ---------- grass shader ----------
-const GRASS_VS = /* glsl */`
+export const GRASS_VS = /* glsl */`
 #include <common>
 #include <fog_pars_vertex>
 attribute float aRand;
@@ -54,7 +54,7 @@ void main() {
   gl_Position = projectionMatrix * mvPosition;
   #include <fog_vertex>
 }`;
-const GRASS_FS = /* glsl */`
+export const GRASS_FS = /* glsl */`
 #include <common>
 #include <fog_pars_fragment>
 uniform vec3 uBase; uniform vec3 uTip; uniform vec3 uDry; uniform vec3 uLight;
@@ -69,7 +69,7 @@ void main() {
   #include <fog_fragment>
 }`;
 
-function bladeGeometry() {
+export function bladeGeometry() {
   // 5 verts, 3 tris, slight forward curl; uv.y = 0 at root, 1 at tip
   const h = 1, w = 0.07;
   const P = [-w, 0, 0, w, 0, 0, -w * 0.62, h * 0.5, 0.04, w * 0.62, h * 0.5, 0.04, 0, h, 0.14];
