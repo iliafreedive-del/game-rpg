@@ -34,6 +34,7 @@ export async function loadAtlas(name) {
 export const atlas = name => atlases.get(name);   // promise
 const ready = new Map();
 export function getAtlas(name) { return ready.get(name); }
+export function putAtlas(name, A) { ready.set(name, A); atlases.set(name, Promise.resolve(A)); }   // runtime-derived atlases (recoloured/rescaled sprites)
 export async function loadGroup(names, onProgress) {
   let done = 0;
   const all = names.map(n => loadAtlas(n).then(a => { ready.set(n, a); onProgress && onProgress(++done / names.length, n); return a; }, e => { console.warn('atlas failed', n, e.message); onProgress && onProgress(++done / names.length, n); return null; }));

@@ -15,6 +15,8 @@ import { offers, buy, restorePurchases, dailyStatus, claimDaily, chestStatus, ch
 import { PRODUCTS, platform } from '../platform/platform.js';
 import { revive, saveNow, loadZone, depthsUnlocked } from '../game/game.js';
 import { generateFloor, isBossFloor, floorLevel } from '../world/floorgen.js';
+import { REALMS, WILD_QUESTS, wildLevel, isWildBoss } from '../data/wild.js';
+import { wildState, questProgress, claimQuest } from '../game/wild.js';
 import * as DQ from '../game/daily.js';
 import * as CS from '../game/castle.js';
 import { openHeroPath } from './herospath.js';
@@ -54,7 +56,7 @@ export function openWindow(name, arg) {
   const f = W[name]; if (f) f(arg);
 }
 bus.on('openNPC', id => W['npc_' + id]());
-bus.on('openBoard', () => W.board()); bus.on('openWheel', () => openWheel(modal, closeModal)); bus.on('openHeroPath', () => openHeroPath()); bus.on('openDepths', () => W.depths());
+bus.on('openBoard', () => W.board()); bus.on('openWheel', () => openWheel(modal, closeModal)); bus.on('openHeroPath', () => openHeroPath()); bus.on('openDepths', () => W.depths()); bus.on('openWild', r => W.wild(r));
 bus.on('floorResult', r => floorResult(r));
 bus.on('boonChoice', () => boonChoice());
 bus.on('openSurvival', () => W.survival()); bus.on('survLevel', () => survLevel()); bus.on('survEnd', r => survEnd(r)); bus.on('openShrine', () => W.shrine());
@@ -496,6 +498,29 @@ W.depths = () => modal('Глубины катакомб', 'sm', b => {
     b.appendChild(grid);
   }
 }, { });
+
+// ---------------------------------------------------------------- Походы: Фьорды Скъёльда / Старый Лес
+W.wild = realm => modal(REALMS[realm].name, 'sm', b => {
+  const RL = REALMS[realm], WS = wildState(realm), P = G.profile, next = WS.best + 1;
+  b.appendChild(el('p', 'muted', RL.blurb));
+  b.appendChild(el('p', 'muted', `Открытое поле с лагерями, сундуками и захваченным фортом. Отбейте форт — откроется путь вглубь; каждая глубина сложнее, каждая ${5}-я — босс. Лучшая глубина: <b class="goldc">${WS.best}</b>.`));
+  const enter = d => { closeModal(); loadZone('wild', { realm, depth: d }); };
+  const need = wildLevel(realm, next) - 2;
+  const go = el('button', 'btn gold', `▶ Глубина ${next}${isWildBoss(next) ? ' · босс' : ''} (ур. врагов ${wildLevel(realm, next)})`);
+  go.style.width = '100%'; if (P.level < need) { go.disabled = true; go.textContent = `Глубина ${next}: нужен уровень ${need}`; } go.onclick = () => enter(next); b.appendChild(go);
+  if (WS.best) {
+    b.appendChild(el('h3', '', 'Пройденные глубины')); const grid = el('div', 'row');
+    for (let d = Math.max(1, WS.best - 11); d <= WS.best; d++) { const bt = el('button', 'btn sm', `${d}${isWildBoss(d) ? '♛' : ''}`); bt.onclick = () => enter(d); grid.appendChild(bt); }
+    b.appendChild(grid);
+  }
+  b.appendChild(el('h3', '', 'Задания похода'));
+  for (const q of WILD_QUESTS[realm]) {
+    const pr = questProgress(realm, q), rw = [q.reward.gold && `${q.reward.gold} зол.`, q.reward.xp && `${q.reward.xp} опыта`, q.reward.potions && `${q.reward.potions} зелья`, q.reward.skillPts && `${q.reward.skillPts} очко навыка`, q.reward.items && q.reward.items.map(i => i.epic ? 'эпическое оружие' : 'вещь').join(', ')].filter(Boolean).join(' · ');
+    const d = el('div', 'q' + (pr.claimed ? '' : ' cur'), `<div class="qt">${pr.claimed ? '✔ ' : ''}${esc(q.title)}</div><div class="muted">${esc(q.text)}</div><div class="muted">Награда: ${rw}</div>${pr.claimed ? '' : `<div class="pbar"><i style="width:${pr.cur / pr.max * 100}%"></i></div><div class="muted">${pr.cur} / ${pr.max}</div>`}`);
+    if (pr.done && !pr.claimed) { const bt = el('button', 'btn sm gold', 'Забрать награду'); bt.style.marginTop = '6px'; bt.onclick = () => { claimQuest(realm, q.id); rerender(); }; d.appendChild(bt); }
+    b.appendChild(d);
+  }
+}, {});
 function floorResult(r) {
   setTimeout(() => {
     const m = modal(r.first ? 'Новый рекорд глубины!' : 'Этаж пройден', 'sm reward', b => {

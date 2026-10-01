@@ -373,7 +373,9 @@ function projEnd(p, wall) {
 export function enemyTelegraph(e, kind, P) {
   const ang = Math.atan2(P.y - e.y, P.x - e.x);
   let tg = null;
-  if (e.D.elite || e.D.boss) {
+  const spec = e.D.tele && e.D.tele[kind];   // походы: телеграф задан данными моба (data/wild.js)
+  if (spec) { tg = { ...spec, a: ang }; if (spec.shape === 'circle') { tg.x = spec.at === 'target' ? P.x : e.x; tg.y = spec.at === 'target' ? P.y : e.y; } }
+  else if (e.D.elite || e.D.boss) {
     if (kind === 'attack') tg = { shape: 'cone', a: ang, r: e.D.boss ? 3.2 : 2.6, arc: 70 };
     else if (kind === 'attack2') tg = { shape: 'circle', x: e.x, y: e.y, r: e.D.boss ? 3.1 : 2.5 };
     else if (kind === 'slam') tg = { shape: 'circle', x: P.x, y: P.y, r: 2.0, rift: true };
@@ -393,10 +395,10 @@ export function updateEnemyAttack(e, dt, P) {
       bus.emit('sfx', D.proj === 'arrow' ? 'bow' : 'cast');
     } else if (tg) {
       const inside = inShape(tg, P, e);
-      if (tg.shape === 'circle' && tg.rift) { effect({ kind: 'burst', x: tg.x, y: tg.y, r: tg.r, dur: 0.5, c: [180, 80, 255] }); particles(tg.x, tg.y, 20, { c: [190, 110, 255], sp: 4, size: 4 }); }
+      if (tg.shape === 'circle' && tg.rift) { const cc = tg.elem === 'cold' ? [150, 215, 255] : D.realm === 'forest' ? [110, 200, 90] : [180, 80, 255]; effect({ kind: 'burst', x: tg.x, y: tg.y, r: tg.r, dur: 0.5, c: cc }); particles(tg.x, tg.y, 20, { c: cc, sp: 4, size: 4 }); }
       else effect({ kind: tg.shape === 'cone' ? 'slash' : 'ring', x: e.x, y: e.y, a: tg.a, r: tg.r, arc: tg.arc || 360, dur: 0.3, c: [255, 90, 60], enemy: true });
       G.cam.shake = Math.max(G.cam.shake, D.boss ? 0.45 : 0.3); bus.emit('sfx', 'heavy');
-      if (inside) enemyHitsPlayer(e, a.kind === 'slam' ? 1.3 : a.kind === 'attack2' ? 0.9 : 1.1, tg.rift ? 'fire' : 'phys');
+      if (inside) { enemyHitsPlayer(e, tg.mult ?? (a.kind === 'slam' ? 1.3 : a.kind === 'attack2' ? 0.9 : 1.1), tg.elem === 'cold' ? 'cold' : tg.elem ? tg.elem : tg.rift && !D.realm ? 'fire' : 'phys'); if (tg.slow && !P.dead) P.slowT = Math.max(P.slowT || 0, tg.slow); }
       if (D.boss && e.phase === 3 && a.kind === 'slam') setTimeoutGame(0.35, () => shockwave(e));
     } else {
       // regular melee: hit if still in reach & roughly in front
@@ -409,9 +411,10 @@ export function updateEnemyAttack(e, dt, P) {
   if (e.anim.done) { e.state = 'idle'; e.setAnim('idle', 5, true); e.teleg = null; }
 }
 function shockwave(e) {
-  effect({ kind: 'wave', x: e.x, y: e.y, r: 6, dur: 0.8, c: [200, 90, 255] });
+  const cold = e.D.novaElem === 'cold';
+  effect({ kind: 'wave', x: e.x, y: e.y, r: 6, dur: 0.8, c: cold ? [150, 215, 255] : e.D.realm ? [110, 200, 90] : [200, 90, 255] });
   const P = G.player; const d = Math.hypot(P.x - e.x, P.y - e.y);
-  setTimeoutGame(d / 7.5, () => { if (Math.abs(Math.hypot(P.x - e.x, P.y - e.y) - d) < 1.6 && !P.dead) enemyHitsPlayer(e, 0.6, 'fire'); });
+  setTimeoutGame(d / 7.5, () => { if (Math.abs(Math.hypot(P.x - e.x, P.y - e.y) - d) < 1.6 && !P.dead) enemyHitsPlayer(e, 0.6, cold ? 'cold' : e.D.realm ? 'phys' : 'fire'); });
 }
 function inShape(tg, P, e) {
   const dx = P.x - tg.x, dy = P.y - tg.y, d = Math.hypot(dx, dy);
@@ -440,6 +443,7 @@ export function hurtPlayer(src, raw, elem) {
   } else dmg *= 1 - (S.res[elem] || 0) / 100;
   dmg = Math.max(1, Math.round(dmg));
   if (P.shield > 0) { const ab = Math.min(P.shield, dmg); P.shield -= ab; dmg -= ab; }
+  if (src && src.D && src.D.onHit === 'slow') P.slowT = Math.max(P.slowT || 0, 1.6);   // мороз: замедление героя
   P.hp -= dmg; P.flash = 0.15; bus.emit('hurt', { dmg, src: src && src.type ? src.type : src && src.src && src.src.type ? src.src.type : String(src && src.kind || 'proj') });
   float(P.x, P.y, '-' + dmg, '#ff5a4a', { z: 2.1 });
   bus.emit('sfx', 'hurt');

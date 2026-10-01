@@ -1,0 +1,78 @@
+// «Походы»: открытые локации-поля с порталов деревни — Фьорды Скъёльда и Старый Лес.
+// Здесь только данные: мобы, миры, настроение по глубине, задания. Логика — world/wildgen.js, game/wildai.js, game/wild.js.
+//
+// Поля мобов: from/filter/size — временная графика (перекраска существующих спрайтов), tele — телеграф атаки
+// {shape: cone|circle|line, at: self|target, r, arc, w, rift(фиолетовый), elem, slow, mult}.
+
+const T = (shape, o) => ({ shape, ...o });
+
+export const WILD_MOBS = {
+  // ------------------------------------------------------------- Фьорды
+  f_draugr: { realm: 'fjord', name: 'Драугр-щитоносец', from: 'skel_warrior', filter: 'hue-rotate(170deg) saturate(.8) brightness(1.1)', size: 1.1, ai: 'melee', hp: 40, dmg: [4, 7], speed: 2.2, range: 1.2, cd: 2.0, impact: 0.55, xp: 16, gold: [3, 8], armor: 14, radius: 0.36, fps: { walk: 10, attack: 10 } },
+  f_wolf: { realm: 'fjord', name: 'Ледяной волк', from: 'beast', filter: 'saturate(.12) brightness(1.5)', size: 0.8, ai: 'pack', hp: 20, dmg: [3, 5], speed: 4.3, range: 1.1, cd: 2.2, impact: 0.5, xp: 12, gold: [1, 4], armor: 3, radius: 0.34, onHit: 'slow', fps: { walk: 16, attack: 12 }, tele: { lunge: T('line', { r: 3.4, w: 0.6 }) } },
+  f_berserk: { realm: 'fjord', name: 'Берсерк', from: 'skel_warrior', filter: 'sepia(1) saturate(3.5) hue-rotate(-35deg) brightness(1.05)', size: 1.12, ai: 'charge', hp: 36, dmg: [5, 9], speed: 3.1, range: 1.2, cd: 1.5, impact: 0.5, xp: 20, gold: [3, 9], armor: 5, radius: 0.36, charge: { r: 4.2, w: 0.8, cd: 5.5, speed: 8.5, mult: 1.3 }, fury: 0.5, fps: { walk: 13, attack: 12 }, tele: { lunge: T('line', { r: 4.2, w: 0.8 }) } },
+  f_hag: { realm: 'fjord', name: 'Снежная ведьма', from: 'skel_mage', filter: 'hue-rotate(150deg) brightness(1.3) saturate(.9)', size: 1.0, ai: 'caster', hp: 26, dmg: [5, 8], elem: 'cold', onHit: 'slow', speed: 2.1, range: 8, keep: 6, cd: 2.8, impact: 0.55, xp: 24, gold: [5, 12], armor: 2, radius: 0.32, proj: 'shard', fps: { attack: 8 } },
+  f_jotun: { realm: 'fjord', name: 'Ётун-великан', from: 'beast', filter: 'hue-rotate(160deg) saturate(.6) brightness(1.55)', size: 1.75, ai: 'giant', hp: 150, dmg: [10, 15], speed: 1.8, range: 2.0, cd: 2.4, impact: 0.6, xp: 70, gold: [15, 35], armor: 14, radius: 0.62, onHit: 'slow', fps: { walk: 8, attack: 7 }, tele: { attack: T('cone', { r: 2.8, arc: 100, mult: 1.0 }), attack2: T('circle', { at: 'target', r: 2.1, mult: 1.2, rift: true, elem: 'cold', slow: 2 }) } },
+  f_jarl: { realm: 'fjord', name: 'Ярл Хрольф Костолом', from: 'elite', filter: 'hue-rotate(160deg) brightness(1.2) saturate(.9)', size: 1.18, elite: true, ai: 'jarl', hp: 300, dmg: [10, 15], speed: 2.6, range: 1.8, cd: 1.8, impact: 0.6, xp: 220, gold: [90, 140], armor: 22, radius: 0.52, minion: ['f_draugr', 'f_berserk'], fps: { walk: 10, attack: 10, attack2: 10 }, tele: { attack: T('cone', { r: 2.7, arc: 80 }), attack2: T('circle', { at: 'self', r: 2.6, mult: 0.9 }) } },
+  f_boss: { realm: 'fjord', name: 'Ётун Скъёльд', from: 'boss', filter: 'hue-rotate(165deg) brightness(1.25) saturate(.8)', size: 1.2, boss: true, ai: 'wildboss', hp: 800, dmg: [12, 18], speed: 2.4, range: 2.5, cd: 1.7, impact: 0.6, xp: 700, gold: [260, 340], armor: 28, radius: 0.8, onHit: 'slow', minion: ['f_wolf', 'f_wolf', 'f_draugr'], novaElem: 'cold', fps: { walk: 9, attack: 10, attack2: 10, slam: 11, roar: 9 }, tele: { attack: T('cone', { r: 3.4, arc: 75 }), attack2: T('circle', { at: 'self', r: 3.2, mult: 0.9 }), slam: T('circle', { at: 'target', r: 2.2, mult: 1.3, rift: true, elem: 'cold', slow: 2.5 }) } },
+
+  // ------------------------------------------------------------- Старый Лес
+  w_boar: { realm: 'forest', name: 'Секач', from: 'beast', filter: 'sepia(1) saturate(1.6) brightness(.8)', size: 0.88, ai: 'charge', hp: 38, dmg: [6, 10], speed: 2.9, range: 1.2, cd: 1.8, impact: 0.5, xp: 17, gold: [2, 7], armor: 7, radius: 0.4, charge: { r: 5.5, w: 0.9, cd: 4.5, speed: 9.5, mult: 1.5, crashStun: 1.4 }, fps: { walk: 12, attack: 12 }, tele: { lunge: T('line', { r: 5.5, w: 0.9 }) } },
+  w_wolf: { realm: 'forest', name: 'Серый волк', from: 'beast', filter: 'saturate(.1) brightness(.85)', size: 0.8, ai: 'pack', hp: 18, dmg: [3, 5], speed: 4.3, range: 1.1, cd: 2.2, impact: 0.5, xp: 11, gold: [1, 4], armor: 2, radius: 0.34, fps: { walk: 16, attack: 12 }, tele: { lunge: T('line', { r: 3.4, w: 0.6 }) } },
+  w_poacher: { realm: 'forest', name: 'Браконьер', from: 'skel_archer', filter: 'sepia(1) saturate(1.8) brightness(.85)', size: 1.05, ai: 'archer', hp: 22, dmg: [4, 7], speed: 2.4, range: 8.5, keep: 5.5, cd: 2.0, impact: 0.66, xp: 16, gold: [4, 10], armor: 3, radius: 0.32, proj: 'arrow', fps: { attack: 9 } },
+  w_leshy: { realm: 'forest', name: 'Леший', from: 'skel_mage', filter: 'hue-rotate(75deg) saturate(1.7) brightness(.9)', size: 1.22, ai: 'root', hp: 46, dmg: [6, 10], speed: 2.0, range: 8, keep: 6, cd: 3.3, impact: 0.6, xp: 30, gold: [6, 14], armor: 6, radius: 0.36, fps: { attack: 8 }, tele: { attack: T('circle', { at: 'target', r: 1.8, mult: 1.0, rift: true, slow: 2.2 }) } },
+  w_bear: { realm: 'forest', name: 'Медведь-шатун', from: 'beast', filter: 'sepia(.8) brightness(.55) saturate(1.2)', size: 1.4, ai: 'giant', hp: 120, dmg: [9, 14], speed: 2.3, range: 1.9, cd: 2.2, impact: 0.55, xp: 60, gold: [10, 26], armor: 12, radius: 0.6, enrage: 0.5, fps: { walk: 9, attack: 9 }, tele: { attack: T('cone', { r: 2.4, arc: 95, mult: 1.0 }), attack2: T('circle', { at: 'self', r: 2.2, mult: 1.1 }) } },
+  w_ataman: { realm: 'forest', name: 'Атаман Рваное Ухо', from: 'elite', filter: 'sepia(1) saturate(2.2) hue-rotate(-20deg) brightness(.95)', size: 1.12, elite: true, ai: 'jarl', hp: 280, dmg: [9, 14], speed: 2.7, range: 1.8, cd: 1.7, impact: 0.6, xp: 200, gold: [80, 130], armor: 18, radius: 0.5, minion: ['w_poacher', 'w_wolf', 'w_wolf'], fps: { walk: 10, attack: 10, attack2: 10 }, tele: { attack: T('cone', { r: 2.6, arc: 80 }), attack2: T('circle', { at: 'self', r: 2.4, mult: 0.9 }) } },
+  w_boss: { realm: 'forest', name: 'Хозяин Чащи', from: 'boss', filter: 'hue-rotate(90deg) saturate(1.5) brightness(.9)', size: 1.25, boss: true, ai: 'wildboss', hp: 720, dmg: [12, 17], speed: 2.5, range: 2.5, cd: 1.7, impact: 0.6, xp: 650, gold: [240, 320], armor: 24, radius: 0.8, minion: ['w_wolf', 'w_wolf', 'w_boar'], novaElem: 'phys', fps: { walk: 9, attack: 10, attack2: 10, slam: 11, roar: 9 }, tele: { attack: T('cone', { r: 3.4, arc: 75 }), attack2: T('circle', { at: 'self', r: 3.2, mult: 0.9 }), slam: T('circle', { at: 'target', r: 2.2, mult: 1.3, rift: true, slow: 2.5 }) } },
+};
+
+export const REALMS = {
+  fjord: {
+    id: 'fjord', name: 'Фьорды Скъёльда', short: 'Фьорды', portalColor: [150, 210, 255], reqLevel: 5, baseLevel: 5,
+    blurb: 'Снежные берега, замёрзшие заливы и крепости ётунов. Драугры, ледяные волки и снежные ведьмы держат захваченные форты.',
+    pool: [['f_draugr', 1], ['f_wolf', 1], ['f_berserk', 1], ['f_hag', 2], ['f_jotun', 3]],   // [тип, с какой глубины]
+    commander: 'f_jarl', boss: 'f_boss', fortName: 'Захваченный форт',
+    // настроение по глубине (меняется каждые 2 уровня): пол, свет, туман, частицы
+    moods: [
+      { name: 'Берег', ground: [226, 234, 242], alt: [214, 226, 238], water: [58, 98, 140], tint: null, dark: false, fog: [10, 14, 24], particles: { c: [245, 250, 255], rate: 18, vz: -1.2, g: 0.2, size: 2.5, life: 2.4 }, lake: 0.10 },
+      { name: 'Ледник', ground: [200, 218, 235], alt: [190, 210, 230], water: [40, 78, 125], tint: 'rgba(90,140,200,0.16)', dark: false, fog: [8, 14, 30], particles: { c: [225, 240, 255], rate: 34, vz: -2.0, g: 0.3, size: 2.5, life: 1.8 }, lake: 0.18 },
+      { name: 'Чертоги ётунов', ground: [150, 176, 214], alt: [140, 166, 206], water: [22, 44, 90], tint: 'rgba(40,80,170,0.30)', dark: true, fog: [4, 8, 24], particles: { c: [150, 230, 255], rate: 22, vz: 0.5, g: -0.1, size: 3, life: 2.2 }, lake: 0.22 },
+    ],
+  },
+  forest: {
+    id: 'forest', name: 'Старый Лес', short: 'Лес', portalColor: [120, 230, 120], reqLevel: 3, baseLevel: 3,
+    blurb: 'Дремучий лес за околицей. Кабаны, волки и медведи; по тропам хозяйничают браконьеры, а в чаще бродит леший.',
+    pool: [['w_boar', 1], ['w_wolf', 1], ['w_poacher', 1], ['w_leshy', 2], ['w_bear', 3]],
+    commander: 'w_ataman', boss: 'w_boss', fortName: 'Разбойничий острог',
+    moods: [
+      { name: 'Опушка', ground: [70, 104, 48], alt: [58, 90, 40], water: [48, 84, 96], tint: null, dark: false, fog: [4, 10, 4], particles: { c: [255, 240, 170], rate: 8, vz: 0.4, g: -0.1, size: 2.5, life: 2.2 }, lake: 0.05 },
+      { name: 'Чаща', ground: [52, 82, 40], alt: [42, 70, 34], water: [34, 64, 74], tint: 'rgba(10,40,20,0.25)', dark: false, fog: [2, 8, 4], particles: { c: [190, 255, 160], rate: 14, vz: 0.5, g: -0.1, size: 2.5, life: 2.4 }, lake: 0.08 },
+      { name: 'Болотная глушь', ground: [40, 62, 40], alt: [32, 52, 36], water: [26, 52, 56], tint: 'rgba(10,30,30,0.32)', dark: true, fog: [2, 7, 8], particles: { c: [200, 255, 120], rate: 16, vz: 0.3, g: -0.1, size: 3, life: 2.8 }, lake: 0.16 },
+    ],
+  },
+};
+export const BOSS_EVERY = 5;
+export const isWildBoss = d => d % BOSS_EVERY === 0;
+export const moodOf = (realm, depth) => REALMS[realm].moods[Math.min(2, Math.floor((depth - 1) / 2))];
+export const wildLevel = (realm, depth) => REALMS[realm].baseLevel + Math.floor((depth - 1) * 0.9);
+
+// Задания походов. Прогресс — счётчики P.wild.stat[realm] (реальные события). Награда забирается в окне портала.
+const R = (slot, tier, rarity, names) => ({ slot, tier, rarity, names });
+export const WILD_QUESTS = {
+  fjord: [
+    { id: 'fj_kill', title: 'Первая кровь на берегу', text: 'Убейте 15 тварей Фьордов.', stat: 'kills', n: 15, reward: { xp: 180, gold: 90, potions: 2 } },
+    { id: 'fj_chest', title: 'Добыча ярлов', text: 'Откройте 5 сундуков во Фьордах.', stat: 'chests', n: 5, reward: { xp: 150, gold: 120, items: [R('head', 2, 1, { warrior: 'Шлем-горностай', archer: 'Капюшон лыжника', mage: 'Венец метели' })] } },
+    { id: 'fj_fort', title: 'Сорвать флаг с форта', text: 'Отбейте захваченный форт: убейте его командира.', stat: 'forts', n: 1, reward: { xp: 260, gold: 140, items: [R('weapon', 2, 2, { warrior: 'Секира берега', archer: 'Лук фьорда', mage: 'Посох инея' })] } },
+    { id: 'fj_jotun', title: 'Гроза великанов', text: 'Убейте 3 ётунов-великанов.', stat: 'k_f_jotun', n: 3, reward: { xp: 320, gold: 180, skillPts: 1 } },
+    { id: 'fj_deep', title: 'Вглубь, к ледникам', text: 'Дойдите до глубины 3.', stat: 'depth', n: 3, reward: { xp: 300, gold: 150, potions: 3 } },
+    { id: 'fj_boss', title: 'Король фьордов', text: 'Победите Ётуна Скъёльда (глубина 5).', stat: 'bosses', n: 1, reward: { xp: 600, gold: 400, items: [{ slot: 'weapon', epic: true }] } },
+  ],
+  forest: [
+    { id: 'fr_kill', title: 'Охота на опушке', text: 'Убейте 15 лесных тварей.', stat: 'kills', n: 15, reward: { xp: 120, gold: 70, potions: 2 } },
+    { id: 'fr_chest', title: 'Тайники браконьеров', text: 'Откройте 5 сундуков в Старом Лесу.', stat: 'chests', n: 5, reward: { xp: 110, gold: 100, items: [R('head', 1, 1, { warrior: 'Кожаный шлем егеря', archer: 'Шапка охотника', mage: 'Венок травницы' })] } },
+    { id: 'fr_fort', title: 'Разорить острог', text: 'Отбейте разбойничий острог: убейте атамана.', stat: 'forts', n: 1, reward: { xp: 220, gold: 120, items: [R('weapon', 1, 2, { warrior: 'Тесак атамана', archer: 'Лук Рваного Уха', mage: 'Посох лесника' })] } },
+    { id: 'fr_leshy', title: 'Не к ночи помянут', text: 'Убейте 4 леших.', stat: 'k_w_leshy', n: 4, reward: { xp: 260, gold: 150, skillPts: 1 } },
+    { id: 'fr_deep', title: 'В самую глушь', text: 'Дойдите до глубины 3.', stat: 'depth', n: 3, reward: { xp: 250, gold: 130, potions: 3 } },
+    { id: 'fr_boss', title: 'Хозяин Чащи', text: 'Победите Хозяина Чащи (глубина 5).', stat: 'bosses', n: 1, reward: { xp: 520, gold: 350, items: [{ slot: 'weapon', epic: true }] } },
+  ],
+};

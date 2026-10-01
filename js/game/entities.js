@@ -5,6 +5,7 @@ import { WEAPONS } from '../data/items.js';
 import { dirOf, dirVec } from '../core/iso.js';
 import { rand, rrange, clamp, angDiff } from '../core/util.js';
 import * as C from './combat.js';
+import { makeWildAI } from './wildai.js';
 
 export class Anim {
   constructor() { this.clip = 'idle'; this.t = 0; this.fps = 6; this.loop = true; this.nf = 4; this.done = false; }
@@ -133,7 +134,8 @@ export class Enemy {
   startAttack(kind, P) {
     const D = this.D; this.state = 'attack'; this.atk = { kind, hit: false, t: 0 };
     this.dir = dirOf(P.x - this.x, P.y - this.y);
-    const clip = kind === 'attack2' ? 'attack2' : kind === 'slam' ? 'slam' : kind === 'roar' ? 'roar' : 'attack';
+    let clip = kind === 'attack2' ? 'attack2' : kind === 'slam' ? 'slam' : kind === 'roar' ? 'roar' : 'attack';
+    const A = C.atlasOf(D.atlas); if (A && A.clips && !A.clips[clip]) clip = 'attack';   // у зверей нет attack2/slam/roar — бьют обычной анимацией
     const fps = (D.fps && D.fps[clip]) || 10;
     this.setAnim(clip, fps * (this.enraged ? 1.25 : 1));
     this.atk.impact = D.impact; this.atk.tx = P.x; this.atk.ty = P.y;
@@ -203,6 +205,8 @@ function ranged(e, dt, P, d) {
     const vx = e.x - P.x, vy = e.y - P.y; e.moveToward(e.x + vx, e.y + vy, dt, 0.9, false); e.dir = dirOf(P.x - e.x, P.y - e.y);
   } else { e.dir = dirOf(P.x - e.x, P.y - e.y); e.setAnim('idle', 5, true, e.anim.clip !== 'idle'); }
 }
+
+Object.assign(AI, makeWildAI(AI, ranged));   // походы: стая, рывок, великан, командир, корни, босс поля
 
 // ------------------------------------------------------------------ NPC
 export class NPC {

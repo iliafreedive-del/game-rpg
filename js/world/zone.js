@@ -2,6 +2,7 @@
 import { GridMap } from './map.js';
 import { DECOR } from '../data/upgrades.js';
 import { rand } from '../core/util.js';
+import { REALMS } from '../data/wild.js';
 
 const hash = (x, y) => { let h = (x * 374761393 + y * 668265263) >>> 0; h = (h ^ (h >>> 13)) * 1274126177 >>> 0; return h; };
 
@@ -39,7 +40,7 @@ export class Zone {
     this.rooms = json.rooms || {};
     this.start = json.start;
     const W = profile.world.opened;
-    if (id === 'catacombs' || json.dungeon) this.buildDungeon(json, W); else this.buildTown(json, W);
+    if (id === 'wild') this.buildWild(json); else if (id === 'catacombs' || json.dungeon) this.buildDungeon(json, W); else this.buildTown(json, W);
   }
   addLight(x, y, o) { const L = { x: x + (o.dx || 0), y: y + (o.dy || 0), z: o.z || 1, r: o.r, c: o.c, flicker: o.flicker || 0, on: true, seed: rand() * 10 }; this.lights.push(L); return L; }
   add(d) { this.statics.push(d); return d; }
@@ -212,6 +213,11 @@ export class Zone {
         this.addLight(o.x, o.y, { r: 5, c: [120, 200, 255], flicker: 0.3, z: 1.2 });
         this.inter.push({ id: 'portal_depths', type: 'depths', x: o.x, y: o.y, r: 1.8, label: 'Глубины катакомб', draw: d, reqLevel: 6, plate: 'Глубины' });
         this.map.circles.push({ x: o.x, y: o.y - 0.1, r: 0.2 });
+      } else if (o.t === 'wildportal') {
+        const RL = REALMS[o.realm]; const d = this.add({ x: o.x, y: o.y, spr: 'portal', anim: 'portal' });
+        this.addLight(o.x, o.y, { r: 5, c: RL.portalColor, flicker: 0.3, z: 1.2 });
+        this.inter.push({ id: 'portal_' + o.realm, type: 'wildportal', realm: o.realm, x: o.x, y: o.y, r: 1.8, label: RL.name, draw: d, reqLevel: RL.reqLevel, plate: RL.name });
+        this.map.circles.push({ x: o.x, y: o.y - 0.1, r: 0.2 });
       } else if (o.t === 'board') {
         this.prop({ ...o, t: 'board_dungeon' });
         this.addLight(o.x, o.y, { r: 4, c: [255, 210, 110], flicker: 0.2, z: 1.2 });
@@ -224,6 +230,43 @@ export class Zone {
     for (const n of J.npcs) {
       this.map.circles.push({ x: n.x, y: n.y, r: 0.35 });
       this.inter.push({ id: n.id, type: 'npc', npc: n, x: n.x, y: n.y, r: 2.2, label: 'Говорить: ' + n.name.split(' ')[0], panel: n.id !== 'elder' });
+    }
+  }
+
+  // Открытое поле похода (Фьорды / Старый Лес): чаща по 'x', стены форта по 'D', сундуки, тайники, порталы.
+  buildWild(J) {
+    const m = this.map, realm = J.wild.realm, fj = realm === 'fjord';
+    for (let y = 0; y < m.h; y++) for (let x = 0; x < m.w; x++) {
+      const c = m.ch(x, y), h = hash(x, y);
+      if (c === 'D') { this.add({ x: x + 0.5, y: y + 0.5, spr: 'wall_' + (h % 4), wall: true }); continue; }
+      if (c !== 'x') continue;
+      const inner = [[1, 0], [-1, 0], [0, 1], [0, -1], [2, 0], [-2, 0], [0, 2], [0, -2]].some(([dx, dy]) => { const X = x + dx, Y = y + dy; return X >= 0 && Y >= 0 && X < m.w && Y < m.h && m.ch(X, Y) !== 'x'; });
+      if (!inner || h % 3 === 0) continue;
+      const spr = fj ? ['rocks', 'stalagmite', 'tree_1', 'rocks'][h % 4] : (h % 5 === 0 ? 'rocks' : h % 2 ? 'tree_0' : 'tree_1');
+      this.add({ x: x + 0.3 + (h % 5) / 10, y: y + 0.3 + ((h >> 3) % 5) / 10, spr, tall: spr === 'rocks' ? 0 : 1 });
+    }
+    const col = fj ? [150, 210, 255] : [120, 230, 120];
+    for (const o of J.objects) {
+      switch (o.t) {
+        case 'wild_home': {
+          const d = this.add({ x: o.x, y: o.y, spr: 'portal', anim: 'portal' }); this.addLight(o.x, o.y, { r: 4.5, c: [150, 110, 255], flicker: 0.3, z: 1.2 });
+          this.inter.push({ id: 'wild_home', type: 'portal', to: 'town', x: o.x, y: o.y, r: 1.6, label: 'Вернуться в деревню', draw: d, plate: 'В деревню' }); break;
+        }
+        case 'wild_next': {
+          const d = this.add({ x: o.x, y: o.y, spr: 'portal', anim: 'portal', hidden: true }); const L = this.addLight(o.x, o.y, { r: 5, c: col, flicker: 0.3, z: 1.2 }); L.on = false;
+          this.inter.push({ id: 'wild_next', type: 'wildnext', x: o.x, y: o.y, r: 1.7, label: 'Вглубь', draw: d, light: L, hidden: true, plate: 'Вглубь' }); break;
+        }
+        case 'wchest': {
+          const d = this.add({ x: o.x, y: o.y, spr: o.rich ? 'chest_rich' : 'chest' }); this.map.circles.push({ x: o.x, y: o.y, r: 0.35 });
+          if (o.rich) this.addLight(o.x, o.y, { r: 3, c: [255, 210, 110], flicker: 0.3, z: 0.8 });
+          this.inter.push({ id: o.id, type: 'chest', rich: !!o.rich, x: o.x, y: o.y, r: 1.4, label: 'Открыть сундук', draw: d }); break;
+        }
+        case 'stash': {
+          const d = this.add({ x: o.x, y: o.y, spr: o.kind }); this.map.circles.push({ x: o.x, y: o.y, r: 0.3 });
+          this.inter.push({ id: o.id, type: 'stash', x: o.x, y: o.y, r: 1.3, label: 'Обыскать', draw: d }); break;
+        }
+        default: this.prop(o);
+      }
     }
   }
 }
