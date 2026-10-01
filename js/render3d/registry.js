@@ -14,6 +14,8 @@ import sword_rust from './models/weapon/sword_rust.js';
 import shield_bone from './models/weapon/shield_bone.js';
 import tree_0 from './models/prop/tree_0.js';
 import tree_1 from './models/prop/tree_1.js';
+import tree_0_far from './models/prop/tree_0_far.js';
+import tree_1_far from './models/prop/tree_1_far.js';
 import deadtree from './models/prop/deadtree.js';
 import house_0 from './models/prop/house_0.js';
 import house_1 from './models/prop/house_1.js';
@@ -36,13 +38,19 @@ import statue from './models/prop/statue.js';
 import weapon_rack from './models/prop/weapon_rack.js';
 import crystals from './models/prop/crystals.js';
 import portal from './models/prop/portal.js';
+import fern from './models/prop/fern.js';
+import flowers from './models/prop/flowers.js';
+import pebbles from './models/prop/pebbles.js';
+import mushrooms from './models/prop/mushrooms.js';
+import bush from './models/prop/bush.js';
 
 const by = (...l) => Object.fromEntries(l.map(m => [m.id, m]));
 export const HEROES = by(warrior);                       // ключ — класс героя
 export const MOBS = by(skel_warrior, ghoul);             // ключ — тип врага (ENEMIES)
 export const NPCS = by(npc_elder, npc_smith, npc_merchant, npc_trainer);
 export const WEAPONS = by(sword_iron, shield_round, sword_rust, shield_bone);
-export const PROPS = by(tree_0, tree_1, deadtree, house_0, house_1, house_2, rocks, grave, fence_x, fence_y, barrel, crate, hay, lamp, runebed, forge, stall, board, altar, banner, statue, weapon_rack, crystals, portal);
+export const PROPS = by(tree_0, tree_1, tree_0_far, tree_1_far, deadtree, house_0, house_1, house_2, rocks, grave, fence_x, fence_y, barrel, crate, hay, lamp, runebed, forge, stall, board, altar, banner, statue, weapon_rack, crystals, portal,
+  fern, flowers, pebbles, mushrooms, bush);   // последние пять — декор земли (js/render3d/props.js, scatterDecor), в картах не стоят
 
 // какая модель оружия соответствует типу оружия игры (wt); недостающие пока подменяются мечом
 export const WEAPON_MODEL = { sword: 'sword_iron', greatsword: 'sword_iron', axe: 'sword_iron' };

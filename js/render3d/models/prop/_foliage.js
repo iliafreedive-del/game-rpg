@@ -33,7 +33,9 @@ export function foliage(kit, seed = 5) {
       const n = Math.round(density * r * r + 10);
       for (let i = 0; i < n; i++) {
         const d = V(cr() - .5, cr() - .42, cr() - .5).normalize(), pos = c.clone().addScaledVector(d, r * (0.8 + cr() * 0.28)), hgt = clamp01((pos.y - y0) / (y1 - y0));
-        const base = new THREE.Color().setHSL(FOLIAGE.leafHue + (cr() - .5) * 0.05, 0.66, 0.13 + 0.17 * hgt + (d.y < 0 ? -0.05 : 0)), tip = new THREE.Color().setHSL(FOLIAGE.leafTipHue + (cr() - .5) * 0.05, 0.74, 0.31 + 0.2 * hgt + d.y * 0.08);
+        // глубже в кроне и снизу — темнее и холоднее; верх и сторона к солнцу — тёплый жёлто-зелёный
+        const sun = Math.max(0, d.y * 0.6 - d.x * 0.3 + d.z * 0.4), deep = d.y < 0 ? 0.06 : 0;
+        const base = new THREE.Color().setHSL(FOLIAGE.leafHue + 0.03 - sun * 0.03 + (cr() - .5) * 0.05, 0.62, 0.08 + 0.12 * hgt - deep), tip = new THREE.Color().setHSL(FOLIAGE.leafTipHue + 0.02 - sun * 0.05 + (cr() - .5) * 0.06, 0.72, 0.18 + 0.14 * hgt + sun * 0.16 - deep);
         plate(pos, d.clone().multiplyScalar(0.8).addScaledVector(UPV, 0.35 + cr() * 0.25).add(V(cr() - .5, 0, cr() - .5).multiplyScalar(0.5)).normalize(), 0.3 + r * 0.26 * (0.6 + cr() * 0.7), base, tip);
       }
     }
@@ -51,19 +53,34 @@ export function foliage(kit, seed = 5) {
       lobeSet(lobes, 1.6, 4.6, density);
       return finish();
     },
-    pine(tiers = 8) {
+    bush(lobes, density = 30) {
+      lobeSet(lobes, 0.1, 1.2, density);
+      return finish();
+    },
+    pine(tiers = 8, density = 1) {
       limb(V(0, 0, 0), V(0, 1.4, 0), 0.16, 0.08, BARK, BARK_L);
       for (let t = 0; t < tiers; t++) {
-        const y = 0.95 + t * 0.46, R = 1.0 - t * 0.115, n = 11 - Math.floor(t * 0.7);
-        raw(paint(new THREE.ConeGeometry(R * 0.72, 0.8, 6), 0x0f2a1c, { top: 0x1d4a30 }).translate(0, y + 0.1, 0));
+        const y = 0.95 + t * 0.46, R = 1.0 - t * 0.115, n = Math.max(4, Math.round((14 - Math.floor(t * 0.8)) * density));
+        raw(paint(new THREE.ConeGeometry(R * 0.72, 0.8, 6), 0x0a1f16, { top: 0x163a26 }).translate(0, y + 0.1, 0));
         for (let k = 0; k < n; k++) {
           const a = k / n * 6.283 + t * 0.7 + (cr() - .5) * 0.3, out = V(Math.cos(a), 0, Math.sin(a)), pos = out.clone().multiplyScalar(R * (0.62 + cr() * 0.3)).add(V(0, y + (cr() - .5) * 0.12, 0));
-          const base = new THREE.Color().setHSL(FOLIAGE.pineHue + cr() * 0.03, 0.55, 0.14 + t * 0.012), tip = new THREE.Color().setHSL(FOLIAGE.pineTipHue + cr() * 0.04, 0.7, 0.34 + t * 0.025);
-          plate(pos, out.clone().multiplyScalar(0.62).addScaledVector(UPV, 0.62).add(V(cr() - .5, 0, cr() - .5).multiplyScalar(0.25)).normalize(), 0.42 - t * 0.03, base, tip);
+          const sun = Math.max(0, -out.x * 0.5 + out.z * 0.6);   // сторона к солнцу (слева сверху экрана) светлее и теплее
+          const base = new THREE.Color().setHSL(FOLIAGE.pineHue + 0.02 + cr() * 0.03, 0.5, 0.07 + t * 0.012), tip = new THREE.Color().setHSL(FOLIAGE.pineTipHue + 0.03 - sun * 0.04 + cr() * 0.04, 0.62, 0.17 + t * 0.022 + sun * 0.1);
+          plate(pos, out.clone().multiplyScalar(0.62).addScaledVector(UPV, 0.62).add(V(cr() - .5, 0, cr() - .5).multiplyScalar(0.25)).normalize(), 0.34 - t * 0.025, base, tip);
         }
       }
-      raw(paint(new THREE.ConeGeometry(0.2, 0.6, 5), 0x1d4a30, { top: 0x7ac45a }).translate(0, 0.95 + tiers * 0.46 + 0.4, 0));
+      raw(paint(new THREE.ConeGeometry(0.2, 0.6, 5), 0x163a26, { top: 0x5a9a44 }).translate(0, 0.95 + tiers * 0.46 + 0.4, 0));
       return finish();
     },
   };
+}
+
+// заменители для shadow map: тень от кроны — от гладких шаров/конусов (десятки треугольников вместо тысяч)
+export function leafProxy(kit, lobes, trunkH) {
+  const { THREE, merge, part } = kit;
+  return merge([part(new THREE.CylinderGeometry(0.16, 0.28, trunkH + 0.4, 6), 0, [0, (trunkH + 0.4) / 2, 0]), ...lobes.map(([x, y, z, r]) => part(new THREE.IcosahedronGeometry(r * 0.82, 1), 0, [x, y, z]))]);
+}
+export function pineProxy(kit, tiers) {
+  const { THREE, merge, part } = kit;
+  return merge([part(new THREE.CylinderGeometry(0.1, 0.16, 1.4, 6), 0, [0, 0.7, 0]), part(new THREE.ConeGeometry(0.85, tiers * 0.46 + 1.0, 8), 0, [0, 0.95 + (tiers * 0.46 + 1.0) / 2 - 0.1, 0])]);
 }

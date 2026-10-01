@@ -117,6 +117,8 @@ export const QUALITY = {
   high: { name: 'Высокое', pr: 2, shadow: 2048, post: true, msaa: 4, bloom: 4, decor: 1 },
 };
 export const GRASS_K = { low: 0.3, med: 0.6, high: 1 };
+// трава деревни (пучки по 5 травинок): низ сливается с рисованной землёй, кончики — сочный жёлто-зелёный, редкие сухие
+export const GRASS = { base: 0x2c4a1a, tip: 0x9ccc48, dry: 0xd6c46a };
 export const WIND = [{ name: 'Штиль', s: 0.35 }, { name: 'Ветер', s: 1 }, { name: 'Буря', s: 2.1 }];
 
 // ---------- лимиты нагрузки (High, 1280×720). Замерено на torch.html ----------

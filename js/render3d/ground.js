@@ -3,15 +3,16 @@
 import * as THREE from '../vendor/three.module.min.js';
 import { U, toon } from './toon.js';
 import { rng, fbm, noise, paint, merge } from './geo.js';
-import { LOOKS, GRASS_K, SHADOW } from './style.js';
+import { noiseTex, grassTex, dirtTex, mossTex } from './textures.js';
+import { GRASS, GRASS_K, SHADOW } from './style.js';
 
 const GRASS_VS = /* glsl */`
 #include <common>
 #include <fog_pars_vertex>
 attribute float aRand;
 uniform float uTime; uniform vec2 uWind; uniform float uWindStr;
-uniform vec4 uBlobs[12]; uniform mat4 uShadowMat;
-varying float vH; varying float vRand; varying float vSheen; varying float vShade; varying vec4 vSh;
+uniform vec4 uBlobs[12]; uniform mat4 uShadowMat; uniform sampler2D tNoise;
+varying float vH; varying float vRand; varying float vSheen; varying float vShade; varying vec4 vSh; varying float vPatch; varying float vBlade;
 void main() {
   vec4 wp = modelMatrix * instanceMatrix * vec4(position, 1.0);
   vec3 root = (modelMatrix * instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
@@ -28,7 +29,8 @@ void main() {
   }
   wp.xz += off; wp.y -= dot(off, off) * 0.6 * t;
   vSh = uShadowMat * vec4(root.x, 0.05 + t * 0.15, root.z, 1.0);
-  vH = t; vRand = aRand; vSheen = gust * uWindStr;
+  vH = t; vRand = aRand; vSheen = gust * uWindStr; vBlade = uv.x;
+  vPatch = texture2D(tNoise, root.xz * 0.03).r;
   vec4 mvPosition = viewMatrix * wp; gl_Position = projectionMatrix * mvPosition;
   #include <fog_vertex>
 }`;
@@ -38,7 +40,7 @@ const GRASS_FS = /* glsl */`
 #include <packing>
 uniform vec3 uBase; uniform vec3 uTip; uniform vec3 uDry; uniform vec3 uLight;
 uniform sampler2D uShadowMap; uniform float uShadowOn; uniform float uShadowDark; uniform vec2 uShadowTexel;
-varying float vH; varying float vRand; varying float vSheen; varying float vShade; varying vec4 vSh;
+varying float vH; varying float vRand; varying float vSheen; varying float vShade; varying vec4 vSh; varying float vPatch; varying float vBlade;
 float shadowLit() {
   if (uShadowOn < 0.5) return 1.0;
   vec3 c = vSh.xyz / vSh.w;
@@ -48,29 +50,87 @@ float shadowLit() {
   return s / 9.0;
 }
 void main() {
-  vec3 tip = mix(uTip, uDry, smoothstep(0.8, 1.0, vRand) * 0.6) * (0.93 + vRand * 0.14);
-  vec3 c = mix(uBase, tip, smoothstep(0.0, 1.0, vH));
-  c += vSheen * vH * vH * 0.10;
-  c *= (0.82 + 0.18 * smoothstep(0.0, 0.6, vH)) * (1.0 - vShade * 0.45);
+  float rb = fract(vRand * 7.31 + vBlade * 3.17);
+  vec3 tip = mix(uTip, uDry, smoothstep(0.82, 1.0, rb) * 0.7) * (0.85 + rb * 0.3);
+  vec3 c = mix(uBase, tip, smoothstep(0.05, 1.0, vH));
+  c *= mix(vec3(0.62, 0.74, 0.62), vec3(1.32, 1.25, 0.82), smoothstep(0.25, 0.8, vPatch));   // те же пятна, что на земле
+  c += vSheen * vH * vH * 0.08;
+  c *= (1.0 - vShade * 0.4);
   c *= mix(uShadowDark, 1.0, shadowLit());
   gl_FragColor = vec4(c * uLight, 1.0);
   #include <colorspace_fragment>
   #include <fog_fragment>
 }`;
-function bladeGeometry() {
-  const h = 1, w = 0.07;
+// пучок травы: 4 изогнутых травинок веером (у каждой 3 треугольника); uv.x — номер травинки (для оттенка), uv.y — высота
+function clumpGeometry() {
+  const P = [], UV = [], I = [], R = rng(5);
+  for (let b = 0; b < 4; b++) {
+    const a = b / 4 * 6.283 + R() * 0.8, lean = 0.12 + R() * 0.22, h = 0.65 + R() * 0.45, w = 0.05 + R() * 0.025, ox = Math.cos(a) * 0.05, oz = Math.sin(a) * 0.05;
+    const dx = Math.cos(a), dz = Math.sin(a), px = -dz, pz = dx, o = P.length / 3, id = b / 5;
+    const pt = (t, side) => { const ww = w * (1 - t * 0.85) * side, bend = lean * t * t; P.push(ox + dx * bend * h + px * ww, h * t * (1 - lean * 0.3 * t), oz + dz * bend * h + pz * ww); UV.push(id, t); };
+    pt(0, -1); pt(0, 1); pt(0.5, -1); pt(0.5, 1); pt(1, 0);
+    I.push(o, o + 1, o + 2, o + 2, o + 1, o + 3, o + 2, o + 3, o + 4);
+  }
   const g = new THREE.BufferGeometry();
-  g.setAttribute('position', new THREE.Float32BufferAttribute([-w, 0, 0, w, 0, 0, -w * 0.62, h * 0.5, 0.04, w * 0.62, h * 0.5, 0.04, 0, h, 0.14], 3));
-  g.setAttribute('uv', new THREE.Float32BufferAttribute([0, 0, 1, 0, 0, 0.5, 1, 0.5, 0.5, 1], 2));
-  g.setIndex([0, 1, 2, 2, 1, 3, 2, 3, 4]);
+  g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(UV, 2)); g.setIndex(I);
   return g;
 }
 
-// палитра тайлов деревни: [низ, верх] — градиент не нужен, а вот шум яркости нужен
-const C = {
-  g: [0x2b5230, 0x4a8040], p: [0x5c4a30, 0x8a7048], c: [0x5a5448, 0x8a826c], f: [0x14301c, 0x24502c], w: [0x1c4a54, 0x2f7c86],
-};
-const KINDS = ['g', 'p', 'c', 'f', 'w'];
+// материал земли: toon (свет, тени, туман) + рисованные текстуры по маскам типов. aKind = веса (трава, тропа, брусчатка, лес);
+// край тропы рвёт шум, вдоль края — тёмная кромка (трава нависает над землёй), крупные пятна шума — солнечные и тенистые участки
+function groundMaterial() {
+  const m = toon(0xffffff, { vc: true, rim: 0.05 });
+  const T = { tNoise: { value: noiseTex() }, tGrass: { value: grassTex() }, tDirt: { value: dirtTex() }, tMoss: { value: mossTex() } };
+  const prev = m.onBeforeCompile;
+  m.onBeforeCompile = sh => {
+    prev(sh); Object.assign(sh.uniforms, T);
+    sh.vertexShader = 'attribute vec4 aKind; varying vec4 vKind; varying vec2 vGW;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvKind = aKind; vGW = (modelMatrix * vec4(position, 1.0)).xz;');
+    sh.fragmentShader = 'uniform sampler2D tNoise, tGrass, tDirt, tMoss; varying vec4 vKind; varying vec2 vGW;\n' + sh.fragmentShader.replace('#include <color_fragment>', /* glsl */`
+#include <color_fragment>
+{
+  vec2 wp = vGW;
+  vec4 nz = texture2D(tNoise, wp * 0.03), nz2 = texture2D(tNoise, wp * 0.13 + 0.37);
+  vec3 gr = mix(texture2D(tGrass, wp * 0.21).rgb, texture2D(tGrass, wp * 0.083 + 0.5).rgb, 0.4);
+  gr *= mix(vec3(0.62, 0.74, 0.62), vec3(1.32, 1.25, 0.82), smoothstep(0.25, 0.8, nz.r));      // тенистые и солнечные пятна
+  vec3 dt = mix(texture2D(tDirt, wp * 0.17).rgb, texture2D(tDirt, wp * 0.061 + 0.21).rgb, 0.3) * (0.85 + nz.g * 0.3);
+  vec3 ms = texture2D(tMoss, wp * 0.27).rgb * (0.8 + nz.r * 0.5);
+  float pm = smoothstep(0.44, 0.56, vKind.y + vKind.z * 0.8 + (nz2.g - 0.5) * 0.5 + (nz2.b - 0.5) * 0.3);
+  float cm = smoothstep(0.3, 0.7, vKind.z + (nz2.b - 0.5) * 0.25);
+  vec3 base = mix(gr, ms, smoothstep(0.2, 0.8, vKind.w + (nz.b - 0.5) * 0.4));
+  vec3 col = mix(base, dt, pm);
+  col = mix(col, dt * vec3(0.42, 0.4, 0.38), cm);                                                 // щели брусчатки
+  float edge = smoothstep(0.0, 0.35, pm) * (1.0 - smoothstep(0.35, 0.8, pm));
+  col *= 1.0 - 0.35 * edge;                                                                      // кромка тропы
+  diffuseColor.rgb = col * diffuseColor.rgb;
+}`);
+  };
+  m.customProgramCacheKey = () => 'ground';
+  return m;
+}
+
+// вода: тёмная глубина к середине, бирюзовая у берега, рябь из шумовой текстуры, блики солнца, пена у кромки
+function waterMaterial(x0, y0, x1, y1) {
+  return new THREE.ShaderMaterial({
+    uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.fog, { uTime: { value: 0 }, tNoise: { value: null }, uBox: { value: new THREE.Vector4(x0, y0, x1, y1) } }]),
+    fog: true, transparent: false,
+    vertexShader: `#include <common>\n#include <fog_pars_vertex>\nvarying vec3 vW; void main(){ vW = (modelMatrix * vec4(position, 1.0)).xyz; vec4 mvPosition = viewMatrix * vec4(vW, 1.0); gl_Position = projectionMatrix * mvPosition;\n#include <fog_vertex>\n}`,
+    fragmentShader: `#include <common>\n#include <fog_pars_fragment>\nuniform float uTime; uniform sampler2D tNoise; uniform vec4 uBox; varying vec3 vW;
+      void main(){
+        vec2 p = vW.xz;
+        float n1 = texture2D(tNoise, p * 0.12 + vec2(uTime * 0.012, uTime * 0.007)).b, n2 = texture2D(tNoise, p * 0.19 - vec2(uTime * 0.009, -uTime * 0.013)).b;
+        float rip = n1 + n2 - 1.0;
+        vec2 c = (uBox.xy + uBox.zw) * 0.5, h = (uBox.zw - uBox.xy) * 0.5; float d = length((p - c) / h);
+        vec3 deep = vec3(0.015, 0.07, 0.09), shallow = vec3(0.08, 0.32, 0.33);
+        vec3 col = mix(shallow, deep, smoothstep(0.1, 0.75, 1.0 - d + rip * 0.2));
+        float glint = smoothstep(0.32, 0.5, rip) * 0.9; col += vec3(1.0, 0.9, 0.7) * glint * 0.35;
+        col += vec3(0.6, 0.8, 0.75) * smoothstep(0.55, 0.0, abs(rip)) * 0.03;
+        gl_FragColor = vec4(col, 1.0);
+        #include <colorspace_fragment>
+        #include <fog_fragment>
+      }`,
+  });
+}
+
 const kindOf = ch => ch === ',' ? 'p' : ch === '#' ? 'c' : ch === 'x' ? 'f' : ch === '~' ? 'w' : 'g';
 
 export function buildGround(scene, zone) {
@@ -83,19 +143,20 @@ export function buildGround(scene, zone) {
     return w;
   };
   const x0 = -MARGIN, nx = Math.round((W + 2 * MARGIN) / STEP), ny = Math.round((H + 2 * MARGIN) / STEP);
-  const pos = new Float32Array((nx + 1) * (ny + 1) * 3), col = new Float32Array((nx + 1) * (ny + 1) * 4), idx = [];
-  const cc = new THREE.Color(), ca = new THREE.Color(), cb = new THREE.Color();
+  const nv = (nx + 1) * (ny + 1), pos = new Float32Array(nv * 3), col = new Float32Array(nv * 4), kind = new Float32Array(nv * 4), idx = [];
+  const bank = new THREE.Color(0x3a4a3a);
   for (let j = 0; j <= ny; j++) for (let i = 0; i <= nx; i++) {
-    const x = x0 + i * STEP, z = x0 + j * STEP, k = j * (nx + 1) + i, w = weights(x, z), n = fbm(x * 0.5, z * 0.5), n2 = noise(x * 2.3, z * 2.3);
-    let r = 0, g = 0, b = 0;
-    for (const t of KINDS) { if (!w[t]) continue; ca.setHex(C[t][0]); cb.setHex(C[t][1]); cc.copy(ca).lerp(cb, Math.min(1, Math.max(0, n * 1.25 + (n2 - 0.5) * 0.35))); r += cc.r * w[t]; g += cc.g * w[t]; b += cc.b * w[t]; }
-    pos[k * 3] = x; pos[k * 3 + 1] = -0.2 * w.w + (n - 0.5) * 0.06 * (1 - w.c); pos[k * 3 + 2] = z;
-    col.set([r, g, b, 1], k * 4);
+    const x = x0 + i * STEP, z = x0 + j * STEP, k = j * (nx + 1) + i, w = weights(x, z), n = fbm(x * 0.5, z * 0.5);
+    pos[k * 3] = x; pos[k * 3 + 1] = -0.2 * w.w + (n - 0.5) * 0.08 * (1 - w.c) - 0.04 * w.p; pos[k * 3 + 2] = z;
+    const ww = Math.min(1, w.w * 1.6);   // берег темнеет к воде
+    col.set([1 + (bank.r - 1) * ww, 1 + (bank.g - 1) * ww, 1 + (bank.b - 1) * ww, 1], k * 4);
+    kind.set([w.g, w.p, w.c, w.f], k * 4);
   }
   for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) { const a = j * (nx + 1) + i, b2 = a + 1, c2 = a + nx + 1, d2 = c2 + 1; idx.push(a, c2, b2, b2, c2, d2); }
   const geo = new THREE.BufferGeometry();
-  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('color', new THREE.BufferAttribute(col, 4)); geo.setIndex(idx); geo.computeVertexNormals();
-  const ground = new THREE.Mesh(geo, toon(0xffffff, { vc: true, rim: 0.08 })); ground.userData.noOutline = true; ground.receiveShadow = true; scene.add(ground);
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('color', new THREE.BufferAttribute(col, 4)); geo.setAttribute('aKind', new THREE.BufferAttribute(kind, 4));
+  geo.setIndex(idx); geo.computeVertexNormals();
+  const ground = new THREE.Mesh(geo, groundMaterial()); ground.userData.noOutline = true; ground.receiveShadow = true; scene.add(ground);
   // подложка до горизонта: тёмный мох, чтобы за краем карты не было пустоты
   const far = new THREE.Mesh(new THREE.PlaneGeometry(400, 400).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0x0f2418 })); far.position.set(W / 2, -0.4, H / 2); scene.add(far);
 
@@ -104,7 +165,8 @@ export function buildGround(scene, zone) {
   for (let ty = 0; ty < H; ty++) for (let tx = 0; tx < W; tx++) if (m.rows[ty][tx] === '~') wt.push([tx, ty]);
   if (wt.length) {
     const x0w = Math.min(...wt.map(t => t[0])) - 1, x1w = Math.max(...wt.map(t => t[0])) + 2, y0w = Math.min(...wt.map(t => t[1])) - 1, y1w = Math.max(...wt.map(t => t[1])) + 2;
-    water = new THREE.Mesh(new THREE.PlaneGeometry(x1w - x0w, y1w - y0w).rotateX(-Math.PI / 2).translate((x0w + x1w) / 2, -0.08, (y0w + y1w) / 2), new THREE.MeshBasicMaterial({ color: 0x3a8c96, fog: true }));
+    water = new THREE.Mesh(new THREE.PlaneGeometry(x1w - x0w, y1w - y0w).rotateX(-Math.PI / 2).translate((x0w + x1w) / 2, -0.08, (y0w + y1w) / 2), waterMaterial(x0w, y0w, x1w, y1w));
+    water.material.uniforms.uTime = U.uTime; water.material.uniforms.tNoise.value = noiseTex();
     water.userData.noOutline = true; scene.add(water);
   }
 
@@ -121,32 +183,39 @@ export function buildGround(scene, zone) {
   }
 
   // трава: чанки 8×8 м (frustum culling по чанкам), плотность по весу типа «трава» и пятнам
-  const ST = LOOKS.torch, grassU = {
+  const grassU = {
     uTime: U.uTime, uWind: U.uWind, uWindStr: U.uWindStr,
     uBlobs: { value: Array.from({ length: 12 }, () => new THREE.Vector4(999, 999, 0.5, 0)) },
     uShadowMat: { value: new THREE.Matrix4() }, uShadowMap: { value: null }, uShadowOn: { value: 0 }, uShadowDark: { value: SHADOW.grassDark }, uShadowTexel: { value: new THREE.Vector2(1 / 1024, 1 / 1024) },
-    uBase: { value: new THREE.Color(ST.grass[0]) }, uTip: { value: new THREE.Color(ST.grass[1]) }, uDry: { value: new THREE.Color(ST.grass[2]) }, uLight: { value: new THREE.Color(...ST.grass[3]) },
+    tNoise: { value: noiseTex() },
+    uBase: { value: new THREE.Color(GRASS.base) }, uTip: { value: new THREE.Color(GRASS.tip) }, uDry: { value: new THREE.Color(GRASS.dry) }, uLight: { value: new THREE.Color(1, 1, 1) },
   };
   const gmat = new THREE.ShaderMaterial({ uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.fog, {}]), vertexShader: GRASS_VS, fragmentShader: GRASS_FS, side: THREE.DoubleSide, fog: true });
   Object.assign(gmat.uniforms, grassU);
-  const blade = bladeGeometry(), CS = 8, grass = [], MAXP = 1100, RG = rng(23), mm = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), s = new THREE.Vector3(), p = new THREE.Vector3();
+  const blade = clumpGeometry(), CS = 8, grass = [], MAXP = 400, RG = rng(23), mm = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), s = new THREE.Vector3(), p = new THREE.Vector3();
   for (let cx = -1; cx * CS < W + CS; cx++) for (let cz = -1; cz * CS < H + CS; cz++) {
     const im = new THREE.InstancedMesh(blade.clone(), gmat, MAXP), rnd = new Float32Array(MAXP);
     let n = 0, guard = 0;
     while (n < MAXP && guard++ < MAXP * 6) {
-      const x = (cx + RG()) * CS, z = (cz + RG()) * CS, w = weights(x, z), dens = w.g * (0.35 + 0.65 * Math.min(1, Math.max(0, (fbm(x * 0.12 + 9, z * 0.12) - 0.3) * 3.5))) + w.f * 0.5;
-      if (RG() > dens) continue;
-      const tall = 0.2 + Math.pow(fbm(x * 0.21, z * 0.21), 2) * 0.45;
-      mm.compose(p.set(x, -0.02, z), q.setFromAxisAngle(up, RG() * 6.283), s.set(0.8 + RG() * 0.6, tall * (0.6 + RG() * 0.8), 1)); im.setMatrixAt(n, mm); rnd[n] = RG(); n++;
+      const x = (cx + RG()) * CS, z = (cz + RG()) * CS, w = weights(x, z);
+      // гуще у краёв троп (трава нависает) и пятнами в поле; на тропе и площади — нет
+      const edge = w.g * (w.p + w.c) * 4, patch = Math.min(1, Math.max(0, (fbm(x * 0.12 + 9, z * 0.12) - 0.32) * 3));
+      const dens = (w.g * (0.25 + 0.75 * patch) + w.f * 0.45 + edge * 0.8) * (1 - Math.min(1, (w.p + w.c) * 1.6)) * (1 - w.w);
+      if (RG() > dens || (m.free && !m.free(x, z, 0.05))) continue;
+      const tall = 0.22 + Math.pow(fbm(x * 0.21, z * 0.21), 2) * 0.35 + edge * 0.08, sc = 0.8 + RG() * 0.7;
+      mm.compose(p.set(x, -0.02, z), q.setFromAxisAngle(up, RG() * 6.283), s.set(sc, tall * (0.7 + RG() * 0.6), sc)); im.setMatrixAt(n, mm); rnd[n] = RG(); n++;
     }
     if (!n) continue;
     im.geometry.setAttribute('aRand', new THREE.InstancedBufferAttribute(rnd, 1));
-    im.userData.max = n; im.count = n; im.computeBoundingSphere(); im.boundingSphere.radius += 1;
+    im.userData.max = n; im.count = n; im.userData.c = [(cx + 0.5) * CS, (cz + 0.5) * CS]; im.computeBoundingSphere(); im.boundingSphere.radius += 1;
     scene.add(im); grass.push(im);
   }
+  let gk = 1;
   return {
     grassU,
-    setQuality(q) { const k = GRASS_K[q] ?? 1; for (const g of grass) g.count = Math.floor(g.userData.max * k); },
+    setQuality(q) { gk = GRASS_K[q] ?? 1; for (const g of grass) g.count = Math.floor(g.userData.max * gk); },
+    // LOD: дальние чанки (верх кадра) реже — экземпляры перемешаны, поэтому обрезка счётчика прореживает равномерно
+    lod(x, z) { for (const g of grass) { const [cx, cz] = g.userData.c, d = Math.hypot(cx - x, cz - z), f = 1 - 0.6 * Math.min(1, Math.max(0, (d - 10) / 16)); g.count = Math.floor(g.userData.max * gk * f); } },
     // трава — свой шейдер, поэтому тень направленного света она читает из shadow map сама
     shadow(light) {
       const sm = light.shadow, on = light.castShadow && !!sm.map;
