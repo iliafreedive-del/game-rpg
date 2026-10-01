@@ -253,7 +253,7 @@ export function render() {
   devSpawn();
   world.ground.shadow(lights.moon); world.ground.lod(camTarget.x + SQ * 2, camTarget.z + SQ * 2);
   renderer.info.reset();
-  post.render(scene, camera, tAll);
+  post.render(scene, camera, tAll, LV.exposure ?? 1);
 }
 
 // ---------------------------------------------------------------- отладка: ?spawn=skel_warrior,ghoul — враги рядом с героем (в деревне врагов нет)

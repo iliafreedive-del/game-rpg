@@ -86,7 +86,7 @@ export const LIGHT = {
     clear: 0x05060a, fog: { color: 0x0a0c14, near: 26, far: 64 },
     hemi: { sky: 0x6a8ab8, ground: 0x3a2c20, i: 1.65 },
     key: { color: 0x9ab4ff, i: 1.1, offset: [-11, 24, 20] },
-    point: { i: 18, dist: 11, decay: 1.7 },
+    point: { i: 18, dist: 11, decay: 1.7 }, exposure: 1.25,
     biome: { flooded: { sky: 0x4a90a8, fog: 0x08181e }, ash: { sky: 0xa0583a, fog: 0x1a0a06 }, abyss: { sky: 0x7a5ab8, fog: 0x120a20 } },
   },
   // цитадель Ордена и арена: светло и читаемо (тёплый камень, золото)

@@ -104,7 +104,8 @@ export class Post {
     this.mFinal.uniforms.uRes.value.set(w, h);
   }
   pass(mat, target) { this.quad.material = mat; this.r.setRenderTarget(target); this.r.render(this.scene, this.cam); }
-  render(scene, camera, t) {
+  // exposure — множитель экспозиции зоны (подземелья светлее: на телефоне в темноте ничего не видно)
+  render(scene, camera, t, exposure = 1) {
     const r = this.r;
     if (!this.on) { r.setRenderTarget(null); r.render(scene, camera); return; }
     r.setRenderTarget(this.rt); r.render(scene, camera);
@@ -126,7 +127,7 @@ export class Post {
       bloomTex = cur.texture;
     }
     const F = this.mFinal.uniforms;
-    F.tScene.value = this.rt.texture; F.tBloom.value = bloomTex || this.rt.texture; F.uBloom.value = bloomTex ? POST.bloom.strength : 0; F.uTime.value = t % 100;
+    F.tScene.value = this.rt.texture; F.tBloom.value = bloomTex || this.rt.texture; F.uBloom.value = bloomTex ? POST.bloom.strength : 0; F.uTime.value = t % 100; F.uExposure.value = POST.exposure * exposure;
     this.pass(this.mFinal, null);
   }
   dispose() { this.setup(1, 1, { enabled: false }); }
