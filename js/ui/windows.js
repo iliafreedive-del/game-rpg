@@ -17,6 +17,7 @@ import { revive, saveNow, loadZone, depthsUnlocked } from '../game/game.js';
 import { generateFloor, isBossFloor, floorLevel } from '../world/floorgen.js';
 import { REALMS, WILD_QUESTS, wildLevel, isWildBoss } from '../data/wild.js';
 import { wildState, questProgress, claimQuest } from '../game/wild.js';
+import { nemState, displayName, TRAITS, WEAK } from '../game/nemesis.js';
 import * as DQ from '../game/daily.js';
 import * as CS from '../game/castle.js';
 import { openHeroPath } from './herospath.js';
@@ -447,7 +448,7 @@ W.shrine = () => modal('Святилище наград', 'md', b => {
 // ---------------------------------------------------------------- death / boss reward / chapter end
 function showDeath() {
   const d = $('death'); d.classList.remove('hidden'); G.paused = true;
-  d.innerHTML = `<h2>Вы погибли</h2><p class="muted">${G.run ? `Этаж ${G.run.floor} не пройден. Собранное золото остаётся у вас.` : 'Нежить торжествует… но Орден даёт второй шанс.'}</p>`;
+  d.innerHTML = `<h2>Вы погибли</h2><p class="muted">${G.zoneId === 'wild' ? 'Ноша потеряна. Враг запомнил вас — вернитесь и отомстите.' : G.run ? `Этаж ${G.run.floor} не пройден. Собранное золото остаётся у вас.` : 'Нежить торжествует… но Орден даёт второй шанс.'}</p>`;
   const row = el('div', 'row'); row.style.justifyContent = 'center';
   const ad = el('button', 'btn ad', 'Воскреснуть на месте');
   ad.onclick = async () => { const tok = offerToken('revive'); const ok = await watchRewarded('revive', tok, () => { }); if (ok) { d.classList.add('hidden'); G.paused = false; revive(true); } };
@@ -512,6 +513,12 @@ W.wild = realm => modal(REALMS[realm].name, 'sm', b => {
     b.appendChild(el('h3', '', 'Пройденные глубины')); const grid = el('div', 'row');
     for (let d = Math.max(1, WS.best - 11); d <= WS.best; d++) { const bt = el('button', 'btn sm', `${d}${isWildBoss(d) ? '♛' : ''}`); bt.onclick = () => enter(d); grid.appendChild(bt); }
     b.appendChild(grid);
+  }
+  const NS = nemState(), foes = NS.list.filter(n => n.alive && n.realm === realm && (n.rank > 0 || n.defeats || n.fled)), tro = NS.trophies.filter(t => t.realm === realm);
+  if (foes.length || tro.length) {
+    b.appendChild(el('h3', '', 'Охота: личные враги'));
+    for (const n of foes) b.appendChild(el('div', 'q cur', `<div class="qt">☠ ${esc(displayName(n))} · ранг ${n.rank}</div><div class="muted">Силён: ${n.traits.map(t => TRAITS[t].name + ' (' + TRAITS[t].txt + ')').join('; ')}</div><div class="muted">Слаб к ${WEAK[n.weak]} (+35% урона) · хранит добычу: ${n.stash} зол.</div>`));
+    for (const t of tro) b.appendChild(el('div', 'q', `<div class="qt">🏆 ${esc(t.name)}</div><div class="muted">Трофей: +${t.bonus.toFixed(1)}% урона и золота навсегда</div>`));
   }
   b.appendChild(el('h3', '', 'Задания похода'));
   for (const q of WILD_QUESTS[realm]) {

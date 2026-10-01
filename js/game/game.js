@@ -15,6 +15,7 @@ import { loadFloor, buildFloorCanvas } from '../render/renderer.js';
 import { generateFloor, isBossFloor, parTime } from '../world/floorgen.js';
 import { generateWild } from '../world/wildgen.js';
 import { prepareWildAtlases, setPropsPalette, buildWildFloor } from '../world/wildfloor.js';
+import { onLeaveWild, refreshCarry } from './nemesis.js';
 import { spawnWild, wildState, openStash, wildChestExtra } from './wild.js';
 import { REALMS } from '../data/wild.js';
 import { generateCastle } from '../world/castlegen.js';
@@ -46,6 +47,7 @@ bus.on('save', requestSave);
 export async function loadZone(id, how = {}) {
   G.zoneReady = false; bus.emit('zoneLoading', id);
   const P = G.profile;
+  if (G.zoneId === 'wild' && id !== 'wild') onLeaveWild();
   if (id !== 'wild') setPropsPalette(false);   // «снежные» пропсы Фьордов только внутри Фьордов
   // keep dungeon state when leaving through a Scroll of Return
   G.dungeonCache = null;   // dungeons always repopulate when re-entered
@@ -102,7 +104,7 @@ export async function loadZone(id, how = {}) {
   } else if (id === 'wild') {
     [pl.x, pl.y] = zone.start; pl.face = pl.dir = 1; spawnWild(zone); G.diedThisRun = false;
     const WS = wildState(how.realm); WS.depth = Math.max(WS.depth || 0, how.depth);
-    G.wild = { realm: how.realm, depth: how.depth, done: false, t0: G.time };
+    G.wild = { realm: how.realm, depth: how.depth, done: false, t0: G.time, carry: 0, greed: 0, slow: 1, noise: 1, refresh: refreshCarry }; refreshCarry();
   } else if (id === 'depths') {
     [pl.x, pl.y] = zone.start; pl.face = pl.dir = 1;
     spawnFloor(zone); G.diedThisRun = false; G.dungeonCache = null;

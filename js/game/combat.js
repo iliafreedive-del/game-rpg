@@ -53,6 +53,7 @@ export function damageEnemy(e, amount, o = {}) {
   if (o.canCrit !== false) { const cc = S.critChance + (o.critBonus || 0); if (rand() < cc) { crit = true; dmg *= S.critMult; } }
   if (!o.elem || o.elem === 'phys') { const red = damageReduction(e.armor * (1 - (o.pierce || 0)), G.profile.level) * 0.9; dmg *= 1 - red; }
   if (e.st.shock > 0) dmg *= 1 + e.st.shockAmp;
+  if (e.nem && e.nem.weak === (o.elem && o.elem !== 'magic' ? o.elem : 'phys')) { dmg *= 1.35; o = { ...o, weakHit: 1 }; }   // слабость немезиса
   if (G.player && G.player.warcry > G.time && o.src !== 'dot') dmg *= G.player.warcryMul || 1.25;
   if (e.st.frozen > 0 && R('shatter')) dmg *= 1.5;
   if (S.effects.execute && e.hp < e.maxHP * 0.3 && o.src === 'melee') dmg *= 2;
@@ -446,6 +447,7 @@ export function hurtPlayer(src, raw, elem) {
   if (src && src.D && src.D.onHit === 'slow') P.slowT = Math.max(P.slowT || 0, 1.6);   // мороз: замедление героя
   P.hp -= dmg; P.flash = 0.15; bus.emit('hurt', { dmg, src: src && src.type ? src.type : src && src.src && src.src.type ? src.src.type : String(src && src.kind || 'proj') });
   float(P.x, P.y, '-' + dmg, '#ff5a4a', { z: 2.1 });
+  if (src && src.vamp && !src.dead) src.hp = Math.min(src.maxHP, src.hp + dmg * src.vamp);   // «Кровопийца»
   bus.emit('sfx', 'hurt');
   if (dmg > S.maxHP * 0.12 && !P.busy()) { P.state = 'hit'; P.setAnim('hit', 3 / 0.3); }
   if (P.hp <= 0) { P.hp = 0; P.dead = true; P.state = 'dead'; P.setAnim('death', 9); bus.emit('playerDeath'); }

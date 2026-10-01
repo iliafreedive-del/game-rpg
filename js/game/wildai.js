@@ -66,7 +66,7 @@ export function makeWildAI(AI, ranged) {
     jarl(e, dt, P, d) {
       if (!e.enraged && e.hp < e.maxHP * 0.5) enrageOnce(e, 'ЯРОСТЬ!');
       e.hornT = (e.hornT ?? 5) - dt;
-      if (e.hornT <= 0 && livingMinions() < 6) { e.hornT = e.enraged ? 10 : 14; bus.emit('wildSummon', { e, n: e.enraged ? 3 : 2, text: 'Рог войны!' }); e.cd = Math.max(e.cd, 0.8); return; }
+      if (e.hornT <= 0 && livingMinions() < 6) { e.hornT = (e.enraged ? 10 : 14) * (e.hornMul || 1); bus.emit('wildSummon', { e, n: e.enraged ? 3 : 2, text: 'Рог войны!' }); e.cd = Math.max(e.cd, 0.8); return; }
       if (d <= e.D.range + P.r + 0.2 && e.cd <= 0) { e.startAttack(rand() < 0.45 ? 'attack2' : 'attack', P); e.cd = e.D.cd * (e.enraged ? 0.7 : 1); return; }
       if (d > e.D.range + P.r) e.moveToward(P.x, P.y, dt); else { e.dir = dirOf(P.x - e.x, P.y - e.y); e.setAnim('idle', 5, true, e.anim.clip !== 'idle'); }
     },

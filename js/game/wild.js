@@ -8,6 +8,7 @@ import { makeItem } from './items.js';
 import { grant } from './quests.js';
 import { rand, rrange, rint } from '../core/util.js';
 import { REALMS, WILD_MOBS, WILD_QUESTS, isWildBoss } from '../data/wild.js';
+import { pickNemesis, applyNemesis, bankCarry, onNemesisKilled } from './nemesis.js';
 
 export const wildState = (realm, P = G.profile) => {
   P.wild = P.wild || {};
@@ -23,6 +24,7 @@ export function spawnWild(zone) {
       for (let k = 0; k < 12; k++) { const tx = x + rrange(-spread, spread), ty = y + rrange(-spread, spread); if (zone.map.free(tx, ty, 0.45)) { px = tx; py = ty; break; } }
       const rr = WILD_MOBS[type].radius + 0.15; [px, py] = zone.map.nearestFree(px, py, rr);
       const e = new Enemy(type, px, py, lvl, { story: tag || null, champion: !tag && rand() < 0.04 + zone.json.wild.depth * 0.01 });
+      if (tag === 'wildkeep') applyNemesis(e, pickNemesis(zone.json.wild.realm));
       if (tag === 'wildboss') e.name = `${WILD_MOBS[type].name} · глубина ${zone.json.wild.depth}`;
       G.enemies.push(e);
     }
@@ -50,7 +52,8 @@ function onKill(e) {
     for (let i = 0; i < (boss ? 12 : 7); i++) L.dropGold(e.x, e.y, rint(6, 12) * (1 + 0.15 * (lvl - 1)));
     L.dropPotion(e.x, e.y, 'hp'); L.dropPotion(e.x, e.y, 'mp'); if (boss) { L.dropPotion(e.x, e.y, 'hp'); L.dropPotion(e.x, e.y, 'hp'); }
     L.dropItem(e.x, e.y, boss ? makeItem({ epic: L.pickEpic(cls), ilvl: P.level + 2, cls }) : makeItem({ rarity: 2, ilvl: P.level + 1, cls }));
-    openNext(e);
+    openNext(e); if (e.nem) onNemesisKilled(e);
+    bankCarry(boss ? 'Босс повержен' : 'Форт отбит');
     bus.emit('toast', { text: boss ? `${e.D.name} повержен!` : `${REALMS[realm].fortName} отбит!`, sub: `Путь вглубь открыт (глубина ${depth + 1}). Награда — в сундуках форта`, kind: 'good' });
     bus.emit('save'); bus.emit('wildProgress');
   }
