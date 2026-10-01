@@ -5,8 +5,8 @@ export default { id: 'portal', kind: 'prop', outline: 'stone',
     const col = new THREE.Color(opts.color ?? PAL.abyss);
     const L = [];
     for (let i = 0; i < 14; i++) { const a = Math.PI + i / 13 * Math.PI, x = Math.cos(a) * 1.15, y = 0.1 - Math.sin(a) * 1.15 + 1.1;
-      L.push(part(new THREE.BoxGeometry(0.34, 0.34, 0.38), 0x3a362c, [x, y, 0], [0, 0, a + Math.PI / 2], 1, { top: 0x9a8c68 })); }
-    for (const sx of [-1, 1]) for (let j = 0; j < 3; j++) L.push(part(new THREE.BoxGeometry(0.4, 0.4, 0.42), 0x4a463a, [sx * 1.15, 0.2 + j * 0.37 - 0.0, 0], 0, 1, { top: 0xa89a74 }));
+      L.push(part(new THREE.BoxGeometry(0.34, 0.34, 0.38), 0x3a362c, [x, y, 0], [0, 0, a + Math.PI / 2], 1, { top: 0x9a8c68, tex: 'stone' })); }
+    for (const sx of [-1, 1]) for (let j = 0; j < 3; j++) L.push(part(new THREE.BoxGeometry(0.4, 0.4, 0.42), 0x4a463a, [sx * 1.15, 0.2 + j * 0.37 - 0.0, 0], 0, 1, { top: 0xa89a74, tex: 'stone' }));
     L.push(part(new THREE.BoxGeometry(0.5, 0.3, 0.5), PAL.brassD, [0, 2.4, 0], 0, 1, { top: PAL.brass }), part(new THREE.SphereGeometry(0.1, 8, 6), PAL.abyss, [0, 2.4, 0.26], 0, 1, { emit: true }));
     const root = new THREE.Group(); const frame = new THREE.Mesh(merge(L), kit.propMat(this)); root.add(frame);
     const mat = new THREE.ShaderMaterial({ transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending,

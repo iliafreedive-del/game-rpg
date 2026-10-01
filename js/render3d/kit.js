@@ -12,6 +12,8 @@ export function makeKit(scene) {
   return {
     THREE, scene, geo, rig, PAL, HERO, MOB, OUTLINE, RIM, FOLIAGE, Cape, blobShadow,
     part, merge,
+    // бокс с фасками: размеры, фаска, цвет, позиция, поворот, опции покраски ({ top, tex, emit })
+    bbox: (w, h, d, b, c, p, r, o) => part(geo.chamferBox(w, h, d, b), c, p, r, 1, o),
     // шар: радиус, цвет, позиция, масштаб, опции покраски ({ top, emit })
     ball: (r, c, p, s, o) => part(new THREE.SphereGeometry(r, 10, 8), c, p, 0, s, o),
     // Group в позиции p внутри parent
@@ -22,7 +24,7 @@ export function makeKit(scene) {
     mesh: (geometry, material) => new THREE.Mesh(geometry, material),
     // материал персонажа: тон-рамп, rim-свет, самосвечение по альфе цвета вершины, вспышка при ударе
     // материал предмета окружения: ветер (def.sway), растворение между камерой и героем (fade), rim-свет
-    propMat: (def = {}) => toon(0xffffff, { vc: true, rim: def.rim ?? RIM.prop, rimColor: def.rimColor ?? LOOKS.torch.rim, fade: true, sway: def.sway, side: def.side === 'double' ? THREE.DoubleSide : undefined, ao: def.ao ?? SHADOW.groundAO, aoH: def.aoH ?? 0.9 }),
-    mat: (o = {}) => toon(0xffffff, { vc: true, rim: o.rim ?? 0.7, rimColor: o.rimColor ?? 0xffe2b8, side: o.side, ao: 0.72, aoH: 0.55 }),
+    propMat: (def = {}) => toon(0xffffff, { vc: true, rim: def.rim ?? RIM.prop, rimColor: def.rimColor ?? LOOKS.torch.rim, fade: true, sway: def.sway, side: def.side === 'double' ? THREE.DoubleSide : undefined, ao: def.ao ?? SHADOW.groundAO, aoH: def.aoH ?? 0.9, tex: true }),
+    mat: (o = {}) => toon(0xffffff, { vc: true, rim: o.rim ?? 0.7, rimColor: o.rimColor ?? 0xffe2b8, side: o.side, ao: 0.72, aoH: 0.55, tex: true }),
   };
 }

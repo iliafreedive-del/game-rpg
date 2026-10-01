@@ -4,7 +4,7 @@ export function foliage(kit, seed = 5) {
   const { THREE, FOLIAGE } = kit, { rng, paint } = kit.geo;
   const cr = rng(seed), V = (x, y, z) => new THREE.Vector3(x, y, z), UPV = V(0, 1, 0), Zax = V(0, 0, 1);
   const clamp01 = x => Math.min(1, Math.max(0, x));
-  let acc = { P: [], N: [], C: [] };
+  let acc = { P: [], N: [], C: [], T: [] };
   const plate = (c, dir, size, base, tip) => {
     const g = new THREE.CircleGeometry(1, 5), p = g.attributes.position, f = [0, 1, 2, 3, 4].map(() => 0.78 + cr() * 0.45);
     p.setZ(0, 0.3);
@@ -15,16 +15,16 @@ export function foliage(kit, seed = 5) {
     const pp = ng.attributes.position, nn = ng.attributes.normal;
     for (let i = 0; i < pp.count; i++) {
       const n = V(nn.getX(i), nn.getY(i), nn.getZ(i)).multiplyScalar(0.6).addScaledVector(dir, 0.4).normalize(), col = i % 3 === 0 ? tip : base.clone().lerp(tip, 0.25);
-      acc.P.push(pp.getX(i), pp.getY(i), pp.getZ(i)); acc.N.push(n.x, n.y, n.z); acc.C.push(col.r, col.g, col.b, 1);
+      acc.P.push(pp.getX(i), pp.getY(i), pp.getZ(i)); acc.N.push(n.x, n.y, n.z); acc.C.push(col.r, col.g, col.b, 1); acc.T.push(0);
     }
   };
   const raw = g => {
-    const ng = g.index ? g.toNonIndexed() : g; ng.computeVertexNormals(); const pp = ng.attributes.position, nn = ng.attributes.normal, cc = ng.attributes.color;
-    for (let i = 0; i < pp.count; i++) { acc.P.push(pp.getX(i), pp.getY(i), pp.getZ(i)); acc.N.push(nn.getX(i), nn.getY(i), nn.getZ(i)); acc.C.push(cc.getX(i), cc.getY(i), cc.getZ(i), 1); }
+    const ng = g.index ? g.toNonIndexed() : g; ng.computeVertexNormals(); const pp = ng.attributes.position, nn = ng.attributes.normal, cc = ng.attributes.color, tt = ng.attributes.aTex;
+    for (let i = 0; i < pp.count; i++) { acc.P.push(pp.getX(i), pp.getY(i), pp.getZ(i)); acc.N.push(nn.getX(i), nn.getY(i), nn.getZ(i)); acc.C.push(cc.getX(i), cc.getY(i), cc.getZ(i), 1); acc.T.push(tt ? tt.getX(i) : 0); }
   };
   const limb = (a, b, r0, r1, c0, c1) => {
     const d = b.clone().sub(a), L = d.length(), g = new THREE.CylinderGeometry(r1, r0, L, 6); g.translate(0, L / 2, 0);
-    g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(UPV, d.clone().normalize())); g.translate(a.x, a.y, a.z); raw(paint(g, c0, { top: c1, y0: Math.min(a.y, b.y), y1: Math.max(a.y, b.y) }));
+    g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(UPV, d.clone().normalize())); g.translate(a.x, a.y, a.z); raw(paint(g, c0, { top: c1, y0: Math.min(a.y, b.y), y1: Math.max(a.y, b.y), tex: 'bark' }));
   };
   const lobeSet = (lobes, y0, y1, density) => {
     for (const [x, y, z, r] of lobes) {
@@ -41,8 +41,8 @@ export function foliage(kit, seed = 5) {
     }
   };
   const finish = () => {
-    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(acc.P, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(acc.N, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(acc.C, 4));
-    g.computeBoundingSphere(); acc = { P: [], N: [], C: [] }; return g;
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(acc.P, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(acc.N, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(acc.C, 4)); g.setAttribute('aTex', new THREE.Float32BufferAttribute(acc.T, 1));
+    g.computeBoundingSphere(); acc = { P: [], N: [], C: [], T: [] }; return g;
   };
   const BARK = FOLIAGE.bark, BARK_L = FOLIAGE.barkL;
   return {

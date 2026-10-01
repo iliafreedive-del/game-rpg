@@ -74,7 +74,7 @@ export const LIGHT = {
   // холодное бирюзовое небо (заполняющий свет) против тёплого золотого солнца, как на референсах
   village3: {
     clear: 0x2c4a48, fog: { color: 0x3a5a56, near: 34, far: 92 },
-    hemi: { sky: 0xa8d0d4, ground: 0x6a5038, i: 1.6 },
+    hemi: { sky: 0xa8d0d4, ground: 0x8a6a48, i: 1.6 },
     key: { color: 0xffd49a, i: 3.0, offset: [-11, 24, 20] },     // экран: сверху слева, чуть со стороны камеры
     warm: { color: 0xff9a4a, i: 24, dist: 14, decay: 1.5 },
     violet: { color: 0x9a62ff, i: 14, dist: 11, decay: 1.6, y: 2.0 },

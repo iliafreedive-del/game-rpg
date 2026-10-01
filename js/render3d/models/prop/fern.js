@@ -2,10 +2,10 @@
 import { plantBuilder } from './_plants.js';
 export default {
   id: 'fern', kind: 'prop', batch: true, outline: false, shadow: false, side: 'double', rimColor: 0xe8ffb0, rim: 0.35,
-  sway: { base: 0.1, amt: 0.09, flutter: 0.02 }, ao: 0.55, aoH: 0.5,
+  sway: { base: 0.1, amt: 0.09, flutter: 0.02 }, ao: 0.75, aoH: 0.4,
   build(kit) {
     const { THREE, geo } = kit, R = geo.rng(17), B = plantBuilder(kit);
-    const D = '#1d3d16', M = '#3f7424', T = '#8cc24a';
+    const D = '#356a1e', M = '#6aac2e', T = '#c0ec60';
     for (let f = 0; f < 8; f++) {
       const a = f / 8 * 6.283 + R() * 0.5, L = 0.75 + R() * 0.35, H = 0.42 + R() * 0.2, dx = Math.cos(a), dz = Math.sin(a), px = -dz, pz = dx, segs = 7;
       const spine = s => [dx * L * s, H * Math.sin(s * Math.PI * 0.85) + 0.02, dz * L * s];

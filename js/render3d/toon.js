@@ -1,6 +1,7 @@
 // Stylised materials: soft 3-band toon ramp + rim light + self-lit vertex flag + wind sway + inverted-hull outline.
 // All variants are MeshToonMaterial / MeshBasicMaterial patched in onBeforeCompile, so three.js lights & fog keep working.
 import * as THREE from '../vendor/three.module.min.js';
+import { matTex, MATS } from './textures.js';
 
 // global uniforms shared by every patched shader
 export const U = {
@@ -81,6 +82,39 @@ const addAO = (sh, k, h) => {
   sh.fragmentShader = 'varying float vAOY;\n' + sh.fragmentShader.replace('#include <opaque_fragment>',
     `outgoingLight *= mix(${k.toFixed(3)}, 1.0, smoothstep(0.0, ${h.toFixed(3)}, vAOY));\n#include <opaque_fragment>`);
 };
+// рисованные фактуры: triplanar в пространстве модели (персонажи и instanced-предметы: фактура не «плывёт» при движении).
+// id из атрибута aTex выбирает текстуру; градиенты UV считаются до ветвления, выборка — textureGrad (мипмапы без швов)
+let TEXU = null;
+const texUniforms = () => TEXU || (TEXU = Object.fromEntries(['wood', 'stone', 'roof', 'plaster', 'metal', 'cloth', 'bark'].map(k => ['t_' + k, { value: matTex(k) }])));
+const S = n => MATS[n][1].toFixed(3);
+const TEX_F = /* glsl */`
+{
+  vec3 an = abs(normalize(vTN)); vec3 tw = pow(an, vec3(4.0)); tw /= (tw.x + tw.y + tw.z);
+  float id = floor(vTexId + 0.5);
+  bool vert = id == 1.0 || id == 8.0;   // волокна вдоль Y
+  vec2 ux = vert ? vTP.yz : vTP.zy, uy = vTP.xz, uz = vert ? vTP.yx : vTP.xy;
+  float sc = id < 2.5 ? ${S('wood')} : id < 3.5 ? ${S('stone')} : id < 4.5 ? ${S('roof')} : id < 5.5 ? ${S('plaster')} : id < 6.5 ? ${S('metal')} : id < 7.5 ? ${S('cloth')} : ${S('bark')};
+  ux *= sc; uy *= sc; uz *= sc;
+  vec2 dxX = dFdx(ux), dyX = dFdy(ux), dxY = dFdx(uy), dyY = dFdy(uy), dxZ = dFdx(uz), dyZ = dFdy(uz);
+  float d = 0.5;
+  #define TRI(T) d = textureGrad(T, ux, dxX, dyX).r * tw.x + textureGrad(T, uy, dxY, dyY).r * tw.y + textureGrad(T, uz, dxZ, dyZ).r * tw.z
+  if (id < 0.5) d = 0.5;
+  else if (id < 2.5) { TRI(t_wood); }
+  else if (id < 3.5) { TRI(t_stone); }
+  else if (id < 4.5) { TRI(t_roof); }
+  else if (id < 5.5) { TRI(t_plaster); }
+  else if (id < 6.5) { TRI(t_metal); }
+  else if (id < 7.5) { TRI(t_cloth); }
+  else { TRI(t_bark); }
+  diffuseColor.rgb *= clamp(1.0 + (d - 0.5) * 3.2, 0.3, 1.6);
+}
+`;
+const addTex = sh => {
+  Object.assign(sh.uniforms, texUniforms());
+  sh.vertexShader = 'attribute float aTex; varying float vTexId; varying vec3 vTP; varying vec3 vTN;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvTexId = aTex; vTP = position; vTN = normal;');
+  sh.fragmentShader = 'uniform sampler2D t_wood, t_stone, t_roof, t_plaster, t_metal, t_cloth, t_bark; varying float vTexId; varying vec3 vTP; varying vec3 vTN;\n' +
+    sh.fragmentShader.replace('#include <color_fragment>', '#include <color_fragment>\n' + TEX_F);
+};
 const addFade = sh => {
   sh.vertexShader = FADE_VS + sh.vertexShader.replace('#include <project_vertex>', '#include <project_vertex>\n' + FADE_V);
   sh.fragmentShader = FADE_FS + sh.fragmentShader.replace('void main() {', 'void main() {\n' + FADE_F);
@@ -130,8 +164,9 @@ export function toon(color = 0xffffff, o = {}) {
       sh.fragmentShader.replace('#include <opaque_fragment>', RIM + '#include <opaque_fragment>');
     if (o.fade) addFade(sh);
     if (o.ao) addAO(sh, o.ao, o.aoH ?? 0.8);
+    if (o.tex) addTex(sh);
   };
-  m.customProgramCacheKey = () => 'toon' + (sw ? '-sway' : '') + (o.fade ? '-fade' : '') + (o.ao ? '-ao' + o.ao + '-' + (o.aoH ?? 0.8) : '');
+  m.customProgramCacheKey = () => 'toon' + (sw ? '-sway' : '') + (o.fade ? '-fade' : '') + (o.ao ? '-ao' + o.ao + '-' + (o.aoH ?? 0.8) : '') + (o.tex ? '-tex' : '');
   return m;
 }
 

@@ -32,7 +32,7 @@ export function bakeRigid(modelRoot, holder) {
   for (const [mat, list] of groups) {
     if (list.length < 2) continue;
     let n = 0; for (const m of list) n += m.geometry.attributes.position.count;
-    const P = new Float32Array(n * 3), N = new Float32Array(n * 3), C = new Float32Array(n * 4), SI = new Uint16Array(n * 4), SW = new Float32Array(n * 4);
+    const P = new Float32Array(n * 3), N = new Float32Array(n * 3), C = new Float32Array(n * 4), TX = new Float32Array(n), SI = new Uint16Array(n * 4), SW = new Float32Array(n * 4);
     const inv = [], bones = [], v = new THREE.Vector3(), nm = new THREE.Matrix3(), rel = new THREE.Matrix4();
     let o = 0;
     list.forEach((m, bi) => {
@@ -42,14 +42,14 @@ export function bakeRigid(modelRoot, holder) {
         v.fromBufferAttribute(pa, i).applyMatrix4(rel); P.set([v.x, v.y, v.z], (o + i) * 3);
         if (na) { v.fromBufferAttribute(na, i).applyMatrix3(nm).normalize(); N.set([v.x, v.y, v.z], (o + i) * 3); }
         if (ca) C.set([ca.getX(i), ca.getY(i), ca.getZ(i), ca.itemSize > 3 ? ca.getW(i) : 1], (o + i) * 4); else C.fill(1, (o + i) * 4, (o + i) * 4 + 4);
-        SI[(o + i) * 4] = bi; SW[(o + i) * 4] = 1;
+        SI[(o + i) * 4] = bi; SW[(o + i) * 4] = 1; if (g.attributes.aTex) TX[o + i] = g.attributes.aTex.getX(i);
       }
       o += c; bones.push(m); inv.push(rel.clone().invert());
       m.layers.disableAll(); m.userData.noOutline = true;
     });
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.BufferAttribute(P, 3)); geo.setAttribute('normal', new THREE.BufferAttribute(N, 3));
-    geo.setAttribute('color', new THREE.BufferAttribute(C, 4)); geo.setAttribute('skinIndex', new THREE.BufferAttribute(SI, 4)); geo.setAttribute('skinWeight', new THREE.BufferAttribute(SW, 4));
+    geo.setAttribute('color', new THREE.BufferAttribute(C, 4)); geo.setAttribute('aTex', new THREE.BufferAttribute(TX, 1)); geo.setAttribute('skinIndex', new THREE.BufferAttribute(SI, 4)); geo.setAttribute('skinWeight', new THREE.BufferAttribute(SW, 4));
     const sk = new THREE.SkinnedMesh(geo, mat);
     // кости — исходные меши; SkinnedMesh стоит в корне актёра (attached: bindMatrixInverse = обратная его matrixWorld),
     // а обратные матрицы костей переводят из пространства корня модели, поэтому корень актёра и модели должны совпадать

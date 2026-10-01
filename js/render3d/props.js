@@ -50,6 +50,14 @@ export class PropLayer {
       return true;
     };
     const trees = zone.statics.filter(d => d.spr === 'tree_0' || d.spr === 'tree_1');
+    // хлам у домов: у видимых стен (+x, +z) — бочки, ящики, мешки, поленница; вплотную к стене, где герой почти не ходит
+    const HB = { house_0: [1.45, 1.15], house_1: [1.75, 1.3], house_2: [1.25, 1.25] };
+    for (const d of zone.statics) {
+      const hb = HB[d.spr]; if (!hb) continue;
+      const h = hash(d.x, d.y), [hx, hz] = hb;
+      const spots = [['barrel', hx + 0.45, -hz * 0.55], ['crate', hx + 0.5, -hz * 0.1], ['sacks', -hx * 0.75, hz + 0.45], ['logpile', hx + 0.42, hz * 0.55], ['barrel', hx * 0.55, hz + 0.45]];
+      spots.forEach(([id, ox, oz], i) => { if (hash(d.x + i, d.y - i) < 0.72) { push(id, d.x + ox, d.y + oz, id === 'logpile' ? Math.PI / 2 : h * 6.28 + i, 0.9 + h * 0.2); this.lastPushedQ(id, 0.2 + i * 0.1); } });
+    }
     const S = 0.85;
     for (let y = -3; y < m.h + 3; y += S) for (let x = -3; x < m.w + 3; x += S) {
       const h1 = hash(x * 1.7 + 11, y * 1.3 - 5), h2 = hash(y * 2.1 - 3, x * 0.7 + 9), h3 = hash(x + y * 3.1, x * 2.3), px = x + (h2 - 0.5) * S, py = y + (h3 - 0.5) * S;
@@ -57,11 +65,11 @@ export class PropLayer {
       const forestEdge = c === '.' && near(px, py, 'x', 1), pathEdge = c === '.' && (near(px, py, ',', 1) || near(px, py, '#', 1));
       const nearTree = trees.some(t => (t.x - px) ** 2 + (t.y - py) ** 2 < 2.2);
       let id = null, sc = 0.8 + h2 * 0.5;
-      if (c === 'x') { if (h1 < 0.28) id = 'fern'; else if (h1 < 0.4) id = 'bush'; else if (h1 < 0.43) id = 'mushrooms'; sc *= 1.2; }
+      if (c === 'x') { if (h1 < 0.28) { id = 'fern'; sc *= 1.15; } else if (h1 < 0.4) id = 'bush'; else if (h1 < 0.43) id = 'mushrooms'; sc *= 1.2; }
       else if (c === '.') {
         if (!clear(px, py, 0.45)) continue;
         const patch = fbm(px * 0.18 + 4, py * 0.18);
-        if (forestEdge) { if (h1 < 0.32) id = 'fern'; else if (h1 < 0.5) id = 'bush'; else if (h1 < 0.55) id = 'mushrooms'; }
+        if (forestEdge) { if (h1 < 0.32) id = 'fern'; else if (h1 < 0.5) id = 'bush'; else if (h1 < 0.55) id = 'mushrooms'; else if (h1 < 0.58) id = 'stump'; }
         else if (pathEdge) { if (h1 < 0.1) id = 'pebbles'; else if (h1 < 0.15) id = 'fern'; else if (h1 < 0.19 && patch > 0.5) id = 'flowers'; }
         else if (nearTree && h1 < 0.25) id = h1 < 0.1 ? 'mushrooms' : 'fern';
         else if (patch > 0.55 && h1 < 0.22) id = 'flowers';
@@ -85,10 +93,10 @@ export class PropLayer {
     const ol = this.outlineFor(def), meshes = [];
     root.traverse(o => { if (o.isMesh) { const g = o.geometry.clone(); g.applyMatrix4(o.matrixWorld); meshes.push({ geo: g, mat: o.material }); } });
     const parts = meshes.map(({ geo, mat }) => {
-      const im = new THREE.InstancedMesh(geo, mat, list.length); im.frustumCulled = false; im.castShadow = def.shadow !== false; im.receiveShadow = true;
+      const im = new THREE.InstancedMesh(geo, mat, list.length); im.name = def.id; im.frustumCulled = false; im.castShadow = def.shadow !== false; im.receiveShadow = true;
       this.scene.add(im); this.items.push(im);
       let oim = null;
-      if (ol) { oim = new THREE.InstancedMesh(geo, ol, list.length); oim.instanceMatrix = im.instanceMatrix; oim.frustumCulled = false; oim.userData.isOutline = true; this.scene.add(oim); this.items.push(oim); }
+      if (ol) { oim = new THREE.InstancedMesh(geo, ol, list.length); oim.name = def.id; oim.instanceMatrix = im.instanceMatrix; oim.frustumCulled = false; oim.userData.isOutline = true; this.scene.add(oim); this.items.push(oim); }
       return { im, oim };
     });
     if (def.shadowProxy) {   // тень от заменителя: только слой 1 (его видит камера тени, но не основная)

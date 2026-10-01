@@ -100,3 +100,107 @@ export function mossTex() {
   for (let i = 0; i < 900; i++) { const X = R() * S, Y = R() * S, len = 3 + R() * 6, w = 1 + R() * 1.6, an = R() * 6.28, col = R() < 0.25 ? hsl(30 + R() * 15, 40, 18 + R() * 12, 0.7) : hsl(95 + R() * 30, 45, 12 + R() * 14, 0.7); wrap(S, X, Y, len, (a, b) => stroke(x, a, b, len, w, an, col)); }
   const t = tex(c); cache.set('moss', t); return t;
 }
+
+// ---------------------------------------------------------------- фактуры материалов (серые «множители» вокруг 0,5: цвет даёт вершина)
+// накладываются triplanar в пространстве модели (js/render3d/toon.js), id материала — атрибут вершины aTex (geo.js, TEX_ID)
+const gray = (v, a = 1) => `rgba(${v | 0},${v | 0},${v | 0},${a})`;
+function base(S, v) { const c = canvas(S), x = c.getContext('2d'); x.fillStyle = gray(v); x.fillRect(0, 0, S, S); return [c, x]; }
+
+// доски: волокна вдоль U, тёмные щели между досками (4 доски на тайл), сучки, потёртые светлые края
+function woodTex() {
+  const S = 512, [c, x] = base(S, 128), R = rng(51), PL = 4, ph = S / PL;
+  for (let p = 0; p < PL; p++) {
+    const y0 = p * ph, tone = 108 + R() * 40;
+    x.fillStyle = gray(tone); x.fillRect(0, y0, S, ph);
+    for (let i = 0; i < 46; i++) {   // волокна: длинные волнистые линии
+      const yy = y0 + R() * ph, amp = 1 + R() * 3, fr = 0.01 + R() * 0.02, ph0 = R() * 6, v = tone + (R() - 0.55) * 60;
+      x.strokeStyle = gray(Math.max(30, v), 0.5); x.lineWidth = 0.8 + R() * 1.8; x.beginPath();
+      for (let X = 0; X <= S; X += 8) { const Y = yy + Math.sin(X * fr + ph0) * amp; X ? x.lineTo(X, Y) : x.moveTo(X, Y); } x.stroke();
+    }
+    for (let k = 0; k < 2; k++) if (R() < 0.7) {   // сучок
+      const X = R() * S, Y = y0 + ph * (0.3 + R() * 0.4), r = 5 + R() * 7;
+      for (let j = 4; j > 0; j--) { x.strokeStyle = gray(60 + j * 10, 0.6); x.lineWidth = 1.4; x.beginPath(); x.ellipse(X, Y, r * j * 0.6 + 4, r * j * 0.3 + 2, 0, 0, 6.28); x.stroke(); }
+      x.fillStyle = gray(45); x.beginPath(); x.ellipse(X, Y, r * 0.5, r * 0.35, 0, 0, 6.28); x.fill();
+    }
+    const g = x.createLinearGradient(0, y0, 0, y0 + ph); g.addColorStop(0, gray(200, 0.35)); g.addColorStop(0.12, gray(128, 0)); g.addColorStop(0.85, gray(128, 0)); g.addColorStop(1, gray(20, 0.5));
+    x.fillStyle = g; x.fillRect(0, y0, S, ph);
+    x.fillStyle = gray(18); x.fillRect(0, y0 + ph - 3, S, 3);
+    for (let i = 0; i < 3; i++) { const X = R() * S; x.fillStyle = gray(25); x.fillRect(X, y0, 3, ph); }   // торцы досок
+  }
+  return c;
+}
+// кладка: неровные блоки, тёмные швы, светлый верхний край блока, трещины и сколы
+function stoneTex() {
+  const S = 512, [c, x] = base(S, 50), R = rng(61), rows = 6, rh = S / rows;
+  for (let r = 0; r < rows; r++) {
+    let X = -R() * 60;
+    while (X < S) {
+      const w = 60 + R() * 70, y0 = r * rh, tone = 105 + R() * 55, j = () => (R() - 0.5) * 6;
+      const poly = [[X + 4 + j(), y0 + 4 + j()], [X + w - 4 + j(), y0 + 4 + j()], [X + w - 3 + j(), y0 + rh - 4 + j()], [X + 3 + j(), y0 + rh - 4 + j()]];
+      for (const ox of [0, S]) {
+        x.save(); x.translate(ox ? (X + w > S ? -S : 0) : 0, 0);
+        x.fillStyle = gray(tone); x.beginPath(); poly.forEach(([a, b], i) => i ? x.lineTo(a, b) : x.moveTo(a, b)); x.closePath(); x.fill();
+        x.clip();
+        for (let k = 0; k < 14; k++) { x.fillStyle = gray(tone + (R() - 0.5) * 50, 0.25); x.beginPath(); x.ellipse(X + R() * w, y0 + R() * rh, 6 + R() * 16, 4 + R() * 10, R() * 3, 0, 6.28); x.fill(); }
+        const g = x.createLinearGradient(0, y0, 0, y0 + rh); g.addColorStop(0, gray(230, 0.45)); g.addColorStop(0.25, gray(128, 0)); g.addColorStop(0.75, gray(128, 0)); g.addColorStop(1, gray(10, 0.45));
+        x.fillStyle = g; x.fillRect(X, y0, w, rh);
+        if (R() < 0.35) { x.strokeStyle = gray(30, 0.8); x.lineWidth = 1.2; x.beginPath(); let a = X + R() * w, b = y0 + 5; x.moveTo(a, b); for (let k = 0; k < 4; k++) { a += (R() - 0.5) * 18; b += rh / 5; x.lineTo(a, b); } x.stroke(); }
+        x.restore();
+      }
+      X += w;
+    }
+  }
+  return c;
+}
+// черепица/дранка: ряды с тёмной нижней кромкой, у каждой дощечки свой тон
+function roofTex() {
+  const S = 512, [c, x] = base(S, 40), R = rng(71), rows = 8, rh = S / rows;
+  for (let r = 0; r < rows; r++) {
+    let X = (r % 2) * 30 - 30;
+    while (X < S) {
+      const w = 40 + R() * 26, y0 = r * rh, tone = 100 + R() * 70;
+      const g = x.createLinearGradient(0, y0, 0, y0 + rh); g.addColorStop(0, gray(tone * 0.7)); g.addColorStop(0.75, gray(tone)); g.addColorStop(0.92, gray(tone * 1.15)); g.addColorStop(1, gray(25));
+      x.fillStyle = g; x.beginPath(); x.moveTo(X + 2, y0); x.lineTo(X + w - 2, y0); x.lineTo(X + w - 3, y0 + rh - 2); x.quadraticCurveTo(X + w / 2, y0 + rh + 3, X + 3, y0 + rh - 2); x.closePath(); x.fill();
+      for (let k = 0; k < 6; k++) { x.strokeStyle = gray(tone * 0.6, 0.4); x.lineWidth = 1; const a = X + 5 + R() * (w - 10); x.beginPath(); x.moveTo(a, y0 + 3); x.lineTo(a + (R() - 0.5) * 4, y0 + rh - 6); x.stroke(); }
+      X += w;
+    }
+  }
+  return c;
+}
+// штукатурка: мягкие пятна, подтёки снизу, сетка мелких трещин
+function plasterTex() {
+  const S = 256, [c, x] = base(S, 140), R = rng(81);
+  for (let i = 0; i < 160; i++) { const X = R() * S, Y = R() * S, r = 6 + R() * 26, v = 140 + (R() - 0.5) * 70; wrap(S, X, Y, r, (a, b) => { x.fillStyle = gray(v, 0.18); x.beginPath(); x.ellipse(a, b, r, r * 0.7, 0, 0, 6.28); x.fill(); }); }
+  for (let i = 0; i < 10; i++) { let a = R() * S, b = R() * S; x.strokeStyle = gray(70, 0.55); x.lineWidth = 0.8; x.beginPath(); x.moveTo(a, b); for (let k = 0; k < 5; k++) { a += (R() - 0.5) * 22; b += (R() - 0.5) * 22; x.lineTo(a, b); } x.stroke(); }
+  return c;
+}
+// металл: продольная шлифовка, царапины, вмятины
+function metalTex() {
+  const S = 256, [c, x] = base(S, 132), R = rng(91);
+  for (let i = 0; i < 400; i++) { const Y = R() * S; x.fillStyle = gray(132 + (R() - 0.5) * 60, 0.25); x.fillRect(0, Y, S, 1); }
+  for (let i = 0; i < 70; i++) { const X = R() * S, Y = R() * S, L = 6 + R() * 26, a = R() * 6.28, v = R() < 0.5 ? 220 : 50; wrap(S, X, Y, L, (p, q) => { x.strokeStyle = gray(v, 0.5); x.lineWidth = 0.7; x.beginPath(); x.moveTo(p, q); x.lineTo(p + Math.cos(a) * L, q + Math.sin(a) * L); x.stroke(); }); }
+  for (let i = 0; i < 14; i++) { const X = R() * S, Y = R() * S, r = 4 + R() * 10; wrap(S, X, Y, r, (a, b) => { const g = x.createRadialGradient(a - r * 0.3, b - r * 0.3, 0, a, b, r); g.addColorStop(0, gray(200, 0.35)); g.addColorStop(1, gray(60, 0)); x.fillStyle = g; x.fillRect(a - r, b - r, r * 2, r * 2); }); }
+  return c;
+}
+// ткань: плетение, складки, стёжка по краю
+function clothTex() {
+  const S = 256, [c, x] = base(S, 128), R = rng(101);
+  for (let y = 0; y < S; y += 3) { x.fillStyle = gray(118 + (y % 6 ? 10 : -10), 0.6); x.fillRect(0, y, S, 1.5); }
+  for (let X = 0; X < S; X += 3) { x.fillStyle = gray(128 + (X % 6 ? 8 : -12), 0.4); x.fillRect(X, 0, 1.5, S); }
+  for (let i = 0; i < 9; i++) { const X = R() * S, w = 10 + R() * 26; const g = x.createLinearGradient(X - w, 0, X + w, 0); g.addColorStop(0, gray(128, 0)); g.addColorStop(0.5, gray(R() < 0.5 ? 60 : 200, 0.35)); g.addColorStop(1, gray(128, 0)); x.fillStyle = g; for (const o of [-S, 0, S]) x.fillRect(X - w + o, 0, w * 2, S); }
+  x.strokeStyle = gray(60, 0.7); x.setLineDash([5, 4]); x.lineWidth = 1.2; for (const Y of [20, S - 20]) { x.beginPath(); x.moveTo(0, Y); x.lineTo(S, Y); x.stroke(); }
+  return c;
+}
+// кора: вертикальные борозды
+function barkTex() {
+  const S = 256, [c, x] = base(S, 110), R = rng(111);
+  for (let i = 0; i < 70; i++) { const X = R() * S, w = 2 + R() * 6, v = R() < 0.5 ? 40 + R() * 30 : 160 + R() * 50; x.strokeStyle = gray(v, 0.6); x.lineWidth = w; x.beginPath(); let a = X; x.moveTo(a, 0); for (let Y = 0; Y <= S; Y += 16) { a = X + Math.sin(Y * 0.05 + i) * 4; x.lineTo(a, Y); } x.stroke(); }
+  return c;
+}
+// id → [функция, масштаб (повторов на метр), поворот волокон: 1 — вдоль Y]
+export const MATS = { wood: [woodTex, 1.1, 1], woodH: [woodTex, 1.1, 0], stone: [stoneTex, 0.7, 0], roof: [roofTex, 0.9, 0], plaster: [plasterTex, 0.8, 0], metal: [metalTex, 1.6, 0], cloth: [clothTex, 1.8, 0], bark: [barkTex, 1.3, 1] };
+export function matTex(name) {
+  const k = 'm:' + (name === 'woodH' ? 'wood' : name);
+  if (!cache.has(k)) cache.set(k, tex(MATS[name][0](), false));
+  return cache.get(k);
+}

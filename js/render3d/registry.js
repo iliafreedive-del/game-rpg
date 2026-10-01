@@ -43,6 +43,9 @@ import flowers from './models/prop/flowers.js';
 import pebbles from './models/prop/pebbles.js';
 import mushrooms from './models/prop/mushrooms.js';
 import bush from './models/prop/bush.js';
+import sacks from './models/prop/sacks.js';
+import logpile from './models/prop/logpile.js';
+import stump from './models/prop/stump.js';
 
 const by = (...l) => Object.fromEntries(l.map(m => [m.id, m]));
 export const HEROES = by(warrior);                       // ключ — класс героя
@@ -50,7 +53,7 @@ export const MOBS = by(skel_warrior, ghoul);             // ключ — тип 
 export const NPCS = by(npc_elder, npc_smith, npc_merchant, npc_trainer);
 export const WEAPONS = by(sword_iron, shield_round, sword_rust, shield_bone);
 export const PROPS = by(tree_0, tree_1, tree_0_far, tree_1_far, deadtree, house_0, house_1, house_2, rocks, grave, fence_x, fence_y, barrel, crate, hay, lamp, runebed, forge, stall, board, altar, banner, statue, weapon_rack, crystals, portal,
-  fern, flowers, pebbles, mushrooms, bush);   // последние пять — декор земли (js/render3d/props.js, scatterDecor), в картах не стоят
+  fern, flowers, pebbles, mushrooms, bush, sacks, logpile, stump);   // последние восемь — декор земли и хлам у домов (js/render3d/props.js, scatterDecor), в картах не стоят
 
 // какая модель оружия соответствует типу оружия игры (wt); недостающие пока подменяются мечом
 export const WEAPON_MODEL = { sword: 'sword_iron', greatsword: 'sword_iron', axe: 'sword_iron' };
