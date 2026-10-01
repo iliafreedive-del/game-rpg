@@ -9,22 +9,24 @@ import { DarkHero } from './hero.js';
 import { Mobs } from './mobs.js';
 
 const params = new URLSearchParams(location.search);
+const LOOK = window.LOOK || params.get('look') || 'dark', TORCH = LOOK === 'torch';
 const dpr = window.devicePixelRatio || 1;
 const canvas = document.getElementById('c');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: dpr < 2, powerPreference: 'high-performance', preserveDrawingBuffer: params.has('shot') });
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(30, 1, 0.5, 90);
-const FOG = 0x12102a;
+const camera = new THREE.PerspectiveCamera(30, 1, 0.5, 160);
+const FOG = TORCH ? 0x1d3836 : 0x12102a;
 renderer.setClearColor(FOG);
-scene.fog = new THREE.Fog(FOG, 22, 50);
+scene.fog = TORCH ? new THREE.Fog(FOG, 38, 95) : new THREE.Fog(FOG, 22, 50);
 
+const WARM = TORCH ? 26 : 18;
 // night: cold sky/ground ambient, a moon key from the camera side, ONE roaming warm torch light and ONE violet light at the gate
-const hemi = new THREE.HemisphereLight(0x6a86c8, 0x121a34, 1.2); scene.add(hemi);
-const moon = new THREE.DirectionalLight(0x9fb2ff, 1.5); scene.add(moon, moon.target);
-const warm = new THREE.PointLight(0xff9a4a, 18, 11, 1.5); scene.add(warm);
+const hemi = TORCH ? new THREE.HemisphereLight(0x8fb0a4, 0x4a3826, 1.1) : new THREE.HemisphereLight(0x6a86c8, 0x121a34, 1.2); scene.add(hemi);
+const moon = TORCH ? new THREE.DirectionalLight(0xffd8a0, 1.7) : new THREE.DirectionalLight(0x9fb2ff, 1.5); scene.add(moon, moon.target);
+const warm = new THREE.PointLight(0xff9a4a, WARM, TORCH ? 15 : 11, 1.5); scene.add(warm);
 const violet = new THREE.PointLight(0x9a62ff, 9, 9, 1.6); scene.add(violet);
 
-const world = buildWorld(scene);
+const world = buildWorld(scene, LOOK);
 const gate = toWorld(0, 1.0); violet.position.set(gate.x, 2.0, gate.z);
 const fx = new FX(scene);
 fx.slashes.forEach(x => x.mesh.material.uniforms.uColor.value.set(0xc9a8ff));      // abyss-violet slash arcs
@@ -54,12 +56,13 @@ ui.outline.onclick = () => { state.outlines = !state.outlines; applyOutlines(); 
 ui.wind.onclick = () => { state.wind = (state.wind + 1) % WIND.length; applyWind(); };
 
 // ---------- camera: hero sits in the lower third so the tall gate stays in frame ----------
-const CAM_YAW = Math.PI / 4, CAM_PITCH = 0.74, AIM = 2.6;
+const CAM_YAW = Math.PI / 4, CAM_PITCH = TORCH ? 0.95 : 0.74, AIM = TORCH ? 3.4 : 2.6;
 const camTarget = new THREE.Vector3();
-let camDist = 15, shake = 0;
+const BASE = TORCH ? 31 : 15;
+let camDist = BASE, shake = 0;
 function resize() {
   const w = innerWidth, h = innerHeight; renderer.setSize(w, h, false); camera.aspect = w / h;
-  camDist = w / h < 1 ? 15 * Math.min(1.5, 1 / (w / h) * 0.85) : 15;
+  camDist = w / h < 1 ? BASE * Math.min(1.5, 1 / (w / h) * 0.85) : BASE;
   camera.updateProjectionMatrix();
 }
 addEventListener('resize', resize);
@@ -89,7 +92,7 @@ const mv = new THREE.Vector2();
 function lights(t) {
   // warm light hops to the torch nearest to the hero and flickers; violet breathes
   const f = 0.82 + Math.sin(t * 13) * 0.08 + Math.sin(t * 23.7) * 0.06 + Math.sin(t * 5.1) * 0.06;
-  warm.intensity = 18 * f; violet.intensity = 9 * (0.85 + Math.sin(t * 2.1) * 0.15);
+  warm.intensity = WARM * f; violet.intensity = 9 * (0.85 + Math.sin(t * 2.1) * 0.15);
   let best = world.torches[0], bd = 1e9;
   for (const q of world.torches) { const d = Math.hypot(q.x - hero.pos.x, q.z - hero.pos.z); if (d < bd) { bd = d; best = q; } }
   warm.position.lerp(best, 0.06);

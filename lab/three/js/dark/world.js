@@ -17,17 +17,26 @@ export function pavedMask(x, z) {
   const l = toLocal(x, z), n = (noise(x * 0.5, z * 0.5) - 0.5) * 0.6;
   const plaza = (1 - smoothstep(4.6, 5.6, Math.abs(l.x) + n)) * smoothstep(0.4, 1.0, l.z) * (1 - smoothstep(6.0, 7.0, l.z));
   const road = (1 - smoothstep(1.2, 1.9, Math.abs(l.x - pathWob(l.z)) + n)) * smoothstep(5.0, 6.5, l.z);
+  if (TORCH) { const c = toWorld(0, 6), r = Math.hypot(x - c.x, z - c.z) + (noise(x * 0.3, z * 0.3) - 0.5) * 4; return Math.max(plaza, road, (1 - smoothstep(10, 15, r)) * smoothstep(0.4, 1.0, l.z)); }
   return Math.max(plaza, road);
 }
 
 // chunky "hewn" block: low-poly box, jittered, flat-shaded, painted with a cold-bottom → pale-top gradient
-function block(w, h, d, seed, base = 0x30364c, top = 0x8089a6) {
+function block(w, h, d, seed, base = ST.base, top = ST.top) {
   const g = new THREE.BoxGeometry(w, h, d, 2, 2, 2).toNonIndexed();
   jitter(g, Math.min(w, h, d) * 0.16, rng(seed));
   return paint(place(g, [0, h / 2, 0]), base, { top, y0: 0, y1: h });
 }
 const BLOCKS = [[1.4, 0.8, 1.2, 11], [1.0, 0.8, 1.2, 12], [0.7, 0.8, 1.2, 13]];   // wall courses
 const deg = Math.PI / 180;
+// two looks share one scene: 'dark' (cold, near-black) and 'torch' (warmer, brighter, saturated — the Torchlight-like reading)
+const LOOKS = {
+  dark: { base: 0x30364c, top: 0x8089a6, slabB: 0x2c3248, slabT: 0x6a7390, capB: 0x3a4058, capT: 0x959db8, lintB: 0x363c54, lintT: 0x8a93b0, hue: 0.62, sat: 0.1, lk: 1, ol: 0x07050f,
+    gA: 0x232a3b, gB: 0x2f3a4a, gM: 0x1f3a3a, gS: 0x3a3f55, rim: 0xa9b4ff, mist: [0x4a4f8c, 0x3c3a78, 0x2c2c66], mistK: 1, grass: [0x10282c, 0x4e8f8c, 0x8c78c8, [0.8, 0.85, 1]] },
+  torch: { base: 0x3e3a30, top: 0x9a8c68, slabB: 0x40361f, slabT: 0x9c8450, capB: 0x4a4636, capT: 0xa89a74, lintB: 0x443e30, lintT: 0xa49670, hue: 0.11, sat: 0.3, lk: 1.0, ol: 0x1c0f08,
+    gA: 0x2c2a1c, gB: 0x3a3422, gM: 0x1e4034, gS: 0x3a2e1a, rim: 0xffe2a8, mist: [0x3f7a70, 0x2f6a62, 0x275a56], mistK: 0.8, grass: [0x143a26, 0x5aa65a, 0xb8b45a, [0.9, 0.95, 0.9]] },
+};
+let ST = LOOKS.dark, TORCH = false;
 
 // ---- additive glow sprites (billboards for flames/halos, flat discs for floor pools); one draw call each ----
 function glowSet(items, flat) {
@@ -50,7 +59,8 @@ function glowSet(items, flat) {
   return im;
 }
 
-export function buildWorld(scene) {
+export function buildWorld(scene, look = 'dark') {
+  ST = LOOKS[look] || LOOKS.dark; TORCH = look === 'torch';
   const R = rng(777);
   const colliders = [], shadowSpots = [], outlined = [], fadeMats = [];
   const torches = [];                            // world positions of flames (for the roaming warm light)
@@ -72,13 +82,13 @@ export function buildWorld(scene) {
     }
     return im;
   }
-  const tintC = (l, h = 0.62, sat = 0.12) => new THREE.Color().setHSL(h, sat, l);
+  const tintC = (l, h = ST.hue, sat = ST.sat) => new THREE.Color().setHSL(h, sat, Math.min(0.92, l * ST.lk));
 
   // ---------- ground ----------
   {
     const g = new THREE.PlaneGeometry(96, 96, 120, 120); g.rotateX(-Math.PI / 2);
     const p = g.attributes.position, col = new Float32Array(p.count * 4);
-    const A = new THREE.Color(0x232a3b), B = new THREE.Color(0x2f3a4a), M = new THREE.Color(0x1f3a3a), S = new THREE.Color(0x3a3f55), c = new THREE.Color();
+    const A = new THREE.Color(ST.gA), B = new THREE.Color(ST.gB), M = new THREE.Color(ST.gM), S = new THREE.Color(ST.gS), c = new THREE.Color();
     for (let i = 0; i < p.count; i++) {
       const x = p.getX(i), z = p.getZ(i), y = heightAt(x, z);
       p.setY(i, y);
@@ -93,29 +103,34 @@ export function buildWorld(scene) {
 
   // ---------- flagstones: plaza + winding road, one instanced draw ----------
   {
-    const slab = block(1.0, 0.14, 1.0, 5, 0x2c3248, 0x6a7390);
+    const slab = block(1.0, 0.14, 1.0, 5, ST.slabB, ST.slabT);
     const items = [];
-    for (let lz = 1.0; lz < 6.5; lz += 1.08) for (let lx = -5.2; lx <= 5.2; lx += 1.08) {
+    if (TORCH) for (let x = -24; x <= 24; x += 1.02) for (let z = -24; z <= 24; z += 1.02) {
+      const px = x + (R() - .5) * 0.2, pz = z + (R() - .5) * 0.2;
+      if (pavedMask(px, pz) < 0.5 || toLocal(px, pz).z < 0.55 || R() < 0.02) continue;
+      items.push({ x: px, z: pz, y: R() * 0.04 - 0.02, rot: YAW + (R() - .5) * 0.16, s: 1.03 + R() * 0.08, tint: tintC(0.34 + R() * 0.26) });
+    }
+    else for (let lz = 1.0; lz < 6.5; lz += 1.08) for (let lx = -5.2; lx <= 5.2; lx += 1.08) {
       if (R() < 0.12 || Math.abs(lx) > 4.9 - R() * 0.9) continue;
       const w = toWorld(lx + (R() - .5) * 0.12, lz + (R() - .5) * 0.12);
-      items.push({ x: w.x, z: w.z, y: 0.0, rot: YAW + (R() - .5) * 0.1, s: 0.96, tint: tintC(0.38 + R() * 0.22, 0.6, 0.08) });
+      items.push({ x: w.x, z: w.z, y: 0.0, rot: YAW + (R() - .5) * 0.1, s: 0.96, tint: tintC(0.38 + R() * 0.22) });
     }
-    for (let lz = 6.8; lz < 24; lz += 1.1) for (const dx of [-0.6, 0.55]) {
+    if (!TORCH) for (let lz = 6.8; lz < 24; lz += 1.1) for (const dx of [-0.6, 0.55]) {
       if (R() < 0.18) continue;
       const w = toWorld(pathWob(lz) + dx + (R() - .5) * 0.2, lz + (R() - .5) * 0.2);
-      items.push({ x: w.x, z: w.z, y: 0.0, rot: YAW + (R() - .5) * 0.3, s: 0.94 + R() * 0.1, tint: tintC(0.36 + R() * 0.22, 0.6, 0.08) });
+      items.push({ x: w.x, z: w.z, y: 0.0, rot: YAW + (R() - .5) * 0.3, s: 0.94 + R() * 0.1, tint: tintC(0.36 + R() * 0.22) });
     }
     instanced(slab, toon(0xffffff, { vc: true, rim: 0.1 }), items);
   }
 
   // ---------- gate: pillars, lintel, walls, rubble (all chunky blocks, 5 geometries) ----------
   {
-    const mat = toon(0xffffff, { vc: true, rim: 0.32, rimColor: 0xa9b4ff });
-    const ol = outline({ width: 0.035, color: 0x07050f });
+    const mat = toon(0xffffff, { vc: true, rim: 0.32, rimColor: ST.rim });
+    const ol = outline({ width: 0.035, color: ST.ol });
     const geos = BLOCKS.map(([w, h, d, sd]) => block(w, h, d, sd));
-    const pillarG = block(1.35, 0.85, 1.35, 21), capG = block(1.8, 0.45, 1.8, 22, 0x3a4058, 0x959db8), lintelG = block(6.4, 0.9, 1.45, 23, 0x363c54, 0x8a93b0);
+    const pillarG = block(1.35, 0.85, 1.35, 21), capG = block(1.8, 0.45, 1.8, 22, ST.capB, ST.capT), lintelG = block(6.4, 0.9, 1.45, 23, ST.lintB, ST.lintT);
     const lists = [[], [], [], [], [], []];            // wall A/B/C, pillar, cap, lintel
-    const add = (k, lx, ly, lz, rot = 0, s = 1) => { const w = toWorld(lx, lz); lists[k].push({ x: w.x, z: w.z, y: ly, rot: YAW + rot, s, tint: tintC(0.58 + R() * 0.3, 0.62, 0.1) }); };
+    const add = (k, lx, ly, lz, rot = 0, s = 1) => { const w = toWorld(lx, lz); lists[k].push({ x: w.x, z: w.z, y: ly, rot: YAW + rot, s, tint: tintC(0.58 + R() * 0.3) }); };
     // pillars
     for (const sx of [-1, 1]) {
       for (let j = 0; j < 5; j++) add(3, sx * 2.25, 0.02 + j * 0.85, 0, (R() - .5) * 0.07);
@@ -137,7 +152,7 @@ export function buildWorld(scene) {
     // fallen blocks in front of the wall
     for (let i = 0; i < 16; i++) {
       const side = R() < 0.5 ? -1 : 1, lx = side * (3.5 + R() * 7), lz = 1.2 + R() * 3.2, k = Math.floor(R() * 3);
-      const w = toWorld(lx, lz); lists[k].push({ x: w.x, z: w.z, y: 0.12 + R() * 0.1, rot: R() * 6.28, rx: (R() - .5) * 0.5, rz: (R() - .5) * 0.5, s: 0.7 + R() * 0.4, tint: tintC(0.45 + R() * 0.25, 0.62, 0.1) });
+      const w = toWorld(lx, lz); lists[k].push({ x: w.x, z: w.z, y: 0.12 + R() * 0.1, rot: R() * 6.28, rx: (R() - .5) * 0.5, rz: (R() - .5) * 0.5, s: 0.7 + R() * 0.4, tint: tintC(0.45 + R() * 0.25) });
       if (R() < 0.7) colliders.push({ x: w.x, z: w.z, r: 0.5 });
     }
     [geos[0], geos[1], geos[2], pillarG, capG, lintelG].forEach((g, i) => lists[i].length && instanced(g, mat, lists[i], ol));
@@ -210,11 +225,25 @@ export function buildWorld(scene) {
         torches.push(new THREE.Vector3(s.x, s.y + 0.4, s.z));
       }
     }
+    if (TORCH) for (const [lx, lz] of [[-5.2, 2.6], [5.2, 2.6], [-5.6, 6.2], [5.6, 6.2], [-3.2, 9.4], [3.2, 9.4], [-8.4, 4.4], [8.4, 4.4]]) {
+      const w = toWorld(lx, lz), h = heightAt(w.x, w.z);
+      parts.push(part(new THREE.CylinderGeometry(0.2, 0.28, 0.16, 8), PAL.brassD, [w.x, h + 0.08, w.z], 0, 1, { top: PAL.brass }));
+      parts.push(part(new THREE.CylinderGeometry(0.045, 0.07, 1.5, 6), PAL.brassD, [w.x, h + 0.85, w.z], 0, 1, { top: PAL.brass }));
+      parts.push(part(new THREE.SphereGeometry(0.09, 8, 6), PAL.brass, [w.x, h + 1.0, w.z]));
+      for (let a = 0; a < 3; a++) {
+        const ang = a * 2.094 + lx, ox = Math.cos(ang) * 0.34, oz = Math.sin(ang) * 0.34;
+        parts.push(part(new THREE.CylinderGeometry(0.02, 0.02, 0.4, 4), PAL.brassD, [w.x + ox * 0.5, h + 1.38, w.z + oz * 0.5], [oz * 1.4, 0, -ox * 1.4]));
+        parts.push(part(new THREE.CylinderGeometry(0.075, 0.05, 0.1, 6), PAL.brass, [w.x + ox, h + 1.5 - (a === 0 ? -0.12 : 0), w.z + oz]));
+        parts.push(part(new THREE.CylinderGeometry(0.05, 0.05, 0.14, 6), 0xf3ead2, [w.x + ox, h + 1.62 - (a === 0 ? -0.12 : 0), w.z + oz]));
+        const tv = new THREE.Vector3(w.x + ox, h + 1.72 - (a === 0 ? -0.12 : 0), w.z + oz); tv.s = 0.6; torches.push(tv);
+      }
+      colliders.push({ x: w.x, z: w.z, r: 0.3 }); shadowSpots.push({ x: w.x, z: w.z, r: 0.7 });
+    }
     const fm = new THREE.Mesh(merge(parts), toon(0xffffff, { vc: true, rim: 0.4, rimColor: 0xffd890 })); scene.add(fm);
-    const fo = new THREE.Mesh(fm.geometry, outline({ width: 0.02, color: 0x07050f })); scene.add(fo); outlined.push(fo);
+    const fo = new THREE.Mesh(fm.geometry, outline({ width: 0.02, color: ST.ol })); scene.add(fo); outlined.push(fo);
     torches.forEach((t, i) => {
-      glows.push({ x: t.x, y: t.y + 0.25, z: t.z, s: 1.5, c: PAL.fire, k: 0.75 });
-      pools.push({ x: t.x, y: 0.07, z: t.z, s: i < 2 ? 3.0 : 4.2, c: 0xff7a24, k: 0.5 });
+      glows.push({ x: t.x, y: t.y + 0.2, z: t.z, s: t.s ? 0.75 : 1.5, c: PAL.fire, k: t.s ? 0.6 : 0.75 });
+      pools.push({ x: t.x, y: 0.07, z: t.z, s: t.s ? 1.9 : i < 2 ? 3.0 : 4.2, c: 0xff7a24, k: t.s ? 0.3 : 0.5 });
     });
   }
   const flameMat = new THREE.ShaderMaterial({
@@ -228,13 +257,13 @@ export function buildWorld(scene) {
   });
   const flameGeo = new THREE.ConeGeometry(0.2, 0.75, 7, 4, true); flameGeo.translate(0, 0.37, 0);
   const flames = new THREE.InstancedMesh(flameGeo, flameMat, torches.length * 2);
-  torches.forEach((t, i) => [1, 0.62].forEach((k, j) => { _m.compose(_p.set(t.x + j * 0.04, t.y - 0.12, t.z), _q.identity(), _s.setScalar(k * (i < 2 ? 0.9 : 1.25))); flames.setMatrixAt(i * 2 + j, _m); }));
+  torches.forEach((t, i) => [1, 0.62].forEach((k, j) => { _m.compose(_p.set(t.x + j * 0.04, t.y - 0.12, t.z), _q.identity(), _s.setScalar(k * (t.s ?? (i < 2 ? 0.9 : 1.25)))); flames.setMatrixAt(i * 2 + j, _m); }));
   flames.frustumCulled = false; scene.add(flames);
 
   // ---------- trees (dead, twisted + dark pines), rocks, columns, graves, rune stones ----------
   const swayO = { base: 0.5, amt: 0.02, flutter: 0.006 };
-  const treeMat = toon(0xffffff, { vc: true, rim: 0.4, rimColor: 0xa9b4ff, fade: true, sway: swayO });
-  const treeOl = outline({ width: 0.03, color: 0x07050f, fade: true, sway: swayO });
+  const treeMat = toon(0xffffff, { vc: true, rim: 0.4, rimColor: ST.rim, fade: true, sway: swayO });
+  const treeOl = outline({ width: 0.03, color: ST.ol, fade: true, sway: swayO });
   function deadTree() {
     const L = [part(new THREE.CylinderGeometry(0.1, 0.3, 2.2, 7), 0x2a2230, [0, 1.1, 0], [0, 0, 0.05], 1, { top: 0x4a3f55 }),
                part(new THREE.CylinderGeometry(0.05, 0.1, 1.5, 6), 0x2a2230, [0.12, 2.65, 0], [0, 0, -0.18], 1, { top: 0x4a3f55 }),
@@ -279,7 +308,7 @@ export function buildWorld(scene) {
     const mk = sd => { const g = new THREE.DodecahedronGeometry(0.5, 0).toNonIndexed(); g.scale(1, 0.62, 0.85); jitter(g, 0.16, rng(sd)); return paint(g, 0x2a3040, { top: 0x7e88a4 }); };
     const items = spots(26, 4, 34, 0.7).map(p => ({ ...p, y: heightAt(p.x, p.z) + 0.08, s: 0.6 + R() * 1.1 }));
     items.forEach(b => { if (Math.hypot(b.x, b.z) < ARENA) colliders.push({ x: b.x, z: b.z, r: 0.42 * b.s }); shadowSpots.push({ x: b.x, z: b.z, r: 0.6 * b.s }); });
-    const mat = toon(0xffffff, { vc: true, rim: 0.4, rimColor: 0xa9b4ff }), ol = outline({ width: 0.035, color: 0x07050f });
+    const mat = toon(0xffffff, { vc: true, rim: 0.4, rimColor: ST.rim }), ol = outline({ width: 0.035, color: ST.ol });
     instanced(mk(3), mat, items.filter((_, i) => i % 2 === 0), ol); instanced(mk(9), mat, items.filter((_, i) => i % 2 === 1), ol);
   }
   // broken columns (bone-pale, brass ring)
@@ -287,10 +316,10 @@ export function buildWorld(scene) {
     const col = merge([part(new THREE.CylinderGeometry(0.42, 0.5, 0.35, 8), 0x3a4058, [0, 0.17, 0], 0, 1, { top: 0x6a7390 }),
                        jitter(paint(place(new THREE.CylinderGeometry(0.34, 0.38, 1.9, 8, 3), [0, 1.3, 0]), 0x3c435c, { top: 0x9aa3c0 }), 0.05, rng(8)),
                        part(new THREE.CylinderGeometry(0.4, 0.4, 0.1, 8), PAL.brassD, [0, 1.0, 0], 0, 1, { top: PAL.brass })]);
-    const mat = toon(0xffffff, { vc: true, rim: 0.4, rimColor: 0xa9b4ff });
+    const mat = toon(0xffffff, { vc: true, rim: 0.4, rimColor: ST.rim });
     const ps = [[7.5, -0.5], [4.0, -10.5], [-10.5, 4.5], [-3.5, 9.5], [10.5, -8.0], [-14, -1]].map(([x, z]) => ({ x, z, s: 0.9 + R() * 0.4, rot: R() * 6 }));
     ps.forEach(b => { free.push({ x: b.x, z: b.z, r: 1 }); colliders.push({ x: b.x, z: b.z, r: 0.5 * b.s }); shadowSpots.push({ x: b.x, z: b.z, r: 0.8 }); });
-    instanced(col, mat, ps, outline({ width: 0.03, color: 0x07050f }));
+    instanced(col, mat, ps, outline({ width: 0.03, color: ST.ol }));
   }
   // graves + two rune stones with violet glow
   {
@@ -299,7 +328,7 @@ export function buildWorld(scene) {
                          part(new THREE.BoxGeometry(0.75, 0.14, 0.45), 0x2e3448, [0, 0.07, 0], 0, 1, { top: 0x555d78 })]);
     const items = [[-9, 7.0, 0.3], [-10.8, 8.0, -0.2], [-7.6, 8.8, 0.1], [-11.4, 5.6, 0.5], [6.5, 9.5, 2.6], [8.6, 10.2, 3.4]].map(([x, z, rot]) => ({ x, z, rot, s: 0.9 + R() * 0.3, rx: (R() - .5) * 0.1 }));
     items.forEach(b => { free.push({ x: b.x, z: b.z, r: 0.8 }); colliders.push({ x: b.x, z: b.z, r: 0.4 }); shadowSpots.push({ x: b.x, z: b.z, r: 0.6 }); });
-    instanced(grave, toon(0xffffff, { vc: true, rim: 0.4, rimColor: 0xa9b4ff }), items, outline({ width: 0.03, color: 0x07050f }));
+    instanced(grave, toon(0xffffff, { vc: true, rim: 0.4, rimColor: ST.rim }), items, outline({ width: 0.03, color: ST.ol }));
     const rune = merge([jitter(paint(place(new THREE.CylinderGeometry(0.32, 0.5, 2.3, 6, 3), [0, 1.15, 0]), 0x30364c, { top: 0x8a93b0 }), 0.07, rng(4)),
                         part(new THREE.BoxGeometry(0.09, 0.44, 0.05), PAL.abyss, [0, 1.4, 0.4], 0, 1, { emit: true }), part(new THREE.BoxGeometry(0.3, 0.07, 0.05), PAL.abyss, [0, 1.48, 0.4], 0, 1, { emit: true }),
                         part(new THREE.BoxGeometry(0.07, 0.24, 0.05), PAL.abyss, [0.05, 0.98, 0.42], [0, 0, 0.6], 1, { emit: true })]);
@@ -307,7 +336,26 @@ export function buildWorld(scene) {
     rs.forEach(r => { r.s = 1; free.push({ x: r.x, z: r.z, r: 1 }); colliders.push({ x: r.x, z: r.z, r: 0.5 }); shadowSpots.push({ x: r.x, z: r.z, r: 0.9 });
       const fx = Math.sin(r.rot), fz = Math.cos(r.rot);
       glows.push({ x: r.x + fx * 0.5, y: 1.4, z: r.z + fz * 0.5, s: 1.1, c: PAL.abyssD, k: 0.7 }); pools.push({ x: r.x + fx * 0.7, y: 0.07, z: r.z + fz * 0.7, s: 2.6, c: PAL.abyssD, k: 0.6 }); });
-    instanced(rune, toon(0xffffff, { vc: true, rim: 0.4, rimColor: 0xa9b4ff }), rs, outline({ width: 0.035, color: 0x07050f }));
+    instanced(rune, toon(0xffffff, { vc: true, rim: 0.4, rimColor: ST.rim }), rs, outline({ width: 0.035, color: ST.ol }));
+  }
+
+  if (TORCH) {
+    // teal stone sarcophagi with a glowing carved strip, and crystal clusters: the cold-teal counterpart to the warm candles
+    const TEAL = 0x2b6a5c, TEAL_L = 0x86e0c6, GLOW = 0x4af0cc;
+    const sarc = merge([part(new THREE.BoxGeometry(1.15, 0.55, 2.3), TEAL, [0, 0.28, 0], 0, 1, { top: TEAL_L }),
+                        jitter(paint(place(new THREE.BoxGeometry(1.0, 0.3, 2.1, 2, 1, 3).toNonIndexed(), [0, 0.7, 0]), TEAL, { top: TEAL_L }), 0.05, rng(31)),
+                        part(new THREE.BoxGeometry(0.1, 0.05, 1.5), GLOW, [0, 0.87, 0], 0, 1, { emit: true }),
+                        part(new THREE.BoxGeometry(1.25, 0.12, 0.3), PAL.brassD, [0, 0.12, 0.8], 0, 1, { top: PAL.brass }),
+                        part(new THREE.BoxGeometry(1.25, 0.12, 0.3), PAL.brassD, [0, 0.12, -0.8], 0, 1, { top: PAL.brass })]);
+    const sp = [[-7.4, 3.2], [7.4, 3.2], [-10.2, 7.8], [10.2, 7.8], [-2.6, 12.4], [2.6, 12.4]].map(([lx, lz]) => { const w = toWorld(lx, lz); return { x: w.x, z: w.z, rot: YAW + (lx > 0 ? 0.35 : -0.35), s: 1 }; });
+    sp.forEach(b => { colliders.push({ x: b.x, z: b.z, r: 0.75 }); colliders.push({ x: b.x + Math.sin(b.rot) * 0.8, z: b.z + Math.cos(b.rot) * 0.8, r: 0.6 }); colliders.push({ x: b.x - Math.sin(b.rot) * 0.8, z: b.z - Math.cos(b.rot) * 0.8, r: 0.6 });
+      shadowSpots.push({ x: b.x, z: b.z, r: 1.4 }); pools.push({ x: b.x, y: 0.07, z: b.z, s: 3.2, c: GLOW, k: 0.28 }); });
+    instanced(sarc, toon(0xffffff, { vc: true, rim: 0.4, rimColor: 0xbfffee }), sp, outline({ width: 0.03, color: ST.ol }));
+    const cry = merge([[0, 0, 0, 0.5, 1.5], [0.4, 0, 0.2, 0.34, 0.9], [-0.35, 0, 0.25, 0.3, 0.7], [0.1, 0, -0.4, 0.3, 1.0]].map(([x, y, z, r, h]) =>
+      part(new THREE.ConeGeometry(r, h, 5), 0x1f7a6e, [x, h / 2, z], [(x) * 0.3, 0, -(z) * 0.3], 1, { top: 0xc4fff0 })));
+    const cs = [[-9.8, 10.8], [9.4, 11.4], [-12.4, 3.2], [12.2, 3.6]].map(([lx, lz]) => { const w = toWorld(lx, lz); return { x: w.x, z: w.z, rot: lx, s: 1 }; });
+    cs.forEach(b => { colliders.push({ x: b.x, z: b.z, r: 0.6 }); shadowSpots.push({ x: b.x, z: b.z, r: 0.9 }); glows.push({ x: b.x, y: 0.9, z: b.z, s: 2.2, c: GLOW, k: 0.6 }); pools.push({ x: b.x, y: 0.07, z: b.z, s: 3.8, c: GLOW, k: 0.4 }); });
+    instanced(cry, toon(0xffffff, { vc: true, rim: 0.6, rimColor: 0xbfffee }), cs, outline({ width: 0.025, color: ST.ol }));
   }
 
   // contact shadows (one instanced draw)
@@ -326,7 +374,7 @@ export function buildWorld(scene) {
   const grassU = {
     uTime: U.uTime, uWind: U.uWind, uWindStr: U.uWindStr,
     uBlobs: { value: Array.from({ length: 12 }, () => new THREE.Vector4(999, 999, 0.5, 0)) },
-    uBase: { value: new THREE.Color(0x10282c) }, uTip: { value: new THREE.Color(0x4e8f8c) }, uDry: { value: new THREE.Color(0x8c78c8) }, uLight: { value: new THREE.Color(0.8, 0.85, 1) },
+    uBase: { value: new THREE.Color(ST.grass[0]) }, uTip: { value: new THREE.Color(ST.grass[1]) }, uDry: { value: new THREE.Color(ST.grass[2]) }, uLight: { value: new THREE.Color(...ST.grass[3]) },
   };
   const grassMat = new THREE.ShaderMaterial({ uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.fog, {}]), vertexShader: GRASS_VS, fragmentShader: GRASS_FS, side: THREE.DoubleSide, fog: true });
   Object.assign(grassMat.uniforms, grassU);
@@ -352,7 +400,7 @@ export function buildWorld(scene) {
   // ---------- ground mist: three drifting noise layers that thin out around the hero ----------
   const mistU = { uTime: U.uTime, uHero: { value: new THREE.Vector2() } };
   const mist = [];
-  [[0.22, 0.34, 0.16, 0.05, 0x4a4f8c], [0.6, 0.26, 0.2, -0.04, 0x3c3a78], [1.05, 0.18, 0.12, 0.03, 0x2c2c66]].forEach(([y, a, sc, sp, col], i) => {
+  [[0.22, 0.34, 0.16, 0.05, ST.mist[0]], [0.6, 0.26, 0.2, -0.04, ST.mist[1]], [1.05, 0.18, 0.12, 0.03, ST.mist[2]]].forEach(([y, a, sc, sp, col], i) => { a *= ST.mistK;
     const m = new THREE.Mesh(new THREE.PlaneGeometry(70, 70), new THREE.ShaderMaterial({
       uniforms: { ...mistU, uA: { value: a }, uSc: { value: sc }, uSp: { value: sp }, uCol: { value: new THREE.Color(col) }, uSeed: { value: i * 13.7 } }, transparent: true, depthWrite: false,
       vertexShader: 'varying vec2 vW; void main(){ vW = (modelMatrix * vec4(position, 1.0)).xz; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
