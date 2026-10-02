@@ -31,8 +31,8 @@ export function house(kit, o) {
   L.push(bbox(DW + 0.6, 0.14, 0.5, 0.04, ST, [dx, 0.07, dz + 0.3], 0, { top: STL, tex: 'stone' }));
   // навес над дверью на двух кронштейнах
   const ay = y0 + DH + 0.95;
-  L.push(geo.paint(geo.chamferBox(DW + 1.0, 0.1, 1.1, 0.02).rotateX(0.5).translate(dx, ay, dz + 0.55), roof, { top: roofTop, tex: roofTex }));
-  for (const s of [-1, 1]) wood(geo.chamferBox(0.1, 0.9, 0.1, 0.02).rotateX(0.75).translate(dx + s * (DW / 2 + 0.35), ay - 0.4, dz + 0.3));
+  if (!o.noCanopy) L.push(geo.paint(geo.chamferBox(DW + 1.0, 0.1, 1.1, 0.02).rotateX(0.5).translate(dx, ay, dz + 0.55), roof, { top: roofTop, tex: roofTex }));
+  if (!o.noCanopy) for (const s of [-1, 1]) wood(geo.chamferBox(0.1, 0.9, 0.1, 0.02).rotateX(0.75).translate(dx + s * (DW / 2 + 0.35), ay - 0.4, dz + 0.3));
   // окно первого этажа на +x: маленькое, с решёткой
   const win = (x, z, y, face, WW, WH, flowers, shutter = true) => {
     const at = (u, yy, out) => face ? [x + out, yy, z + u] : [x + u, yy, z + out];

@@ -128,6 +128,25 @@ import tree_sapling from './models/prop/tree_sapling.js';
 import { DEAD_VARIANTS, ROCK_VARIANTS } from './models/prop/_variants.js';
 import { PORTAL_VARIANTS } from './models/prop/_portals.js';
 import market_tent from './models/prop/market_tent.js';
+// деревня по правилам (js/world/villagegen.js)
+import church from './models/prop/church.js';
+import tavern from './models/prop/tavern.js';
+import shop from './models/prop/shop.js';
+import smithy from './models/prop/smithy.js';
+import cottage_a from './models/prop/cottage_a.js';
+import cottage_b from './models/prop/cottage_b.js';
+import cottage_c from './models/prop/cottage_c.js';
+import bridge from './models/prop/bridge.js';
+import barricade from './models/prop/barricade.js';
+import vine_row from './models/prop/vine_row.js';
+import garden_bed from './models/prop/garden_bed.js';
+import scarecrow from './models/prop/scarecrow.js';
+import dummy from './models/prop/dummy.js';
+import target from './models/prop/target.js';
+import bench from './models/prop/bench.js';
+import table from './models/prop/table.js';
+import reeds from './models/prop/reeds.js';
+import fortune_tent from './models/prop/fortune_tent.js';
 
 const by = (...l) => Object.fromEntries(l.map(m => [m.id, m]));
 export const HEROES = by(warrior, archer, mage);                       // ключ — класс героя
@@ -136,6 +155,7 @@ export const NPCS = by(npc_fortune, npc_elder, npc_smith, npc_merchant, npc_trai
 export const WEAPONS = by(bow_hunter, staff_mage, axe_hand, club_giant, staff_ice, staff_root, sword_iron, shield_round, sword_rust, shield_bone, bow_bone, staff_bone, axe_great);
 export const PROPS = by(fort_door_i, fort_door_w, chronicle, fort_wall, palisade, fort_tower, watchtower, fort_gate_i, fort_gate_w, fort_hall_i, fort_hall_w, tent_i, tent_w, tree_0, tree_1, tree_birch, tree_autumn, tree_elm, tree_pine_tall, tree_fir_blue, deadtree, house_0, house_1, house_2, rocks, grave, fence_x, fence_y, barrel, crate, hay, lamp, runebed, forge, stall, board, altar, banner, statue, weapon_rack, crystals, portal,
   fern, flowers, pebbles, mushrooms, bush, sacks, logpile, stump, tree_poplar, tree_oakwide, tree_sapling, ...DEAD_VARIANTS, ...ROCK_VARIANTS, ...PORTAL_VARIANTS, market_tent,
+  church, tavern, shop, smithy, cottage_a, cottage_b, cottage_c, bridge, barricade, vine_row, garden_bed, scarecrow, dummy, target, bench, table, reeds, fortune_tent,
   dwall_hi, dwall_lo, dwall_buttress, dwall_niche, wall_block, torch_sconce, pillar, brazier, bones, skulls, rubble, candles, chest, chest_open, chest_rich, chest_rich_open, sarcophagus, sarcophagus_open, door, door_open, gate_sealed, altar_medallion, stalagmite, lavarock, puddle, rug, bookshelf, throne, well);   // подземелье (стены dwall_* ставит dungeon.js по тайлам)   // последние восемь — декор земли и хлам у домов (js/render3d/props.js, scatterDecor), в картах не стоят
 
 // какая модель оружия соответствует типу оружия игры (wt); недостающие пока подменяются мечом

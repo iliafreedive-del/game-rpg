@@ -62,12 +62,13 @@ void main() {
   #include <fog_fragment>
 }`;
 // пучок травы: 4 изогнутых травинок веером (у каждой 3 треугольника); uv.x — номер травинки (для оттенка), uv.y — высота
-function clumpGeometry() {
+// колос (ear > 0): травинки толще, верхушка — вытянутый колос шириной ear
+function clumpGeometry(nb = 4, ear = 0) {
   const P = [], UV = [], I = [], R = rng(5);
-  for (let b = 0; b < 4; b++) {
-    const a = b / 4 * 6.283 + R() * 0.8, lean = 0.12 + R() * 0.22, h = 0.65 + R() * 0.45, w = 0.05 + R() * 0.025, ox = Math.cos(a) * 0.05, oz = Math.sin(a) * 0.05;
+  for (let b = 0; b < nb; b++) {
+    const a = b / nb * 6.283 + R() * 0.8, lean = (ear ? 0.06 : 0.12) + R() * 0.22, h = 0.65 + R() * 0.45, w = ear ? 0.03 + R() * 0.012 : 0.05 + R() * 0.025, ox = Math.cos(a) * 0.05, oz = Math.sin(a) * 0.05;
     const dx = Math.cos(a), dz = Math.sin(a), px = -dz, pz = dx, o = P.length / 3, id = b / 5;
-    const pt = (t, side) => { const ww = w * (1 - t * 0.85) * side, bend = lean * t * t; P.push(ox + dx * bend * h + px * ww, h * t * (1 - lean * 0.3 * t), oz + dz * bend * h + pz * ww); UV.push(id, t); };
+    const pt = (t, side) => { const ww = (ear && t > 0.6 ? ear * (1 - Math.abs(t - 0.8) * 3) : w * (1 - t * 0.85)) * side, bend = lean * t * t; P.push(ox + dx * bend * h + px * ww, h * t * (1 - lean * 0.3 * t), oz + dz * bend * h + pz * ww); UV.push(id, t); };
     pt(0, -1); pt(0, 1); pt(0.5, -1); pt(0.5, 1); pt(1, 0);
     I.push(o, o + 1, o + 2, o + 2, o + 1, o + 3, o + 2, o + 3, o + 4);
   }
@@ -78,14 +79,14 @@ function clumpGeometry() {
 
 // материал земли: toon (свет, тени, туман) + рисованные текстуры по маскам типов. aKind = веса (трава, тропа, брусчатка, лес);
 // край тропы рвёт шум, вдоль края — тёмная кромка (трава нависает над землёй), крупные пятна шума — солнечные и тенистые участки
-function groundMaterial(snow = false, forest = false) {
+function groundMaterial(snow = false, forest = false, puddles = 1) {
   const m = toon(0xffffff, { vc: true, rim: 0.05 });
-  const T = { tNoise: { value: noiseTex() }, tGrass: { value: grassTex() }, tDirt: { value: dirtTex() }, tMoss: { value: mossTex() }, tFlag: { value: flagTex() }, uSnow: { value: snow ? 1 : 0 }, uForest: { value: forest ? 1 : 0 } };
+  const T = { tNoise: { value: noiseTex() }, tGrass: { value: grassTex() }, tDirt: { value: dirtTex() }, tMoss: { value: mossTex() }, tFlag: { value: flagTex() }, uSnow: { value: snow ? 1 : 0 }, uForest: { value: forest ? 1 : 0 }, uPud: { value: puddles } };
   const prev = m.onBeforeCompile;
   m.onBeforeCompile = sh => {
     prev(sh); Object.assign(sh.uniforms, T);
     sh.vertexShader = 'attribute vec4 aKind; attribute float aPath; varying vec4 vKind; varying float vPath; varying vec2 vGW;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvKind = aKind; vPath = aPath; vGW = (modelMatrix * vec4(position, 1.0)).xz;');
-    sh.fragmentShader = 'uniform sampler2D tNoise, tGrass, tDirt, tMoss, tFlag; uniform float uSnow, uForest; varying vec4 vKind; varying float vPath; varying vec2 vGW;\n' + sh.fragmentShader.replace('#include <color_fragment>', /* glsl */`
+    sh.fragmentShader = 'uniform sampler2D tNoise, tGrass, tDirt, tMoss, tFlag; uniform float uSnow, uForest, uPud; varying vec4 vKind; varying float vPath; varying vec2 vGW;\n' + sh.fragmentShader.replace('#include <color_fragment>', /* glsl */`
 #include <color_fragment>
 {
   vec2 wp = vGW;
@@ -123,9 +124,9 @@ function groundMaterial(snow = false, forest = false) {
   col = mix(col, col * vec3(0.5, 0.48, 0.44), cm * 0.25);                                          // щели брусчатки
   // лужи на тропе: тёмная вода с бликом неба, мокрая кромка
   float pn = texture2D(tNoise, wp * 0.07 + 0.6).g * 0.6 + nz2.g * 0.4;
-  float pud = smoothstep(0.64, 0.7, pn) * smoothstep(0.4, 0.8, pm) * (1.0 - cm) * (1.0 - max(uSnow, uForest));
+  float pud = smoothstep(0.64 + (1.0 - uPud) * 0.1, 0.7 + (1.0 - uPud) * 0.1, pn) * smoothstep(0.4, 0.8, pm) * (1.0 - cm) * (1.0 - max(uSnow, uForest));
   vec3 wet = mix(vec3(0.09, 0.12, 0.15), vec3(0.4, 0.48, 0.54), smoothstep(0.35, 0.8, nz.b + nz2.r * 0.4 - 0.2));
-  col = mix(col, col * 0.62, smoothstep(0.58, 0.64, pn) * (1.0 - pud) * pm);
+  col = mix(col, col * 0.62, smoothstep(0.58 + (1.0 - uPud) * 0.1, 0.64 + (1.0 - uPud) * 0.1, pn) * (1.0 - pud) * pm);
   col = mix(col, wet, pud);
   // опавшие листья: в лесу густо, на траве и тропе редкие пятна; у каждого свой поворот и цвет
   vec2 cp = wp * 3.4, ci = floor(cp), cf = fract(cp) - 0.5;
@@ -135,7 +136,9 @@ function groundMaterial(snow = false, forest = false) {
   float leaf = 1.0 - smoothstep(0.7, 1.0, length(dl / vec2(0.16, 0.075)));
   float lm = (1.0 - uSnow) * step(0.45, h2) * clamp(smoothstep(0.3, 0.8, vKind.w + (nz2.r - 0.5) * 0.3) + smoothstep(0.62, 0.8, nz.g) * 0.55, 0.0, 1.0) * (1.0 - pud) * (1.0 - cm);
   col = mix(col, mix(vec3(0.5, 0.2, 0.07), vec3(0.8, 0.58, 0.14), fract(h1 * 7.0)) * (0.65 + h2 * 0.6), leaf * lm * 0.92);
-  float edge = smoothstep(0.0, 0.35, pm) * (1.0 - smoothstep(0.35, 0.8, pm));
+  float soil = clamp(-vPath, 0.0, 1.0);                                                         // пашня: борозды и тёмная влажная земля
+  col *= 1.0 - soil * (0.22 + 0.2 * smoothstep(0.2, 0.9, sin(wp.x * 7.0 + nz.r * 2.0)));
+  float edge = smoothstep(0.0, 0.35, pm) * (1.0 - smoothstep(0.35, 0.8, pm)) * (1.0 - soil);
   col *= 1.0 - 0.35 * edge;                                                                      // кромка тропы
   diffuseColor.rgb = col * diffuseColor.rgb;
 }`);
@@ -147,20 +150,22 @@ function groundMaterial(snow = false, forest = false) {
 // вода: тёмная глубина к середине, бирюзовая у берега, рябь из шумовой текстуры, блики солнца, пена у кромки
 function waterMaterial(x0, y0, x1, y1, ice = false) {
   return new THREE.ShaderMaterial({
-    uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.fog, { uTime: { value: 0 }, tNoise: { value: null }, uBox: { value: new THREE.Vector4(x0, y0, x1, y1) }, uIce: { value: ice ? 1 : 0 } }]),
+    uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.fog, { uTime: { value: 0 }, tNoise: { value: null }, uBox: { value: new THREE.Vector4(x0, y0, x1, y1) }, uIce: { value: ice ? 1 : 0 }, tDist: { value: null }, uDist: { value: 0 }, uSize: { value: new THREE.Vector2(1, 1) } }]),
     fog: true, transparent: false,
     vertexShader: `#include <common>\n#include <fog_pars_vertex>\nvarying vec3 vW; void main(){ vW = (modelMatrix * vec4(position, 1.0)).xyz; vec4 mvPosition = viewMatrix * vec4(vW, 1.0); gl_Position = projectionMatrix * mvPosition;\n#include <fog_vertex>\n}`,
-    fragmentShader: `#include <common>\n#include <fog_pars_fragment>\nuniform float uTime; uniform sampler2D tNoise; uniform vec4 uBox; uniform float uIce; varying vec3 vW;
+    fragmentShader: `#include <common>\n#include <fog_pars_fragment>\nuniform float uTime; uniform sampler2D tNoise; uniform vec4 uBox; uniform float uIce; uniform sampler2D tDist; uniform float uDist; uniform vec2 uSize; varying vec3 vW;
       void main(){
-        vec2 p = vW.xz;
-        float n1 = texture2D(tNoise, p * 0.12 + vec2(uTime * 0.012, uTime * 0.007)).b, n2 = texture2D(tNoise, p * 0.19 - vec2(uTime * 0.009, -uTime * 0.013)).b;
+        vec2 p = vW.xz, fl = vec2(0.0, uTime * 0.25 * uDist);   // ручей: рябь сносит течением
+        float n1 = texture2D(tNoise, (p - fl) * 0.12 + vec2(uTime * 0.012, uTime * 0.007)).b, n2 = texture2D(tNoise, (p - fl * 1.4) * 0.19 - vec2(uTime * 0.009, -uTime * 0.013)).b;
         float rip = n1 + n2 - 1.0;
         vec2 c = (uBox.xy + uBox.zw) * 0.5, h = (uBox.zw - uBox.xy) * 0.5; float d = length((p - c) / h);
+        if (uDist > 0.5) d = 1.0 - texture2D(tDist, p / uSize).r;   // глубина по расстоянию до берега
         vec3 deep = vec3(0.015, 0.07, 0.09), shallow = vec3(0.08, 0.32, 0.33);
         vec3 col = mix(shallow, deep, smoothstep(0.1, 0.75, 1.0 - d + rip * 0.2));
         float glint = smoothstep(0.32, 0.5, rip) * 0.9; col += vec3(1.0, 0.9, 0.7) * glint * 0.35;
         col += vec3(0.6, 0.8, 0.75) * smoothstep(0.55, 0.0, abs(rip)) * 0.03;
         if (uIce > 0.5) { vec3 si = vec3(0.7, 0.86, 0.95), di = vec3(0.34, 0.55, 0.74); col = mix(si, di, smoothstep(0.1, 0.8, 1.0 - d + rip * 0.3)); float cr = 1.0 - smoothstep(0.0, 0.025, abs(n1 - 0.5)); cr = max(cr, 1.0 - smoothstep(0.0, 0.02, abs(n2 - 0.52))); col = mix(col, vec3(0.95, 0.99, 1.0), cr * 0.75); col += vec3(1.0) * glint * 0.15; }
+        if (uDist > 0.5) col += vec3(0.75, 0.85, 0.8) * smoothstep(0.7, 0.98, d) * smoothstep(0.1, 0.4, n2) * 0.35;   // пена у берега
         gl_FragColor = vec4(col, 1.0);
         #include <colorspace_fragment>
         #include <fog_fragment>
@@ -168,14 +173,15 @@ function waterMaterial(x0, y0, x1, y1, ice = false) {
   });
 }
 
-const kindOf = ch => ch === ',' ? 'p' : ch === '#' ? 'c' : ch === 'x' ? 'f' : ch === '~' ? 'w' : 'g';
+// ';' — дорога за ручьём, 'b' — мост (под ним вода), 'F'/'V'/'K' — пашня полей деревни, 'n' — луг за ручьём
+const kindOf = ch => ch === ',' || ch === ';' ? 'p' : ch === '#' ? 'c' : ch === 'x' ? 'f' : ch === '~' || ch === 'b' ? 'w' : ch === 'F' || ch === 'V' || ch === 'K' ? 's' : 'g';
 
 export function buildGround(scene, zone, opts = {}) {
   const m = zone.map, W = m.w, H = m.h, MARGIN = opts.margin ?? 3, STEP = 0.5, kOf = opts.kindOf || kindOf, snow = !!opts.snow;
   const tile = (tx, ty) => (tx < 0 || ty < 0 || tx >= W || ty >= H) ? 'f' : kOf(m.rows[ty][tx]);
   // вес типа в точке: билинейная интерполяция «one-hot» поля по центрам тайлов
   const weights = (x, y) => {
-    const fx = x - 0.5, fy = y - 0.5, x0 = Math.floor(fx), y0 = Math.floor(fy), u = fx - x0, v = fy - y0, w = { g: 0, p: 0, c: 0, f: 0, w: 0 };
+    const fx = x - 0.5, fy = y - 0.5, x0 = Math.floor(fx), y0 = Math.floor(fy), u = fx - x0, v = fy - y0, w = { g: 0, p: 0, c: 0, f: 0, w: 0, s: 0 };
     w[tile(x0, y0)] += (1 - u) * (1 - v); w[tile(x0 + 1, y0)] += u * (1 - v); w[tile(x0, y0 + 1)] += (1 - u) * v; w[tile(x0 + 1, y0 + 1)] += u * v;
     return w;
   };
@@ -187,14 +193,14 @@ export function buildGround(scene, zone, opts = {}) {
     pos[k * 3] = x; pos[k * 3 + 1] = -0.2 * w.w + (n - 0.5) * 0.08 * (1 - w.c) - 0.04 * w.p; pos[k * 3 + 2] = z;
     const ww = Math.min(1, w.w * 1.6);   // берег темнеет к воде
     col.set([1 + (bank.r - 1) * ww, 1 + (bank.g - 1) * ww, 1 + (bank.b - 1) * ww, 1], k * 4);
-    kind.set([w.g, w.p, w.c, w.f], k * 4);
-    let pf = 0; for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) pf += weights(x + a * 0.8, z + b * 0.8).p; pathF[k] = pf / 9;   // размытое поле тропы: контуры дают колеи
+    kind.set([w.g, w.p + w.s * 0.85, w.c, w.f], k * 4);
+    let pf = 0; for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) pf += weights(x + a * 0.8, z + b * 0.8).p; pathF[k] = pf / 9 - w.s * 2;   // размытое поле тропы: контуры дают колеи; пашня — отрицательная (борозды)
   }
   for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) { const a = j * (nx + 1) + i, b2 = a + 1, c2 = a + nx + 1, d2 = c2 + 1; idx.push(a, c2, b2, b2, c2, d2); }
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('color', new THREE.BufferAttribute(col, 4)); geo.setAttribute('aKind', new THREE.BufferAttribute(kind, 4)); geo.setAttribute('aPath', new THREE.BufferAttribute(pathF, 1));
   geo.setIndex(idx); geo.computeVertexNormals();
-  const ground = new THREE.Mesh(geo, groundMaterial(snow, !!opts.forest)); ground.userData.noOutline = true; ground.receiveShadow = true; scene.add(ground);
+  const ground = new THREE.Mesh(geo, groundMaterial(snow, !!opts.forest, zone.json.village ? 0 : 1)); ground.userData.noOutline = true; ground.receiveShadow = true; scene.add(ground);
   // подложка до горизонта: тёмный мох, чтобы за краем карты не было пустоты
   const far = new THREE.Mesh(new THREE.PlaneGeometry(400, 400).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: opts.farColor ?? 0x0f2418 })); far.position.set(W / 2, -0.4, H / 2); scene.add(far);
 
@@ -205,6 +211,13 @@ export function buildGround(scene, zone, opts = {}) {
     const x0w = Math.min(...wt.map(t => t[0])) - 1, x1w = Math.max(...wt.map(t => t[0])) + 2, y0w = Math.min(...wt.map(t => t[1])) - 1, y1w = Math.max(...wt.map(t => t[1])) + 2;
     water = new THREE.Mesh(new THREE.PlaneGeometry(x1w - x0w, y1w - y0w).rotateX(-Math.PI / 2).translate((x0w + x1w) / 2, -0.08, (y0w + y1w) / 2), waterMaterial(x0w, y0w, x1w, y1w, snow));
     water.material.uniforms.uTime = U.uTime; water.material.uniforms.tNoise.value = noiseTex();
+    if (zone.json.village) {   // ручей деревни: глубина — по расстоянию до берега (текстура W×H), а не по эллипсу вокруг центра
+      const d = new Float32Array(W * H).fill(0), isW = (x, y) => x < 0 || y < 0 || x >= W || y >= H ? (m.rows[Math.max(0, Math.min(H - 1, y))][Math.max(0, Math.min(W - 1, x))] === '~') : m.rows[y][x] === '~' || m.rows[y][x] === 'b';
+      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (isW(x, y)) { let r = 9; for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) if (!isW(x + dx, y + dy)) r = Math.min(r, Math.hypot(dx, dy)); d[y * W + x] = Math.min(1, (r - 0.5) / 1.6); }
+      const px = new Uint8Array(W * H * 4); for (let i = 0; i < W * H; i++) { px[i * 4] = d[i] * 255; px[i * 4 + 3] = 255; }
+      const tx = new THREE.DataTexture(px, W, H); tx.magFilter = tx.minFilter = THREE.LinearFilter; tx.needsUpdate = true;
+      Object.assign(water.material.uniforms, { tDist: { value: tx }, uDist: { value: 1 }, uSize: { value: new THREE.Vector2(W, H) } });
+    }
     water.userData.noOutline = true; scene.add(water);
   }
 
@@ -238,7 +251,7 @@ export function buildGround(scene, zone, opts = {}) {
       const x = (cx + RG()) * CS, z = (cz + RG()) * CS, w = weights(x, z);
       // гуще у краёв троп (трава нависает) и пятнами в поле; на тропе и площади — нет
       const edge = w.g * (w.p + w.c) * 4, patch = Math.min(1, Math.max(0, (fbm(x * 0.12 + 9, z * 0.12) - 0.32) * 3));
-      const dens = (w.g * (0.25 + 0.75 * patch) + w.f * 0.45 + edge * 0.8) * (1 - Math.min(1, (w.p + w.c) * 1.6)) * (1 - w.w);
+      const dens = (w.g * (0.25 + 0.75 * patch) + w.f * 0.45 + edge * 0.8) * (1 - Math.min(1, (w.p + w.c + w.s) * 1.6)) * (1 - w.w);
       if (RG() > dens * (snow ? 0.3 : 1) * (opts.grassK ?? 1) || (m.free && !m.free(x, z, 0.05))) continue;
       const tall = 0.22 + Math.pow(fbm(x * 0.21, z * 0.21), 2) * 0.35 + edge * 0.08, sc = 0.8 + RG() * 0.7;
       mm.compose(p.set(x, -0.02, z), q.setFromAxisAngle(up, RG() * 6.283), s.set(sc, tall * (0.7 + RG() * 0.6), sc)); im.setMatrixAt(n, mm); rnd[n] = RG(); n++;
@@ -247,6 +260,21 @@ export function buildGround(scene, zone, opts = {}) {
     im.geometry.setAttribute('aRand', new THREE.InstancedBufferAttribute(rnd, 1));
     im.userData.max = n; im.count = n; im.userData.c = [(cx + 0.5) * CS, (cz + 0.5) * CS]; im.computeBoundingSphere(); im.boundingSphere.radius += 1;
     scene.add(im); grass.push(im);
+  }
+  // пшеница деревни: та же трава (ветер, тени), но золотые колосья по пояс на тайлах 'F', своими чанками
+  const wheatTiles = []; for (let ty = 0; ty < H; ty++) for (let tx = 0; tx < W; tx++) if (m.rows[ty][tx] === 'F') wheatTiles.push([tx, ty]);
+  if (wheatTiles.length) {
+    const wmat = new THREE.ShaderMaterial({ uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.fog, {}]), vertexShader: GRASS_VS, fragmentShader: GRASS_FS, side: THREE.DoubleSide, fog: true });
+    Object.assign(wmat.uniforms, grassU, { uBase: { value: new THREE.Color(0x6a5a1c) }, uTip: { value: new THREE.Color(0xf2d27a) }, uDry: { value: new THREE.Color(0xd89a3a) } });
+    const ear = clumpGeometry(6, 0.055), byChunk = new Map(), RW = rng(41);
+    for (const [tx, ty] of wheatTiles) for (let k = 0; k < 9; k++) { const x = tx + RW(), z = ty + RW(), key = Math.floor(x / CS) + ',' + Math.floor(z / CS); if (!byChunk.has(key)) byChunk.set(key, []); byChunk.get(key).push([x, z]); }
+    for (const [key, pts] of byChunk) {
+      const im = new THREE.InstancedMesh(ear.clone(), wmat, pts.length), rnd = new Float32Array(pts.length), [cx, cz] = key.split(',').map(Number);
+      pts.forEach(([x, z], i) => { const sc = 0.9 + RW() * 0.5, edge = Math.min(x % 1, 1 - x % 1, z % 1, 1 - z % 1); mm.compose(p.set(x, -0.02, z), q.setFromAxisAngle(up, RW() * 6.283), s.set(sc, 1.05 + RW() * 0.35 + fbm(x * 0.3, z * 0.3) * 0.3, sc)); im.setMatrixAt(i, mm); rnd[i] = RW(); });
+      im.geometry.setAttribute('aRand', new THREE.InstancedBufferAttribute(rnd, 1));
+      im.userData.max = pts.length; im.count = pts.length; im.userData.c = [(cx + 0.5) * CS, (cz + 0.5) * CS]; im.computeBoundingSphere(); im.boundingSphere.radius += 1.5;
+      scene.add(im); grass.push(im);
+    }
   }
   let gk = 1;
   return {

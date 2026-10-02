@@ -46,7 +46,7 @@ export class PropLayer {
       if (wild && d.wall) continue;   // стены форта строятся по тайлам 'D' ниже
       if (d.tag || d.hidden !== undefined || DYN.has(d.spr)) { this.live.push({ d, rot: d.model ? (d.rot || 0) : d.flip ? Math.PI / 2 : 0, model: d.model ? (MODEL[d.model] || d.model) : undefined }); continue; }
       if (d.hidden || (d.flat && !PROPS[d.spr])) continue;
-      if (d.model) { push(MODEL[d.model] || d.model, d.x, d.y, d.rot || 0, 1); continue; }
+      if (d.model) { push(MODEL[d.model] || d.model, d.x, d.y, d.rot || 0, d.s || 1, d.opts); continue; }
       if (!PROPS[d.spr]) { if (!warned.has(d.spr)) { warned.add(d.spr); console.warn('[3D] нет модели предмета «' + d.spr + '» — не показан'); } continue; }
       const h = hash(d.x, d.y), isTree = d.spr === 'tree_0' || d.spr === 'tree_1' || (d.spr === 'deadtree' && !fj);
       const light = zone.lights.find(L => Math.hypot(L.x - d.x, L.y - d.y) < 0.3);
@@ -96,7 +96,7 @@ export class PropLayer {
     // хлам у домов: у видимых стен (+x, +z) — бочки, ящики, мешки, поленница; вплотную к стене, где герой почти не ходит
     const HB = { house_0: [2.7, 2.0], house_1: [3.1, 2.2], house_2: [2.3, 2.0] };
     for (const d of zone.statics) {
-      const hb = HB[d.spr]; if (!hb) continue;
+      const hb = HB[d.spr]; if (!hb || d.model) continue;   // дома деревни по правилам обставляет генератор
       const h = hash(d.x, d.y), [hx, hz] = hb;
       const spots = [['barrel', hx + 0.45, -hz * 0.55], ['crate', hx + 0.5, -hz * 0.1], ['sacks', -hx * 0.75, hz + 0.45], ['logpile', hx + 0.42, hz * 0.55], ['barrel', hx * 0.55, hz + 0.45]];
       spots.forEach(([id, ox, oz], i) => { if (hash(d.x + i, d.y - i) < 0.72) { push(id, d.x + ox, d.y + oz, id === 'logpile' ? Math.PI / 2 : h * 6.28 + i, 0.9 + h * 0.2); this.lastPushedQ(id, 0.2 + i * 0.1); } });
@@ -104,7 +104,7 @@ export class PropLayer {
     const S = zone.id === 'wild' ? 1.25 : 0.85;
     for (let y = -3; y < m.h + 3; y += S) for (let x = -3; x < m.w + 3; x += S) {
       const h1 = hash(x * 1.7 + 11, y * 1.3 - 5), h2 = hash(y * 2.1 - 3, x * 0.7 + 9), h3 = hash(x + y * 3.1, x * 2.3), px = x + (h2 - 0.5) * S, py = y + (h3 - 0.5) * S;
-      const c = ch(px, py), q = hash(px * 3.3, py * 5.1), rot = h1 * 6.283;
+      let c = ch(px, py); if (c === 'n') c = '.'; const q = hash(px * 3.3, py * 5.1), rot = h1 * 6.283;   // луг за ручьём — как трава
       const forestEdge = c === '.' && near(px, py, 'x', 1), pathEdge = c === '.' && (near(px, py, ',', 1) || near(px, py, '#', 1));
       const nearTree = trees.some(t => (t.x - px) ** 2 + (t.y - py) ** 2 < 2.2);
       let id = null, sc = 0.8 + h2 * 0.5;

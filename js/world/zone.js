@@ -28,6 +28,15 @@ const PROP = {
   fort_hall: { spr: 'house_0', box: [3.7, 1.9], tall: 1, model: 'fort_hall' }, tent: { spr: 'hay', r: 1.6, model: 'tent' }, fort_gate: { spr: 'banner', model: 'fort_gate' }, fort_tower: { spr: 'pillar', tall: 1, model: 'fort_tower' },   // постройки лагерей походов: в 3D свои модели, в 2D — запасные спрайты
   logpile: { spr: 'crate', box: [0.7, 0.4], model: 'logpile' },
   shrine: { spr: 'altar', r: 0.45, light: { r: 3, c: [190, 140, 255], flicker: 0.3 } },
+  // деревня по правилам (js/world/villagegen.js): здания с поворотом и коллайдерами из генератора (o.boxes), сельские мелочи
+  church: { spr: 'house_1', tall: 1, model: 'church', light: { r: 4.5, c: [255, 190, 110], flicker: 0.3, z: 2.2, dy: 6.6 } },
+  tavern: { spr: 'house_1', tall: 1, model: 'tavern', light: { r: 4.5, c: [255, 170, 90], flicker: 0.5, z: 2, dy: 3.4 } },
+  shop: { spr: 'house_0', tall: 1, model: 'shop' }, smithy: { spr: 'house_2', tall: 1, model: 'smithy', light: { r: 4.5, c: [255, 120, 40], flicker: 1, z: 1.2, dx: 2.4, dy: 0.6 } },
+  cottage_a: { spr: 'house_2', tall: 1, model: 'cottage_a' }, cottage_b: { spr: 'house_2', tall: 1, model: 'cottage_b' }, cottage_c: { spr: 'house_2', tall: 1, model: 'cottage_c' },
+  bridge: { spr: 'rug', flat: 1, model: 'bridge' }, barricade: { spr: 'crate', r: 0.4, model: 'barricade' },
+  vine_row: { spr: 'bush', model: 'vine_row' }, garden_bed: { spr: 'rug', flat: 1, model: 'garden_bed' }, scarecrow: { spr: 'banner', model: 'scarecrow' },
+  dummy: { spr: 'banner', r: 0.3, model: 'dummy' }, target: { spr: 'banner', r: 0.35, model: 'target' }, bench: { spr: 'crate', box: [0.75, 0.22], model: 'bench' }, table: { spr: 'crate', r: 0.6, model: 'table' },
+  fortune_tent: { spr: 'hay', box: [1.5, 1.3], model: 'fortune_tent', light: { r: 3.5, c: [200, 120, 255], flicker: 0.4, z: 1.2 } }, reeds: { spr: 'bush', model: 'reeds' }, sacks: { spr: 'sacks', r: 0.3 },
 };
 
 export class Zone {
@@ -49,10 +58,15 @@ export class Zone {
   prop(o) {
     const P = PROP[o.t]; if (!P) return null;
     const d = this.add({ x: o.x, y: o.y, spr: P.spr, tall: P.tall, flat: P.flat });
-    if (P.model) { d.model = P.model; d.rot = o.rot || 0; }
-    if (P.r) this.map.circles.push({ x: o.x, y: o.y, r: P.r });
-    if (P.box) this.map.rects.push({ x0: o.x - P.box[0], y0: o.y - P.box[1], x1: o.x + P.box[0], y1: o.y + P.box[1] });
-    if (P.light) this.addLight(o.x, o.y, P.light);
+    if (P.model || o.rot !== undefined) { d.model = P.model || o.t; d.rot = o.rot || 0; }
+    if (o.s) d.s = o.s; if (o.len) d.opts = { len: o.len };
+    if (o.boxes) for (const [x0, y0, x1, y1] of o.boxes) this.map.rects.push({ x0, y0, x1, y1 });
+    else if (!o.nocol) {
+      if (P.r) this.map.circles.push({ x: o.x, y: o.y, r: P.r });
+      const sw = o.rot && Math.abs(Math.sin(o.rot)) > 0.7;   // повёрнут на 90° — полуоси коробки меняются местами
+      if (P.box) { const [bx, by] = sw ? [P.box[1], P.box[0]] : P.box; this.map.rects.push({ x0: o.x - bx, y0: o.y - by, x1: o.x + bx, y1: o.y + by }); }
+    }
+    if (P.light) { const L = P.light, r = o.rot || 0, dx = L.dx || 0, dy = L.dy || 0; this.addLight(o.x, o.y, { ...L, dx: dx * Math.cos(r) + dy * Math.sin(r), dy: -dx * Math.sin(r) + dy * Math.cos(r) }); }
     return d;
   }
   roomAt(x, y) { for (const [k, r] of Object.entries(this.rooms)) if (x >= r[0] && y >= r[1] && x < r[0] + r[2] && y < r[1] + r[3]) return k; return null; }
