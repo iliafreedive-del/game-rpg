@@ -142,7 +142,7 @@ export const WIND = [{ name: 'Штиль', s: 0.35 }, { name: 'Ветер', s: 1
 export const BUDGET = {
   drawCalls: { limit: 260, high: 162, low: 74, phone: 121, before: 254 },        // before — до теней/постобработки/скининга
   triangles: { limit: 350000, shadowLimit: 100000, high: 348000, highShadow: 77000, low: 210000, phone: 256000 },
-  texturesBytes: 0, textureVRAM: 6e6, externalAssets: 0, realLights: 3, shadowMaps: 1,   // фактуры генерируются на canvas; свет: солнце + 2 точечных
+  texturesBytes: 0, textureVRAM: 18e6, externalAssets: 0, realLights: 3, shadowMaps: 1,   // фактуры генерируются на canvas; свет: солнце + 2 точечных
 };
 
 // ---------- какой вид включён ----------
