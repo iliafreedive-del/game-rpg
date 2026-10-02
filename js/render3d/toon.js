@@ -10,6 +10,7 @@ export const U = {
   uWindStr: { value: 1 },
   uCam: { value: new THREE.Vector3() },      // camera position  } used to dither away whatever
   uFocus: { value: new THREE.Vector3() },    // hero chest       } stands between them
+  uBiome: { value: 0 },                      // биом подземелья для стен: 1 затопленные, 2 пепельные, 3 Бездна
   uFadeSmooth: { value: 0 },                 // 1 — плавная прозрачность через alpha-to-coverage (нужен MSAA), 0 — мелкий дизеринг
 };
 
@@ -116,6 +117,14 @@ if (vTexId > 0.5) {
     f *= mix(vec3(1.0), vec3(0.58, 0.52, 0.44), low * (0.45 + 0.55 * nzs) * 0.8);
     if (id == 3.0 || id == 11.0) f *= mix(vec3(1.0), vec3(0.62, 0.98, 0.5), smoothstep(0.55, 0.95, an.y) * smoothstep(0.3, 0.8, nzs) * 0.65);
   }
+  // стены подземелья по биому: сырость и слизь, копоть и угли, фиолетовые жилы Бездны
+  if (id == 3.0 && uBiome > 0.5) {
+    float nzb = 0.5 + 0.5 * sin(vTP.x * 1.3 + sin(vTP.z * 1.7 + vTP.y * 2.1) * 1.8 + vTP.y * 0.9);
+    float vein = (1.0 - smoothstep(0.0, 0.06, abs(sin(vTP.x * 2.1 + sin(vTP.z * 2.6 + vTP.y * 3.3) * 1.6 + vTP.y * 1.7)))) * smoothstep(0.55, 0.85, nzb);
+    if (uBiome < 1.5) { float wet = 1.0 - smoothstep(0.0, 1.7, vTP.y); f *= mix(vec3(1.0), vec3(0.5, 0.82, 0.78), wet * (0.45 + 0.55 * nzb)); f *= mix(vec3(1.0), vec3(0.62, 1.15, 0.8), smoothstep(0.65, 1.0, nzb) * 0.5); }
+    else if (uBiome < 2.5) { f *= mix(vec3(1.0), vec3(0.6, 0.52, 0.48), 0.7 * nzb); f = mix(f, vec3(1.6, 0.7, 0.2), vein * 0.8); }
+    else { f *= mix(vec3(1.0), vec3(0.8, 0.72, 0.95), 0.5); f = mix(f, vec3(1.0, 0.6, 1.7), vein * 0.8); }
+  }
   diffuseColor.rgb *= f;
 }
 `;
@@ -128,9 +137,9 @@ const TEX_WORLD = `
 #endif
   vTP = (txM * vec4(position, 1.0)).xyz; vTN = mat3(txM) * normal;`;
 const addTex = (sh, world) => {
-  Object.assign(sh.uniforms, texUniforms());
+  Object.assign(sh.uniforms, texUniforms(), { uBiome: U.uBiome });
   sh.vertexShader = 'attribute float aTex; varying float vTexId; varying vec3 vTP; varying vec3 vTN;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvTexId = aTex; ' + (world ? TEX_WORLD : 'vTP = position; vTN = normal;'));
-  sh.fragmentShader = 'uniform highp sampler2DArray tMats; varying float vTexId; varying vec3 vTP; varying vec3 vTN;\n' + TEX_PARS +
+  sh.fragmentShader = 'uniform highp sampler2DArray tMats; uniform float uBiome; varying float vTexId; varying vec3 vTP; varying vec3 vTN;\n' + TEX_PARS +
     sh.fragmentShader.replace('#include <color_fragment>', '#include <color_fragment>\n' + TEX_F);
 };
 const addFade = (sh, hard) => {

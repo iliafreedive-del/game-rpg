@@ -103,6 +103,7 @@ function disposeWorld() {
 const hex = c => (c[0] << 16) | (c[1] << 8) | c[2];
 // пресет света по зоне: деревня, подземелье (с биомом глубин), цитадель/арена
 function presetFor(z) {
+  U.uBiome.value = ({ flooded: 1, ash: 2, abyss: 3 })[z.json && z.json.biome] || 0;
   if (z.id === 'town') return { ...LIGHT.village3, look: null };
   if (z.id === 'castle' || z.id === 'survival') return { ...LIGHT.castle, look: { floor: 0x9a8e7a, grime: 0x4a4034, moss: 0x5a6a3a } };
   const C = LIGHT.crypt, b = C.biome[z.json && z.json.biome];

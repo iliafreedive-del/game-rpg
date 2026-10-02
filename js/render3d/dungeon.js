@@ -28,6 +28,14 @@ function floorMaterial(look, biome) {
   // трещины в плитах (тонкие тёмные линии по шуму; в пепельных — раскалённые, в Бездне — фиолетовые рунные)
   float cr1 = 1.0 - smoothstep(0.0, 0.014, abs(nz2.g - 0.5)), cr2 = 1.0 - smoothstep(0.0, 0.011, abs(texture2D(tNoise, wp * 0.31 + 0.7).b - 0.5));
   float crk = max(cr1 * smoothstep(0.45, 0.65, nz.g), cr2 * smoothstep(0.55, 0.75, nz.b));
+  if (uBiome > 3.5) {   // цитадель: полированные плиты шахматкой, золотые полосы-вставки через 4 м, чистый камень
+    vec2 gp = wp * 0.5; float chk = mod(floor(gp.x) + floor(gp.y), 2.0);
+    col = uFloor * (0.18 + f * 0.42) * mix(vec3(1.5, 1.4, 1.1), vec3(0.45, 0.52, 0.8), chk) * (0.9 + nz.g * 0.2);
+    vec2 gl = abs(fract(wp * 0.25) - 0.5);
+    float line = smoothstep(0.488, 0.498, max(gl.x, gl.y));
+    col = mix(col, vec3(0.7, 0.45, 0.12), line * 0.8);
+    crk *= 0.3;
+  }
   col = mix(col, vec3(0.03, 0.025, 0.03), crk * 0.85);
   if (uBiome > 2.5) col = mix(col, vec3(0.62, 0.36, 1.0), crk * 0.7);
   else if (uBiome > 1.5) col = mix(col, vec3(1.2, 0.5, 0.12), crk * 0.9);
@@ -50,7 +58,7 @@ function floorMaterial(look, biome) {
   diffuseColor.rgb = col * diffuseColor.rgb;
 }`);
   };
-  m.customProgramCacheKey = () => 'dfloor2';
+  m.customProgramCacheKey = () => 'dfloor3';
   return m;
 }
 
@@ -71,7 +79,7 @@ export function buildDungeonFloor(scene, zone, look) {
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); geo.setAttribute('aEdge', new THREE.Float32BufferAttribute(E, 1)); geo.setAttribute('color', new THREE.Float32BufferAttribute(C, 4));
   geo.setIndex(I); geo.computeVertexNormals();
-  const bi = ({ flooded: 1, ash: 2, abyss: 3 })[zone.json && zone.json.biome] || 0;
+  const bi = zone.id === 'castle' || zone.id === 'survival' ? 4 : ({ flooded: 1, ash: 2, abyss: 3 })[zone.json && zone.json.biome] || 0;
   const floor = new THREE.Mesh(geo, floorMaterial(look, bi)); floor.receiveShadow = true; floor.userData.noOutline = true; scene.add(floor);
   return {
     grassU: null,
