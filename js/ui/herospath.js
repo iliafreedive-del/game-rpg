@@ -37,14 +37,15 @@ const enemyStats = s => {
 function HW() { const P = G.profile; P.hw = P.hw || { top: 1, stars: {}, en: { n: EN_MAX, at: Date.now() } }; const e = P.hw.en; const now = Date.now(); if (e.n < EN_MAX) { const k = Math.floor((now - e.at) / EN_MS); if (k > 0) { e.n = Math.min(EN_MAX, e.n + k); e.at = e.n >= EN_MAX ? now : e.at + k * EN_MS; } } else e.at = now; return P.hw; }
 export const hwReady = () => { const h = HW(); return h.en.n >= 5; };
 
-let root = null, page = 0, raf = 0;
+let root = null, page = 0, raf = 0, curStage = null;
+const disposeStage = () => { if (curStage) { try { curStage.dispose(); } catch { } curStage = null; } };
 export function openHeroPath() {
   if (root) return; HW(); G.paused = true; G.modalOpen = true; bus.emit('audioPause', false);
   root = el('div', 'hw-root'); document.body.appendChild(root);
   page = chOf(HW().top);
   showMap();
 }
-function close() { cancelAnimationFrame(raf); raf = 0; if (root) root.remove(); root = null; G.paused = false; G.modalOpen = false; bus.emit('hud'); bus.emit('save'); }
+function close() { cancelAnimationFrame(raf); raf = 0; disposeStage(); if (root) root.remove(); root = null; G.paused = false; G.modalOpen = false; bus.emit('hud'); bus.emit('save'); }
 
 function header(title) {
   const h = HW(); const left = h.en.n >= EN_MAX ? 0 : Math.max(0, h.en.at + EN_MS - Date.now());
@@ -54,7 +55,7 @@ function header(title) {
   if (title) root.appendChild(el('div', 'hw-title', title));
 }
 function showMap() {
-  cancelAnimationFrame(raf); root.innerHTML = ''; header();
+  cancelAnimationFrame(raf); disposeStage(); root.innerHTML = ''; header();
   const h = HW(), ch = CHAPTERS[page];
   const card = el('div', 'hw-map', `<div class="hw-banner">Летопись битв · ${esc(ch.name)}</div><div class="hw-sub">Бой идёт сам. Ваш герой, его вещи, закалка и улучшения — те же, что в подземелье.</div>`);
   const grid = el('div', 'hw-grid');
@@ -78,6 +79,7 @@ function heroSummary() {
   const S = G.stats; const cls = G.profile.cls || 'warrior'; return { hp: S.maxHP, dmg: (S.dmgMin + S.dmgMax) / 2 * (cls === 'mage' ? Math.max(1, S.spellPower * 0.85) : 1), aps: Math.min(2.2, S.aps), crit: S.critChance, critMult: S.critMult, armor: S.armor, spell: S.spellPower };
 }
 function showPrefight(s) {
+  disposeStage(); cancelAnimationFrame(raf);
   root.innerHTML = ''; header();
   const E = enemyStats(s), H = heroSummary(); const h = HW();
   const power = Math.round(H.dmg * H.aps * 10 + H.hp), foe = Math.round(E.dmg * E.aps * 10 + E.hp);
@@ -92,11 +94,14 @@ function showPrefight(s) {
 }
 
 // ------------------------------------------------------------------ battle
-function fight(s) {
-  root.innerHTML = ''; header();
-  const cv = document.createElement('canvas'); cv.className = 'hw-canvas'; root.appendChild(cv);
-  const ctx = cv.getContext('2d'); const dpr = Math.min(2, devicePixelRatio || 1);
-  const resize = () => { cv.width = cv.clientWidth * dpr; cv.height = cv.clientHeight * dpr; };
+async function fight(s) {
+  disposeStage(); cancelAnimationFrame(raf); root.innerHTML = ''; header();
+  // три слоя: 2D-фон (hwscenes.js) → 3D-бойцы (render3d/hwstage.js, те же модели, что в игре) → 2D-полосы, цифры и дуги ударов
+  const stack = el('div', 'hw-stack'), bgcv = document.createElement('canvas'), glcv = document.createElement('canvas'), cv = document.createElement('canvas');
+  stack.append(bgcv, glcv, cv); root.appendChild(stack);
+  const ctx = cv.getContext('2d'), bctx = bgcv.getContext('2d'); const dpr = Math.min(2, devicePixelRatio || 1);
+  let stage = null;
+  const resize = () => { cv.width = bgcv.width = Math.round(cv.clientWidth * dpr); cv.height = bgcv.height = Math.round(cv.clientHeight * dpr); if (stage) stage.resize(cv.clientWidth, cv.clientHeight); };
   resize();
   let speed = G.profile.hwSpeed === 2 ? 2 : 1; const speedB = el('button', 'hw-speed', '×' + speed); speedB.onclick = () => { speed = speed === 1 ? 2 : 1; G.profile.hwSpeed = speed; speedB.textContent = '×' + speed; }; root.appendChild(speedB);
   const ch = CHAPTERS[chOf(s)];
@@ -172,16 +177,22 @@ function fight(s) {
     else if (hero.hp <= 0) { hero.anim = 'death'; hero.at = 0; over = 'lose-pending'; setTimeout(() => end(false), 1100 / speed); }
     for (const n of nums) n.t += dt; while (nums.length && nums[0].t > 1) nums.shift();
   }
+  try {   // 3D-бойцы; если WebGL нет или он упал — прежние спрайты
+    const M = await import('../render3d/hwstage.js');
+    if (M.webglOK() && !(new URLSearchParams(location.search).get('render') === '2d')) { stage = M.createStage(glcv, { cls, wt, enemyType: E.type, boss: E.type === 'boss', ci: chOf(s) }); curStage = stage; resize(); }
+  } catch (e) { console.warn('[hw] 3D недоступно, спрайты', e); stage = null; }
+  if (!root || !root.contains(stack)) { disposeStage(); return; }
+  glcv.style.display = stage ? 'block' : 'none';
   let bgCache = null, bgKey = '';
   function drawBg(W, Hh) {
     const key = W + 'x' + Hh; if (key !== bgKey) { bgKey = key; bgCache = paintScene(chOf(s), W, Hh); }
-    ctx.drawImage(bgCache.far, 0, 0, W, Hh);
+    bctx.drawImage(bgCache.far, 0, 0, W, Hh);
     // drifting clouds
-    for (const c of bgCache.clouds) { const x = ((c.x + time * c.v) % (W + 400)) - 200; ctx.globalAlpha = c.a; ctx.drawImage(bgCache.cloud, x, c.y, c.w, c.w * 0.4); } ctx.globalAlpha = 1;
-    ctx.drawImage(bgCache.near, 0, 0, W, Hh);
+    for (const c of bgCache.clouds) { const x = ((c.x + time * c.v) % (W + 400)) - 200; bctx.globalAlpha = c.a; bctx.drawImage(bgCache.cloud, x, c.y, c.w, c.w * 0.4); } bctx.globalAlpha = 1;
+    bctx.drawImage(bgCache.near, 0, 0, W, Hh);
     // ambient particles: fireflies / snow / embers
-    const P = bgCache.parts; for (const p of P) { p.y += p.vy * 0.016 * speed; p.x += Math.sin(time * p.f + p.o) * 0.3; if (p.y > Hh) p.y = -5; if (p.y < -5) p.y = Hh; ctx.globalAlpha = p.a * (0.6 + 0.4 * Math.sin(time * 3 + p.o)); ctx.fillStyle = p.c; ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 7); ctx.fill(); }
-    ctx.globalAlpha = 1;
+    const P = bgCache.parts; for (const p of P) { p.y += p.vy * 0.016 * speed; p.x += Math.sin(time * p.f + p.o) * 0.3; if (p.y > Hh) p.y = -5; if (p.y < -5) p.y = Hh; bctx.globalAlpha = p.a * (0.6 + 0.4 * Math.sin(time * 3 + p.o)); bctx.fillStyle = p.c; bctx.beginPath(); bctx.arc(p.x, p.y, p.r, 0, 7); bctx.fill(); }
+    bctx.globalAlpha = 1;
   }
   function drawUnit(names, clip, nf, fps, t, x, y, sc, flip, dir, flash, loop) {
     let fr = Math.floor(t * fps); fr = loop ? fr % nf : Math.min(nf - 1, fr);
@@ -193,40 +204,61 @@ function fight(s) {
     ctx.fillStyle = '#fff'; ctx.font = `bold ${13 * dpr / dpr}px sans-serif`; ctx.textAlign = 'center'; ctx.fillText(`${Math.max(0, Math.ceil(v))} / ${max}`, x + w / 2, y + 14);
     ctx.textAlign = 'left'; ctx.font = '600 13px Georgia'; ctx.fillStyle = '#f0dca8'; ctx.fillText(label, x, y - 6);
   }
+  // состояние бойца для 3D: клип модели и прогресс из текущего «акта» хореографии
+  const clipOf = (who, isHero) => {
+    if (who.dead || (isHero && over === 'lose-pending')) return { clip: 'death', k: Math.min(1, who.at / 0.9) };
+    const a = who.act;
+    if (isHero && hero.dash > 0) return { clip: 'dodge', k: 1 - hero.dash / 0.5 };
+    if (a && a.t < a.d) {
+      const k = a.t / a.d, impact = a.imp < a.d ? a.imp / a.d : undefined;
+      if (a.k === 'stumble') return { clip: 'hit', k };
+      if (a.k === 'evade') return isHero ? { clip: 'dodge', k } : { clip: 'hit', k };
+      if (isHero) return { clip: (a.k === 'shoot' || a.k === 'cast') ? 'cast' : 'attack', k, impact, combo: hero.lastKind === 'sweep' || hero.lastKind === 'thrust' ? 1 : 0 };
+      const ranged = E.type === 'skel_archer' || E.type === 'skel_mage';
+      return { clip: ranged ? 'cast' : a.k === 'leap' ? 'slam' : a.k === 'lunge' && E.type === 'boss' ? 'attack2' : 'attack', k, impact };
+    }
+    if (who.flash > 0) return { clip: 'hit', k: Math.min(1, 1 - who.flash / 0.15) };
+    return {};
+  };
   function frame(now) {
     const dt = Math.min(0.05, (now - last) / 1000) * speed; last = now;
     if (cv.clientWidth * dpr !== cv.width) resize();
     step(dt);
-    const W = cv.width / dpr, Hh = cv.height / dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const W = cv.width / dpr, Hh = cv.height / dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); bctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, Hh);
     drawBg(W, Hh);
-    const gy = Hh * 0.8, sc = Math.min(1.3, Hh / 330) * 1.0;
-    // shadows
-    ctx.fillStyle = 'rgba(0,0,0,0.3)'; for (const px of [W * hero.bx, W * foe.bx]) { ctx.beginPath(); ctx.ellipse(px, gy, 44 * sc, 12 * sc, 0, 0, 7); ctx.fill(); }
-    const hNF = HNF[hero.anim] || 4; if (hero.anim !== 'idle' && hero.anim !== 'death' && hero.at * 12 > hNF) hero.anim = 'idle';
-    const hP = pose(hero), fP = pose(foe);
-    const hDir = sw > 0 ? 7 : 3, fDir = sw > 0 ? 3 : 7, hy = gy - hP.hop * sc;
-    for (const g of ghosts) { g.t += 0.016 * speed; } while (ghosts.length && ghosts[0].t > 0.4) ghosts.shift();
-    for (const g of ghosts) { ctx.globalAlpha = Math.max(0, 0.35 - g.t * 0.9); drawUnit(heroAtlas, g.anim, HNF[g.anim] || 4, 12, g.at, W * g.x, gy, sc * 1.25, false, g.sw > 0 ? 7 : 3, 0.4, false); } ctx.globalAlpha = 1;
-    if (hero.act && hero.act.k === 'evade' && hero.act.t < hero.act.d) { ctx.globalAlpha = 0.45; drawUnit(heroAtlas, 'idle', 4, 5, time, W * hero.bx, gy, sc * 1.25, false, hDir, 0, true); ctx.globalAlpha = 1; }
-    const unit = (names, clip, nf, fps, t, x, y, scl, dir, flash, loop, P, lean) => { ctx.save(); ctx.translate(x, y); ctx.rotate(P.rot * lean); ctx.scale(P.sx, 1 / Math.sqrt(P.sx)); drawUnit(names, clip, nf, fps, t, 0, 0, scl, false, dir, flash, loop); ctx.restore(); };
-    unit(heroAtlas, hero.anim, hNF, hero.anim === 'idle' ? 5 : 12, hero.at + (hero.anim === 'idle' ? time : 0), W * (hero.bx + hP.off * sw), hy, sc * 1.25, hDir, hero.flash, hero.anim === 'idle', hP, sw);
-    const A = getAtlas(ENEMIES[E.type].atlas);
-    if (A) {
-      const nf = c => (A.clips[c] || [4])[0];
-      if (foe.anim !== 'idle' && foe.anim !== 'death' && foe.at * 11 > nf(foe.anim)) foe.anim = 'idle';
-      unit([ENEMIES[E.type].atlas], foe.anim, nf(foe.anim), foe.anim === 'idle' ? 5 : 11, foe.at + (foe.anim === 'idle' ? time : 0), W * (foe.bx - fP.off * sw), gy - fP.hop * sc, sc * (E.type === 'boss' ? 1.0 : 1.45), fDir, foe.flash, foe.anim === 'idle', fP, -sw);
+    const gy = Hh * 0.8, sc = stage ? stage.pxPerM() / 95 : Math.min(1.3, Hh / 330) * 1.0;
+    const hP = pose(hero), fP = pose(foe), hx = hero.bx + hP.off * sw, fx = foe.bx - fP.off * sw;
+    // тени под бойцами — на слое фона, под моделями
+    bctx.fillStyle = 'rgba(0,0,0,0.32)'; for (const [f, big] of [[hx, 1], [fx, E.type === 'boss' ? 1.8 : 1.2]]) { bctx.beginPath(); bctx.ellipse(W * f, gy, 46 * sc * big, 11 * sc * big, 0, 0, 7); bctx.fill(); }
+    const hDir = sw > 0 ? 7 : 3, fDir = sw > 0 ? 3 : 7;
+    if (stage) {
+      const hc = clipOf(hero, true), fc = clipOf(foe, false);
+      stage.draw(dt, { x: hx, hop: hP.hop / 55, rot: hP.rot, sx: hP.sx, lean: sw, face: sw, ...hc, flash: Math.max(0, hero.flash) * 6 }, { x: fx, hop: fP.hop / 55, rot: fP.rot, sx: fP.sx, lean: -sw, face: -sw, ...fc, flash: Math.max(0, foe.flash) * 6 });
+    } else {
+      const hNF = HNF[hero.anim] || 4; if (hero.anim !== 'idle' && hero.anim !== 'death' && hero.at * 12 > hNF) hero.anim = 'idle';
+      const hy = gy - hP.hop * sc;
+      for (const g of ghosts) { g.t += 0.016 * speed; } while (ghosts.length && ghosts[0].t > 0.4) ghosts.shift();
+      for (const g of ghosts) { ctx.globalAlpha = Math.max(0, 0.35 - g.t * 0.9); drawUnit(heroAtlas, g.anim, HNF[g.anim] || 4, 12, g.at, W * g.x, gy, sc * 1.25, false, g.sw > 0 ? 7 : 3, 0.4, false); } ctx.globalAlpha = 1;
+      const unit = (names, clip, nf, fps, t, x, y, scl, dir, flash, loop, P, lean) => { ctx.save(); ctx.translate(x, y); ctx.rotate(P.rot * lean); ctx.scale(P.sx, 1 / Math.sqrt(P.sx)); drawUnit(names, clip, nf, fps, t, 0, 0, scl, false, dir, flash, loop); ctx.restore(); };
+      unit(heroAtlas, hero.anim, hNF, hero.anim === 'idle' ? 5 : 12, hero.at + (hero.anim === 'idle' ? time : 0), W * hx, hy, sc * 1.25, hDir, hero.flash, hero.anim === 'idle', hP, sw);
+      const A = getAtlas(ENEMIES[E.type].atlas);
+      if (A) {
+        const nf = c => (A.clips[c] || [4])[0];
+        if (foe.anim !== 'idle' && foe.anim !== 'death' && foe.at * 11 > nf(foe.anim)) foe.anim = 'idle';
+        unit([ENEMIES[E.type].atlas], foe.anim, nf(foe.anim), foe.anim === 'idle' ? 5 : 11, foe.at + (foe.anim === 'idle' ? time : 0), W * fx, gy - fP.hop * sc, sc * (E.type === 'boss' ? 1.0 : 1.45), fDir, foe.flash, foe.anim === 'idle', fP, -sw);
+      }
     }
     // дуги ударов: по цели рисуем полумесяц или линию в стиле удара
     for (let i = slashes.length - 1; i >= 0; i--) {
       const q = slashes[i]; q.t += 0.016 * speed; if (q.t > 0.28) { slashes.splice(i, 1); continue; }
-      const tx = W * (q.side === 'foe' ? foe.bx : hero.bx), ty = gy - 62 * sc, p = q.t / 0.28, dirS = q.side === 'foe' ? sw : -sw;
+      const tx = W * (q.side === 'foe' ? fx : hx), ty = gy - 62 * sc * (stage ? 1.3 : 1), p = q.t / 0.28, dirS = q.side === 'foe' ? sw : -sw;
       ctx.save(); ctx.translate(tx, ty); ctx.globalAlpha = 1 - p; ctx.strokeStyle = q.side === 'foe' ? '#fff3c0' : '#ff9a8a'; ctx.lineWidth = 5 * (1 - p) + 1; ctx.lineCap = 'round';
       ctx.beginPath();
       if (q.k === 'thrust' || q.k === 'lunge') { ctx.moveTo(-dirS * 70 * sc, 0); ctx.lineTo(dirS * 30 * sc, 0); }
       else if (q.k === 'overhead' || q.k === 'leap') { ctx.moveTo(-dirS * 10, -90 * sc); ctx.quadraticCurveTo(dirS * 30 * sc, -10, -dirS * 5, 60 * sc); }
       else if (q.k === 'shoot') { ctx.moveTo(-dirS * 220 * sc * (1 - p), 0); ctx.lineTo(-dirS * 140 * sc * (1 - p), 0); }
       else if (q.k === 'cast') { ctx.arc(0, 0, 18 + 50 * p, 0, 7); }
-      else { ctx.arc(0, 0, 70 * sc, dirS > 0 ? -2.2 : -0.9, dirS > 0 ? -0.2 : 1.2 + (dirS > 0 ? 0 : 0)); }
+      else { ctx.arc(0, 0, 70 * sc, dirS > 0 ? -2.2 : -0.9, dirS > 0 ? -0.2 : 1.2); }
       ctx.stroke(); ctx.restore();
     }
     const bw = Math.min(260, W * 0.36);
@@ -239,7 +271,7 @@ function fight(s) {
     for (const n of nums) { ctx.globalAlpha = 1 - n.t; ctx.font = `bold ${n.big ? 30 : 22}px Georgia`; ctx.strokeStyle = '#000'; ctx.lineWidth = 4; const y = Hh * n.y - n.t * 40; ctx.strokeText(n.s, W * n.x, y); ctx.fillStyle = n.c; ctx.fillText(n.s, W * n.x, y); }
     ctx.globalAlpha = 1;
     if (time < 1.0) { ctx.font = `bold ${Math.round(48 * (1.4 - time * 0.4))}px Georgia`; ctx.fillStyle = `rgba(255,220,140,${1 - time})`; ctx.fillText('БОЙ!', W / 2, Hh * 0.3); }
-    if (root && root.contains(cv)) raf = requestAnimationFrame(frame);
+    if (root && root.contains(stack)) raf = requestAnimationFrame(frame);
   }
   raf = requestAnimationFrame(frame);
   function end(win) {
