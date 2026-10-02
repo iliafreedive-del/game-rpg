@@ -72,7 +72,7 @@ export class PropLayer {
     };
     const trees = zone.statics.filter(d => d.spr === 'tree_0' || d.spr === 'tree_1');   // в статике карты — исходные tree_0/tree_1
     // хлам у домов: у видимых стен (+x, +z) — бочки, ящики, мешки, поленница; вплотную к стене, где герой почти не ходит
-    const HB = { house_0: [2.3, 1.8], house_1: [2.7, 2.0], house_2: [2.0, 1.9] };
+    const HB = { house_0: [2.7, 2.0], house_1: [3.1, 2.2], house_2: [2.3, 2.0] };
     for (const d of zone.statics) {
       const hb = HB[d.spr]; if (!hb) continue;
       const h = hash(d.x, d.y), [hx, hz] = hb;

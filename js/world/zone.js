@@ -23,7 +23,7 @@ const PROP = {
   stall: { spr: 'stall', box: [0.95, 0.45] }, lamp: { spr: 'lamp', r: 0.12, tall: 1, light: { r: 5.5, c: [255, 190, 110], flicker: 0.5, z: 1.9 } },
   tree_0: { spr: 'tree_0', r: 0.3, tall: 1 }, tree_1: { spr: 'tree_1', r: 0.3, tall: 1 },
   hay: { spr: 'hay', r: 0.45 }, grave: { spr: 'grave', r: 0.2 }, fence_x: { spr: 'fence_x', box: [0.5, 0.08] }, fence_y: { spr: 'fence_y', box: [0.08, 0.5] },
-  house_0: { spr: 'house_0', box: [2.45, 1.95], tall: 1 }, house_1: { spr: 'house_1', box: [2.85, 2.15], tall: 1 }, house_2: { spr: 'house_2', box: [2.15, 2.05], tall: 1 },   // под крупные 3D-дома (ART_BIBLE, раздел 7)
+  house_0: { spr: 'house_0', box: [2.85, 2.2], tall: 1 }, house_1: { spr: 'house_1', box: [3.25, 2.4], tall: 1 }, house_2: { spr: 'house_2', box: [2.95, 2.2], tall: 1 },   // под крупные 3D-дома (ART_BIBLE, раздел 7)
   shrine: { spr: 'altar', r: 0.45, light: { r: 3, c: [190, 140, 255], flicker: 0.3 } },
 };
 

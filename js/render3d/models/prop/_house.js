@@ -83,12 +83,20 @@ export function house(kit, o) {
   }
   // ---- крыша: крутая, свес 0.55, толстые ряды дранки внахлёст, лёгкая кривизна
   const pitch = 0.86, half = D2 / 2 + 0.7, slope = half / Math.cos(pitch), rise = Math.tan(pitch) * (D2 / 2), len = W2 + 1.0, rows = 8;
-  for (const s of [-1, 1]) for (let i = 0; i < rows; i++) {
-    const t0 = i / rows, rw = slope / rows * 1.45, along = slope * (t0 + 0.5 / rows), drop = Math.sin(pitch) * along, out = Math.cos(pitch) * along;
-    const g = geo.chamferBox(len + (R() - 0.5) * 0.1, 0.16, rw, 0.04); g.rotateX(s * pitch);
-    const c = new THREE.Color(roof).lerp(new THREE.Color(roofTop), 0.15 + R() * 0.5 + (1 - t0) * 0.2);
-    L.push(geo.paint(geo.warp(g.translate((R() - 0.5) * 0.06, y3 + rise + 0.18 - drop + 0.06 * (i % 2), s * out), 0.06, seed + i), c.getHex(), { top: new THREE.Color(roofTop).getHex(), tex: 'roof' }));
-  }
+  const MOSS = new THREE.Color(0x5a7a34), rc0 = new THREE.Color(roof), rc1 = new THREE.Color(roofTop);
+  // ряд дранки — 3–4 куска разного тона, часть тронута мхом (живая, «рисованная» крыша)
+  const roofRow = (s, i, rows, slope, len, y, pitch, along, axis = 'x') => {
+    const t0 = i / rows, rw = slope / rows * 1.45, drop = Math.sin(pitch) * along, out = Math.cos(pitch) * along, n = 3 + (R() < 0.5 ? 1 : 0);
+    for (let k = 0; k < n; k++) {
+      const seg = len / n + 0.12, cx = -len / 2 + (k + 0.5) * len / n + (R() - 0.5) * 0.08;
+      const g = geo.chamferBox(seg, 0.16, rw, 0.04); g.rotateX(s * pitch); g.translate(cx, 0, 0);
+      if (axis === 'z') g.rotateY(Math.PI / 2);
+      const c = rc0.clone().lerp(rc1, 0.15 + R() * 0.5 + (1 - t0) * 0.2); if (R() < 0.18 + t0 * 0.12) c.lerp(MOSS, 0.35 + R() * 0.35);
+      const off = axis === 'z' ? [s * out, 0, 0] : [0, 0, s * out];
+      L.push(geo.paint(geo.warp(g.translate(off[0] + (R() - 0.5) * 0.04, y - drop + 0.06 * (i % 2), off[2]), 0.05, seed + i * 7 + k), c.getHex(), { top: rc1.getHex(), tex: 'roof' }));
+    }
+  };
+  for (const s of [-1, 1]) for (let i = 0; i < rows; i++) roofRow(s, i, rows, slope, len, y3 + rise + 0.18, pitch, slope * (i + 0.5) / rows);
   L.push(bbox(len + 0.1, 0.2, 0.26, 0.05, T, [0, y3 + rise + 0.28, 0], 0, { top: TL, tex: 'woodH' }));
   // щипцы: треугольники из вертикальных досок, ветровые доски крест-накрест у конька
   const tri = new THREE.Shape([new THREE.Vector2(-D2 / 2, 0), new THREE.Vector2(D2 / 2, 0), new THREE.Vector2(0, rise)]);
@@ -104,6 +112,79 @@ export function house(kit, o) {
   L.push(bbox(0.8, ch, 0.8, 0.07, ST, [chx, cy0 + ch / 2, chz], 0, { top: STL, tex: 'stone' }));
   L.push(bbox(0.96, 0.16, 0.96, 0.04, 0x3a362e, [chx, cy0 + ch, chz], 0, { top: 0x6a6252, tex: 'stone' }));
   L.push(bbox(0.46, 0.24, 0.46, 0.03, 0x24242a, [chx, cy0 + ch + 0.16, chz], 0, { top: 0x4a4a52, tex: 'metal' }));
+  // ---- особенности дома (o.cross, o.dormers, o.tower, o.balcony, o.stairs, o.sign, o.ivy)
+  if (o.cross) {   // поперечный фронтон: выступ верхних этажей на фасаде с собственной двускатной крышей коньком к камере
+    const CW = 2.6, cx = W * 0.16, cz0 = D2 / 2, CD = 0.7, r2 = Math.tan(pitch) * (CW / 2);
+    L.push(part(new THREE.BoxGeometry(CW, UH, CD), wall, [cx, y2 + UH / 2, cz0 + CD / 2 - 0.03], 0, 1, { top: wallTop, tex: 'plaster' }));
+    for (const sx of [-1, 1]) L.push(bbox(0.18, UH + 0.04, 0.18, 0.03, T, [cx + sx * CW / 2, y2 + UH / 2, cz0 + CD], 0, { top: TL, tex: 'wood' }));
+    for (const y of [y2 + 0.07, y3 - 0.07]) L.push(bbox(CW + 0.04, 0.16, 0.13, 0.025, T, [cx, y, cz0 + CD + 0.03], 0, { top: TL, tex: 'woodH' }));
+    for (let f = 0; f < floors - 1; f++) win(cx, cz0 + CD, y2 + f * (uf + 0.24) + uf * 0.52, 0, 1.1, 1.0, true);
+    const tri2 = new THREE.Shape([new THREE.Vector2(-CW / 2, 0), new THREE.Vector2(CW / 2, 0), new THREE.Vector2(0, r2)]);
+    const g2 = new THREE.ExtrudeGeometry(tri2, { depth: CD + D2 / 2, bevelEnabled: false }); g2.translate(cx, y3, cz0 + CD - (CD + D2 / 2));
+    L.push(geo.paint(g2, 0x6a4a2c, { top: 0x9a7448, tex: 'wood' }));
+    const sl2 = (CW / 2 + 0.5) / Math.cos(pitch), rows2 = 5;
+    for (const s2 of [-1, 1]) for (let i = 0; i < rows2; i++) {
+      const tmp = L.length; roofRow(s2, i, rows2, sl2, CD + D2 / 2 + 0.6, y3 + r2 + 0.18, pitch, sl2 * (i + 0.5) / rows2, 'z');
+      for (let j = tmp; j < L.length; j++) L[j].translate(cx, 0, cz0 + CD + 0.3 - (CD + D2 / 2 + 0.6) / 2);
+    }
+    L.push(bbox(0.2, 0.2, CD + D2 / 2 + 0.7, 0.05, T, [cx, y3 + r2 + 0.28, cz0 + CD + 0.35 - (CD + D2 / 2 + 0.7) / 2], 0, { top: TL, tex: 'woodH' }));
+    for (const s2 of [-1, 1]) { const g = geo.chamferBox(0.09, 0.2, sl2 + 0.2, 0.02); g.rotateX(pitch); g.rotateY(Math.PI / 2 * s2); wood(g.translate(cx + s2 * (Math.cos(pitch) * sl2 / 2 - 0.15), y3 + r2 + 0.2 - Math.sin(pitch) * sl2 / 2, cz0 + CD + 0.32)); }
+  }
+  for (let k = 0; k < (o.dormers || 0); k++) {   // мансардные окна на переднем скате
+    const dxk = -W2 / 2 + W2 * (k + 0.5) / (o.dormers + (o.cross ? 1 : 0)) - (o.cross ? 0.4 : 0), out = D2 / 2 - 0.55, ry = y3 + rise + 0.18 - Math.tan(pitch) * out;
+    L.push(part(new THREE.BoxGeometry(1.0, 1.15, 1.2), wall, [dxk, ry + 0.35, out + 0.1], 0, 1, { top: wallTop, tex: 'plaster' }));
+    win(dxk, out + 0.7, ry + 0.4, 0, 0.55, 0.6, false, false);
+    for (const s2 of [-1, 1]) L.push(geo.paint(geo.chamferBox(0.8, 0.1, 1.5, 0.02).rotateZ(-s2 * 0.75).translate(dxk + s2 * 0.3, ry + 1.15, out + 0.15), rc0.getHex(), { top: rc1.getHex(), tex: 'roof' }));
+  }
+  if (o.tower) {   // угловая круглая башня: камень внизу, штукатурка в фахверке выше, коническая крыша с латунным навершием
+    const tx = W / 2 - 0.45, tz = D / 2 - 0.45, TR = 1.2, th = y3 + rise * 0.55;
+    L.push(part(new THREE.CylinderGeometry(TR + 0.08, TR + 0.15, y1 + 0.1, 16), ST, [tx, (y1 + 0.1) / 2, tz], 0, 1, { top: STL, tex: 'stone' }));
+    L.push(part(new THREE.CylinderGeometry(TR + 0.2, TR + 0.2, 0.2, 16), T, [tx, y1 + 0.1, tz], 0, 1, { top: TL, tex: 'woodH' }));
+    L.push(part(new THREE.CylinderGeometry(TR + 0.12, TR + 0.12, th - y1 - 0.2, 16), wall, [tx, y1 + 0.2 + (th - y1 - 0.2) / 2, tz], 0, 1, { top: wallTop, tex: 'plaster' }));
+    for (let i = 0; i < 8; i++) { const a = i / 8 * 6.283; L.push(bbox(0.12, th - y1 - 0.2, 0.12, 0.02, T, [tx + Math.cos(a) * (TR + 0.14), y1 + 0.2 + (th - y1 - 0.2) / 2, tz + Math.sin(a) * (TR + 0.14)], [0, -a, 0], { top: TL, tex: 'wood' })); }
+    for (let f = 0; f < floors - 1; f++) for (const a of [0.35, 1.2]) {
+      const wx = tx + Math.sin(a) * (TR + 0.16), wz = tz + Math.cos(a) * (TR + 0.16), yy = y2 + f * (uf + 0.24) + uf * 0.52;
+      L.push(part(new THREE.BoxGeometry(0.55, 0.75, 0.08), 0xffc070, [wx, yy, wz], [0, a, 0], 1, { emit: true }));
+      L.push(bbox(0.7, 0.9, 0.06, 0.015, T, [wx - Math.sin(a) * 0.02, yy, wz - Math.cos(a) * 0.02], [0, a, 0], { top: TL, tex: 'wood' }));
+    }
+    const cr = TR + 0.55, ch2 = 3.2;
+    for (let i = 0; i < 6; i++) {   // конус из шести колец дранки
+      const t0 = i / 6, r0 = cr * (1 - t0), r1 = cr * (1 - t0 - 1 / 6) + 0.05;
+      const c = rc0.clone().lerp(rc1, 0.2 + t0 * 0.6 + R() * 0.15); if (R() < 0.25) c.lerp(MOSS, 0.4);
+      L.push(part(new THREE.CylinderGeometry(Math.max(0.05, r1), r0, ch2 / 6 + 0.12, 16, 1, true), c.getHex(), [tx, th + ch2 * (t0 + 0.5 / 6), tz], 0, 1, { top: rc1.getHex(), tex: 'roof' }));
+    }
+    L.push(part(new THREE.CylinderGeometry(cr, cr + 0.05, 0.12, 16), T, [tx, th + 0.05, tz], 0, 1, { top: TL, tex: 'woodH' }));
+    L.push(part(new THREE.CylinderGeometry(0.03, 0.03, 1.0, 6), PAL.brassD, [tx, th + ch2 + 0.4, tz]), part(new THREE.SphereGeometry(0.12, 8, 6), PAL.brass, [tx, th + ch2 + 0.15, tz]));
+    L.push(part(new THREE.BoxGeometry(0.5, 0.3, 0.02), 0x35205f, [tx + 0.27, th + ch2 + 0.7, tz], 0, 1, { top: 0x7a4cd8, tex: 'cloth' }));
+  }
+  if (o.balcony) {   // балкон второго этажа на фасаде: настил, перила с балясинами, дверь
+    const bx = -W2 * 0.12, bw = 2.6, bz = D2 / 2 + 0.5, by = y2;
+    L.push(bbox(bw, 0.14, 1.0, 0.03, T, [bx, by, bz], 0, { top: TL, tex: 'woodH' }));
+    for (const s2 of [-1, 1]) wood(geo.chamferBox(0.12, 1.0, 0.12, 0.02).rotateX(0.7).translate(bx + s2 * (bw / 2 - 0.2), by - 0.45, D2 / 2 + 0.2));
+    L.push(bbox(bw, 0.08, 0.1, 0.02, T, [bx, by + 0.95, bz + 0.45], 0, { top: TL, tex: 'woodH' }));
+    for (const s2 of [-1, 1]) L.push(bbox(0.1, 0.08, 1.0, 0.02, T, [bx + s2 * bw / 2, by + 0.95, bz], 0, { top: TL, tex: 'woodH' }));
+    for (let i = 0; i <= 10; i++) L.push(part(new THREE.CylinderGeometry(0.035, 0.035, 0.85, 5), T, [bx - bw / 2 + bw * i / 10, by + 0.5, bz + 0.45], 0, 1, { top: TL, tex: 'wood' }));
+    L.push(bbox(0.9, 1.7, 0.08, 0.015, 0x4a2c18, [bx, by + 0.95, D2 / 2 + 0.02], 0, { top: 0x7a5232, tex: 'wood' }));
+  }
+  if (o.stairs) {   // наружная лестница на второй этаж вдоль стены +x
+    const n = 11, sx0 = W / 2 + 0.55;
+    for (let i = 0; i < n; i++) L.push(bbox(0.9, 0.12, 0.42, 0.02, T, [sx0, y0 + (i + 1) * (gf / n), D / 2 - 0.3 - i * 0.36], 0, { top: TL, tex: 'woodH' }));
+    L.push(bbox(0.9, 0.12, 1.0, 0.02, T, [sx0, y1 + 0.1, -D / 2 + 0.4], 0, { top: TL, tex: 'woodH' }));
+    for (const z of [D / 2 - 0.3, 0, -D / 2 + 0.4]) wood(geo.chamferBox(0.12, y1 + 0.1 - (z > 0.2 ? gf * 0.4 : 0), 0.12, 0.02).translate(sx0 + 0.4, (y1 + 0.1 - (z > 0.2 ? gf * 0.4 : 0)) / 2, z));
+    const rl = Math.hypot(gf, n * 0.36), g = geo.chamferBox(0.08, 0.08, rl, 0.02); g.rotateX(Math.atan2(gf, n * 0.36)); wood(g.translate(sx0 + 0.42, y0 + gf / 2 + 0.9, D / 2 - 0.3 - n * 0.18));
+  }
+  if (o.sign) {   // вывеска таверны на кованом кронштейне: кружка Ордена
+    const sx = W / 2 + 0.1, sz = D / 2 + 0.2, sy = y1 - 0.25;
+    L.push(bbox(1.2, 0.07, 0.07, 0.01, 0x24242a, [sx + 0.55, sy + 0.6, sz], 0, { top: 0x5a5a64, tex: 'metal' }));
+    L.push(bbox(0.9, 0.7, 0.07, 0.02, 0x5a3a22, [sx + 0.75, sy, sz], 0, { top: 0x9a7448, tex: 'woodH' }));
+    L.push(bbox(0.95, 0.75, 0.05, 0.02, PAL.brassD, [sx + 0.75, sy, sz - 0.01], 0, { top: PAL.brass }));
+    L.push(part(new THREE.CylinderGeometry(0.15, 0.13, 0.32, 10), PAL.brass, [sx + 0.72, sy - 0.02, sz + 0.05], 0, 1, { top: 0xffe08a }), part(new THREE.TorusGeometry(0.09, 0.025, 4, 8, Math.PI), PAL.brass, [sx + 0.88, sy, sz + 0.05], [0, 0, -Math.PI / 2]));
+    for (const s2 of [-1, 1]) L.push(part(new THREE.CylinderGeometry(0.01, 0.01, 0.3, 3), 0x24242a, [sx + 0.75 + s2 * 0.35, sy + 0.45, sz]));
+  }
+  if (o.ivy) {   // плющ на каменной стене у угла (+x,+z): листва кустиками снизу вверх
+    for (let i = 0; i < 26; i++) { const t = R(), up = t * (gf + 0.6), side = R() < 0.6, x = side ? W / 2 + 0.05 : W / 2 - 0.2 - R() * 1.2, z = side ? D / 2 - 0.2 - R() * 1.4 * (1 - t) : D / 2 + 0.05;
+      L.push(part(new THREE.IcosahedronGeometry(0.16 + R() * 0.14 * (1 - t), 0), R() < 0.3 ? 0x2e5a22 : 0x3e7a2c, [x, y0 + up, z], 0, [1, 0.8, 1], { top: 0x6aa83a })); }
+  }
   // ---- фонарь на кронштейне у двери
   L.push(bbox(0.5, 0.05, 0.05, 0.01, 0x24242a, [dx + DW / 2 + 0.55, y0 + 2.15, dz + 0.1], [0, Math.PI / 2, 0], { top: 0x5a5a64, tex: 'metal' }));
   L.push(bbox(0.18, 0.26, 0.18, 0.02, 0x24242a, [dx + DW / 2 + 0.55, y0 + 1.95, dz + 0.3], 0, { top: 0x5a5a64, tex: 'metal' }));
@@ -117,5 +198,7 @@ export function houseProxy(kit, o) {
   const W = Math.max(o.w, o.d), D = Math.min(o.w, o.d), W2 = W + 0.8, D2 = D + 0.8, y3 = 0.3 + gf + 0.24 + 2.3 * (floors - 1) + 0.24 * (floors - 2);
   const rise = Math.tan(0.86) * (D2 / 2), tri = new THREE.Shape([new THREE.Vector2(-D2 / 2 - 0.7, 0), new THREE.Vector2(D2 / 2 + 0.7, 0), new THREE.Vector2(0, rise + 0.8)]);
   const roof = new THREE.ExtrudeGeometry(tri, { depth: W2 + 1.0, bevelEnabled: false }); roof.translate(0, y3 - 0.6, -(W2 + 1.0) / 2); roof.rotateY(Math.PI / 2);
-  return merge([part(new THREE.BoxGeometry(W, y3, D), 0, [0, y3 / 2, 0]), part(new THREE.BoxGeometry(W2, y3 - gf, D2), 0, [0, gf + (y3 - gf) / 2 + 0.3, 0]), part(roof, 0), part(new THREE.BoxGeometry(0.8, 2.5, 0.8), 0, [-W * 0.28, y3 + rise, -D2 * 0.18])]);
+  const L = [part(new THREE.BoxGeometry(W, y3, D), 0, [0, y3 / 2, 0]), part(new THREE.BoxGeometry(W2, y3 - gf, D2), 0, [0, gf + (y3 - gf) / 2 + 0.3, 0]), part(roof, 0), part(new THREE.BoxGeometry(0.8, 2.5, 0.8), 0, [-W * 0.28, y3 + rise, -D2 * 0.18])];
+  if (o.tower) L.push(part(new THREE.CylinderGeometry(1.3, 1.3, y3 + rise * 0.55, 8), 0, [W / 2 - 0.45, (y3 + rise * 0.55) / 2, D / 2 - 0.45]), part(new THREE.ConeGeometry(1.75, 3.2, 8), 0, [W / 2 - 0.45, y3 + rise * 0.55 + 1.6, D / 2 - 0.45]));
+  return merge(L);
 }
