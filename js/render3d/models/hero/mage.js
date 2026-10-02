@@ -3,8 +3,8 @@
 import { heroModel } from './_hero.js';
 function torso({ kit, STEEL, STEEL_L, STEEL_D, DARK, LEATHER, LEATHER_L, BR, BR_D, BONE, TOP }) {
   const { THREE, part, bbox, lathe, tube } = kit, L = [];
-  L.push(lathe([[0.27, -0.95], [0.31, -0.7], [0.27, -0.3], [0.21, 0.05]], STEEL_D, [0, 0, 0], 0, [1.05, 1, 0.95], { top: STEEL, tex: 'cloth' }, 14));       // подол мантии до земли
-  L.push(lathe([[0.275, -0.95], [0.275, -0.9]], BR, [0, 0, 0], 0, [1.05, 1, 0.95], { top: 0xf0c868 }, 14));
+  L.push(lathe([[0.3, -0.95], [0.34, -0.7], [0.3, -0.3], [0.21, 0.05]], STEEL_D, [0, 0.0, 0.04], 0, [1.1, 1, 1.5], { top: STEEL, tex: 'cloth' }, 14));       // подол мантии до земли
+  L.push(lathe([[0.3, -0.95], [0.3, -0.9]], BR, [0, 0, 0.04], 0, [1.1, 1, 1.5], { top: 0xf0c868 }, 14));
   L.push(lathe([[0.2, 0.05], [0.27, 0.2], [0.3, 0.4], [0.29, 0.52], [0.24, 0.63], [0.17, 0.7]], STEEL, [0, 0, 0], 0, [1.05, 1, 0.85], { top: STEEL_L, tex: 'cloth' }, 14));
   L.push(bbox(0.06, 1.35, 0.03, 0.01, BR_D, [0, -0.05, 0.255], [0.05, 0, 0], { top: BR }));                                                                      // золотая кайма по центру
   L.push(lathe([[0.24, 0], [0.26, 0.03], [0.26, 0.1], [0.24, 0.13]], 0x5a3a14, [0, 0, 0], 0, 1, { top: BR, tex: 'leather' }, 12), part(new THREE.OctahedronGeometry(0.06, 0), 0xb48cff, [0, 0.06, 0.26], 0, [1, 1.3, 0.6], { emit: true }));   // пояс с самоцветом

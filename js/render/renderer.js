@@ -157,7 +157,7 @@ export function render() {
   if (Z.dark) darkness(); else dusk();
   drawProjectiles(true);
   drawEffects(); drawParticles(); drawBlades();
-  drawBars(); drawPickupLabels(); drawPlates(); drawTexts(); drawInteractMarker();
+  drawBars(); drawPickupLabels(); drawPlates(); drawBubbles(); drawTexts(); drawInteractMarker();
 }
 
 // Всё, что 3D-рендерер не рисует сам: эффекты, снаряды, телеграфы, полоски, подписи, цифры. Холст прозрачный, проекция — G.cam.proj.
@@ -167,7 +167,7 @@ export function renderOverlay() {
   drawGroundFx(); drawTelegraphs(); drawGuide(); drawPickupsGround();
   drawProjectiles(false); drawProjectiles(true);
   drawEffects(); drawParticles(); drawBlades();
-  drawBars(); drawPickupLabels(); drawPlates(); drawTexts(); drawInteractMarker();
+  drawBars(); drawPickupLabels(); drawPlates(); drawBubbles(); drawTexts(); drawInteractMarker();
 }
 export function clearOverlay() { if (ctx) { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height); } }
 
@@ -512,6 +512,18 @@ function drawGuide() {
 }
 
 // name plates + pulsing marker for important village objects (notice board)
+function drawBubbles() {   // реплики Эха и других NPC над головой
+  const cam = G.cam, z = cam.zoom;
+  for (const n of G.npcs || []) {
+    if (!n.bubble) continue; const [x, y] = cam.toScreen(n.x, n.y); const a = n.alpha ?? 1; if (a <= 0.02) continue;
+    ctx.save(); ctx.globalAlpha = Math.min(1, a * 1.2); ctx.font = `italic 600 ${Math.round(13 * Math.min(1.25, z))}px Georgia, serif`; ctx.textAlign = 'center';
+    const words = n.bubble.split(' '), lines = []; let cur = ''; for (const w of words) { if ((cur + ' ' + w).length > 26) { lines.push(cur); cur = w; } else cur = cur ? cur + ' ' + w : w; } if (cur) lines.push(cur);
+    const lh = 16 * Math.min(1.25, z), bw = Math.max(...lines.map(l => ctx.measureText(l).width)) + 18, bh = lines.length * lh + 10, by = y - 120 * z - bh;
+    ctx.fillStyle = 'rgba(20,28,44,0.88)'; ctx.strokeStyle = '#8fc8ff'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.roundRect(x - bw / 2, by, bw, bh, 8); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x - 6, by + bh); ctx.lineTo(x, by + bh + 8); ctx.lineTo(x + 6, by + bh); ctx.fill();
+    ctx.fillStyle = '#d8ecff'; lines.forEach((l, i) => ctx.fillText(l, x, by + 17 + i * lh)); ctx.restore();
+  }
+}
 function drawPlates() {
   const cam = G.cam, z = cam.zoom;
   for (const it of G.zone.inter) {

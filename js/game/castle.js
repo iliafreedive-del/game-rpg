@@ -85,7 +85,7 @@ export function openTreasury() {
   const P = G.profile; if (P.shards < CHEST_SHARDS) { bus.emit('toast', { text: `Нужно ${CHEST_SHARDS} осколков`, kind: 'warn' }); bus.emit('sfx', 'deny'); return false; }
   P.shards -= CHEST_SHARDS;
   const roll = rand(); const it = roll < 0.07 ? makeItem({ epic: pickEpic(P.cls), ilvl: P.level + 1, cls: P.cls }) : makeItem({ slot: ['weapon', 'head', 'chest', 'amulet'][rint(0, 3)], ilvl: P.level + 1, rarity: roll < 0.45 ? 2 : 1, cls: P.cls });
-  delete it.req; const e = autoEquip(it, it.rarity >= 3); const gold = 30 * P.level; P.gold += gold;
+  delete it.req; const e = autoEquip(it); const gold = 30 * P.level; P.gold += gold;
   bus.emit('reward', { title: 'Сундук Бездны', sub: roll < 0.07 ? 'ДЖЕКПОТ!' : 'Сокровищница', gold, xp: 0, potions: 0, scrolls: 0, skillPts: 0, items: [e] });
   bus.emit('sfx', 'chest'); bus.emit('save'); return true;
 }
@@ -99,7 +99,7 @@ export function trialReward(t) {
   const P = G.profile; const gold = Math.round(80 * P.level * (1 + t.lvl * 0.3)); P.gold += gold;
   const shards = rint(2, 4) + t.lvl; P.shards += shards;
   const items = [];
-  if (rand() < 0.35 + t.lvl * 0.08) { const slot = ['weapon', 'head', 'chest', 'amulet'][rint(0, 3)]; const it = rand() < 0.05 + t.lvl * 0.02 ? makeItem({ epic: pickEpic(P.cls), ilvl: P.level + 1, cls: P.cls }) : makeItem({ slot, ilvl: P.level + 1, rarity: rand() < 0.4 ? 2 : 1, cls: P.cls }); delete it.req; items.push(autoEquip(it, it.rarity >= 3)); }
+  if (rand() < 0.35 + t.lvl * 0.08) { const slot = ['weapon', 'head', 'chest', 'amulet'][rint(0, 3)]; const it = rand() < 0.05 + t.lvl * 0.02 ? makeItem({ epic: pickEpic(P.cls), ilvl: P.level + 1, cls: P.cls }) : makeItem({ slot, ilvl: P.level + 1, rarity: rand() < 0.4 ? 2 : 1, cls: P.cls }); delete it.req; items.push(autoEquip(it)); }
   bus.emit('reward', { title: 'Испытание пройдено: ' + t.name, sub: `+${shards} осколков Бездны`, gold, xp: 0, potions: 0, scrolls: 0, skillPts: 0, items });
   bus.emit('save');
 }

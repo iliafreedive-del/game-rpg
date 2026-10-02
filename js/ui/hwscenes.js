@@ -13,25 +13,56 @@ export function paintScene(ci, W, H) {
   const glow = (c, x, y, R, col, a) => { const g = c.createRadialGradient(x, y, 0, x, y, R); g.addColorStop(0, col.replace('A', a)); g.addColorStop(1, col.replace('A', 0)); c.fillStyle = g; c.fillRect(x - R, y - R, R * 2, R * 2); };
   let parts, clouds = [];
 
-  if (ci === 0) {   // подземелье: кирпичная стена с арками и факелами, плиточный пол
-    f.fillStyle = grad(f, 0, H, [[0, '#07060e'], [0.6, '#17142a'], [1, '#221c38']]); f.fillRect(0, 0, W, H);
-    for (let y = 0; y < horizon; y += 22) for (let x = -((y / 22) % 2) * 26; x < W; x += 52) { f.fillStyle = `rgba(${60 + r() * 30},${56 + r() * 26},${80 + r() * 30},0.22)`; f.fillRect(x + 1, y + 1, 50, 20); }
-    const AW = Math.max(90, W / 4.2);
-    for (let x = AW * 0.1; x < W; x += AW) {   // арки с тёмным провалом и холодным светом вдали
-      f.fillStyle = '#05040a'; f.beginPath(); f.moveTo(x, horizon); f.lineTo(x, horizon * 0.55); f.quadraticCurveTo(x + AW * 0.4, horizon * 0.18, x + AW * 0.8, horizon * 0.55); f.lineTo(x + AW * 0.8, horizon); f.fill();
-      f.strokeStyle = 'rgba(150,140,190,0.35)'; f.lineWidth = 5; f.stroke();
-      glow(f, x + AW * 0.4, horizon * 0.7, AW * 0.5, 'rgba(120,110,220,A)', 0.2);
+  if (ci === 0) {   // подземелье: кирпичная стена с пилястрами и факелами в скобах, ниши, вымощенный кирпичом пол
+    f.fillStyle = '#1a1612'; f.fillRect(0, 0, W, H);
+    const BH = Math.max(16, horizon / 14), BW = BH * 2.3;
+    for (let row = 0, y = 0; y < horizon; row++, y += BH) for (let x = -((row % 2) * BW / 2); x < W + BW; x += BW) {   // кирпичная кладка
+      const k = r(), lum = 0.82 + r() * 0.36, shade = 1 - (y / horizon) * 0.25;
+      f.fillStyle = `rgb(${Math.round((88 + k * 26) * lum * shade)},${Math.round((70 + k * 20) * lum * shade)},${Math.round((58 + k * 14) * lum * shade)})`; f.fillRect(x + 1, y + 1, BW - 2, BH - 2);
+      f.fillStyle = 'rgba(255,230,190,0.07)'; f.fillRect(x + 1, y + 1, BW - 2, 2);   // верхняя грань ловит свет
+      f.fillStyle = 'rgba(0,0,0,0.18)'; f.fillRect(x + 1, y + BH - 3, BW - 2, 2);
     }
-    for (let x = 0; x < W + AW; x += AW) { f.fillStyle = '#2a2640'; f.fillRect(x - 12, 0, 24, horizon); f.fillStyle = 'rgba(180,170,220,0.18)'; f.fillRect(x - 12, 0, 5, horizon); }
-    for (const tx of [W * 0.12, W * 0.5, W * 0.88]) { f.fillStyle = '#3a2a1a'; f.fillRect(tx - 3, horizon * 0.42, 6, 26); glow(f, tx, horizon * 0.4, 110, 'rgba(255,150,60,A)', 0.55); f.fillStyle = '#ffb050'; f.beginPath(); f.ellipse(tx, horizon * 0.4, 6, 11, 0, 0, 7); f.fill(); }
-    n.fillStyle = grad(n, horizon, H, [[0, '#1a1628'], [1, '#0a0812']]); n.fillRect(0, horizon, W, H - horizon);
-    n.strokeStyle = 'rgba(120,110,160,0.28)'; n.lineWidth = 1.5;
-    for (let i = -8; i <= 8; i++) { n.beginPath(); n.moveTo(W / 2 + i * 14, horizon); n.lineTo(W / 2 + i * W * 0.2, H); n.stroke(); }
-    for (let k = 0; k < 7; k++) { const y = horizon + (H - horizon) * Math.pow(k / 7, 1.8) + 6; n.beginPath(); n.moveTo(0, y); n.lineTo(W, y); n.stroke(); }
-    for (let k = 0; k < 3; k++) { n.fillStyle = 'rgba(90,120,170,0.18)'; n.beginPath(); n.ellipse(r() * W, H * (0.78 + r() * 0.15), 50 + r() * 60, 8 + r() * 6, 0, 0, 7); n.fill(); }
-    for (const px of [-W * 0.02, W * 1.02]) { n.fillStyle = '#100e1c'; n.fillRect(px - 38, 0, 76, H); n.fillStyle = 'rgba(170,160,210,0.15)'; n.fillRect(px - 38, 0, 10, H); }
-    parts = Array.from({ length: 34 }, () => ({ x: r() * W, y: r() * H, vy: -(8 + r() * 20), r: 1 + r() * 1.6, c: r() < 0.6 ? '#ffa850' : '#b8a8ff', a: 0.4 + r() * 0.5, f: 1 + r() * 2, o: r() * 6 }));
-    clouds = Array.from({ length: 4 }, () => ({ x: r() * W, y: H * (0.5 + r() * 0.25), w: 260 + r() * 260, v: 4 + r() * 6, a: 0.16 }));
+    const PIL = W / 3.1;   // пилястры через равные промежутки; на каждой — факел в железной скобе
+    const torches = [];
+    for (let x = PIL * 0.5; x < W + PIL * 0.4; x += PIL) {
+      f.fillStyle = '#4a4036'; f.fillRect(x - 17, 0, 34, horizon); f.fillStyle = 'rgba(255,225,180,0.14)'; f.fillRect(x - 17, 0, 6, horizon); f.fillStyle = 'rgba(0,0,0,0.3)'; f.fillRect(x + 11, 0, 6, horizon);
+      f.fillStyle = '#5a5044'; f.fillRect(x - 24, horizon * 0.06, 48, 12); f.fillRect(x - 24, horizon - 14, 48, 14);                   // капитель и база
+      torches.push([x, horizon * 0.42]);
+    }
+    for (let x = PIL; x < W + PIL * 0.4; x += PIL) {   // ниши-арки между пилястрами: углубление со светлой окантовкой, внутри статуя-силуэт
+      const nw = PIL * 0.34, nx = x - PIL / 2 - nw / 2, top = horizon * 0.3;
+      f.fillStyle = '#241c18'; f.beginPath(); f.moveTo(nx, horizon - 20); f.lineTo(nx, top + nw * 0.5); f.arc(nx + nw / 2, top + nw * 0.5, nw / 2, Math.PI, 0); f.lineTo(nx + nw, horizon - 20); f.fill();
+      f.strokeStyle = '#7a6a58'; f.lineWidth = 4; f.stroke();
+      f.fillStyle = '#17120f'; f.beginPath(); f.ellipse(nx + nw / 2, horizon * 0.62, nw * 0.2, horizon * 0.2, 0, 0, 7); f.fill(); f.fillRect(nx + nw * 0.3, horizon * 0.62, nw * 0.4, horizon * 0.3);
+    }
+    f.fillStyle = '#3a3026'; f.fillRect(0, horizon - 10, W, 14); f.fillStyle = 'rgba(255,225,180,0.12)'; f.fillRect(0, horizon - 10, W, 2);   // цоколь
+    for (const [tx, ty] of torches) {   // факел: скоба, древко, пламя и тёплое пятно света на кладке
+      glow(f, tx, ty - 10, PIL * 0.55, 'rgba(255,160,70,A)', 0.5);
+      f.fillStyle = '#2a2420'; f.fillRect(tx - 5, ty + 2, 10, 4); f.fillRect(tx - 3, ty + 2, 6, 34); f.fillStyle = '#3a2a1a'; f.fillRect(tx - 4, ty - 12, 8, 18);
+      const fg = f.createRadialGradient(tx, ty - 22, 2, tx, ty - 22, 20); fg.addColorStop(0, '#fff6c0'); fg.addColorStop(0.35, '#ffb040'); fg.addColorStop(1, 'rgba(255,90,20,0)'); f.fillStyle = fg;
+      f.beginPath(); f.moveTo(tx - 8, ty - 10); f.quadraticCurveTo(tx - 12, ty - 30, tx, ty - 46); f.quadraticCurveTo(tx + 12, ty - 30, tx + 8, ty - 10); f.fill();
+    }
+    n.fillStyle = grad(n, horizon, H, [[0, '#4a4036'], [0.5, '#362e26'], [1, '#1e1914']]); n.fillRect(0, horizon, W, H - horizon);   // пол: кирпичная кладка в перспективе
+    const rows = 11; let yPrev = horizon;
+    for (let i = 1; i <= rows; i++) {
+      const t = i / rows, y = horizon + (H - horizon) * Math.pow(t, 1.65), t0 = (i - 1) / rows, sc0 = 0.35 + 3.4 * Math.pow(t0, 1.1), sc1 = 0.35 + 3.4 * Math.pow(t, 1.1), unit = BW * 0.9;
+      const cols = Math.ceil(W / (unit * sc0)) + 4;
+      for (let c = -cols; c <= cols; c++) {
+        const off = (i % 2) * 0.5, u0 = (c + off) * unit, u1 = (c + 1 + off) * unit, k = r(), lum = 0.78 + r() * 0.4;
+        const x00 = W / 2 + u0 * sc0, x10 = W / 2 + u1 * sc0, x01 = W / 2 + u0 * sc1, x11 = W / 2 + u1 * sc1;
+        if (Math.max(x10, x11) < -20 || Math.min(x00, x01) > W + 20) continue;
+        n.fillStyle = `rgb(${Math.round((92 + k * 28) * lum)},${Math.round((78 + k * 22) * lum)},${Math.round((66 + k * 16) * lum)})`;
+        n.beginPath(); n.moveTo(x00 + 1, yPrev + 1); n.lineTo(x10 - 1, yPrev + 1); n.lineTo(x11 - 1, y - 1); n.lineTo(x01 + 1, y - 1); n.fill();
+        n.fillStyle = 'rgba(255,235,200,0.10)'; n.beginPath(); n.moveTo(x00 + 1, yPrev + 1); n.lineTo(x10 - 1, yPrev + 1); n.lineTo(x10 - 1, yPrev + 3); n.lineTo(x00 + 1, yPrev + 3); n.fill();
+      }
+      yPrev = y;
+    }
+    for (const [tx] of torches) { n.globalCompositeOperation = 'lighter'; const g = n.createRadialGradient(tx, horizon + (H - horizon) * 0.3, 0, tx, horizon + (H - horizon) * 0.3, PIL * 0.7); g.addColorStop(0, 'rgba(255,150,60,0.30)'); g.addColorStop(1, 'rgba(255,100,30,0)'); n.save(); n.translate(0, 0); n.fillStyle = g; n.fillRect(tx - PIL, horizon, PIL * 2, H - horizon); n.restore(); n.globalCompositeOperation = 'source-over'; }
+    for (let k = 0; k < 4; k++) { n.fillStyle = 'rgba(20,16,12,0.5)'; n.beginPath(); n.ellipse(r() * W, H * (0.8 + r() * 0.15), 20 + r() * 40, 4 + r() * 4, 0, 0, 7); n.fill(); }   // сколы и грязь
+    for (const px of [-W * 0.02, W * 1.02]) { n.fillStyle = '#2a241e'; n.fillRect(px - 38, 0, 76, H); n.fillStyle = 'rgba(255,225,180,0.1)'; n.fillRect(px - 38, 0, 9, H); }   // колонны переднего плана
+    parts = [...Array.from({ length: 18 }, (_, i) => { const tt = torches[i % torches.length]; return { x: tt[0] + (r() - 0.5) * 16, y: tt[1] - 30 - r() * 30, vy: -(14 + r() * 22), r: 1 + r() * 1.4, c: '#ffb050', a: 0.5 + r() * 0.5, f: 1 + r() * 3, o: r() * 6, home: [tt[0], tt[1] - 30] }; }),
+      ...Array.from({ length: 16 }, () => ({ x: r() * W, y: r() * H, vy: -(3 + r() * 8), r: 0.9 + r() * 1.2, c: '#d8c8b0', a: 0.18 + r() * 0.25, f: 1 + r() * 2, o: r() * 6 }))];
+    clouds = Array.from({ length: 3 }, () => ({ x: r() * W, y: H * (0.55 + r() * 0.25), w: 280 + r() * 240, v: 3 + r() * 5, a: 0.10 }));
   } else if (ci === 1) {   // лес
     f.fillStyle = grad(f, 0, horizon, [[0, '#5aa0d8'], [0.6, '#a8d8e8'], [1, '#e8f0c8']]); f.fillRect(0, 0, W, H);
     glow(f, W * 0.75, H * 0.14, W * 0.6, 'rgba(255,245,190,A)', 0.55);

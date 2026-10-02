@@ -31,8 +31,8 @@ export function buyConsumable(k) {
 export function buyItem(idx) {
   const P = G.profile, it = P.shop.stock[idx]; if (!it) return false;
   if (!pay(buyPrice(it))) return false;
-  P.shop.stock.splice(idx, 1); const r = autoEquip(it, true);
-  bus.emit('toast', { text: 'Надето: ' + it.name, sub: r.old ? `Старая вещь продана за ${r.sold} зол.` : '', kind: 'good' }); bus.emit('save'); return true;
+  P.shop.stock.splice(idx, 1); const had = P.gear[it.slot], r = autoEquip(it, true);
+  bus.emit('toast', { text: 'Надето: ' + it.name, sub: had ? 'Прежняя вещь лежит в сумке' : '', kind: 'good' }); bus.emit('save'); return true;
 }
 export function sellItem(id) {
   const P = G.profile, i = P.bag.findIndex(x => x.id === id); if (i < 0) return false;

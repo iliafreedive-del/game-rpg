@@ -60,16 +60,16 @@ export class PropLayer {
           push(fj ? 'fort_wall' : 'palisade', tx + 0.5, ty + 0.5, Math.atan2(ext[0], ext[1]), 1);
         } else if (c === 'x') {
           const h = hash(tx * 1.9 + 3, ty * 2.3 - 1), edge = tx < 3 || ty < 3 || tx >= m.w - 3 || ty >= m.h - 3;
-          if (h < (edge ? 0.8 : fj ? 0.34 : 0.22)) { const id = fj ? (h < 0.2 ? 'rocks' : hash(tx, ty) < 0.5 ? 'tree_fir_blue' : 'tree_pine_tall') : pickTree(h > 0.3 ? 'tree_1' : 'tree_0', hash(tx * 2.1, ty * 1.3 + 5)); push(id === 'rocks' ? id : id + '_far', tx + 0.2 + hash(tx, ty + 9) * 0.6, ty + 0.2 + hash(ty, tx + 4) * 0.6, h * 40, id === 'rocks' ? 1.2 + h : 1.0 + hash(ty, tx) * 0.65); }
+          if (h < (edge ? 0.8 : fj ? 0.3 : 0.17)) { const id = fj ? (h < 0.2 ? 'rocks' : hash(tx, ty) < 0.5 ? 'tree_fir_blue' : 'tree_pine_tall') : pickTree(h > 0.3 ? 'tree_1' : 'tree_0', hash(tx * 2.1, ty * 1.3 + 5)); push(id === 'rocks' ? id : id + '_far', tx + 0.2 + hash(tx, ty + 9) * 0.6, ty + 0.2 + hash(ty, tx + 4) * 0.6, h * 40, id === 'rocks' ? 1.2 + h : 1.0 + hash(ty, tx) * 0.65); }
         }
       }
     }
     if (dungeon) for (const w of wallPieces(zone)) push(w.id === 'dwall_lo' ? 'dwall_lo' : w.v < 0.62 ? 'dwall_hi' : w.v < 0.86 ? 'dwall_buttress' : 'dwall_niche', w.x, w.y, w.rot, 1);
     if (wantBackdrop && open) {  // лес за краем карты
-      const m = zone.map, G = 3.4, ring = 11;
+      const m = zone.map, G = zone.json.big ? 3.8 : 3.4, ring = zone.json.big ? 17 : 11;
       for (let y = -ring; y < m.h + ring; y += G) for (let x = -ring; x < m.w + ring; x += G) {
         if (x > -1.5 && y > -1.5 && x < m.w + 1.5 && y < m.h + 1.5) continue;
-        const h = hash(x + 3, y - 7); if (h > 0.7) continue;
+        const h = hash(x + 3, y - 7); if (h > (wild ? 0.5 : 0.7)) continue;
         push((fj ? (hash(x * 2.3, y * 1.1 + 5) < 0.5 ? 'tree_fir_blue' : 'tree_pine_tall') : pickTree(h > 0.4 ? 'tree_1' : 'tree_0', hash(x * 2.3, y * 1.1 + 5))) + '_far', x + (hash(x, y) - 0.5) * 2, y + (hash(y, x) - 0.5) * 2, h * 6.28, 1 + hash(x * 2, y) * 0.6);
       }
     }

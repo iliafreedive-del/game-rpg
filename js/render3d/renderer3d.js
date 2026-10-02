@@ -136,7 +136,7 @@ function setZone(z) {
   lights.hemi.color.setHex(LV.hemi.sky); lights.hemi.groundColor.setHex(LV.hemi.ground); lights.moon.color.setHex(LV.key.color);
   for (const s of slots) { s.L = null; s.k = 0; s.lt.intensity = 0; }
   const town = z.id === 'town', wild = z.id === 'wild', open = town || wild, fj = wild && z.json.wild.realm === 'fjord';
-  const ground = wild ? buildGround(scene, z, { snow: fj, forest: !fj, kindOf: wildKind, stoneCh: '\u0000', grassK: 0.3, farColor: fj ? 0xb4c6d8 : 0x0f2418, margin: 6 }) : town ? buildGround(scene, z) : buildDungeonFloor(scene, z, LV.look), props = new PropLayer(scene, kit, z, open);
+  const ground = wild ? buildGround(scene, z, { snow: fj, forest: !fj, kindOf: wildKind, stoneCh: '\u0000', grassK: 0.15, farColor: fj ? 0xb4c6d8 : 0x0f2418, margin: 6 }) : town ? buildGround(scene, z, { margin: z.json.big ? 14 : 3 }) : buildDungeonFloor(scene, z, LV.look), props = new PropLayer(scene, kit, z, open);
   world = { ground, props, ...lightSets(z) };
   props.cull(camera, true); applyQuality(true); ground.setQuality(quality); spawned = false;
 }
@@ -191,6 +191,12 @@ function syncEnemies(dt) {
 }
 function syncNpcs(dt) {
   for (const n of G.npcs || []) {
+    if (n.echoFor) {   // Эхо павшего героя: полупрозрачный призрак (модель класса, без обводки и плаща), растворяется после слов
+      const cls = n.echoFor.cls || 'warrior', a = getActor(n, HEROES[cls] || HEROES.warrior, { scale: HERO.scale });
+      if (!a.ghosted) { a.ghosted = true; a.model.update = null; a.shadow.visible = false; a.root.traverse(o => { if (o.userData && o.userData.isOutline) o.visible = false; }); }
+      const al = (n.alpha ?? 1) * (0.34 + Math.sin(tAll * 2 + n.x) * 0.06); for (const m of a.mats) { m.transparent = true; m.opacity = al; m.depthWrite = false; }
+      a.place(n.x, n.y); a.faceAngle(yawOfDir(n.dir)); a.update(dt, { clip: 'idle' }, env); continue;
+    }
     const def = NPCS[n.model] || NPCS.npc_elder, a = getActor(n, def);
     a.place(n.x, n.y); a.faceAngle(yawOfDir(n.dir));
     a.update(dt, { clip: n.talkT > 0 ? 'talk' : 'idle' }, env);

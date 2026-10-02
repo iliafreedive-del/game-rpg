@@ -18,6 +18,10 @@ export function villager(kit, o = {}) {
     kit.bbox(0.08, 0.07, 0.03, 0.01, PAL.brassD, [0, 0.12, 0.2], 0, { top: PAL.brass }),
     kit.bbox(0.12, 0.13, 0.07, 0.02, 0x5a3a22, [0.18, 0.04, 0.12], [0, -0.6, 0], { top: 0x8a6a40, tex: 'leather' }),
     ...(o.apron ? [part(new THREE.BoxGeometry(0.32, 0.5 * k, 0.04), o.apron, [0, 0.0, 0.2], 0, 1, { top: 0x6a5a4a, tex: 'cloth' })] : []),
+    ...(o.dress ? [kit.lathe([[0.27, 0.05], [0.33, -0.2 * k], [0.42, -0.62 * k], [0.47, -0.82 * k]], o.dress.c, [0, 0, 0], 0, [1.05, 1, 0.95], { top: o.dress.top ?? o.dress.c, tex: 'cloth' }, 14),
+      kit.lathe([[0.465, -0.8 * k], [0.47, -0.82 * k]], o.dress.trim ?? 0xd6a548, [0, 0, 0], 0, [1.05, 1, 0.95], { top: 0xf0c868 }, 14),
+      kit.bbox(0.1, 0.78 * k, 0.03, 0.01, o.dress.trim ?? 0xd6a548, [0, -0.38 * k, 0.3], [0.1, 0, 0], { top: 0xf0c868 })] : []),
+    ...(o.necklace ? [part(new THREE.TorusGeometry(0.13, 0.016, 4, 12), 0xf0c868, [0, 0.56 * k, 0.05], [Math.PI / 2 + 0.5, 0, 0], [1, 1, 1], { top: 0xffe890 })] : []),
     ...(o.sash ? [part(new THREE.BoxGeometry(0.1, 0.62 * k, 0.04), o.sash, [0.1, 0.34 * k, 0.17], [0, 0, 0.5], 1, { tex: 'cloth' })] : []),
   ])));
   const head = group([0, 0.78 * k, 0], torso);
@@ -32,6 +36,12 @@ export function villager(kit, o = {}) {
     kit.bbox(0.1, 0.012, 0.02, 0.004, 0x5a3028, [0, 0.07, 0.155]),
     ...(o.hair !== undefined ? [part(new THREE.SphereGeometry(0.185, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.55), o.hair, [0, 0.2, -0.015], 0, [1, 1, 1.05], { top: o.hairTop ?? o.hair, tex: 'bark' })] : []),
     ...(o.beard ? [part(new THREE.ConeGeometry(0.13, 0.3, 8), o.beard, [0, 0.0, 0.08], [Math.PI * 0.95, 0, 0], [1, 1, 0.8], { top: 0xffffff })] : []),
+    ...(o.scarf ? [part(new THREE.SphereGeometry(0.2, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.6), o.scarf, [0, 0.2, -0.01], 0, [1, 1, 1.06], { top: o.scarfTop ?? o.scarf, tex: 'cloth' }),
+      part(new THREE.TorusGeometry(0.19, 0.03, 4, 14), o.scarfTrim ?? 0xf0c868, [0, 0.2, 0.0], [Math.PI / 2, 0, 0], [1, 1, 1.05], { top: 0xffe890 }),
+      ...[-0.1, -0.03, 0.04, 0.11].map(x => part(new THREE.SphereGeometry(0.014, 5, 4), 0xffd860, [x, 0.285, 0.16], 0, 1, { top: 0xfff0a0, emit: true })),
+      kit.tube([[0.1, 0.22, -0.14], [0.16, 0.05, -0.18], [0.14, -0.15, -0.16]], 0.05, 0.02, o.scarf, { top: o.scarfTop ?? o.scarf, tex: 'cloth' }, 6)] : []),
+    ...(o.braid ? [kit.tube([[0.0, 0.2, -0.17], [0.03, 0.0, -0.21], [-0.03, -0.2, -0.2], [0.02, -0.4, -0.17]], 0.055, 0.02, o.braid, { top: o.braidTop ?? o.braid, tex: 'bark' }, 6)] : []),
+    ...(o.veil ? [part(new THREE.BoxGeometry(0.26, 0.1, 0.02), o.veil, [0, 0.07, 0.175], 0, 1, { top: 0xe8dcff, tex: 'cloth' })] : []),
     ...(o.hat === 'pointed' ? [part(new THREE.ConeGeometry(0.2, 0.34, 8), o.hatColor ?? 0x6a3fd0, [0, 0.48, 0], [0.1, 0, 0]), part(new THREE.CylinderGeometry(0.26, 0.26, 0.03, 12), o.hatColor ?? 0x6a3fd0, [0, 0.32, 0], 0, 1, { tex: 'cloth' })] : []),
     ...(o.hat === 'cap' ? [part(new THREE.SphereGeometry(0.19, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.45), o.hatColor ?? 0x3a3a46, [0, 0.22, 0], 0, [1, 1, 1.05]), part(new THREE.BoxGeometry(0.26, 0.03, 0.12), o.hatColor ?? 0x3a3a46, [0, 0.2, 0.17])] : []),
   ])));

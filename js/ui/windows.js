@@ -57,7 +57,7 @@ export function openWindow(name, arg) {
   if (name === 'herospath') { openHeroPath(); return; }
   const f = W[name]; if (f) f(arg);
 }
-bus.on('openNPC', id => W['npc_' + id]());
+bus.on('openNPC', id => { if (id === 'fortune') { openWheel(modal, closeModal); return; } W['npc_' + id](); });
 bus.on('openBoard', () => W.board()); bus.on('openWheel', () => openWheel(modal, closeModal)); bus.on('openHeroPath', () => openHeroPath()); bus.on('openDepths', () => W.depths()); bus.on('openWild', r => W.wild(r)); bus.on('wildCleared', r => W.wildResult(r));
 bus.on('floorResult', r => floorResult(r));
 bus.on('boonChoice', () => boonChoice());
@@ -81,7 +81,15 @@ function showReward(r) {
     for (const en of r.items) {
       const it = en.item;
       const c = el('div', 'rw-card r' + it.rarity, `<div class="slot r${it.rarity}"><img src="${iconURL(iconOf(it))}"></div><div><div class="it-name" style="color:${RARITY[it.rarity].color}">${esc(it.name)}</div><div class="it-type">${RARITY[it.rarity].name} · ${it.wt ? WEAPONS[it.wt].name : SLOT_NAMES[it.slot]}</div>${it.dmg ? `<div class="it-stat">Урон ${it.dmg[0]}–${it.dmg[1]}</div>` : it.armor ? `<div class="it-stat">Защита ${it.armor}</div>` : ''}${it.affixes.slice(0, 3).map(a => `<div class="it-aff">${esc(affixText(a))}</div>`).join('')}${epicOf(it) ? `<div class="it-epic">★ ${esc(epicOf(it).desc)}</div>` : ''}</div>`);
-      c.appendChild(el('div', en.equipped ? 'rw-eq good' : 'rw-eq muted', en.equipped ? `✔ Надето сразу${en.old ? ` · «${esc(en.old)}» продано за ${en.sold} зол.` : ''}` : `Ваше снаряжение лучше — продано за ${en.sold} зол.`));
+      if (en.equipped) c.appendChild(el('div', 'rw-eq good', '✔ Надето — слот был пуст'));
+      else if (en.bagged) {
+        const rows = (en.cmp || []).map(r => `<div class="cmp ${r.delta > 0 ? 'up' : r.delta < 0 ? 'dn' : ''}"><span>${esc(r.label)}</span><b>${r.before}${r.suf} → ${r.after}${r.suf} ${r.delta > 0 ? '▲' : r.delta < 0 ? '▼' : ''}</b></div>`).join('');
+        c.appendChild(el('div', 'rw-eq', `<div class="muted" style="margin:4px 0">Сейчас надето: «${esc(en.old ? en.old.name : '—')}»</div>${rows}`));
+        const br = el('div', 'row'); br.style.cssText = 'justify-content:center;margin-top:6px';
+        const wear = el('button', 'btn gold sm', 'Надеть'); wear.onclick = () => { if (CH.equipFromBag(it)) { br.replaceWith(el('div', 'rw-eq good', '✔ Надето · прежняя вещь в сумке')); } };
+        const keep = el('button', 'btn sm', 'В сумку'); keep.onclick = () => br.replaceWith(el('div', 'rw-eq muted', 'Лежит в сумке — сравните и продайте, когда понадобится'));
+        br.append(wear, keep); c.appendChild(br);
+      } else c.appendChild(el('div', 'rw-eq muted', `Сумка полна — вещь продана за ${en.sold} зол.`));
       box.appendChild(c);
     }
     if (r.items.length) b.appendChild(box);
@@ -187,7 +195,9 @@ W.character = (arg = {}) => {
       ['Сила заклинаний', Math.round(S.spellPower * 100) + '%'], ['Урон огнём / льдом / молнией', `${Math.round(S.elem.fire * 100)}% / ${Math.round(S.elem.cold * 100)}% / ${Math.round(S.elem.light * 100)}%`],
       ['Защита', `${S.armor} (−${Math.round(S.armor / (S.armor + 50 + 10 * P.level) * 100)}% урона)`], ['Шанс блока', Math.round(S.block * 100) + '%'], ['Сопротивления', `${S.res.fire}% / ${S.res.cold}% / ${S.res.light}%`],
       ['Здоровье', S.maxHP], ['Мана', S.maxMP], ['Восст. маны', S.mpRegen.toFixed(1) + '/с'], ['Здоровье за удар', S.leech], ['Находка золота', '+' + S.goldFind + '%']];
-    b.appendChild(el('div', 'stats', st.map(([a, v]) => `<div><span>${a}</span><b>${v}</b></div>`).join('')));
+    const core = ['Урон в секунду', 'Здоровье', 'Защита', 'Шанс крит. удара'], mainRows = st.filter(r => core.includes(r[0])), moreRows = st.filter(r => !core.includes(r[0]));
+    b.appendChild(el('div', 'stats', mainRows.map(([a, v]) => `<div><span>${a}</span><b>${v}</b></div>`).join('')));
+    b.appendChild(el('details', 'more', `<summary class="muted" style="cursor:pointer;margin:6px 0">Подробные показатели</summary><div class="stats">${moreRows.map(([a, v]) => `<div><span>${a}</span><b>${v}</b></div>`).join('')}</div>`));
     const s = P.stats;
     b.appendChild(el('h3', '', 'Летопись'));
     b.appendChild(el('div', 'stats', [['Убито монстров', s.kills], ['Элитных', s.elites], ['Боссов', s.bossKills], ['Сундуков', s.chests], ['Пройдено', Math.round(s.meters) + ' м'], ['Собрано золота', fmt(s.gold)], ['Смертей', s.deaths], ['Время в игре', Math.round(s.playTime / 60) + ' мин']].map(([a, v]) => `<div><span>${a}</span><b>${v}</b></div>`).join('')));
@@ -219,7 +229,7 @@ W.skills = (arg = {}) => {
       const t = el('div', 'nbody', `<div class="nn">${esc(sk.name)} <span class="nr">${r}/${sk.max}${er > r ? ` <span class="good">(+${er - r})</span>` : ''} · <span class="kind">${sk.kind === 'active' ? 'активный' : 'пассивный'}</span></span></div><div class="nd">${esc(sk.desc(Math.max(1, er)))}</div>${!can.ok && r < sk.max && edit ? `<div class="bad"><small>${esc(can.why)}</small></div>` : ''}`);
       n.appendChild(t);
       if (edit && r < sk.max) {   // one tap to learn / upgrade
-        const cost = CH.skillCost(id); const plus = el('button', 'learn' + (can.ok ? ' ok' : ''), `${r ? '+' : 'Изучить'}<small>${cost} з.</small>`); plus.disabled = !can.ok;
+        const cost = CH.skillCost(id); const plus = el('button', 'learn' + (can.ok ? ' ok' : ''), `${r ? '+' : 'Изучить'}<small>${cost ? cost + ' з.' : 'бесплатно'}</small>`); plus.disabled = !can.ok;
         plus.onclick = e => { e.stopPropagation(); if (CH.learn(id, true, firstPick && sk.kind === 'active')) rerender(); }; n.appendChild(plus);
       }
       if (r && sk.kind === 'active') {

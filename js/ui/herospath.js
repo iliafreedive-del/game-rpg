@@ -110,7 +110,7 @@ async function fight(s) {
   const foe = { hp: E.hp, max: E.hp, t: 1.1, anim: 'idle', at: 0, flash: 0, x: 0, dead: 0 };
   const nums = []; let time = 0, over = null, last = performance.now();
   // хореография: бойцы держат дистанцию, сближаются на удар; герой иногда перекатывается или пролетает рывком сквозь врага — стороны меняются
-  let sw = 1; hero.bx = 0.26; foe.bx = 0.74; hero.dash = 0; hero.roll = 0; hero.dashCd = rrange(4, 6); foe.step = 0; const ghosts = [];
+  const sw = 1; hero.dash = 0; hero.roll = 0; const ghosts = [];
   const sideT = () => [0.5 - sw * 0.24, 0.5 + sw * 0.24];
   // стили ударов: каждый атакующий выбирает свой — сверху вниз (прыжок), тычок (быстрый выпад), наотмашь (боковой замах), обычный; промах = заносит вперёд, противник уходит
   const STYLES = { slash: { d: 0.55, imp: 0.3, m: 1 }, overhead: { d: 0.8, imp: 0.55, m: 1.35 }, thrust: { d: 0.4, imp: 0.2, m: 0.85 }, sweep: { d: 0.62, imp: 0.36, m: 1.05 }, shoot: { d: 0.5, imp: 0.3, m: 1 }, cast: { d: 0.65, imp: 0.4, m: 1 }, stumble: { d: 0.7, imp: 9, m: 0 }, evade: { d: 0.45, imp: 9, m: 0 }, swing: { d: 0.7, imp: 0.42, m: 1 }, lunge: { d: 0.55, imp: 0.3, m: 1 }, leap: { d: 0.85, imp: 0.6, m: 1.2 } };
@@ -132,12 +132,14 @@ async function fight(s) {
     }
   };
   const slashes = [];   // дуги ударов на экране
-  const doDash = () => { hero.dash = 0.5; hero.dashFrom = hero.bx; hero.invul = 0.6; sw = -sw; hero.anim = heroClip; hero.at = 0; nums.push({ x: 0.5, y: 0.22, t: 0, s: 'Рывок!', c: '#9fe38e', big: 1 }); bus.emit('sfx', 'dodge'); setTimeout(() => !over && hitFoe(1.7, null), 260 / speed); };
   const cls = G.profile.cls || 'warrior', wt = G.profile.gear.weapon ? G.profile.gear.weapon.wt : 'sword';
   const heroAtlas = cls !== 'warrior' && getAtlas(`hero_${cls}_body`) ? [`hero_${cls}_body`, `hero_${cls}_${cls === 'archer' ? 'bow' : 'staff'}`] : ['hero_body', 'hero_' + wt].concat(wt === 'sword' || wt === 'axe' ? ['hero_shield'] : []);
   const heroClip = wt === 'bow' ? 'bowrel' : wt === 'staff' ? 'cast' : wt === 'greatsword' ? 'chop2' : 'slash1';
   const HNF = { idle: 4, slash1: 7, chop2: 9, bowrel: 3, cast: 6, hit: 3, death: 8 };
   const redu = H.armor / (H.armor + 50 + 10 * E.lvl);
+  // длина боя: сильные против слабого всё равно дерутся несколько заходов (≈12 ударов героя), а не 5 секунд: здоровье обеих сторон и урон врага растут одинаково
+  const dmgEff = Math.max(1, E.dmg * (1 - redu)), nHits = Math.min(E.hp / Math.max(1, H.dmg * 0.95), H.hp / dmgEff), KT = Math.min(25, Math.max(1, 12 / Math.max(0.5, nHits)));
+  E.hp = Math.round(E.hp * KT); hero.hp = hero.max = Math.round(H.hp * KT); foe.hp = foe.max = E.hp;
   const hitFoe = (mul, label) => {
     let d = H.dmg * mul * rrange(0.85, 1.15), crit = rand() < H.crit; if (crit) d *= H.critMult; d = Math.round(d);
     foe.hp -= d; foe.flash = 0.15; foe.anim = 'hit'; foe.at = 0;
@@ -146,35 +148,47 @@ async function fight(s) {
     bus.emit('sfx', crit ? 'heavy' : 'hit');
   };
   const skillName = { warrior: 'Сокрушение!', archer: 'Залп!', mage: 'Огненный шар!' }[cls];
+  // ---- ход боя: подошли → обмен ударами → развернулись и разошлись → снова сошлись. Всё идёт по фазам, без рывков и подлётов.
+  const CLOSE = [0.435, 0.565], BASE = [0.2, 0.8], WALK = 0.16;
+  let phase = 'approach', phaseT = 0, seq = [], waitT = 0;
+  hero.dirF = 1; foe.dirF = -1; hero.bx = BASE[0]; foe.bx = BASE[1];
+  const goto = (o, tgt, dt) => { const d = tgt - o.bx, m = Math.sign(d) * Math.min(Math.abs(d), WALK * dt); o.bx += m; return Math.abs(tgt - o.bx) < 0.003; };
+  const heroTurn = () => {
+    if (hero.skillT <= 0) { hero.skillT = 7; startAct(hero, cls === 'warrior' ? 'overhead' : cls === 'archer' ? 'shoot' : 'cast', { skill: true }); return; }
+    const kinds = cls === 'archer' ? ['shoot'] : cls === 'mage' ? ['cast'] : ['slash', 'overhead', 'thrust', 'sweep'];
+    let kind = kinds[(rand() * kinds.length) | 0]; if (kind === hero.lastKind && kinds.length > 1) kind = kinds[(kinds.indexOf(kind) + 1) % kinds.length]; hero.lastKind = kind;
+    startAct(hero, kind, { miss: !E.boss && rand() < 0.12 });
+  };
+  const foeTurn = () => { const fk = E.boss ? ['swing', 'leap', 'lunge'] : ['swing', 'lunge', 'swing']; startAct(foe, fk[(rand() * fk.length) | 0]); foe.anim = 'attack'; foe.at = 0; };
   function step(dt) {
     if (over) return;
-    time += dt; hero.at += dt; foe.at += dt; hero.flash -= dt; foe.flash -= dt;
-    hero.t -= dt; foe.t -= dt; hero.skillT -= dt; hero.invul -= dt; hero.dashCd -= dt; if (hero.roll > 0) hero.roll -= dt;
-    { const [hT, fT] = sideT(); const kh = hero.dash > 0 ? 9 : 3.2; hero.bx += (hT - hero.bx) * Math.min(1, dt * kh); foe.bx += (fT - foe.bx) * Math.min(1, dt * 3.2); if (hero.dash > 0) { hero.dash -= dt; if (Math.random() < 0.9) ghosts.push({ x: hero.bx, t: 0, anim: heroClip, at: hero.at, sw }); } }
-    if (hero.dashCd <= 0 && !hero.dash && foe.hp > 0 && hero.hp > 0 && !over) { hero.dashCd = rrange(6, 9); doDash(); }
+    time += dt; hero.at += dt; foe.at += dt; hero.flash -= dt; foe.flash -= dt; phaseT += dt;
     if (hero.act) hero.act.t += dt; if (foe.act) foe.act.t += dt;
-    if (foe.hp <= E.hp * 0.5 && !foe.swapped && !hero.dash && !over) { foe.swapped = true; doDash(); }   // на половине здоровья врага — рывок сквозь него, стороны меняются
-    if (hero.t <= 0 && !(hero.act && hero.act.t < hero.act.d)) {
-      hero.t = 1 / H.aps; hero.anim = heroClip; hero.at = 0;
-      const kinds = cls === 'archer' ? ['shoot'] : cls === 'mage' ? ['cast'] : ['slash', 'overhead', 'thrust', 'sweep', 'slash'];
-      let kind = kinds[(rand() * kinds.length) | 0]; if (kind === hero.lastKind && kinds.length > 2) kind = kinds[(kinds.indexOf(kind) + 1) % kinds.length]; hero.lastKind = kind;
-      startAct(hero, kind, { miss: !E.boss && rand() < 0.12 });
+    if (hero.skillT > 0) hero.skillT -= dt * (phase === 'exchange' ? 1 : 0.5);
+    const busy = (hero.act && hero.act.t < hero.act.d) || (foe.act && foe.act.t < foe.act.d);
+    if (foe.hp > 0 && hero.hp > 0) {
+      if (phase === 'approach') { const a = goto(hero, CLOSE[0], dt), b = goto(foe, CLOSE[1], dt); if (a && b) { phase = 'exchange'; phaseT = 0; waitT = 0.35; const n = 3 + ((rand() * 2) | 0); seq = []; for (let i = 0; i < n * 2 - 1; i++) seq.push(i % 2 === 0 ? 'h' : 'f'); } }
+      else if (phase === 'exchange') {
+        waitT -= dt;
+        if (!busy && waitT <= 0) { const who = seq.shift(); if (!who) { phase = 'retreat'; phaseT = 0; hero.dirF = -1; foe.dirF = 1; } else { if (who === 'h') heroTurn(); else foeTurn(); waitT = 0.3 + rand() * 0.2; } }
+      }
+      else if (phase === 'retreat') { const a = goto(hero, BASE[0], dt), b = goto(foe, BASE[1], dt); if (a && b) { phase = 'turnback'; phaseT = 0; hero.dirF = 1; foe.dirF = -1; } }
+      else if (phase === 'turnback') { if (phaseT > 1.0) { phase = 'approach'; phaseT = 0; } }
     }
+    // исполнение ударов
     if (hero.act && !hero.act.fired && hero.act.t >= hero.act.imp) {
       const a = hero.act; a.fired = true;
       if (a.miss) { nums.push({ x: foe.bx, y: 0.42, t: 0, s: 'Мимо!', c: '#cfd8e6', big: 1 }); startAct(foe, 'evade'); if (a.k !== 'shoot' && a.k !== 'cast') startAct(hero, 'stumble'); bus.emit('sfx', 'swing'); }
+      else if (a.skill) { if (cls === 'archer') { hitFoe(0.8, skillName); setTimeout(() => !over && hitFoe(0.8), 160 / speed); setTimeout(() => !over && hitFoe(0.8), 320 / speed); } else hitFoe(cls === 'mage' ? 2.4 * H.spell / 1.2 : 2.5, skillName); slashes.push({ side: 'foe', k: a.k, t: 0 }); }
       else { hitFoe(a.m); slashes.push({ side: 'foe', k: a.k, t: 0 }); }
     }
-    if (hero.skillT <= 0) { hero.skillT = 6; hero.anim = heroClip; hero.at = 0; setTimeout(() => { if (over) return; if (cls === 'archer') { hitFoe(0.7, skillName); setTimeout(() => !over && hitFoe(0.7), 120 / speed); setTimeout(() => !over && hitFoe(0.7), 240 / speed); } else hitFoe(cls === 'mage' ? 2.4 * H.spell / 1.2 : 2.5, skillName); }, 220 / speed); }
-    if (foe.t <= 0 && foe.hp > 0 && !(foe.act && foe.act.t < foe.act.d)) { foe.t = 1 / E.aps; foe.anim = 'attack'; foe.at = 0; const fk = E.boss ? ['swing', 'leap', 'lunge'] : ['swing', 'lunge', 'swing']; startAct(foe, fk[(rand() * fk.length) | 0]); }
     if (foe.act && !foe.act.fired && foe.act.t >= foe.act.imp && foe.hp > 0) {
       const a = foe.act; a.fired = true;
-      if (hero.invul > 0) { nums.push({ x: hero.bx, y: 0.42, t: 0, s: 'мимо', c: '#bbb' }); startAct(foe, 'stumble'); }
-      else if (rand() < 0.22) { hero.roll = 0.45; startAct(hero, 'evade'); startAct(foe, 'stumble'); nums.push({ x: 0.5, y: 0.3, t: 0, s: 'Уворот!', c: '#9fe38e', big: 1 }); bus.emit('sfx', 'dodge'); }
-      else { const d = Math.round(E.dmg * rrange(0.85, 1.15) * (1 - redu) * a.m); hero.hp -= d; hero.flash = 0.15; nums.push({ x: hero.bx, y: 0.42, t: 0, s: '-' + d, c: '#ff6a5a' }); slashes.push({ side: 'hero', k: a.k, t: 0 }); bus.emit('sfx', 'hurt'); }
+      if (rand() < 0.2) { startAct(hero, 'evade'); startAct(foe, 'stumble'); nums.push({ x: 0.5, y: 0.3, t: 0, s: 'Уворот!', c: '#9fe38e', big: 1 }); bus.emit('sfx', 'dodge'); }
+      else { const d = Math.round(E.dmg * KT * rrange(0.85, 1.15) * (1 - redu) * a.m); hero.hp -= d; hero.flash = 0.15; nums.push({ x: hero.bx, y: 0.42, t: 0, s: '-' + d, c: '#ff6a5a' }); slashes.push({ side: 'hero', k: a.k, t: 0 }); bus.emit('sfx', 'hurt'); }
     }
-    if (foe.hp <= 0 && !foe.dead) { foe.dead = 1; foe.anim = 'death'; foe.at = 0; bus.emit('sfx', 'bones'); setTimeout(() => end(true), 1100 / speed); over = 'win-pending'; }
-    else if (hero.hp <= 0) { hero.anim = 'death'; hero.at = 0; over = 'lose-pending'; setTimeout(() => end(false), 1100 / speed); }
+    if (foe.hp <= 0 && !foe.dead) { foe.dead = 1; foe.anim = 'death'; foe.at = 0; bus.emit('sfx', 'bones'); setTimeout(() => end(true), 1300 / speed); over = 'win-pending'; }
+    else if (hero.hp <= 0) { hero.anim = 'death'; hero.at = 0; over = 'lose-pending'; setTimeout(() => end(false), 1300 / speed); }
     for (const n of nums) n.t += dt; while (nums.length && nums[0].t > 1) nums.shift();
   }
   try {   // 3D-бойцы; если WebGL нет или он упал — прежние спрайты
@@ -191,7 +205,7 @@ async function fight(s) {
     for (const c of bgCache.clouds) { const x = ((c.x + time * c.v) % (W + 400)) - 200; bctx.globalAlpha = c.a; bctx.drawImage(bgCache.cloud, x, c.y, c.w, c.w * 0.4); } bctx.globalAlpha = 1;
     bctx.drawImage(bgCache.near, 0, 0, W, Hh);
     // ambient particles: fireflies / snow / embers
-    const P = bgCache.parts; for (const p of P) { p.y += p.vy * 0.016 * speed; p.x += Math.sin(time * p.f + p.o) * 0.3; if (p.y > Hh) p.y = -5; if (p.y < -5) p.y = Hh; bctx.globalAlpha = p.a * (0.6 + 0.4 * Math.sin(time * 3 + p.o)); bctx.fillStyle = p.c; bctx.beginPath(); bctx.arc(p.x, p.y, p.r, 0, 7); bctx.fill(); }
+    const P = bgCache.parts; for (const p of P) { p.y += p.vy * 0.016 * speed; if (p.home && p.y < p.home[1] - 70) { p.y = p.home[1]; p.x = p.home[0] + (Math.random() - 0.5) * 14; } p.x += Math.sin(time * p.f + p.o) * 0.3; if (p.y > Hh) p.y = -5; if (p.y < -5) p.y = Hh; bctx.globalAlpha = p.a * (0.6 + 0.4 * Math.sin(time * 3 + p.o)); bctx.fillStyle = p.c; bctx.beginPath(); bctx.arc(p.x, p.y, p.r, 0, 7); bctx.fill(); }
     bctx.globalAlpha = 1;
   }
   function drawUnit(names, clip, nf, fps, t, x, y, sc, flip, dir, flash, loop) {
@@ -230,10 +244,10 @@ async function fight(s) {
     const hP = pose(hero), fP = pose(foe), hx = hero.bx + hP.off * sw, fx = foe.bx - fP.off * sw;
     // тени под бойцами — на слое фона, под моделями
     bctx.fillStyle = 'rgba(0,0,0,0.32)'; for (const [f, big] of [[hx, 1], [fx, E.type === 'boss' ? 1.8 : 1.2]]) { bctx.beginPath(); bctx.ellipse(W * f, gy, 46 * sc * big, 11 * sc * big, 0, 0, 7); bctx.fill(); }
-    const hDir = sw > 0 ? 7 : 3, fDir = sw > 0 ? 3 : 7;
+    const hDir = hero.dirF > 0 ? 7 : 3, fDir = foe.dirF > 0 ? 7 : 3;
     if (stage) {
       const hc = clipOf(hero, true), fc = clipOf(foe, false);
-      stage.draw(dt, { x: hx, hop: hP.hop / 55, rot: hP.rot, sx: hP.sx, lean: sw, face: sw, ...hc, flash: Math.max(0, hero.flash) * 6 }, { x: fx, hop: fP.hop / 55, rot: fP.rot, sx: fP.sx, lean: -sw, face: -sw, ...fc, flash: Math.max(0, foe.flash) * 6 });
+      stage.draw(dt, { x: hx, hop: hP.hop / 55, rot: hP.rot, sx: hP.sx, lean: hero.dirF, face: hero.dirF, ...hc, flash: Math.max(0, hero.flash) * 6 }, { x: fx, hop: fP.hop / 55, rot: fP.rot, sx: fP.sx, lean: foe.dirF, face: foe.dirF, ...fc, flash: Math.max(0, foe.flash) * 6 });
     } else {
       const hNF = HNF[hero.anim] || 4; if (hero.anim !== 'idle' && hero.anim !== 'death' && hero.at * 12 > hNF) hero.anim = 'idle';
       const hy = gy - hP.hop * sc;
@@ -280,7 +294,7 @@ async function fight(s) {
     const pct = hero.hp / hero.max; const stars = win ? (pct > 0.7 ? 3 : pct > 0.35 ? 2 : 1) : 0;
     let gold = 0, xp = 0, shards = 0;
     if (win) {
-      gold = Math.round((15 + s * 8) * (first ? 3 : 1) * (1 + (stars - 1) * 0.2)); xp = Math.round((10 + s * 6) * (first ? 2 : 1));
+      gold = Math.round((10 + s * 4) * (first ? 2.5 : 0.25) * (1 + (stars - 1) * 0.15)); xp = Math.round((8 + s * 4) * (first ? 1.6 : 0.3));   // повторы почти не платят: деньги — из подземелий и походов, а не из фарма одного этапа
       if (E.boss && first) shards = E.type === 'boss' ? 5 : 3; else if (rand() < 0.1) shards = 1;
       P.gold += gold; gainXP(xp); if (shards) addShards(shards);
       h.stars[s] = Math.max(h.stars[s] || 0, stars); if (first) h.top = Math.min(STAGES, s + 1);

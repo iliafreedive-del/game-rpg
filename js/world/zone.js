@@ -26,6 +26,7 @@ const PROP = {
   hay: { spr: 'hay', r: 0.45 }, grave: { spr: 'grave', r: 0.2 }, fence_x: { spr: 'fence_x', box: [0.5, 0.08] }, fence_y: { spr: 'fence_y', box: [0.08, 0.5] },
   house_0: { spr: 'house_0', box: [2.85, 2.2], tall: 1 }, house_1: { spr: 'house_1', box: [3.25, 2.4], tall: 1 }, house_2: { spr: 'house_2', box: [2.95, 2.2], tall: 1 },   // под крупные 3D-дома (ART_BIBLE, раздел 7)
   fort_hall: { spr: 'house_0', box: [3.7, 1.9], tall: 1, model: 'fort_hall' }, tent: { spr: 'hay', r: 1.6, model: 'tent' }, fort_gate: { spr: 'banner', model: 'fort_gate' }, fort_tower: { spr: 'pillar', tall: 1, model: 'fort_tower' },   // постройки лагерей походов: в 3D свои модели, в 2D — запасные спрайты
+  logpile: { spr: 'crate', box: [0.7, 0.4], model: 'logpile' },
   shrine: { spr: 'altar', r: 0.45, light: { r: 3, c: [190, 140, 255], flicker: 0.3 } },
 };
 
@@ -231,11 +232,11 @@ export class Zone {
       } else if (o.t === 'shrine') {
         this.prop(o);
         this.inter.push({ id: 'shrine', type: 'shrine', x: o.x, y: o.y, r: 1.7, label: 'Святилище благословений' });
-      } else this.prop(o.t === 'well' ? { ...o, t: 'runebed' } : o);
+      } else this.prop(o.t === 'well' && !J.big ? { ...o, t: 'runebed' } : o);
     }
     for (const n of J.npcs) {
       this.map.circles.push({ x: n.x, y: n.y, r: 0.35 });
-      this.inter.push({ id: n.id, type: 'npc', npc: n, x: n.x, y: n.y, r: 2.2, label: 'Говорить: ' + n.name.split(' ')[0], panel: n.id !== 'elder' });
+      this.inter.push({ id: n.id, type: 'npc', npc: n, x: n.x, y: n.y, r: 2.2, label: 'Говорить: ' + n.name.split(' ')[0], panel: n.id !== 'elder' && n.id !== 'fortune' });
     }
   }
 

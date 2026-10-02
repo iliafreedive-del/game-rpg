@@ -1,4 +1,5 @@
 // Item generation and helpers (Inventory/Equipment domain logic, no DOM).
+import { G } from './ctx.js';
 import { BASES, BASE, WEAPONS, AFFIXES, AFFIX_GROUP, RARITY, EPICS, CLASSES, SLOTS } from '../data/items.js';
 import { BRANCHES } from '../data/skills.js';
 import { rand, rint, weighted, pick, uid } from '../core/util.js';
@@ -31,7 +32,12 @@ export function rollAffix(k, ilvl, cls) {
 }
 
 // opts: {slot, ilvl, rarity, base, wt, epic}
+// Редкость растёт вместе с героем: серые и зелёные вещи в начале, синие с 6-го уровня, золотые (эпики) с 12-го — не в первые 10 минут
+export const maxRarityFor = lvl => lvl >= 12 ? 3 : lvl >= 6 ? 2 : 1;
 export function makeItem(opts = {}) {
+  const lvlNow = G && G.profile ? G.profile.level : 99;
+  if (opts.epic && maxRarityFor(lvlNow) < 3) { opts = { ...opts }; delete opts.epic; opts.rarity = 2; }
+  if (opts.rarity !== undefined && opts.rarity > maxRarityFor(lvlNow)) opts = { ...opts, rarity: maxRarityFor(lvlNow) };
   const ilvl = Math.max(1, opts.ilvl || 1);
   let base;
   if (opts.epic) base = BASE[opts.epic.base];

@@ -32,7 +32,7 @@ export function grant(r, title, opts = {}) {
   if (r.scrolls) { P.scrolls += r.scrolls; got.scrolls = r.scrolls; }
   if (r.skillPts) { P.skillPts += r.skillPts; got.skillPts = r.skillPts; }
   for (const spec of r.items || []) {
-    const it0 = rewardItem(spec); const entry = autoEquip(it0, it0.rarity >= 3);   // epics are always worn — never auto-sold
+    const it0 = rewardItem(spec); const entry = autoEquip(it0);   // выбор — в окне награды: надеть или оставить в сумке
     got.items.push(entry);
   }
   if (r.xp) { gainXP(r.xp); got.xp = r.xp; }

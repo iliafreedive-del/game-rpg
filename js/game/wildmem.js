@@ -125,7 +125,13 @@ bus.on('zoneEntered', async id => {
     it.draw.hidden = true;   // вместо костей — силуэт игрока
     const n = new NPC({ id: 'echo_' + it.cls, name: it.mine ? 'Ваше эхо' : `${it.name} · ур. ${it.lvl}`, x: it.x, y: it.y - 0.2, marker: '✦', echoFor: it });
     n.anim.play('idle', 4, 5, true); G.npcs.push(n); it.npc = n;
-    const upd = n.update.bind(n); n.update = (dt, P) => { upd(dt, P); if (Math.hypot(P.x - n.x, P.y - n.y) < 7) hint('echo'); };
+    const SAY = ['Путник… не умирай здесь…', 'Я так и не вышел из этого поля…', 'Золото мне уже не нужно… возьми…', 'Иди осторожнее… тут неспокойно…'];
+    const upd = n.update.bind(n); n.update = (dt, P) => {
+      upd(dt, P); const d = Math.hypot(P.x - n.x, P.y - n.y); if (d < 7) hint('echo');
+      if (it.mine || it.done) return;   // чужое эхо: подошёл — оно говорит, потом развеивается, оставив золото; своё — забирают кнопкой
+      if (d < 4.2 && !n.talk) { n.talk = { t: 0 }; n.bubble = it.tip ? `Меня сгубил ${it.mob.toLowerCase()} — он ${it.dir}. Берегись…` : SAY[(it.name || '').length % SAY.length]; bus.emit('sfx', 'rareDrop'); }
+      if (n.talk) { n.talk.t += dt; if (n.talk.t > 3.6) n.alpha = Math.max(0, 1 - (n.talk.t - 3.6) / 1.1); if (n.talk.t > 4.7 && !n.talk.gone) { n.talk.gone = true; n.bubble = null; useEcho(it); } }
+    };
   }
 });
 export function useEcho(it) {

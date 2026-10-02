@@ -2,7 +2,7 @@
 import { G, bus } from './ctx.js';
 import { WEAPONS, CLASSES, SLOTS } from '../data/items.js';
 import { SKILLS, BRANCHES } from '../data/skills.js';
-import { stats, meetsReq, usefulness } from './stats.js';
+import { stats, meetsReq, usefulness, compare } from './stats.js';
 import { sellValue } from './items.js';
 
 const recalc = () => { const P = G.profile; const old = G.stats; G.stats = stats(P); if (G.player && old) { G.player.hp = Math.min(G.stats.maxHP, G.player.hp * G.stats.maxHP / old.maxHP); G.player.mp = Math.min(G.stats.maxMP, G.player.mp); } bus.emit('statsChanged'); bus.emit('hud'); bus.emit('save'); };
@@ -36,7 +36,7 @@ export function unequip(slot) {
   P.gear[slot] = null; P.bag.push(it); bus.emit('sfx', 'equip'); bus.emit('equipChanged', slot); recalc(); return true;
 }
 export const attrCost = () => 5 + 5 * G.profile.level;
-export const skillCost = id => 20 + 15 * G.profile.level * ((G.profile.skills[id] || 0) + 1);
+export const skillCost = id => Object.keys(G.profile.skills).length === 0 ? 0 : 20 + 15 * G.profile.level * ((G.profile.skills[id] || 0) + 1);   // самый первый навык — бесплатно
 export function addAttr(k, n = 1, pay = false) {
   const P = G.profile; n = Math.min(n, P.attrPts); if (n <= 0) return false;
   if (pay) { const c = attrCost() * n; if (P.gold < c) { bus.emit('toast', { text: `Нужно ${c} золота`, sub: 'Соберите золото в катакомбах', kind: 'warn' }); bus.emit('sfx', 'deny'); return false; } P.gold -= c; bus.emit('sfx', 'coin'); }
@@ -72,13 +72,18 @@ export { BRANCHES };
 
 // One-step gear flow for a browser game: new item goes straight onto the hero if it's better;
 // the replaced (or worse) piece is sold automatically. No inventory juggling.
+// Награда не продаётся и не надевается молча: пустой слот — надеваем, иначе вещь идёт в сумку, а окно награды предлагает «Надеть» / «В сумку» с сравнением
 export function autoEquip(it, force) {
   const P = G.profile, slot = it.slot, old = P.gear[slot]; const e = { item: it };
   const ok = canEquip(it).ok;
-  if (ok && (force || !old || usefulness(P, it) > 0)) {
-    P.gear[slot] = it; e.equipped = true;
-    if (old) { const v = sellValue(old); P.gold += v; e.old = old.name; e.sold = v; }
-    recalc(); bus.emit('equipChanged', slot);
-  } else { const v = sellValue(it); P.gold += v; e.sold = v; e.soldNew = true; bus.emit('hud'); }
+  if (ok && (!old || force)) { P.gear[slot] = it; e.equipped = true; if (old) { old.isNew = true; if (P.bag.length < P.bagSize) P.bag.push(old); else P.gold += sellValue(old); } recalc(); bus.emit('equipChanged', slot); }
+  else { it.isNew = true; if (P.bag.length < P.bagSize) { P.bag.push(it); e.bagged = true; } else { const v = sellValue(it); P.gold += v; e.sold = v; e.soldNew = true; } bus.emit('hud'); }
+  if (old && !e.equipped) { e.old = old; e.cmp = compare(P, it, slot).slice(0, 4); }
   return e;
+}
+// надеть вещь из сумки: прежняя уходит в сумку
+export function equipFromBag(it) {
+  const P = G.profile, i = P.bag.indexOf(it); if (i < 0) return false; const old = P.gear[it.slot];
+  P.gear[it.slot] = it; P.bag.splice(i, 1); if (old) { old.isNew = true; P.bag.push(old); }
+  it.isNew = false; recalc(); bus.emit('equipChanged', it.slot); bus.emit('sfx', 'equip'); bus.emit('hud'); return true;
 }

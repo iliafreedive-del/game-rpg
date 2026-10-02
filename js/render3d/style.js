@@ -77,7 +77,7 @@ export const LIGHT = {
     clear: 0x2c4a48, fog: { color: 0x3a5a56, near: 34, far: 92 },
     hemi: { sky: 0xa8d0d4, ground: 0x8a6a48, i: 1.6 },
     key: { color: 0xffd49a, i: 3.0, offset: [-11, 24, 20] },     // экран: сверху слева, чуть со стороны камеры
-    warm: { color: 0xff9a4a, i: 13, dist: 14, decay: 1.8 },
+    warm: { color: 0xff9a4a, i: 7.5, dist: 12, decay: 1.9 },
     violet: { color: 0x9a62ff, i: 14, dist: 11, decay: 1.6, y: 2.0 },
   },
   // походы: Фьорды — холодный яркий день над снегом; Старый Лес — солнечный, как деревня
@@ -92,8 +92,8 @@ export const LIGHT = {
     clear: 0x2c4a40, fog: { color: 0x3a5a4c, near: 32, far: 90 },
     hemi: { sky: 0xa8d0c0, ground: 0x6a5a38, i: 1.6 },
     key: { color: 0xffe0a8, i: 3.0, offset: [-11, 24, 20] },
-    warm: { color: 0xff9a4a, i: 13, dist: 14, decay: 1.8 },
-    violet: { color: 0x9a62ff, i: 14, dist: 11, decay: 1.6, y: 2.0 },
+    warm: { color: 0xff9a4a, i: 8, dist: 12, decay: 1.9 },
+    violet: { color: 0x9a62ff, i: 10, dist: 10, decay: 1.6, y: 2.0 },
   },
   // подземелья (катакомбы, глубины): холодная синева вместо неба, тёплые факелы — пул ближайших точечных огней;
   // луна сверху даёт тени колонн и стен. Биомы глубин подкрашивают заливку и туман (biome)
@@ -139,7 +139,7 @@ export const POST = {
   shadowTint: 0x9fc4cc,          // тени уходят в холодную бирюзу
   highTint: 0xfff0d4,            // света — в тёплое золото
   vignette: 0.42, grain: 0.006,
-  bloom: { threshold: 0.92, knee: 0.35, strength: 0.75 },
+  bloom: { threshold: 1.25, knee: 0.3, strength: 0.32 },   // слабее и только для действительно ярких огней: доспехи и шляпы не «горят» у фонарей
 };
 
 // ---------- качество и ветер ----------
