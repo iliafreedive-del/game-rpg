@@ -3,7 +3,7 @@
 import * as THREE from '../vendor/three.module.min.js';
 import { U, toon } from './toon.js';
 import { rng, fbm, noise, paint, merge } from './geo.js';
-import { noiseTex, grassTex, dirtTex, mossTex } from './textures.js';
+import { noiseTex, grassTex, dirtTex, mossTex, flagTex } from './textures.js';
 import { GRASS, GRASS_K, SHADOW } from './style.js';
 
 const GRASS_VS = /* glsl */`
@@ -80,12 +80,12 @@ function clumpGeometry() {
 // край тропы рвёт шум, вдоль края — тёмная кромка (трава нависает над землёй), крупные пятна шума — солнечные и тенистые участки
 function groundMaterial() {
   const m = toon(0xffffff, { vc: true, rim: 0.05 });
-  const T = { tNoise: { value: noiseTex() }, tGrass: { value: grassTex() }, tDirt: { value: dirtTex() }, tMoss: { value: mossTex() } };
+  const T = { tNoise: { value: noiseTex() }, tGrass: { value: grassTex() }, tDirt: { value: dirtTex() }, tMoss: { value: mossTex() }, tFlag: { value: flagTex() } };
   const prev = m.onBeforeCompile;
   m.onBeforeCompile = sh => {
     prev(sh); Object.assign(sh.uniforms, T);
-    sh.vertexShader = 'attribute vec4 aKind; varying vec4 vKind; varying vec2 vGW;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvKind = aKind; vGW = (modelMatrix * vec4(position, 1.0)).xz;');
-    sh.fragmentShader = 'uniform sampler2D tNoise, tGrass, tDirt, tMoss; varying vec4 vKind; varying vec2 vGW;\n' + sh.fragmentShader.replace('#include <color_fragment>', /* glsl */`
+    sh.vertexShader = 'attribute vec4 aKind; attribute float aPath; varying vec4 vKind; varying float vPath; varying vec2 vGW;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvKind = aKind; vPath = aPath; vGW = (modelMatrix * vec4(position, 1.0)).xz;');
+    sh.fragmentShader = 'uniform sampler2D tNoise, tGrass, tDirt, tMoss, tFlag; varying vec4 vKind; varying float vPath; varying vec2 vGW;\n' + sh.fragmentShader.replace('#include <color_fragment>', /* glsl */`
 #include <color_fragment>
 {
   vec2 wp = vGW;
@@ -97,8 +97,31 @@ function groundMaterial() {
   float pm = smoothstep(0.44, 0.56, vKind.y + vKind.z * 0.8 + (nz2.g - 0.5) * 0.5 + (nz2.b - 0.5) * 0.3);
   float cm = smoothstep(0.3, 0.7, vKind.z + (nz2.b - 0.5) * 0.25);
   vec3 base = mix(gr, ms, smoothstep(0.2, 0.8, vKind.w + (nz.b - 0.5) * 0.4));
+  // крупные пятна: выгоревшая трава и тёмные сырые участки (низкая частота, 90 м)
+  float big = texture2D(tNoise, wp * 0.011 + 0.2).r;
+  base *= mix(vec3(0.86, 0.95, 0.9), vec3(1.14, 1.08, 0.86), smoothstep(0.3, 0.7, big));
   vec3 col = mix(base, dt, pm);
-  col = mix(col, dt * vec3(0.42, 0.4, 0.38), cm);                                                 // щели брусчатки
+  // колеи: две тёмные полосы вдоль тропы (контур размытого поля тропы), рядом — светлые валики
+  float rutL = 1.0 - smoothstep(0.0, 0.05, abs(vPath - 0.74 + (nz2.b - 0.5) * 0.06));
+  col *= 1.0 - 0.38 * rutL * pm; col *= 1.0 + 0.1 * (1.0 - smoothstep(0.0, 0.05, abs(vPath - 0.62))) * pm;
+  // плитка площади: каменные плиты вместо земли, щели тёмные
+  vec3 fl = texture2D(tFlag, wp * 0.33).rgb * vec3(1.3, 1.24, 1.08) * (0.8 + nz.g * 0.4);
+  col = mix(col, fl, cm * 0.8);
+  col = mix(col, col * vec3(0.5, 0.48, 0.44), cm * 0.25);                                          // щели брусчатки
+  // лужи на тропе: тёмная вода с бликом неба, мокрая кромка
+  float pn = texture2D(tNoise, wp * 0.07 + 0.6).g * 0.6 + nz2.g * 0.4;
+  float pud = smoothstep(0.64, 0.7, pn) * smoothstep(0.4, 0.8, pm) * (1.0 - cm);
+  vec3 wet = mix(vec3(0.09, 0.12, 0.15), vec3(0.4, 0.48, 0.54), smoothstep(0.35, 0.8, nz.b + nz2.r * 0.4 - 0.2));
+  col = mix(col, col * 0.62, smoothstep(0.58, 0.64, pn) * (1.0 - pud) * pm);
+  col = mix(col, wet, pud);
+  // опавшие листья: в лесу густо, на траве и тропе редкие пятна; у каждого свой поворот и цвет
+  vec2 cp = wp * 3.4, ci = floor(cp), cf = fract(cp) - 0.5;
+  float h1 = fract(sin(dot(ci, vec2(12.9898, 78.233))) * 43758.5453), h2 = fract(h1 * 37.7 + 0.31);
+  vec2 dl = cf - (vec2(h1, h2) - 0.5) * 0.45; float ca = h1 * 6.283;
+  dl = vec2(cos(ca) * dl.x + sin(ca) * dl.y, -sin(ca) * dl.x + cos(ca) * dl.y);
+  float leaf = 1.0 - smoothstep(0.7, 1.0, length(dl / vec2(0.16, 0.075)));
+  float lm = step(0.45, h2) * clamp(smoothstep(0.3, 0.8, vKind.w + (nz2.r - 0.5) * 0.3) + smoothstep(0.62, 0.8, nz.g) * 0.55, 0.0, 1.0) * (1.0 - pud) * (1.0 - cm);
+  col = mix(col, mix(vec3(0.5, 0.2, 0.07), vec3(0.8, 0.58, 0.14), fract(h1 * 7.0)) * (0.65 + h2 * 0.6), leaf * lm * 0.92);
   float edge = smoothstep(0.0, 0.35, pm) * (1.0 - smoothstep(0.35, 0.8, pm));
   col *= 1.0 - 0.35 * edge;                                                                      // кромка тропы
   diffuseColor.rgb = col * diffuseColor.rgb;
@@ -143,7 +166,7 @@ export function buildGround(scene, zone) {
     return w;
   };
   const x0 = -MARGIN, nx = Math.round((W + 2 * MARGIN) / STEP), ny = Math.round((H + 2 * MARGIN) / STEP);
-  const nv = (nx + 1) * (ny + 1), pos = new Float32Array(nv * 3), col = new Float32Array(nv * 4), kind = new Float32Array(nv * 4), idx = [];
+  const nv = (nx + 1) * (ny + 1), pos = new Float32Array(nv * 3), col = new Float32Array(nv * 4), kind = new Float32Array(nv * 4), pathF = new Float32Array(nv), idx = [];
   const bank = new THREE.Color(0x3a4a3a);
   for (let j = 0; j <= ny; j++) for (let i = 0; i <= nx; i++) {
     const x = x0 + i * STEP, z = x0 + j * STEP, k = j * (nx + 1) + i, w = weights(x, z), n = fbm(x * 0.5, z * 0.5);
@@ -151,10 +174,11 @@ export function buildGround(scene, zone) {
     const ww = Math.min(1, w.w * 1.6);   // берег темнеет к воде
     col.set([1 + (bank.r - 1) * ww, 1 + (bank.g - 1) * ww, 1 + (bank.b - 1) * ww, 1], k * 4);
     kind.set([w.g, w.p, w.c, w.f], k * 4);
+    let pf = 0; for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) pf += weights(x + a * 0.8, z + b * 0.8).p; pathF[k] = pf / 9;   // размытое поле тропы: контуры дают колеи
   }
   for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) { const a = j * (nx + 1) + i, b2 = a + 1, c2 = a + nx + 1, d2 = c2 + 1; idx.push(a, c2, b2, b2, c2, d2); }
   const geo = new THREE.BufferGeometry();
-  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('color', new THREE.BufferAttribute(col, 4)); geo.setAttribute('aKind', new THREE.BufferAttribute(kind, 4));
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('color', new THREE.BufferAttribute(col, 4)); geo.setAttribute('aKind', new THREE.BufferAttribute(kind, 4)); geo.setAttribute('aPath', new THREE.BufferAttribute(pathF, 1));
   geo.setIndex(idx); geo.computeVertexNormals();
   const ground = new THREE.Mesh(geo, groundMaterial()); ground.userData.noOutline = true; ground.receiveShadow = true; scene.add(ground);
   // подложка до горизонта: тёмный мох, чтобы за краем карты не было пустоты
