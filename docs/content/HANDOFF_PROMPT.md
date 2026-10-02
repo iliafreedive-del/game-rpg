@@ -16,7 +16,7 @@
 - Логика: `js/game/wild.js` (спавн, награды, задания), `js/game/nemesis.js` (немезис, ноша), `js/game/wildhints.js` (подсказки, цель), `js/game/wildai.js` (ИИ мобов)
 - Мир: `js/world/wildgen.js` (генератор поля), `js/world/wildfloor.js` (временная графика: перекраска спрайтов, пол)
 - Встроено в: `js/game/game.js` (loadZone 'wild', interact), `js/game/combat.js` (телеграфы из данных, слабость), `js/game/entities.js`, `js/world/zone.js` (buildWild), `js/ui/windows.js` (W.wild, W.wildResult), `js/game/stats.js` (бонус трофеев)
-- Проверка в браузере: Playwright (Chromium из /opt/pw-browsers), `python3 -m http.server 8123`, у страницы есть `window.__G`; сценарии писал в scratchpad (вход в зону: `import('/js/game/game.js').loadZone('wild',{realm,depth})`).
+- Проверка в браузере: Playwright (Chromium из /opt/pw-browsers), `python3 -m http.server 8123`, у страницы есть `window.__G`; готовые сценарии лежат в `tools/qa/wild/` (см. README там; вход в зону: `import('/js/game/game.js').loadZone('wild',{realm,depth})`).
 
 ЗАДАЧА СЕЙЧАС:
 1. Прочитай файлы выше, затем прогони `docs/content/PLAYTEST_PROMPT.md` как «толпу из 8 игроманов» на текущей сборке (скриншоты через Playwright, честно: чего нет на экране — того для игрока нет).

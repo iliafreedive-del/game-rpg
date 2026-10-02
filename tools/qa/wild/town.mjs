@@ -1,0 +1,16 @@
+import { chromium } from '/opt/node22/lib/node_modules/playwright/index.mjs';
+const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args: ['--no-sandbox'] });
+const pg = await b.newPage({ viewport: { width: 1280, height: 720 } });
+const errs = []; pg.on('console', m => { if (m.type() === 'error') errs.push(m.text()); }); pg.on('pageerror', e => errs.push('PAGEERR ' + e.message));
+await pg.goto('http://localhost:8123/index.html?nosdk=1');
+await pg.waitForSelector('#titleBtns button'); await pg.click('#titleBtns button'); await pg.waitForSelector('.class-card'); await pg.click('.class-card');
+await pg.waitForFunction(() => window.__G && window.__G.zoneReady, null, { timeout: 60000 }); await pg.waitForTimeout(1200);
+await pg.evaluate(() => { for (const b of document.querySelectorAll('button')) if (b.textContent.includes('опытный')) b.click(); });
+await pg.evaluate(async () => { const G = __G; G.profile.level = 8; G.profile.tutorial.prologue = true; const m = await import('/js/game/game.js'); await m.loadZone('town'); const p = G.zone.inter.find(i => i.id === 'portal_fjord'); G.player.x = p.x - 0.5; G.player.y = p.y + 2.5; G.cam.x = G.player.x; G.cam.y = G.player.y; });
+await pg.waitForTimeout(1200); await pg.screenshot({ path: 'shots/town_fjord.png' });
+await pg.evaluate(async () => { const G = __G; const { bus } = await import('/js/game/ctx.js'); G.profile.wild = { fjord: { best: 2, depth: 2, stat: { kills: 15, chests: 2 }, claimed: {} } }; bus.emit('openWild', 'fjord'); });
+await pg.waitForTimeout(500); await pg.screenshot({ path: 'shots/modal_fjord.png' });
+await pg.evaluate(async () => { const { bus } = await import('/js/game/ctx.js'); bus.emit('closeModal'); const m = await import('/js/game/game.js'); await m.loadZone('wild', { realm: 'forest', depth: 1 }); const it = __G.zone.inter.find(i => i.id === 'wild_home'); m.interact(it); });
+await pg.waitForTimeout(2500);
+console.log(await pg.evaluate(() => ({ z: __G.zoneId, x: __G.player.x, y: __G.player.y, wild: __G.wild })), errs);
+await b.close();
