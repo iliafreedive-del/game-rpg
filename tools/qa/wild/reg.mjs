@@ -1,0 +1,11 @@
+import { chromium } from '/opt/node22/lib/node_modules/playwright/index.mjs';
+const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args: ['--no-sandbox'] });
+const pg = await b.newPage({ viewport: { width: 1280, height: 720 } });
+const errs = []; pg.on('console', m => { if (m.type() === 'error') errs.push(m.text()); }); pg.on('pageerror', e => errs.push('PAGEERR ' + e.message));
+await pg.goto('http://localhost:8123/index.html?nosdk=1');
+await pg.waitForSelector('#titleBtns button'); await pg.click('#titleBtns button'); await pg.waitForSelector('.class-card'); await pg.click('.class-card');
+await pg.waitForFunction(() => window.__G && window.__G.zoneReady, null, { timeout: 60000 }); await pg.waitForTimeout(1200);
+await pg.evaluate(() => { for (const b of document.querySelectorAll('button')) if (b.textContent.includes('опытный')) b.click(); });
+const out = await pg.evaluate(async () => { const m = await import('/js/game/game.js'); const A = await import('/js/core/assets.js'); const r = [];
+  for (const [id, how] of [['wild', { realm: 'fjord', depth: 1 }], ['catacombs', {}], ['depths', { floor: 2 }], ['town', {}], ['wild', { realm: 'forest', depth: 6 }], ['town', {}]]) { await m.loadZone(id, how); await new Promise(r => setTimeout(r, 600)); r.push(id + ':' + __G.enemies.length + ':' + (A.getAtlas('props').sheets[0] instanceof HTMLCanvasElement)); } return r; });
+await pg.waitForTimeout(500); console.log(out, errs); await b.close();

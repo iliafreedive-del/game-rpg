@@ -90,6 +90,13 @@ function render(force) {
         G.player.x = x; G.player.y = y; G.cam.x = x; G.cam.y = y; bus.emit('sfx', 'portal');
       }));
     }
+  } else if (T.type === 'nemwall') {
+    const S = P.nemesis || { list: [], trophies: [] }, foes = S.list.filter(n => n.alive && (n.rank > 0 || n.defeats || n.fled));
+    head('Стена врагов', 'Убитые немезисы висят трофеями (+урон и золото навсегда). Живые ждут мести.');
+    box.appendChild(el('div', 'pn-big', `Трофеи: <b>${S.trophies.length}</b> · бонус +${S.trophies.reduce((a, t) => a + t.bonus, 0).toFixed(1)}% урона и золота`));
+    for (const t of S.trophies) box.appendChild(row('☠', esc(t.name), `${t.realm === 'fjord' ? 'Фьорды' : 'Лес'} · ранг ${t.rank} · +${t.bonus.toFixed(1)}%`, null, false, null));
+    for (const n of foes) box.appendChild(row('⚔', esc(n.name + (n.title ? ', ' + n.title : '')), `жив · ранг ${n.rank}${n.stash ? ` · хранит ${n.stash} зол.` : ''}`, null, false, null, 'hot'));
+    if (!S.trophies.length && !foes.length) box.appendChild(el('p', 'muted', '<small>Пока пусто. Отбейте форт в Фьордах или Старом Лесу — его командир станет вашим немезисом.</small>'));
   } else if (T.type === 'socket') {
     const cur = P.castle.decor && P.castle.decor[T.sid];
     head(cur ? DECOR[cur].name : 'Место для украшения', cur ? `Бонус: ${DECOR[cur].txt}. Можно заменить (старое вернёт половину цены).` : 'Обставьте цитадель: каждое украшение даёт постоянный бонус.'); bal();

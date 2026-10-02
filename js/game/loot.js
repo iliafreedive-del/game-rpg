@@ -57,7 +57,10 @@ export function updatePickups(dt) {
       const k = Math.min(1, dt * 8 / Math.max(0.3, d)); p.x += (P.x - p.x) * k; p.y += (P.y - p.y) * k;
     }
     if (d > reach) continue;
-    if (p.kind === 'gold') {
+    if (p.kind === 'gold' && G.zoneId === 'wild' && G.wild && !G.wild.done) {   // поход: золото идёт в ношу (см. nemesis.js)
+      p.taken = true; G.wild.carry = (G.wild.carry || 0) + p.amount; G.wild.refresh && G.wild.refresh();
+      float(P.x, P.y, '+' + p.amount + ' в ноше', '#ffb85a', { z: 2.3, life: 0.8 }); bus.emit('sfx', 'coin');
+    } else if (p.kind === 'gold') {
       p.taken = true; prof.gold += p.amount; prof.stats.gold += p.amount;
       bus.emit('gold', p.amount); float(P.x, P.y, '+' + p.amount + ' зол.', '#ffd45a', { z: 2.3, life: 0.8 }); bus.emit('sfx', 'coin');
     } else if (p.kind === 'potion') {

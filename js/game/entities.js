@@ -5,6 +5,7 @@ import { WEAPONS } from '../data/items.js';
 import { dirOf, dirVec } from '../core/iso.js';
 import { rand, rrange, clamp, angDiff } from '../core/util.js';
 import * as C from './combat.js';
+import { makeWildAI } from './wildai.js';
 
 export class Anim {
   constructor() { this.clip = 'idle'; this.t = 0; this.fps = 6; this.loop = true; this.nf = 4; this.done = false; }
@@ -58,7 +59,7 @@ export class Player {
     // movement
     const mag = input.mag;
     if (mag > 0.12 && this.state !== 'hit') {
-      const run = mag > 0.6; const sp = (run ? 3.7 : 2.3) * (this.S.moveMul || 1) * (G.surv ? 1 + (G.surv.p.swift || 0) * 0.08 : 1) * (this.slowT > 0 ? 0.6 : 1) * (G.run && G.run.boons && G.run.boons.includes('haste') ? 1.25 : 1);
+      const run = mag > 0.6; const sp = (run ? 3.7 : 2.3) * (this.S.moveMul || 1) * (G.surv ? 1 + (G.surv.p.swift || 0) * 0.08 : 1) * (this.slowT > 0 ? 0.6 : 1) * (G.wild ? G.wild.slow : 1) * (G.run && G.run.boons && G.run.boons.includes('haste') ? 1.25 : 1);
       const ox = this.x, oy = this.y;
       [this.x, this.y] = G.zone.map.move(this.x, this.y, input.wx * sp * dt, input.wy * sp * dt, this.r);
       const moved = Math.hypot(this.x - ox, this.y - oy); this.meters += moved;
@@ -100,7 +101,7 @@ export class Enemy {
   get atlasName() { return this.D.atlas; }
   clipNF(clip) { const A = C.atlasOf(this.D.atlas); return A && A.clips[clip] ? A.clips[clip][0] : 4; }
   setAnim(clip, fps, loop = false, restart = true) { this.anim.play(clip, this.clipNF(clip), fps, loop, restart); }
-  speedMul() { const s = this.st; if (s.frozen > 0 || s.stun > 0) return 0; return (1 - (s.slowT > 0 ? s.slow : 0)) * (this.enraged ? 1.35 : 1); }
+  speedMul() { const s = this.st; if (s.frozen > 0 || s.stun > 0) return 0; return (1 - (s.slowT > 0 ? s.slow : 0)) * (this.enraged ? 1.35 : 1) * (this.spdBonus || 1); }
 
   update(dt, P) {
     this.anim.update(dt * (this.st.frozen > 0 ? 0 : Math.max(0.35, this.speedMul() || 0.35)));
@@ -113,7 +114,7 @@ export class Enemy {
     const dx = P.x - this.x, dy = P.y - this.y, d = Math.hypot(dx, dy);
     const map = G.zone.map;
     if (!this.aggro) {
-      if (!P.dead && d < (this.D.boss ? 11 : 8.5) && map.los(this.x, this.y, P.x, P.y)) { this.aggro = true; bus.emit('aggro', this); if (this.D.boss) bus.emit('bossStart', this); }
+      if (!P.dead && d < (this.D.boss ? 11 : 8.5) * (G.wild ? G.wild.noise : 1) && map.los(this.x, this.y, P.x, P.y)) { this.aggro = true; bus.emit('aggro', this); if (this.D.boss) bus.emit('bossStart', this); }
       else { if (this.anim.clip !== 'idle') this.setAnim('idle', 5, true); return; }
     }
     if (P.dead) { if (this.state !== 'attack') { this.setAnim('idle', 5, true); this.state = 'idle'; } return; }
@@ -133,7 +134,8 @@ export class Enemy {
   startAttack(kind, P) {
     const D = this.D; this.state = 'attack'; this.atk = { kind, hit: false, t: 0 };
     this.dir = dirOf(P.x - this.x, P.y - this.y);
-    const clip = kind === 'attack2' ? 'attack2' : kind === 'slam' ? 'slam' : kind === 'roar' ? 'roar' : 'attack';
+    let clip = kind === 'attack2' ? 'attack2' : kind === 'slam' ? 'slam' : kind === 'roar' ? 'roar' : 'attack';
+    const A = C.atlasOf(D.atlas); if (A && A.clips && !A.clips[clip]) clip = 'attack';   // у зверей нет attack2/slam/roar — бьют обычной анимацией
     const fps = (D.fps && D.fps[clip]) || 10;
     this.setAnim(clip, fps * (this.enraged ? 1.25 : 1));
     this.atk.impact = D.impact; this.atk.tx = P.x; this.atk.ty = P.y;
@@ -203,6 +205,8 @@ function ranged(e, dt, P, d) {
     const vx = e.x - P.x, vy = e.y - P.y; e.moveToward(e.x + vx, e.y + vy, dt, 0.9, false); e.dir = dirOf(P.x - e.x, P.y - e.y);
   } else { e.dir = dirOf(P.x - e.x, P.y - e.y); e.setAnim('idle', 5, true, e.anim.clip !== 'idle'); }
 }
+
+Object.assign(AI, makeWildAI(AI, ranged));   // походы: стая, рывок, великан, командир, корни, босс поля
 
 // ------------------------------------------------------------------ NPC
 export class NPC {

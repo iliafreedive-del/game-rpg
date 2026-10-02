@@ -1,0 +1,30 @@
+import { chromium } from '/opt/node22/lib/node_modules/playwright/index.mjs';
+const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args: ['--no-sandbox'] });
+const pg = await b.newPage({ viewport: { width: 1280, height: 720 } });
+const errs = []; pg.on('console', m => { if (m.type() === 'error') errs.push(m.text()); }); pg.on('pageerror', e => errs.push('PAGEERR ' + e.message));
+await pg.goto('http://localhost:8123/index.html?nosdk=1');
+await pg.waitForSelector('#titleBtns button'); await pg.click('#titleBtns button'); await pg.waitForSelector('.class-card'); await pg.click('.class-card');
+await pg.waitForFunction(() => window.__G && window.__G.zoneReady, null, { timeout: 60000 }); await pg.waitForTimeout(1200);
+await pg.evaluate(() => { for (const b of document.querySelectorAll('button')) if (b.textContent.includes('опытный')) b.click(); });
+const J = f => pg.evaluate(f);
+await J(async () => { const G = __G; document.querySelectorAll('.modal-bg').forEach(e => e.remove()); G.modalOpen = false; G.paused = false; G.profile.level = 8; G.profile.tutorial.prologue = true;
+  const m = await import('/js/game/game.js'); await m.loadZone('wild', { realm: 'fjord', depth: 1 }); G.stats = (await import('/js/game/stats.js')).stats(G.profile); G.player.hp = G.stats.maxHP; });
+await pg.waitForTimeout(1500); await pg.screenshot({ path: 'shots/p_enter.png' });
+const cardText = () => J(() => [...document.querySelectorAll('div')].filter(d => d.style.zIndex === '9').map(d => d.innerText.replace(/\n/g, ' | ')));
+console.log('hint1', await cardText());
+await J(() => [...document.querySelectorAll('button')].find(b => b.textContent === 'Понятно')?.click()); await pg.waitForTimeout(500);
+await J(async () => { const m = await import('/js/game/loot.js'); for (let i = 0; i < 8; i++) m.dropGold(__G.player.x, __G.player.y, 15); });
+await pg.waitForTimeout(1500); console.log('hint2', await cardText()); await pg.screenshot({ path: 'shots/p_carry.png' });
+await J(() => [...document.querySelectorAll('button')].find(b => b.textContent === 'Понятно')?.click());
+// слабость: ударить немезиса по слабой стихии
+await J(async () => { const G = __G, k = G.enemies.find(e => e.story === 'wildkeep'); G.player.x = k.x; G.player.y = k.y + 2.2; k.aggro = true; window.__w = k.nem.weak; const C = await import('/js/game/combat.js'); C.damageEnemy(k, 5, { src: 'spell', elem: k.nem.weak === 'phys' ? 'phys' : k.nem.weak }); });
+await pg.waitForTimeout(400); await pg.screenshot({ path: 'shots/p_weak.png' });
+console.log('hint3', await cardText());
+// открыть все сундуки и убить форт
+await J(async () => { const G = __G; const m = await import('/js/game/game.js'); for (const it of G.zone.inter.filter(i => i.type === 'chest')) m.interact(it); const C = await import('/js/game/combat.js'); const k = G.enemies.find(e => e.story === 'wildkeep'); C.damageEnemy(k, 1e9, { src: 'test', canCrit: false }); });
+await pg.waitForTimeout(3000); await pg.screenshot({ path: 'shots/p_result.png' });
+console.log('result modal:', await J(() => document.querySelector('.modal')?.innerText.replace(/\n/g, ' | ')));
+await J(() => [...document.querySelectorAll('.modal button')].find(b => b.textContent === 'Домой')?.click()); await pg.waitForTimeout(3500);
+await pg.screenshot({ path: 'shots/p_town.png' });
+console.log('portal plate', await J(() => __G.zone.inter.filter(i => i.type === 'wildportal').map(i => i.plate)), 'state', await J(() => ({ gold: __G.profile.gold, stars: __G.profile.wild.fjord.stars, z: __G.zoneId })));
+console.log('errors', errs); await b.close();
