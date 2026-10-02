@@ -37,6 +37,8 @@ import fort_tower from './models/prop/fort_tower.js';
 import watchtower from './models/prop/watchtower.js';
 import fort_gate_i from './models/prop/fort_gate_i.js';
 import fort_gate_w from './models/prop/fort_gate_w.js';
+import fort_door_i from './models/prop/fort_door_i.js';
+import fort_door_w from './models/prop/fort_door_w.js';
 import fort_hall_i from './models/prop/fort_hall_i.js';
 import fort_hall_w from './models/prop/fort_hall_w.js';
 import tent_i from './models/prop/tent_i.js';
@@ -120,14 +122,18 @@ import well from './models/prop/well.js';
 import sacks from './models/prop/sacks.js';
 import logpile from './models/prop/logpile.js';
 import stump from './models/prop/stump.js';
+import tree_poplar from './models/prop/tree_poplar.js';
+import tree_oakwide from './models/prop/tree_oakwide.js';
+import tree_sapling from './models/prop/tree_sapling.js';
+import { DEAD_VARIANTS, ROCK_VARIANTS } from './models/prop/_variants.js';
 
 const by = (...l) => Object.fromEntries(l.map(m => [m.id, m]));
 export const HEROES = by(warrior, archer, mage);                       // ключ — класс героя
 export const MOBS = by(skel_warrior, ghoul, skel_archer, skel_mage, beast, elite_guard, boss, f_draugr, f_berserk, f_hag, f_jotun, f_jarl, w_poacher, w_leshy, w_ataman, f_wolf, w_wolf, w_boar, w_bear, f_boss, w_boss);             // ключ — тип врага (ENEMIES)
 export const NPCS = by(npc_fortune, npc_elder, npc_smith, npc_merchant, npc_trainer);
 export const WEAPONS = by(bow_hunter, staff_mage, axe_hand, club_giant, staff_ice, staff_root, sword_iron, shield_round, sword_rust, shield_bone, bow_bone, staff_bone, axe_great);
-export const PROPS = by(chronicle, fort_wall, palisade, fort_tower, watchtower, fort_gate_i, fort_gate_w, fort_hall_i, fort_hall_w, tent_i, tent_w, tree_0, tree_1, tree_birch, tree_autumn, tree_elm, tree_pine_tall, tree_fir_blue, deadtree, house_0, house_1, house_2, rocks, grave, fence_x, fence_y, barrel, crate, hay, lamp, runebed, forge, stall, board, altar, banner, statue, weapon_rack, crystals, portal,
-  fern, flowers, pebbles, mushrooms, bush, sacks, logpile, stump,
+export const PROPS = by(fort_door_i, fort_door_w, chronicle, fort_wall, palisade, fort_tower, watchtower, fort_gate_i, fort_gate_w, fort_hall_i, fort_hall_w, tent_i, tent_w, tree_0, tree_1, tree_birch, tree_autumn, tree_elm, tree_pine_tall, tree_fir_blue, deadtree, house_0, house_1, house_2, rocks, grave, fence_x, fence_y, barrel, crate, hay, lamp, runebed, forge, stall, board, altar, banner, statue, weapon_rack, crystals, portal,
+  fern, flowers, pebbles, mushrooms, bush, sacks, logpile, stump, tree_poplar, tree_oakwide, tree_sapling, ...DEAD_VARIANTS, ...ROCK_VARIANTS,
   dwall_hi, dwall_lo, dwall_buttress, dwall_niche, wall_block, torch_sconce, pillar, brazier, bones, skulls, rubble, candles, chest, chest_open, chest_rich, chest_rich_open, sarcophagus, sarcophagus_open, door, door_open, gate_sealed, altar_medallion, stalagmite, lavarock, puddle, rug, bookshelf, throne, well);   // подземелье (стены dwall_* ставит dungeon.js по тайлам)   // последние восемь — декор земли и хлам у домов (js/render3d/props.js, scatterDecor), в картах не стоят
 
 // какая модель оружия соответствует типу оружия игры (wt); недостающие пока подменяются мечом
@@ -136,9 +142,12 @@ export const OFFHAND_MODEL = { warrior: 'shield_round' };
 
 // породы деревьев: tree_0/tree_1 в карте — «лиственное»/«хвойное», а какая именно порода — решает слой окружения по позиции.
 // Для леса за краем карты у каждой породы есть облегчённая копия «_far» (реже листва).
+// варианты «голых» предметов: мёртвое дерево и камни разных форм (js/render3d/models/prop/_variants.js)
+export const DEAD_KINDS = [['deadtree', 2], ...DEAD_VARIANTS.map(d => [d.id, 2])];
+export const ROCK_KINDS = [['rocks', 2], ...ROCK_VARIANTS.map(d => [d.id, 1.5])];
 export const TREE_KINDS = {
-  tree_0: [['tree_0', 3], ['tree_elm', 3], ['tree_birch', 2.5], ['tree_autumn', 1.6], ['tree_1', 1]],
-  tree_1: [['tree_1', 3], ['tree_pine_tall', 2.5], ['tree_fir_blue', 1.5], ['tree_elm', 1.6], ['tree_birch', 0.8], ['tree_autumn', 0.7]],
+  tree_0: [['tree_0', 3], ['tree_elm', 3], ['tree_birch', 2.5], ['tree_autumn', 1.4], ['tree_oakwide', 2], ['tree_poplar', 1.6], ['tree_sapling', 1.6], ['tree_1', 1]],
+  tree_1: [['tree_1', 3], ['tree_pine_tall', 2.5], ['tree_fir_blue', 1.5], ['tree_elm', 1.2], ['tree_birch', 0.8], ['tree_poplar', 0.8], ['tree_sapling', 0.8], ['tree_autumn', 0.7]],
 };
 for (const id of [...TREE_KINDS.tree_0, ...TREE_KINDS.tree_1].map(k => k[0])) {
   const d = PROPS[id]; PROPS[id + '_far'] = { ...d, id: id + '_far', density: d.leaf === 'pine' ? 0.6 : Math.max(5, Math.round(d.density * 0.3)) };

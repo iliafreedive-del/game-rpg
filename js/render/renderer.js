@@ -157,7 +157,22 @@ export function render() {
   if (Z.dark) darkness(); else dusk();
   drawProjectiles(true);
   drawEffects(); drawParticles(); drawBlades();
-  drawBars(); drawPickupLabels(); drawPlates(); drawBubbles(); drawTexts(); drawInteractMarker();
+  drawBars(); drawPickupLabels(); drawPlates(); drawNpcPlates(); drawBubbles(); drawTexts(); drawInteractMarker();
+}
+// 3D-режим: подписи над NPC (имя и «!»/«?» задания) — в 2D их рисует drawNPC; без них жителей в деревне не найти
+function drawNpcPlates() {
+  const cam = G.cam, z = Math.min(1.25, cam.zoom || 1);
+  for (const n of G.npcs || []) {
+    if (n.echoFor || !n.name) continue;
+    const [x, y] = cam.toScreen(n.x, n.y, 2.5); if (x < -60 || y < -40 || x > W + 60 || y > H + 40) continue;
+    const near = Math.hypot(G.player.x - n.x, G.player.y - n.y) < 9;
+    ctx.font = `600 ${Math.round(13 * z)}px Georgia, serif`; ctx.textAlign = 'center';
+    const tw = ctx.measureText(n.name).width + 14, ty = y;
+    ctx.globalAlpha = near ? 1 : 0.85; ctx.fillStyle = 'rgba(30,20,8,0.82)'; ctx.fillRect(x - tw / 2, ty - 14, tw, 19); ctx.strokeStyle = '#c99a3c'; ctx.lineWidth = 1; ctx.strokeRect(x - tw / 2, ty - 14, tw, 19);
+    ctx.fillStyle = '#ffe9b0'; ctx.fillText(n.name, x, ty);
+    if (n.marker) { const b = Math.sin(G.time * 4) * 4; ctx.font = `bold ${Math.round(30 * z)}px Georgia, serif`; ctx.strokeStyle = '#000'; ctx.lineWidth = 4; ctx.strokeText(n.marker, x, ty - 20 + b); ctx.fillStyle = n.marker === '?' ? '#ffe36a' : '#ffd24a'; ctx.fillText(n.marker, x, ty - 20 + b); }
+    ctx.globalAlpha = 1;
+  }
 }
 
 // Всё, что 3D-рендерер не рисует сам: эффекты, снаряды, телеграфы, полоски, подписи, цифры. Холст прозрачный, проекция — G.cam.proj.
@@ -528,7 +543,7 @@ function drawPlates() {
   const cam = G.cam, z = cam.zoom;
   for (const it of G.zone.inter) {
     if (it.glow && !it.hidden) { const [sx, sy] = cam.toScreen(it.x, it.y); ctx.save(); ctx.translate(sx, sy); ctx.scale(1, 0.5); ctx.globalCompositeOperation = 'lighter'; const p = 0.45 + Math.sin(G.time * 3 + it.x) * 0.2; ctx.strokeStyle = `rgba(120,230,255,${p})`; ctx.lineWidth = 3; ctx.setLineDash([6, 5]); ctx.beginPath(); ctx.arc(0, 0, 26 * z, 0, 7); ctx.stroke(); ctx.fillStyle = `rgba(120,230,255,${p * 0.25})`; ctx.fill(); ctx.restore(); ctx.font = `bold ${Math.round(16 * z)}px Georgia`; ctx.textAlign = 'center'; ctx.fillStyle = `rgba(160,240,255,${p + 0.2})`; ctx.fillText('+', sx, sy + 5 * z); }
-    if (!it.plate) continue;
+    if (!it.plate || it.hidden) continue;
     const [x, y] = cam.toScreen(it.x, it.y);
     // glowing ground ring
     ctx.save(); ctx.translate(x, y); ctx.scale(1, 0.5); ctx.globalCompositeOperation = 'lighter';

@@ -2,7 +2,7 @@
 // остальные — отдельные группы с update(t). Деревьев вне карты добавляется кольцо-фон, чтобы за краем не было пустоты.
 import * as THREE from '../vendor/three.module.min.js';
 import { addOutlines, outlineMat } from './actor.js';
-import { PROPS, TREE_KINDS } from './registry.js';
+import { PROPS, TREE_KINDS, DEAD_KINDS, ROCK_KINDS } from './registry.js';
 import { OUTLINE, QUALITY } from './style.js';
 import { fbm } from './geo.js';
 import { wallPieces } from './dungeon.js';
@@ -14,7 +14,7 @@ const DYN = new Set(['door', 'door_open', 'gate_sealed', 'chest', 'chest_open', 
 // порода дерева по позиции: взвешенный выбор из TREE_KINDS (tree_0 — лиственные, tree_1 — хвойные)
 // Фьорды: только ели и сосны (лиственных там нет)
 function pickFj(h) { return h < 0.5 ? 'tree_fir_blue' : h < 0.92 ? 'tree_pine_tall' : 'deadtree'; }
-function pickTree(spr, h) { const L = TREE_KINDS[spr]; if (!L) return spr; let t = h * L.reduce((a, k) => a + k[1], 0); for (const [id, w] of L) { if ((t -= w) < 0) return id; } return L[0][0]; }
+function pickTree(spr, h) { const L = TREE_KINDS[spr] || (spr === 'deadtree' ? DEAD_KINDS : spr === 'rocks' ? ROCK_KINDS : null); if (!L) return spr; let t = h * L.reduce((a, k) => a + k[1], 0); for (const [id, w] of L) { if ((t -= w) < 0) return id; } return L[0][0]; }
 // оттенок экземпляра: светлее/темнее, теплее/холоднее — соседние деревья одной породы не одинаковые
 function tintOf(x, y, k) { const a = hash(x * 1.3 + 7, y * 0.7), b = hash(y * 1.9, x * 2.7 + 3), l = 1 + (a - 0.5) * 2 * k, w = (b - 0.5) * k; return new THREE.Color(l * (1 + w * 0.6), l * (1 + w * 0.25), l * (1 - w * 0.8)); }
 let _proxyMat = null;
@@ -30,7 +30,7 @@ export class PropLayer {
       lists.get(id).push({ x, y, rot, s, opts, col }); };
     const mode = zone.id === 'town' ? 'town' : zone.id === 'wild' ? 'wild' : 'dungeon', dungeon = mode === 'dungeon', wild = mode === 'wild', m = zone.map;
     const fj = wild && zone.json.wild.realm === 'fjord', open = !dungeon;   // open — открытая местность (деревня, поход)
-    const MODEL = { fort_hall: fj ? 'fort_hall_i' : 'fort_hall_w', tent: fj ? 'tent_i' : 'tent_w', fort_gate: fj ? 'fort_gate_i' : 'fort_gate_w', fort_tower: fj ? 'fort_tower' : 'watchtower' };
+    const MODEL = { fort_hall: fj ? 'fort_hall_i' : 'fort_hall_w', tent: fj ? 'tent_i' : 'tent_w', fort_gate: fj ? 'fort_gate_i' : 'fort_gate_w', fort_door: fj ? 'fort_door_i' : 'fort_door_w', fort_tower: fj ? 'fort_tower' : 'watchtower' };
     this.fj = fj; this.wildForest = wildForest;
     this.live = [];   // предметы, которые игра меняет на лету: { d, rot, cur, g }
     for (const d of zone.statics) {
@@ -44,13 +44,14 @@ export class PropLayer {
         continue;
       }
       if (wild && d.wall) continue;   // стены форта строятся по тайлам 'D' ниже
-      if (d.tag || d.hidden !== undefined || DYN.has(d.spr)) { this.live.push({ d, rot: d.flip ? Math.PI / 2 : 0 }); continue; }
+      if (d.tag || d.hidden !== undefined || DYN.has(d.spr)) { this.live.push({ d, rot: d.model ? (d.rot || 0) : d.flip ? Math.PI / 2 : 0, model: d.model ? (MODEL[d.model] || d.model) : undefined }); continue; }
       if (d.hidden || (d.flat && !PROPS[d.spr])) continue;
       if (d.model) { push(MODEL[d.model] || d.model, d.x, d.y, d.rot || 0, 1); continue; }
       if (!PROPS[d.spr]) { if (!warned.has(d.spr)) { warned.add(d.spr); console.warn('[3D] нет модели предмета «' + d.spr + '» — не показан'); } continue; }
       const h = hash(d.x, d.y), isTree = d.spr === 'tree_0' || d.spr === 'tree_1' || (d.spr === 'deadtree' && !fj);
       const light = zone.lights.find(L => Math.hypot(L.x - d.x, L.y - d.y) < 0.3);
-      push(isTree ? (fj ? pickFj(hash(d.x * 3.1 + 1, d.y * 1.7 + 2)) : pickTree(d.spr, hash(d.x * 3.1 + 1, d.y * 1.7 + 2))) : d.spr, d.x, d.y, isTree ? h * 6.283 : 0, isTree ? 0.85 + h * 0.55 : 1, light ? { color: new THREE.Color(light.c[0] / 255, light.c[1] / 255, light.c[2] / 255) } : null);
+      const var3 = (d.spr === 'rocks' || d.spr === 'deadtree') && open && !light;   // камни и сухие деревья поля — разные формы, повороты, размеры
+      push(isTree ? (fj ? pickFj(hash(d.x * 3.1 + 1, d.y * 1.7 + 2)) : pickTree(d.spr, hash(d.x * 3.1 + 1, d.y * 1.7 + 2))) : var3 ? pickTree(d.spr, hash(d.x * 2.3 + 5, d.y * 1.9 + 1)) : d.spr, d.x, d.y, isTree || var3 ? h * 6.283 : 0, isTree ? 0.85 + h * 0.55 : var3 ? 0.7 + hash(d.y, d.x) * 0.9 : 1, light ? { color: new THREE.Color(light.c[0] / 255, light.c[1] / 255, light.c[2] / 255) } : null);
     }
     if (wild) {   // стены форта по тайлам 'D' (лицом наружу) и густая чаща по тайлам 'x'
       for (let ty = 0; ty < m.h; ty++) for (let tx = 0; tx < m.w; tx++) {
@@ -60,7 +61,7 @@ export class PropLayer {
           push(fj ? 'fort_wall' : 'palisade', tx + 0.5, ty + 0.5, Math.atan2(ext[0], ext[1]), 1);
         } else if (c === 'x') {
           const h = hash(tx * 1.9 + 3, ty * 2.3 - 1), edge = tx < 3 || ty < 3 || tx >= m.w - 3 || ty >= m.h - 3;
-          if (h < (edge ? 0.8 : fj ? 0.3 : 0.17)) { const id = fj ? (h < 0.2 ? 'rocks' : hash(tx, ty) < 0.5 ? 'tree_fir_blue' : 'tree_pine_tall') : pickTree(h > 0.3 ? 'tree_1' : 'tree_0', hash(tx * 2.1, ty * 1.3 + 5)); push(id === 'rocks' ? id : id + '_far', tx + 0.2 + hash(tx, ty + 9) * 0.6, ty + 0.2 + hash(ty, tx + 4) * 0.6, h * 40, id === 'rocks' ? 1.2 + h : 1.0 + hash(ty, tx) * 0.65); }
+          if (h < (edge ? 0.7 : fj ? 0.14 : 0.09)) { const id = fj ? (h < 0.2 ? 'rocks' : hash(tx, ty) < 0.5 ? 'tree_fir_blue' : 'tree_pine_tall') : pickTree(h > 0.3 ? 'tree_1' : 'tree_0', hash(tx * 2.1, ty * 1.3 + 5)); push(id === 'rocks' ? id : id + '_far', tx + 0.2 + hash(tx, ty + 9) * 0.6, ty + 0.2 + hash(ty, tx + 4) * 0.6, h * 40, id === 'rocks' ? 1.2 + h : 1.0 + hash(ty, tx) * 0.65); }
         }
       }
     }

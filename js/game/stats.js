@@ -28,7 +28,7 @@ export function stats(p, gearOverride) {
     let arm = (it.armor || 0) * upgMult(it), armPct = 0;
     for (const a of it.affixes) {
       if (a.k === 'armorPct') armPct += a.v;
-      else if (a.k === 'resAll') { s.resFire += a.v; s.resCold += a.v; s.resLight += a.v; }
+      else if (a.k === 'resAll' || a.k === 'resFire' || a.k === 'resCold' || a.k === 'resLight') { }   // сопротивления убраны
       else if (a.k === 'skill') { }
       else if (a.k in s) s[a.k] += a.v;
     }
@@ -108,7 +108,6 @@ export function compare(p, item, slot) {
     ['Защита', a.armor, b.armor], ['Здоровье', a.maxHP, b.maxHP], ['Мана', a.maxMP, b.maxMP],
     ['Сила заклинаний', Math.round(a.spellPower * 100), Math.round(b.spellPower * 100), null, '%'],
     ['Сила', a.str, b.str], ['Ловкость', a.dex, b.dex], ['Интеллект', a.int, b.int], ['Живучесть', a.vit, b.vit],
-    ['Сопр. огню', a.res.fire, b.res.fire], ['Сопр. холоду', a.res.cold, b.res.cold], ['Сопр. молнии', a.res.light, b.res.light],
     ['Находка золота', a.goldFind, b.goldFind, null, '%'],
   ];
   return rows.map(([l, x, y, d, suf]) => ({ label: l, before: x, after: y, delta: d != null ? d : (typeof x === 'number' ? +(y - x).toFixed(2) : 0), suf: suf || '' }))
@@ -116,9 +115,13 @@ export function compare(p, item, slot) {
 }
 // "Usefulness" score for sorting & upgrade arrows
 export function usefulness(p, item) {
+  // стрелка «лучше/хуже» считается по тому же, что видит игрок: урон в секунду (для мага — ещё и сила заклинаний), защита, здоровье
   const slot = item.slot;
   const a = stats(p); const g = { ...p.gear, [slot]: item };
   const b = stats(p, g);
-  const main = Math.max(b.dps / Math.max(1, a.dps), b.spellDps / Math.max(1, a.spellDps));
-  return (main - 1) * 100 + (b.armor - a.armor) * 0.6 + (b.maxHP - a.maxHP) * 0.25 + (b.maxMP - a.maxMP) * 0.1;
+  const dpsK = (b.dps / Math.max(1, a.dps) - 1) * 100;
+  const spK = p.cls === 'mage' ? (b.spellDps / Math.max(1, a.spellDps) - 1) * 100 : -999;
+  const main = Math.max(dpsK, spK);
+  if (slot === 'weapon') return main;
+  return main + (b.armor - a.armor) * 0.6 + (b.maxHP - a.maxHP) * 0.25 + (b.maxMP - a.maxMP) * 0.1;
 }

@@ -1,7 +1,8 @@
 // Объяснялка похода: короткие карточки ровно в тот момент, когда правило впервые важно (1–3 строки, один раз),
 // постоянная строка цели и «зацепки» при возвращении в деревню. Флаги показа — profile.wild.hints.
 import { G, bus } from './ctx.js';
-import { REALMS, WILD_QUESTS } from '../data/wild.js';
+import { REALMS, WILD_QUESTS, locationName, wildReqLevel } from '../data/wild.js';
+import { outsideLeft } from './wild.js';
 import { nearestCache, dirWord } from './wildmem.js';
 import { hunted, displayName, WEAK } from './nemesis.js';
 
@@ -38,8 +39,10 @@ bus.on('showDeath', () => { if (G.zoneId === 'wild') hint('dead'); });
 export function goalText() {
   const W = G.wild; if (!W) return '';
   if (W.greed >= 0.5) { const c = nearestCache(); if (c) return `🎒 Ноша тяжёлая — вынесите её в ▣ схрон (${Math.round(c.d)} м ${dirWord(c.it.x - G.player.x, c.it.y - G.player.y)}), пока не отняли`; }
-  if (!W.done) { const k = G.enemies.find(e => (e.story === 'wildkeep' || e.story === 'wildboss') && !e.dead); return k ? `🎯 Отбейте форт: убейте ${k.nem ? k.nem.name : k.D.name}${k.nem ? ` · слаб к ${WEAK[k.nem.weak]}` : ''} (стрелка ведёт к нему)` : ''; }
-  return '🎯 Форт отбит, золото уже ваше. Соберите сундуки и идите к порталу «В деревню» (или спуститесь глубже через окно итога)';
+  if (G.zone && G.zone.json.wild.kind === 'field') { const nd = W.depth + 1; return `🎯 Идите к порталу «Вглубь» (стрелка на земле) — следующая локация: ${locationName(W.realm, nd)}, ур. ${wildReqLevel(W.realm, nd)}+`; }
+  if (G.zone && G.zone.wildGate && !G.zone.wildGate.open) return `🎯 Ворота форта закрыты: перебейте зверей и лагеря вокруг (осталось ${outsideLeft()})`;
+  if (!W.done) { const k = G.enemies.find(e => (e.story === 'wildkeep' || e.story === 'wildboss') && !e.dead); return k ? `🎯 Отбейте форт: убейте ${k.nem ? k.nem.name : k.D.name} (стрелка ведёт к нему)` : ''; }
+  return '🎯 Форт отбит, золото уже ваше. Соберите сундуки; когда будете готовы — кнопка справа (итог) или портал «Вглубь» / «В деревню»';
 }
 
 // Что делать дальше (для окна портала и приветствия в деревне)

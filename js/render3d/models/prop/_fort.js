@@ -76,3 +76,15 @@ export function tent(kit, def, kind) {
   L.push(part(new THREE.ConeGeometry(0.6, 1.4, 4), 0x0b0a12, [0, 0.7, 1.55], [0, 0.785, 0], [1, 1, 0.3]));
   const root = new THREE.Group(); root.add(new THREE.Mesh(merge(L), kit.propMat(def))); return { root };
 }
+
+export function door(kit, def, kind) {   // створки ворот между столбами арки: доски в железных полосах, засов и кольца; проём ≈ 3 м
+  const { THREE, part, merge, bbox } = kit, P = PALS[kind], L = [];
+  for (const sx of [-1, 1]) {
+    L.push(bbox(1.46, 3.0, 0.22, 0.04, P.wood, [sx * 0.75, 1.5, 0], 0, { top: P.woodL, tex: 'woodH' }));
+    for (const y of [0.5, 1.5, 2.5]) L.push(bbox(1.42, 0.16, 0.26, 0.02, 0x2a2a30, [sx * 0.75, y, 0], 0, { top: 0x6a6a74, tex: 'iron' }));
+    L.push(part(new THREE.TorusGeometry(0.14, 0.03, 5, 10), 0x3a3a40, [sx * 0.22, 1.5, 0.15], 0, 1, { top: 0x8a8a94 }));
+  }
+  L.push(bbox(2.9, 0.16, 0.14, 0.02, 0x2a2a30, [0, 1.15, 0.2], 0, { top: 0x6a6a74, tex: 'iron' }));   // засов
+  for (const y of [0.9, 2.2]) L.push(part(new THREE.SphereGeometry(0.1, 6, 5), 0xe4d8ba, [0, y, 0.14], 0, [1, 1.1, 1], { top: 0xfff6e2 }));
+  const root = new THREE.Group(); root.add(new THREE.Mesh(merge(L), kit.propMat(def))); return { root };
+}

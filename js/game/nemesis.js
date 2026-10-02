@@ -48,7 +48,7 @@ export function applyNemesis(e, n) {
 function announce(e) {
   const n = e.nem; if (!n) return;
   const line = n.rank ? (n.defeats ? `«Я помню тебя, герой! Ты упал от моей руки.»` : `«Снова ты? В прошлый раз ты бежал!»`) : `«Эта земля — моя.»`;
-  bus.emit('toast', { text: `${displayName(n)}`, sub: `${line} Силён: ${n.traits.map(t => TRAITS[t].name).join(', ')}. Слаб к ${WEAK[n.weak]}.`, kind: 'quest' });
+  bus.emit('toast', { text: `${displayName(n)}`, sub: `${line} Силён: ${n.traits.map(t => TRAITS[t].name).join(', ')}. `, kind: 'quest' });
 }
 bus.on('aggro', e => { if (e.nem && !e.nemMet) { e.nemMet = true; announce(e); } });
 
@@ -103,7 +103,20 @@ function ensureBar() {
   bar.innerHTML = '<div class="t"></div><div style="height:6px;background:#0009;border-radius:3px;margin-top:3px;overflow:hidden"><i style="display:block;height:100%;width:0;background:linear-gradient(90deg,#d6a548,#e8622a)"></i></div><div class="g" style="font-weight:400;font-size:12px;margin-top:3px;color:#cfe3c0"></div>';
   document.body.appendChild(bar); return bar;
 }
+// кнопка справа: форт отбит — «Итог / выход» (не выскакивает окном сама)
+let exitBtn = null;
+function drawExit() {
+  const W = G.wild, show = G.zoneId === 'wild' && W && W.done && W.result;
+  if (!exitBtn) {
+    exitBtn = document.createElement('button'); exitBtn.id = 'wildExit'; exitBtn.className = 'btn gold';
+    exitBtn.innerHTML = '<span class="we-ar">▶▶</span><b>Форт отбит</b><small>Итог и выход</small>';
+    exitBtn.onclick = () => { if (G.wild && G.wild.result) bus.emit('wildCleared', G.wild.result); };
+    document.body.appendChild(exitBtn);
+  }
+  exitBtn.style.display = show && !G.modalOpen ? 'flex' : 'none';
+}
 function drawBar() {
+  drawExit();
   const b = ensureBar(), W = G.wild;
   if (G.zoneId !== 'wild' || !W) { b.style.display = 'none'; return; }
   b.style.display = 'block'; const pct = Math.round((W.greed || 0) * 100);

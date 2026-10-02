@@ -15,9 +15,16 @@ export function progressOf(q) {
   if (q.obj.count) return { cur: Math.min(q.obj.n, s.counters[q.id] || 0), max: q.obj.n };
   return null;
 }
+export const isReady = () => { const q = current(); return !!(q && q.turnIn && G.profile.story.ready === q.id); }
+// цель выполнена, но награда — у старосты: ждём возвращения в деревню
+function markReady(q) {
+  const s = G.profile.story; if (s.ready === q.id) return;
+  s.ready = q.id; bus.emit('sfx', 'quest'); bus.emit('hud'); bus.emit('save');
+  bus.emit('toast', { text: 'Задание выполнено: ' + q.title, sub: G.zoneId === 'town' ? 'Подойдите к старосте Эдрику — у него «?»' : 'Вернитесь в деревню к старосте за наградой', kind: 'quest' });
+}
 function complete() {
   const P = G.profile, s = P.story, q = current(); if (!q) return;
-  s.done.push(q.id); s.stage++;
+  delete s.ready; s.done.push(q.id); s.stage++;
   bus.emit('questComplete', q); bus.emit('sfx', 'quest');
   grant(q.reward, q.title, { sub: 'Задание выполнено' });
   bus.emit('save');
@@ -60,8 +67,9 @@ function rewardItem(spec) {
 export function check() {
   const q = current(); if (!q) return;
   const s = G.profile.story, o = q.obj;
-  if (o.flag && s.flags[o.flag]) return complete();
-  if (o.count && (s.counters[q.id] || 0) >= o.n) return complete();
+  if (q.turnIn && s.ready === q.id) return;
+  if (o.flag && s.flags[o.flag]) return q.turnIn ? markReady(q) : complete();
+  if (o.count && (s.counters[q.id] || 0) >= o.n) return q.turnIn ? markReady(q) : complete();
   if (o.enter && G.zoneId === o.enter && G.zoneReady) return complete();
   if (o.near && G.player && G.zone) {
     const t = G.zone.inter.find(i => i.id === o.near);
@@ -70,10 +78,11 @@ export function check() {
 }
 export function setFlag(f) { G.profile.story.flags[f] = true; check(); }
 export function talked(npcId) {
-  const q = current(); if (q && q.obj.talk === npcId) complete();
+  const q = current(); if (!q) return;
+  if (q.turnIn && isReady() && npcId === 'elder') complete(); else if (q.obj.talk === npcId) complete();
 }
 function count(kind, n) {
-  const q = current(); if (!q || !q.obj.count || q.obj.count !== kind) return;
+  const q = current(); if (!q || !q.obj.count || q.obj.count !== kind || isReady()) return;
   const s = G.profile.story; s.counters[q.id] = (s.counters[q.id] || 0) + n; bus.emit('hud'); check();
 }
 // ---- event wiring

@@ -109,7 +109,7 @@ export const baseOf = it => BASE[it.base];
 export const iconOf = it => it.wt ? WEAPONS[it.wt].icon : (BASE[it.base].icon || it.slot);
 export const rarityColor = it => RARITY[it.rarity].color;
 export const upgMult = it => 1 + (it.upg || 0) * 0.1;
-export function affixText(a) { const A = AFFIXES[a.k]; return A.branch ? A.name(a.v, (BRANCHES.find(b => b.id === a.b) || {}).name) : A.name(a.v); }
+export function affixText(a) { const A = AFFIXES[a.k]; if (!A) return ''; return A.branch ? A.name(a.v, (BRANCHES.find(b => b.id === a.b) || {}).name) : A.name(a.v); }
 export function epicOf(it) { return it.epic ? EPICS.find(e => e.id === it.epic) : null; }
 
 // Sell value & smith costs (gold sinks scale with level so they stay relevant)

@@ -93,9 +93,10 @@ export class Enemy {
     const D = ENEMIES[type]; this.type = type; this.D = D; this.lvl = lvl;
     this.x = x; this.y = y; this.hx = x; this.hy = y; this.r = D.radius; this.dir = rand() * 8 | 0;
     this.champion = !!opts.champion;
-    const hm = scaleHP(lvl) * (this.champion ? 2.2 : 1);
+    const diff = D.boss ? 1.9 : D.elite ? 1.7 : 1.4;   // сложность: враги прочнее и бьют больнее (было слишком легко)
+    const hm = scaleHP(lvl) * (this.champion ? 2.2 : 1) * diff;
     this.maxHP = Math.round(D.hp * hm); this.hp = this.maxHP;
-    this.dmgMul = scaleDmg(lvl) * (this.champion ? 1.3 : 1);
+    this.dmgMul = scaleDmg(lvl) * (this.champion ? 1.3 : 1) * (D.boss ? 1.15 : 1.2);
     this.armor = Math.round(D.armor * (1 + 0.15 * (lvl - 1)));
     this.anim = new Anim(); this.setAnim('idle', 5, true); this.anim.t = rand() * 2;
     this.state = 'idle'; this.cd = rrange(0.3, 1.2); this.aggro = false; this.dead = false; this.remove = false;
@@ -128,10 +129,10 @@ export class Enemy {
     const map = G.zone.map;
     if (!this.aggro && this.wakeT !== undefined) { this.wakeT -= dt; this.dir = dirOf(dx, dy); if (this.anim.clip !== 'idle') this.setAnim('idle', 5, true); if (this.wakeT <= 0) { this.aggro = true; this.woken = true; bus.emit('aggro', this); } return; }
     if (!this.aggro) {
-      const R = (this.D.boss ? 9.5 : G.wild ? 5.2 : 6.2) * (G.wild ? G.wild.noise : 1);
+      const R = ((this.D.boss ? 9.5 : G.wild ? 5.2 : 6.2) + (G.stats && G.stats.ranged ? 3 : 0)) * (G.wild ? G.wild.noise : 1);   // стрелок и маг привлекают врагов издалека
       if (!P.dead && d < R && map.los(this.x, this.y, P.x, P.y)) {
         // постепенное замечание: сначала моб «приглядывается» (стоит, смотрит), и только потом бросается
-        if (this.alertT === undefined) this.alertT = this.D.boss ? 0.4 : rrange(0.5, 1.2) * (d < 3 ? 0.4 : 1);
+        if (this.alertT === undefined) this.alertT = this.D.boss ? 0.4 : rrange(0.25, 0.6) * (d < 3 ? 0.4 : 1);
         this.alertT -= dt; this.dir = dirOf(dx, dy); if (this.anim.clip !== 'idle') this.setAnim('idle', 5, true);
         if (this.alertT > 0) return;
         this.aggro = true; bus.emit('aggro', this); if (this.D.boss) bus.emit('bossStart', this);

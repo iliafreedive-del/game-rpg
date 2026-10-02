@@ -7,7 +7,7 @@ import * as C from './combat.js';
 import { makeItem } from './items.js';
 import { grant } from './quests.js';
 import { rand, rrange, rint } from '../core/util.js';
-import { REALMS, WILD_MOBS, WILD_QUESTS, isWildBoss } from '../data/wild.js';
+import { REALMS, WILD_MOBS, WILD_QUESTS, isWildBoss, isWildFort } from '../data/wild.js';
 import { applyFieldMemory } from './wildmem.js';
 import { pickNemesis, applyNemesis, bankCarry, onNemesisKilled } from './nemesis.js';
 
@@ -35,15 +35,26 @@ export function spawnWild(zone) {
 
 
 
+// портал «Вглубь» после падения форта
 function openNext(e) {
-  return;   // отдельный портал «Вглубь» убран: выбор «Вглубь / Остаться / Домой» даёт окно итога форта
   const it = G.zone.inter.find(i => i.id === 'wild_next'); if (!it || !it.hidden) return;
   it.hidden = false; it.draw.hidden = false; it.light.on = true;
   C.particles(it.x, it.y, 30, { c: REALMS[G.wild.realm].portalColor, sp: 3, size: 4 }); bus.emit('sfx', 'portal');
 }
 
+// Ворота форта открываются, когда перебиты лагеря и звери на поле вокруг (стража и командир внутри не считаются)
+export const outsideLeft = () => G.enemies.filter(e => !e.dead && !e.summoned && e.story !== 'fortguard' && e.story !== 'wildkeep' && e.story !== 'wildboss').length;
+export function gateClosed() { const g = G.zone && G.zone.wildGate; return !!(g && !g.open); }
+export function checkGate() {
+  const g = G.zone && G.zone.wildGate; if (!g || g.open || outsideLeft() > 0) return;
+  g.open = true; g.d.hidden = true; for (const [tx, ty] of g.tiles) G.zone.map.setSolid(tx, ty, 0);
+  const cx = g.tiles[1][0] + 0.5, cy = g.tiles[1][1] + 0.5;
+  C.particles(cx, cy, 30, { c: [255, 220, 150], sp: 3, size: 4 }); C.effect({ kind: 'ring', x: cx, y: cy, r: 3.5, dur: 0.6, c: [255, 210, 120] }); G.cam.shake = 0.4;
+  bus.emit('sfx', 'door'); bus.emit('toast', { text: 'Ворота форта открыты!', sub: 'Поле вокруг зачищено — идите внутрь', kind: 'good' }); bus.emit('wildProgress');
+}
 function onKill(e) {
   if (G.zoneId !== 'wild' || !G.wild) return;
+  if (G.zone.wildGate) setTimeout(checkGate, 0);
   const realm = G.wild.realm, W = wildState(realm), lvl = e.lvl;
   if (!e.summoned && e.D.realm === realm) { bump(realm, 'kills'); bump(realm, 'k_' + e.type); }
   if (e.story === 'wildkeep' || e.story === 'wildboss') {
@@ -55,6 +66,7 @@ function onKill(e) {
     for (let i = 0; i < (boss ? 12 : 7); i++) L.dropGold(e.x, e.y, rint(6, 12) * (1 + 0.15 * (lvl - 1)));
     L.dropPotion(e.x, e.y, 'hp'); L.dropPotion(e.x, e.y, 'mp'); if (boss) { L.dropPotion(e.x, e.y, 'hp'); L.dropPotion(e.x, e.y, 'hp'); }
     L.dropItem(e.x, e.y, boss ? makeItem({ epic: L.pickEpic(cls), ilvl: P.level + 2, cls }) : makeItem({ rarity: 2, ilvl: P.level + 1, cls }));
+    for (const p of G.pickups) if (p.t < 0.1) p.fly = true;   // всё, что упало с командира, само подлетает к герою
     openNext(e); if (e.nem) onNemesisKilled(e);
     bankCarry(boss ? 'Босс повержен' : 'Форт отбит');
     const ch = G.zone.inter.filter(i => i.type === 'chest'), chOpen = ch.filter(i => i.done).length, time = Math.round(G.time - G.wild.t0);
@@ -62,8 +74,9 @@ function onKill(e) {
     const prev = (W.stars = W.stars || {})[depth] || 0, extra = Math.max(0, stars - Math.max(prev, 1)); W.stars[depth] = Math.max(prev, stars);
     const bonus = extra * 25 * lvl; if (bonus) L.dropGold(e.x, e.y, bonus);
     G.wild.result = { realm, depth, boss, time, par, chOpen, chTotal: ch.length, stars, bonus, nem: e.nem ? { name: e.nem.name, rank: e.nem.rank, trophy: true } : null, name: e.D.name };
-    setTimeout(() => bus.emit('wildCleared', G.wild.result), 1800);
-    bus.emit('toast', { text: boss ? `${e.D.name} повержен!` : `${REALMS[realm].fortName} отбит!`, sub: `Путь вглубь открыт (глубина ${depth + 1}). Награда — в сундуках форта`, kind: 'good' });
+    // итог не выскакивает сам: загорается кнопка справа (hud.js), а сундуки форта можно спокойно собрать
+    bus.emit('toast', { text: boss ? `${e.D.name} повержен!` : `${REALMS[realm].fortName} отбит!`, sub: 'Соберите сундуки. Справа загорелась кнопка выхода — нажмите, когда будете готовы', kind: 'good' });
+    bus.emit('sfx', 'levelup');
     bus.emit('save'); bus.emit('wildProgress');
   }
 }
@@ -93,7 +106,7 @@ export function openStash(it) {
 export function wildChestExtra(it) {
   if (!it.rich || !G.wild) return;
   const P = G.profile, lvl = G.zone.json.level;
-  L.dropItem(it.x, it.y + 0.8, makeItem({ rarity: 2, ilvl: Math.max(P.level, lvl) + 1, cls: P.cls || 'warrior' }));
+  const n0 = G.pickups.length; L.dropItem(it.x, it.y + 0.8, makeItem({ rarity: 1, ilvl: Math.max(P.level, lvl) + 1, cls: P.cls || 'warrior' })); for (let i = n0; i < G.pickups.length; i++) G.pickups[i].fly = true;
 }
 
 // ---- задания

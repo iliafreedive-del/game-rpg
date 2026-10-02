@@ -19,12 +19,13 @@ import { onLeaveWild, refreshCarry } from './nemesis.js';
 import './wildhints.js';
 import { useCache, useEcho, addEchoes } from './wildmem.js';
 import { spawnWild, wildState, openStash, wildChestExtra } from './wild.js';
-import { REALMS } from '../data/wild.js';
+import { REALMS, wildReqLevel } from '../data/wild.js';
 import { generateCastle } from '../world/castlegen.js';
 import { wheelReady } from '../ui/wheel.js';
 import { ROOMS, DECOR } from '../data/upgrades.js';
 import * as CS from './castle.js';
 import * as SV from './survival.js';
+import * as DQ from './daily.js';
 import { resize as rResize } from '../render/index.js';
 import { SKILLS } from '../data/skills.js';
 import { rand, rrange, rint } from '../core/util.js';
@@ -154,7 +155,7 @@ function spawnDungeon(zone) {
     }
   }
   const [el, bo] = zone.json.story;
-  if (W.medallion && !P.story.flags.eliteKilled) spawnElite(zone);
+  if (!P.story.flags.eliteKilled) spawnElite(zone);   // Хранитель амулета стоит в зале за дверью
   if (P.story.flags.gateOpen || W.gateOpen) G.enemies.push(new Enemy('boss', bo[1], bo[2], P.chapterDone ? Math.max(6, P.level) : 6, { story: 'boss' }));
 }
 export const depthsUnlocked = () => !!G.profile.story.flags.bossKilled || (G.profile.depths && G.profile.depths.best > 0);
@@ -171,7 +172,8 @@ function spawnFloor(zone) {
   }
 }
 function spawnElite(zone) {
-  const el = zone.json.story[0]; G.enemies.push(new Enemy('elite_guard', el[1], el[2], G.profile.chapterDone ? Math.max(5, G.profile.level) : 5, { story: 'elite' }));
+  const el = zone.json.story[0], e = new Enemy('elite_guard', el[1], el[2], G.profile.chapterDone ? Math.max(6, G.profile.level) : 6, { story: 'elite' });
+  e.name = 'Хранитель амулета'; e.maxHP = Math.round(e.maxHP * 1.5); e.hp = e.maxHP; e.dmgMul *= 1.15; G.enemies.push(e);   // посложнее обычного стража
 }
 
 // ------------------------------------------------------------------ events
@@ -250,7 +252,12 @@ export function interact(it) {
     case 'exit': if (!it.hidden) finishFloor(); else bus.emit('toast', { text: 'Портал запечатан', sub: 'Убейте всех врагов на этаже', kind: 'warn' }); return;
     case 'shrine': bus.emit('openShrine'); return;
     case 'wildportal': { const g = gate(it.realm); if (g) { bus.emit('toast', { ...g, kind: 'warn' }); bus.emit('sfx', 'deny'); return; } } if (it.reqLevel && P.level < it.reqLevel) { bus.emit('toast', { text: `${REALMS[it.realm].name} — с ${it.reqLevel} уровня`, sub: 'Набирайтесь сил в катакомбах', kind: 'warn' }); bus.emit('sfx', 'deny'); return; } bus.emit('openWild', it.realm); return;
-    case 'wildnext': if (!it.hidden && G.wild) { bus.emit('sfx', 'portal'); loadZone('wild', { realm: G.wild.realm, depth: G.wild.depth + 1 }); } return;
+    case 'wildnext': {
+      if (it.hidden || !G.wild) { bus.emit('toast', { text: 'Портал запечатан', sub: 'Сначала отбейте форт', kind: 'warn' }); bus.emit('sfx', 'deny'); return; }
+      const nd = G.wild.depth + 1, need = wildReqLevel(G.wild.realm, nd);
+      if (P.level < need) { bus.emit('toast', { text: `Дальше — с ${need} уровня`, sub: `У вас ${P.level}. Наберитесь сил на этом поле или в катакомбах`, kind: 'warn' }); bus.emit('sfx', 'deny'); return; }
+      bus.emit('sfx', 'portal'); loadZone('wild', { realm: G.wild.realm, depth: nd }); return;
+    }
     case 'stash': openStash(it); return;
     case 'cache': useCache(it); return;
     case 'echo': if (it.mine) useEcho(it); return;   // чужое эхо само говорит и развеивается
@@ -265,22 +272,20 @@ export function interact(it) {
       bus.emit('sfx', 'chest'); bus.emit('chest'); L.chestLoot(it.x, it.y + 0.7, it.rich, roomLevel(G.zone, it.x, it.y) + (it.rich ? 1 : 0), it.id); if (G.zoneId === 'wild') wildChestExtra(it); requestSave(); return;
     }
     case 'medallion': {
+      if (!P.story.flags.eliteKilled) { bus.emit('toast', { text: 'Амулет охраняет Хранитель', sub: 'Сначала победите его', kind: 'warn' }); bus.emit('sfx', 'deny'); return; }
       it.done = true; it.draw.spr = 'altar'; it.light.on = false; W.medallion = true; P.world.hasMedallion = true;
-      bus.emit('toast', { text: 'Медальон Ордена получен', sub: 'Где-то на юге пробудился Страж…', kind: 'good' }); bus.emit('sfx', 'rareDrop');
-      G.cam.shake = 0.6; bus.emit('sfx', 'roar');
-      if (!P.story.flags.eliteKilled) spawnElite(G.zone);
+      bus.emit('toast', { text: 'Амулет хранителя получен', sub: 'Отнесите его старосте Эдрику в деревню', kind: 'good' }); bus.emit('sfx', 'rareDrop');
       Q.setFlag('medallion'); requestSave(); return;
     }
     case 'door':
       if (!P.world.hasKey) { bus.emit('toast', { text: 'Дверь заперта', sub: 'Нужен ключ — поищите в саркофагах оссуария', kind: 'warn' }); bus.emit('sfx', 'deny'); return; }
-      it.done = true; W[it.id] = true; it.draw.spr = 'door_open'; G.zone.map.setSolid(it.tile[0], it.tile[1], 0); bus.emit('sfx', 'door'); bus.emit('toast', { text: 'Дверь открыта', sub: 'Медальон — на алтаре в зале за дверью', kind: 'good' }); requestSave(); return;
+      it.done = true; W[it.id] = true; it.draw.spr = 'door_open'; G.zone.map.setSolid(it.tile[0], it.tile[1], 0); bus.emit('sfx', 'door'); bus.emit('toast', { text: 'Дверь открыта', sub: 'Амулет на алтаре за дверью — но его охраняет Хранитель', kind: 'good' }); requestSave(); return;
     case 'secret':
       it.done = true; W[it.id] = true; for (const d of it.draws) d.hidden = true; for (const [x, y] of it.tiles) { G.zone.map.setSolid(x, y, 0); C.particles(x + 0.5, y + 0.5, 12, { c: [120, 110, 100], sp: 2.5, add: false, size: 4 }); }
       for (const d of G.zone.statics) if (d.tag === it.id) d.hidden = true;
       G.cam.shake = 0.4; bus.emit('sfx', 'door'); bus.emit('toast', { text: 'Тайный проход!', sub: 'За стеной скрыта сокровищница', kind: 'good' }); requestSave(); return;
     case 'gate':
-      { const g = P.world.hasMedallion ? gate('bossgate') : null; if (g) { bus.emit('toast', { ...g, kind: 'warn' }); bus.emit('sfx', 'deny'); return; } }
-      if (!P.world.hasMedallion) { bus.emit('toast', { text: 'Врата запечатаны', sub: 'На печати углубление в форме медальона', kind: 'warn' }); bus.emit('sfx', 'deny'); return; }
+      { const g = gate('bossgate'); if (g) { bus.emit('toast', { ...g, kind: 'warn' }); bus.emit('sfx', 'deny'); return; } }
       it.done = true; W.gateOpen = true; it.draw.spr = 'door_open'; it.light.on = false; G.zone.map.setSolid(it.tile[0], it.tile[1], 0);
       bus.emit('sfx', 'door'); G.cam.shake = 0.7; bus.emit('toast', { text: 'Печать сломлена', sub: 'Палач Бездны пробуждается…', kind: 'quest' });
       Q.setFlag('gateOpen');
@@ -461,20 +466,25 @@ function updateMarkers() {
   // guide target for the on-ground arrow
   let t = null;
   if (q) {
-    if (q.where && q.where !== G.zoneId) t = G.zone.inter.find(i => i.type === 'portal' && !i.hidden) || null;
+    if (Q.isReady()) t = G.zoneId === 'town' ? G.zone.inter.find(i => i.id === 'elder') || null : G.zone.inter.find(i => i.type === 'portal' && !i.hidden && i.to === 'town') || null;
+    else if (q.where && q.where !== G.zoneId) t = G.zone.inter.find(i => i.type === 'portal' && !i.hidden) || null;
     else if (q.target) t = G.zone.inter.find(i => i.id === q.target && !i.hidden) || G.enemies.find(e => e.story === q.target && !e.dead) || null;
     if (!t && q.id === 'medallion' && !G.profile.world.hasKey) t = G.zone.inter.find(i => i.loot === 'key' && !i.done) || null;
-    if (!t && q.id === 'medallion' && G.profile.world.hasKey) t = G.zone.inter.find(i => i.type === 'door' && !i.done) || G.zone.inter.find(i => i.id === 'medallion');
+    if (!t && q.id === 'medallion' && G.profile.world.hasKey) t = G.zone.inter.find(i => i.type === 'door' && !i.done) || G.enemies.find(e => e.story === 'elite' && !e.dead) || G.zone.inter.find(i => i.id === 'medallion');
   }
   if (G.zoneId === 'depths') { const ex = G.zone.inter.find(i => i.id === 'floor_exit'); t = ex && !ex.hidden ? ex : G.enemies.find(e => e.story === 'floorboss' && !e.dead) || null; }
-  if (G.zoneId === 'wild') { const home = G.zone.inter.find(i => i.id === 'wild_home'); t = G.enemies.find(e => (e.story === 'wildkeep' || e.story === 'wildboss') && !e.dead) || (G.wild && G.wild.done ? home : null) || null; }
+  if (G.zoneId === 'wild') {
+    const home = G.zone.inter.find(i => i.id === 'wild_home'), next = G.zone.inter.find(i => i.id === 'wild_next' && !i.hidden), fort = G.zone.wildGate;
+    const outside = fort && !fort.open ? G.enemies.filter(e => !e.dead && !e.summoned && !e.story).sort((a, b) => Math.hypot(a.x - G.player.x, a.y - G.player.y) - Math.hypot(b.x - G.player.x, b.y - G.player.y))[0] : null;
+    t = outside || G.enemies.find(e => (e.story === 'wildkeep' || e.story === 'wildboss') && !e.dead) || (G.wild && G.wild.done ? next || home : fort ? null : next) || null;
+  }
   G.guide = t;
-  for (const n of G.npcs) n.marker = q && q.target === n.id ? (q.id === 'finish' ? '?' : '!') : null;
+  for (const n of G.npcs) n.marker = n.id === 'elder' && Q.isReady() ? '?' : q && q.target === n.id ? (q.id === 'finish' ? '?' : '!') : null;
   for (const it of G.zone.inter) { if (it.type === 'socket') { const open = it.room === 'hall' || (G.profile.castle && G.profile.castle[it.room]); it.hidden = !open; it.glow = open && !(G.profile.castle.decor && G.profile.castle.decor[it.sid]); } else if (it.type === 'roomgate') { it.plate = it.done ? null : ROOMS[it.room].name; it.reqLevel = it.done ? 0 : ROOMS[it.room].lvl; } else if (it.type === 'room') it.plate = ROOMS[it.room].name; }
   const hp = G.zone.inter.find(i => i.id === 'herospath'); if (hp) { const noSkill = !!gate('hw', 1); hp.locked = noSkill; hp.lockNote = noSkill && G.profile.level >= 2 ? 'выберите навык' : ''; }
   const wh = G.zone.inter.find(i => i.id === 'wheel'); if (wh) wh.marker = wheelReady() ? '!' : null;
   const fn = G.npcs.find(n => n.id === 'fortune'); if (fn) fn.marker = wheelReady() ? '!' : null;
-  const bd = G.zone.inter.find(i => i.id === 'board'); if (bd) bd.marker = REPEATABLE.some(r => Q.repState(r).done) ? '?' : REPEATABLE.some(r => !Q.repState(r).accepted) ? '!' : null;
+  const bd = G.zone.inter.find(i => i.id === 'board'); if (bd) bd.marker = (REPEATABLE.some(r => Q.repState(r).done) || DQ.dailyReady() || DQ.weeklyQuests().some(q => q.done && !q.claimed)) ? '?' : null;
   const P = G.profile; const tr = G.npcs.find(n => n.id === 'trainer'); if (tr && !tr.marker && (P.attrPts || P.skillPts)) tr.marker = '+';
 }
 export { Q };

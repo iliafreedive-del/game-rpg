@@ -15,7 +15,7 @@ import { offers, buy, restorePurchases, dailyStatus, claimDaily, chestStatus, ch
 import { PRODUCTS, platform } from '../platform/platform.js';
 import { revive, saveNow, loadZone, depthsUnlocked, MAX_REVIVES } from '../game/game.js';
 import { generateFloor, isBossFloor, floorLevel } from '../world/floorgen.js';
-import { REALMS, WILD_QUESTS, wildLevel, isWildBoss } from '../data/wild.js';
+import { REALMS, WILD_QUESTS, wildLevel, isWildBoss, isWildFort, locationName, wildReqLevel, FIELDS_PER_FORT } from '../data/wild.js';
 import { wildState, questProgress, claimQuest } from '../game/wild.js';
 import { nemState, displayName, TRAITS, WEAK } from '../game/nemesis.js';
 import { nextGoal } from '../game/wildhints.js';
@@ -176,7 +176,7 @@ W.inventory = (arg = {}) => {
     const head = (x, tag) => `<div class="cc-h">${tag ? `<small class="muted">${tag}</small>` : ''}<div class="cc-n" style="color:${RARITY[x.rarity].color}">${esc(x.name)}${x.upg ? ` <span class="good">+${x.upg}</span>` : ''}</div><small>${RARITY[x.rarity].name} · ур. ${x.ilvl}</small></div>`;
     const rows = inBag ? compare(P, it, tslot).filter(r => typeof r.delta === 'number' && r.delta !== 0).slice(0, 6) : [];
     const ok = inBag ? CH.canEquip(it) : { ok: true };
-    box.innerHTML = `<button class="ic-x">✕</button><div class="cc ${eq ? 'two' : ''}">
+    box.innerHTML = `<div class="ic-top"><button class="ic-x" aria-label="Закрыть">✕</button></div><div class="cc ${eq ? 'two' : ''}">
       <div class="cc-col">${head(it, inBag ? 'Эта вещь' : '')}<div class="iv-slot big r${it.rarity}"><img src="${iconURL(iconOf(it))}"></div><div class="ic-stats">${lines(it)}</div></div>
       ${eq ? `<div class="cc-col dim">${head(eq, 'Надето сейчас')}<div class="ic-stats">${lines(eq)}</div></div>` : ''}</div>
       ${rows.length ? `<div class="ic-cmp"><b>Если надеть:</b>${rows.map(r => `<span class="${r.delta > 0 ? 'good' : 'bad'}">${r.delta > 0 ? '▲' : '▼'} ${r.label} ${r.delta > 0 ? '+' : ''}${Math.round(r.delta * 100) / 100}${r.suf}</span>`).join('')}</div>` : ''}
@@ -185,9 +185,10 @@ W.inventory = (arg = {}) => {
     if (inBag) { const eqb = el('button', 'btn gold', ok.ok ? 'Надеть' : 'Нельзя надеть'); eqb.disabled = !ok.ok; eqb.onclick = () => { CH.equip(it.id); ov.remove(); rerender(); }; btns.appendChild(eqb);
       const sell = el('button', 'btn', `Продать · ${fmt(sellValue(it))} зол.`); sell.onclick = () => { EC.sellItem(it.id); ov.remove(); rerender(); }; btns.appendChild(sell); }
     else { const un = el('button', 'btn', 'Снять'); un.onclick = () => { CH.unequip(slot); ov.remove(); rerender(); }; btns.appendChild(un); }
-    if (G.zoneId === 'town') { const c = upgradeCost(it); const up = el('button', 'btn ad-green', `Закалить +${(it.upg || 0) + 1} · ${fmt(c)}`); up.disabled = P.gold < c || (it.upg || 0) >= MAX_UPG; up.onclick = () => { EC.upgrade(it.id); ov.remove(); rerender(); }; btns.appendChild(up); }
     box.appendChild(btns);
-    box.querySelector('.ic-x').onclick = () => ov.remove(); ov.onclick = e => { if (e.target === ov) ov.remove(); };
+    const xb = box.querySelector('.ic-x'); const shut = e => { e.preventDefault(); e.stopPropagation(); ov.remove(); };
+    xb.addEventListener('pointerup', shut); xb.addEventListener('click', shut); xb.addEventListener('pointerdown', e => e.stopPropagation());
+    ov.addEventListener('pointerdown', e => { if (e.target === ov) ov.remove(); });
     ov.appendChild(box); cur.bg.appendChild(ov);
   }
 };
@@ -204,7 +205,7 @@ W.character = (arg = {}) => {
     b.appendChild(el('h3', '', 'Боевые показатели'));
     const st = [['Физический урон', `${S.dmgMin}–${S.dmgMax}`], ['Урон в секунду', S.dps], ['Скорость атаки', S.aps + ' уд/с'], ['Шанс крит. удара', Math.round(S.critChance * 100) + '%'], ['Крит. урон', Math.round(S.critMult * 100) + '%'],
       ['Сила заклинаний', Math.round(S.spellPower * 100) + '%'], ['Урон огнём / льдом / молнией', `${Math.round(S.elem.fire * 100)}% / ${Math.round(S.elem.cold * 100)}% / ${Math.round(S.elem.light * 100)}%`],
-      ['Защита', `${S.armor} (−${Math.round(S.armor / (S.armor + 50 + 10 * P.level) * 100)}% урона)`], ['Шанс блока', Math.round(S.block * 100) + '%'], ['Сопротивления', `${S.res.fire}% / ${S.res.cold}% / ${S.res.light}%`],
+      ['Защита', `${S.armor} (−${Math.round(S.armor / (S.armor + 50 + 10 * P.level) * 100)}% урона)`], ['Шанс блока', Math.round(S.block * 100) + '%'],
       ['Здоровье', S.maxHP], ['Мана', S.maxMP], ['Восст. маны', S.mpRegen.toFixed(1) + '/с'], ['Здоровье за удар', S.leech], ['Находка золота', '+' + S.goldFind + '%']];
     const core = ['Урон в секунду', 'Здоровье', 'Защита', 'Шанс крит. удара'], mainRows = st.filter(r => core.includes(r[0])), moreRows = st.filter(r => !core.includes(r[0]));
     b.appendChild(el('div', 'stats', mainRows.map(([a, v]) => `<div><span>${a}</span><b>${v}</b></div>`).join('')));
@@ -331,6 +332,7 @@ function dialog(b, id, name, lines, img) {
 W.npc_elder = () => {
   const P = G.profile; const q = Q.current(); let lines, fin = false;
   if (q && q.id === 'talk_elder') lines = DIALOG.elder[0];
+  else if (Q.isReady()) { lines = DIALOG.elder.turnin[q.id] || ['Ты справился. Вот твоя награда.']; fin = true; }
   else if (q && q.id === 'finish') { lines = DIALOG.elder.finish; fin = true; }
   else if (P.chapterDone) lines = DIALOG.elder.done;
   else if (P.world.hasMedallion && !P.story.flags.bossKilled) lines = DIALOG.elder.after_medallion;
@@ -349,7 +351,7 @@ W.npc_smith = () => {
   modal('Кузнец Горан', 'md', b => {
     const P = G.profile;
     b.appendChild(el('p', '', `<i>«${esc(DIALOG.smith.hello[1])}»</i>`));
-    b.appendChild(el('p', 'muted', 'Закалка: +10% к урону или защите за уровень (до +10), без риска поломки. Перековка: заменяет одно свойство на случайное новое.'));
+    b.appendChild(el('p', 'muted', 'Закалка: +10% к урону или защите за уровень (до +10), без риска поломки. Закалять вещи можно только здесь, у кузнеца.'));
     const list = [...Object.entries(P.gear).filter(([, i]) => i).map(([s, i]) => i), ...P.bag.filter(i => i.rarity >= 1 || i.dmg || i.armor)];
     const shop = el('div', 'bag');
     for (const it of list) { const d = slotEl(it, '', sel === it.id ? 'sel' : ''); if (Object.values(P.gear).includes(it)) d.appendChild(el('span', 'up2', 'Надето')); d.onclick = () => { sel = it.id; rerender(); }; shop.appendChild(d); }
@@ -360,10 +362,6 @@ W.npc_smith = () => {
       const row = el('div', 'row'); row.style.marginTop = '8px';
       const up = el('button', 'btn gold', (it.upg || 0) >= MAX_UPG ? 'Максимум' : `Закалить до +${(it.upg || 0) + 1} — ${upgradeCost(it)} зол.`); up.disabled = (it.upg || 0) >= MAX_UPG || P.gold < upgradeCost(it); up.onclick = () => { EC.upgrade(it.id); rerender(); }; row.appendChild(up);
       det.appendChild(row);
-      if (it.affixes.length) {
-        det.appendChild(el('h3', '', `Перековка — ${reforgeCost(it)} зол.`));
-        it.affixes.forEach((a, i) => { const r = el('div', 'row'); r.appendChild(el('span', 'it-aff', esc(affixText(a)))); const bt = el('button', 'btn sm', 'Перековать'); bt.disabled = P.gold < reforgeCost(it) || (it.epic && i < 2); bt.onclick = () => { EC.reforge(it.id, i); rerender(); }; r.appendChild(bt); det.appendChild(r); });
-      }
       b.appendChild(det);
     } else b.appendChild(el('p', 'muted', 'Выберите предмет.'));
     b.appendChild(el('p', 'goldc', `Ваше золото: ${fmt(P.gold)}`));
@@ -426,15 +424,34 @@ W.npc_trainer = () => {
   });
   Q.talked('trainer');
 };
-W.board = () => modal('Доска объявлений', 'md', b => {
-  b.appendChild(el('p', 'muted', 'Контракты действуют всегда: прогресс идёт сам, награду забирайте здесь. После награды контракт начинается заново.'));
-  for (const r of REPEATABLE) {
-    const s = Q.repState(r); const rw = [r.reward.gold && `${r.reward.gold}+ зол.`, r.reward.xp && `${r.reward.xp}+ опыта`, r.reward.potions && `${r.reward.potions} зелья`, r.reward.item && (r.reward.item === 'rare' ? 'редкий предмет' : 'магический предмет')].filter(Boolean).join(', ');
-    const d = el('div', 'q' + (s.accepted ? ' cur' : ''), `<div class="qt">${esc(r.title)}</div><div class="muted">Награда: ${rw}${s.completions ? ` · выполнено раз: ${s.completions}` : ''}</div>${s.accepted ? `<div class="pbar"><i style="width:${s.cur / r.n * 100}%"></i></div><div class="muted">${s.cur}/${r.n}</div>` : ''}`);
-    if (s.done) { const bt = el('button', 'btn sm gold', 'Забрать награду'); bt.style.marginTop = '6px'; bt.onclick = () => { Q.claimRep(r.id); rerender(); }; d.appendChild(bt); }
-    b.appendChild(d);
-  }
-});
+// Доска объявлений: ежедневные, недельные (крупнее) и долгие контракты (самые трудные, повторяются бесконечно)
+const qChips = r => `<div class="q-rw">${r.gold ? `<span class="chip g">💰 ${fmt(r.gold)}</span>` : ''}${r.shards ? `<span class="chip s">◆ ${r.shards}</span>` : ''}${r.potions ? `<span class="chip p">❤ ${r.potions}</span>` : ''}${r.xp ? `<span class="chip x">✦ ${r.xp} опыта</span>` : ''}${r.item ? `<span class="chip i">★ вещь</span>` : ''}${r.skillPts ? `<span class="chip k">+${r.skillPts} навык</span>` : ''}</div>`;
+function qCard(title, cur, max, rw, state, onClaim, onGo) {
+  const d = el('div', 'q-card' + (state === 'done' ? ' hot' : state === 'claimed' ? ' claimed' : ''), `<div class="q-t">${esc(title)}</div><div class="q-prog"><div class="pbar"><i style="width:${Math.min(100, cur / max * 100)}%"></i></div><span>${cur}/${max}</span></div>${qChips(rw)}`);
+  const btn = el('button', 'btn sm ' + (state === 'done' ? 'gold' : ''), state === 'done' ? 'Забрать' : state === 'claimed' ? '✔ Получено' : 'Перейти');
+  btn.disabled = state === 'claimed'; btn.onclick = () => { if (state === 'done') { onClaim(); rerender(); } else onGo(); };
+  d.appendChild(btn); return d;
+}
+W.board = () => {
+  let tab = W._boardTab || 'daily';
+  modal('Доска объявлений', 'md', b => {
+    const dq = DQ.dailyQuests(), wq = DQ.weeklyQuests();
+    const cnt = { daily: dq.filter(q => q.done && !q.claimed).length, weekly: wq.filter(q => q.done && !q.claimed).length, contracts: REPEATABLE.filter(r => Q.repState(r).done).length };
+    const tabs = el('div', 'q-tabs');
+    for (const [id, name] of [['daily', 'Ежедневные'], ['weekly', 'Недельные'], ['contracts', 'Долгие']]) { const t = el('button', 'q-tab' + (tab === id ? ' on' : ''), `${name}${cnt[id] ? `<i>${cnt[id]}</i>` : ''}`); t.onclick = () => { tab = W._boardTab = id; rerender(); }; tabs.appendChild(t); }
+    b.appendChild(tabs);
+    if (tab === 'daily') {
+      const r = DQ.dqReward(); for (const q of dq) b.appendChild(qCard(q.title, q.cur, q.n, { gold: r.gold, potions: r.potions }, q.claimed ? 'claimed' : q.done ? 'done' : 'go', () => DQ.claimDaily(q.id), closeModal));
+      b.appendChild(el('p', 'muted', '<small>Три задания на день. Выполните все — получите «Сундук дня». Обновляются каждые сутки.</small>'));
+    } else if (tab === 'weekly') {
+      const r = DQ.wqReward(); for (const q of wq) b.appendChild(qCard(q.title, q.cur, q.n, { gold: r.gold, shards: r.shards }, q.claimed ? 'claimed' : q.done ? 'done' : 'go', () => DQ.claimWeekly(q.id), closeModal));
+      b.appendChild(el('p', 'muted', '<small>Крупные цели на неделю: больше золота и осколки Бездны для Цитадели.</small>'));
+    } else {
+      for (const rr of REPEATABLE) { const s = Q.repState(rr); b.appendChild(qCard(rr.title, s.cur, rr.n, rr.reward || { gold: rr.gold }, s.done ? 'done' : 'go', () => Q.claimRep(rr.id), closeModal)); }
+      b.appendChild(el('p', 'muted', '<small>Самые трудные и долгие задания. Прогресс идёт сам; после награды контракт начинается заново.</small>'));
+    }
+  }).live = true;
+};
 
 // ---------------------------------------------------------------- rewards / shop (monetization hub)
 W.shrine = () => modal('Святилище наград', 'md', b => {
@@ -527,23 +544,23 @@ W.depths = () => modal('Глубины катакомб', 'sm', b => {
 
 // ---------------------------------------------------------------- Походы: Фьорды Скъёльда / Старый Лес
 W.wild = realm => modal(REALMS[realm].name, 'sm', b => {
-  const RL = REALMS[realm], WS = wildState(realm), P = G.profile, next = WS.best + 1;
+  const RL = REALMS[realm], WS = wildState(realm), P = G.profile, next = Math.max(1, WS.depth || 1);
   b.appendChild(el('div', 'q cur', `<div class="qt">${esc(nextGoal(realm))}</div>`));
   b.appendChild(el('p', 'muted', RL.blurb));
-  b.appendChild(el('p', 'muted', `Открытое поле с лагерями, сундуками и захваченным фортом. Отбейте форт — откроется путь вглубь; каждая глубина сложнее, каждая ${5}-я — босс. Лучшая глубина: <b class="goldc">${WS.best}</b>.`));
+  b.appendChild(el('p', 'muted', `Пять разных открытых локаций подряд: в конце каждой — портал «Вглубь», следующая локация требует уровня. Шестая — ${RL.fortName.toLowerCase()}: перебейте зверей вокруг, чтобы открылись ворота, и отбейте форт. Глубже — снова поля, каждый второй форт — босс. Дальше всего вы дошли до глубины <b class="goldc">${WS.depth || 0}</b>.`));
   const enter = d => { closeModal(); loadZone('wild', { realm, depth: d }); };
-  const need = wildLevel(realm, next) - 2;
-  const go = el('button', 'btn gold', `▶ Глубина ${next}${isWildBoss(next) ? ' · босс' : ''} (ур. врагов ${wildLevel(realm, next)})`);
+  const need = wildReqLevel(realm, next);
+  const go = el('button', 'btn gold', `▶ ${locationName(realm, next)} · глубина ${next}${isWildBoss(next) ? ' · босс' : ''} (ур. врагов ${wildLevel(realm, next)})`);
   go.style.width = '100%'; if (P.level < need) { go.disabled = true; go.textContent = `Глубина ${next}: нужен уровень ${need}`; } go.onclick = () => enter(next); b.appendChild(go);
-  if (WS.best) {
-    b.appendChild(el('h3', '', 'Пройденные глубины')); const grid = el('div', 'row');
-    for (let d = Math.max(1, WS.best - 11); d <= WS.best; d++) { const bt = el('button', 'btn sm', `${d}${isWildBoss(d) ? '♛' : ''}`); bt.onclick = () => enter(d); grid.appendChild(bt); }
+  if ((WS.depth || 0) > 1) {
+    b.appendChild(el('h3', '', 'Пройденные локации')); const grid = el('div', 'row');
+    for (let d = Math.max(1, (WS.depth || 1) - 11); d < WS.depth; d++) { const bt = el('button', 'btn sm', `${d}${isWildFort(d) ? (isWildBoss(d) ? '♛' : '⚑') : ''}`); bt.title = locationName(realm, d); bt.onclick = () => enter(d); grid.appendChild(bt); }
     b.appendChild(grid);
   }
   const NS = nemState(), foes = NS.list.filter(n => n.alive && n.realm === realm && (n.rank > 0 || n.defeats || n.fled)), tro = NS.trophies.filter(t => t.realm === realm);
   if (foes.length || tro.length) {
     b.appendChild(el('h3', '', 'Охота: личные враги'));
-    for (const n of foes) b.appendChild(el('div', 'q cur', `<div class="qt">☠ ${esc(displayName(n))} · ранг ${n.rank}</div><div class="muted">Силён: ${n.traits.map(t => TRAITS[t].name + ' (' + TRAITS[t].txt + ')').join('; ')}</div><div class="muted">Слаб к ${WEAK[n.weak]} (+35% урона) · хранит добычу: ${n.stash} зол.</div>`));
+    for (const n of foes) b.appendChild(el('div', 'q cur', `<div class="qt">☠ ${esc(displayName(n))} · ранг ${n.rank}</div><div class="muted">Силён: ${n.traits.map(t => TRAITS[t].name + ' (' + TRAITS[t].txt + ')').join('; ')}</div><div class="muted">Хранит добычу: ${n.stash} зол.</div>`));
     for (const t of tro) b.appendChild(el('div', 'q', `<div class="qt">🏆 ${esc(t.name)}</div><div class="muted">Трофей: +${t.bonus.toFixed(1)}% урона и золота навсегда</div>`));
   }
   b.appendChild(el('h3', '', 'Задания похода'));

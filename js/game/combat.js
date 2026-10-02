@@ -53,15 +53,13 @@ export function damageEnemy(e, amount, o = {}) {
   if (o.canCrit !== false) { const cc = S.critChance + (o.critBonus || 0); if (rand() < cc) { crit = true; dmg *= S.critMult; } }
   if (!o.elem || o.elem === 'phys') { const red = damageReduction(e.armor * (1 - (o.pierce || 0)), G.profile.level) * 0.9; dmg *= 1 - red; }
   if (e.st.shock > 0) dmg *= 1 + e.st.shockAmp;
-  if (e.nem && e.nem.weak === (o.elem && o.elem !== 'magic' ? o.elem : 'phys')) { dmg *= 1.35; weakHit = true; }   // слабость немезиса
   if (G.player && G.player.warcry > G.time && o.src !== 'dot') dmg *= G.player.warcryMul || 1.25;
   if (e.st.frozen > 0 && R('shatter')) dmg *= 1.5;
   if (S.effects.execute && e.hp < e.maxHP * 0.3 && o.src === 'melee') dmg *= 2;
   dmg = Math.max(1, Math.round(dmg));
   e.hp -= dmg; e.flash = 0.12; G.lastCombat = G.time; e.lastSrc = o.src;
-  if (!e.aggro) { e.aggro = true; }
+  if (!e.aggro) { e.aggro = true; bus.emit('aggro', e); }   // попал по врагу — он (и ближайшие соседи) тут же бросаются в бой
   const col = o.elem === 'fire' ? '#ff9a4a' : o.elem === 'cold' ? '#8fdcff' : o.elem === 'light' ? '#d0c2ff' : crit ? '#ffd23a' : '#ffffff';
-  if (weakHit && !(e.wfT > G.time)) { e.wfT = G.time + 1.1; float(e.x, e.y, 'Слабость! ×1.35', '#ffe36a', { big: 1, z: 2.8 }); bus.emit('sfx', 'rareDrop'); }
   if (!o.quiet) float(e.x, e.y, crit ? dmg + '!' : dmg, col, { big: crit ? 1 : 0, z: e.D.boss ? 3.2 : 1.9 });
   // life on hit
   if (S.leech && o.src && o.src !== 'dot') { G.player.hp = Math.min(S.maxHP, G.player.hp + S.leech); }
@@ -239,7 +237,11 @@ export function skillUsable(id) {
   return { ok: true };
 }
 export function castSkill(id, aim) {
-  const P = G.player; if (P.dead || P.busy() || P.state === 'hit') return false;
+  const P = G.player; if (P.dead || P.state === 'dodge') return false;
+  // навык прерывает автоатаку (обычный удар/выстрел), но не другой навык
+  if ((P.state === 'attack' || P.state === 'cast') && P.act && P.act.cancelable && P.act.kind !== 'skill') { P.act = null; P.state = 'idle'; }
+  if (P.busy()) return false;
+  if (P.state === 'hit') P.state = 'idle';
   const u = skillUsable(id); if (!u.ok) { float(P.x, P.y, u.why, '#ff9c8a', { z: 2.3 }); bus.emit('sfx', 'deny'); return false; }
   const sk = SKILLS[id], r = R(id), S = G.stats;
   const echo = S.effects.echo && sk.elem && rand() < 0.25;
@@ -442,7 +444,7 @@ export function hurtPlayer(src, raw, elem) {
   if (!elem || elem === 'phys') {
     if (S.block > 0 && rand() < S.block) { float(P.x, P.y, 'Блок', '#e6d7a8', { z: 2.2 }); bus.emit('sfx', 'block'); return; }
     dmg *= 1 - damageReduction(S.armor, lvl);
-  } else dmg *= 1 - (S.res[elem] || 0) / 100;
+  }
   dmg = Math.max(1, Math.round(dmg));
   if (P.shield > 0) { const ab = Math.min(P.shield, dmg); P.shield -= ab; dmg -= ab; }
   if (src && src.D && src.D.onHit === 'slow') P.slowT = Math.max(P.slowT || 0, 1.6);   // мороз: замедление героя

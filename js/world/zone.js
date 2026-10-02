@@ -147,7 +147,7 @@ export class Zone {
           const d = this.add({ x: o.x, y: o.y, spr: taken ? 'altar' : 'altar_medallion' });
           this.map.circles.push({ x: o.x, y: o.y, r: 0.5 });
           const L = this.addLight(o.x, o.y, { r: 3, c: [255, 210, 120], flicker: 0.2 }); L.on = !taken;
-          this.inter.push({ id: 'medallion', type: 'medallion', x: o.x, y: o.y, r: 1.6, label: 'Взять медальон', draw: d, done: taken, light: L });
+          this.inter.push({ id: 'medallion', type: 'medallion', x: o.x, y: o.y, r: 1.6, label: 'Взять амулет', draw: d, done: taken, light: L });
           break;
         }
         case 'door': {
@@ -173,7 +173,7 @@ export class Zone {
           const d = this.add({ x: o.x, y: o.y, spr: open ? 'door_open' : 'gate_sealed', flip, wall: true });
           const L = this.addLight(o.x, o.y, { r: 3.5, c: [170, 90, 255], flicker: 0.4 }); L.on = !open;
           if (open) m.setSolid(tx, ty, 0);
-          this.inter.push({ id: 'gate', type: 'gate', x: o.x, y: o.y, r: 1.8, label: 'Приложить медальон', draw: d, done: open, tile: [tx, ty], light: L });
+          this.inter.push({ id: 'gate', type: 'gate', x: o.x, y: o.y, r: 1.8, label: 'Сломать печать', draw: d, done: open, tile: [tx, ty], light: L });
           break;
         }
         case 'board_dungeon': break;   // notice board lives only in the village
@@ -242,13 +242,14 @@ export class Zone {
 
   // Открытое поле похода (Фьорды / Старый Лес): чаща по 'x', стены форта по 'D', сундуки, тайники, порталы.
   buildWild(J) {
-    const m = this.map, realm = J.wild.realm, fj = realm === 'fjord';
+    const m = this.map, realm = J.wild.realm, fj = realm === 'fjord', put = [];   // put — уже посаженные деревья: между соседними не меньше ~1,7 м
     for (let y = 0; y < m.h; y++) for (let x = 0; x < m.w; x++) {
       const c = m.ch(x, y), h = hash(x, y);
       if (c === 'D') { this.add({ x: x + 0.5, y: y + 0.5, spr: 'wall_' + (h % 4), wall: true }); continue; }
       if (c !== 'x') continue;
       const inner = [[1, 0], [-1, 0], [0, 1], [0, -1], [2, 0], [-2, 0], [0, 2], [0, -2]].some(([dx, dy]) => { const X = x + dx, Y = y + dy; return X >= 0 && Y >= 0 && X < m.w && Y < m.h && m.ch(X, Y) !== 'x'; });
       if (!inner || h % 3 === 0) continue;
+      { const px = x + 0.3 + (h % 5) / 10, py = y + 0.3 + ((h >> 3) % 5) / 10; if (put.some(q => (q[0] - px) ** 2 + (q[1] - py) ** 2 < 2.9)) continue; put.push([px, py]); }
       const spr = fj ? ['rocks', 'stalagmite', 'tree_1', 'rocks'][h % 4] : (h % 5 === 0 ? 'rocks' : h % 2 ? 'tree_0' : 'tree_1');
       this.add({ x: x + 0.3 + (h % 5) / 10, y: y + 0.3 + ((h >> 3) % 5) / 10, spr, tall: spr === 'rocks' ? 0 : 1 });
     }
@@ -267,6 +268,11 @@ export class Zone {
           const d = this.add({ x: o.x, y: o.y, spr: o.rich ? 'chest_rich' : 'chest' }); this.map.circles.push({ x: o.x, y: o.y, r: 0.35 });
           if (o.rich) this.addLight(o.x, o.y, { r: 3, c: [255, 210, 110], flicker: 0.3, z: 0.8 });
           this.inter.push({ id: o.id, type: 'chest', rich: !!o.rich, x: o.x, y: o.y, r: 1.4, label: 'Открыть сундук', draw: d }); break;
+        }
+        case 'fort_door': {   // ворота форта заперты, пока не перебиты лагеря вокруг (game/wild.js openGate)
+          const g = J.wild.gate; const d = this.add({ x: o.x, y: o.y, spr: 'banner', model: 'fort_door', rot: 0, hidden: false }); const tiles = [[g.x - 1, g.y], [g.x, g.y], [g.x + 1, g.y]];
+          for (const [tx, ty] of tiles) m.setSolid(tx, ty, 1);
+          this.wildGate = { d, tiles, open: false }; break;
         }
         case 'cache': {
           const d = this.add({ x: o.x, y: o.y, spr: 'altar' }); this.map.circles.push({ x: o.x, y: o.y, r: 0.4 });

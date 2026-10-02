@@ -32,8 +32,9 @@ export function enemyLoot(e) {
   for (let i = 0; i < piles; i++) dropGold(e.x, e.y, rint(D.gold[0], D.gold[1]) * (1 + 0.12 * (L - 1)) / (D.boss || D.elite ? piles / 2 : 1));
   if (rand() < (D.boss ? 1 : D.elite ? 0.7 : e.champion ? 0.5 : 0.06)) dropPotion(e.x, e.y, rand() < 0.7 ? 'hp' : 'mp');
   // вещи: редкие и заметные. Рядовой враг почти никогда, чемпион — иногда, страж и босс — всегда
-  const ch = D.boss ? 1 : D.elite ? 0.8 : e.champion ? 0.3 : G.zoneId === 'wild' ? 0.04 : 0.025;
-  if (rand() < ch) dropItem(e.x, e.y, rollDrop(L + (D.boss || D.elite ? 1 : 0), D.boss ? [0, 40, 52, 8] : D.elite || e.champion ? [20, 55, 24, 1] : [62, 33, 5, 0]));
+  const ch = D.boss ? 1 : D.elite ? 0.8 : e.champion ? 0.25 : G.zoneId === 'wild' ? 0.04 : 0.025;
+  // таблицы: серый / зелёный / синий / золотой. Рядовые враги почти всегда дают серое
+  if (rand() < ch) dropItem(e.x, e.y, rollDrop(L + (D.boss || D.elite ? 1 : 0), D.boss ? [8, 47, 38, 7] : D.elite ? [30, 50, 19, 1] : e.champion ? [55, 38, 7, 0] : [88, 11, 1, 0]));
 }
 export function rollDrop(ilvl, table) {
   const P = G.profile, r = rollRarity(table);
@@ -47,10 +48,15 @@ export function pickEpic(cls) {
   return pick(pool);
 }
 export function chestLoot(x, y, rich, lvl, id) {
+  const n0 = G.pickups.length;
+  chestLoot0(x, y, rich, lvl, id);
+  for (let i = n0; i < G.pickups.length; i++) G.pickups[i].fly = true;
+}
+function chestLoot0(x, y, rich, lvl, id) {
   for (let i = 0; i < (rich ? 5 : 3); i++) dropGold(x, y, rint(3, 7) * (1 + 0.15 * (lvl - 1)));
   if (rich || rand() < 0.5) dropPotion(x, y, rand() < 0.75 ? 'hp' : 'mp');
   if (rich && rand() < 0.5) dropPotion(x, y, 'hp');
-  if (rand() < (rich ? 0.9 : 0.12)) dropItem(x, y + 0.2, rollDrop(lvl, rich ? [10, 55, 33, 2] : [55, 40, 5, 0]));
+  if (rand() < (rich ? 0.6 : 0.06)) dropItem(x, y + 0.2, rollDrop(lvl, rich ? [30, 50, 19, 1] : [82, 17, 1, 0]));
 }
 
 // pickups: gold automatically, items/potions automatically when room in bag
@@ -62,9 +68,8 @@ export function updatePickups(dt) {
     if (p.t < 0.35) continue;  // let the drop settle
     const d = Math.hypot(p.x - P.x, p.y - P.y);
     const reach = p.kind === 'gold' ? 1.6 : 1.1;
-    if (p.kind === 'gold' && d < 3) { // magnet
-      const k = Math.min(1, dt * 8 / Math.max(0.3, d)); p.x += (P.x - p.x) * k; p.y += (P.y - p.y) * k;
-    }
+    // магнит: золото и зелья подлетают сами; всё, что выпало из сундука (p.fly), — тоже, чтобы не бегать вокруг
+    if (p.fly || (p.kind !== 'item' && d < 3.2)) { const k = Math.min(1, dt * (p.fly ? 9 : 8) / Math.max(0.3, d)); p.x += (P.x - p.x) * k; p.y += (P.y - p.y) * k; }
     if (d > reach) continue;
     if (p.kind === 'gold' && G.zoneId === 'wild' && G.wild && !G.wild.done) {   // поход: золото идёт в ношу (см. nemesis.js)
       p.taken = true; G.wild.carry = (G.wild.carry || 0) + p.amount; G.wild.refresh && G.wild.refresh();

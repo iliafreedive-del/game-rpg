@@ -6,7 +6,7 @@ export const ENEMIES = {
   skel_mage: { name: 'Костяной колдун', atlas: 'skel_mage', skeleton: true, ai: 'caster', hp: 22, dmg: [5, 8], elem: 'light', speed: 2.0, range: 7, keep: 5.5, cd: 2.6, impact: 0.55, xp: 18, gold: [4, 9], armor: 2, radius: 0.32, proj: 'darkbolt', fps: { attack: 8 } },
   ghoul: { name: 'Упырь', atlas: 'ghoul', ai: 'fast', hp: 16, dmg: [3, 5], speed: 4.1, range: 1.0, cd: 0.85, impact: 0.5, xp: 11, gold: [1, 4], armor: 2, radius: 0.3, fps: { walk: 16, attack: 14 } },
   beast: { name: 'Пещерный зверь', atlas: 'beast', ai: 'beast', hp: 45, dmg: [7, 11], speed: 2.8, range: 1.3, cd: 3.2, impact: 0.5, xp: 22, gold: [3, 8], armor: 8, radius: 0.45, fps: { walk: 12, attack: 12 } },
-  elite_guard: { name: 'Страж Медальона', atlas: 'elite', elite: true, skeleton: true, ai: 'elite', hp: 280, dmg: [8, 13], speed: 2.5, range: 1.7, cd: 1.9, impact: 0.6, xp: 160, gold: [60, 90], armor: 20, radius: 0.5, fps: { walk: 10, attack: 10, attack2: 10 } },
+  elite_guard: { name: 'Хранитель амулета', atlas: 'elite', elite: true, skeleton: true, ai: 'elite', hp: 280, dmg: [8, 13], speed: 2.5, range: 1.7, cd: 1.9, impact: 0.6, xp: 160, gold: [60, 90], armor: 20, radius: 0.5, fps: { walk: 10, attack: 10, attack2: 10 } },
   boss: { name: 'Палач Бездны', atlas: 'boss', boss: true, ai: 'boss', hp: 800, dmg: [11, 16], speed: 2.5, range: 2.3, cd: 1.7, impact: 0.6, xp: 700, gold: [200, 260], armor: 16, radius: 0.75, fps: { walk: 9, attack: 10, attack2: 10, slam: 11, roar: 9 } },
 };
 for (const [k, m] of Object.entries(WILD_MOBS)) ENEMIES[k] = { ...m, atlas: 'w_' + k };   // походы: графика выводится из базовых спрайтов (world/wildfloor.js)

@@ -34,7 +34,7 @@ export function claimDaily(id) {
   const r = dqReward(); P.gold += r.gold; P.potions.hp += r.potions;
   bus.emit('toast', { text: 'Ежедневное задание выполнено', sub: `+${r.gold} зол. · +${r.potions} зелье`, kind: 'good' }); bus.emit('sfx', 'quest');
   if (P.dq.list.every(x => x.claimed) && !P.dq.bonus) {
-    P.dq.bonus = true; const it = makeItem({ ilvl: P.level + 1, rarity: 2, cls: P.cls }); delete it.req;
+    P.dq.bonus = true; const it = makeItem({ ilvl: P.level + 1, rarity: 1, cls: P.cls }); delete it.req;
     const e = autoEquip(it); P.gold += 100 * P.level;
     bus.emit('reward', { title: 'Сундук дня', sub: 'Все ежедневные задания выполнены', gold: 100 * P.level, xp: 0, potions: 0, scrolls: 0, skillPts: 0, items: [e] });
   }

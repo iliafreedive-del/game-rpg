@@ -11,10 +11,10 @@ export const CLASSES = {
 export const GROWTH = { warrior: { str: 2, vit: 2, dex: 1, int: 0 }, archer: { dex: 3, vit: 1, str: 1, int: 0 }, mage: { int: 3, vit: 1, dex: 1, str: 0 } };
 export const SLOT_NAMES = { weapon: 'Оружие', head: 'Шлем', chest: 'Доспех', amulet: 'Амулет' };
 export const RARITY = [
-  { id: 'white', name: 'Обычный', color: '#e8e2d4', affixes: [0, 0] },
-  { id: 'blue', name: 'Магический', color: '#6ea8ff', affixes: [1, 2] },
-  { id: 'yellow', name: 'Редкий', color: '#f2cf4a', affixes: [3, 4] },
-  { id: 'purple', name: 'Эпический', color: '#c07bff', affixes: [4, 5] },
+  { id: 'white', name: 'Обычный', color: '#b9b4a6', affixes: [0, 0] },
+  { id: 'green', name: 'Необычный', color: '#5fd16a', affixes: [1, 1] },
+  { id: 'blue', name: 'Редкий', color: '#6ea8ff', affixes: [2, 3] },
+  { id: 'purple', name: 'Эпический', color: '#f2cf4a', affixes: [4, 5] },
 ];
 
 // Weapon profiles — differ in speed, range, animation and ability, not only damage.
@@ -83,10 +83,6 @@ export const AFFIXES = {
   fire:     { name: v => `+${v}% к урону огнём`, g: 'WJ', r: l => [8, 15 + l * 2], w: 5 },
   cold:     { name: v => `+${v}% к урону льдом`, g: 'WJ', r: l => [8, 15 + l * 2], w: 5 },
   light:    { name: v => `+${v}% к урону молнией`, g: 'WJ', r: l => [8, 15 + l * 2], w: 5 },
-  resAll:   { name: v => `+${v}% ко всем сопротивлениям`, g: 'AOJ', r: l => [4, 8 + l], w: 5 },
-  resFire:  { name: v => `+${v}% сопр. огню`, g: 'AO', r: l => [8, 15 + l * 2], w: 4 },
-  resCold:  { name: v => `+${v}% сопр. холоду`, g: 'AO', r: l => [8, 15 + l * 2], w: 4 },
-  resLight: { name: v => `+${v}% сопр. молнии`, g: 'AO', r: l => [8, 15 + l * 2], w: 4 },
   regen:    { name: v => `+${v} маны в секунду`, g: 'JAW', r: l => [1, 2 + (l >> 2)], w: 4 },
   leech:    { name: v => `+${v} здоровья за удар`, g: 'WJ', r: l => [1, 2 + (l >> 1)], w: 4 },
   goldFind: { name: v => `+${v}% к находимому золоту`, g: 'AJ', r: l => [10, 25 + l * 2], w: 4 },

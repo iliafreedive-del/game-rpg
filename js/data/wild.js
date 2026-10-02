@@ -51,8 +51,19 @@ export const REALMS = {
     ],
   },
 };
-export const BOSS_EVERY = 5;
+// Цикл похода: пять разных открытых полей подряд, в конце каждого — портал «Вглубь» (следующее поле требует уровня);
+// шестая локация — захваченный форт (сцена с отбиванием форта). Каждый второй форт — босс.
+export const FIELDS_PER_FORT = 5;
+export const FORT_EVERY = FIELDS_PER_FORT + 1, BOSS_EVERY = FORT_EVERY * 2;
+export const isWildFort = d => d % FORT_EVERY === 0;
 export const isWildBoss = d => d % BOSS_EVERY === 0;
+export const FIELD_NAMES = {
+  forest: ['Опушка', 'Берёзовая роща', 'Каменистые ручьи', 'Дремучий бор', 'Бурелом'],
+  fjord: ['Береговая полоса', 'Ледяное поле', 'Ущелье ветров', 'Замёрзший залив', 'Курганы ётунов'],
+};
+export const fieldVariant = d => isWildFort(d) ? FIELDS_PER_FORT : (d - 1) % FORT_EVERY;
+export const locationName = (realm, d) => isWildFort(d) ? REALMS[realm].fortName : FIELD_NAMES[realm][fieldVariant(d)];
+export const wildReqLevel = (realm, d) => Math.max(1, wildLevel(realm, d) - 2);
 export const moodOf = (realm, depth) => REALMS[realm].moods[Math.min(2, Math.floor((depth - 1) / 2))];
 export const wildLevel = (realm, depth) => REALMS[realm].baseLevel + Math.floor((depth - 1) * 0.9);
 
@@ -65,7 +76,7 @@ export const WILD_QUESTS = {
     { id: 'fj_fort', title: 'Сорвать флаг с форта', text: 'Отбейте захваченный форт: убейте его командира.', stat: 'forts', n: 1, reward: { xp: 260, gold: 140, items: [R('weapon', 2, 2, { warrior: 'Секира берега', archer: 'Лук фьорда', mage: 'Посох инея' })] } },
     { id: 'fj_jotun', title: 'Гроза великанов', text: 'Убейте 3 ётунов-великанов.', stat: 'k_f_jotun', n: 3, reward: { xp: 320, gold: 180, skillPts: 1 } },
     { id: 'fj_deep', title: 'Вглубь, к ледникам', text: 'Дойдите до глубины 3.', stat: 'depth', n: 3, reward: { xp: 300, gold: 150, potions: 3 } },
-    { id: 'fj_boss', title: 'Король фьордов', text: 'Победите Ётуна Скъёльда (глубина 5).', stat: 'bosses', n: 1, reward: { xp: 600, gold: 400, items: [{ slot: 'weapon', epic: true }] } },
+    { id: 'fj_boss', title: 'Король фьордов', text: 'Победите Ётуна Скъёльда (форт-босс, глубина 12).', stat: 'bosses', n: 1, reward: { xp: 600, gold: 400, items: [{ slot: 'weapon', epic: true }] } },
   ],
   forest: [
     { id: 'fr_kill', title: 'Охота на опушке', text: 'Убейте 15 лесных тварей.', stat: 'kills', n: 15, reward: { xp: 120, gold: 70, potions: 2 } },
@@ -73,6 +84,6 @@ export const WILD_QUESTS = {
     { id: 'fr_fort', title: 'Разорить острог', text: 'Отбейте разбойничий острог: убейте атамана.', stat: 'forts', n: 1, reward: { xp: 220, gold: 120, items: [R('weapon', 1, 2, { warrior: 'Тесак атамана', archer: 'Лук Рваного Уха', mage: 'Посох лесника' })] } },
     { id: 'fr_leshy', title: 'Не к ночи помянут', text: 'Убейте 4 леших.', stat: 'k_w_leshy', n: 4, reward: { xp: 260, gold: 150, skillPts: 1 } },
     { id: 'fr_deep', title: 'В самую глушь', text: 'Дойдите до глубины 3.', stat: 'depth', n: 3, reward: { xp: 250, gold: 130, potions: 3 } },
-    { id: 'fr_boss', title: 'Хозяин Чащи', text: 'Победите Хозяина Чащи (глубина 5).', stat: 'bosses', n: 1, reward: { xp: 520, gold: 350, items: [{ slot: 'weapon', epic: true }] } },
+    { id: 'fr_boss', title: 'Хозяин Чащи', text: 'Победите Хозяина Чащи (форт-босс, глубина 12).', stat: 'bosses', n: 1, reward: { xp: 520, gold: 350, items: [{ slot: 'weapon', epic: true }] } },
   ],
 };

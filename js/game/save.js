@@ -1,10 +1,11 @@
 // Save System: versioned profile in localStorage (+ optional cloud via platform), migrations from build 1.x.
 import { makeItem, makeStarterGear, sellValue } from './items.js';
 import { CLASSES, SLOTS, GROWTH } from '../data/items.js';
+import { STORY } from '../data/quests.js';
 
 export const SAVE_KEY = 'dark_ascent_save_v2';
 export const LEGACY_KEYS = ['dark_ascent_chapter1_save', 'dark_ascent_v03_save'];
-export const SAVE_VERSION = 4;
+export const SAVE_VERSION = 6;
 
 export function newProfile(cls = 'warrior') {
   const p = {
@@ -53,7 +54,20 @@ function migrateV1(old) {
   return p;
 }
 const OLD_UPG = { critDmg: [110, 1.18], move: [140, 1.22], mp: [35, 1.15], regen: [60, 1.17] };
+const RES_KEYS = ['resAll', 'resFire', 'resCold', 'resLight'];
 const MIGRATIONS = {
+  // v5 → v6: цепочка сюжета изменилась (задание «Победить стража» слито с амулетом): стадия — по списку выполненных
+  5: p => {
+    if (p.story) { const done = new Set(p.story.done || []); let st = 0; while (st < STORY.length && done.has(STORY[st].id)) st++; p.story.stage = st; if (p.story.flags && p.story.flags.medallion) p.world.hasMedallion = true; }
+    p.v = 6; return p;
+  },
+  // v4 → v5: сопротивления стихиям убраны; редкости переименованы (серый/зелёный/синий/золотой)
+  4: p => {
+    const strip = it => { if (it && it.affixes) it.affixes = it.affixes.filter(a => !RES_KEYS.includes(a.k)); };
+    Object.values(p.gear || {}).forEach(strip); (p.bag || []).forEach(strip);
+    if (p.shop && p.shop.stock) p.shop.stock.forEach(strip);
+    p.v = 5; return p;
+  },
   // v3 → v4: характеристики растут сами; из золотых усилений остаются 4 — остальные возвращаются золотом.
   3: p => {
     let pts = Math.max(0, p.attrPts | 0); p.attrPts = 0;
