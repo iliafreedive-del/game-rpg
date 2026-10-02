@@ -6,14 +6,15 @@ export function skeleton(kit, L = {}) {
   {
     const { THREE, PAL, MOB, part, merge, ball, group, rig, pivot } = kit;
     const { clamp, smooth, lerp, footTarget, legIK } = rig;
-    const BONE = MOB.bone, BONE_D = MOB.boneD, RUST = MOB.rust, IRON = MOB.iron, DARKS = MOB.dark, EYE = MOB.eye;
+    const PA = L.pal || {};   // палитра варианта: кости, броня, глаза (ледяные драугры, лесные духи…)
+    const BONE = PA.bone ?? MOB.bone, BONE_D = PA.boneD ?? MOB.boneD, RUST = PA.rust ?? MOB.rust, IRON = PA.iron ?? MOB.iron, DARKS = MOB.dark, EYE = PA.eye ?? MOB.eye;
     const mat = kit.mat({ rim: MOB.rim, rimColor: L.rimColor ?? MOB.rimColor.skel });
     const CL = L.cloth ?? 0x2a1d44, CLL = L.clothL ?? 0x4a3578, SC = L.scale ?? 1;
     const M = g => new THREE.Mesh(g, mat);
     const root = new THREE.Group();
     const { spin, body: rigG } = pivot(root, 0.5);
 
-    const BONE_T = { top: 0xfff6e2 }, RUST_T = { top: 0x9a6a4c, tex: 'metal' };
+    const BONE_T = { top: PA.boneL ?? 0xfff6e2 }, RUST_T = { top: PA.rustL ?? 0x9a6a4c, tex: 'metal' };
     // головные уборы вариантов
     function helm(kind) {
       if (kind === 'hood') return [kit.lathe([[0.0, 0.47], [0.17, 0.43], [0.26, 0.3], [0.27, 0.12], [0.24, -0.02]], CL, [0, 0, -0.04], 0, [1, 1, 1.05], { top: CLL, tex: 'cloth' }, 12),
@@ -21,6 +22,18 @@ export function skeleton(kit, L = {}) {
       if (kind === 'horned') return [part(new THREE.TorusGeometry(0.21, 0.03, 4, 14), PAL.boneD, [0, 0.3, 0], [Math.PI / 2, 0, 0], [1, 1.1, 1], { top: PAL.bone }),
         ...[-1, 1].flatMap(sx => [kit.tube([[sx * 0.17, 0.32, 0], [sx * 0.32, 0.5, -0.05], [sx * 0.36, 0.75, -0.15], [sx * 0.3, 0.95, -0.25]], 0.06, 0.015, PAL.boneD, { top: 0xffffff }, 6), part(new THREE.ConeGeometry(0.035, 0.18, 4), PAL.bone, [sx * 0.08, 0.48, 0.1], [0, 0, -sx * 0.3])]),
         part(new THREE.OctahedronGeometry(0.06, 0), PAL.abyss, [0, 0.42, 0.2], 0, [1, 1.4, 0.5], { emit: true })];
+      if (kind === 'viking') return [kit.lathe([[0.0, 0.5], [0.15, 0.46], [0.24, 0.34], [0.26, 0.16], [0.26, 0.08]], IRON, [0, 0, 0], 0, [1, 1, 1.06], { top: PA.ironL ?? 0xa0aac0, tex: 'metal' }, 12),
+        kit.bbox(0.05, 0.18, 0.04, 0.01, IRON, [0, 0.18, 0.26], 0, { top: PA.ironL ?? 0xa0aac0, tex: 'metal' }),
+        part(new THREE.TorusGeometry(0.26, 0.022, 4, 16), PAL.brassD, [0, 0.1, 0], [Math.PI / 2, 0, 0], [1, 1.06, 1]),
+        ...[-1, 1].map(sx => kit.tube([[sx * 0.24, 0.26, 0], [sx * 0.42, 0.3, 0.02], [sx * 0.5, 0.5, 0.0], [sx * 0.44, 0.7, -0.04]], 0.055, 0.012, PA.boneD ?? PAL.boneD, { top: 0xffffff }, 6))];
+      if (kind === 'crown') return [kit.lathe([[0.25, 0.0], [0.27, 0.1], [0.27, 0.3], [0.2, 0.44], [0.1, 0.48], [0.0, 0.5]], IRON, [0, 0, 0], 0, [1, 1, 1.08], { top: PA.ironL ?? 0xa0aac0, tex: 'metal' }, 14),
+        kit.bbox(0.36, 0.05, 0.1, 0.01, 0x07050f, [0, 0.22, 0.24]), part(new THREE.BoxGeometry(0.28, 0.025, 0.02), EYE, [0, 0.22, 0.29], 0, 1, { emit: true }),
+        part(new THREE.TorusGeometry(0.27, 0.03, 4, 16), PAL.brass, [0, 0.42, 0], [Math.PI / 2, 0, 0], [1, 1.08, 1], { top: 0xf0c868 }),
+        ...[0, 1, 2, 3, 4, 5].map(i => { const a = i / 6 * 6.283; return part(new THREE.ConeGeometry(0.04, 0.2 + (i % 2) * 0.1, 4), PAL.brass, [Math.cos(a) * 0.27, 0.54, Math.sin(a) * 0.29], 0, 1, { top: 0xf0c868 }); })];
+      if (kind === 'antler') return [...[-1, 1].flatMap(sx => [kit.tube([[sx * 0.1, 0.38, -0.02], [sx * 0.2, 0.55, -0.05], [sx * 0.34, 0.78, -0.08], [sx * 0.3, 1.0, -0.12]], 0.05, 0.012, PA.boneD ?? BONE_D, { top: PA.bone ?? BONE, tex: 'bark' }, 6),
+          kit.tube([[sx * 0.2, 0.55, -0.05], [sx * 0.4, 0.62, 0.02], [sx * 0.5, 0.78, 0.04]], 0.03, 0.01, PA.boneD ?? BONE_D, { top: PA.bone ?? BONE }, 5),
+          kit.tube([[sx * 0.32, 0.74, -0.08], [sx * 0.2, 0.88, 0.0], [sx * 0.16, 1.0, 0.04]], 0.025, 0.008, PA.boneD ?? BONE_D, { top: PA.bone ?? BONE }, 5)]),
+        ...(L.moss ? [part(new THREE.SphereGeometry(0.16, 7, 5), L.moss, [0.08, 0.38, -0.04], 0, [1.2, 0.5, 1], { top: 0x8ac46a, tex: 'cloth' }), part(new THREE.SphereGeometry(0.12, 7, 5), L.moss, [-0.1, 0.34, 0.05], 0, [1.2, 0.5, 1], { top: 0x8ac46a, tex: 'cloth' })] : [])];
       if (kind === 'great') return [kit.lathe([[0.25, 0.0], [0.27, 0.1], [0.27, 0.3], [0.22, 0.42], [0.1, 0.48], [0.0, 0.5]], IRON, [0, 0, 0], 0, [1, 1, 1.08], { top: 0x9aa3bd, tex: 'metal' }, 14),
         kit.bbox(0.36, 0.05, 0.1, 0.01, 0x07050f, [0, 0.22, 0.24]), part(new THREE.BoxGeometry(0.28, 0.025, 0.02), EYE, [0, 0.22, 0.29], 0, 1, { emit: true }),
         part(new THREE.TorusGeometry(0.27, 0.02, 4, 16), PAL.brassD, [0, 0.06, 0], [Math.PI / 2, 0, 0], [1, 1.08, 1]),
@@ -30,6 +43,16 @@ export function skeleton(kit, L = {}) {
         part(new THREE.TorusGeometry(0.255, 0.02, 4, 16), PAL.brassD, [0, 0.25, 0], [Math.PI / 2, 0, 0], [1, 1.08, 1]),
         kit.bbox(0.04, 0.14, 0.03, 0.01, RUST, [0, 0.22, 0.27], 0, RUST_T),
         kit.bbox(0.04, 0.12, 0.28, 0.01, PAL.brass, [0, 0.46, 0], 0, { top: 0xf0c868 })];
+    }
+    // добавки варианта: меховой воротник (fur), ледяные кристаллы на плечах и спине (spikes), мох (moss)
+    function extrasBody() {
+      const o = [];
+      if (L.fur) { o.push(part(new THREE.TorusGeometry(0.23, 0.08, 6, 14), L.fur, [0, 0.66, 0.02], [Math.PI / 2, 0, 0], [1, 1, 0.9], { top: L.furL ?? L.fur, tex: 'cloth' }));
+        for (const sx of [-1, 1]) o.push(part(new THREE.SphereGeometry(0.17, 8, 6), L.fur, [sx * 0.36, 0.64, 0], 0, [1.15, 0.8, 1.15], { top: L.furL ?? L.fur, tex: 'cloth' })); }
+      if (L.spikes) for (const sx of [-1, 1]) for (let i = 0; i < 3; i++) o.push(part(new THREE.ConeGeometry(0.045 + (i === 1 ? 0.02 : 0), 0.22 + (i === 1 ? 0.12 : 0), 5), L.spikes, [sx * (0.34 + i * 0.05), 0.8 + (i === 1 ? 0.06 : 0), -0.04 + i * 0.07], [0, 0, -sx * (0.35 + i * 0.3)], 1, { top: 0xffffff, emit: true }));
+      if (L.spikes) for (let i = 0; i < 3; i++) o.push(part(new THREE.ConeGeometry(0.05, 0.28 - i * 0.04, 5), L.spikes, [(i - 1) * 0.12, 0.5 + i % 2 * 0.1, -0.2], [-0.5, 0, (i - 1) * 0.3], 1, { top: 0xffffff, emit: true }));
+      if (L.moss) { for (const [x, y, z, r] of [[0.34, 0.66, 0, 0.14], [-0.3, 0.5, -0.1, 0.12], [0.05, 0.3, 0.17, 0.1], [0, 0.56, -0.2, 0.15]]) o.push(part(new THREE.SphereGeometry(r, 7, 5), L.moss, [x, y, z], 0, [1.2, 0.6, 1.2], { top: 0x8ac46a, tex: 'cloth' })); }
+      return o;
     }
     const body = group([0, 0.85, 0], rigG);
     body.add(M(merge([
@@ -55,6 +78,7 @@ export function skeleton(kit, L = {}) {
       ...(L.robe ? [kit.lathe([[0.2, 0.05], [0.26, -0.2], [0.34, -0.5], [0.42, -0.82]], CL, [0, 0, 0], 0, [1.05, 1, 0.9], { top: CLL, tex: 'cloth' }, 12),
         kit.lathe([[0.18, 0.62], [0.26, 0.5], [0.24, 0.25], [0.2, 0.05]], CL, [0, 0, 0], 0, [1.1, 1, 0.85], { top: CLL, tex: 'cloth' }, 12),
         ...[-1, 1].map(sx => kit.bbox(0.05, 0.9, 0.03, 0.01, PAL.brassD, [sx * 0.08, 0.1, 0.27], [0.12, 0, 0], { top: PAL.brass }))] : []),
+      ...extrasBody(),
       // рваная набедренная повязка Бездны и ржавый пояс
       kit.bbox(0.32, 0.4, 0.04, 0.01, CL, [0, -0.2, 0.1], [0.08, 0, 0], { top: CLL, tex: 'cloth' }),
       ...[-0.1, 0.06].map(x => part(new THREE.ConeGeometry(0.06, 0.12, 3), CL, [x, -0.44, 0.115], [Math.PI, 0, 0], [1, 1, 0.2], { tex: 'cloth' })),

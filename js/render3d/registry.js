@@ -9,6 +9,24 @@ import skel_mage from './models/mob/skel_mage.js';
 import beast from './models/mob/beast.js';
 import elite_guard from './models/mob/elite_guard.js';
 import boss from './models/mob/boss.js';
+import f_draugr from './models/mob/f_draugr.js';
+import f_berserk from './models/mob/f_berserk.js';
+import f_hag from './models/mob/f_hag.js';
+import f_jotun from './models/mob/f_jotun.js';
+import f_jarl from './models/mob/f_jarl.js';
+import w_poacher from './models/mob/w_poacher.js';
+import w_leshy from './models/mob/w_leshy.js';
+import w_ataman from './models/mob/w_ataman.js';
+import f_wolf from './models/mob/f_wolf.js';
+import w_wolf from './models/mob/w_wolf.js';
+import w_boar from './models/mob/w_boar.js';
+import w_bear from './models/mob/w_bear.js';
+import f_boss from './models/mob/f_boss.js';
+import w_boss from './models/mob/w_boss.js';
+import axe_hand from './models/weapon/axe_hand.js';
+import club_giant from './models/weapon/club_giant.js';
+import staff_ice from './models/weapon/staff_ice.js';
+import staff_root from './models/weapon/staff_root.js';
 import npc_elder from './models/npc/npc_elder.js';
 import npc_smith from './models/npc/npc_smith.js';
 import npc_merchant from './models/npc/npc_merchant.js';
@@ -89,9 +107,9 @@ import stump from './models/prop/stump.js';
 
 const by = (...l) => Object.fromEntries(l.map(m => [m.id, m]));
 export const HEROES = by(warrior);                       // ключ — класс героя
-export const MOBS = by(skel_warrior, ghoul, skel_archer, skel_mage, beast, elite_guard, boss);             // ключ — тип врага (ENEMIES)
+export const MOBS = by(skel_warrior, ghoul, skel_archer, skel_mage, beast, elite_guard, boss, f_draugr, f_berserk, f_hag, f_jotun, f_jarl, w_poacher, w_leshy, w_ataman, f_wolf, w_wolf, w_boar, w_bear, f_boss, w_boss);             // ключ — тип врага (ENEMIES)
 export const NPCS = by(npc_elder, npc_smith, npc_merchant, npc_trainer);
-export const WEAPONS = by(sword_iron, shield_round, sword_rust, shield_bone, bow_bone, staff_bone, axe_great);
+export const WEAPONS = by(axe_hand, club_giant, staff_ice, staff_root, sword_iron, shield_round, sword_rust, shield_bone, bow_bone, staff_bone, axe_great);
 export const PROPS = by(tree_0, tree_1, tree_birch, tree_autumn, tree_elm, tree_pine_tall, tree_fir_blue, deadtree, house_0, house_1, house_2, rocks, grave, fence_x, fence_y, barrel, crate, hay, lamp, runebed, forge, stall, board, altar, banner, statue, weapon_rack, crystals, portal,
   fern, flowers, pebbles, mushrooms, bush, sacks, logpile, stump,
   dwall_hi, dwall_lo, dwall_buttress, dwall_niche, wall_block, torch_sconce, pillar, brazier, bones, skulls, rubble, candles, chest, chest_open, chest_rich, chest_rich_open, sarcophagus, sarcophagus_open, door, door_open, gate_sealed, altar_medallion, stalagmite, lavarock, puddle, rug, bookshelf, throne, well);   // подземелье (стены dwall_* ставит dungeon.js по тайлам)   // последние восемь — декор земли и хлам у домов (js/render3d/props.js, scatterDecor), в картах не стоят
