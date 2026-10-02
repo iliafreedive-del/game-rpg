@@ -22,7 +22,7 @@ export function noise(x, y) {
 export const fbm = (x, y) => noise(x, y) * 0.55 + noise(x * 2.1, y * 2.1) * 0.3 + noise(x * 4.3, y * 4.3) * 0.15;
 
 // id рисованной фактуры (js/render3d/textures.js MATS) → атрибут вершины aTex; 0 — без фактуры
-export const TEX_ID = { none: 0, wood: 1, woodH: 2, stone: 3, roof: 4, plaster: 5, metal: 6, cloth: 7, bark: 8 };
+export const TEX_ID = { none: 0, wood: 1, woodH: 2, stone: 3, roof: 4, plaster: 5, metal: 6, cloth: 7, bark: 8, tile: 9, thatch: 10, cobble: 11, iron: 12, leather: 13, gold: 14, bone: 15, crystal: 16 };
 const _c = new THREE.Color();
 // paint a geometry with a flat colour (or a bottom→top gradient); returns a non-indexed copy
 export function paint(geo, color, { top = null, y0 = null, y1 = null, emit = false, tex = null } = {}) {

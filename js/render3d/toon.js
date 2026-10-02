@@ -1,7 +1,7 @@
 // Stylised materials: soft 3-band toon ramp + rim light + self-lit vertex flag + wind sway + inverted-hull outline.
 // All variants are MeshToonMaterial / MeshBasicMaterial patched in onBeforeCompile, so three.js lights & fog keep working.
 import * as THREE from '../vendor/three.module.min.js';
-import { matTex, MATS } from './textures.js';
+import { matArray, MAT_SCALE, MAT_AMP } from './textures.js';
 
 // global uniforms shared by every patched shader
 export const U = {
@@ -85,29 +85,28 @@ const addAO = (sh, k, h) => {
 // рисованные фактуры: triplanar в пространстве модели (персонажи и instanced-предметы: фактура не «плывёт» при движении).
 // id из атрибута aTex выбирает текстуру; градиенты UV считаются до ветвления, выборка — textureGrad (мипмапы без швов)
 let TEXU = null;
-const texUniforms = () => TEXU || (TEXU = Object.fromEntries(['wood', 'stone', 'roof', 'plaster', 'metal', 'cloth', 'bark'].map(k => ['t_' + k, { value: matTex(k) }])));
-const S = n => MATS[n][1].toFixed(3);
+const texUniforms = () => TEXU || (TEXU = { tMats: { value: matArray() } });
+const arr = a => `float[${a.length}](${a.map(v => v.toFixed(2)).join(',')})`;
+const TEX_PARS = `const float MSC[${MAT_SCALE.length}] = ${arr(MAT_SCALE)};\nconst float MAMP[${MAT_AMP.length}] = ${arr(MAT_AMP)};\n`;
 const TEX_F = /* glsl */`
-{
+if (vTexId > 0.5) {
   vec3 an = abs(normalize(vTN)); vec3 tw = pow(an, vec3(4.0)); tw /= (tw.x + tw.y + tw.z);
   float id = floor(vTexId + 0.5);
+  float L = id < 2.5 ? 0.0 : id - 2.0;
   bool vert = id == 1.0 || id == 8.0;   // волокна вдоль Y
-  vec2 ux = vert ? vTP.yz : vTP.zy, uy = vTP.xz, uz = vert ? vTP.yx : vTP.xy;
-  float sc = id < 2.5 ? ${S('wood')} : id < 3.5 ? ${S('stone')} : id < 4.5 ? ${S('roof')} : id < 5.5 ? ${S('plaster')} : id < 6.5 ? ${S('metal')} : id < 7.5 ? ${S('cloth')} : ${S('bark')};
-  ux *= sc; uy *= sc; uz *= sc;
+  float sc = MSC[int(L)];
+  vec2 ux = (vert ? vTP.yz : vTP.zy) * sc, uy = vTP.xz * sc, uz = (vert ? vTP.yx : vTP.xy) * sc;
   vec2 dxX = dFdx(ux), dyX = dFdy(ux), dxY = dFdx(uy), dyY = dFdy(uy), dxZ = dFdx(uz), dyZ = dFdy(uz);
-  float d = 0.5;
-  #define TRI(T) d = textureGrad(T, ux, dxX, dyX).r * tw.x + textureGrad(T, uy, dxY, dyY).r * tw.y + textureGrad(T, uz, dxZ, dyZ).r * tw.z
-  if (id < 0.5) d = 0.5;
-  else if (id < 2.5) { TRI(t_wood); }
-  else if (id < 3.5) { TRI(t_stone); }
-  else if (id < 4.5) { TRI(t_roof); }
-  else if (id < 5.5) { TRI(t_plaster); }
-  else if (id < 6.5) { TRI(t_metal); }
-  else if (id < 7.5) { TRI(t_cloth); }
-  else { TRI(t_bark); }
-  float amp = id < 4.5 ? 3.2 : id < 5.5 ? 2.5 : id < 6.5 ? 1.4 : id < 7.5 ? 2.2 : 3.2;   // металл спокойнее дерева и камня
-  diffuseColor.rgb *= clamp(1.0 + (d - 0.5) * amp, 0.3, 1.6);
+  vec3 m = textureGrad(tMats, vec3(ux, L), dxX, dyX).rgb * tw.x + textureGrad(tMats, vec3(uy, L), dxY, dyY).rgb * tw.y + textureGrad(tMats, vec3(uz, L), dxZ, dyZ).rgb * tw.z;
+  vec3 f = clamp(1.0 + (m - 0.5) * MAMP[int(L)], 0.25, 1.8);
+  // второй слой — износ: дерево, камень, штукатурка и брусчатка грязнее и темнее у земли; на камне сверху мох
+  if (id < 3.5 || id == 5.0 || id == 11.0) {
+    float nzs = 0.5 + 0.5 * sin(vTP.x * 1.9 + sin(vTP.z * 2.3 + vTP.y * 1.3) * 2.1 + vTP.y * 3.1);
+    float low = 1.0 - smoothstep(0.0, 1.15, vTP.y);
+    f *= mix(vec3(1.0), vec3(0.58, 0.52, 0.44), low * (0.45 + 0.55 * nzs) * 0.8);
+    if (id == 3.0 || id == 11.0) f *= mix(vec3(1.0), vec3(0.62, 0.98, 0.5), smoothstep(0.55, 0.95, an.y) * smoothstep(0.3, 0.8, nzs) * 0.65);
+  }
+  diffuseColor.rgb *= f;
 }
 `;
 // world: фактура в мировых координатах (стены подземелья — кладка не повторяется блок к блоку)
@@ -121,7 +120,7 @@ const TEX_WORLD = `
 const addTex = (sh, world) => {
   Object.assign(sh.uniforms, texUniforms());
   sh.vertexShader = 'attribute float aTex; varying float vTexId; varying vec3 vTP; varying vec3 vTN;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvTexId = aTex; ' + (world ? TEX_WORLD : 'vTP = position; vTN = normal;'));
-  sh.fragmentShader = 'uniform sampler2D t_wood, t_stone, t_roof, t_plaster, t_metal, t_cloth, t_bark; varying float vTexId; varying vec3 vTP; varying vec3 vTN;\n' +
+  sh.fragmentShader = 'uniform highp sampler2DArray tMats; varying float vTexId; varying vec3 vTP; varying vec3 vTN;\n' + TEX_PARS +
     sh.fragmentShader.replace('#include <color_fragment>', '#include <color_fragment>\n' + TEX_F);
 };
 const addFade = sh => {
