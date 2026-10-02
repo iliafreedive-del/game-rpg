@@ -272,7 +272,7 @@ export class Zone {
         }
         case 'echo': {
           const d = this.add({ x: o.x, y: o.y, spr: 'bones' }); const L = this.addLight(o.x, o.y, { r: 3.2, c: [140, 200, 255], flicker: 0.5, z: 0.8 });
-          this.inter.push({ id: o.id, type: 'echo', x: o.x, y: o.y, r: 1.4, label: o.mine ? 'Эхо вашего падения' : 'Эхо павшего', draw: d, light: L, mine: !!o.mine, lost: o.lost || 0, name: o.name, lvl: o.lvl, mob: o.mob, dir: o.dir }); break;
+          this.inter.push({ id: o.id, type: 'echo', x: o.x, y: o.y, r: 1.4, label: o.mine ? 'Эхо вашего падения' : 'Эхо павшего', draw: d, light: L, mine: !!o.mine, lost: o.lost || 0, cls: o.cls, key: o.key, tip: o.tip, name: o.name, lvl: o.lvl, mob: o.mob, dir: o.dir }); break;
         }
         case 'stash': {
           const d = this.add({ x: o.x, y: o.y, spr: o.kind }); this.map.circles.push({ x: o.x, y: o.y, r: 0.3 });

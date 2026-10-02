@@ -27,6 +27,8 @@ await pg.screenshot({ path: 'shots/r2_cache_used.png' });
 // Эхо странника
 await J(async () => { const e = __G.zone.inter.find(i => i.type === 'echo'); if (e) { __G.player.x = e.x; __G.player.y = e.y + 1; const m = await import('/js/game/wildmem.js'); m.useEcho(e); } });
 await pg.waitForTimeout(600); await pg.screenshot({ path: 'shots/r2_echo.png' });
+await J(() => { const e = __G.zone.inter.find(i => i.type === 'echo'); __G.player.x = e.x + 2.2; __G.player.y = e.y + 2.2; __G.cam.x = e.x; __G.cam.y = e.y; }); await pg.waitForTimeout(900); await pg.screenshot({ path: 'shots/r2_echo_ghost.png' });
+console.log('npcs', JSON.stringify(await J(() => __G.npcs.map(n => [n.id, n.name]))));
 // смерть → своё Эхо; поле помнит смерти
 for (let i = 0; i < 2; i++) {
   await enter(); await J(async () => { const C = await import('/js/game/combat.js'); const k = __G.enemies.find(e => e.story === 'wildkeep'); __G.player.inv = 0; k.aggro = true; __G.wild.carry = 100; C.hurtPlayer(k, 1e6, 'phys'); });
