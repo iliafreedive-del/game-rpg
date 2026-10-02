@@ -5,7 +5,8 @@ import * as R2 from './renderer.js';
 import { G } from '../game/ctx.js';
 
 export const loadFloor = R2.loadFloor, buildFloorCanvas = R2.buildFloorCanvas;
-const mode = new URLSearchParams(location.search).get('render');
+let saved = null; try { saved = localStorage.getItem('da_render'); } catch { }
+const mode = new URLSearchParams(location.search).get('render') || saved;   // ?render=2d|3d, иначе выбор в настройках
 let R3 = null, on3 = false;
 
 export async function initRenderer(canvas) {
@@ -16,6 +17,11 @@ export async function initRenderer(canvas) {
   }
   R2.initRenderer(canvas, { overlay: !!R3 });
   if (R3) { R3.init(); G.render3d = true; }
+  // поворот экрана/изменение окна: 2D-рендерер сам слушает resize, но 3D-холст надо пересобрать тоже — иначе картинка растягивается
+  const again = () => { if (R3 && G.cam) R3.resize(G.cam.w, G.cam.h); };
+  addEventListener('resize', () => { again(); setTimeout(again, 120); });
+  if (window.visualViewport) visualViewport.addEventListener('resize', again);
+  addEventListener('orientationchange', () => { for (const t of [80, 300, 700, 1300]) setTimeout(again, t); });
 }
 export function resize() {
   R2.resize();

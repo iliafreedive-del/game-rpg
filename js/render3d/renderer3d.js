@@ -41,7 +41,8 @@ export function webglAvailable() {
 }
 // что умеет 3D-срез прямо сейчас: деревня и герой-воин (остальное рисует 2D-рендерер)
 // что умеет 3D: деревня и все подземелья (катакомбы, глубины, цитадель, арена) для героя-воина; лучник и маг пока идут в 2D
-export function supports(z, profile) { return !!z && !!HEROES[(profile && profile.cls) || 'warrior']; }
+// походы (zone 'wild') и «Кровавую жатву» (рой мобов и кристаллы) пока рисует 2D: у 3D нет земли/стен для чащи, воды и стен форта (были невидимые стены)
+export function supports(z, profile) { return !!z && z.id !== 'wild' && z.id !== 'survival' && !!HEROES[(profile && profile.cls) || 'warrior']; }
 
 export function init() {
   canvas = document.createElement('canvas'); canvas.id = 'game3d';
@@ -57,7 +58,8 @@ export function init() {
   lights = {
     hemi: new THREE.HemisphereLight(L.hemi.sky, L.hemi.ground, L.hemi.i), moon: new THREE.DirectionalLight(L.key.color, L.key.i),
   };
-  scene.add(lights.hemi, lights.moon, lights.moon.target);
+  lights.hero = new THREE.PointLight(0xffe2b8, 0, 10, 1.5);   // свет вокруг героя в подземельях (в деревне погашен)
+  scene.add(lights.hemi, lights.moon, lights.moon.target, lights.hero);
   const sc = lights.moon.shadow.camera; sc.left = sc.bottom = -SHADOW.half; sc.right = sc.top = SHADOW.half; sc.near = 1; sc.far = 90;
   lights.moon.shadow.bias = SHADOW.bias; lights.moon.shadow.normalBias = SHADOW.normalBias; lights.moon.shadow.radius = SHADOW.radius; lights.moon.shadow.intensity = SHADOW.intensity; sc.updateProjectionMatrix(); sc.layers.enable(1);   // слой 1 — заменители теней крон
   U.uWindStr.value = 1;
@@ -223,6 +225,7 @@ function updateLights(t, dt) {
   for (const s of slots) if (s.L && !want.includes(s.L)) { s.k -= dt * 3; if (s.k <= 0) { s.L = null; s.k = 0; } }
   for (const L of want) if (!slots.some(s => s.L === L)) { const s = slots.find(s => !s.L); if (s) { s.L = L; s.k = 0; } }
   const town = zone.id === 'town', base = town ? LV.warm : LV.point;
+  { const H = LV.hero, hl = lights.hero; if (H && P) { hl.color.setHex(H.color); hl.distance = H.dist; hl.decay = H.decay; hl.position.set(P.x, H.y, P.y); hl.intensity = H.i * (0.96 + Math.sin(t * 3.1) * 0.04); } else hl.intensity = 0; }
   for (const s of slots) {
     const L = s.L; if (!L) { s.lt.intensity = 0; continue; }
     if (want.includes(L)) s.k = Math.min(1, s.k + dt * 3);

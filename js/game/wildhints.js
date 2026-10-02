@@ -9,8 +9,8 @@ const HINTS = {
   enter: ['Как устроен поход', ['🎯 Цель — отбить форт: убейте его командира.', '🎒 Золото падает в ноше: оно ваше, когда форт отбит или вы вышли через портал.', '☠ Командир — ваш личный враг: проиграете — он вас запомнит.']],
   carry: ['Это ваша ноша', ['Золото пока не в кошельке. Смерть его теряет.', 'Тяжёлая ноша замедляет вас и привлекает врагов. Отбейте форт или выйдите через портал — и оно ваше.']],
   nemesis: ['Это ваш немезис', ['У него 2 силы и 1 слабость: удар по слабости — +35% урона (вспыхнет «Слабость!»).', 'Погибнете или убежите — он станет сильнее и заберёт ношу. Убьёте — трофей навсегда.']],
-  cache: ['Схрон ▣', ['Золото тяжелеет — вы медленнее, мобы чуют. Схрон посреди поля безопасно выносит ношу в кошелёк.', 'Плата 15% (25%, если поле помнит вашу жадность). Подойдите и нажмите «Схрон».']],
-  echo: ['Эхо павших', ['Призрачные силуэты других героев — их следы в этом поле. Подойдите: они оставят немного золота, а иногда подскажут, где опасно.', 'Своё Эхо (там, где вы пали) возвращает четверть потерянной ноши.']],
+  cache: ['Схрон ▣ — касса посреди поля', ['Золото из похода лежит в ноше 🎒: пока вы в поле, смерть его отбирает, а тяжёлая ноша замедляет и приманивает мобов.', 'Подойдите к ▣ и нажмите «Схрон»: вся ноша сразу уйдёт в кошелёк, но схрон возьмёт 15% (25%, если поле помнит вашу жадность).', 'Не нужен, если вы собираетесь добить форт — он тоже банкует ношу бесплатно.']],
+  echo: ['Эхо павших', ['Прозрачные силуэты героев — следы тех, кто здесь пал (это отголоски, не живые игроки).', 'Подойдите и нажмите «Эхо»: получите немного золота и подсказку, где опасно.', 'Если пали вы сами — на этом месте останется ваше Эхо и вернёт ¼ потерянной ноши.']],
   dead: ['Что произошло', ['Ноша потеряна, её забрал немезис. Победите его — вернёте всё и получите трофей.']],
 };
 let card = null, queue = [], timer = 0;
@@ -20,16 +20,17 @@ function render() {
   if (card || !queue.length) return;
   const [title, lines] = queue.shift();
   card = document.createElement('div');
-  card.style.cssText = 'position:fixed;left:50%;bottom:190px;transform:translateX(-50%);z-index:9;max-width:340px;width:calc(100% - 24px);background:rgba(20,14,26,.94);border:1px solid #d6a548;border-radius:10px;padding:10px 12px;font:14px/1.35 Georgia,serif;color:#efe2c0;box-shadow:0 4px 18px #000a';
-  card.innerHTML = `<div style="font-weight:700;color:#e8c26a;margin-bottom:4px">${title}</div>${lines.map(l => `<div style="margin:3px 0">${l}</div>`).join('')}`;
+  card.style.cssText = 'position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;pointer-events:auto';
+  const inner = document.createElement('div'); inner.style.cssText = 'max-width:340px;width:calc(100% - 24px);background:rgba(20,14,26,.94);border:1px solid #d6a548;border-radius:10px;padding:10px 12px;font:14px/1.35 Georgia,serif;color:#efe2c0;box-shadow:0 4px 18px #000a';
+  inner.innerHTML = `<div style="font-weight:700;color:#e8c26a;margin-bottom:4px">${title}</div>${lines.map(l => `<div style="margin:3px 0">${l}</div>`).join('')}`; card.appendChild(inner);
   const b = document.createElement('button'); b.textContent = 'Понятно'; b.className = 'btn sm gold'; b.style.cssText = 'margin-top:6px;pointer-events:auto';
-  const close = () => { if (!card) return; card.remove(); card = null; clearTimeout(timer); setTimeout(render, 300); };
-  b.onclick = close; card.appendChild(b); document.body.appendChild(card); timer = setTimeout(close, 14000);
+  const close = () => { if (!card) return; card.remove(); card = null; clearTimeout(timer); if (!G.modalOpen) G.paused = false; setTimeout(render, 300); };
+  b.onclick = close; inner.appendChild(b); document.body.appendChild(card); if (!G.paused) G.paused = true;   // пока карточка на экране — игра на паузе (враги не бьют, пока вы читаете)
 }
 export function hint(id) {
   const S = seen(); if (S[id] || !HINTS[id]) return; S[id] = 1; queue.push(HINTS[id]); render(); bus.emit('save');
 }
-bus.on('zoneEntered', id => { if (card) { card.remove(); card = null; } queue.length = 0; if (id === 'wild') setTimeout(() => hint('enter'), 700); if (id === 'town') setTimeout(townHooks, 1400); });
+bus.on('zoneEntered', id => { if (card) { card.remove(); card = null; G.paused = false; } queue.length = 0; if (id === 'wild') setTimeout(() => hint('enter'), 700); if (id === 'town') setTimeout(townHooks, 1400); });
 bus.on('aggro', e => { if (e.nem) setTimeout(() => hint('nemesis'), 400); });
 bus.on('showDeath', () => { if (G.zoneId === 'wild') hint('dead'); });
 
@@ -38,7 +39,7 @@ export function goalText() {
   const W = G.wild; if (!W) return '';
   if (W.greed >= 0.5) { const c = nearestCache(); if (c) return `🎒 Ноша тяжёлая — вынесите её в ▣ схрон (${Math.round(c.d)} м ${dirWord(c.it.x - G.player.x, c.it.y - G.player.y)}), пока не отняли`; }
   if (!W.done) { const k = G.enemies.find(e => (e.story === 'wildkeep' || e.story === 'wildboss') && !e.dead); return k ? `🎯 Отбейте форт: убейте ${k.nem ? k.nem.name : k.D.name}${k.nem ? ` · слаб к ${WEAK[k.nem.weak]}` : ''} (стрелка ведёт к нему)` : ''; }
-  return '🎯 Форт отбит. Идите к порталу ▶ вглубь или домой — золото уже ваше';
+  return '🎯 Форт отбит, золото уже ваше. Соберите сундуки и идите к порталу «В деревню» (или спуститесь глубже через окно итога)';
 }
 
 // Что делать дальше (для окна портала и приветствия в деревне)

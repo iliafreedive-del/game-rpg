@@ -83,10 +83,11 @@ export const LIGHT = {
   // подземелья (катакомбы, глубины): холодная синева вместо неба, тёплые факелы — пул ближайших точечных огней;
   // луна сверху даёт тени колонн и стен. Биомы глубин подкрашивают заливку и туман (biome)
   crypt: {
-    clear: 0x05060a, fog: { color: 0x0a0c14, near: 26, far: 64 },
-    hemi: { sky: 0x6a8ab8, ground: 0x3a2c20, i: 1.65 },
+    clear: 0x0a0e18, fog: { color: 0x141a2a, near: 30, far: 80 },
+    hemi: { sky: 0x86a4d0, ground: 0x4a3c30, i: 2.5 },
     key: { color: 0x9ab4ff, i: 1.1, offset: [-11, 24, 20] },
-    point: { i: 18, dist: 11, decay: 1.7 }, exposure: 1.25,
+    point: { i: 22, dist: 12, decay: 1.6 }, exposure: 1.5,
+    hero: { color: 0xffe2b8, i: 6.5, dist: 10, decay: 1.5, y: 2.8 },   // мягкий свет вокруг героя: он не теряется в темноте
     biome: { flooded: { sky: 0x4a90a8, fog: 0x08181e }, ash: { sky: 0xa0583a, fog: 0x1a0a06 }, abyss: { sky: 0x7a5ab8, fog: 0x120a20 } },
   },
   // цитадель Ордена и арена: светло и читаемо (тёплый камень, золото)

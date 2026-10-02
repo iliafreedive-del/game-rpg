@@ -198,7 +198,7 @@ export class Zone {
       } else if (o.t === 'survportal') {
         const d = this.add({ x: o.x, y: o.y, spr: 'portal', anim: 'portal' });
         this.addLight(o.x, o.y, { r: 5, c: [255, 60, 60], flicker: 0.4, z: 1.2 });
-        this.inter.push({ id: 'portal_survival', type: 'survival', x: o.x, y: o.y, r: 1.8, label: 'Кровавая жатва', draw: d, reqLevel: 5, plate: 'Кровавая жатва' });
+        this.inter.push({ id: 'portal_survival', type: 'survival', x: o.x, y: o.y, r: 1.8, label: 'Жатва Бездны', draw: d, reqLevel: 5, plate: 'Жатва Бездны' });
         this.map.circles.push({ x: o.x, y: o.y - 0.1, r: 0.2 });
       } else if (o.t === 'castle') {
         const d = this.add({ x: o.x, y: o.y, spr: 'portal', anim: 'portal' });
@@ -211,7 +211,7 @@ export class Zone {
       } else if (o.t === 'hwsign') {
         this.prop({ ...o, t: 'banner' }); this.prop({ t: 'weapon_rack', x: o.x + 1.2, y: o.y + 0.2 });
         this.addLight(o.x, o.y, { r: 4, c: [255, 200, 110], flicker: 0.3, z: 1.2 });
-        this.inter.push({ id: 'herospath', type: 'herospath', x: o.x + 0.6, y: o.y + 0.9, r: 2.0, label: 'Путь героя', plate: 'Путь героя · автобои' });
+        this.inter.push({ id: 'herospath', type: 'herospath', x: o.x + 0.6, y: o.y + 0.9, r: 2.0, label: 'Летопись битв', plate: 'Летопись битв · автобои' });
       } else if (o.t === 'depths') {
         const d = this.add({ x: o.x, y: o.y, spr: 'portal', anim: 'portal' });
         this.addLight(o.x, o.y, { r: 5, c: [120, 200, 255], flicker: 0.3, z: 1.2 });

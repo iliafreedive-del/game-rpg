@@ -29,6 +29,7 @@ import { resize as rResize } from '../render/index.js';
 import { SKILLS } from '../data/skills.js';
 import { rand, rrange, rint } from '../core/util.js';
 import { pollMove, input, mouse, tapAim } from '../core/input.js';
+import { gate, BOSS_LEVEL, nextStep } from './progress.js';
 import { platform } from '../platform/platform.js';
 import { maybeInterstitial } from '../platform/monetize.js';
 
@@ -79,15 +80,15 @@ export async function loadZone(id, how = {}) {
   } else {
     const json = structuredClone(await loadJSON(ZONES[id]));
     if (id === 'town' && depthsUnlocked()) json.objects.push({ t: 'depths', x: 13.5, y: 8.5 });
-    if (id === 'town' && P.tutorial.prologue) json.objects.push({ t: 'castle', x: 18.5, y: 7.5 }, { t: 'survportal', x: 16.5, y: 12.5 }, { t: 'wildportal', realm: 'fjord', x: 32.0, y: 6.0 }, { t: 'wildportal', realm: 'forest', x: 32.5, y: 34.0 });
-    if (id === 'town') { const bd = json.objects.find(o => o.t === 'board'); if (bd) { bd.x = 28.4; bd.y = 22.4; } json.objects.push({ t: 'wheel', x: 22.5, y: 26.5 }); }
-    if (id === 'town') json.objects.push({ t: 'hwsign', x: 17.5, y: 28.8 }, { t: 'banner', x: 22.6, y: 16.4 }, { t: 'banner', x: 18.4, y: 23.9 }, { t: 'statue', x: 24.8, y: 14.5 }, { t: 'weapon_rack', x: 29.5, y: 17.8 }, { t: 'crystals', x: 31, y: 26.4 });
+    if (id === 'town' && P.tutorial.prologue) json.objects.push({ t: 'castle', x: 18.5, y: 7.5 }, { t: 'survportal', x: 16.5, y: 12.5 }, { t: 'wildportal', realm: 'fjord', x: 35.6, y: 4.6 }, { t: 'wildportal', realm: 'forest', x: 25.5, y: 34.6 });
+    if (id === 'town') { const bd = json.objects.find(o => o.t === 'board'); if (bd) { bd.x = 28.4; bd.y = 22.4; } json.objects.push({ t: 'wheel', x: 22.6, y: 28.0 }); }
+    if (id === 'town') json.objects.push({ t: 'hwsign', x: 15.4, y: 31.0 }, { t: 'banner', x: 20.0, y: 15.6 }, { t: 'banner', x: 17.6, y: 22.2 }, { t: 'statue', x: 23.6, y: 11.6 }, { t: 'weapon_rack', x: 31.0, y: 16.2 }, { t: 'crystals', x: 32.8, y: 25.0 });
     if (id === 'catacombs') json.objects.push({ t: 'crystals', x: 47.5, y: 42 }, { t: 'crystals', x: 55, y: 51 }, { t: 'mushrooms', x: 7, y: 25 }, { t: 'mushrooms', x: 13, y: 31 }, { t: 'stalagmite', x: 5.5, y: 32 }, { t: 'puddle', x: 10, y: 28 }, { t: 'banner', x: 43, y: 23 });
     zone = new Zone(id, json, P);
     await loadFloor(zone);
   }
   if (G.run && G.run.boons) G.lastBoons = G.run.boons.slice();
-  G.zone = zone; G.zoneId = id; G.run = null; if (id !== 'wild') G.wild = null;
+  G.zone = zone; G.zoneId = id; G.run = null; if (id !== 'wild') G.wild = null; G.revives = 0;   // не больше 2 воскрешений за заход (подземелье, глубины, поход)
   if (id === 'catacombs') {
     const W = P.world.opened, ks = zone.inter.find(i => i.loot === 'key');
     if (ks && W[ks.id]) P.world.hasKey = true;            // repair: opened key sarcophagus always means we hold the key
@@ -128,6 +129,8 @@ export async function loadZone(id, how = {}) {
   if (id === 'survival') SV.startRun(); else G.surv = null;
   G.zoneReady = true;
   bus.emit('zoneEntered', id); bus.emit('hud'); requestSave();
+  if (id === 'town' && P.tutorial.prologue) setTimeout(() => { if (G.zoneId === 'town') bus.emit('toast', { text: 'Дальше: ' + nextStep(), kind: 'info' }); }, 2200);
+  if (id === 'town' && (how.from === 'catacombs' || how.from === 'wild') && how.from !== 'death') setTimeout(() => maybeInterstitial('return'), 1200);   // реклама только на спокойном переходе (не чаще раза в 4 минуты)
 }
 
 function roomLevel(zone, x, y) {
@@ -190,7 +193,14 @@ bus.on('kill', e => {
   }
 });
 bus.on('dust', ({ x, y }) => C.particles(x, y, 10, { c: [150, 135, 115], z: 0.1, sp: 1.6, vz: 1.2, g: 3, size: 4, add: false, life: 0.5 }));
-bus.on('aggro', e => { const room = G.zone.roomAt(e.x, e.y); for (const o of G.enemies) if (!o.aggro && !o.dead && !o.D.boss && (Math.hypot(o.x - e.x, o.y - e.y) < 5 && G.zone.map.los(o.x, o.y, e.x, e.y) || (room && G.zone.roomAt(o.x, o.y) === room))) o.aggro = true; });
+bus.on('aggro', e => {   // соседи просыпаются с задержкой и только если близко и видят: толпа не бросается разом
+  for (const o of G.enemies) { if (o.aggro || o.dead || o.D.boss || o.wakeT !== undefined) continue; const d = Math.hypot(o.x - e.x, o.y - e.y); if (d < 4.5 && G.zone.map.los(o.x, o.y, e.x, e.y)) o.wakeT = 0.5 + d * 0.22 + rand() * 0.6; }
+});
+bus.on('kill', e => {   // «Взрывной» чемпион: взрыв через 0.6 с после смерти
+  if (e.affix !== 'volatile') return;
+  C.effect({ kind: 'ring', x: e.x, y: e.y, r: 2.6, dur: 0.6, c: [255, 120, 60] });
+  setTimeout(() => { const pl = G.player; if (pl && !pl.dead && G.zone && Math.hypot(pl.x - e.x, pl.y - e.y) < 2.6) C.hurtPlayer({ lvl: e.lvl }, 10 * e.dmgMul * (1 + e.lvl * 0.1), 'fire'); C.particles(e.x, e.y, 24, { c: [255, 150, 60], sp: 3, size: 4 }); bus.emit('sfx', 'fire'); }, 600);
+});
 bus.on('summon', ({ x, y, n, lvl }) => {
   for (let i = 0; i < n; i++) {
     const a = rand() * 6.28, r = rrange(2, 3.5); const px = x + Math.cos(a) * r, py = y + Math.sin(a) * r;
@@ -204,7 +214,9 @@ bus.on('playerDeath', () => {
   G.profile.stats.deaths++; G.diedThisRun = true; if (G.run) G.run.deaths++; requestSave();
   setTimeout(() => bus.emit('showDeath'), 1300);
 });
+export const MAX_REVIVES = 2;
 export function revive(inPlace) {
+  if (inPlace) G.revives = (G.revives || 0) + 1;
   const pl = G.player; pl.dead = false; pl.state = 'idle'; pl.hp = G.stats.maxHP; pl.mp = G.stats.maxMP; pl.inv = 2; pl.setAnim('idle', 5, true);
   if (inPlace) { C.effect({ kind: 'ring', x: pl.x, y: pl.y, r: 4, dur: 0.6, c: [255, 230, 150] }); for (const e of G.enemies) if (!e.dead && Math.hypot(e.x - pl.x, e.y - pl.y) < 4) { e.kb = { vx: (e.x - pl.x), vy: (e.y - pl.y), t: 0.25 }; } }
   else loadZone('town', { from: 'death', fullHeal: true });
@@ -218,6 +230,7 @@ export function interact(it) {
     case 'portal':
       if (it.hidden) return;
       if (it.reqLevel && P.level < it.reqLevel) { bus.emit('toast', { text: `Портал откроется с ${it.reqLevel} уровня`, sub: 'Фармите золото и опыт в катакомбах', kind: 'warn' }); bus.emit('sfx', 'deny'); return; }
+      { const g = gate(it.to === 'catacombs' ? 'catacombs' : ''); if (g) { bus.emit('toast', { ...g, kind: 'warn' }); bus.emit('sfx', 'deny'); return; } }
       bus.emit('sfx', 'portal');
       if (it.to === 'castle') { loadZone('castle'); return; }
       if (it.to === 'catacombs') { maybeInterstitial('descend').then(() => loadZone('catacombs', { useCache: !!G.dungeonCache })); }
@@ -227,11 +240,11 @@ export function interact(it) {
     case 'board': bus.emit('openBoard'); return;
     case 'herospath': bus.emit('openHeroPath'); return;
     case 'wheel': bus.emit('openWheel'); return;
-    case 'survival': if (P.level < SV.REQ_LEVEL) { bus.emit('toast', { text: `Кровавая жатва открывается с ${SV.REQ_LEVEL} уровня`, kind: 'warn' }); bus.emit('sfx', 'deny'); return; } bus.emit('openSurvival'); return;
-    case 'depths': if (it.reqLevel && P.level < it.reqLevel) { bus.emit('toast', { text: `Глубины открываются с ${it.reqLevel} уровня`, kind: 'warn' }); bus.emit('sfx', 'deny'); return; } bus.emit('openDepths'); return;
+    case 'survival': { const g = gate('survival'); if (g) { bus.emit('toast', { ...g, kind: 'warn' }); bus.emit('sfx', 'deny'); return; } } if (P.level < SV.REQ_LEVEL) { bus.emit('toast', { text: `Жатва Бездны открывается с ${SV.REQ_LEVEL} уровня`, kind: 'warn' }); bus.emit('sfx', 'deny'); return; } bus.emit('openSurvival'); return;
+    case 'depths': { const g = gate('depths'); if (g) { bus.emit('toast', { ...g, kind: 'warn' }); bus.emit('sfx', 'deny'); return; } } if (it.reqLevel && P.level < it.reqLevel) { bus.emit('toast', { text: `Глубины открываются с ${it.reqLevel} уровня`, kind: 'warn' }); bus.emit('sfx', 'deny'); return; } bus.emit('openDepths'); return;
     case 'exit': if (!it.hidden) finishFloor(); else bus.emit('toast', { text: 'Портал запечатан', sub: 'Убейте всех врагов на этаже', kind: 'warn' }); return;
     case 'shrine': bus.emit('openShrine'); return;
-    case 'wildportal': if (it.reqLevel && P.level < it.reqLevel) { bus.emit('toast', { text: `${REALMS[it.realm].name} — с ${it.reqLevel} уровня`, sub: 'Набирайтесь сил в катакомбах', kind: 'warn' }); bus.emit('sfx', 'deny'); return; } bus.emit('openWild', it.realm); return;
+    case 'wildportal': { const g = gate(it.realm); if (g) { bus.emit('toast', { ...g, kind: 'warn' }); bus.emit('sfx', 'deny'); return; } } if (it.reqLevel && P.level < it.reqLevel) { bus.emit('toast', { text: `${REALMS[it.realm].name} — с ${it.reqLevel} уровня`, sub: 'Набирайтесь сил в катакомбах', kind: 'warn' }); bus.emit('sfx', 'deny'); return; } bus.emit('openWild', it.realm); return;
     case 'wildnext': if (!it.hidden && G.wild) { bus.emit('sfx', 'portal'); loadZone('wild', { realm: G.wild.realm, depth: G.wild.depth + 1 }); } return;
     case 'stash': openStash(it); return;
     case 'cache': useCache(it); return;
@@ -261,6 +274,7 @@ export function interact(it) {
       for (const d of G.zone.statics) if (d.tag === it.id) d.hidden = true;
       G.cam.shake = 0.4; bus.emit('sfx', 'door'); bus.emit('toast', { text: 'Тайный проход!', sub: 'За стеной скрыта сокровищница', kind: 'good' }); requestSave(); return;
     case 'gate':
+      { const g = P.world.hasMedallion ? gate('bossgate') : null; if (g) { bus.emit('toast', { ...g, kind: 'warn' }); bus.emit('sfx', 'deny'); return; } }
       if (!P.world.hasMedallion) { bus.emit('toast', { text: 'Врата запечатаны', sub: 'На печати углубление в форме медальона', kind: 'warn' }); bus.emit('sfx', 'deny'); return; }
       it.done = true; W.gateOpen = true; it.draw.spr = 'door_open'; it.light.on = false; G.zone.map.setSolid(it.tile[0], it.tile[1], 0);
       bus.emit('sfx', 'door'); G.cam.shake = 0.7; bus.emit('toast', { text: 'Печать сломлена', sub: 'Палач Бездны пробуждается…', kind: 'quest' });
@@ -274,6 +288,14 @@ function spawnAmbush(it) {
   for (let i = 0; i < 2; i++) { const e = new Enemy('skel_warrior', it.x + rrange(-1.5, 1.5), it.y + 1.5 + rrange(0, 1), roomLevel(G.zone, it.x, it.y)); if (G.zone.map.free(e.x, e.y, 0.35)) { e.aggro = true; G.enemies.push(e); } }
 }
 // «АВТО»: the hero fights on his own — for lazy players, trials and farming.
+// направление движения автопилота с обходом углов: если шаг упирается в стену/пропс — пробуем отклонить на ±30..90°
+function steer(pl, map, dx, dy) {
+  const l = Math.hypot(dx, dy) || 1; dx /= l; dy /= l; const a0 = Math.atan2(dy, dx);
+  const ok = (a, k = 0.55) => map.free(pl.x + Math.cos(a) * k, pl.y + Math.sin(a) * k, pl.r + 0.04);
+  if (ok(a0)) return [dx, dy];
+  for (const da of [0.5, -0.5, 1.0, -1.0, 1.5, -1.5]) { if (ok(a0 + da)) return [Math.cos(a0 + da), Math.sin(a0 + da)]; }
+  return [dx, dy];
+}
 function autoTick(inp) {
   const pl = G.player, P = G.profile, S = G.stats, map = G.zone.map; if (pl.dead || pl.busy()) return;
   // unstuck: if we tried to move but barely moved, side-step for a moment
@@ -283,25 +305,26 @@ function autoTick(inp) {
   if (A.t > 0.6) { const moved = Math.hypot(pl.x - A.x, pl.y - A.y); if (A.wanted && moved < 0.15) { const a = Math.random() < 0.5 ? 1.57 : -1.57; const ang = Math.atan2(A.wy, A.wx) + a; A.sx = Math.cos(ang); A.sy = Math.sin(ang); A.side = 0.45; } A.t = 0; A.x = pl.x; A.y = pl.y; A.wanted = false; }
   if (pl.hp < S.maxHP * 0.35 && P.potions.hp > 0 && !(pl.cds.pot_hp > 0)) usePotion('hp');
   let tgt = null, td = 1e9;
-  for (const e of G.enemies) { if (e.dead) continue; const d = Math.hypot(e.x - pl.x, e.y - pl.y); if (d < 16 && d < td && (e.aggro || d < 9)) { td = d; tgt = e; } }
+  // цель — только тот, кто уже напал или виден (не через стену): иначе герой упирается в стену, за которой стоит неагрессивный моб
+  for (const e of G.enemies) { if (e.dead) continue; const d = Math.hypot(e.x - pl.x, e.y - pl.y); if (d < 16 && d < td && (e.aggro || (d < 9 && map.los(pl.x, pl.y, e.x, e.y)))) { td = d; tgt = e; } }
   if (tgt) {
     for (const id of P.slots) { if (!id) continue; const sk = SKILLS[id]; if (C.skillUsable(id).ok && pl.mp >= sk.mana && td < (id === 'whirlwind' ? 2.2 : 7.5) && map.los(pl.x, pl.y, tgt.x, tgt.y)) { C.castSkill(id); return; } }
     const range = S.ranged ? S.range * 0.8 : S.range + 0.25;
-    if (td > range || !map.los(pl.x, pl.y, tgt.x, tgt.y)) { const d = map.guideDir(pl.x, pl.y, tgt.x, tgt.y) || [(tgt.x - pl.x) / td, (tgt.y - pl.y) / td]; inp.wx = d[0]; inp.wy = d[1]; inp.mag = 0.8; A.wanted = true; A.wx = d[0]; A.wy = d[1]; }
+    if (td > range || !map.los(pl.x, pl.y, tgt.x, tgt.y)) { const d = map.guideDir(pl.x, pl.y, tgt.x, tgt.y) || [(tgt.x - pl.x) / td, (tgt.y - pl.y) / td]; { const [sx, sy] = steer(pl, map, d[0], d[1]); inp.wx = sx; inp.wy = sy; } inp.mag = 0.8; A.wanted = true; A.wx = d[0]; A.wy = d[1]; }
     else { pl.faceTo(tgt.x, tgt.y); C.playerAttack(pl); }
     return;
   }
   if (G.zoneId === 'depths' || G.zoneId === 'catacombs' || G.zoneId === 'wild') {   // hunt the nearest living enemy anywhere on the floor
-    let far = null, fd = 1e9; for (const e of G.enemies) { if (e.dead) continue; const d = Math.hypot(e.x - pl.x, e.y - pl.y); if (d < fd && (G.zoneId === 'depths' || G.zoneId === 'wild' || d < 30)) { fd = d; far = e; } }
+    let far = null, fd = 1e9; for (const e of G.enemies) { if (e.dead) continue; const pd = map.dist(e.x, e.y); if (pd < 0) continue; /* недостижим (за закрытой дверью/стеной) — не цель */ const d = Math.hypot(e.x - pl.x, e.y - pl.y); if (pd < fd) { fd = pd; far = e; fd = pd; } }
     const pkNear = G.pickups.some(p => Math.hypot(p.x - pl.x, p.y - pl.y) < 4);
-    if (far && !pkNear) { const d = map.guideDir(pl.x, pl.y, far.x, far.y) || [(far.x - pl.x) / fd, (far.y - pl.y) / fd]; inp.wx = d[0]; inp.wy = d[1]; inp.mag = 0.8; A.wanted = true; A.wx = d[0]; A.wy = d[1]; return; }
+    if (far && !pkNear) { const d = map.guideDir(pl.x, pl.y, far.x, far.y) || [(far.x - pl.x) / Math.max(1, Math.hypot(far.x - pl.x, far.y - pl.y)), (far.y - pl.y) / Math.max(1, Math.hypot(far.x - pl.x, far.y - pl.y))]; { const [sx, sy] = steer(pl, map, d[0], d[1]); inp.wx = sx; inp.wy = sy; } inp.mag = 0.8; A.wanted = true; A.wx = d[0]; A.wy = d[1]; return; }
   }
   const pk = G.pickups.filter(p => Math.hypot(p.x - pl.x, p.y - pl.y) < 7).sort((a, b) => Math.hypot(a.x - pl.x, a.y - pl.y) - Math.hypot(b.x - pl.x, b.y - pl.y))[0];
   const goal = pk || (G.zoneId === 'catacombs' || G.zoneId === 'depths' || G.zoneId === 'wild' ? G.guide : null);
   if (goal) {
     const d = Math.hypot(goal.x - pl.x, goal.y - pl.y);
     if (goal.type === 'exit' && d < 1.4) { interact(goal); return; }
-    if (d > 0.9) { const g = map.guideDir(pl.x, pl.y, goal.x, goal.y) || [(goal.x - pl.x) / d, (goal.y - pl.y) / d]; inp.wx = g[0]; inp.wy = g[1]; inp.mag = 0.8; A.wanted = true; A.wx = g[0]; A.wy = g[1]; }
+    if (d > 0.9) { const g = map.guideDir(pl.x, pl.y, goal.x, goal.y) || [(goal.x - pl.x) / d, (goal.y - pl.y) / d]; { const [sx, sy] = steer(pl, map, g[0], g[1]); inp.wx = sx; inp.wy = sy; } inp.mag = 0.8; A.wanted = true; A.wx = g[0]; A.wy = g[1]; }
   }
 }
 function boonTick(dt) {
@@ -386,6 +409,11 @@ export function update(dt) {
     if (t || inp.mag > 0.12) { if (t) C.playerAttack(pl); }
     else { const near = C.nearestEnemy(pl.x, pl.y, 7, e => G.zone.map.los(pl.x, pl.y, e.x, e.y)); if (near) { const dx = near.x - pl.x, dy = near.y - pl.y, l = Math.hypot(dx, dy); inp.wx = dx / l; inp.wy = dy / l; inp.mag = 0.7; } else C.playerAttack(pl); }
   }
+  // автоатака (как в Archero): стоим на месте и враг в зоне удара — герой бьёт сам; в движении не стреляет
+  if (!pl.busy() && !pl.dead && inp.mag < 0.12 && !G.modalOpen && !input.attackHeld && G.zoneId !== 'survival' && G.zoneId !== 'town' && G.zoneId !== 'castle') {
+    const W = G.stats, rng = W.ranged ? W.range * 0.9 : W.range * 0.8;
+    const t = C.pickTarget(pl, rng); if (t && (t.aggro || G.auto) && G.zone.map.los(pl.x, pl.y, t.x, t.y)) C.playerAttack(pl);
+  }
   if (pl.comboT > 0) { pl.comboT -= dt; if (pl.comboT <= 0) pl.combo = 0; }
   if (G.auto && !G.modalOpen) autoTick(inp);
   const m0 = pl.meters; pl.update(dt, inp); meterAcc += pl.meters - m0; pl.meters = 0;
@@ -434,7 +462,7 @@ function updateMarkers() {
     if (!t && q.id === 'medallion' && G.profile.world.hasKey) t = G.zone.inter.find(i => i.type === 'door' && !i.done) || G.zone.inter.find(i => i.id === 'medallion');
   }
   if (G.zoneId === 'depths') { const ex = G.zone.inter.find(i => i.id === 'floor_exit'); t = ex && !ex.hidden ? ex : G.enemies.find(e => e.story === 'floorboss' && !e.dead) || null; }
-  if (G.zoneId === 'wild') { const nx = G.zone.inter.find(i => i.id === 'wild_next'); t = nx && !nx.hidden ? nx : G.enemies.find(e => (e.story === 'wildkeep' || e.story === 'wildboss') && !e.dead) || null; }
+  if (G.zoneId === 'wild') { const home = G.zone.inter.find(i => i.id === 'wild_home'); t = G.enemies.find(e => (e.story === 'wildkeep' || e.story === 'wildboss') && !e.dead) || (G.wild && G.wild.done ? home : null) || null; }
   G.guide = t;
   for (const n of G.npcs) n.marker = q && q.target === n.id ? (q.id === 'finish' ? '?' : '!') : null;
   for (const it of G.zone.inter) { if (it.type === 'socket') { const open = it.room === 'hall' || (G.profile.castle && G.profile.castle[it.room]); it.hidden = !open; it.glow = open && !(G.profile.castle.decor && G.profile.castle.decor[it.sid]); } else if (it.type === 'roomgate') { it.plate = it.done ? null : ROOMS[it.room].name; it.reqLevel = it.done ? 0 : ROOMS[it.room].lvl; } else if (it.type === 'room') it.plate = ROOMS[it.room].name; }

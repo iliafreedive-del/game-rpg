@@ -13,7 +13,7 @@ import { iconURL, skillCanvas } from './icons.js';
 import { drawMap, seen, seenKey } from './hud.js';
 import { offers, buy, restorePurchases, dailyStatus, claimDaily, chestStatus, chestSkip, openOrderChest, DAILY, watchRewarded, offerToken } from '../platform/monetize.js';
 import { PRODUCTS, platform } from '../platform/platform.js';
-import { revive, saveNow, loadZone, depthsUnlocked } from '../game/game.js';
+import { revive, saveNow, loadZone, depthsUnlocked, MAX_REVIVES } from '../game/game.js';
 import { generateFloor, isBossFloor, floorLevel } from '../world/floorgen.js';
 import { REALMS, WILD_QUESTS, wildLevel, isWildBoss } from '../data/wild.js';
 import { wildState, questProgress, claimQuest } from '../game/wild.js';
@@ -285,6 +285,8 @@ W.settings = () => modal('Настройки', 'sm', b => {
   const range = (lab, key) => { const r = el('div', 'attr', `<b>${lab}</b>`); const i = document.createElement('input'); i.type = 'range'; i.min = 0; i.max = 1; i.step = 0.05; i.value = s[key]; i.oninput = () => { s[key] = +i.value; setVolumes(s.sfx, s.music); }; i.onchange = () => bus.emit('save'); r.appendChild(i); b.appendChild(r); };
   range('Звуки', 'sfx'); range('Музыка', 'music');
   const q = el('div', 'attr', '<b>Качество графики</b>'); for (const [k, n] of [['low', 'Низкое'], ['auto', 'Авто'], ['high', 'Высокое']]) { const bt = el('button', 'btn sm' + (s.quality === k ? ' gold' : ''), n); bt.onclick = () => { s.quality = k; resize(); bus.emit('save'); rerender(); }; q.appendChild(bt); } b.appendChild(q);
+  { let cur = '3d'; try { cur = localStorage.getItem('da_render') || '3d'; } catch { } if (new URLSearchParams(location.search).get('render')) cur = new URLSearchParams(location.search).get('render');
+    const g = el('div', 'attr', '<b>Графика</b>'); for (const [k, n] of [['3d', '3D (по умолчанию)'], ['2d', 'Классика 2D']]) { const bt = el('button', 'btn sm' + (cur === k ? ' gold' : ''), n); bt.onclick = () => { try { localStorage.setItem('da_render', k); } catch { } saveNow(); const u = new URL(location.href); u.searchParams.delete('render'); location.href = u.toString(); }; g.appendChild(bt); } b.appendChild(g); b.appendChild(el('p', 'muted', '<small>Смена графики перезапускает игру (прогресс сохраняется). Лучник и маг пока всегда в 2D.</small>')); }
   const sh = el('div', 'attr', '<b>Тряска камеры</b>'); const bs = el('button', 'btn sm', s.shake ? 'Вкл' : 'Выкл'); bs.onclick = () => { s.shake = !s.shake; rerender(); }; sh.appendChild(bs); b.appendChild(sh);
   b.appendChild(el('h3', '', 'Управление'));
   b.appendChild(el('p', 'muted', 'Телефон/планшет: джойстик слева, атака и навыки справа, удерживайте атаку — герой сам подойдёт к врагу. ПК: WASD/стрелки — движение, Пробел — атака, 1–4 — навыки, Shift — уклонение, Q/E — зелья, F — действие, I/C/K/J/M — окна, T — свиток.'));
@@ -451,11 +453,13 @@ function showDeath() {
   const d = $('death'); d.classList.remove('hidden'); G.paused = true;
   d.innerHTML = `<h2>Вы погибли</h2><p class="muted">${G.zoneId === 'wild' ? 'Ноша потеряна. Враг запомнил вас — вернитесь и отомстите.' : G.run ? `Этаж ${G.run.floor} не пройден. Собранное золото остаётся у вас.` : 'Нежить торжествует… но Орден даёт второй шанс.'}</p>`;
   const row = el('div', 'row'); row.style.justifyContent = 'center';
-  const ad = el('button', 'btn ad', 'Воскреснуть на месте');
+  const left = Math.max(0, MAX_REVIVES - (G.revives || 0)), canRev = left > 0 && G.zoneId !== 'castle' && G.zoneId !== 'town';
+  const ad = el('button', 'btn ad', `Воскреснуть на месте (осталось ${left})`);
   ad.onclick = async () => { const tok = offerToken('revive'); const ok = await watchRewarded('revive', tok, () => { }); if (ok) { d.classList.add('hidden'); G.paused = false; revive(true); } };
   const loss = Math.floor(G.profile.gold * 0.1);
   const town = el('button', 'btn gold', `В деревню (−${loss} зол.)`); town.onclick = () => { G.profile.gold -= loss; d.classList.add('hidden'); G.paused = false; revive(false); };
-  row.append(ad, town); d.appendChild(row);
+  if (canRev) row.append(ad); row.append(town); d.appendChild(row);
+  if (!canRev && G.zoneId !== 'castle' && G.zoneId !== 'town') d.appendChild(el('p', 'bad', 'Воскрешения за этот заход закончились — вернитесь в деревню, подлечитесь и усильтесь.'));
   d.appendChild(el('p', 'muted', '<small>Возвращение стоит 10% золота. Подземелье заселится заново, в том числе элита и босс, если они не побеждены.</small>'));
 }
 function bossReward(k) {
@@ -624,9 +628,9 @@ function boonChoice() {
   if (G.auto) setTimeout(() => { const bs = document.querySelectorAll('.boons .boon'); if (bs.length) bs[Math.floor(Math.random() * bs.length)].click(); }, 2500);
 }
 
-// ---------------------------------------------------------------- «Кровавая жатва»
+// ---------------------------------------------------------------- «Жатва Бездны»
 const mmssT = t => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
-W.survival = () => modal('Кровавая жатва', 'md', b => {
+W.survival = () => modal('Жатва Бездны', 'md', b => {
   const P = G.profile; P.surv = P.surv || { best: 0, ach: {}, runs: 0 };
   b.appendChild(el('p', '', 'Бескрайняя арена Бездны и бесконечные волны. <b>Нужно только бегать</b> — герой атакует сам. Собирайте кристаллы душ, растите в уровне, выбирайте перки и пробуждайте оружие. Цель — продержаться 20 минут.'));
   b.appendChild(el('div', 'stats', `<div><span>Рекорд</span><b>${mmssT(P.surv.best)}</b></div><div><span>Забегов</span><b>${P.surv.runs}</b></div>`));
@@ -670,7 +674,7 @@ function survEnd(r) {
 // ---------------------------------------------------------------- lore intros (first visit)
 const LORE = {
   depths: ['Глубины катакомб', 'Под катакомбами Ордена нет дна. Каждый пятый этаж охраняет страж, а за стражами — всё более древняя тьма: затопленные склепы, пепельные шахты и, говорят, само Сердце Бездны. Дары Бездны помогут — но только пока вы не повернёте назад.'],
-  survival: ['Кровавая жатва', 'Раз в поколение Бездна распахивается, и мёртвые идут бесконечной рекой. Орден посылает на арену лишь одного — чтобы выстоял до рассвета. Не останавливайтесь: собирайте кристаллы душ, и оружие само запоёт в ваших руках.'],
+  survival: ['Жатва Бездны', 'Раз в поколение Бездна распахивается, и мёртвые идут бесконечной рекой. Орден посылает на арену лишь одного — чтобы выстоял до рассвета. Не останавливайтесь: собирайте кристаллы душ, и оружие само запоёт в ваших руках.'],
   castle: ['Цитадель Ордена', 'Когда-то здесь жили магистры Ордена. Теперь это ваш дом. Откройте залы: алтарь будет копить золото, пока вы спите, а в Зале испытаний стражи прошлого проверят вашу силу.'],
 };
 bus.on('zoneEntered', id => { const P = G.profile; P.lore = P.lore || {}; const L = LORE[id]; if (!L || P.lore[id] || (id === 'depths' && !(G.run && G.run.floor > 0))) return; P.lore[id] = 1; bus.emit('save');
@@ -681,7 +685,7 @@ W.menu = () => modal('Меню', 'md', b => {
   const tiles = [
     ['character', '🛡', 'Персонаж', 'характеристики', 'dotChar'], ['skills', '✦', 'Навыки', 'умения и кнопки', 'dotSkill'],
     ['journal', '📜', 'Задания', 'сюжет и ежедневные'], ['map', '🗺', 'Карта', 'текущая локация'],
-    ['herospath', '⚔', 'Путь героя', 'автобои', 'dotHW'], ['shrine', '🎁', 'Награды', 'ежедневно и магазин', 'dotGift'],
+    ['herospath', '⚔', 'Летопись битв', 'автобои', 'dotHW'], ['shrine', '🎁', 'Награды', 'ежедневно и магазин', 'dotGift'],
     ['tutorial', '❓', 'Обучение', 'показать подсказки снова'], ['settings', '⚙', 'Настройки', 'звук, графика'],
   ];
   const g = el('div', 'menu-grid');

@@ -36,6 +36,7 @@ export function spawnWild(zone) {
 
 
 function openNext(e) {
+  return;   // отдельный портал «Вглубь» убран: выбор «Вглубь / Остаться / Домой» даёт окно итога форта
   const it = G.zone.inter.find(i => i.id === 'wild_next'); if (!it || !it.hidden) return;
   it.hidden = false; it.draw.hidden = false; it.light.on = true;
   C.particles(it.x, it.y, 30, { c: REALMS[G.wild.realm].portalColor, sp: 3, size: 4 }); bus.emit('sfx', 'portal');

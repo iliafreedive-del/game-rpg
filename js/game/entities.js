@@ -59,7 +59,7 @@ export class Player {
     // movement
     const mag = input.mag;
     if (mag > 0.12 && this.state !== 'hit') {
-      const run = mag > 0.6; const sp = (run ? 3.7 : 2.3) * (this.S.moveMul || 1) * (G.surv ? 1 + (G.surv.p.swift || 0) * 0.08 : 1) * (this.slowT > 0 ? 0.6 : 1) * (G.wild ? G.wild.slow : 1) * (G.run && G.run.boons && G.run.boons.includes('haste') ? 1.25 : 1);
+      const run = mag > 0.6; const sp = (run ? 4.6 : 2.8) * (this.S.moveMul || 1) * (G.surv ? 1 + (G.surv.p.swift || 0) * 0.08 : 1) * (this.slowT > 0 ? 0.6 : 1) * (G.wild ? G.wild.slow : 1) * (G.run && G.run.boons && G.run.boons.includes('haste') ? 1.25 : 1);
       const ox = this.x, oy = this.y;
       [this.x, this.y] = G.zone.map.move(this.x, this.y, input.wx * sp * dt, input.wy * sp * dt, this.r);
       const moved = Math.hypot(this.x - ox, this.y - oy); this.meters += moved;
@@ -81,6 +81,13 @@ export class Player {
 }
 
 // ------------------------------------------------------------------ Enemy
+export const AFFIXES = {
+  swift: { name: 'Проворный', spd: 1.3, hp: 0.8 },          // быстрый и хрупкий
+  plated: { name: 'Бронированный', armor: 2.2, hp: 1.3, spd: 0.9 },
+  frosty: { name: 'Ледяной', slow: true },                  // удары замедляют героя
+  volatile: { name: 'Взрывной' },                           // при смерти взрывается — отойдите
+};
+const AFFIX_KEYS = Object.keys(AFFIXES);
 export class Enemy {
   constructor(type, x, y, lvl, opts = {}) {
     const D = ENEMIES[type]; this.type = type; this.D = D; this.lvl = lvl;
@@ -96,6 +103,12 @@ export class Enemy {
     this.flash = 0; this.hitStun = 0; this.zig = rand() * 6; this.phase = 1; this.id = Enemy.nid++;
     this.story = opts.story || null; this.room = opts.room || null; this.teleg = null; this.summonT = 8;
     this.name = (this.champion ? 'Чемпион: ' : '') + D.name;
+    // чемпионы получают случайную черту — враги одного вида ведут себя по-разному
+    if (this.champion && !D.boss && !D.elite && !opts.story) {
+      const k = AFFIX_KEYS[(rand() * AFFIX_KEYS.length) | 0], A = AFFIXES[k]; this.affix = k; this.name = `${A.name} ${D.name.toLowerCase()}`;
+      this.maxHP = Math.round(this.maxHP * (A.hp || 1)); this.hp = this.maxHP; this.armor = Math.round(this.armor * (A.armor || 1)); this.spdBonus = A.spd || 1;
+      if (A.slow) this.D = { ...D, onHit: 'slow' };
+    }
   }
   static nid = 1;
   get atlasName() { return this.D.atlas; }
@@ -113,9 +126,17 @@ export class Enemy {
     this.cd -= dt;
     const dx = P.x - this.x, dy = P.y - this.y, d = Math.hypot(dx, dy);
     const map = G.zone.map;
+    if (!this.aggro && this.wakeT !== undefined) { this.wakeT -= dt; this.dir = dirOf(dx, dy); if (this.anim.clip !== 'idle') this.setAnim('idle', 5, true); if (this.wakeT <= 0) { this.aggro = true; bus.emit('aggro', this); } return; }
     if (!this.aggro) {
-      if (!P.dead && d < (this.D.boss ? 11 : 8.5) * (G.wild ? G.wild.noise : 1) && map.los(this.x, this.y, P.x, P.y)) { this.aggro = true; bus.emit('aggro', this); if (this.D.boss) bus.emit('bossStart', this); }
-      else { if (this.anim.clip !== 'idle') this.setAnim('idle', 5, true); return; }
+      const R = (this.D.boss ? 9.5 : 6.2) * (G.wild ? G.wild.noise : 1);
+      if (!P.dead && d < R && map.los(this.x, this.y, P.x, P.y)) {
+        // постепенное замечание: сначала моб «приглядывается» (стоит, смотрит), и только потом бросается
+        if (this.alertT === undefined) this.alertT = this.D.boss ? 0.4 : rrange(0.5, 1.2) * (d < 3 ? 0.4 : 1);
+        this.alertT -= dt; this.dir = dirOf(dx, dy); if (this.anim.clip !== 'idle') this.setAnim('idle', 5, true);
+        if (this.alertT > 0) return;
+        this.aggro = true; bus.emit('aggro', this); if (this.D.boss) bus.emit('bossStart', this);
+      }
+      else { if (this.alertT !== undefined && d > R + 1.5) this.alertT = undefined; if (this.anim.clip !== 'idle') this.setAnim('idle', 5, true); return; }
     }
     if (P.dead) { if (this.state !== 'attack') { this.setAnim('idle', 5, true); this.state = 'idle'; } return; }
     if (this.state === 'attack') { C.updateEnemyAttack(this, dt, P); return; }
@@ -126,7 +147,7 @@ export class Enemy {
     if (useFlow && !map.los(this.x, this.y, tx, ty)) { const f = map.flowDir(this.x, this.y); if (f) { vx = f[0]; vy = f[1]; } }
     // separation from other enemies
     for (const o of G.enemies) { if (o === this || o.dead) continue; const ox = this.x - o.x, oy = this.y - o.y, dd = ox * ox + oy * oy, rr = (this.r + o.r) * 1.1; if (dd < rr * rr && dd > 1e-4) { const k = (rr - Math.sqrt(dd)) * 2; vx += ox * k; vy += oy * k; } }
-    const sp = this.D.speed * spMul * this.speedMul();
+    const sp = this.D.speed * 0.8 * spMul * this.speedMul();   // мобы заметно медленнее героя (бег героя 4.6 м/с)
     [this.x, this.y] = map.move(this.x, this.y, vx * sp * dt, vy * sp * dt, this.r * 0.9);
     this.dir = dirOf(vx, vy);
     const wf = (this.D.fps && this.D.fps.walk) || 10; this.setAnim('walk', wf * Math.max(0.5, spMul * this.speedMul()), true, this.anim.clip !== 'walk');

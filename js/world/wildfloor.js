@@ -85,5 +85,5 @@ export function buildWildFloor(zone) {
   zone.floor = { w: W, h: H, scale: 1, ox };
   zone.floorImgs = [{ im: c, cx: 0, cy: 0, w: W, h: H }];
   zone.fog = M.fog; zone.biome = { id: 'wild_' + realm, particles: M.particles, light: null };
-  zone.dark = !!M.dark;
+  zone.dark = false;   // в поле светло всегда: «тёмные» глубины читаются по цвету пола и тумана, а не по чёрной маске
 }

@@ -114,7 +114,9 @@ function render(force) {
     const s = CS.seals(); const left = CS.nextIn(s, CS.SEAL_MS);
     head('Зал испытаний', 'Бой со стражем прямо в цитадели. Включите АВТО — герой сразится сам.'); bal();
     box.appendChild(el('div', 'pn-big', `Печати: <b>${s.n}/${CS.SEAL_MAX}</b>${left ? ` <small>· +1 через ${Math.ceil(left / 60000)} мин</small>` : ''}`));
-    for (const t of CS.TRIALS) box.appendChild(row('⚔', esc(t.name), `ур. врага ${P.level + t.lvl} · нужен ур. ${t.req}`, P.level < t.req ? `ур. ${t.req}` : 'Сразиться', P.level >= t.req && s.n > 0 && !G.trial, () => startTrial(t)));
+    const F = P.story.flags, seen = t => t.type === 'boss' ? !!F.bossKilled : !!(F.eliteKilled || F.bossKilled);   // испытания только против тех, кого герой уже победил в сюжете
+    for (const t of CS.TRIALS) if (!seen(t)) { box.appendChild(row('?', 'Неизвестный противник', t.type === 'boss' ? 'Откроется после победы над Палачом Бездны' : 'Откроется после победы над Стражем Медальона', null, false, () => { })); }
+    else box.appendChild(row('⚔', esc(t.name), `ур. врага ${P.level + t.lvl} · нужен ур. ${t.req}`, P.level < t.req ? `ур. ${t.req}` : 'Сразиться', P.level >= t.req && s.n > 0 && !G.trial, () => startTrial(t)));
     box.appendChild(el('p', 'muted', `<small>Печати — вход на испытание. Восстанавливаются сами: +1 каждые 3 часа (максимум ${CS.SEAL_MAX}). Ещё печать можно получить за рекламу раз в час.</small>`));
     box.appendChild(adButton('+1 печать', 'seal', 60 * 60e3, () => { s.n++; bus.emit('save'); }, () => render(true)));
   } else if (T.room === 'treasury') {

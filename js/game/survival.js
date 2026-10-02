@@ -1,4 +1,4 @@
-// «Кровавая жатва» — survivors-like mode: an open arena, endless waves, the hero attacks automatically,
+// «Жатва Бездны» — survivors-like mode: an open arena, endless waves, the hero attacks automatically,
 // the player only moves. Enemies drop soul crystals → run level → pick 1 of 3 perks (weapons, passives, evolutions).
 import { G, bus } from './ctx.js';
 import { ENEMIES } from '../data/enemies.js';
@@ -52,7 +52,7 @@ export function generateArena() {
   const o = [];
   for (let k = 0; k < 34; k++) { const x = 5 + R() * (W - 10), y = 5 + R() * (H - 10); if (Math.hypot(x - W / 2, y - H / 2) < 6) continue; o.push({ t: ['crystals', 'stalagmite', 'lavarock', 'rocks', 'skulls', 'mushrooms', 'bones'][k % 7], x, y }); }
   for (let k = 0; k < 10; k++) o.push({ t: 'brazier', x: W / 2 + Math.cos(k / 10 * 6.283) * 20, y: H / 2 + Math.sin(k / 10 * 6.283) * 20 });
-  return { name: 'Кровавая жатва', floorN: 666, dungeon: true, survival: true, biome: 'abyss', w: W, h: H, rows, objects: o, torches: [], spawns: [], total: 0, rooms: {}, start: [W / 2, H / 2], level: 1, story: [] };
+  return { name: 'Жатва Бездны', floorN: 666, dungeon: true, survival: true, biome: 'abyss', w: W, h: H, rows, objects: o, torches: [], spawns: [], total: 0, rooms: {}, start: [W / 2, H / 2], level: 1, story: [] };
 }
 
 // ---------------------------------------------------------------- run state
@@ -66,7 +66,7 @@ const TYPES = [
 export function startRun() {
   const S = G.surv = { t: 0, kills: 0, lvl: 1, xp: 0, next: 12, swarm: [], gems: [], projs: [], pools: [], w: { main: 1 }, p: {}, evo: {}, cd: {}, spawnT: 0, eliteT: 150, bossT: 600, bossKills: 0, gold: 0, over: false, hp0: G.stats.maxHP, ach: {}, orbit: 0, pending: 0 };
   G.player.hp = G.stats.maxHP; G.auto = false;
-  bus.emit('toast', { text: 'Кровавая жатва', sub: 'Только бегайте — герой бьёт сам. Собирайте кристаллы душ.', kind: 'quest' });
+  bus.emit('toast', { text: 'Жатва Бездны', sub: 'Только бегайте — герой бьёт сам. Собирайте кристаллы душ.', kind: 'quest' });
   return S;
 }
 const might = () => 1 + (G.surv.p.might || 0) * 0.12;

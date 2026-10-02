@@ -1,4 +1,4 @@
-// «Путь героя» — a flat, lazy auto-battle mini-game inside DARK ASCENT.
+// «Летопись битв» — a flat, lazy auto-battle mini-game inside DARK ASCENT.
 // Same hero, same stats and gear: everything you upgrade in the main game makes you stronger here, and rewards
 // (gold, experience, Abyss shards) flow back. Stamina restores by itself → a reason to come back.
 import { G, bus } from '../game/ctx.js';
@@ -10,6 +10,7 @@ import { addShards } from '../game/castle.js';
 import { watchRewarded, offerToken, maybeInterstitial } from '../platform/monetize.js';
 import { rand, rrange, clamp } from '../core/util.js';
 import { adButton } from './adbtn.js';
+import { gate } from '../game/progress.js';
 
 export const EN_MAX = 20, EN_MS = 6 * 60e3;
 const CHAPTERS = [
@@ -104,12 +105,12 @@ function header(title) {
 function showMap() {
   cancelAnimationFrame(raf); root.innerHTML = ''; header();
   const h = HW(), ch = CHAPTERS[page];
-  const card = el('div', 'hw-map', `<div class="hw-banner">Путь героя · ${esc(ch.name)}</div><div class="hw-sub">Бой идёт сам. Ваш герой, его вещи, закалка и улучшения — те же, что в подземелье.</div>`);
+  const card = el('div', 'hw-map', `<div class="hw-banner">Летопись битв · ${esc(ch.name)}</div><div class="hw-sub">Бой идёт сам. Ваш герой, его вещи, закалка и улучшения — те же, что в подземелье.</div>`);
   const grid = el('div', 'hw-grid');
   for (let i = 1; i <= 10; i++) {
-    const s = page * 10 + i, st = h.stars[s] || 0, locked = s > h.top, E = stageEnemy(s);
+    const s = page * 10 + i, st = h.stars[s] || 0, locked = s > h.top || !!gate('hw', s), E = stageEnemy(s);
     const b = el('button', 'hw-stage' + (locked ? ' locked' : '') + (E.boss ? ' boss' : '') + (s === h.top ? ' cur' : ''), `<div class="hw-stars">${[0, 1, 2].map(k => `<i class="${k < st ? 'on' : ''}">★</i>`).join('')}</div><div class="hw-num">${locked ? '🔒' : s}</div>${E.boss ? '<div class="hw-tag">босс</div>' : ''}`);
-    b.onclick = () => { if (!locked) showPrefight(s); };
+    b.onclick = () => { if (locked) return; const g = gate('hw', s); if (g) { bus.emit('toast', { ...g, kind: 'warn' }); return; } showPrefight(s); };
     grid.appendChild(b);
   }
   card.appendChild(grid);
@@ -118,12 +119,12 @@ function showMap() {
   const nx = el('button', 'btn', '▶'); nx.disabled = page === 2 || h.top <= (page + 1) * 10; nx.onclick = () => { page++; showMap(); };
   const ad = adButton('+10 ⚡', 'hw_en', 30 * 60e3, () => { h.en.n = Math.min(EN_MAX + 10, h.en.n + 10); }, showMap);
   nav.append(pv, el('span', 'hw-page', `Глава ${page + 1}/3`), nx); card.appendChild(nav);
-  if (h.top >= page * 10 + 1 && h.top <= page * 10 + 10) { const go = el('button', 'btn gold hw-go', `⚔ В бой · этап ${h.top}`); go.onclick = () => showPrefight(h.top); card.appendChild(go); }
+  if (h.top >= page * 10 + 1 && h.top <= page * 10 + 10 && !gate('hw', h.top)) { const go = el('button', 'btn gold hw-go', `⚔ В бой · этап ${h.top}`); go.onclick = () => showPrefight(h.top); card.appendChild(go); }
   const adr = el('div', 'hw-nav'); adr.appendChild(ad); card.appendChild(adr);
   root.appendChild(card);
 }
 function heroSummary() {
-  const S = G.stats; return { hp: S.maxHP, dmg: (S.dmgMin + S.dmgMax) / 2 * (S.ranged ? 1 : 1), aps: Math.min(2.2, S.aps), crit: S.critChance, critMult: S.critMult, armor: S.armor, spell: S.spellPower };
+  const S = G.stats; const cls = G.profile.cls || 'warrior'; return { hp: S.maxHP, dmg: (S.dmgMin + S.dmgMax) / 2 * (cls === 'mage' ? Math.max(1, S.spellPower * 0.85) : 1), aps: Math.min(2.2, S.aps), crit: S.critChance, critMult: S.critMult, armor: S.armor, spell: S.spellPower };
 }
 function showPrefight(s) {
   root.innerHTML = ''; header();
@@ -149,9 +150,13 @@ function fight(s) {
   let speed = G.profile.hwSpeed === 2 ? 2 : 1; const speedB = el('button', 'hw-speed', '×' + speed); speedB.onclick = () => { speed = speed === 1 ? 2 : 1; G.profile.hwSpeed = speed; speedB.textContent = '×' + speed; }; root.appendChild(speedB);
   const ch = CHAPTERS[Math.floor((s - 1) / 10)];
   const H = heroSummary(), E = enemyStats(s);
-  const hero = { hp: H.hp, max: H.hp, t: 0.6, anim: 'idle', at: 0, flash: 0, x: 0, skillT: 3.5 };
+  const hero = { hp: H.hp, max: H.hp, t: 0.6, anim: 'idle', at: 0, flash: 0, x: 0, skillT: 3.5, invul: 0 };
   const foe = { hp: E.hp, max: E.hp, t: 1.1, anim: 'idle', at: 0, flash: 0, x: 0, dead: 0 };
   const nums = []; let time = 0, over = null, last = performance.now();
+  // хореография: бойцы держат дистанцию, сближаются на удар; герой иногда перекатывается или пролетает рывком сквозь врага — стороны меняются
+  let sw = 1; hero.bx = 0.26; foe.bx = 0.74; hero.dash = 0; hero.roll = 0; hero.dashCd = rrange(4, 6); foe.step = 0; const ghosts = [];
+  const sideT = () => [0.5 - sw * 0.24, 0.5 + sw * 0.24];
+  const doDash = () => { hero.dash = 0.5; hero.dashFrom = hero.bx; hero.invul = 0.6; sw = -sw; hero.anim = heroClip; hero.at = 0; nums.push({ x: 0.5, y: 0.22, t: 0, s: 'Рывок!', c: '#9fe38e', big: 1 }); bus.emit('sfx', 'dodge'); setTimeout(() => !over && hitFoe(1.7, null), 260 / speed); };
   const cls = G.profile.cls || 'warrior', wt = G.profile.gear.weapon ? G.profile.gear.weapon.wt : 'sword';
   const heroAtlas = cls !== 'warrior' && getAtlas(`hero_${cls}_body`) ? [`hero_${cls}_body`, `hero_${cls}_${cls === 'archer' ? 'bow' : 'staff'}`] : ['hero_body', 'hero_' + wt].concat(wt === 'sword' || wt === 'axe' ? ['hero_shield'] : []);
   const heroClip = wt === 'bow' ? 'bowrel' : wt === 'staff' ? 'cast' : wt === 'greatsword' ? 'chop2' : 'slash1';
@@ -160,7 +165,7 @@ function fight(s) {
   const hitFoe = (mul, label) => {
     let d = H.dmg * mul * rrange(0.85, 1.15), crit = rand() < H.crit; if (crit) d *= H.critMult; d = Math.round(d);
     foe.hp -= d; foe.flash = 0.15; foe.anim = 'hit'; foe.at = 0;
-    nums.push({ x: 0.66, y: 0.42, t: 0, s: crit ? `${d}!` : String(d), c: label ? '#ffb86a' : crit ? '#ffd24a' : '#fff', big: crit || label });
+    nums.push({ x: foe.bx, y: 0.42, t: 0, s: crit ? `${d}!` : String(d), c: label ? '#ffb86a' : crit ? '#ffd24a' : '#fff', big: crit || label });
     if (label) nums.push({ x: 0.5, y: 0.25, t: 0, s: label, c: '#9fe38e', big: 1 });
     bus.emit('sfx', crit ? 'heavy' : 'hit');
   };
@@ -168,10 +173,12 @@ function fight(s) {
   function step(dt) {
     if (over) return;
     time += dt; hero.at += dt; foe.at += dt; hero.flash -= dt; foe.flash -= dt;
-    hero.t -= dt; foe.t -= dt; hero.skillT -= dt;
+    hero.t -= dt; foe.t -= dt; hero.skillT -= dt; hero.invul -= dt; hero.dashCd -= dt; if (hero.roll > 0) hero.roll -= dt;
+    { const [hT, fT] = sideT(); const kh = hero.dash > 0 ? 9 : 3.2; hero.bx += (hT - hero.bx) * Math.min(1, dt * kh); foe.bx += (fT - foe.bx) * Math.min(1, dt * 3.2); if (hero.dash > 0) { hero.dash -= dt; if (Math.random() < 0.9) ghosts.push({ x: hero.bx, t: 0, anim: heroClip, at: hero.at, sw }); } }
+    if (hero.dashCd <= 0 && !hero.dash && foe.hp > 0 && hero.hp > 0 && !over) { hero.dashCd = rrange(6, 9); doDash(); }
     if (hero.t <= 0) { hero.t = 1 / H.aps; hero.anim = heroClip; hero.at = 0; setTimeout(() => !over && hitFoe(1), 180 / speed); }
     if (hero.skillT <= 0) { hero.skillT = 6; hero.anim = heroClip; hero.at = 0; setTimeout(() => { if (over) return; if (cls === 'archer') { hitFoe(0.7, skillName); setTimeout(() => !over && hitFoe(0.7), 120 / speed); setTimeout(() => !over && hitFoe(0.7), 240 / speed); } else hitFoe(cls === 'mage' ? 2.4 * H.spell / 1.2 : 2.5, skillName); }, 220 / speed); }
-    if (foe.t <= 0 && foe.hp > 0) { foe.t = 1 / E.aps; foe.anim = 'attack'; foe.at = 0; setTimeout(() => { if (over || foe.hp <= 0) return; const d = Math.round(E.dmg * rrange(0.85, 1.15) * (1 - redu)); hero.hp -= d; hero.flash = 0.15; nums.push({ x: 0.34, y: 0.42, t: 0, s: '-' + d, c: '#ff6a5a' }); bus.emit('sfx', 'hurt'); }, 300 / speed); }
+    if (foe.t <= 0 && foe.hp > 0) { foe.t = 1 / E.aps; foe.anim = 'attack'; foe.at = 0; setTimeout(() => { if (over || foe.hp <= 0) return; if (hero.invul > 0) { nums.push({ x: 0.34, y: 0.42, t: 0, s: 'мимо', c: '#bbb' }); return; } if (rand() < 0.2) { hero.roll = 0.45; nums.push({ x: 0.5, y: 0.3, t: 0, s: 'Уворот!', c: '#9fe38e', big: 1 }); bus.emit('sfx', 'dodge'); return; } const d = Math.round(E.dmg * rrange(0.85, 1.15) * (1 - redu)); hero.hp -= d; hero.flash = 0.15; nums.push({ x: hero.bx, y: 0.42, t: 0, s: '-' + d, c: '#ff6a5a' }); bus.emit('sfx', 'hurt'); }, 300 / speed); }
     if (foe.hp <= 0 && !foe.dead) { foe.dead = 1; foe.anim = 'death'; foe.at = 0; bus.emit('sfx', 'bones'); setTimeout(() => end(true), 1100 / speed); over = 'win-pending'; }
     else if (hero.hp <= 0) { hero.anim = 'death'; hero.at = 0; over = 'lose-pending'; setTimeout(() => end(false), 1100 / speed); }
     for (const n of nums) n.t += dt; while (nums.length && nums[0].t > 1) nums.shift();
@@ -205,16 +212,20 @@ function fight(s) {
     drawBg(W, Hh);
     const gy = Hh * 0.8, sc = Math.min(1.3, Hh / 330) * 1.0;
     // shadows
-    ctx.fillStyle = 'rgba(0,0,0,0.3)'; for (const px of [W * 0.34, W * 0.66]) { ctx.beginPath(); ctx.ellipse(px, gy, 44 * sc, 12 * sc, 0, 0, 7); ctx.fill(); }
+    ctx.fillStyle = 'rgba(0,0,0,0.3)'; for (const px of [W * hero.bx, W * foe.bx]) { ctx.beginPath(); ctx.ellipse(px, gy, 44 * sc, 12 * sc, 0, 0, 7); ctx.fill(); }
     const hNF = HNF[hero.anim] || 4; if (hero.anim !== 'idle' && hero.anim !== 'death' && hero.at * 12 > hNF) hero.anim = 'idle';
-    const lunge = hero.anim !== 'idle' && hero.anim !== 'death' && heroClip !== 'bowrel' && heroClip !== 'cast' ? Math.sin(Math.min(1, hero.at * 3) * Math.PI) * 30 : 0;
-    drawUnit(heroAtlas, hero.anim, hNF, hero.anim === 'idle' ? 5 : 12, hero.at + (hero.anim === 'idle' ? time : 0), W * 0.34 + lunge, gy, sc * 1.25, false, 7, hero.flash, hero.anim === 'idle');
+    const lunge = hero.anim !== 'idle' && hero.anim !== 'death' && heroClip !== 'bowrel' && heroClip !== 'cast' ? Math.sin(Math.min(1, hero.at * 2.4) * Math.PI) * W * 0.15 * sw : 0;
+    const hDir = sw > 0 ? 7 : 3, fDir = sw > 0 ? 3 : 7, hy = gy - (hero.roll > 0 ? Math.sin(Math.min(1, (0.45 - hero.roll) / 0.45) * Math.PI) * 46 * sc : 0);
+    for (const g of ghosts) { g.t += 0.016 * speed; } while (ghosts.length && ghosts[0].t > 0.4) ghosts.shift();
+    for (const g of ghosts) { ctx.globalAlpha = Math.max(0, 0.35 - g.t * 0.9); drawUnit(heroAtlas, g.anim, HNF[g.anim] || 4, 12, g.at, W * g.x, gy, sc * 1.25, false, g.sw > 0 ? 7 : 3, 0.4, false); } ctx.globalAlpha = 1;
+    if (hero.roll > 0) { ctx.globalAlpha = 0.55; drawUnit(heroAtlas, 'idle', 4, 5, time, W * hero.bx - sw * 26 * sc, gy, sc * 1.25, false, hDir, 0, true); ctx.globalAlpha = 1; }
+    drawUnit(heroAtlas, hero.anim, hNF, hero.anim === 'idle' ? 5 : 12, hero.at + (hero.anim === 'idle' ? time : 0), W * hero.bx + lunge, hy, sc * 1.25, false, hDir, hero.flash, hero.anim === 'idle');
     const A = getAtlas(ENEMIES[E.type].atlas);
     if (A) {
       const nf = c => (A.clips[c] || [4])[0];
       if (foe.anim !== 'idle' && foe.anim !== 'death' && foe.at * 11 > nf(foe.anim)) foe.anim = 'idle';
-      const fl = foe.anim === 'attack' ? Math.sin(Math.min(1, foe.at * 2.5) * Math.PI) * -26 : 0;
-      drawUnit([ENEMIES[E.type].atlas], foe.anim, nf(foe.anim), foe.anim === 'idle' ? 5 : 11, foe.at + (foe.anim === 'idle' ? time : 0), W * 0.66 + fl, gy, sc * (E.type === 'boss' ? 1.0 : 1.45), false, 3, foe.flash, foe.anim === 'idle');
+      const fl = foe.anim === 'attack' ? Math.sin(Math.min(1, foe.at * 2.3) * Math.PI) * -W * 0.14 * sw : 0;
+      drawUnit([ENEMIES[E.type].atlas], foe.anim, nf(foe.anim), foe.anim === 'idle' ? 5 : 11, foe.at + (foe.anim === 'idle' ? time : 0), W * foe.bx + fl, gy, sc * (E.type === 'boss' ? 1.0 : 1.45), false, fDir, foe.flash, foe.anim === 'idle');
     }
     const bw = Math.min(260, W * 0.36);
     bar(W * 0.04, 34, bw, hero.hp, hero.max, '#c8302a', 'Вы');

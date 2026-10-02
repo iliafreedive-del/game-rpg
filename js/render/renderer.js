@@ -244,7 +244,7 @@ function portalFx(x, y) {
 function darkness() {
   const cam = G.cam, lw = lightCv.width, lh = lightCv.height, P = G.player;
   lctx.globalCompositeOperation = 'source-over'; lctx.clearRect(0, 0, lw, lh);
-  const fg = G.zone.fog || [4, 3, 8]; lctx.fillStyle = `rgba(${fg[0]},${fg[1]},${fg[2]},0.8)`; lctx.fillRect(0, 0, lw, lh);
+  const fg = G.zone.fog || [4, 3, 8]; lctx.fillStyle = `rgba(${fg[0]},${fg[1]},${fg[2]},0.62)`; lctx.fillRect(0, 0, lw, lh);
   lctx.globalCompositeOperation = 'destination-out';
   const hole = (wx, wy, r, a, z = 0) => {
     const [x, y] = cam.toScreen(wx, wy, z); const R = r * 32 * cam.zoom;
@@ -253,7 +253,7 @@ function darkness() {
     g.addColorStop(0, `rgba(0,0,0,${a})`); g.addColorStop(0.55, `rgba(0,0,0,${a * 0.6})`); g.addColorStop(1, 'rgba(0,0,0,0)');
     lctx.fillStyle = g; lctx.beginPath(); lctx.ellipse(x / 2, y / 2, R / 2, R / 4, 0, 0, 7); lctx.fill();
   };
-  hole(P.x, P.y, 11, 0.98);
+  hole(P.x, P.y, 13, 0.98);
   const lights = [];
   for (const L of G.zone.lights) { if (!L.on) continue; const fl = L.flicker ? 1 - L.flicker * 0.08 * (Math.sin(G.time * 13 + L.seed) + Math.sin(G.time * 7.3 + L.seed * 2)) : 1; hole(L.x, L.y, L.r * fl, 0.9); lights.push([L, fl]); }
   for (const p of G.projectiles) if (p.kind === 'fireball' || p.kind === 'darkbolt' || p.kind === 'bolt') hole(p.x, p.y, 3, 0.8, 1);

@@ -88,10 +88,20 @@ function loop(now) {
   requestAnimationFrame(loop);
 }
 // persist on tab hide / close (mobile browsers kill background tabs)
-document.addEventListener('visibilitychange', () => { if (document.hidden && G.profile) { saveNow(); platform.p && platform.p.gameplayStop(); } else if (G.profile) platform.p && platform.p.gameplayStart(); });
+// пауза и тишина при сворачивании вкладки / событиях платформы (требование модерации Яндекс Игр)
+let platPaused = false;
+const setPlatPause = on => { if (!G.profile) return; if (on === platPaused) return; platPaused = on; if (on) { G.hidePaused = !G.paused; if (G.hidePaused) G.paused = true; saveNow(); bus.emit('audioPause', true); platform.p && platform.p.gameplayStop(); } else { if (G.hidePaused) G.paused = false; G.hidePaused = false; bus.emit('audioPause', false); platform.p && platform.p.gameplayStart(); } };
+document.addEventListener('visibilitychange', () => setPlatPause(document.hidden));
+bus.on('platformPause', setPlatPause);
 addEventListener('pagehide', () => { if (G.profile) saveNow(); });
 addEventListener('contextmenu', e => e.preventDefault());
 // iOS Safari: block pinch/double-tap zoom and reset any zoom left over after rotation
+// двойной тап / щипок на телефоне не должен приближать страницу (экран «уезжал», вернуть масштаб было нельзя)
+let lastTap = 0;
+document.addEventListener('touchend', e => { const n = Date.now(); if (n - lastTap < 350 && e.target && e.target.closest && e.target.closest('#game,#game3d,#joyZone')) e.preventDefault(); lastTap = n; }, { passive: false });
+document.addEventListener('touchmove', e => { if (e.touches && e.touches.length > 1) e.preventDefault(); }, { passive: false });
+document.addEventListener('dblclick', e => e.preventDefault());
+document.addEventListener('wheel', e => { if (e.ctrlKey) e.preventDefault(); }, { passive: false });
 for (const ev of ['gesturestart', 'gesturechange', 'gestureend']) document.addEventListener(ev, e => e.preventDefault(), { passive: false });
 const vpMeta = document.querySelector('meta[name=viewport]'); const VP = vpMeta.content;
 function resetZoom() {

@@ -1,6 +1,8 @@
 // Platform SDK layer. The game talks only to `platform`; providers adapt Yandex Games / demo / future stores.
 // Yandex SDK is loaded lazily and only when running on a Yandex domain (or ?yandex=1), so other hosts stay clean.
 
+import { bus } from '../game/ctx.js';
+
 class DemoProvider {
   constructor() { this.name = 'demo'; }
   async init() { return true; }
@@ -27,6 +29,8 @@ class YandexProvider {
     this.ysdk = await window.YaGames.init();
     try { this.payments = await this.ysdk.getPayments({ signed: false }); this.catalog = await this.payments.getCatalog(); } catch (e) { console.warn('payments unavailable', e); }
     try { this.player = await this.ysdk.getPlayer({ scopes: false }); } catch { }
+    // требование модерации: игра ставится на паузу и глушит звук по событиям платформы (реклама, сворачивание, оверлей)
+    try { this.ysdk.on('game_api_pause', () => bus.emit('platformPause', true)); this.ysdk.on('game_api_resume', () => bus.emit('platformPause', false)); } catch { }
     return true;
   }
   ready() { try { this.ysdk.features.LoadingAPI?.ready(); } catch { } }
