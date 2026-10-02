@@ -10,8 +10,15 @@ export const U = {
   uWindStr: { value: 1 },
   uCam: { value: new THREE.Vector3() },      // camera position  } used to dither away whatever
   uFocus: { value: new THREE.Vector3() },    // hero chest       } stands between them
+  uFadeSmooth: { value: 0 },                 // 1 — плавная прозрачность через alpha-to-coverage (нужен MSAA), 0 — мелкий дизеринг
 };
 
+// материалы с растворением: плавная прозрачность (alpha-to-coverage) включается, когда есть MSAA (renderer3d.applyQuality)
+const fadeMats = [];
+export function setSmoothFade(on) {
+  U.uFadeSmooth.value = on ? 1 : 0;
+  for (const m of fadeMats) { if (m.alphaToCoverage !== !!on) { m.alphaToCoverage = !!on; m.needsUpdate = true; } }
+}
 let _ramp = null;
 export function ramp() {
   if (_ramp) return _ramp;
@@ -58,15 +65,18 @@ const FADE_V = /* glsl */`
   vFadeW = (modelMatrix * vec4(transformed, 1.0)).xyz;
 #endif
 `;
-const FADE_FS = 'varying vec3 vFadeW; uniform vec3 uCam; uniform vec3 uFocus;\n';
+const FADE_FS = 'varying vec3 vFadeW; uniform vec3 uCam; uniform vec3 uFocus; uniform float uFadeSmooth;\n';
 const FADE_F = /* glsl */`
+float fadeA = 1.0;
 {
   vec3 ab = uFocus - uCam;
   float tt = clamp(dot(vFadeW - uCam, ab) / dot(ab, ab), 0.0, 1.0);
   float dd = length(vFadeW - (uCam + ab * tt));
-  float f = (1.0 - smoothstep(1.1, 2.3, dd)) * (1.0 - smoothstep(0.9, 0.97, tt));
+  float f = (1.0 - smoothstep(0.9, 2.6, dd)) * (1.0 - smoothstep(0.88, 0.97, tt));
+  fadeA = 1.0 - f * 0.82;
+  // MSAA: плавная прозрачность (alpha-to-coverage); без него — мелкий дизеринг, на высоком DPR почти незаметный
   float ign = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
-  if (ign < f * 0.8) discard;
+  if ((uFadeSmooth < 0.5 || FADE_HARD) && ign > fadeA) discard;
 }
 `;
 // «AO по высоте»: низ предметов и персонажей темнеет у земли (контактное затенение без SSAO)
@@ -123,9 +133,9 @@ const addTex = (sh, world) => {
   sh.fragmentShader = 'uniform highp sampler2DArray tMats; varying float vTexId; varying vec3 vTP; varying vec3 vTN;\n' + TEX_PARS +
     sh.fragmentShader.replace('#include <color_fragment>', '#include <color_fragment>\n' + TEX_F);
 };
-const addFade = sh => {
+const addFade = (sh, hard) => {
   sh.vertexShader = FADE_VS + sh.vertexShader.replace('#include <project_vertex>', '#include <project_vertex>\n' + FADE_V);
-  sh.fragmentShader = FADE_FS + sh.fragmentShader.replace('void main() {', 'void main() {\n' + FADE_F);
+  sh.fragmentShader = `#define FADE_HARD ${hard ? 'true' : 'false'}\n` + FADE_FS + sh.fragmentShader.replace('void main() {', 'void main() {\n' + FADE_F).replace('#include <opaque_fragment>', 'diffuseColor.a = fadeA;\n#include <opaque_fragment>');
 };
 
 const RIM = /* glsl */`
@@ -157,6 +167,7 @@ export function toon(color = 0xffffff, o = {}) {
     map: o.map ?? null, alphaTest: o.alphaTest ?? 0,
   });
   const sw = o.sway;
+  if (o.fade && !o.alphaTest) fadeMats.push(m);
   m.userData.flash = { value: 0 };
   m.userData.flashColor = { value: new THREE.Color(1, 1, 1) };
   m.onBeforeCompile = sh => {
@@ -171,11 +182,11 @@ export function toon(color = 0xffffff, o = {}) {
     }
     sh.fragmentShader = 'uniform float uFlash; uniform vec3 uFlashColor; uniform float uRim; uniform vec3 uRimColor; uniform float uGlow;\n' +
       sh.fragmentShader.replace('#include <opaque_fragment>', RIM + '#include <opaque_fragment>');
-    if (o.fade) addFade(sh);
+    if (o.fade) addFade(sh, !!o.alphaTest);
     if (o.ao) addAO(sh, o.ao, o.aoH ?? 0.8);
     if (o.tex) addTex(sh, o.texWorld);
   };
-  m.customProgramCacheKey = () => 'toon' + (sw ? '-sway' : '') + (o.fade ? '-fade' : '') + (o.ao ? '-ao' + o.ao + '-' + (o.aoH ?? 0.8) : '') + (o.tex ? (o.texWorld ? '-texw' : '-tex') : '');
+  m.customProgramCacheKey = () => 'toon' + (sw ? '-sway' : '') + (o.fade ? '-fade' + (m.alphaToCoverage ? 'S' : '') : '') + (o.ao ? '-ao' + o.ao + '-' + (o.aoH ?? 0.8) : '') + (o.tex ? (o.texWorld ? '-texw' : '-tex') : '');
   return m;
 }
 
@@ -183,6 +194,7 @@ export function toon(color = 0xffffff, o = {}) {
 export function outline(o = {}) {
   const m = new THREE.MeshBasicMaterial({ color: o.color ?? 0x1b1424, side: THREE.BackSide });
   const sw = o.sway;
+  if (o.fade) fadeMats.push(m);
   m.userData.width = { value: o.width ?? 0.02 };
   m.onBeforeCompile = sh => {
     Object.assign(sh.uniforms, U, { uOutline: m.userData.width });
@@ -196,7 +208,7 @@ export function outline(o = {}) {
     sh.vertexShader = 'uniform float uOutline;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n' + code);
     if (o.fade) addFade(sh);
   };
-  m.customProgramCacheKey = () => 'outline' + (sw ? '-sway' : '') + (o.fade ? '-fade' : '');
+  m.customProgramCacheKey = () => 'outline' + (sw ? '-sway' : '') + (o.fade ? '-fade' + (m.alphaToCoverage ? 'S' : '') : '');
   return m;
 }
 

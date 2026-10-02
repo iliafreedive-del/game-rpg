@@ -4,7 +4,7 @@
 import * as THREE from '../vendor/three.module.min.js';
 import { G } from '../game/ctx.js';
 import { PX_PER_M } from '../core/iso.js';
-import { U } from './toon.js';
+import { U, setSmoothFade } from './toon.js';
 import { makeKit } from './kit.js';
 import { Actor, setOutlinesVisible } from './actor.js';
 import { PropLayer } from './props.js';
@@ -89,7 +89,9 @@ function applyQuality(force) {
     if (sm) { lights.moon.shadow.mapSize.set(sm, sm); if (lights.moon.shadow.map) { lights.moon.shadow.map.dispose(); lights.moon.shadow.map = null; } }
     scene.traverse(o => { if (o.material && o.material.isMaterial) o.material.needsUpdate = true; });
   }
-  post.setup(Math.round(W * DPR), Math.round(H * DPR), { enabled: Q.post, samples: DPR < 1.5 ? Q.msaa : 0, levels: Q.bloom });
+  const msaa = DPR < 1.5 ? Q.msaa : 0;
+  post.setup(Math.round(W * DPR), Math.round(H * DPR), { enabled: Q.post, samples: msaa, levels: Q.bloom });
+  setSmoothFade(Q.post && msaa > 0);
 }
 
 // ---------------------------------------------------------------- мир зоны
