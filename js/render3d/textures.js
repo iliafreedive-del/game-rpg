@@ -5,7 +5,13 @@ import * as THREE from '../vendor/three.module.min.js';
 import { rng } from './geo.js';
 
 const cache = new Map();
-function canvas(size) { const c = document.createElement('canvas'); c.width = c.height = size; return c; }
+// TK — масштаб слоёв материалов: рисуем в координатах 512, а растр в N px (384 на ПК, 256 на телефоне) и без лишнего копирования
+let TK = 1;
+function canvas(size) {
+  const c = document.createElement('canvas'); c.width = c.height = Math.round(size * TK);
+  if (TK !== 1) c.getContext('2d', { willReadFrequently: true }).scale(TK, TK);   // CPU-растр: читаем пиксели без обратной передачи с GPU
+  return c;
+}
 // нарисовать фигуру так, чтобы она бесшовно повторялась
 function wrap(size, x, y, r, draw) {
   for (const ox of [-size, 0, size]) for (const oy of [-size, 0, size]) {
@@ -204,7 +210,7 @@ function plasterTex() {
   }
   px.globalCompositeOperation = 'destination-out';
   for (const [a, b, pts] of chips) { px.fillStyle = '#000'; px.beginPath(); pts.forEach(([u, v], i) => i ? px.lineTo(a + u, b + v) : px.moveTo(a + u, b + v)); px.closePath(); px.fill(); }
-  x.drawImage(p, 0, 0);
+  x.drawImage(p, 0, 0, S, S);
   x.strokeStyle = gray(25, 0.65); x.lineWidth = 2.2; x.lineJoin = 'round';
   for (const [a, b, pts] of chips) { x.beginPath(); pts.forEach(([u, v], i) => i ? x.lineTo(a + u, b + v) : x.moveTo(a + u, b + v)); x.closePath(); x.stroke(); }
   return c;
@@ -341,9 +347,10 @@ let matArr = null;
 export function matArray() {
   if (matArr) return matArr;
   const coarse = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches, N = coarse ? 256 : 384, L = MAT_LAYERS.length;
-  const d = new Uint8Array(N * N * 4 * L), small = canvas(N), sx = small.getContext('2d', { willReadFrequently: true });
-  sx.imageSmoothingQuality = 'high';
-  MAT_LAYERS.forEach((fn, i) => { const src = fn(); sx.clearRect(0, 0, N, N); sx.drawImage(src, 0, 0, N, N); d.set(sx.getImageData(0, 0, N, N).data, i * N * N * 4); });
+  const d = new Uint8Array(N * N * 4 * L);
+  TK = N / 512;
+  MAT_LAYERS.forEach((fn, i) => { const c = fn(); d.set(c.getContext('2d').getImageData(0, 0, N, N).data, i * N * N * 4); });
+  TK = 1;
   const t = new THREE.DataArrayTexture(d, N, N, L);
   t.format = THREE.RGBAFormat; t.type = THREE.UnsignedByteType; t.wrapS = t.wrapT = THREE.RepeatWrapping;
   t.magFilter = THREE.LinearFilter; t.minFilter = THREE.LinearMipmapLinearFilter; t.generateMipmaps = true; t.anisotropy = 4; t.needsUpdate = true;
