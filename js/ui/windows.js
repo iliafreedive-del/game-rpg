@@ -31,7 +31,7 @@ import { maybeInterstitial } from '../platform/monetize.js';
 import { platform as PF } from '../platform/platform.js';
 import { wipeLocal } from '../game/save.js';
 import { setVolumes } from '../core/audio.js';
-import { resize } from '../render/renderer.js';
+import { resize } from '../render/index.js';
 
 let cur = null;   // {name, bg, render}
 export function closeModal() { if (!cur) return; cur.bg.remove(); cur = null; G.atMerchant = false; G.modalOpen = false; G.paused = false; bus.emit('sfx', 'click'); bus.emit('hud'); }

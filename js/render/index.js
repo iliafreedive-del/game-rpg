@@ -1,0 +1,32 @@
+// Выбор отрисовки. По умолчанию — 3D (js/render3d), где он уже умеет; остальное рисует прежний 2D-рендерер.
+// Принудительно старая отрисовка: ?render=2d. Принудительно 3D с логом причин отката: ?render=3d.
+// Пока перенос не закончен, 3D покрывает деревню и героя-воина; катакомбы, цитадель, глубины, лучник и маг идут в 2D.
+import * as R2 from './renderer.js';
+import { G } from '../game/ctx.js';
+
+export const loadFloor = R2.loadFloor, buildFloorCanvas = R2.buildFloorCanvas;
+const mode = new URLSearchParams(location.search).get('render');
+let R3 = null, on3 = false;
+
+export async function initRenderer(canvas) {
+  const want3 = mode !== '2d';
+  if (want3) {
+    try { const m = await import('../render3d/renderer3d.js'); if (m.webglAvailable()) { R3 = m; } else console.warn('[render] WebGL недоступен — 2D'); }
+    catch (e) { console.error('[render] 3D не загрузился, остаёмся на 2D', e); }
+  }
+  R2.initRenderer(canvas, { overlay: !!R3 });
+  if (R3) { R3.init(); G.render3d = true; }
+}
+export function resize() {
+  R2.resize();
+  if (R3) R3.resize(G.cam.w, G.cam.h);
+}
+export function render() {
+  const z = G.zone, use3 = !!(R3 && z && G.player && R3.supports(z, G.profile));
+  if (use3 !== on3) {   // переключение 3D ⇄ 2D при смене зоны
+    on3 = use3; R3.show(use3); if (!use3) R2.clearOverlay(); R2.resize();
+    if (use3) R3.resize(G.cam.w, G.cam.h);
+    if (mode === '3d') console.info('[render] ' + (use3 ? '3D' : '2D (зона/класс пока без 3D)') + ': ' + (z && z.id));
+  }
+  if (use3) { R3.render(); R2.renderOverlay(); } else R2.render();
+}

@@ -11,7 +11,7 @@ import * as Q from './quests.js';
 import { REPEATABLE } from '../data/quests.js';
 import { saveLocal } from './save.js';
 import { loadJSON, loadGroup } from '../core/assets.js';
-import { loadFloor, buildFloorCanvas } from '../render/renderer.js';
+import { loadFloor, buildFloorCanvas } from '../render/index.js';
 import { generateFloor, isBossFloor, parTime } from '../world/floorgen.js';
 import { generateWild } from '../world/wildgen.js';
 import { prepareWildAtlases, setPropsPalette, buildWildFloor } from '../world/wildfloor.js';
@@ -25,7 +25,7 @@ import { wheelReady } from '../ui/wheel.js';
 import { ROOMS, DECOR } from '../data/upgrades.js';
 import * as CS from './castle.js';
 import * as SV from './survival.js';
-import { resize as rResize } from '../render/renderer.js';
+import { resize as rResize } from '../render/index.js';
 import { SKILLS } from '../data/skills.js';
 import { rand, rrange, rint } from '../core/util.js';
 import { pollMove, input, mouse, tapAim } from '../core/input.js';
@@ -80,7 +80,7 @@ export async function loadZone(id, how = {}) {
     const json = structuredClone(await loadJSON(ZONES[id]));
     if (id === 'town' && depthsUnlocked()) json.objects.push({ t: 'depths', x: 13.5, y: 8.5 });
     if (id === 'town' && P.tutorial.prologue) json.objects.push({ t: 'castle', x: 18.5, y: 7.5 }, { t: 'survportal', x: 16.5, y: 12.5 }, { t: 'wildportal', realm: 'fjord', x: 32.0, y: 6.0 }, { t: 'wildportal', realm: 'forest', x: 32.5, y: 34.0 });
-    if (id === 'town') { const bd = json.objects.find(o => o.t === 'board'); if (bd) { bd.x = 31.5; bd.y = 21.5; } json.objects.push({ t: 'wheel', x: 22.5, y: 26.5 }); }
+    if (id === 'town') { const bd = json.objects.find(o => o.t === 'board'); if (bd) { bd.x = 28.4; bd.y = 22.4; } json.objects.push({ t: 'wheel', x: 22.5, y: 26.5 }); }
     if (id === 'town') json.objects.push({ t: 'hwsign', x: 17.5, y: 28.8 }, { t: 'banner', x: 22.6, y: 16.4 }, { t: 'banner', x: 18.4, y: 23.9 }, { t: 'statue', x: 24.8, y: 14.5 }, { t: 'weapon_rack', x: 29.5, y: 17.8 }, { t: 'crystals', x: 31, y: 26.4 });
     if (id === 'catacombs') json.objects.push({ t: 'crystals', x: 47.5, y: 42 }, { t: 'crystals', x: 55, y: 51 }, { t: 'mushrooms', x: 7, y: 25 }, { t: 'mushrooms', x: 13, y: 31 }, { t: 'stalagmite', x: 5.5, y: 32 }, { t: 'puddle', x: 10, y: 28 }, { t: 'banner', x: 43, y: 23 });
     zone = new Zone(id, json, P);
