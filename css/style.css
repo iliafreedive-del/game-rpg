@@ -457,3 +457,10 @@ canvas#game{filter:saturate(1.22) contrast(1.08) brightness(1.06)}
   .modal,.win,.mw{max-width:min(94vw,460px)}
   .npc-panel{width:min(86vw,320px)!important;left:50%!important;transform:translateX(-50%)}
 }
+/* телефон вертикально: полоса ноши и цель похода — слева под полосами здоровья (справа трекер задания), босс-полоса уже */
+@media (orientation:portrait) and (max-width:760px){
+  #carryBar{left:8px!important;top:76px!important;transform:none!important;width:calc(50vw - 14px);min-width:0!important;max-width:none!important;text-align:left!important;font-size:11px!important;line-height:1.25}
+  #carryBar .g{font-size:10.5px!important}
+  #bossBar{width:100%;max-width:48vw}
+  #hudR{max-width:48vw}
+}

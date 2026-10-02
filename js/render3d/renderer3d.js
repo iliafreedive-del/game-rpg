@@ -163,11 +163,11 @@ function syncPlayer(dt) {
   const P = G.player; if (!P) return;
   const cls = (G.profile && G.profile.cls) || 'warrior', a = getActor(P, HEROES[cls], { scale: HERO.scale });
   const wt = P.weaponType(), key = wt + cls;
-  if (a.gear !== key) { a.gear = key; a.equip('handR', WEAPONS[WEAPON_MODEL[wt] || 'sword_iron']); a.equip('handL', OFFHAND_MODEL[cls] ? WEAPONS[OFFHAND_MODEL[cls]] : null); }
+  if (a.gear !== key) { a.gear = key; const wm = WEAPONS[WEAPON_MODEL[wt] || 'sword_iron'], off = OFFHAND_MODEL[cls] ? WEAPONS[OFFHAND_MODEL[cls]] : null; if (wt === 'bow') { a.equip('handL', wm); a.equip('handR', null); } else { a.equip('handR', wm); a.equip('handL', off); } }
   const c = measure(a, P, dt), an = P.anim; let clip = 'idle', k, impact, speed = 0;
   if (P.dead) { clip = 'death'; k = an.prog; }
   else if (P.state === 'dodge') { clip = 'dodge'; k = an.prog; speed = 6; }
-  else if (P.state === 'attack' || P.state === 'cast') { clip = (P.state === 'cast' || wt === 'staff') ? 'cast' : 'attack'; k = an.prog; impact = P.act ? P.act.impact : undefined; }
+  else if (P.state === 'attack' || P.state === 'cast') { clip = (P.state === 'cast' || wt === 'staff' || wt === 'bow') ? 'cast' : 'attack'; k = an.prog; impact = P.act ? P.act.impact : undefined; }
   else if (P.state === 'hit') { clip = 'hit'; k = an.prog; }
   else if (c.moving) { clip = 'walk'; speed = c.v; }
   a.place(P.x, P.y); a.faceAngle(yawOfDir(P.dir));

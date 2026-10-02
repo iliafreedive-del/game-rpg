@@ -20,6 +20,7 @@ import { $, el, esc } from './core/util.js';
 import { CLASSES } from './data/items.js';
 import { iconURL } from './ui/icons.js';
 
+export const BUILD = '2026-10-02 · сборка 5';   // видно на титульном экране и в настройках: так проверяют, что загрузилась свежая версия
 const CORE = ['props', 'icons'];
 // hero sheets are big (HD): load only the chosen class
 export const CLASS_ATLAS = { warrior: ['hero_body', 'hero_sword', 'hero_axe', 'hero_greatsword', 'hero_shield'], archer: ['hero_archer_body', 'hero_archer_bow'], mage: ['hero_mage_body', 'hero_mage_staff'] };
@@ -68,6 +69,7 @@ async function boot() {
   } else {
     const n = el('button', 'btn gold', 'Начать игру'); n.onclick = () => { sfx('click'); pickClass(btns, cls => start(newProfile(cls))); }; btns.append(n);
   }
+  btns.appendChild(el('div', 'muted', `<small>Версия: ${BUILD}</small>`));
   btns.appendChild(el('div', 'muted', '<small>Телефон: джойстик слева, атака справа · ПК: WASD + Пробел</small>'));
 }
 
@@ -112,4 +114,5 @@ if (window.visualViewport) visualViewport.addEventListener('resize', () => { if 
 initInput($('joyZone'), $('joyBase'), $('joyKnob')); initMouse($('game'));
 input.anchor = () => G.player ? G.cam.toScreen(G.player.x, G.player.y) : [innerWidth / 2, innerHeight / 2];
 window.__G = G;   // for automated QA
+window.__BUILD = BUILD;
 boot().catch(e => { console.error(e); $('loadtxt').textContent = 'Ошибка загрузки: ' + e.message; });

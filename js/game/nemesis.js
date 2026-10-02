@@ -98,7 +98,7 @@ export const hunted = realm => nemState().list.filter(n => n.alive && n.realm ==
 // ---- полоса «Ноша»
 let bar = null;
 function ensureBar() {
-  if (bar) return bar; bar = document.createElement('div');
+  if (bar) return bar; bar = document.createElement('div'); bar.id = 'carryBar';
   bar.style.cssText = 'position:fixed;left:50%;top:142px;transform:translateX(-50%);z-index:5;pointer-events:none;font:600 13px Georgia,serif;color:#f0dca8;text-shadow:0 1px 2px #000;text-align:center;display:none;min-width:220px;max-width:92vw';
   bar.innerHTML = '<div class="t"></div><div style="height:6px;background:#0009;border-radius:3px;margin-top:3px;overflow:hidden"><i style="display:block;height:100%;width:0;background:linear-gradient(90deg,#d6a548,#e8622a)"></i></div><div class="g" style="font-weight:400;font-size:12px;margin-top:3px;color:#cfe3c0"></div>';
   document.body.appendChild(bar); return bar;

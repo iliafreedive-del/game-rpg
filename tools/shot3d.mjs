@@ -10,7 +10,7 @@ await p.waitForSelector('#titleBtns button', { timeout: 20000 });
 await p.evaluate(() => { localStorage.clear(); });
 await p.reload(); await p.waitForSelector('#titleBtns button');
 await p.click('#titleBtns button');
-await p.waitForSelector('.class-card'); await p.click('.class-card');
+await p.waitForSelector('.class-card'); await (await p.$$('.class-card'))[+(process.env.CLS || 0)].click();   // CLS=0 воин, 1 лучник, 2 маг
 await p.waitForFunction(() => window.__G && window.__G.zone && window.__G.player, null, { timeout: 30000 });
 await p.waitForTimeout(+wait);
 // пропустить обучение, если спросит

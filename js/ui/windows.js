@@ -288,6 +288,7 @@ W.settings = () => modal('Настройки', 'sm', b => {
   { let cur = '3d'; try { cur = localStorage.getItem('da_render') || '3d'; } catch { } if (new URLSearchParams(location.search).get('render')) cur = new URLSearchParams(location.search).get('render');
     const g = el('div', 'attr', '<b>Графика</b>'); for (const [k, n] of [['3d', '3D (по умолчанию)'], ['2d', 'Классика 2D']]) { const bt = el('button', 'btn sm' + (cur === k ? ' gold' : ''), n); bt.onclick = () => { try { localStorage.setItem('da_render', k); } catch { } saveNow(); const u = new URL(location.href); u.searchParams.delete('render'); location.href = u.toString(); }; g.appendChild(bt); } b.appendChild(g); b.appendChild(el('p', 'muted', '<small>Смена графики перезапускает игру (прогресс сохраняется). Лучник и маг пока всегда в 2D.</small>')); }
   const sh = el('div', 'attr', '<b>Тряска камеры</b>'); const bs = el('button', 'btn sm', s.shake ? 'Вкл' : 'Выкл'); bs.onclick = () => { s.shake = !s.shake; rerender(); }; sh.appendChild(bs); b.appendChild(sh);
+  b.appendChild(el('p', 'muted', `<small>Версия сборки: ${window.__BUILD || ''}</small>`));
   b.appendChild(el('h3', '', 'Управление'));
   b.appendChild(el('p', 'muted', 'Телефон/планшет: джойстик слева, атака и навыки справа, удерживайте атаку — герой сам подойдёт к врагу. ПК: WASD/стрелки — движение, Пробел — атака, 1–4 — навыки, Shift — уклонение, Q/E — зелья, F — действие, I/C/K/J/M — окна, T — свиток.'));
   const row = el('div', 'row'); row.style.marginTop = '10px';

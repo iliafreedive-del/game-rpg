@@ -2,6 +2,10 @@
 // Ключи совпадают с идентификаторами игры: класс героя (js/data/items.js CLASSES), тип врага (js/data/enemies.js ENEMIES),
 // model у NPC (assets/maps/*.json), wt оружия, имя спрайта (spr) у предмета окружения (js/world/zone.js PROP).
 import warrior from './models/hero/warrior.js';
+import archer from './models/hero/archer.js';
+import mage from './models/hero/mage.js';
+import bow_hunter from './models/weapon/bow_hunter.js';
+import staff_mage from './models/weapon/staff_mage.js';
 import skel_warrior from './models/mob/skel_warrior.js';
 import ghoul from './models/mob/ghoul.js';
 import skel_archer from './models/mob/skel_archer.js';
@@ -116,16 +120,16 @@ import logpile from './models/prop/logpile.js';
 import stump from './models/prop/stump.js';
 
 const by = (...l) => Object.fromEntries(l.map(m => [m.id, m]));
-export const HEROES = by(warrior);                       // ключ — класс героя
+export const HEROES = by(warrior, archer, mage);                       // ключ — класс героя
 export const MOBS = by(skel_warrior, ghoul, skel_archer, skel_mage, beast, elite_guard, boss, f_draugr, f_berserk, f_hag, f_jotun, f_jarl, w_poacher, w_leshy, w_ataman, f_wolf, w_wolf, w_boar, w_bear, f_boss, w_boss);             // ключ — тип врага (ENEMIES)
 export const NPCS = by(npc_elder, npc_smith, npc_merchant, npc_trainer);
-export const WEAPONS = by(axe_hand, club_giant, staff_ice, staff_root, sword_iron, shield_round, sword_rust, shield_bone, bow_bone, staff_bone, axe_great);
+export const WEAPONS = by(bow_hunter, staff_mage, axe_hand, club_giant, staff_ice, staff_root, sword_iron, shield_round, sword_rust, shield_bone, bow_bone, staff_bone, axe_great);
 export const PROPS = by(fort_wall, palisade, fort_tower, watchtower, fort_gate_i, fort_gate_w, fort_hall_i, fort_hall_w, tent_i, tent_w, tree_0, tree_1, tree_birch, tree_autumn, tree_elm, tree_pine_tall, tree_fir_blue, deadtree, house_0, house_1, house_2, rocks, grave, fence_x, fence_y, barrel, crate, hay, lamp, runebed, forge, stall, board, altar, banner, statue, weapon_rack, crystals, portal,
   fern, flowers, pebbles, mushrooms, bush, sacks, logpile, stump,
   dwall_hi, dwall_lo, dwall_buttress, dwall_niche, wall_block, torch_sconce, pillar, brazier, bones, skulls, rubble, candles, chest, chest_open, chest_rich, chest_rich_open, sarcophagus, sarcophagus_open, door, door_open, gate_sealed, altar_medallion, stalagmite, lavarock, puddle, rug, bookshelf, throne, well);   // подземелье (стены dwall_* ставит dungeon.js по тайлам)   // последние восемь — декор земли и хлам у домов (js/render3d/props.js, scatterDecor), в картах не стоят
 
 // какая модель оружия соответствует типу оружия игры (wt); недостающие пока подменяются мечом
-export const WEAPON_MODEL = { sword: 'sword_iron', greatsword: 'sword_iron', axe: 'sword_iron' };
+export const WEAPON_MODEL = { sword: 'sword_iron', greatsword: 'sword_iron', axe: 'sword_iron', bow: 'bow_hunter', staff: 'staff_mage' };
 export const OFFHAND_MODEL = { warrior: 'shield_round' };
 
 // породы деревьев: tree_0/tree_1 в карте — «лиственное»/«хвойное», а какая именно порода — решает слой окружения по позиции.
