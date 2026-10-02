@@ -35,9 +35,9 @@ function build(RL, mood, depth, boss, attempt, force) {
   const reserved = (x, y, m = 0) => dist(x, y, start[0], start[1]) < 7 + m || dist(x, y, exit[0], exit[1]) < 4.5 + m || inFort(x, y, 3 + m);
 
   // озёра / заливы
-  const nLakes = Math.round(2 + mood.lake * 14 + R() * 2);
+  const nLakes = Math.round(0.6 + mood.lake * 7 + R() * 1.4);   // водоёмов мало: обходить их по всему полю — мучение
   for (let k = 0; k < nLakes; k++) {
-    const r = 2 + R() * (realm === 'fjord' ? 5 : 3.5), cx = ri(6, W - 7), cy = ri(6, H - 7);
+    const r = 2 + R() * (realm === 'fjord' ? 4 : 2.2), cx = ri(6, W - 7), cy = ri(6, H - 7);
     if (reserved(cx, cy, r)) continue;
     for (let y = Math.floor(cy - r - 1); y <= cy + r + 1; y++) for (let x = Math.floor(cx - r * 1.3 - 1); x <= cx + r * 1.3 + 1; x++) {
       const dx = (x - cx) / 1.3, dy = y - cy; if (dx * dx + dy * dy < r * r * (0.75 + R() * 0.4) && at(x, y) === '.' && !reserved(x, y)) set(x, y, '~');
@@ -97,7 +97,7 @@ function build(RL, mood, depth, boss, attempt, force) {
   if (boss) objects.push({ t: 'statue', x: cxF - 5, y: fort.y + 8 }, { t: 'statue', x: cxF + 5, y: fort.y + 8 });
   // стража и командир
   const avail = RL.pool.filter(([, d]) => d <= depth).map(([t]) => t).filter(t => WILD_MOBS[t].ai !== 'giant');
-  const nGuards = Math.min(14, 7 + Math.floor(depth / 2)) + (boss ? 3 : 0);
+  const nGuards = Math.min(12, 6 + Math.floor(depth / 3)) + (boss ? 2 : 0);   // ~10 в форте, а не толпа
   const gA = avail[ri(0, avail.length - 1)], gB = avail[ri(0, avail.length - 1)];
   spawns.push([gA, cxF, cyF + 3, Math.ceil(nGuards * 0.6), 5, lvl, 'fortguard']);
   spawns.push([gB, cxF, cyF + 3, Math.floor(nGuards * 0.4), 5, lvl, 'fortguard']);
@@ -105,16 +105,16 @@ function build(RL, mood, depth, boss, attempt, force) {
   placed.push([cxF, cyF, 16]);
 
   // --- лагеря мобов
-  const nCamps = Math.min(18, 8 + depth);
+  const nCamps = Math.min(8, 3 + Math.floor((depth + 1) / 2));   // на всё поле ~8–10 мобов: бой по одному-двое
   const bigPool = RL.pool.filter(([, d]) => d <= depth).map(([t]) => t);
   let camps = 0;
   for (let i = 0; i < nCamps * 4 && camps < nCamps; i++) {
     const p = pick((x, y) => !inFort(x, y, 4) && dist(x, y, start[0], start[1]) > 11 && dist(x, y, exit[0], exit[1]) > 5 && !near(x, y, 8) && free(x, y, 1));
     if (!p) continue; camps++; placed.push([p[0], p[1], 8]);
     const t = bigPool[ri(0, bigPool.length - 1)], MT = WILD_MOBS[t];
-    const n = MT.ai === 'giant' ? 1 : Math.min(5, ri(2, 3) + Math.floor(depth / 3));
+    const n = MT.ai === 'giant' ? 1 : Math.min(3, ri(1, 2) + (depth >= 6 ? 1 : 0));
     spawns.push([t, p[0], p[1], n, 2.2, lvl]);
-    if (MT.ai !== 'giant' && R() < 0.35) { const t2 = bigPool[ri(0, bigPool.length - 1)]; if (WILD_MOBS[t2].ai !== 'giant') spawns.push([t2, p[0], p[1], 1, 2.5, lvl]); }
+    if (MT.ai !== 'giant' && depth >= 4 && R() < 0.3) { const t2 = bigPool[ri(0, bigPool.length - 1)]; if (WILD_MOBS[t2].ai !== 'giant') spawns.push([t2, p[0], p[1], 1, 2.5, lvl]); }
     // лагерная обстановка и сундук
     objects.push({ t: realm === 'fjord' ? 'brazier' : 'rocks', x: p[0] + 1.6, y: p[1] - 1.2 });
     for (let k = 0; k < 2; k++) objects.push({ t: ['bones', 'skulls', 'crate', 'barrel'][ri(0, 3)], x: p[0] - 1.5 + R() * 3, y: p[1] + 1.5 + R() * 1.5 });

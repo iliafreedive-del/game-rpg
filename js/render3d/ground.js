@@ -78,14 +78,14 @@ function clumpGeometry() {
 
 // материал земли: toon (свет, тени, туман) + рисованные текстуры по маскам типов. aKind = веса (трава, тропа, брусчатка, лес);
 // край тропы рвёт шум, вдоль края — тёмная кромка (трава нависает над землёй), крупные пятна шума — солнечные и тенистые участки
-function groundMaterial(snow = false) {
+function groundMaterial(snow = false, forest = false) {
   const m = toon(0xffffff, { vc: true, rim: 0.05 });
-  const T = { tNoise: { value: noiseTex() }, tGrass: { value: grassTex() }, tDirt: { value: dirtTex() }, tMoss: { value: mossTex() }, tFlag: { value: flagTex() }, uSnow: { value: snow ? 1 : 0 } };
+  const T = { tNoise: { value: noiseTex() }, tGrass: { value: grassTex() }, tDirt: { value: dirtTex() }, tMoss: { value: mossTex() }, tFlag: { value: flagTex() }, uSnow: { value: snow ? 1 : 0 }, uForest: { value: forest ? 1 : 0 } };
   const prev = m.onBeforeCompile;
   m.onBeforeCompile = sh => {
     prev(sh); Object.assign(sh.uniforms, T);
     sh.vertexShader = 'attribute vec4 aKind; attribute float aPath; varying vec4 vKind; varying float vPath; varying vec2 vGW;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvKind = aKind; vPath = aPath; vGW = (modelMatrix * vec4(position, 1.0)).xz;');
-    sh.fragmentShader = 'uniform sampler2D tNoise, tGrass, tDirt, tMoss, tFlag; uniform float uSnow; varying vec4 vKind; varying float vPath; varying vec2 vGW;\n' + sh.fragmentShader.replace('#include <color_fragment>', /* glsl */`
+    sh.fragmentShader = 'uniform sampler2D tNoise, tGrass, tDirt, tMoss, tFlag; uniform float uSnow, uForest; varying vec4 vKind; varying float vPath; varying vec2 vGW;\n' + sh.fragmentShader.replace('#include <color_fragment>', /* glsl */`
 #include <color_fragment>
 {
   vec2 wp = vGW;
@@ -100,6 +100,12 @@ function groundMaterial(snow = false) {
     gr = mix(gr, vec3(0.6, 0.72, 0.86), smoothstep(0.55, 0.8, nz2.g) * 0.55);
     ms = mix(vec3(0.3, 0.34, 0.42) * (0.8 + nz.r * 0.5), gr * 0.9, step(0.56, nz2.r) * 0.85);
     dt = mix(vec3(0.46, 0.42, 0.4), vec3(0.74, 0.74, 0.76), nz.g) * (0.85 + nz2.r * 0.3);
+  }
+  if (uForest > 0.5) {   // Старый Лес: светлый жёлто-зелёный луг, бурая подстилка под деревьями и тёплые коричневые тропы — земля не сливается с кронами
+    gr = mix(vec3(0.6, 0.7, 0.24), vec3(0.88, 0.84, 0.36), smoothstep(0.3, 0.75, nz.r)) * (0.9 + texture2D(tGrass, wp * 0.21).g * 0.3);
+    gr = mix(gr, vec3(0.5, 0.58, 0.2), smoothstep(0.55, 0.8, nz2.g) * 0.4);
+    ms = vec3(0.34, 0.23, 0.12) * (0.8 + nz.r * 0.6) + vec3(0.05, 0.04, 0.0) * step(0.6, nz2.r);
+    dt = mix(vec3(0.5, 0.34, 0.19), vec3(0.68, 0.5, 0.28), nz.g) * (0.85 + nz2.r * 0.3);
   }
   float pm = smoothstep(0.44, 0.56, vKind.y + vKind.z * 0.8 + (nz2.g - 0.5) * 0.5 + (nz2.b - 0.5) * 0.3);
   float cm = smoothstep(0.3, 0.7, vKind.z + (nz2.b - 0.5) * 0.25);
@@ -117,7 +123,7 @@ function groundMaterial(snow = false) {
   col = mix(col, col * vec3(0.5, 0.48, 0.44), cm * 0.25);                                          // щели брусчатки
   // лужи на тропе: тёмная вода с бликом неба, мокрая кромка
   float pn = texture2D(tNoise, wp * 0.07 + 0.6).g * 0.6 + nz2.g * 0.4;
-  float pud = smoothstep(0.64, 0.7, pn) * smoothstep(0.4, 0.8, pm) * (1.0 - cm);
+  float pud = smoothstep(0.64, 0.7, pn) * smoothstep(0.4, 0.8, pm) * (1.0 - cm) * (1.0 - max(uSnow, uForest));
   vec3 wet = mix(vec3(0.09, 0.12, 0.15), vec3(0.4, 0.48, 0.54), smoothstep(0.35, 0.8, nz.b + nz2.r * 0.4 - 0.2));
   col = mix(col, col * 0.62, smoothstep(0.58, 0.64, pn) * (1.0 - pud) * pm);
   col = mix(col, wet, pud);
@@ -188,7 +194,7 @@ export function buildGround(scene, zone, opts = {}) {
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('color', new THREE.BufferAttribute(col, 4)); geo.setAttribute('aKind', new THREE.BufferAttribute(kind, 4)); geo.setAttribute('aPath', new THREE.BufferAttribute(pathF, 1));
   geo.setIndex(idx); geo.computeVertexNormals();
-  const ground = new THREE.Mesh(geo, groundMaterial(snow)); ground.userData.noOutline = true; ground.receiveShadow = true; scene.add(ground);
+  const ground = new THREE.Mesh(geo, groundMaterial(snow, !!opts.forest)); ground.userData.noOutline = true; ground.receiveShadow = true; scene.add(ground);
   // подложка до горизонта: тёмный мох, чтобы за краем карты не было пустоты
   const far = new THREE.Mesh(new THREE.PlaneGeometry(400, 400).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: opts.farColor ?? 0x0f2418 })); far.position.set(W / 2, -0.4, H / 2); scene.add(far);
 
@@ -220,7 +226,7 @@ export function buildGround(scene, zone, opts = {}) {
     uBlobs: { value: Array.from({ length: 12 }, () => new THREE.Vector4(999, 999, 0.5, 0)) },
     uShadowMat: { value: new THREE.Matrix4() }, uShadowMap: { value: null }, uShadowOn: { value: 0 }, uShadowDark: { value: SHADOW.grassDark }, uShadowTexel: { value: new THREE.Vector2(1 / 1024, 1 / 1024) },
     tNoise: { value: noiseTex() },
-    uBase: { value: new THREE.Color(snow ? 0x8a9aa8 : GRASS.base) }, uTip: { value: new THREE.Color(snow ? 0xe8f2f8 : GRASS.tip) }, uDry: { value: new THREE.Color(snow ? 0xc8c0a8 : GRASS.dry) }, uLight: { value: new THREE.Color(1, 1, 1) },
+    uBase: { value: new THREE.Color(snow ? 0x8a9aa8 : opts.forest ? 0x6a7a1c : GRASS.base) }, uTip: { value: new THREE.Color(snow ? 0xe8f2f8 : opts.forest ? 0xd8e060 : GRASS.tip) }, uDry: { value: new THREE.Color(snow ? 0xc8c0a8 : opts.forest ? 0xe0c070 : GRASS.dry) }, uLight: { value: new THREE.Color(1, 1, 1) },
   };
   const gmat = new THREE.ShaderMaterial({ uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.fog, {}]), vertexShader: GRASS_VS, fragmentShader: GRASS_FS, side: THREE.DoubleSide, fog: true });
   Object.assign(gmat.uniforms, grassU);

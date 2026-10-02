@@ -523,8 +523,8 @@ function drawPlates() {
     const p = 0.5 + Math.sin(G.time * 3) * 0.2;
     ctx.strokeStyle = `rgba(255,205,90,${p})`; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(0, 0, 46 * z, 0, 7); ctx.stroke(); ctx.restore();
     ctx.globalCompositeOperation = 'source-over';
-    const locked = it.reqLevel && G.profile.level < it.reqLevel;
-    const label = it.plate + (it.reqLevel ? ` · ур. ${it.reqLevel}+` : '');
+    const locked = (it.reqLevel && G.profile.level < it.reqLevel) || it.locked;
+    const label = it.plate + (it.reqLevel ? ` · ур. ${it.reqLevel}+` : '') + (it.lockNote ? ` · ${it.lockNote}` : '');
     const ty = y - 105 * z; ctx.font = `600 ${Math.round(13 * Math.min(1.2, z))}px Georgia, serif`; ctx.textAlign = 'center';
     const tw = ctx.measureText(label).width + 14;
     ctx.fillStyle = locked ? 'rgba(50,10,10,0.88)' : 'rgba(40,26,8,0.85)'; ctx.fillRect(x - tw / 2, ty - 14, tw, 19); ctx.strokeStyle = locked ? '#c0463c' : '#c99a3c'; ctx.lineWidth = 1; ctx.strokeRect(x - tw / 2, ty - 14, tw, 19);

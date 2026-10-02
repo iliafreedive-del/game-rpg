@@ -24,12 +24,14 @@ export class PropLayer {
   constructor(scene, kit, zone, wantBackdrop = true) {
     this.scene = scene; this.kit = kit; this.items = []; this.batches = []; this.dyn = [];
     const lists = new Map();   // id → [{x,y,rot,s,q}]
+    const wildForest = zone.id === 'wild' && zone.json.wild.realm !== 'fjord', WF_TINT = new THREE.Color(0.72, 0.9, 0.82);
     this._lists = lists; this.decorK = 1; this.zoneLights = zone.lights;
-    const push = (id, x, y, rot, s, opts) => { if (!lists.has(id)) lists.set(id, []); const t = PROPS[id] && PROPS[id].tint; lists.get(id).push({ x, y, rot, s, opts, col: t ? tintOf(x, y, t) : null }); };
+    const push = (id, x, y, rot, s, opts) => { if (!lists.has(id)) lists.set(id, []); const t = PROPS[id] && PROPS[id].tint; let col = t ? tintOf(x, y, t) : null; if (col && wildForest) col.multiply(WF_TINT);   // кроны леса темнее и холоднее земли
+      lists.get(id).push({ x, y, rot, s, opts, col }); };
     const mode = zone.id === 'town' ? 'town' : zone.id === 'wild' ? 'wild' : 'dungeon', dungeon = mode === 'dungeon', wild = mode === 'wild', m = zone.map;
     const fj = wild && zone.json.wild.realm === 'fjord', open = !dungeon;   // open — открытая местность (деревня, поход)
     const MODEL = { fort_hall: fj ? 'fort_hall_i' : 'fort_hall_w', tent: fj ? 'tent_i' : 'tent_w', fort_gate: fj ? 'fort_gate_i' : 'fort_gate_w', fort_tower: fj ? 'fort_tower' : 'watchtower' };
-    this.fj = fj;
+    this.fj = fj; this.wildForest = wildForest;
     this.live = [];   // предметы, которые игра меняет на лету: { d, rot, cur, g }
     for (const d of zone.statics) {
       if (dungeon && d.wall && /^wall_/.test(d.spr)) {   // стены подземелья строятся по тайлам (dungeon.js); тут — факелы и секретная стена
@@ -116,6 +118,7 @@ export class PropLayer {
         else if (h1 < 0.035) id = 'pebbles';
         else if (h1 < 0.06) id = 'fern';
       }
+      if (this.wildForest && id === 'flowers') id = null;
       if (fj && (id === 'fern' || id === 'flowers' || id === 'bush' || id === 'mushrooms' || id === 'stump')) id = h1 < 0.4 ? 'pebbles' : null;
       if (id) { push(id, px, py, rot, sc); this.lastPushedQ(id, q); }
     }

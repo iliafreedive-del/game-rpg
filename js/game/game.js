@@ -80,9 +80,9 @@ export async function loadZone(id, how = {}) {
   } else {
     const json = structuredClone(await loadJSON(ZONES[id]));
     if (id === 'town' && depthsUnlocked()) json.objects.push({ t: 'depths', x: 13.5, y: 8.5 });
-    if (id === 'town' && P.tutorial.prologue) json.objects.push({ t: 'castle', x: 18.5, y: 7.5 }, { t: 'survportal', x: 16.5, y: 12.5 }, { t: 'wildportal', realm: 'fjord', x: 35.6, y: 4.6 }, { t: 'wildportal', realm: 'forest', x: 25.5, y: 34.6 });
+    if (id === 'town' && P.tutorial.prologue) json.objects.push({ t: 'castle', x: 18.5, y: 7.5 }, { t: 'survportal', x: 16.5, y: 12.5 }, { t: 'wildportal', realm: 'fjord', x: 26.4, y: 19.6 }, { t: 'wildportal', realm: 'forest', x: 25.5, y: 34.6 });
     if (id === 'town') { const bd = json.objects.find(o => o.t === 'board'); if (bd) { bd.x = 28.4; bd.y = 22.4; } json.objects.push({ t: 'wheel', x: 22.6, y: 28.0 }); }
-    if (id === 'town') json.objects.push({ t: 'hwsign', x: 15.4, y: 31.0 }, { t: 'banner', x: 20.0, y: 15.6 }, { t: 'banner', x: 17.6, y: 22.2 }, { t: 'statue', x: 23.6, y: 11.6 }, { t: 'weapon_rack', x: 31.0, y: 16.2 }, { t: 'crystals', x: 32.8, y: 25.0 });
+    if (id === 'town') json.objects.push({ t: 'hwsign', x: 31.2, y: 25.2 }, { t: 'banner', x: 20.0, y: 15.6 }, { t: 'banner', x: 17.6, y: 22.2 }, { t: 'statue', x: 23.6, y: 11.6 }, { t: 'weapon_rack', x: 31.0, y: 16.2 }, { t: 'crystals', x: 33.6, y: 29.6 });
     if (id === 'catacombs') json.objects.push({ t: 'crystals', x: 47.5, y: 42 }, { t: 'crystals', x: 55, y: 51 }, { t: 'mushrooms', x: 7, y: 25 }, { t: 'mushrooms', x: 13, y: 31 }, { t: 'stalagmite', x: 5.5, y: 32 }, { t: 'puddle', x: 10, y: 28 }, { t: 'banner', x: 43, y: 23 });
     zone = new Zone(id, json, P);
     await loadFloor(zone);
@@ -193,8 +193,11 @@ bus.on('kill', e => {
   }
 });
 bus.on('dust', ({ x, y }) => C.particles(x, y, 10, { c: [150, 135, 115], z: 0.1, sp: 1.6, vz: 1.2, g: 3, size: 4, add: false, life: 0.5 }));
-bus.on('aggro', e => {   // соседи просыпаются с задержкой и только если близко и видят: толпа не бросается разом
-  for (const o of G.enemies) { if (o.aggro || o.dead || o.D.boss || o.wakeT !== undefined) continue; const d = Math.hypot(o.x - e.x, o.y - e.y); if (d < 4.5 && G.zone.map.los(o.x, o.y, e.x, e.y)) o.wakeT = 0.5 + d * 0.22 + rand() * 0.6; }
+bus.on('aggro', e => {   // соседи просыпаются с задержкой, близко и по видимости; не больше одного-двух, цепочки нет (разбуженный не будит дальше)
+  if (e.woken) return;
+  const lim = G.zoneId === 'wild' ? 1 : 2, R = G.zoneId === 'wild' ? 3.2 : 4.5, cand = [];
+  for (const o of G.enemies) { if (o.aggro || o.dead || o.D.boss || o.wakeT !== undefined) continue; const d = Math.hypot(o.x - e.x, o.y - e.y); if (d < R && G.zone.map.los(o.x, o.y, e.x, e.y)) cand.push([d, o]); }
+  cand.sort((a, b) => a[0] - b[0]); for (const [d, o] of cand.slice(0, lim)) o.wakeT = 0.6 + d * 0.25 + rand() * 0.7;
 });
 bus.on('kill', e => {   // «Взрывной» чемпион: взрыв через 0.6 с после смерти
   if (e.affix !== 'volatile') return;
@@ -238,7 +241,7 @@ export function interact(it) {
       return;
     case 'npc': { const n = G.npcs.find(x => x.id === it.id); if (n) n.talkT = 4; bus.emit('openNPC', it.id); return; }
     case 'board': bus.emit('openBoard'); return;
-    case 'herospath': bus.emit('openHeroPath'); return;
+    case 'herospath': { if (P.level < 2) { bus.emit('toast', { text: 'Летопись битв — со 2 уровня', sub: 'Сначала пройдите пролог и немного прокачайтесь', kind: 'warn' }); bus.emit('sfx', 'deny'); return; } const g = gate('hw', 1); if (g) { bus.emit('toast', { ...g, kind: 'warn' }); bus.emit('sfx', 'deny'); return; } bus.emit('openHeroPath'); return; }
     case 'wheel': bus.emit('openWheel'); return;
     case 'survival': { const g = gate('survival'); if (g) { bus.emit('toast', { ...g, kind: 'warn' }); bus.emit('sfx', 'deny'); return; } } if (P.level < SV.REQ_LEVEL) { bus.emit('toast', { text: `Жатва Бездны открывается с ${SV.REQ_LEVEL} уровня`, kind: 'warn' }); bus.emit('sfx', 'deny'); return; } bus.emit('openSurvival'); return;
     case 'depths': { const g = gate('depths'); if (g) { bus.emit('toast', { ...g, kind: 'warn' }); bus.emit('sfx', 'deny'); return; } } if (it.reqLevel && P.level < it.reqLevel) { bus.emit('toast', { text: `Глубины открываются с ${it.reqLevel} уровня`, kind: 'warn' }); bus.emit('sfx', 'deny'); return; } bus.emit('openDepths'); return;
@@ -466,6 +469,7 @@ function updateMarkers() {
   G.guide = t;
   for (const n of G.npcs) n.marker = q && q.target === n.id ? (q.id === 'finish' ? '?' : '!') : null;
   for (const it of G.zone.inter) { if (it.type === 'socket') { const open = it.room === 'hall' || (G.profile.castle && G.profile.castle[it.room]); it.hidden = !open; it.glow = open && !(G.profile.castle.decor && G.profile.castle.decor[it.sid]); } else if (it.type === 'roomgate') { it.plate = it.done ? null : ROOMS[it.room].name; it.reqLevel = it.done ? 0 : ROOMS[it.room].lvl; } else if (it.type === 'room') it.plate = ROOMS[it.room].name; }
+  const hp = G.zone.inter.find(i => i.id === 'herospath'); if (hp) { const noSkill = !!gate('hw', 1); hp.locked = noSkill; hp.lockNote = noSkill && G.profile.level >= 2 ? 'выберите навык' : ''; }
   const wh = G.zone.inter.find(i => i.id === 'wheel'); if (wh) wh.marker = wheelReady() ? '!' : null;
   const bd = G.zone.inter.find(i => i.id === 'board'); if (bd) bd.marker = REPEATABLE.some(r => Q.repState(r).done) ? '?' : REPEATABLE.some(r => !Q.repState(r).accepted) ? '!' : null;
   const P = G.profile; const tr = G.npcs.find(n => n.id === 'trainer'); if (tr && !tr.marker && (P.attrPts || P.skillPts)) tr.marker = '+';

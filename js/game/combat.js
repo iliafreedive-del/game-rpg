@@ -450,7 +450,7 @@ export function hurtPlayer(src, raw, elem) {
   float(P.x, P.y, '-' + dmg, '#ff5a4a', { z: 2.1 });
   if (src && src.vamp && !src.dead) src.hp = Math.min(src.maxHP, src.hp + dmg * src.vamp);   // «Кровопийца»
   bus.emit('sfx', 'hurt');
-  if (dmg > S.maxHP * 0.12 && !P.busy()) { P.state = 'hit'; P.setAnim('hit', 3 / 0.3); }
+  if (dmg > S.maxHP * 0.12 && !P.busy()) { P.state = 'hit'; P.stateT = 0; P.setAnim('hit', 3 / 0.3); }
   if (P.hp <= 0) { P.hp = 0; P.dead = true; P.state = 'dead'; P.setAnim('death', 9); bus.emit('playerDeath'); }
 }
 export function blink(e, P) {

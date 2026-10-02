@@ -18,7 +18,7 @@ export const HERO = {
   steel: 0x5a6486, steelL: 0x9eaacc, steelD: 0x2e3656, dark: 0x1c2036,   // светлее окружения: герой — самый светлый силуэт
   cape: 0x6a3fd0, capeHem: 0x24134e,
   visor: 0xe9dcff, blade: 0xaab4cc, shield: 0x2c2650, shieldL: 0x5a46a0,
-  rim: 0.75, rimColor: 0xb48cff,
+  rim: 0.9, rimColor: 0xc8a8ff,
   scale: 1.1,                                    // героя рисуем на 10 % крупнее (Torchlight: герой крупнее окружения); коллизии не меняются
 };
 
@@ -102,7 +102,7 @@ export const LIGHT = {
     hemi: { sky: 0x86a4d0, ground: 0x4a3c30, i: 2.5 },
     key: { color: 0x9ab4ff, i: 1.1, offset: [-11, 24, 20] },
     point: { i: 22, dist: 12, decay: 1.6 }, exposure: 1.5,
-    hero: { color: 0xffe2b8, i: 6.5, dist: 10, decay: 1.5, y: 2.8 },   // мягкий свет вокруг героя: он не теряется в темноте
+    hero: { color: 0xffe2b8, i: 7.2, dist: 10, decay: 1.5, y: 2.8 },   // мягкий свет вокруг героя: он не теряется в темноте
     biome: { flooded: { sky: 0x4a90a8, fog: 0x08181e }, ash: { sky: 0xa0583a, fog: 0x1a0a06 }, abyss: { sky: 0x7a5ab8, fog: 0x120a20 } },
   },
   // цитадель Ордена и арена: светло и читаемо (тёплый камень, золото)

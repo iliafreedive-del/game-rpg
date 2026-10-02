@@ -55,10 +55,10 @@ export class Player {
       return;
     }
     if (this.state === 'hit') { if (this.anim.done) this.state = 'idle'; }
-    if (this.state === 'attack' || this.state === 'cast') { C.updatePlayerAction(this, dt); if (this.state === 'attack' || this.state === 'cast') { if (input.mag > 0.2 && this.act && this.act.cancelable && this.anim.prog > this.act.impact + 0.05) this.state = 'idle'; else return; } }
+    if (this.state === 'attack' || this.state === 'cast') { C.updatePlayerAction(this, dt); if (this.state === 'attack' || this.state === 'cast') { if (input.mag > 0.2 && this.act && this.act.cancelable && (this.act.kind === 'bow' || this.act.fired)) { this.state = 'idle'; this.act = null; } else return; } }
     // movement
     const mag = input.mag;
-    if (mag > 0.12 && this.state !== 'hit') {
+    if (mag > 0.12 && (this.state !== 'hit' || this.stateT > 0.08)) {   // удар по герою не должен «залипать»: после короткого вздрога можно идти
       const run = mag > 0.6; const sp = (run ? 4.6 : 2.8) * (this.S.moveMul || 1) * (G.surv ? 1 + (G.surv.p.swift || 0) * 0.08 : 1) * (this.slowT > 0 ? 0.6 : 1) * (G.wild ? G.wild.slow : 1) * (G.run && G.run.boons && G.run.boons.includes('haste') ? 1.25 : 1);
       const ox = this.x, oy = this.y;
       [this.x, this.y] = G.zone.map.move(this.x, this.y, input.wx * sp * dt, input.wy * sp * dt, this.r);
@@ -126,9 +126,9 @@ export class Enemy {
     this.cd -= dt;
     const dx = P.x - this.x, dy = P.y - this.y, d = Math.hypot(dx, dy);
     const map = G.zone.map;
-    if (!this.aggro && this.wakeT !== undefined) { this.wakeT -= dt; this.dir = dirOf(dx, dy); if (this.anim.clip !== 'idle') this.setAnim('idle', 5, true); if (this.wakeT <= 0) { this.aggro = true; bus.emit('aggro', this); } return; }
+    if (!this.aggro && this.wakeT !== undefined) { this.wakeT -= dt; this.dir = dirOf(dx, dy); if (this.anim.clip !== 'idle') this.setAnim('idle', 5, true); if (this.wakeT <= 0) { this.aggro = true; this.woken = true; bus.emit('aggro', this); } return; }
     if (!this.aggro) {
-      const R = (this.D.boss ? 9.5 : 6.2) * (G.wild ? G.wild.noise : 1);
+      const R = (this.D.boss ? 9.5 : G.wild ? 5.2 : 6.2) * (G.wild ? G.wild.noise : 1);
       if (!P.dead && d < R && map.los(this.x, this.y, P.x, P.y)) {
         // постепенное замечание: сначала моб «приглядывается» (стоит, смотрит), и только потом бросается
         if (this.alertT === undefined) this.alertT = this.D.boss ? 0.4 : rrange(0.5, 1.2) * (d < 3 ? 0.4 : 1);
@@ -138,6 +138,8 @@ export class Enemy {
       }
       else { if (this.alertT !== undefined && d > R + 1.5) this.alertT = undefined; if (this.anim.clip !== 'idle') this.setAnim('idle', 5, true); return; }
     }
+    // поводок: герой ушёл далеко и не виден — моб теряет интерес и возвращается на место (можно отбежать, подстрелить, отбежать)
+    if (this.aggro && !this.D.boss && !this.story && !this.summoned) { if (d > 15 || (d > 9 && !map.los(this.x, this.y, P.x, P.y))) { this.leashT = (this.leashT || 0) + dt; if (this.leashT > 3.5) { this.aggro = false; this.leashT = 0; this.alertT = undefined; this.wakeT = undefined; this.state = 'idle'; this.cd = 1.5; } } else this.leashT = 0; }
     if (P.dead) { if (this.state !== 'attack') { this.setAnim('idle', 5, true); this.state = 'idle'; } return; }
     if (this.state === 'attack') { C.updateEnemyAttack(this, dt, P); return; }
     AI[this.D.ai](this, dt, P, d, dx, dy);

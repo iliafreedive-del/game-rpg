@@ -11,78 +11,29 @@ import { watchRewarded, offerToken, maybeInterstitial } from '../platform/moneti
 import { rand, rrange, clamp } from '../core/util.js';
 import { adButton } from './adbtn.js';
 import { gate } from '../game/progress.js';
+import { paintScene } from './hwscenes.js';
 
 export const EN_MAX = 20, EN_MS = 6 * 60e3;
+// 4 главы по 30 этапов, у каждой свой фон (hwscenes.js): подземелье → лес → снега → скалы
 const CHAPTERS = [
-  { name: 'Тропа мертвецов', sky: ['#3a4a6a', '#9a7a6a'], far: '#4a4a5a', mid: '#3a3a36', ground: ['#5a4a36', '#3a2e22'], dot: '#6a5a40', pool: ['skel_warrior', 'skel_archer', 'ghoul'] },
-  { name: 'Ледяной перевал', sky: ['#5a8ac0', '#dfeaf4'], far: '#9ab0c8', mid: '#c8d8e8', ground: ['#e6eef6', '#b8c8d8'], dot: '#a8b8c8', pool: ['ghoul', 'beast', 'skel_warrior'] },
-  { name: 'Пепельная долина', sky: ['#2a1010', '#a0401a'], far: '#3a1a14', mid: '#2a1410', ground: ['#3a2a24', '#1e1410'], dot: '#ff6a2a', pool: ['skel_mage', 'beast', 'skel_archer'] },
+  { name: 'Подземелья Ордена', pool: ['skel_warrior', 'skel_archer', 'ghoul', 'skel_mage'] },
+  { name: 'Старый Лес', pool: ['beast', 'ghoul', 'skel_archer', 'skel_warrior'] },
+  { name: 'Фьорды Скъёльда', pool: ['skel_warrior', 'beast', 'skel_mage', 'ghoul'] },
+  { name: 'Пепельные скалы', pool: ['elite_guard', 'beast', 'skel_mage', 'ghoul'] },
 ];
-export const STAGES = 30;
+export const PER_CH = 30, STAGES = PER_CH * CHAPTERS.length;
+const chOf = s => Math.min(CHAPTERS.length - 1, Math.floor((s - 1) / PER_CH));
 const stageEnemy = s => {
-  const ch = CHAPTERS[Math.floor((s - 1) / 10)], k = (s - 1) % 10;
+  const ch = CHAPTERS[chOf(s)], k = (s - 1) % 10;
   if (k === 9) return { type: 'boss', name: 'Палач Бездны', boss: true };
   if (k === 4) return { type: 'elite_guard', name: 'Страж тропы', boss: true };
   const type = ch.pool[s % ch.pool.length]; return { type, name: ENEMIES[type].name };
 };
-const enemyStats = s => { const e = stageEnemy(s); const m = e.boss ? (e.type === 'boss' ? 3.2 : 2.2) : 1; return { ...e, hp: Math.round(55 * Math.pow(1.17, s - 1) * m), dmg: 5.5 * Math.pow(1.14, s - 1) * (e.boss ? 1.3 : 1), aps: e.type === 'ghoul' ? 1.3 : e.boss ? 0.7 : 0.9, lvl: 1 + Math.floor(s * 0.6) }; };
+const enemyStats = s => {
+  const e = stageEnemy(s), m = e.boss ? (e.type === 'boss' ? 3.2 : 2.2) : 1, a = Math.min(s, 30) - 1, b = Math.max(0, s - 30);
+  return { ...e, hp: Math.round(55 * Math.pow(1.17, a) * Math.pow(1.06, b) * m), dmg: 5.5 * Math.pow(1.14, a) * Math.pow(1.05, b) * (e.boss ? 1.3 : 1), aps: e.type === 'ghoul' ? 1.3 : e.boss ? 0.7 : 0.9, lvl: 1 + Math.floor(s * 0.6) };
+};
 
-// Painted parallax backdrop for each chapter (generated once per size, then only clouds/particles move).
-function paintScene(ch, ci, W, H, seed0) {
-  let seed = 7919 * (ci + 1); const r = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
-  const mk = () => { const c = document.createElement('canvas'); c.width = W; c.height = H; return [c, c.getContext('2d')]; };
-  const [far, f] = mk(), [near, n] = mk();
-  const P = [
-    { sky: ['#1c2440', '#5a5a78', '#d89a6a'], sun: ['#ffe2a8', 0.78, 0.22, 60], m: ['#58607a', '#434a60', '#2e3244'], mtip: null, trees: '#1c2418', ground: ['#4a5a2e', '#2c3a1a', '#1a220e'], fog: 'rgba(230,200,170,0.18)', part: { c: '#e8ff9a', n: 26, vy: -6, r: 1.8 } },
-    { sky: ['#4a78b8', '#9cc4e8', '#eef6ff'], sun: ['#ffffff', 0.25, 0.2, 50], m: ['#a8bcd8', '#7890b4', '#5a6e94'], mtip: '#ffffff', trees: '#2e4a5a', ground: ['#eef4fa', '#c8d8e8', '#9ab0c8'], fog: 'rgba(255,255,255,0.22)', part: { c: '#ffffff', n: 60, vy: 28, r: 2 } },
-    { sky: ['#1a0606', '#5a1a0c', '#c8501a'], sun: ['#ff7a2a', 0.7, 0.3, 80], m: ['#3a1a14', '#2a120e', '#1a0a08'], mtip: '#ff6a1a', trees: '#120605', ground: ['#3a2a24', '#241814', '#140c0a'], fog: 'rgba(255,90,30,0.15)', part: { c: '#ffa040', n: 40, vy: -18, r: 1.8 } },
-  ][ci];
-  // sky
-  const g = f.createLinearGradient(0, 0, 0, H * 0.7); g.addColorStop(0, P.sky[0]); g.addColorStop(0.55, P.sky[1]); g.addColorStop(1, P.sky[2]); f.fillStyle = g; f.fillRect(0, 0, W, H);
-  if (ci !== 1) { f.fillStyle = '#fff'; for (let k = 0; k < 70; k++) { f.globalAlpha = r() * 0.6 * (ci === 2 ? 0.3 : 1); f.fillRect(r() * W, r() * H * 0.35, 1.3, 1.3); } f.globalAlpha = 1; }
-  const [sx, sy, sr] = [W * P.sun[1], H * P.sun[2], P.sun[3]];
-  const sg = f.createRadialGradient(sx, sy, 0, sx, sy, sr * 4); sg.addColorStop(0, P.sun[0]); sg.addColorStop(0.18, P.sun[0] + 'cc'); sg.addColorStop(1, 'rgba(0,0,0,0)'); f.fillStyle = sg; f.fillRect(0, 0, W, H);
-  f.fillStyle = P.sun[0]; f.beginPath(); f.arc(sx, sy, sr * 0.55, 0, 7); f.fill();
-  // mountain ranges (3 layers, atmospheric perspective)
-  const range = (ctx, base, amp, step, col, tip) => {
-    const pts = []; for (let x = -step; x <= W + step; x += step * (0.6 + r() * 0.8)) pts.push([x, base - amp * (0.35 + r() * 0.65)]);
-    ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(0, H); for (const [x, y] of pts) ctx.lineTo(x, y); ctx.lineTo(W, H); ctx.fill();
-    if (tip) { ctx.fillStyle = tip; for (let i = 1; i < pts.length - 1; i++) { const [x, y] = pts[i]; if (y < base - amp * 0.7) { ctx.globalAlpha = ci === 2 ? 0.55 : 0.9; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - amp * 0.12, y + amp * 0.16); ctx.lineTo(x - amp * 0.03, y + amp * 0.12); ctx.lineTo(x + amp * 0.05, y + amp * 0.18); ctx.lineTo(x + amp * 0.12, y + amp * 0.14); ctx.closePath(); ctx.fill(); ctx.globalAlpha = 1; } } }
-  };
-  range(f, H * 0.52, H * 0.34, 90, P.m[0], P.mtip);
-  f.fillStyle = P.fog; f.fillRect(0, H * 0.3, W, H * 0.3);
-  range(f, H * 0.58, H * 0.24, 70, P.m[1], P.mtip);
-  range(f, H * 0.64, H * 0.14, 50, P.m[2], null);
-  // tree line
-  f.fillStyle = P.trees;
-  for (let x = -10; x < W + 10; x += 9 + r() * 14) {
-    const h = H * (0.05 + r() * 0.07), y = H * 0.635 + r() * 6;
-    if (ci === 2) { f.fillRect(x, y - h, 2, h); f.beginPath(); f.moveTo(x, y - h * 0.7); f.lineTo(x + 7, y - h); f.lineTo(x + 1, y - h * 0.6); f.fill(); }
-    else { f.beginPath(); f.moveTo(x, y - h); f.lineTo(x - h * 0.28, y); f.lineTo(x + h * 0.28, y); f.fill(); }
-  }
-  // ground
-  const gg = n.createLinearGradient(0, H * 0.62, 0, H); gg.addColorStop(0, P.ground[0]); gg.addColorStop(0.5, P.ground[1]); gg.addColorStop(1, P.ground[2]);
-  n.fillStyle = gg; n.beginPath(); n.moveTo(0, H * 0.66); for (let x = 0; x <= W; x += 40) n.lineTo(x, H * (0.645 + Math.sin(x * 0.01 + ci) * 0.012)); n.lineTo(W, H); n.lineTo(0, H); n.fill();
-  // path & ground details
-  n.fillStyle = 'rgba(0,0,0,0.12)'; n.beginPath(); n.ellipse(W / 2, H * 0.83, W * 0.55, H * 0.07, 0, 0, 7); n.fill();
-  for (let k = 0; k < 90; k++) { const x = r() * W, y = H * (0.67 + r() * 0.32); n.globalAlpha = 0.35; n.fillStyle = r() < 0.5 ? P.ground[2] : '#ffffff22'; n.beginPath(); n.ellipse(x, y, 3 + r() * 10, 1 + r() * 3, 0, 0, 7); n.fill(); }
-  n.globalAlpha = 1;
-  if (ci === 0) for (let k = 0; k < 60; k++) { const x = r() * W, y = H * (0.68 + r() * 0.3); n.strokeStyle = '#6a8a3a'; n.lineWidth = 1.2; n.beginPath(); n.moveTo(x, y); n.lineTo(x - 2, y - 6 - r() * 5); n.moveTo(x, y); n.lineTo(x + 3, y - 5 - r() * 5); n.stroke(); }
-  if (ci === 2) for (let k = 0; k < 14; k++) { const x = r() * W, y = H * (0.7 + r() * 0.28); n.strokeStyle = 'rgba(255,110,30,0.8)'; n.lineWidth = 1.5; n.shadowColor = '#ff6a1a'; n.shadowBlur = 8; n.beginPath(); n.moveTo(x, y); for (let q = 0; q < 4; q++) n.lineTo(x + (r() - 0.5) * 60, y + (r() - 0.5) * 12); n.stroke(); n.shadowBlur = 0; }
-  // foreground rocks / bushes framing the stage
-  const blob = (x, y, w, h, c) => { n.fillStyle = c; n.beginPath(); n.ellipse(x, y, w, h, 0, Math.PI, 0); n.fill(); };
-  const fg = ci === 1 ? '#8aa0b8' : ci === 2 ? '#0c0605' : '#141c0e';
-  blob(-20, H + 10, W * 0.16, H * 0.2, fg); blob(W + 20, H + 10, W * 0.18, H * 0.22, fg); blob(W * 0.12, H + 30, W * 0.08, H * 0.12, fg);
-  if (ci === 1) { n.fillStyle = '#ffffff'; blob(-20, H + 12, W * 0.15, H * 0.17, '#f4f8fc'); blob(W + 20, H + 12, W * 0.17, H * 0.19, '#f4f8fc'); }
-  // vignette
-  const vg = n.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.3, W / 2, H / 2, Math.max(W, H) * 0.75); vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.45)'); n.fillStyle = vg; n.fillRect(0, 0, W, H);
-  // cloud sprite
-  const [cl, c] = [document.createElement('canvas'), null]; cl.width = 256; cl.height = 100; const cx = cl.getContext('2d');
-  for (let k = 0; k < 7; k++) { const gx = cx.createRadialGradient(40 + k * 28, 55 - (k % 3) * 10, 0, 40 + k * 28, 55 - (k % 3) * 10, 38); gx.addColorStop(0, ci === 2 ? 'rgba(70,40,30,0.9)' : 'rgba(255,255,255,0.9)'); gx.addColorStop(1, 'rgba(255,255,255,0)'); cx.fillStyle = gx; cx.fillRect(0, 0, 256, 100); }
-  const clouds = Array.from({ length: 5 }, () => ({ x: r() * W, y: H * (0.04 + r() * 0.22), w: 160 + r() * 220, v: 6 + r() * 12, a: ci === 2 ? 0.5 : 0.55 + r() * 0.3 }));
-  const parts = Array.from({ length: P.part.n }, () => ({ x: r() * W, y: r() * H, vy: P.part.vy * (0.6 + r() * 0.8), r: P.part.r * (0.6 + r() * 0.8), c: P.part.c, a: 0.5 + r() * 0.5, f: 1 + r() * 2, o: r() * 6 }));
-  return { far, near, cloud: cl, clouds, parts };
-}
 function HW() { const P = G.profile; P.hw = P.hw || { top: 1, stars: {}, en: { n: EN_MAX, at: Date.now() } }; const e = P.hw.en; const now = Date.now(); if (e.n < EN_MAX) { const k = Math.floor((now - e.at) / EN_MS); if (k > 0) { e.n = Math.min(EN_MAX, e.n + k); e.at = e.n >= EN_MAX ? now : e.at + k * EN_MS; } } else e.at = now; return P.hw; }
 export const hwReady = () => { const h = HW(); return h.en.n >= 5; };
 
@@ -90,7 +41,7 @@ let root = null, page = 0, raf = 0;
 export function openHeroPath() {
   if (root) return; HW(); G.paused = true; G.modalOpen = true; bus.emit('audioPause', false);
   root = el('div', 'hw-root'); document.body.appendChild(root);
-  page = Math.min(2, Math.floor((HW().top - 1) / 10));
+  page = chOf(HW().top);
   showMap();
 }
 function close() { cancelAnimationFrame(raf); raf = 0; if (root) root.remove(); root = null; G.paused = false; G.modalOpen = false; bus.emit('hud'); bus.emit('save'); }
@@ -107,8 +58,8 @@ function showMap() {
   const h = HW(), ch = CHAPTERS[page];
   const card = el('div', 'hw-map', `<div class="hw-banner">Летопись битв · ${esc(ch.name)}</div><div class="hw-sub">Бой идёт сам. Ваш герой, его вещи, закалка и улучшения — те же, что в подземелье.</div>`);
   const grid = el('div', 'hw-grid');
-  for (let i = 1; i <= 10; i++) {
-    const s = page * 10 + i, st = h.stars[s] || 0, locked = s > h.top || !!gate('hw', s), E = stageEnemy(s);
+  for (let i = 1; i <= PER_CH; i++) {
+    const s = page * PER_CH + i, st = h.stars[s] || 0, locked = s > h.top || !!gate('hw', s), E = stageEnemy(s);
     const b = el('button', 'hw-stage' + (locked ? ' locked' : '') + (E.boss ? ' boss' : '') + (s === h.top ? ' cur' : ''), `<div class="hw-stars">${[0, 1, 2].map(k => `<i class="${k < st ? 'on' : ''}">★</i>`).join('')}</div><div class="hw-num">${locked ? '🔒' : s}</div>${E.boss ? '<div class="hw-tag">босс</div>' : ''}`);
     b.onclick = () => { if (locked) return; const g = gate('hw', s); if (g) { bus.emit('toast', { ...g, kind: 'warn' }); return; } showPrefight(s); };
     grid.appendChild(b);
@@ -116,10 +67,10 @@ function showMap() {
   card.appendChild(grid);
   const nav = el('div', 'hw-nav');
   const pv = el('button', 'btn', '◀'); pv.disabled = page === 0; pv.onclick = () => { page--; showMap(); };
-  const nx = el('button', 'btn', '▶'); nx.disabled = page === 2 || h.top <= (page + 1) * 10; nx.onclick = () => { page++; showMap(); };
+  const nx = el('button', 'btn', '▶'); nx.disabled = page === CHAPTERS.length - 1 || h.top <= (page + 1) * PER_CH; nx.onclick = () => { page++; showMap(); };
   const ad = adButton('+10 ⚡', 'hw_en', 30 * 60e3, () => { h.en.n = Math.min(EN_MAX + 10, h.en.n + 10); }, showMap);
-  nav.append(pv, el('span', 'hw-page', `Глава ${page + 1}/3`), nx); card.appendChild(nav);
-  if (h.top >= page * 10 + 1 && h.top <= page * 10 + 10 && !gate('hw', h.top)) { const go = el('button', 'btn gold hw-go', `⚔ В бой · этап ${h.top}`); go.onclick = () => showPrefight(h.top); card.appendChild(go); }
+  nav.append(pv, el('span', 'hw-page', `Глава ${page + 1}/${CHAPTERS.length}`), nx); card.appendChild(nav);
+  if (h.top >= page * PER_CH + 1 && h.top <= (page + 1) * PER_CH && !gate('hw', h.top)) { const go = el('button', 'btn gold hw-go', `⚔ В бой · этап ${h.top}`); go.onclick = () => showPrefight(h.top); card.appendChild(go); }
   const adr = el('div', 'hw-nav'); adr.appendChild(ad); card.appendChild(adr);
   root.appendChild(card);
 }
@@ -148,7 +99,7 @@ function fight(s) {
   const resize = () => { cv.width = cv.clientWidth * dpr; cv.height = cv.clientHeight * dpr; };
   resize();
   let speed = G.profile.hwSpeed === 2 ? 2 : 1; const speedB = el('button', 'hw-speed', '×' + speed); speedB.onclick = () => { speed = speed === 1 ? 2 : 1; G.profile.hwSpeed = speed; speedB.textContent = '×' + speed; }; root.appendChild(speedB);
-  const ch = CHAPTERS[Math.floor((s - 1) / 10)];
+  const ch = CHAPTERS[chOf(s)];
   const H = heroSummary(), E = enemyStats(s);
   const hero = { hp: H.hp, max: H.hp, t: 0.6, anim: 'idle', at: 0, flash: 0, x: 0, skillT: 3.5, invul: 0 };
   const foe = { hp: E.hp, max: E.hp, t: 1.1, anim: 'idle', at: 0, flash: 0, x: 0, dead: 0 };
@@ -156,6 +107,26 @@ function fight(s) {
   // хореография: бойцы держат дистанцию, сближаются на удар; герой иногда перекатывается или пролетает рывком сквозь врага — стороны меняются
   let sw = 1; hero.bx = 0.26; foe.bx = 0.74; hero.dash = 0; hero.roll = 0; hero.dashCd = rrange(4, 6); foe.step = 0; const ghosts = [];
   const sideT = () => [0.5 - sw * 0.24, 0.5 + sw * 0.24];
+  // стили ударов: каждый атакующий выбирает свой — сверху вниз (прыжок), тычок (быстрый выпад), наотмашь (боковой замах), обычный; промах = заносит вперёд, противник уходит
+  const STYLES = { slash: { d: 0.55, imp: 0.3, m: 1 }, overhead: { d: 0.8, imp: 0.55, m: 1.35 }, thrust: { d: 0.4, imp: 0.2, m: 0.85 }, sweep: { d: 0.62, imp: 0.36, m: 1.05 }, shoot: { d: 0.5, imp: 0.3, m: 1 }, cast: { d: 0.65, imp: 0.4, m: 1 }, stumble: { d: 0.7, imp: 9, m: 0 }, evade: { d: 0.45, imp: 9, m: 0 }, swing: { d: 0.7, imp: 0.42, m: 1 }, lunge: { d: 0.55, imp: 0.3, m: 1 }, leap: { d: 0.85, imp: 0.6, m: 1.2 } };
+  const startAct = (who, kind, extra = {}) => { const S = STYLES[kind]; who.act = { k: kind, t: 0, d: S.d, imp: S.imp, m: S.m, fired: false, ...extra }; };
+  const bell = p => Math.sin(Math.min(1, Math.max(0, p)) * Math.PI);
+  // поза по стилю: off — смещение к сопернику (доли ширины), hop — подскок, rot — наклон вперёд, sx — растяжение
+  const pose = who => {
+    const a = who.act; if (!a || a.t >= a.d) return { off: 0, hop: 0, rot: 0, sx: 1 };
+    const p = a.t / a.d, b = bell(p);
+    switch (a.k) {
+      case 'overhead': case 'leap': return { off: 0.11 * bell(p * 1.1), hop: (p < 0.6 ? bell(p / 0.6) : 0) * 60, rot: p < 0.35 ? -0.3 * (p / 0.35) : p < 0.62 ? -0.3 + 0.85 * ((p - 0.35) / 0.27) : 0.55 * (1 - (p - 0.62) / 0.38), sx: 1 };
+      case 'thrust': case 'lunge': return { off: 0.2 * (p < 0.3 ? p / 0.3 : Math.max(0, 1 - (p - 0.3) / 0.7)), hop: 0, rot: 0.12 * b, sx: 1 + 0.14 * (p < 0.4 ? b : 0) };
+      case 'sweep': case 'swing': return { off: 0.12 * b, hop: 8 * b, rot: 0.34 - 0.7 * p, sx: 1 };
+      case 'stumble': return { off: 0.1 * b, hop: 0, rot: 0.5 * bell(p * 0.9), sx: 1 };
+      case 'evade': return { off: -0.1 * b, hop: 10 * b, rot: -0.3 * b, sx: 1 };
+      case 'shoot': return { off: -0.03 * b, hop: 0, rot: -0.1 * b, sx: 1 };
+      case 'cast': return { off: 0, hop: 14 * b, rot: -0.12 * b, sx: 1 };
+      default: return { off: 0.15 * b, hop: 0, rot: 0.1 * b, sx: 1 };
+    }
+  };
+  const slashes = [];   // дуги ударов на экране
   const doDash = () => { hero.dash = 0.5; hero.dashFrom = hero.bx; hero.invul = 0.6; sw = -sw; hero.anim = heroClip; hero.at = 0; nums.push({ x: 0.5, y: 0.22, t: 0, s: 'Рывок!', c: '#9fe38e', big: 1 }); bus.emit('sfx', 'dodge'); setTimeout(() => !over && hitFoe(1.7, null), 260 / speed); };
   const cls = G.profile.cls || 'warrior', wt = G.profile.gear.weapon ? G.profile.gear.weapon.wt : 'sword';
   const heroAtlas = cls !== 'warrior' && getAtlas(`hero_${cls}_body`) ? [`hero_${cls}_body`, `hero_${cls}_${cls === 'archer' ? 'bow' : 'staff'}`] : ['hero_body', 'hero_' + wt].concat(wt === 'sword' || wt === 'axe' ? ['hero_shield'] : []);
@@ -176,16 +147,34 @@ function fight(s) {
     hero.t -= dt; foe.t -= dt; hero.skillT -= dt; hero.invul -= dt; hero.dashCd -= dt; if (hero.roll > 0) hero.roll -= dt;
     { const [hT, fT] = sideT(); const kh = hero.dash > 0 ? 9 : 3.2; hero.bx += (hT - hero.bx) * Math.min(1, dt * kh); foe.bx += (fT - foe.bx) * Math.min(1, dt * 3.2); if (hero.dash > 0) { hero.dash -= dt; if (Math.random() < 0.9) ghosts.push({ x: hero.bx, t: 0, anim: heroClip, at: hero.at, sw }); } }
     if (hero.dashCd <= 0 && !hero.dash && foe.hp > 0 && hero.hp > 0 && !over) { hero.dashCd = rrange(6, 9); doDash(); }
-    if (hero.t <= 0) { hero.t = 1 / H.aps; hero.anim = heroClip; hero.at = 0; setTimeout(() => !over && hitFoe(1), 180 / speed); }
+    if (hero.act) hero.act.t += dt; if (foe.act) foe.act.t += dt;
+    if (foe.hp <= E.hp * 0.5 && !foe.swapped && !hero.dash && !over) { foe.swapped = true; doDash(); }   // на половине здоровья врага — рывок сквозь него, стороны меняются
+    if (hero.t <= 0 && !(hero.act && hero.act.t < hero.act.d)) {
+      hero.t = 1 / H.aps; hero.anim = heroClip; hero.at = 0;
+      const kinds = cls === 'archer' ? ['shoot'] : cls === 'mage' ? ['cast'] : ['slash', 'overhead', 'thrust', 'sweep', 'slash'];
+      let kind = kinds[(rand() * kinds.length) | 0]; if (kind === hero.lastKind && kinds.length > 2) kind = kinds[(kinds.indexOf(kind) + 1) % kinds.length]; hero.lastKind = kind;
+      startAct(hero, kind, { miss: !E.boss && rand() < 0.12 });
+    }
+    if (hero.act && !hero.act.fired && hero.act.t >= hero.act.imp) {
+      const a = hero.act; a.fired = true;
+      if (a.miss) { nums.push({ x: foe.bx, y: 0.42, t: 0, s: 'Мимо!', c: '#cfd8e6', big: 1 }); startAct(foe, 'evade'); if (a.k !== 'shoot' && a.k !== 'cast') startAct(hero, 'stumble'); bus.emit('sfx', 'swing'); }
+      else { hitFoe(a.m); slashes.push({ side: 'foe', k: a.k, t: 0 }); }
+    }
     if (hero.skillT <= 0) { hero.skillT = 6; hero.anim = heroClip; hero.at = 0; setTimeout(() => { if (over) return; if (cls === 'archer') { hitFoe(0.7, skillName); setTimeout(() => !over && hitFoe(0.7), 120 / speed); setTimeout(() => !over && hitFoe(0.7), 240 / speed); } else hitFoe(cls === 'mage' ? 2.4 * H.spell / 1.2 : 2.5, skillName); }, 220 / speed); }
-    if (foe.t <= 0 && foe.hp > 0) { foe.t = 1 / E.aps; foe.anim = 'attack'; foe.at = 0; setTimeout(() => { if (over || foe.hp <= 0) return; if (hero.invul > 0) { nums.push({ x: 0.34, y: 0.42, t: 0, s: 'мимо', c: '#bbb' }); return; } if (rand() < 0.2) { hero.roll = 0.45; nums.push({ x: 0.5, y: 0.3, t: 0, s: 'Уворот!', c: '#9fe38e', big: 1 }); bus.emit('sfx', 'dodge'); return; } const d = Math.round(E.dmg * rrange(0.85, 1.15) * (1 - redu)); hero.hp -= d; hero.flash = 0.15; nums.push({ x: hero.bx, y: 0.42, t: 0, s: '-' + d, c: '#ff6a5a' }); bus.emit('sfx', 'hurt'); }, 300 / speed); }
+    if (foe.t <= 0 && foe.hp > 0 && !(foe.act && foe.act.t < foe.act.d)) { foe.t = 1 / E.aps; foe.anim = 'attack'; foe.at = 0; const fk = E.boss ? ['swing', 'leap', 'lunge'] : ['swing', 'lunge', 'swing']; startAct(foe, fk[(rand() * fk.length) | 0]); }
+    if (foe.act && !foe.act.fired && foe.act.t >= foe.act.imp && foe.hp > 0) {
+      const a = foe.act; a.fired = true;
+      if (hero.invul > 0) { nums.push({ x: hero.bx, y: 0.42, t: 0, s: 'мимо', c: '#bbb' }); startAct(foe, 'stumble'); }
+      else if (rand() < 0.22) { hero.roll = 0.45; startAct(hero, 'evade'); startAct(foe, 'stumble'); nums.push({ x: 0.5, y: 0.3, t: 0, s: 'Уворот!', c: '#9fe38e', big: 1 }); bus.emit('sfx', 'dodge'); }
+      else { const d = Math.round(E.dmg * rrange(0.85, 1.15) * (1 - redu) * a.m); hero.hp -= d; hero.flash = 0.15; nums.push({ x: hero.bx, y: 0.42, t: 0, s: '-' + d, c: '#ff6a5a' }); slashes.push({ side: 'hero', k: a.k, t: 0 }); bus.emit('sfx', 'hurt'); }
+    }
     if (foe.hp <= 0 && !foe.dead) { foe.dead = 1; foe.anim = 'death'; foe.at = 0; bus.emit('sfx', 'bones'); setTimeout(() => end(true), 1100 / speed); over = 'win-pending'; }
     else if (hero.hp <= 0) { hero.anim = 'death'; hero.at = 0; over = 'lose-pending'; setTimeout(() => end(false), 1100 / speed); }
     for (const n of nums) n.t += dt; while (nums.length && nums[0].t > 1) nums.shift();
   }
   let bgCache = null, bgKey = '';
   function drawBg(W, Hh) {
-    const key = W + 'x' + Hh; if (key !== bgKey) { bgKey = key; bgCache = paintScene(ch, Math.floor((s - 1) / 10), W, Hh, s); }
+    const key = W + 'x' + Hh; if (key !== bgKey) { bgKey = key; bgCache = paintScene(chOf(s), W, Hh); }
     ctx.drawImage(bgCache.far, 0, 0, W, Hh);
     // drifting clouds
     for (const c of bgCache.clouds) { const x = ((c.x + time * c.v) % (W + 400)) - 200; ctx.globalAlpha = c.a; ctx.drawImage(bgCache.cloud, x, c.y, c.w, c.w * 0.4); } ctx.globalAlpha = 1;
@@ -214,18 +203,31 @@ function fight(s) {
     // shadows
     ctx.fillStyle = 'rgba(0,0,0,0.3)'; for (const px of [W * hero.bx, W * foe.bx]) { ctx.beginPath(); ctx.ellipse(px, gy, 44 * sc, 12 * sc, 0, 0, 7); ctx.fill(); }
     const hNF = HNF[hero.anim] || 4; if (hero.anim !== 'idle' && hero.anim !== 'death' && hero.at * 12 > hNF) hero.anim = 'idle';
-    const lunge = hero.anim !== 'idle' && hero.anim !== 'death' && heroClip !== 'bowrel' && heroClip !== 'cast' ? Math.sin(Math.min(1, hero.at * 2.4) * Math.PI) * W * 0.15 * sw : 0;
-    const hDir = sw > 0 ? 7 : 3, fDir = sw > 0 ? 3 : 7, hy = gy - (hero.roll > 0 ? Math.sin(Math.min(1, (0.45 - hero.roll) / 0.45) * Math.PI) * 46 * sc : 0);
+    const hP = pose(hero), fP = pose(foe);
+    const hDir = sw > 0 ? 7 : 3, fDir = sw > 0 ? 3 : 7, hy = gy - hP.hop * sc;
     for (const g of ghosts) { g.t += 0.016 * speed; } while (ghosts.length && ghosts[0].t > 0.4) ghosts.shift();
     for (const g of ghosts) { ctx.globalAlpha = Math.max(0, 0.35 - g.t * 0.9); drawUnit(heroAtlas, g.anim, HNF[g.anim] || 4, 12, g.at, W * g.x, gy, sc * 1.25, false, g.sw > 0 ? 7 : 3, 0.4, false); } ctx.globalAlpha = 1;
-    if (hero.roll > 0) { ctx.globalAlpha = 0.55; drawUnit(heroAtlas, 'idle', 4, 5, time, W * hero.bx - sw * 26 * sc, gy, sc * 1.25, false, hDir, 0, true); ctx.globalAlpha = 1; }
-    drawUnit(heroAtlas, hero.anim, hNF, hero.anim === 'idle' ? 5 : 12, hero.at + (hero.anim === 'idle' ? time : 0), W * hero.bx + lunge, hy, sc * 1.25, false, hDir, hero.flash, hero.anim === 'idle');
+    if (hero.act && hero.act.k === 'evade' && hero.act.t < hero.act.d) { ctx.globalAlpha = 0.45; drawUnit(heroAtlas, 'idle', 4, 5, time, W * hero.bx, gy, sc * 1.25, false, hDir, 0, true); ctx.globalAlpha = 1; }
+    const unit = (names, clip, nf, fps, t, x, y, scl, dir, flash, loop, P, lean) => { ctx.save(); ctx.translate(x, y); ctx.rotate(P.rot * lean); ctx.scale(P.sx, 1 / Math.sqrt(P.sx)); drawUnit(names, clip, nf, fps, t, 0, 0, scl, false, dir, flash, loop); ctx.restore(); };
+    unit(heroAtlas, hero.anim, hNF, hero.anim === 'idle' ? 5 : 12, hero.at + (hero.anim === 'idle' ? time : 0), W * (hero.bx + hP.off * sw), hy, sc * 1.25, hDir, hero.flash, hero.anim === 'idle', hP, sw);
     const A = getAtlas(ENEMIES[E.type].atlas);
     if (A) {
       const nf = c => (A.clips[c] || [4])[0];
       if (foe.anim !== 'idle' && foe.anim !== 'death' && foe.at * 11 > nf(foe.anim)) foe.anim = 'idle';
-      const fl = foe.anim === 'attack' ? Math.sin(Math.min(1, foe.at * 2.3) * Math.PI) * -W * 0.14 * sw : 0;
-      drawUnit([ENEMIES[E.type].atlas], foe.anim, nf(foe.anim), foe.anim === 'idle' ? 5 : 11, foe.at + (foe.anim === 'idle' ? time : 0), W * foe.bx + fl, gy, sc * (E.type === 'boss' ? 1.0 : 1.45), false, fDir, foe.flash, foe.anim === 'idle');
+      unit([ENEMIES[E.type].atlas], foe.anim, nf(foe.anim), foe.anim === 'idle' ? 5 : 11, foe.at + (foe.anim === 'idle' ? time : 0), W * (foe.bx - fP.off * sw), gy - fP.hop * sc, sc * (E.type === 'boss' ? 1.0 : 1.45), fDir, foe.flash, foe.anim === 'idle', fP, -sw);
+    }
+    // дуги ударов: по цели рисуем полумесяц или линию в стиле удара
+    for (let i = slashes.length - 1; i >= 0; i--) {
+      const q = slashes[i]; q.t += 0.016 * speed; if (q.t > 0.28) { slashes.splice(i, 1); continue; }
+      const tx = W * (q.side === 'foe' ? foe.bx : hero.bx), ty = gy - 62 * sc, p = q.t / 0.28, dirS = q.side === 'foe' ? sw : -sw;
+      ctx.save(); ctx.translate(tx, ty); ctx.globalAlpha = 1 - p; ctx.strokeStyle = q.side === 'foe' ? '#fff3c0' : '#ff9a8a'; ctx.lineWidth = 5 * (1 - p) + 1; ctx.lineCap = 'round';
+      ctx.beginPath();
+      if (q.k === 'thrust' || q.k === 'lunge') { ctx.moveTo(-dirS * 70 * sc, 0); ctx.lineTo(dirS * 30 * sc, 0); }
+      else if (q.k === 'overhead' || q.k === 'leap') { ctx.moveTo(-dirS * 10, -90 * sc); ctx.quadraticCurveTo(dirS * 30 * sc, -10, -dirS * 5, 60 * sc); }
+      else if (q.k === 'shoot') { ctx.moveTo(-dirS * 220 * sc * (1 - p), 0); ctx.lineTo(-dirS * 140 * sc * (1 - p), 0); }
+      else if (q.k === 'cast') { ctx.arc(0, 0, 18 + 50 * p, 0, 7); }
+      else { ctx.arc(0, 0, 70 * sc, dirS > 0 ? -2.2 : -0.9, dirS > 0 ? -0.2 : 1.2 + (dirS > 0 ? 0 : 0)); }
+      ctx.stroke(); ctx.restore();
     }
     const bw = Math.min(260, W * 0.36);
     bar(W * 0.04, 34, bw, hero.hp, hero.max, '#c8302a', 'Вы');

@@ -136,7 +136,7 @@ function setZone(z) {
   lights.hemi.color.setHex(LV.hemi.sky); lights.hemi.groundColor.setHex(LV.hemi.ground); lights.moon.color.setHex(LV.key.color);
   for (const s of slots) { s.L = null; s.k = 0; s.lt.intensity = 0; }
   const town = z.id === 'town', wild = z.id === 'wild', open = town || wild, fj = wild && z.json.wild.realm === 'fjord';
-  const ground = wild ? buildGround(scene, z, { snow: fj, kindOf: wildKind, stoneCh: '\u0000', grassK: 0.3, farColor: fj ? 0xb4c6d8 : 0x0f2418, margin: 6 }) : town ? buildGround(scene, z) : buildDungeonFloor(scene, z, LV.look), props = new PropLayer(scene, kit, z, open);
+  const ground = wild ? buildGround(scene, z, { snow: fj, forest: !fj, kindOf: wildKind, stoneCh: '\u0000', grassK: 0.3, farColor: fj ? 0xb4c6d8 : 0x0f2418, margin: 6 }) : town ? buildGround(scene, z) : buildDungeonFloor(scene, z, LV.look), props = new PropLayer(scene, kit, z, open);
   world = { ground, props, ...lightSets(z) };
   props.cull(camera, true); applyQuality(true); ground.setQuality(quality); spawned = false;
 }

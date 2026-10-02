@@ -20,8 +20,9 @@ export function gate(name, extra) {
     case 'hw': { const s = extra | 0;
       if (!hasSkill()) return { text: 'Сначала выберите навык у наставника' };
       if (s > 5 && !F().bossKilled) return { text: 'Этап закрыт', sub: 'Победите Палача Бездны в катакомбах' };
-      if (s > 10 && forts('forest') < 1) return { text: 'Этап закрыт', sub: 'Отбейте острог в Старом Лесу' };
-      if (s > 20 && forts('fjord') < 1) return { text: 'Этап закрыт', sub: 'Отбейте форт во Фьордах' };
+      if (s > 30 && forts('forest') < 1) return { text: 'Глава «Старый Лес» закрыта', sub: 'Отбейте острог в Старом Лесу' };
+      if (s > 60 && forts('fjord') < 1) return { text: 'Глава «Фьорды» закрыта', sub: 'Отбейте форт во Фьордах' };
+      if (s > 90 && !(P.depths && P.depths.best >= 5)) return { text: 'Глава «Пепельные скалы» закрыта', sub: 'Дойдите до 5 этажа Глубин' };
       return null; }
   }
   return null;
