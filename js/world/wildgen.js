@@ -120,6 +120,13 @@ function build(RL, mood, depth, boss, attempt, force) {
   for (let i = 0; i < nChest; i++) { const p = pick((x, y) => !inFort(x, y, 2) && dist(x, y, start[0], start[1]) > 6 && free(x, y, 1) && !near(x, y, 2.5)); if (p) { placed.push([p[0], p[1], 2.5]); objects.push({ t: 'wchest', id: 'ws' + i, x: p[0], y: p[1] }); } }
   for (let i = 0; i < 9; i++) { const p = pick((x, y) => !inFort(x, y, 1) && dist(x, y, start[0], start[1]) > 4 && free(x, y, 0) && !near(x, y, 1.6)); if (p) { placed.push([p[0], p[1], 1.6]); objects.push({ t: 'stash', id: 'wt' + i, x: p[0], y: p[1], kind: i % 2 ? 'crate' : 'barrel' }); } }
 
+  // схроны: безопасный вынос ноши посреди поля (1, с глубины 3 — два)
+  for (let i = 0; i < (depth >= 3 ? 2 : 1); i++) {
+    const lo = i ? 24 : 12, hi = i ? 46 : 26;
+    const p = pick((x, y) => !inFort(x, y, 3) && dist(x, y, start[0], start[1]) > lo && dist(x, y, start[0], start[1]) < hi && free(x, y, 1) && !near(x, y, 3.5), 120) || pick((x, y) => !inFort(x, y, 2) && dist(x, y, start[0], start[1]) > 8 && free(x, y, 1) && !near(x, y, 2), 200);
+    if (p) { placed.push([p[0], p[1], 3.5]); objects.push({ t: 'cache', id: 'cc' + i, x: p[0], y: p[1] }); }
+  }
+
   // --- природа: деревья/скалы/кристаллы (с коллайдерами), без разметки на пути
   const flora = realm === 'fjord'
     ? (depth >= 5 ? ['rocks', 'stalagmite', 'crystals', 'tree_0'] : ['tree_1', 'stalagmite', 'tree_0', 'deadtree', 'tree_1', 'rocks'])

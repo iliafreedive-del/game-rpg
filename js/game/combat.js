@@ -58,7 +58,7 @@ export function damageEnemy(e, amount, o = {}) {
   if (e.st.frozen > 0 && R('shatter')) dmg *= 1.5;
   if (S.effects.execute && e.hp < e.maxHP * 0.3 && o.src === 'melee') dmg *= 2;
   dmg = Math.max(1, Math.round(dmg));
-  e.hp -= dmg; e.flash = 0.12; G.lastCombat = G.time;
+  e.hp -= dmg; e.flash = 0.12; G.lastCombat = G.time; e.lastSrc = o.src;
   if (!e.aggro) { e.aggro = true; }
   const col = o.elem === 'fire' ? '#ff9a4a' : o.elem === 'cold' ? '#8fdcff' : o.elem === 'light' ? '#d0c2ff' : crit ? '#ffd23a' : '#ffffff';
   if (weakHit && !(e.wfT > G.time)) { e.wfT = G.time + 1.1; float(e.x, e.y, 'Слабость! ×1.35', '#ffe36a', { big: 1, z: 2.8 }); bus.emit('sfx', 'rareDrop'); }

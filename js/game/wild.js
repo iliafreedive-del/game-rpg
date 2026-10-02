@@ -8,6 +8,7 @@ import { makeItem } from './items.js';
 import { grant } from './quests.js';
 import { rand, rrange, rint } from '../core/util.js';
 import { REALMS, WILD_MOBS, WILD_QUESTS, isWildBoss } from '../data/wild.js';
+import { applyFieldMemory } from './wildmem.js';
 import { pickNemesis, applyNemesis, bankCarry, onNemesisKilled } from './nemesis.js';
 
 export const wildState = (realm, P = G.profile) => {
@@ -18,6 +19,7 @@ const bump = (realm, k, n = 1) => { const S = wildState(realm).stat; S[k] = (S[k
 
 // Спавн мобов поля. Лагерь кладётся вокруг точки; командир/босс получают метку и своё имя.
 export function spawnWild(zone) {
+  applyFieldMemory(zone.json);
   for (const [type, x, y, n, spread, lvl, tag] of zone.json.spawns) {
     for (let i = 0; i < n; i++) {
       let px = x, py = y;
@@ -83,7 +85,7 @@ bus.on('wildSummon', ({ e, n, text }) => {
 export function openStash(it) {
   it.done = true; it.draw.hidden = true; bus.emit('sfx', 'chest');
   const lvl = G.zone.json.level; for (let i = 0; i < 2; i++) L.dropGold(it.x, it.y + 0.6, rint(2, 5) * (1 + 0.15 * (lvl - 1)));
-  if (rand() < 0.25) L.dropPotion(it.x, it.y + 0.6, rand() < 0.7 ? 'hp' : 'mp');
+  if (rand() < (G.zone.json.wild.pity ? 0.55 : 0.25)) L.dropPotion(it.x, it.y + 0.6, rand() < 0.7 ? 'hp' : 'mp');
   C.particles(it.x, it.y, 8, { c: [190, 160, 110], sp: 2, size: 3 });
 }
 // Сундуки: форт-сундук «с добром» даёт ещё и вещь.

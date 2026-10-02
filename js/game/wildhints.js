@@ -2,12 +2,15 @@
 // постоянная строка цели и «зацепки» при возвращении в деревню. Флаги показа — profile.wild.hints.
 import { G, bus } from './ctx.js';
 import { REALMS, WILD_QUESTS } from '../data/wild.js';
+import { nearestCache, dirWord } from './wildmem.js';
 import { hunted, displayName, WEAK } from './nemesis.js';
 
 const HINTS = {
   enter: ['Как устроен поход', ['🎯 Цель — отбить форт: убейте его командира.', '🎒 Золото падает в ноше: оно ваше, когда форт отбит или вы вышли через портал.', '☠ Командир — ваш личный враг: проиграете — он вас запомнит.']],
   carry: ['Это ваша ноша', ['Золото пока не в кошельке. Смерть его теряет.', 'Тяжёлая ноша замедляет вас и привлекает врагов. Отбейте форт или выйдите через портал — и оно ваше.']],
   nemesis: ['Это ваш немезис', ['У него 2 силы и 1 слабость: удар по слабости — +35% урона (вспыхнет «Слабость!»).', 'Погибнете или убежите — он станет сильнее и заберёт ношу. Убьёте — трофей навсегда.']],
+  cache: ['Схрон ▣', ['Золото тяжелеет — вы медленнее, мобы чуют. Схрон посреди поля безопасно выносит ношу в кошелёк.', 'Плата 15% (25%, если поле помнит вашу жадность). Подойдите и нажмите «Схрон».']],
+  echo: ['Эхо павших', ['Могилы героев хранят немного золота и подсказку об опасности рядом. Своё Эхо возвращает четверть потерянной ноши.']],
   dead: ['Что произошло', ['Ноша потеряна, её забрал немезис. Победите его — вернёте всё и получите трофей.']],
 };
 let card = null, queue = [], timer = 0;
@@ -17,7 +20,7 @@ function render() {
   if (card || !queue.length) return;
   const [title, lines] = queue.shift();
   card = document.createElement('div');
-  card.style.cssText = 'position:fixed;left:50%;top:132px;transform:translateX(-50%);z-index:9;max-width:340px;width:calc(100% - 24px);background:rgba(20,14,26,.94);border:1px solid #d6a548;border-radius:10px;padding:10px 12px;font:14px/1.35 Georgia,serif;color:#efe2c0;box-shadow:0 4px 18px #000a';
+  card.style.cssText = 'position:fixed;left:50%;bottom:190px;transform:translateX(-50%);z-index:9;max-width:340px;width:calc(100% - 24px);background:rgba(20,14,26,.94);border:1px solid #d6a548;border-radius:10px;padding:10px 12px;font:14px/1.35 Georgia,serif;color:#efe2c0;box-shadow:0 4px 18px #000a';
   card.innerHTML = `<div style="font-weight:700;color:#e8c26a;margin-bottom:4px">${title}</div>${lines.map(l => `<div style="margin:3px 0">${l}</div>`).join('')}`;
   const b = document.createElement('button'); b.textContent = 'Понятно'; b.className = 'btn sm gold'; b.style.cssText = 'margin-top:6px;pointer-events:auto';
   const close = () => { if (!card) return; card.remove(); card = null; clearTimeout(timer); setTimeout(render, 300); };
@@ -33,6 +36,7 @@ bus.on('showDeath', () => { if (G.zoneId === 'wild') hint('dead'); });
 // Строка цели (под шкалой ноши)
 export function goalText() {
   const W = G.wild; if (!W) return '';
+  if (W.greed >= 0.5) { const c = nearestCache(); if (c) return `🎒 Ноша тяжёлая — вынесите её в ▣ схрон (${Math.round(c.d)} м ${dirWord(c.it.x - G.player.x, c.it.y - G.player.y)}), пока не отняли`; }
   if (!W.done) { const k = G.enemies.find(e => (e.story === 'wildkeep' || e.story === 'wildboss') && !e.dead); return k ? `🎯 Отбейте форт: убейте ${k.nem ? k.nem.name : k.D.name}${k.nem ? ` · слаб к ${WEAK[k.nem.weak]}` : ''} (стрелка ведёт к нему)` : ''; }
   return '🎯 Форт отбит. Идите к порталу ▶ вглубь или домой — золото уже ваше';
 }

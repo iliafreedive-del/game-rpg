@@ -42,7 +42,7 @@ export function pickNemesis(realm) {
 }
 export function applyNemesis(e, n) {
   e.nem = n; e.name = displayName(n) + (n.rank ? ' ' + '☠'.repeat(Math.min(n.rank, 4)) : '');
-  const r = n.rank; e.maxHP = Math.round(e.maxHP * (1 + 0.2 * r)); e.hp = e.maxHP; e.dmgMul *= 1 + 0.1 * r;
+  const r = Math.min(n.rank, 5); e.maxHP = Math.round(e.maxHP * (1 + 0.2 * r)); e.hp = e.maxHP; e.dmgMul *= 1 + 0.1 * r;
   for (const t of n.traits) TRAITS[t].apply(e);
 }
 function announce(e) {
@@ -53,7 +53,7 @@ function announce(e) {
 bus.on('aggro', e => { if (e.nem && !e.nemMet) { e.nemMet = true; announce(e); } });
 
 // ---- ноша
-export const carryCap = () => 100 + 35 * (G.zone && G.zone.json.level || 1);
+export const carryCap = () => 150 + 110 * (G.zone && G.zone.json.level || 1);   // ~40–60% золота полного зачистки поля (см. tools/qa/wild/econ.mjs)
 export function refreshCarry() {
   const W = G.wild; if (!W) return;
   if (W.carry > 0) hint('carry');
@@ -70,7 +70,7 @@ const liveNem = () => G.enemies.find(e => e.nem && !e.dead && e.aggro);
 
 bus.on('playerDeath', () => {
   const W = G.wild; if (G.zoneId !== 'wild' || !W) return; W.died = true;
-  const lost = W.carry || 0; W.carry = 0; refreshCarry();
+  const lost = W.carry || 0; W.carry = 0; refreshCarry(); bus.emit('wildDied', { lost, x: G.player.x, y: G.player.y });
   const e = liveNem(), n = e && e.nem;
   if (n) { n.rank++; n.defeats++; n.stash += lost; n.title = titleOf(n); }
   if (lost || n) setTimeout(() => bus.emit('toast', { text: lost ? `Ноша потеряна: ${lost} зол.` : 'Вы пали', sub: n ? `${displayName(n)} забрал добычу и стал сильнее (ранг ${n.rank})` : '', kind: 'warn' }), 1500);
@@ -80,6 +80,7 @@ bus.on('playerDeath', () => {
 export function onLeaveWild() {
   const W = G.wild; if (!W) return;
   if (!W.died) {
+    bus.emit('wildLeave', { carry: W.carry || 0, cap: carryCap() });
     const e = liveNem(); if (e) { const n = e.nem; n.rank++; n.fled++; n.title = titleOf(n); bus.emit('toast', { text: `${n.name} смеётся вам вслед`, sub: `Он стал сильнее (ранг ${n.rank})`, kind: 'warn' }); }
     bankCarry('Вы вышли из похода');
   }

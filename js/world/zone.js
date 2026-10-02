@@ -107,6 +107,10 @@ export class Zone {
           this.inter.push({ id: 'socket_' + o.id, sid: o.id, room: o.room, type: 'socket', x: o.x, y: o.y, r: 0.85, draw: d, panel: true });
           break;
         }
+        case 'nem_wall': {
+          const d = this.add({ x: o.x, y: o.y, spr: 'banner', tall: true }); this.addLight(o.x, o.y, { r: 4, c: [255, 120, 90], flicker: 0.4, z: 1 });
+          this.inter.push({ id: 'nem_wall', type: 'nemwall', x: o.x, y: o.y, r: 2.2, draw: d, panel: true, plate: o.plate }); break;
+        }
         case 'castle_guide': {
           this.add({ x: o.x, y: o.y, spr: 'board' }); this.addLight(o.x, o.y, { r: 3.5, c: [255, 220, 150], flicker: 0.2, z: 1.2 });
           this.inter.push({ id: 'castle_guide', type: 'castleguide', x: o.x, y: o.y, r: 1.8, panel: true, plate: 'Карта цитадели' });
@@ -260,6 +264,15 @@ export class Zone {
           const d = this.add({ x: o.x, y: o.y, spr: o.rich ? 'chest_rich' : 'chest' }); this.map.circles.push({ x: o.x, y: o.y, r: 0.35 });
           if (o.rich) this.addLight(o.x, o.y, { r: 3, c: [255, 210, 110], flicker: 0.3, z: 0.8 });
           this.inter.push({ id: o.id, type: 'chest', rich: !!o.rich, x: o.x, y: o.y, r: 1.4, label: 'Открыть сундук', draw: d }); break;
+        }
+        case 'cache': {
+          const d = this.add({ x: o.x, y: o.y, spr: 'altar' }); this.map.circles.push({ x: o.x, y: o.y, r: 0.4 });
+          const L = this.addLight(o.x, o.y, { r: 4.5, c: [255, 210, 110], flicker: 0.25, z: 1 });
+          this.inter.push({ id: o.id, type: 'cache', x: o.x, y: o.y, r: 1.6, label: 'Схрон: вынести ношу', draw: d, light: L, plate: '▣ Схрон' }); break;
+        }
+        case 'echo': {
+          const d = this.add({ x: o.x, y: o.y, spr: 'bones' }); const L = this.addLight(o.x, o.y, { r: 3.2, c: [140, 200, 255], flicker: 0.5, z: 0.8 });
+          this.inter.push({ id: o.id, type: 'echo', x: o.x, y: o.y, r: 1.4, label: o.mine ? 'Эхо вашего падения' : 'Эхо павшего', draw: d, light: L, mine: !!o.mine, lost: o.lost || 0, name: o.name, lvl: o.lvl, mob: o.mob, dir: o.dir }); break;
         }
         case 'stash': {
           const d = this.add({ x: o.x, y: o.y, spr: o.kind }); this.map.circles.push({ x: o.x, y: o.y, r: 0.3 });

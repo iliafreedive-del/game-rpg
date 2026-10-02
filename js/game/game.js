@@ -17,6 +17,7 @@ import { generateWild } from '../world/wildgen.js';
 import { prepareWildAtlases, setPropsPalette, buildWildFloor } from '../world/wildfloor.js';
 import { onLeaveWild, refreshCarry } from './nemesis.js';
 import './wildhints.js';
+import { useCache, useEcho, addEchoes } from './wildmem.js';
 import { spawnWild, wildState, openStash, wildChestExtra } from './wild.js';
 import { REALMS } from '../data/wild.js';
 import { generateCastle } from '../world/castlegen.js';
@@ -61,10 +62,14 @@ export async function loadZone(id, how = {}) {
     await buildFloorCanvas(zone);
   } else if (id === 'castle') {
     CS.C(); const json = generateCastle(P.castle);
+    { const tr = (P.nemesis && P.nemesis.trophies) || [], lv = (P.nemesis && P.nemesis.list.filter(n => n.alive && n.rank > 0).length) || 0;
+      json.objects.push({ t: 'nem_wall', x: 14.8, y: 19.2, plate: tr.length || lv ? `Стена врагов: ${tr.length} трофеев${lv ? ' · ☠ ' + lv : ''}` : 'Стена врагов' });
+      const slots = [[22.8, 10.4], [24.6, 10.4], [26.4, 10.4], [28.2, 10.4], [23.8, 4.9], [26, 4.9], [28.2, 4.9]];
+      tr.slice(0, slots.length).forEach((t, i) => json.objects.push({ t: t.rank >= 3 ? 'statue' : 'skulls', x: slots[i][0], y: slots[i][1] })); }
     zone = new Zone('castle', json, P); zone.dark = false;   // bright, readable citadel
     await buildFloorCanvas(zone);
   } else if (id === 'wild') {
-    const json = generateWild(how.realm, how.depth);
+    const json = generateWild(how.realm, how.depth); addEchoes(json);
     zone = new Zone('wild', json, P);
     await prepareWildAtlases(how.realm); setPropsPalette(how.realm === 'fjord'); buildWildFloor(zone);
   } else if (id === 'depths') {
@@ -229,6 +234,8 @@ export function interact(it) {
     case 'wildportal': if (it.reqLevel && P.level < it.reqLevel) { bus.emit('toast', { text: `${REALMS[it.realm].name} — с ${it.reqLevel} уровня`, sub: 'Набирайтесь сил в катакомбах', kind: 'warn' }); bus.emit('sfx', 'deny'); return; } bus.emit('openWild', it.realm); return;
     case 'wildnext': if (!it.hidden && G.wild) { bus.emit('sfx', 'portal'); loadZone('wild', { realm: G.wild.realm, depth: G.wild.depth + 1 }); } return;
     case 'stash': openStash(it); return;
+    case 'cache': useCache(it); return;
+    case 'echo': useEcho(it); return;
     case 'sarc': {
       it.done = true; it.draw.spr = 'sarcophagus_open'; bus.emit('sfx', 'door');
       if (it.loot === 'key') { W[it.id] = true; P.world.hasKey = true; if (it.light) it.light.on = false; bus.emit('keyItem', 'key'); bus.emit('toast', { text: 'Найден ключ от склепа', sub: 'Он в инвентаре (предметы задания). Откройте дверь на востоке', kind: 'good' }); C.particles(it.x, it.y, 20, { c: [255, 220, 120], sp: 2, size: 3 }); }
