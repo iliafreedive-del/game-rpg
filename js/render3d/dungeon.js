@@ -3,20 +3,20 @@
 // Правило Torchlight: стены, которые закрывают пол от камеры (пол у них со стороны −x/−z), обрезаны низко,
 // дальние стены (пол со стороны +x/+z, к камере) — в полную высоту.
 import * as THREE from '../vendor/three.module.min.js';
-import { toon } from './toon.js';
+import { toon, U } from './toon.js';
 import { noiseTex, flagTex } from './textures.js';
 
 const isVoid = c => c === ' ' || c === undefined;
 const isWall = c => c === '#';
 
-function floorMaterial(look) {
+function floorMaterial(look, biome) {
   const m = toon(0xffffff, { vc: true, rim: 0.05 });
-  const T = { tNoise: { value: noiseTex() }, tFlag: { value: flagTex() }, uFloor: { value: new THREE.Color(look.floor) }, uGrime: { value: new THREE.Color(look.grime) }, uMoss: { value: new THREE.Color(look.moss) } };
+  const T = { tNoise: { value: noiseTex() }, tFlag: { value: flagTex() }, uFloor: { value: new THREE.Color(look.floor) }, uGrime: { value: new THREE.Color(look.grime) }, uMoss: { value: new THREE.Color(look.moss) }, uBiome: { value: biome }, uTime: U.uTime };
   const prev = m.onBeforeCompile;
   m.onBeforeCompile = sh => {
     prev(sh); Object.assign(sh.uniforms, T);
     sh.vertexShader = 'attribute float aEdge; varying float vEdge; varying vec2 vGW;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvEdge = aEdge; vGW = (modelMatrix * vec4(position, 1.0)).xz;');
-    sh.fragmentShader = 'uniform sampler2D tNoise, tFlag; uniform vec3 uFloor, uGrime, uMoss; varying float vEdge; varying vec2 vGW;\n' + sh.fragmentShader.replace('#include <color_fragment>', /* glsl */`
+    sh.fragmentShader = 'uniform float uTime; uniform sampler2D tNoise, tFlag; uniform vec3 uFloor, uGrime, uMoss; uniform float uBiome; varying float vEdge; varying vec2 vGW;\n' + sh.fragmentShader.replace('#include <color_fragment>', /* glsl */`
 #include <color_fragment>
 {
   vec2 wp = vGW;
@@ -25,11 +25,32 @@ function floorMaterial(look) {
   vec3 col = uFloor * (0.45 + f * 1.1) * (0.85 + nz.g * 0.3);
   col = mix(col, uGrime * (0.6 + f * 0.6), smoothstep(0.45, 0.8, nz.r + vEdge * 0.35) * 0.75);   // грязь пятнами и к стенам
   col = mix(col, uMoss * (0.6 + f * 0.6), smoothstep(0.62, 0.85, nz2.b + vEdge * 0.25) * 0.55);   // мох в щелях у стен
+  // трещины в плитах (тонкие тёмные линии по шуму; в пепельных — раскалённые, в Бездне — фиолетовые рунные)
+  float cr1 = 1.0 - smoothstep(0.0, 0.014, abs(nz2.g - 0.5)), cr2 = 1.0 - smoothstep(0.0, 0.011, abs(texture2D(tNoise, wp * 0.31 + 0.7).b - 0.5));
+  float crk = max(cr1 * smoothstep(0.45, 0.65, nz.g), cr2 * smoothstep(0.55, 0.75, nz.b));
+  col = mix(col, vec3(0.03, 0.025, 0.03), crk * 0.85);
+  if (uBiome > 2.5) col = mix(col, vec3(0.62, 0.36, 1.0), crk * 0.7);
+  else if (uBiome > 1.5) col = mix(col, vec3(1.2, 0.5, 0.12), crk * 0.9);
+  // кровь и воск (катакомбы, пепел, цитадель): тёмные подсохшие пятна и бледные лужицы свечного воска у стен
+  if (uBiome < 0.5 || uBiome > 1.5 && uBiome < 2.5) {
+    float bl = smoothstep(0.74, 0.8, texture2D(tNoise, wp * 0.09 + 0.15).g * 0.65 + nz2.r * 0.35);
+    col = mix(col, vec3(0.2, 0.025, 0.02) * (0.7 + f * 0.6), bl * 0.8);
+    float wx = smoothstep(0.78, 0.84, nz.b * 0.5 + nz2.g * 0.5 + vEdge * 0.2);
+    col = mix(col, vec3(0.8, 0.7, 0.5) * (0.5 + f * 0.5), wx * 0.75);
+  }
+  // затопленные: мелкая вода в низинах плит — тёмная бирюза, блики, мокрая кромка
+  if (uBiome > 0.5 && uBiome < 1.5) {
+    float wn = nz.r * 0.55 + nz2.g * 0.45, wat = smoothstep(0.52, 0.58, wn);
+    float rip = texture2D(tNoise, wp * 0.5 + vec2(uTime * 0.03, uTime * 0.02)).b;
+    vec3 wc = mix(vec3(0.03, 0.12, 0.14), vec3(0.2, 0.5, 0.52), smoothstep(0.55, 0.75, rip));
+    col = mix(col, col * 0.55, smoothstep(0.46, 0.52, wn) * (1.0 - wat));
+    col = mix(col, wc, wat * 0.9);
+  }
   col *= 1.0 - vEdge * 0.42;                                                                       // тень у основания стен
   diffuseColor.rgb = col * diffuseColor.rgb;
 }`);
   };
-  m.customProgramCacheKey = () => 'dfloor';
+  m.customProgramCacheKey = () => 'dfloor2';
   return m;
 }
 
@@ -50,7 +71,8 @@ export function buildDungeonFloor(scene, zone, look) {
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); geo.setAttribute('aEdge', new THREE.Float32BufferAttribute(E, 1)); geo.setAttribute('color', new THREE.Float32BufferAttribute(C, 4));
   geo.setIndex(I); geo.computeVertexNormals();
-  const floor = new THREE.Mesh(geo, floorMaterial(look)); floor.receiveShadow = true; floor.userData.noOutline = true; scene.add(floor);
+  const bi = ({ flooded: 1, ash: 2, abyss: 3 })[zone.json && zone.json.biome] || 0;
+  const floor = new THREE.Mesh(geo, floorMaterial(look, bi)); floor.receiveShadow = true; floor.userData.noOutline = true; scene.add(floor);
   return {
     grassU: null,
     setQuality() { }, lod() { }, update() { }, shadow() { },
