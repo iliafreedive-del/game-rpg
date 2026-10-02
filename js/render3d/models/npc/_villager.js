@@ -16,7 +16,7 @@ export function villager(kit, o = {}) {
     part(new THREE.CylinderGeometry(0.24 * (o.girth ?? 1), 0.31 * (o.girth ?? 1), 0.5 * k, 12), cloth, [0, -0.05, 0], 0, 1, { top: clothTop, tex: 'cloth' }),
     part(new THREE.CylinderGeometry(0.235, 0.235, 0.06, 12), 0x3a2418, [0, 0.12, 0], 0, [1.05, 1, 0.85], { top: 0x6a4428, tex: 'cloth' }),
     kit.bbox(0.08, 0.07, 0.03, 0.01, PAL.brassD, [0, 0.12, 0.2], 0, { top: PAL.brass }),
-    kit.bbox(0.12, 0.13, 0.07, 0.02, 0x5a3a22, [0.18, 0.04, 0.12], [0, -0.6, 0], { top: 0x8a6a40, tex: 'cloth' }),
+    kit.bbox(0.12, 0.13, 0.07, 0.02, 0x5a3a22, [0.18, 0.04, 0.12], [0, -0.6, 0], { top: 0x8a6a40, tex: 'leather' }),
     ...(o.apron ? [part(new THREE.BoxGeometry(0.32, 0.5 * k, 0.04), o.apron, [0, 0.0, 0.2], 0, 1, { top: 0x6a5a4a, tex: 'cloth' })] : []),
     ...(o.sash ? [part(new THREE.BoxGeometry(0.1, 0.62 * k, 0.04), o.sash, [0.1, 0.34 * k, 0.17], [0, 0, 0.5], 1, { tex: 'cloth' })] : []),
   ])));

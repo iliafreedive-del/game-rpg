@@ -26,7 +26,7 @@ export default {
     const torso = M(merge([
       // кольчужная юбка и пояс с пряжкой
       kit.lathe([[0.2, -0.32], [0.26, -0.3], [0.25, -0.05], [0.2, 0.05]], DARK, [0, 0, 0], 0, 1, { top: 0x3a4060, tex: 'cloth' }, 12),
-      kit.lathe([[0.235, 0], [0.245, 0.03], [0.245, 0.09], [0.235, 0.12]], LEATHER, [0, 0, 0], 0, 1, { top: LEATHER_L, tex: 'cloth' }, 12),
+      kit.lathe([[0.235, 0], [0.245, 0.03], [0.245, 0.09], [0.235, 0.12]], LEATHER, [0, 0, 0], 0, 1, { top: LEATHER_L, tex: 'leather' }, 12),
       kit.bbox(0.14, 0.12, 0.05, 0.015, BR_D, [0, 0.06, 0.24], 0, { top: BR }),
       // набедренные пластины (тассеты) по бокам
       ...[-1, 1].map(sx => kit.bbox(0.2, 0.22, 0.05, 0.015, STEEL, [sx * 0.2, -0.12, 0.13], [0.15, sx * 0.55, sx * 0.15], TOP(STEEL_L))),
@@ -44,7 +44,7 @@ export default {
       ...[-1, 1].map(sx => part(new THREE.BoxGeometry(0.025, 0.62, 0.04), BR_D, [sx * 0.17, -0.22, 0.245], [0.06, 0, 0])),
       part(new THREE.ConeGeometry(0.17, 0.14, 3), 0x35205f, [0, -0.6, 0.265], [Math.PI, 0, 0], [1, 1, 0.15], { tex: 'cloth' }),
       // ремень перевязи через грудь
-      kit.bbox(0.07, 0.75, 0.03, 0.01, LEATHER, [0.05, 0.38, 0.268], [-0.12, 0, 0.62], { top: LEATHER_L, tex: 'cloth' }),
+      kit.bbox(0.07, 0.75, 0.03, 0.01, LEATHER, [0.05, 0.38, 0.268], [-0.12, 0, 0.62], { top: LEATHER_L, tex: 'leather' }),
       ...pauldron(-1), ...pauldron(1),
     ]));
     hips.add(torso);
@@ -115,7 +115,7 @@ export default {
       const f = group([0, -L2, 0], k);
       // сабатон: ступенчатые пластины к носку, кожаная подошва
       f.add(M(merge([
-        kit.bbox(0.2, 0.08, 0.34, 0.025, LEATHER, [0, -0.08, 0.07], 0, { top: LEATHER_L, tex: 'cloth' }),
+        kit.bbox(0.2, 0.08, 0.34, 0.025, LEATHER, [0, -0.08, 0.07], 0, { top: LEATHER_L, tex: 'leather' }),
         kit.bbox(0.19, 0.12, 0.2, 0.035, STEEL_D, [0, -0.01, 0.0], 0, TOP(STEEL)),
         ...[0, 1, 2].map(i => kit.bbox(0.18 - i * 0.015, 0.07, 0.08, 0.02, i % 2 ? STEEL_D : STEEL, [0, -0.03 - i * 0.012, 0.13 + i * 0.06], [0.25 + i * 0.1, 0, 0], TOP(STEEL_L))),
       ])));

@@ -49,7 +49,7 @@ export function skeleton(kit, L = {}) {
       ...(L.heavy ? [kit.lathe([[0.16, 0.2], [0.24, 0.3], [0.27, 0.45], [0.22, 0.58], [0.12, 0.64]], IRON, [0, 0, 0.02], 0, [1.15, 1, 0.85], { top: 0x9aa3bd, tex: 'metal' }, 12),
         part(new THREE.BoxGeometry(0.05, 0.3, 0.02), PAL.abyss, [0, 0.42, 0.25], 0, 1, { emit: true }),
         ...[-1, 1].map(sx => kit.bbox(0.18, 0.24, 0.05, 0.015, RUST, [sx * 0.16, -0.14, 0.1], [0.15, sx * 0.5, sx * 0.15], RUST_T))] : []),
-      ...(L.quiver ? [part(new THREE.CylinderGeometry(0.08, 0.07, 0.55, 8), 0x4a2c18, [0.1, 0.42, -0.2], [0.2, 0, -0.4], 1, { top: 0x7a5232, tex: 'cloth' }),
+      ...(L.quiver ? [part(new THREE.CylinderGeometry(0.08, 0.07, 0.55, 8), 0x4a2c18, [0.1, 0.42, -0.2], [0.2, 0, -0.4], 1, { top: 0x7a5232, tex: 'leather' }),
         ...[-0.03, 0, 0.03].map(x => part(new THREE.ConeGeometry(0.03, 0.1, 3), 0xd8c8a0, [0.22 + x, 0.72, -0.26], [0.2, 0, -0.4])),
         kit.bbox(0.05, 0.7, 0.02, 0.008, 0x3a2418, [0, 0.35, 0.16], [0.1, 0, 0.6], { tex: 'cloth' })] : []),
       ...(L.robe ? [kit.lathe([[0.2, 0.05], [0.26, -0.2], [0.34, -0.5], [0.42, -0.82]], CL, [0, 0, 0], 0, [1.05, 1, 0.9], { top: CLL, tex: 'cloth' }, 12),

@@ -6,7 +6,7 @@
 // верхние по 2,3 м; floors: 2 → дом ≈ 8 м (3,6 роста героя), 3 → ≈ 11 м (5 ростов).
 export function house(kit, o) {
   const { THREE, PAL, part, merge, geo, bbox } = kit;
-  const { w, d, wall, wallTop, roof, roofTop, seed = 1, floors = 2 } = o;
+  const { w, d, wall, wallTop, roof, roofTop, seed = 1, floors = 2, roofTex = 'roof' } = o;
   const R = geo.rng(seed), L = [];
   const T = 0x3a2416, TL = 0x74502e, ST = o.stone ?? 0x5a5448, STL = o.stoneTop ?? 0xa89c80;
   const W = Math.max(w, d), D = Math.min(w, d);
@@ -26,12 +26,12 @@ export function house(kit, o) {
   for (let i = 0; i < 7; i++) { const a = Math.PI * (i + 0.5) / 7, r = DW / 2 + 0.1; L.push(bbox(0.2, 0.15, 0.2, 0.03, ST, [dx + Math.cos(a) * r, y0 + DH + Math.sin(a) * r, dz + 0.05], [0, 0, a - Math.PI / 2], { top: STL, tex: 'stone' })); }
   L.push(bbox(DW, DH, 0.08, 0.015, 0x4a2c18, [dx, y0 + DH / 2, dz + 0.02], 0, { top: 0x7a5232, tex: 'wood' }));
   L.push(part(new THREE.CylinderGeometry(DW / 2, DW / 2, 0.08, 10, 1, false, 0, Math.PI), 0x4a2c18, [dx, y0 + DH, dz + 0.02], [Math.PI / 2, Math.PI / 2, 0], 1, { top: 0x7a5232, tex: 'wood' }));
-  for (const y of [0.35, 1.15]) L.push(bbox(DW * 0.7, 0.07, 0.03, 0.01, 0x24242a, [dx - 0.08, y0 + y, dz + 0.075], 0, { top: 0x6a6a74, tex: 'metal' }));
+  for (const y of [0.35, 1.15]) L.push(bbox(DW * 0.7, 0.07, 0.03, 0.01, 0x24242a, [dx - 0.08, y0 + y, dz + 0.075], 0, { top: 0x6a6a74, tex: 'iron' }));
   L.push(part(new THREE.TorusGeometry(0.07, 0.015, 4, 10), PAL.brass, [dx + 0.25, y0 + 0.85, dz + 0.08]));
   L.push(bbox(DW + 0.6, 0.14, 0.5, 0.04, ST, [dx, 0.07, dz + 0.3], 0, { top: STL, tex: 'stone' }));
   // навес над дверью на двух кронштейнах
   const ay = y0 + DH + 0.95;
-  L.push(geo.paint(geo.chamferBox(DW + 1.0, 0.1, 1.1, 0.02).rotateX(0.5).translate(dx, ay, dz + 0.55), roof, { top: roofTop, tex: 'roof' }));
+  L.push(geo.paint(geo.chamferBox(DW + 1.0, 0.1, 1.1, 0.02).rotateX(0.5).translate(dx, ay, dz + 0.55), roof, { top: roofTop, tex: roofTex }));
   for (const s of [-1, 1]) wood(geo.chamferBox(0.1, 0.9, 0.1, 0.02).rotateX(0.75).translate(dx + s * (DW / 2 + 0.35), ay - 0.4, dz + 0.3));
   // окно первого этажа на +x: маленькое, с решёткой
   const win = (x, z, y, face, WW, WH, flowers, shutter = true) => {
@@ -93,7 +93,7 @@ export function house(kit, o) {
       if (axis === 'z') g.rotateY(Math.PI / 2);
       const c = rc0.clone().lerp(rc1, 0.15 + R() * 0.5 + (1 - t0) * 0.2); if (R() < 0.18 + t0 * 0.12) c.lerp(MOSS, 0.35 + R() * 0.35);
       const off = axis === 'z' ? [s * out, 0, 0] : [0, 0, s * out];
-      L.push(geo.paint(geo.warp(g.translate(off[0] + (R() - 0.5) * 0.04, y - drop + 0.06 * (i % 2), off[2]), 0.05, seed + i * 7 + k), c.getHex(), { top: rc1.getHex(), tex: 'roof' }));
+      L.push(geo.paint(geo.warp(g.translate(off[0] + (R() - 0.5) * 0.04, y - drop + 0.06 * (i % 2), off[2]), 0.05, seed + i * 7 + k), c.getHex(), { top: rc1.getHex(), tex: roofTex }));
     }
   };
   for (const s of [-1, 1]) for (let i = 0; i < rows; i++) roofRow(s, i, rows, slope, len, y3 + rise + 0.18, pitch, slope * (i + 0.5) / rows);
@@ -111,7 +111,7 @@ export function house(kit, o) {
   const chx = -W * 0.28, chz = -D2 * 0.18, cy0 = y1, ch = y3 + rise + 1.0 - cy0;
   L.push(bbox(0.8, ch, 0.8, 0.07, ST, [chx, cy0 + ch / 2, chz], 0, { top: STL, tex: 'stone' }));
   L.push(bbox(0.96, 0.16, 0.96, 0.04, 0x3a362e, [chx, cy0 + ch, chz], 0, { top: 0x6a6252, tex: 'stone' }));
-  L.push(bbox(0.46, 0.24, 0.46, 0.03, 0x24242a, [chx, cy0 + ch + 0.16, chz], 0, { top: 0x4a4a52, tex: 'metal' }));
+  L.push(bbox(0.46, 0.24, 0.46, 0.03, 0x24242a, [chx, cy0 + ch + 0.16, chz], 0, { top: 0x4a4a52, tex: 'iron' }));
   // ---- особенности дома (o.cross, o.dormers, o.tower, o.balcony, o.stairs, o.sign, o.ivy)
   if (o.cross) {   // поперечный фронтон: выступ верхних этажей на фасаде с собственной двускатной крышей коньком к камере
     const CW = 2.6, cx = W * 0.16, cz0 = D2 / 2, CD = 0.7, r2 = Math.tan(pitch) * (CW / 2);
@@ -134,7 +134,7 @@ export function house(kit, o) {
     const dxk = -W2 / 2 + W2 * (k + 0.5) / (o.dormers + (o.cross ? 1 : 0)) - (o.cross ? 0.4 : 0), out = D2 / 2 - 0.55, ry = y3 + rise + 0.18 - Math.tan(pitch) * out;
     L.push(part(new THREE.BoxGeometry(1.0, 1.15, 1.2), wall, [dxk, ry + 0.35, out + 0.1], 0, 1, { top: wallTop, tex: 'plaster' }));
     win(dxk, out + 0.7, ry + 0.4, 0, 0.55, 0.6, false, false);
-    for (const s2 of [-1, 1]) L.push(geo.paint(geo.chamferBox(0.8, 0.1, 1.5, 0.02).rotateZ(-s2 * 0.75).translate(dxk + s2 * 0.3, ry + 1.15, out + 0.15), rc0.getHex(), { top: rc1.getHex(), tex: 'roof' }));
+    for (const s2 of [-1, 1]) L.push(geo.paint(geo.chamferBox(0.8, 0.1, 1.5, 0.02).rotateZ(-s2 * 0.75).translate(dxk + s2 * 0.3, ry + 1.15, out + 0.15), rc0.getHex(), { top: rc1.getHex(), tex: roofTex }));
   }
   if (o.tower) {   // угловая круглая башня: камень внизу, штукатурка в фахверке выше, коническая крыша с латунным навершием
     const tx = W / 2 - 0.45, tz = D / 2 - 0.45, TR = 1.2, th = y3 + rise * 0.55;
@@ -151,7 +151,7 @@ export function house(kit, o) {
     for (let i = 0; i < 6; i++) {   // конус из шести колец дранки
       const t0 = i / 6, r0 = cr * (1 - t0), r1 = cr * (1 - t0 - 1 / 6) + 0.05;
       const c = rc0.clone().lerp(rc1, 0.2 + t0 * 0.6 + R() * 0.15); if (R() < 0.25) c.lerp(MOSS, 0.4);
-      L.push(part(new THREE.CylinderGeometry(Math.max(0.05, r1), r0, ch2 / 6 + 0.12, 16, 1, true), c.getHex(), [tx, th + ch2 * (t0 + 0.5 / 6), tz], 0, 1, { top: rc1.getHex(), tex: 'roof' }));
+      L.push(part(new THREE.CylinderGeometry(Math.max(0.05, r1), r0, ch2 / 6 + 0.12, 16, 1, true), c.getHex(), [tx, th + ch2 * (t0 + 0.5 / 6), tz], 0, 1, { top: rc1.getHex(), tex: roofTex }));
     }
     L.push(part(new THREE.CylinderGeometry(cr, cr + 0.05, 0.12, 16), T, [tx, th + 0.05, tz], 0, 1, { top: TL, tex: 'woodH' }));
     L.push(part(new THREE.CylinderGeometry(0.03, 0.03, 1.0, 6), PAL.brassD, [tx, th + ch2 + 0.4, tz]), part(new THREE.SphereGeometry(0.12, 8, 6), PAL.brass, [tx, th + ch2 + 0.15, tz]));
@@ -175,7 +175,7 @@ export function house(kit, o) {
   }
   if (o.sign) {   // вывеска таверны на кованом кронштейне: кружка Ордена
     const sx = W / 2 + 0.1, sz = D / 2 + 0.2, sy = y1 - 0.25;
-    L.push(bbox(1.2, 0.07, 0.07, 0.01, 0x24242a, [sx + 0.55, sy + 0.6, sz], 0, { top: 0x5a5a64, tex: 'metal' }));
+    L.push(bbox(1.2, 0.07, 0.07, 0.01, 0x24242a, [sx + 0.55, sy + 0.6, sz], 0, { top: 0x5a5a64, tex: 'iron' }));
     L.push(bbox(0.9, 0.7, 0.07, 0.02, 0x5a3a22, [sx + 0.75, sy, sz], 0, { top: 0x9a7448, tex: 'woodH' }));
     L.push(bbox(0.95, 0.75, 0.05, 0.02, PAL.brassD, [sx + 0.75, sy, sz - 0.01], 0, { top: PAL.brass }));
     L.push(part(new THREE.CylinderGeometry(0.15, 0.13, 0.32, 10), PAL.brass, [sx + 0.72, sy - 0.02, sz + 0.05], 0, 1, { top: 0xffe08a }), part(new THREE.TorusGeometry(0.09, 0.025, 4, 8, Math.PI), PAL.brass, [sx + 0.88, sy, sz + 0.05], [0, 0, -Math.PI / 2]));
@@ -186,8 +186,8 @@ export function house(kit, o) {
       L.push(part(new THREE.IcosahedronGeometry(0.16 + R() * 0.14 * (1 - t), 0), R() < 0.3 ? 0x2e5a22 : 0x3e7a2c, [x, y0 + up, z], 0, [1, 0.8, 1], { top: 0x6aa83a })); }
   }
   // ---- фонарь на кронштейне у двери
-  L.push(bbox(0.5, 0.05, 0.05, 0.01, 0x24242a, [dx + DW / 2 + 0.55, y0 + 2.15, dz + 0.1], [0, Math.PI / 2, 0], { top: 0x5a5a64, tex: 'metal' }));
-  L.push(bbox(0.18, 0.26, 0.18, 0.02, 0x24242a, [dx + DW / 2 + 0.55, y0 + 1.95, dz + 0.3], 0, { top: 0x5a5a64, tex: 'metal' }));
+  L.push(bbox(0.5, 0.05, 0.05, 0.01, 0x24242a, [dx + DW / 2 + 0.55, y0 + 2.15, dz + 0.1], [0, Math.PI / 2, 0], { top: 0x5a5a64, tex: 'iron' }));
+  L.push(bbox(0.18, 0.26, 0.18, 0.02, 0x24242a, [dx + DW / 2 + 0.55, y0 + 1.95, dz + 0.3], 0, { top: 0x5a5a64, tex: 'iron' }));
   L.push(part(new THREE.BoxGeometry(0.12, 0.17, 0.12), 0xffc070, [dx + DW / 2 + 0.55, y0 + 1.95, dz + 0.3], 0, 1, { emit: true }));
   const root = new THREE.Group(); const m = new THREE.Mesh(merge(L), kit.propMat(o)); if (w < d) m.rotation.y = -Math.PI / 2; root.add(m);
   return { root };

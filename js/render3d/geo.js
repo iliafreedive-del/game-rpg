@@ -25,7 +25,10 @@ export const fbm = (x, y) => noise(x, y) * 0.55 + noise(x * 2.1, y * 2.1) * 0.3 
 export const TEX_ID = { none: 0, wood: 1, woodH: 2, stone: 3, roof: 4, plaster: 5, metal: 6, cloth: 7, bark: 8, tile: 9, thatch: 10, cobble: 11, iron: 12, leather: 13, gold: 14, bone: 15, crystal: 16 };
 const _c = new THREE.Color();
 // paint a geometry with a flat colour (or a bottom→top gradient); returns a non-indexed copy
+// материал по умолчанию для «именных» цветов палитры (кость, латунь): персонажи и предметы получают фактуру без правки моделей
+const AUTO_TEX = new Map([[0xe8dcc0, 'bone'], [0xa89a7c, 'bone'], [0xd6a548, 'gold'], [0x8a6428, 'gold']]);
 export function paint(geo, color, { top = null, y0 = null, y1 = null, emit = false, tex = null } = {}) {
+  if (tex === null && !emit && typeof color === 'number') tex = AUTO_TEX.get(color) || null;
   const g = geo.index ? geo.toNonIndexed() : geo;
   g.deleteAttribute('uv');
   const pos = g.attributes.position, n = pos.count, col = new Float32Array(n * 4);
