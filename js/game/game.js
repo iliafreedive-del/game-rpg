@@ -16,6 +16,7 @@ import { generateFloor, isBossFloor, parTime } from '../world/floorgen.js';
 import { generateWild } from '../world/wildgen.js';
 import { prepareWildAtlases, setPropsPalette, buildWildFloor } from '../world/wildfloor.js';
 import { onLeaveWild, refreshCarry } from './nemesis.js';
+import './wildhints.js';
 import { spawnWild, wildState, openStash, wildChestExtra } from './wild.js';
 import { REALMS } from '../data/wild.js';
 import { generateCastle } from '../world/castlegen.js';

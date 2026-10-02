@@ -54,6 +54,12 @@ function onKill(e) {
     L.dropItem(e.x, e.y, boss ? makeItem({ epic: L.pickEpic(cls), ilvl: P.level + 2, cls }) : makeItem({ rarity: 2, ilvl: P.level + 1, cls }));
     openNext(e); if (e.nem) onNemesisKilled(e);
     bankCarry(boss ? 'Босс повержен' : 'Форт отбит');
+    const ch = G.zone.inter.filter(i => i.type === 'chest'), chOpen = ch.filter(i => i.done).length, time = Math.round(G.time - G.wild.t0);
+    const par = boss ? 420 : 200 + depth * 20, stars = 1 + (chOpen >= ch.length ? 1 : 0) + (time <= par ? 1 : 0);
+    const prev = (W.stars = W.stars || {})[depth] || 0, extra = Math.max(0, stars - Math.max(prev, 1)); W.stars[depth] = Math.max(prev, stars);
+    const bonus = extra * 25 * lvl; if (bonus) L.dropGold(e.x, e.y, bonus);
+    G.wild.result = { realm, depth, boss, time, par, chOpen, chTotal: ch.length, stars, bonus, nem: e.nem ? { name: e.nem.name, rank: e.nem.rank, trophy: true } : null, name: e.D.name };
+    setTimeout(() => bus.emit('wildCleared', G.wild.result), 1800);
     bus.emit('toast', { text: boss ? `${e.D.name} повержен!` : `${REALMS[realm].fortName} отбит!`, sub: `Путь вглубь открыт (глубина ${depth + 1}). Награда — в сундуках форта`, kind: 'good' });
     bus.emit('save'); bus.emit('wildProgress');
   }

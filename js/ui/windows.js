@@ -18,6 +18,7 @@ import { generateFloor, isBossFloor, floorLevel } from '../world/floorgen.js';
 import { REALMS, WILD_QUESTS, wildLevel, isWildBoss } from '../data/wild.js';
 import { wildState, questProgress, claimQuest } from '../game/wild.js';
 import { nemState, displayName, TRAITS, WEAK } from '../game/nemesis.js';
+import { nextGoal } from '../game/wildhints.js';
 import * as DQ from '../game/daily.js';
 import * as CS from '../game/castle.js';
 import { openHeroPath } from './herospath.js';
@@ -57,7 +58,7 @@ export function openWindow(name, arg) {
   const f = W[name]; if (f) f(arg);
 }
 bus.on('openNPC', id => W['npc_' + id]());
-bus.on('openBoard', () => W.board()); bus.on('openWheel', () => openWheel(modal, closeModal)); bus.on('openHeroPath', () => openHeroPath()); bus.on('openDepths', () => W.depths()); bus.on('openWild', r => W.wild(r));
+bus.on('openBoard', () => W.board()); bus.on('openWheel', () => openWheel(modal, closeModal)); bus.on('openHeroPath', () => openHeroPath()); bus.on('openDepths', () => W.depths()); bus.on('openWild', r => W.wild(r)); bus.on('wildCleared', r => W.wildResult(r));
 bus.on('floorResult', r => floorResult(r));
 bus.on('boonChoice', () => boonChoice());
 bus.on('openSurvival', () => W.survival()); bus.on('survLevel', () => survLevel()); bus.on('survEnd', r => survEnd(r)); bus.on('openShrine', () => W.shrine());
@@ -503,6 +504,7 @@ W.depths = () => modal('Глубины катакомб', 'sm', b => {
 // ---------------------------------------------------------------- Походы: Фьорды Скъёльда / Старый Лес
 W.wild = realm => modal(REALMS[realm].name, 'sm', b => {
   const RL = REALMS[realm], WS = wildState(realm), P = G.profile, next = WS.best + 1;
+  b.appendChild(el('div', 'q cur', `<div class="qt">${esc(nextGoal(realm))}</div>`));
   b.appendChild(el('p', 'muted', RL.blurb));
   b.appendChild(el('p', 'muted', `Открытое поле с лагерями, сундуками и захваченным фортом. Отбейте форт — откроется путь вглубь; каждая глубина сложнее, каждая ${5}-я — босс. Лучшая глубина: <b class="goldc">${WS.best}</b>.`));
   const enter = d => { closeModal(); loadZone('wild', { realm, depth: d }); };
@@ -528,6 +530,25 @@ W.wild = realm => modal(REALMS[realm].name, 'sm', b => {
     b.appendChild(d);
   }
 }, {});
+
+function starsStr(n) { return '★'.repeat(n) + '☆'.repeat(3 - n); }
+W.wildResult = r => {
+  if (G.zoneId !== 'wild' || !G.wild) return;
+  const RL = REALMS[r.realm], mm = Math.floor(r.time / 60), ss = String(r.time % 60).padStart(2, '0');
+  modal(r.boss ? `${r.name} повержен!` : `${RL.fortName} отбит!`, 'sm reward', b => {
+    b.appendChild(el('div', 'rw-head', `<div class="rw-rays r${r.stars}"></div><div class="rw-t">Глубина ${r.depth}</div><div class="stars">${[0, 1, 2].map(i => `<span class="${i < r.stars ? 'on' : ''}" style="animation-delay:${0.3 + i * 0.35}s">★</span>`).join('')}</div>`));
+    const row = (ok, t) => `<div>${ok ? '✔' : '○'} ${t}</div>`;
+    b.appendChild(el('div', 'stats', `${row(true, 'Форт отбит')}${row(r.chOpen >= r.chTotal, `Все сундуки: ${r.chOpen}/${r.chTotal}`)}${row(r.time <= r.par, `Быстро: ${mm}:${ss} (цель ${Math.floor(r.par / 60)}:${String(r.par % 60).padStart(2, '0')})`)}`));
+    if (r.bonus) b.appendChild(el('div', 'rw-loot', `<span class="goldc">+${r.bonus} зол. за новые звёзды</span>`));
+    if (r.nem) b.appendChild(el('p', '', `☠ ${esc(r.nem.name)} повержен — трофей навсегда добавил урон и золото.`));
+    b.appendChild(el('p', 'muted', '🎒 Ноша теперь ваша, и золото идёт прямо в кошелёк. Можно собрать оставшиеся сундуки или идти дальше. Чем глубже — тем сильнее враги и лучше добыча.'));
+    const rw = el('div', 'row'); rw.style.justifyContent = 'center';
+    const nx = el('button', 'btn gold', `Вглубь ▶ (глубина ${r.depth + 1})`); nx.onclick = () => { closeModal(); loadZone('wild', { realm: r.realm, depth: r.depth + 1 }); };
+    const stay = el('button', 'btn', 'Остаться в поле'); stay.onclick = closeModal;
+    const home = el('button', 'btn', 'Домой'); home.onclick = () => { closeModal(); loadZone('town', { from: 'wild', realm: r.realm }); };
+    rw.append(nx, stay, home); b.appendChild(rw);
+  }, { sticky: true });
+};
 function floorResult(r) {
   setTimeout(() => {
     const m = modal(r.first ? 'Новый рекорд глубины!' : 'Этаж пройден', 'sm reward', b => {

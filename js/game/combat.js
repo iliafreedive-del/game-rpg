@@ -49,11 +49,11 @@ export function pickTarget(P, range) {
 export function rollWeapon(S) { return rrange(S.dmgMin, S.dmgMax + 0.999) | 0; }
 export function damageEnemy(e, amount, o = {}) {
   if (e.dead) return 0;
-  const S = G.stats; let dmg = amount; let crit = false;
+  const S = G.stats; let dmg = amount; let crit = false, weakHit = false;
   if (o.canCrit !== false) { const cc = S.critChance + (o.critBonus || 0); if (rand() < cc) { crit = true; dmg *= S.critMult; } }
   if (!o.elem || o.elem === 'phys') { const red = damageReduction(e.armor * (1 - (o.pierce || 0)), G.profile.level) * 0.9; dmg *= 1 - red; }
   if (e.st.shock > 0) dmg *= 1 + e.st.shockAmp;
-  if (e.nem && e.nem.weak === (o.elem && o.elem !== 'magic' ? o.elem : 'phys')) { dmg *= 1.35; o = { ...o, weakHit: 1 }; }   // слабость немезиса
+  if (e.nem && e.nem.weak === (o.elem && o.elem !== 'magic' ? o.elem : 'phys')) { dmg *= 1.35; weakHit = true; }   // слабость немезиса
   if (G.player && G.player.warcry > G.time && o.src !== 'dot') dmg *= G.player.warcryMul || 1.25;
   if (e.st.frozen > 0 && R('shatter')) dmg *= 1.5;
   if (S.effects.execute && e.hp < e.maxHP * 0.3 && o.src === 'melee') dmg *= 2;
@@ -61,6 +61,7 @@ export function damageEnemy(e, amount, o = {}) {
   e.hp -= dmg; e.flash = 0.12; G.lastCombat = G.time;
   if (!e.aggro) { e.aggro = true; }
   const col = o.elem === 'fire' ? '#ff9a4a' : o.elem === 'cold' ? '#8fdcff' : o.elem === 'light' ? '#d0c2ff' : crit ? '#ffd23a' : '#ffffff';
+  if (weakHit && !(e.wfT > G.time)) { e.wfT = G.time + 1.1; float(e.x, e.y, 'Слабость! ×1.35', '#ffe36a', { big: 1, z: 2.8 }); bus.emit('sfx', 'rareDrop'); }
   if (!o.quiet) float(e.x, e.y, crit ? dmg + '!' : dmg, col, { big: crit ? 1 : 0, z: e.D.boss ? 3.2 : 1.9 });
   // life on hit
   if (S.leech && o.src && o.src !== 'dot') { G.player.hp = Math.min(S.maxHP, G.player.hp + S.leech); }

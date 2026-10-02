@@ -7,6 +7,7 @@ import { G, bus } from './ctx.js';
 import * as L from './loot.js';
 import { rand, rint, pick } from '../core/util.js';
 import { REALMS } from '../data/wild.js';
+import { hint, goalText } from './wildhints.js';
 
 const FIRST = { fjord: ['Хрольф', 'Бьёрн', 'Ульв', 'Торгрим', 'Рагнар', 'Гуннар', 'Свейн', 'Ивар'], forest: ['Прохор', 'Лука', 'Терентий', 'Гаврила', 'Ермак', 'Кондрат', 'Захар', 'Игнат'] };
 const EPI = { fjord: ['Костолом', 'Двухкровный', 'Ледяная Борода', 'Волчий Брат', 'Зубодёр', 'Чёрный Рог'], forest: ['Душегуб', 'Рваное Ухо', 'Чащобник', 'Волчий Пастырь', 'Одноглазый', 'Кривой Нож'] };
@@ -40,7 +41,7 @@ export function pickNemesis(realm) {
   return create(realm);
 }
 export function applyNemesis(e, n) {
-  e.nem = n; e.name = displayName(n);
+  e.nem = n; e.name = displayName(n) + (n.rank ? ' ' + '☠'.repeat(Math.min(n.rank, 4)) : '');
   const r = n.rank; e.maxHP = Math.round(e.maxHP * (1 + 0.2 * r)); e.hp = e.maxHP; e.dmgMul *= 1 + 0.1 * r;
   for (const t of n.traits) TRAITS[t].apply(e);
 }
@@ -55,6 +56,7 @@ bus.on('aggro', e => { if (e.nem && !e.nemMet) { e.nemMet = true; announce(e); }
 export const carryCap = () => 100 + 35 * (G.zone && G.zone.json.level || 1);
 export function refreshCarry() {
   const W = G.wild; if (!W) return;
+  if (W.carry > 0) hint('carry');
   const g = Math.min(1, (W.carry || 0) / carryCap()); W.greed = g; W.slow = 1 - 0.18 * g; W.noise = 1 + 0.7 * g;
   bus.emit('wildCarry');
 }
@@ -96,8 +98,8 @@ export const hunted = realm => nemState().list.filter(n => n.alive && n.realm ==
 let bar = null;
 function ensureBar() {
   if (bar) return bar; bar = document.createElement('div');
-  bar.style.cssText = 'position:fixed;left:50%;top:56px;transform:translateX(-50%);z-index:5;pointer-events:none;font:600 13px Georgia,serif;color:#f0dca8;text-shadow:0 1px 2px #000;text-align:center;display:none;min-width:220px';
-  bar.innerHTML = '<div class="t"></div><div style="height:6px;background:#0009;border-radius:3px;margin-top:3px;overflow:hidden"><i style="display:block;height:100%;width:0;background:linear-gradient(90deg,#d6a548,#e8622a)"></i></div>';
+  bar.style.cssText = 'position:fixed;left:50%;top:56px;transform:translateX(-50%);z-index:5;pointer-events:none;font:600 13px Georgia,serif;color:#f0dca8;text-shadow:0 1px 2px #000;text-align:center;display:none;min-width:220px;max-width:92vw';
+  bar.innerHTML = '<div class="t"></div><div style="height:6px;background:#0009;border-radius:3px;margin-top:3px;overflow:hidden"><i style="display:block;height:100%;width:0;background:linear-gradient(90deg,#d6a548,#e8622a)"></i></div><div class="g" style="font-weight:400;font-size:12px;margin-top:3px;color:#cfe3c0"></div>';
   document.body.appendChild(bar); return bar;
 }
 function drawBar() {
@@ -106,5 +108,6 @@ function drawBar() {
   b.style.display = 'block'; const pct = Math.round((W.greed || 0) * 100);
   b.querySelector('.t').textContent = `🎒 Ноша: ${W.carry || 0} зол.${pct > 8 ? ` · жадность ${pct}% (медленнее, мобы чуют)` : ''}`;
   b.querySelector('i').style.width = pct + '%';
+  b.querySelector('.g').textContent = goalText();
 }
 bus.on('wildCarry', drawBar); bus.on('zoneEntered', drawBar); bus.on('hud', drawBar);
