@@ -46,7 +46,8 @@ export function createStage(canvas, { cls, wt, enemyType, boss, ci }) {
     const prev = last[S === H ? 'H' : 'F'], x = worldX(d.x), v = prev == null ? 0 : Math.abs(x - prev) / Math.max(dt, 1e-3); last[S === H ? 'H' : 'F'] = x;
     S.g.position.set(x, d.hop || 0, 0); S.g.rotation.z = -(d.rot || 0) * (d.lean || 1); S.g.scale.set(d.sx || 1, 1 / Math.sqrt(d.sx || 1), 1);
     S.a.faceAngle(d.face > 0 ? Math.PI / 2 : -Math.PI / 2);
-    S.a.update(dt, { clip: d.clip || (v > 0.9 ? 'walk' : 'idle'), k: d.k, impact: d.impact, combo: d.combo, speed: d.clip ? 0 : Math.min(4, v) }, env);
+    const mv = prev == null ? 0 : x - prev, back = !d.clip && v > 0.5 && mv * d.face < 0;   // двигается против взгляда — пятится: ноги идут в обратную фазу
+    S.a.update(dt, { clip: d.clip || (v > 0.9 ? 'walk' : 'idle'), k: d.k, impact: d.impact, combo: d.combo, speed: d.clip ? 0 : Math.min(4, v), back }, env);
     S.a.flash(d.flash || 0, 0xffffff);
   }
   return {

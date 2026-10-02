@@ -157,7 +157,7 @@ export function render() {
   if (Z.dark) darkness(); else dusk();
   drawProjectiles(true);
   drawEffects(); drawParticles(); drawBlades();
-  drawBars(); drawPickupLabels(); drawPlates(); drawNpcPlates(); drawBubbles(); drawTexts(); drawInteractMarker();
+  drawBars(); drawPickupLabels(); drawPlates(); drawBubbles(); drawTexts(); drawInteractMarker();
 }
 // 3D-режим: подписи над NPC (имя и «!»/«?» задания) — в 2D их рисует drawNPC; без них жителей в деревне не найти
 function drawNpcPlates() {
@@ -181,8 +181,8 @@ export function renderOverlay() {
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0); ctx.clearRect(0, 0, W, H);
   drawGroundFx(); drawTelegraphs(); drawGuide(); drawPickupsGround();
   drawProjectiles(false); drawProjectiles(true);
-  drawEffects(); drawParticles(); drawBlades();
-  drawBars(); drawPickupLabels(); drawPlates(); drawBubbles(); drawTexts(); drawInteractMarker();
+  drawEffects(); drawParticles(); drawBlades(); if (G.surv) SV.drawSurvivalFx(ctx, G.cam);
+  drawBars(); drawPickupLabels(); drawPlates(); drawNpcPlates(); drawBubbles(); drawTexts(); drawInteractMarker();
 }
 export function clearOverlay() { if (ctx) { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height); } }
 

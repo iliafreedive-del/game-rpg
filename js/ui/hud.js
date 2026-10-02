@@ -151,7 +151,8 @@ function tracker() {
     const pr = Q.progressOf(q); const done = G.profile.story.stage;
     let txt = q.text; const Wd = G.profile.world;
     if (q.id === 'medallion') txt = !Wd.hasKey ? 'Шаг 1/3: найдите ключ — светящийся саркофаг в оссуарии (север).' : !Wd.opened.door_altar ? 'Шаг 2/3: ключ у вас. Подойдите к запертой двери на востоке.' : 'Шаг 3/3: победите Хранителя в зале за дверью и возьмите амулет с алтаря.';
-    if (q.where && q.where !== G.zoneId) txt = (q.where === 'catacombs' ? 'Спуститесь в катакомбы через портал. ' : 'Вернитесь в деревню через портал. ') + txt;
+    if (Q.isReady()) txt = G.zoneId === 'town' ? '✔ Выполнено! Подойдите к старосте Эдрику (над ним «?») — за наградой.' : '✔ Выполнено! Вернитесь в деревню к старосте Эдрику за наградой.';
+    else if (q.where && q.where !== G.zoneId) txt = (q.where === 'catacombs' ? 'Спуститесь в катакомбы через портал. ' : 'Вернитесь в деревню через портал. ') + txt;
     h = `<div class="ch">${CHAPTER} · ${done}/${STORY.length}</div><div class="t">${esc(q.title)}${pr ? ` <span class="muted">${pr.cur}/${pr.max}</span>` : ''}</div><div class="d">${esc(txt)}</div>` + (pr ? `<div class="pb"><i style="width:${pr.cur / pr.max * 100}%"></i></div>` : '');
   }
   if (h !== lastTrack) { $('tracker').innerHTML = h; lastTrack = h; }

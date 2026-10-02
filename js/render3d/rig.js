@@ -33,3 +33,23 @@ export function legIK(hip, knee, foot, L1, L2, H, dz, dy, toe = 0) {
   knee.rotation.x = beta;
   foot.rotation.x = -(hip.rotation.x + knee.rotation.x) + toe;
 }
+
+/**
+ * Two-bone arm IK. arm — group of the shoulder (child of the torso, at S), el — elbow group (child of arm; hinge = local X).
+ * S, T — shoulder and wanted hand position in the torso frame; pole — direction the elbow should point to; L1, L2 — bone lengths.
+ * Sets arm.quaternion and el.rotation.x so that the hand socket lands on T (clamped to the reach).
+ */
+const _u = new Float32Array(3);
+export function armIK(THREE, arm, el, S, T, pole, L1 = 0.35, L2 = 0.36) {
+  const d = new THREE.Vector3().subVectors(T, S); let D = d.length(); const dir = d.clone().divideScalar(D || 1);
+  D = clamp(D, Math.abs(L1 - L2) + 0.02, L1 + L2 - 0.004);
+  const cosA = clamp((L1 * L1 + D * D - L2 * L2) / (2 * L1 * D), -1, 1), A = Math.acos(cosA);
+  const p = pole.clone().addScaledVector(dir, -pole.dot(dir)); if (p.lengthSq() < 1e-6) p.set(0, -1, 0); p.normalize();
+  const u = dir.clone().multiplyScalar(Math.cos(A)).addScaledVector(p, Math.sin(A)).normalize();
+  const E = S.clone().addScaledVector(u, L1), H = S.clone().addScaledVector(dir, D);
+  const f = H.sub(E).normalize();
+  const x = new THREE.Vector3().crossVectors(f, u); if (x.lengthSq() < 1e-6) x.crossVectors(pole, u); x.normalize();
+  const y = u.clone().negate(), z = new THREE.Vector3().crossVectors(x, y);
+  arm.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(x, y, z));
+  el.rotation.set(-Math.acos(clamp(u.dot(f), -1, 1)), 0, 0);
+}

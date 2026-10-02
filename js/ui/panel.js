@@ -61,7 +61,7 @@ function render(force) {
       const it = P.gear[slot]; if (!it) continue; const u = it.upg || 0, c = upgradeCost(it);
       box.appendChild(row(`<img src="${iconURL(iconOf(it))}">`, `${esc(it.name)} <span class="lv">+${u}</span>`, it.dmg ? 'урон' : 'защита', u >= MAX_UPG ? 'макс.' : `+${u + 1} · ${fmt(c)}`, u < MAX_UPG && P.gold >= c, () => EC.upgrade(it.id)));
     }
-    const b = el('button', 'btn sm', 'Перековка свойств'); b.onclick = () => W.npc_smith(); box.appendChild(b);
+    const b = el('button', 'btn sm', 'Все вещи в сумке'); b.onclick = () => W.npc_smith(); box.appendChild(b);
   } else if (T.id === 'merchant') {
     head('Торговка Мира'); bal();
     for (const [k, n, ic] of [['hp', 'Зелье здоровья', 'potion_hp'], ['mp', 'Зелье маны', 'potion_mp'], ['scroll', 'Свиток возврата', 'scroll']]) {
@@ -69,9 +69,13 @@ function render(force) {
     }
     const b = el('button', 'btn sm', 'Товары дня для класса'); b.onclick = () => W.npc_merchant(); box.appendChild(b);
   } else if (T.id === 'board') {
-    head('Доска заданий', 'Контракты идут всегда — награду забирайте здесь.');
-    for (const r of REPEATABLE) { const s = Q.repState(r); box.appendChild(row(s.done ? '✔' : '•', esc(r.title), `${s.cur}/${r.n}`, s.done ? 'Забрать' : null, s.done, () => Q.claimRep(r.id), s.done ? 'hot' : '')); }
+    head('Доска заданий', 'Ежедневные · недельные · долгие контракты');
+    box.appendChild(el('div', 'pn-sub', 'Ежедневные'));
     for (const q of DQ.dailyQuests()) box.appendChild(row('☀', esc(q.title), q.claimed ? 'получено' : `${q.cur}/${q.n}`, q.done && !q.claimed ? 'Забрать' : null, q.done && !q.claimed, () => DQ.claimDaily(q.id), q.done && !q.claimed ? 'hot' : ''));
+    box.appendChild(el('div', 'pn-sub', 'Недельные (крупнее)'));
+    for (const q of DQ.weeklyQuests()) box.appendChild(row('☾', esc(q.title), q.claimed ? 'получено' : `${q.cur}/${q.n}`, q.done && !q.claimed ? 'Забрать' : null, q.done && !q.claimed, () => DQ.claimWeekly(q.id), q.done && !q.claimed ? 'hot' : ''));
+    box.appendChild(el('div', 'pn-sub', 'Долгие контракты (трудные)'));
+    for (const r of REPEATABLE) { const s = Q.repState(r); box.appendChild(row(s.done ? '✔' : '•', esc(r.title), `${s.cur}/${r.n}`, s.done ? 'Забрать' : null, s.done, () => Q.claimRep(r.id), s.done ? 'hot' : '')); }
   } else if (T.type === 'roomgate') {
     const R = ROOMS[T.room]; const c = CS.canUnlock(T.room);
     head(R.name, R.desc); bal();

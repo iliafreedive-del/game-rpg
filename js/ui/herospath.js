@@ -148,11 +148,22 @@ async function fight(s) {
     bus.emit('sfx', crit ? 'heavy' : 'hit');
   };
   const skillName = { warrior: 'Сокрушение!', archer: 'Залп!', mage: 'Огненный шар!' }[cls];
-  // ---- ход боя: подошли → обмен ударами → развернулись и разошлись → снова сошлись. Всё идёт по фазам, без рывков и подлётов.
-  const CLOSE = [0.435, 0.565], BASE = [0.2, 0.8], WALK = 0.16;
-  let phase = 'approach', phaseT = 0, seq = [], waitT = 0;
-  hero.dirF = 1; foe.dirF = -1; hero.bx = BASE[0]; foe.bx = BASE[1];
-  const goto = (o, tgt, dt) => { const d = tgt - o.bx, m = Math.sign(d) * Math.min(Math.abs(d), WALK * dt); o.bx += m; return Math.abs(tgt - o.bx) < 0.003; };
+  // ---- ход боя: бойцы всё время лицом друг к другу; сближаются шагами, после ударов пятятся (шаг назад лицом к врагу), давят вперёд,
+  // стрелок и маг держат дистанцию — отступают на ходу и стреляют. Без разворотов спиной и «разошлись по углам».
+  const BASE = [0.2, 0.8], WALK = 0.2;
+  const ranged = cls === 'archer' || cls === 'mage', foeRanged = E.type === 'skel_archer' || E.type === 'skel_mage';
+  const reachH = cls === 'archer' ? 0.46 : cls === 'mage' ? 0.4 : 0.15, reachF = foeRanged ? 0.42 : E.boss ? 0.19 : 0.15;
+  const clampX = x => Math.min(0.88, Math.max(0.12, x));
+  let phase = 'approach', phaseT = 0, seq = ['h', 'f'], waitT = 0.4, kiteT = 0;
+  hero.dirF = 1; foe.dirF = -1; hero.bx = BASE[0]; foe.bx = BASE[1]; hero.tx = hero.bx; foe.tx = foe.bx;
+  const gap = () => foe.bx - hero.bx;
+  // идти к цели tx; бойцы не проходят друг сквозь друга (минимум 0.1 ширины)
+  const walk = (o, dt, isHero) => {
+    const d = o.tx - o.bx; if (Math.abs(d) < 0.002) return true;
+    const m = Math.sign(d) * Math.min(Math.abs(d), WALK * (ranged && isHero ? 1.15 : 1) * dt); let nb = o.bx + m;
+    if (isHero) nb = Math.min(nb, foe.bx - 0.1); else nb = Math.max(nb, hero.bx + 0.1);
+    o.bx = nb; return false;
+  };
   const heroTurn = () => {
     if (hero.skillT <= 0) { hero.skillT = 7; startAct(hero, cls === 'warrior' ? 'overhead' : cls === 'archer' ? 'shoot' : 'cast', { skill: true }); return; }
     const kinds = cls === 'archer' ? ['shoot'] : cls === 'mage' ? ['cast'] : ['slash', 'overhead', 'thrust', 'sweep'];
@@ -167,13 +178,29 @@ async function fight(s) {
     if (hero.skillT > 0) hero.skillT -= dt * (phase === 'exchange' ? 1 : 0.5);
     const busy = (hero.act && hero.act.t < hero.act.d) || (foe.act && foe.act.t < foe.act.d);
     if (foe.hp > 0 && hero.hp > 0) {
-      if (phase === 'approach') { const a = goto(hero, CLOSE[0], dt), b = goto(foe, CLOSE[1], dt); if (a && b) { phase = 'exchange'; phaseT = 0; waitT = 0.35; const n = 3 + ((rand() * 2) | 0); seq = []; for (let i = 0; i < n * 2 - 1; i++) seq.push(i % 2 === 0 ? 'h' : 'f'); } }
-      else if (phase === 'exchange') {
+      walk(hero, dt, true); walk(foe, dt, false); kiteT -= dt;
+      if (phase === 'approach') {   // шагом навстречу, пока не окажутся на дистанции боя
+        hero.tx = clampX(foe.bx - reachH * 0.85); foe.tx = clampX(hero.bx + reachF * 0.85);
+        if (gap() <= Math.max(reachH, reachF) + 0.02 && !busy) { phase = 'exchange'; phaseT = 0; waitT = 0.3; }
+      } else {
+        // стрелок: враг подошёл слишком близко — отступает на ходу (и стреляет дальше)
+        if (ranged && kiteT <= 0 && gap() < reachH * 0.55 && hero.bx > 0.16) { hero.tx = clampX(hero.bx - rrange(0.1, 0.16)); kiteT = 1.4; }
         waitT -= dt;
-        if (!busy && waitT <= 0) { const who = seq.shift(); if (!who) { phase = 'retreat'; phaseT = 0; hero.dirF = -1; foe.dirF = 1; } else { if (who === 'h') heroTurn(); else foeTurn(); waitT = 0.3 + rand() * 0.2; } }
+        if (!busy && waitT <= 0) {
+          const who = seq[0], g = gap();
+          if (who === 'h') {
+            if (g > reachH + 0.01) { hero.tx = clampX(foe.bx - reachH * 0.85); waitT = 0.12; }   // подойти на дистанцию удара
+            else { seq.shift(); seq.push('h'); heroTurn(); waitT = 0.28 + rand() * 0.2;
+              if (ranged ? rand() < 0.45 : rand() < 0.4) hero.tx = clampX(hero.tx - rrange(0.03, 0.07));   // после удара — шаг назад лицом к врагу
+              else if (!ranged && rand() < 0.35) hero.tx = clampX(Math.min(foe.bx - 0.11, hero.tx + rrange(0.02, 0.05))); }   // или нажим вперёд
+          } else {
+            if (g > reachF + 0.01) { foe.tx = clampX(hero.bx + reachF * 0.85); waitT = 0.12; }
+            else { seq.shift(); seq.push('f'); foeTurn(); waitT = 0.28 + rand() * 0.2;
+              if (!foeRanged && rand() < 0.3) foe.tx = clampX(foe.tx + rrange(0.03, 0.06));   // враг тоже иногда отступает на шаг
+              else if (foeRanged && g < 0.3) foe.tx = clampX(foe.tx + rrange(0.05, 0.1)); }
+          }
+        }
       }
-      else if (phase === 'retreat') { const a = goto(hero, BASE[0], dt), b = goto(foe, BASE[1], dt); if (a && b) { phase = 'turnback'; phaseT = 0; hero.dirF = 1; foe.dirF = -1; } }
-      else if (phase === 'turnback') { if (phaseT > 1.0) { phase = 'approach'; phaseT = 0; } }
     }
     // исполнение ударов
     if (hero.act && !hero.act.fired && hero.act.t >= hero.act.imp) {

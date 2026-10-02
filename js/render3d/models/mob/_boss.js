@@ -67,7 +67,7 @@ export function bossModel(kit, CF = {}) {
     // up — замах над головой, dn — удар вниз, sw — горизонтальный размах, roar — рёв, hurt
     function solve(a, sp, o = {}) {
       const up = o.up || 0, dn = o.dn || 0, sw = o.sw || 0, ro = o.roar || 0, hurt = o.hurt || 0, two = o.two || 0;
-      const w = clamp(sp / 1.8); if (sp > 0.25) gp = (gp + a.dt * sp / 1.6) % 1;
+      const w = clamp(sp / 1.8); if (sp > 0.25) gp = ((gp + (a.back ? -1 : 1) * a.dt * sp / 1.6) % 1 + 1) % 1;
       const th = gp * 6.283, br = Math.sin(a.t * 1.4);
       const hipY = 1.0 - 0.06 * w - dn * 0.18 - ro * 0.05 + br * 0.01;
       [[legR, 0], [legL, 0.5]].forEach(([lg, off], i) => {

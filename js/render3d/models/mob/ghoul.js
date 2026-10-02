@@ -57,7 +57,7 @@ export default {
     let gp = Math.random();
     function solve(a, sp, wu, lu, hurt = 0) {
       const w = clamp(sp / 1.6), cyc = clamp(sp / (SP.cyc * 3.2), 0, 1);
-      if (sp > 0.25) gp = (gp + a.dt * sp / 1.5) % 1;
+      if (sp > 0.25) gp = ((gp + (a.back ? -1 : 1) * a.dt * sp / 1.5) % 1 + 1) % 1;
       const th = gp * 6.283, s = Math.sin(th);
       const hipY = SP.hip - 0.05 * w + 0.025 * w * Math.abs(Math.cos(th - 1.9)) - wu * 0.08 + lu * 0.03;
       [[legR, 0], [legL, 0.5]].forEach(([lg, off], i) => {

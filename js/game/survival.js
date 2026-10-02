@@ -46,12 +46,12 @@ export const REQ_LEVEL = 5, GOAL = 20 * 60;
 
 // ---------------------------------------------------------------- arena
 export function generateArena() {
-  const W = 56, H = 56, rows = [];
+  const W = 100, H = 100, rows = [];   // огромная арена: бегать и отступать есть где
   for (let y = 0; y < H; y++) { let r = ''; for (let x = 0; x < W; x++) r += (x < 2 || y < 2 || x >= W - 2 || y >= H - 2) ? '#' : '.'; rows.push(r); }
   let s = 99; const R = () => (s = (s * 16807) % 2147483647) / 2147483647;
   const o = [];
-  for (let k = 0; k < 34; k++) { const x = 5 + R() * (W - 10), y = 5 + R() * (H - 10); if (Math.hypot(x - W / 2, y - H / 2) < 6) continue; o.push({ t: ['crystals', 'stalagmite', 'lavarock', 'rocks', 'skulls', 'mushrooms', 'bones'][k % 7], x, y }); }
-  for (let k = 0; k < 10; k++) o.push({ t: 'brazier', x: W / 2 + Math.cos(k / 10 * 6.283) * 20, y: H / 2 + Math.sin(k / 10 * 6.283) * 20 });
+  for (let k = 0; k < 70; k++) { const x = 5 + R() * (W - 10), y = 5 + R() * (H - 10); if (Math.hypot(x - W / 2, y - H / 2) < 6) continue; o.push({ t: ['crystals', 'stalagmite', 'lavarock', 'rocks', 'skulls', 'mushrooms', 'bones', 'pillar'][k % 8], x, y }); }
+  for (let k = 0; k < 16; k++) o.push({ t: 'brazier', x: W / 2 + Math.cos(k / 16 * 6.283) * (14 + (k % 2) * 14), y: H / 2 + Math.sin(k / 16 * 6.283) * (14 + (k % 2) * 14) });
   return { name: 'Жатва Бездны', floorN: 666, dungeon: true, survival: true, biome: 'abyss', w: W, h: H, rows, objects: o, torches: [], spawns: [], total: 0, rooms: {}, start: [W / 2, H / 2], level: 1, story: [] };
 }
 
@@ -82,7 +82,7 @@ export function updateSurvival(dt) {
   S.t += dt;
   // spawns: density grows every minute
   S.spawnT -= dt;
-  const mins = S.t / 60, cap = Math.min(170, 30 + mins * 14);
+  const mins = S.t / 60, cap = Math.min(G.render3d ? 75 : 170, 28 + mins * 12);   // в 3D каждый враг — настоящая модель, поэтому потолок ниже
   if (S.spawnT <= 0 && S.swarm.length < cap) {
     S.spawnT = Math.max(0.18, 0.9 - mins * 0.05);
     const n = 1 + Math.floor(mins / 1.5);
@@ -140,10 +140,19 @@ export function updateSurvival(dt) {
   if (S.t >= GOAL) endRun(true);
 }
 const dirOf8 = (x, y) => ((Math.round(Math.atan2(y, x) / (Math.PI / 4)) + 8) % 8);
+// враги появляются ЗА краем экрана, а не из воздуха на глазах: ищем по случайному направлению ближайшую точку, которая на экран не попадает
+const offscreen = (x, y) => { const c = G.cam, [sx, sy] = c.toScreen(x, y, 0.5); return sx < -70 || sx > c.w + 70 || sy < -90 || sy > c.h + 90; };
 function spawn(t, elite, boss) {
-  const S = G.surv, pl = G.player, a = rand() * 6.283, r = rrange(14, 17);
-  let x = pl.x + Math.cos(a) * r, y = pl.y + Math.sin(a) * r;
-  x = Math.max(3, Math.min(G.zone.map.w - 3, x)); y = Math.max(3, Math.min(G.zone.map.h - 3, y));
+  const S = G.surv, pl = G.player, map = G.zone.map;
+  let x = pl.x, y = pl.y, ok = false;
+  for (let k = 0; k < 4 && !ok; k++) {
+    const a = rand() * 6.283;
+    for (let r = 9; r < 46 && !ok; r += 1.5) {
+      x = pl.x + Math.cos(a) * r; y = pl.y + Math.sin(a) * r;
+      ok = x > 3 && y > 3 && x < map.w - 3 && y < map.h - 3 && !map.blocked(x | 0, y | 0) && offscreen(x, y);
+    }
+  }
+  if (!ok) return;
   const mins = S.t / 60, hpMul = 1 + mins * 0.45 + Math.max(0, mins - 10) * 0.4;
   const D = ENEMIES[t.type];
   S.swarm.push({ type: t.type, atlas: D.atlas, x, y, hp: t.hp * hpMul, max: t.hp * hpMul, spd: t.spd * (1 + mins * 0.02), dmg: t.dmg, xp: t.xp, r: boss ? 0.8 : elite ? 0.55 : t.type === 'beast' ? 0.45 : 0.32, t: rand() * 2, flash: 0, hitCd: 0, dir: 0, elite, boss });
@@ -159,11 +168,12 @@ function weapons(dt) {
   const S = G.surv, pl = G.player, w = S.w, cls = G.profile.cls || 'warrior', D = baseDmg(), A = area();
   // main class weapon
   const evoMain = S.evo.evo_main ? 2.5 : 1;
+  S.fireT = Math.max(0, (S.fireT || 0) - dt);   // для 3D: пока >0 герой играет анимацию выстрела/удара
   if (cls === 'warrior') {
-    if (ready('main', 1.15 - w.main * 0.07)) { const R = 2.2 * A; C.effect({ kind: 'slash', x: pl.x, y: pl.y, a: S.orbit * 2, r: R * 0.8, arc: 330, dur: 0.28 }); C.effect({ kind: 'ring', x: pl.x, y: pl.y, r: R, dur: 0.25, c: [255, 235, 200] }); for (const e of S.swarm) if ((e.x - pl.x) ** 2 + (e.y - pl.y) ** 2 < (R + e.r) ** 2) { hitE(e, D * 1.2 * evoMain); const l = Math.hypot(e.x - pl.x, e.y - pl.y) || 1; e.x += (e.x - pl.x) / l * 0.4; e.y += (e.y - pl.y) / l * 0.4; } bus.emit('sfx', 'swing'); }
+    if (ready('main', 1.15 - w.main * 0.07)) { S.fireT = 0.4; const R = 2.2 * A; C.effect({ kind: 'slash', x: pl.x, y: pl.y, a: S.orbit * 2, r: R * 0.8, arc: 330, dur: 0.28 }); C.effect({ kind: 'ring', x: pl.x, y: pl.y, r: R, dur: 0.25, c: [255, 235, 200] }); for (const e of S.swarm) if ((e.x - pl.x) ** 2 + (e.y - pl.y) ** 2 < (R + e.r) ** 2) { hitE(e, D * 1.2 * evoMain); const l = Math.hypot(e.x - pl.x, e.y - pl.y) || 1; e.x += (e.x - pl.x) / l * 0.4; e.y += (e.y - pl.y) / l * 0.4; } bus.emit('sfx', 'swing'); }
   } else {
     if (ready('main', (cls === 'archer' ? 0.7 : 0.85) - w.main * 0.05)) {
-      const t = nearest(pl.x, pl.y, 11); if (t) { const n = 1 + Math.floor(w.main / 2); const a0 = Math.atan2(t.y - pl.y, t.x - pl.x);
+      const t = nearest(pl.x, pl.y, 11); if (t) { S.fireT = 0.42; S.fireClip = cls; pl.faceTo(t.x, t.y); const n = 1 + Math.floor(w.main / 2); const a0 = Math.atan2(t.y - pl.y, t.x - pl.x);
         for (let i = 0; i < n; i++) { const a = a0 + (i - (n - 1) / 2) * 0.14; S.projs.push({ kind: cls === 'archer' ? 'arrow' : 'bolt', x: pl.x, y: pl.y, vx: Math.cos(a) * 14, vy: Math.sin(a) * 14, dmg: D * (cls === 'mage' ? 1.3 : 1) * evoMain, r: 0.3, pierce: S.evo.evo_main ? 99 : cls === 'archer' ? 1 : 0, life: 1.1, hit: new Set() }); }
         bus.emit('sfx', cls === 'archer' ? 'bow' : 'cast'); }
     }

@@ -79,7 +79,7 @@ export function buildDungeonFloor(scene, zone, look) {
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); geo.setAttribute('aEdge', new THREE.Float32BufferAttribute(E, 1)); geo.setAttribute('color', new THREE.Float32BufferAttribute(C, 4));
   geo.setIndex(I); geo.computeVertexNormals();
-  const bi = zone.id === 'castle' || zone.id === 'survival' ? 4 : ({ flooded: 1, ash: 2, abyss: 3 })[zone.json && zone.json.biome] || 0;
+  const bi = zone.id === 'castle' ? 4 : zone.id === 'survival' ? 3 : ({ flooded: 1, ash: 2, abyss: 3 })[zone.json && zone.json.biome] || 0;
   const floor = new THREE.Mesh(geo, floorMaterial(look, bi)); floor.receiveShadow = true; floor.userData.noOutline = true; scene.add(floor);
   return {
     grassU: null,

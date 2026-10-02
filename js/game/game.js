@@ -15,7 +15,7 @@ import { loadFloor, buildFloorCanvas } from '../render/index.js';
 import { generateFloor, isBossFloor, parTime } from '../world/floorgen.js';
 import { generateWild } from '../world/wildgen.js';
 import { prepareWildAtlases, setPropsPalette, buildWildFloor } from '../world/wildfloor.js';
-import { onLeaveWild, refreshCarry } from './nemesis.js';
+import { onLeaveWild, refreshCarry, bankCarry } from './nemesis.js';
 import './wildhints.js';
 import { useCache, useEcho, addEchoes } from './wildmem.js';
 import { spawnWild, wildState, openStash, wildChestExtra } from './wild.js';
@@ -102,8 +102,10 @@ export async function loadZone(id, how = {}) {
   const fresh = !G.player; const pl = G.player || new Player(0, 0); G.player = pl;
   pl.dead = false; pl.state = 'idle'; pl.act = null; pl.setAnim('idle', 5, true);
   if (id === 'town') {
-    const from = how.from === 'catacombs' || how.from === 'wild';
-    const portal = zone.inter.find(i => i.id === (how.from === 'wild' ? 'portal_' + how.realm : 'portal_town')) || zone.inter.find(i => i.id === 'portal_town');
+    // возвращаемся к тому порталу, из которого входили (катакомбы, Глубины, Жатва, Цитадель, поход), а не всегда к катакомбам
+    const PORTAL_OF = { catacombs: 'portal_town', depths: 'portal_depths', survival: 'portal_survival', castle: 'portal_castle', wild: 'portal_' + how.realm };
+    const from = !!PORTAL_OF[how.from];
+    const portal = zone.inter.find(i => i.id === PORTAL_OF[how.from]) || zone.inter.find(i => i.id === 'portal_town');
     [pl.x, pl.y] = from ? [portal.x + 1.2, portal.y + 1.6] : zone.start; pl.face = pl.dir = 1;
     for (const n of zone.json.npcs) G.npcs.push(new NPC({ ...n }));
     await loadGroup(zone.json.npcs.filter(n => !G.render3d || n.id !== 'fortune').map(n => 'npc_' + (n.id === 'fortune' ? 'merchant' : n.id))).catch(() => { });
@@ -133,7 +135,7 @@ export async function loadZone(id, how = {}) {
   G.zoneReady = true;
   bus.emit('zoneEntered', id); bus.emit('hud'); requestSave();
   if (id === 'town' && P.tutorial.prologue) setTimeout(() => { if (G.zoneId === 'town') bus.emit('toast', { text: 'Дальше: ' + nextStep(), kind: 'info' }); }, 2200);
-  if (id === 'town' && (how.from === 'catacombs' || how.from === 'wild') && how.from !== 'death') setTimeout(() => maybeInterstitial('return'), 1200);   // реклама только на спокойном переходе (не чаще раза в 4 минуты)
+  if (id === 'town' && how.from && how.from !== 'death') setTimeout(() => maybeInterstitial('return'), 1200);   // реклама только на спокойном переходе (не чаще раза в 4 минуты)
 }
 
 function roomLevel(zone, x, y) {
@@ -173,7 +175,7 @@ function spawnFloor(zone) {
 }
 function spawnElite(zone) {
   const el = zone.json.story[0], e = new Enemy('elite_guard', el[1], el[2], G.profile.chapterDone ? Math.max(6, G.profile.level) : 6, { story: 'elite' });
-  e.name = 'Хранитель амулета'; e.maxHP = Math.round(e.maxHP * 1.5); e.hp = e.maxHP; e.dmgMul *= 1.15; G.enemies.push(e);   // посложнее обычного стража
+  e.name = 'Хранитель амулета'; e.maxHP = Math.round(e.maxHP * 1.3); e.hp = e.maxHP; e.dmgMul *= 1.1; G.enemies.push(e);   // посложнее обычного стража
 }
 
 // ------------------------------------------------------------------ events
@@ -241,7 +243,7 @@ export function interact(it) {
       bus.emit('sfx', 'portal');
       if (it.to === 'castle') { loadZone('castle'); return; }
       if (it.to === 'catacombs') { maybeInterstitial('descend').then(() => loadZone('catacombs', { useCache: !!G.dungeonCache })); }
-      else loadZone('town', G.zoneId === 'wild' ? { from: 'wild', realm: G.wild && G.wild.realm } : { from: 'catacombs' });
+      else loadZone('town', { from: G.zoneId, realm: G.wild && G.wild.realm });
       return;
     case 'npc': { const n = G.npcs.find(x => x.id === it.id); if (n) n.talkT = 4; bus.emit('openNPC', it.id); return; }
     case 'board': bus.emit('openBoard'); return;
@@ -256,7 +258,7 @@ export function interact(it) {
       if (it.hidden || !G.wild) { bus.emit('toast', { text: 'Портал запечатан', sub: 'Сначала отбейте форт', kind: 'warn' }); bus.emit('sfx', 'deny'); return; }
       const nd = G.wild.depth + 1, need = wildReqLevel(G.wild.realm, nd);
       if (P.level < need) { bus.emit('toast', { text: `Дальше — с ${need} уровня`, sub: `У вас ${P.level}. Наберитесь сил на этом поле или в катакомбах`, kind: 'warn' }); bus.emit('sfx', 'deny'); return; }
-      bus.emit('sfx', 'portal'); loadZone('wild', { realm: G.wild.realm, depth: nd }); return;
+      bankCarry('Вы прошли через портал «Вглубь»'); bus.emit('sfx', 'portal'); loadZone('wild', { realm: G.wild.realm, depth: nd }); return;
     }
     case 'stash': openStash(it); return;
     case 'cache': useCache(it); return;

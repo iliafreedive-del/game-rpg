@@ -93,10 +93,10 @@ export class Enemy {
     const D = ENEMIES[type]; this.type = type; this.D = D; this.lvl = lvl;
     this.x = x; this.y = y; this.hx = x; this.hy = y; this.r = D.radius; this.dir = rand() * 8 | 0;
     this.champion = !!opts.champion;
-    const diff = D.boss ? 1.9 : D.elite ? 1.7 : 1.4;   // сложность: враги прочнее и бьют больнее (было слишком легко)
+    const diff = D.boss ? 1.7 : D.elite ? 1.5 : 1.2;   // сложность: враги прочнее и бьют больнее (было слишком легко)
     const hm = scaleHP(lvl) * (this.champion ? 2.2 : 1) * diff;
     this.maxHP = Math.round(D.hp * hm); this.hp = this.maxHP;
-    this.dmgMul = scaleDmg(lvl) * (this.champion ? 1.3 : 1) * (D.boss ? 1.15 : 1.2);
+    this.dmgMul = scaleDmg(lvl) * (this.champion ? 1.3 : 1) * (D.boss || D.elite ? 1.15 : 1.08);
     this.armor = Math.round(D.armor * (1 + 0.15 * (lvl - 1)));
     this.anim = new Anim(); this.setAnim('idle', 5, true); this.anim.t = rand() * 2;
     this.state = 'idle'; this.cd = rrange(0.3, 1.2); this.aggro = false; this.dead = false; this.remove = false;

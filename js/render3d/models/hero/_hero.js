@@ -3,7 +3,7 @@
 export function heroModel(kit, V = {}) {
   {
     const { THREE, PAL, HERO, part, merge, group, rig } = kit;
-    const { clamp, smooth, easeOut, lerp, footTarget, legIK } = rig;
+    const { clamp, smooth, easeOut, lerp, footTarget, legIK, armIK } = rig;
     const STEEL = V.steel ?? HERO.steel, STEEL_L = V.steelL ?? HERO.steelL, STEEL_D = V.steelD ?? HERO.steelD, DARK = V.dark ?? HERO.dark, TX = V.tex ?? 'metal', BONE = PAL.bone, BONE_D = PAL.boneD, BR = PAL.brass, BR_D = PAL.brassD;
     const mat = kit.mat({ rim: HERO.rim, rimColor: V.rimColor ?? HERO.rimColor });
     const M = g => new THREE.Mesh(g, mat);
@@ -125,19 +125,20 @@ export function heroModel(kit, V = {}) {
     const legL = leg(1), legR = leg(-1);
 
     // плащ крепится к торсу и живёт в мировых координатах сцены
-    const cape = new kit.Cape(kit.scene, V.cape ?? HERO.cape, { len: V.capeLen ?? 1.25, top: 0.78, bottom: 1.15, R: 0.34, back: -0.27, bodyTop: 1.75, backMin: 0.75, hem: V.capeHem ?? HERO.capeHem });
+    const cape = V.noCape ? null : new kit.Cape(kit.scene, V.cape ?? HERO.cape, { len: V.capeLen ?? 1.25, top: 0.78, bottom: 1.15, R: 0.34, back: -0.27, bodyTop: 1.75, backMin: 0.75, hem: V.capeHem ?? HERO.capeHem });
     const capeAnchor = group([0, 0.64, -0.26], torso);
 
     // ---------------- поза: одна функция на все клипы ----------------
     const ST = HERO.stanceFraction, S = { phase: 0, bank: 0, yaw: 0 };
     // r — «бежит» 0..1, sp — скорость, atk — {k1,k2,k3,dir} или null, hurt 0..1
     function solve(a, r, sp, atk, hurt, extra = {}) {
+      bowDraw = 0;
       const spN = clamp(sp / HERO.speed), stride = clamp(0.3 + 0.15 * sp, 0.3, 0.9);
-      if (sp > 0.25) S.phase = (S.phase + a.dt * sp * ST / stride) % 1;
-      const th = S.phase * Math.PI * 2, breath = Math.sin(a.t * 2.0) * (1 - r);
+      if (sp > 0.25) S.phase = ((S.phase + (a.back ? -1 : 1) * a.dt * sp * ST / stride) % 1 + 1) % 1;   // a.back — пятится лицом к врагу
+      const th = S.phase * Math.PI * 2, breath = Math.sin(a.t * 2.4) * (1 - r), shift = Math.sin(a.t * 1.15) * (1 - r);   // breath — дыхание/«пружинка» боевой стойки, shift — перенос веса с ноги на ногу
       const aw = atk ? 1 : 0, k1 = atk ? atk.k1 : 0, k2 = atk ? atk.k2 : 0, k3 = atk ? atk.k3 : 0, dir = atk ? atk.dir : 1;
       const wind = k1 * (1 - k2), hitK = k2 * (1 - k3), crouchA = 0.1 * (k1 * (1 - k2) + 0.7 * k2 * (1 - k3));
-      const hipY = 0.97 - 0.14 * r + 0.03 * r * Math.abs(Math.cos(th - 1.885)) - crouchA * aw + breath * 0.008 - (extra.crouch || 0);
+      const hipY = 0.97 - 0.14 * r + 0.03 * r * Math.abs(Math.cos(th - 1.885)) - crouchA * aw - (breath * 0.5 + 0.5) * 0.04 * (1 - aw) - (extra.crouch || 0);
       [[legR, 0], [legL, 0.5]].forEach(([lg, off], i) => {
         const ft = footTarget(S.phase + off, stride, 0.08 + 0.16 * spN, ST);
         let dz = ft.z * r + (i ? -0.03 : 0.03) * (1 - r), lift = ft.y * r, toe = ft.pitch * r;
@@ -148,15 +149,15 @@ export function heroModel(kit, V = {}) {
         lg.position.x = (i ? 0.15 : -0.15) + Math.sin(th) * 0.02 * r; lg.position.y = hipY;
         legIK(lg, lg.knee, lg.foot, L1, L2, hipY - ANKLE, dz, lift, toe);
       });
-      hips.position.set(Math.sin(th) * 0.025 * r, hipY, 0);
-      hips.rotation.set(0, Math.sin(th) * 0.13 * r + dir * (0.32 * wind - 0.4 * hitK) * aw, Math.sin(th + 0.5) * 0.035 * r);
-      torso.rotation.x = (0.1 + 0.14 * spN) * r + breath * 0.02 + 0.12 * wind - 0.06 * hitK - 0.28 * hurt + (extra.lean || 0);
+      hips.position.set(Math.sin(th) * 0.025 * r + shift * 0.035 * (1 - aw), hipY, 0);
+      hips.rotation.set(0, Math.sin(th) * 0.13 * r + dir * (0.32 * wind - 0.4 * hitK) * aw + shift * 0.05, Math.sin(th + 0.5) * 0.035 * r + shift * 0.035);
+      torso.rotation.x = (0.1 + 0.14 * spN) * r * (a.back ? 0.2 : 1) + breath * 0.045 + 0.12 * wind - 0.06 * hitK - 0.28 * hurt + (extra.lean || 0);
       torso.rotation.y = -Math.sin(th) * 0.2 * r + dir * (0.5 * wind - 0.55 * hitK) * aw;
-      torso.rotation.z = S.bank * r + Math.sin(a.t * 0.8) * 0.01 * (1 - r);
-      head.rotation.set(-0.1 * r - torso.rotation.x * 0.4 + Math.sin(a.t * 1.3) * 0.03 * (1 - r), -torso.rotation.y * 0.7 - hips.rotation.y * 0.3, Math.sin(a.t * 0.9) * 0.04 * (1 - r));
+      torso.rotation.z = S.bank * r - shift * 0.045 + Math.sin(a.t * 0.8) * 0.01 * (1 - r);
+      head.rotation.set(-0.1 * r - torso.rotation.x * 0.4 + Math.sin(a.t * 1.3) * 0.03 * (1 - r), -torso.rotation.y * 0.7 - hips.rotation.y * 0.3 + shift * 0.05, Math.sin(a.t * 0.9) * 0.04 * (1 - r) + shift * 0.04);
       const swing = Math.cos(th) * 0.6 * r;
-      armL.rotation.set(lerp(-swing - 0.2, -0.85 + 0.45 * hitK, aw), 0, 0.14); armL.elbow.rotation.x = lerp(-0.55 - 0.45 * r, -1.25, aw) + breath * 0.02;
-      const run = [swing - 0.1, 0, -0.14 + breath * 0.03], runEl = -0.7 - 0.5 * r;
+      armL.rotation.set(lerp(-swing - 0.2 - breath * 0.04, -0.85 + 0.45 * hitK, aw), 0, 0.14 + (1 - r) * (1 - aw) * (0.03 + breath * 0.02)); armL.elbow.rotation.x = lerp(-0.55 - 0.45 * r, -1.25, aw) + breath * 0.05;
+      const run = [swing - 0.1 + breath * 0.04, 0, -0.14 - breath * 0.02], runEl = -0.7 - 0.5 * r - breath * 0.05 * (1 - r);
       const sx = lerp(-2.55, -0.25, k2) + 0.35 * k3, sz = -0.15 - dir * lerp(0.95, -0.75, k2) * (1 - k3 * 0.6), sel = lerp(-1.55, -0.2, k2) - 0.5 * k3;
       const m = Math.max(k1, k2), ap = [lerp(run[0], sx, m), 0, lerp(run[2], sz, m)];
       armR.rotation.set(lerp(run[0], ap[0], aw), 0, lerp(run[2], ap[2], aw)); armR.elbow.rotation.x = lerp(runEl, lerp(-0.7, sel, m), aw);
@@ -165,13 +166,30 @@ export function heroModel(kit, V = {}) {
     }
     const atkOf = (k, combo) => ({ k1: smooth(k / 0.32), k2: easeOut((k - 0.32) / 0.23), k3: smooth((k - 0.58) / 0.42), dir: combo ? -1 : 1 });
 
+    // ---- лучник: боком к цели, левая рука с луком вытянута, правая тянет тетиву к щеке (IK рук; тетива лука идёт за правой кистью)
+    const SL = new THREE.Vector3(0.46, 0.52, 0), SR = new THREE.Vector3(-0.46, 0.52, 0), TL = new THREE.Vector3(), TR = new THREE.Vector3(), PL = new THREE.Vector3(0, -1, 0.1), PR = new THREE.Vector3(-0.4, -1, -0.35), FW = new THREE.Vector3();
+    let bowDraw = 0;
+    function bowPose(a) {
+      const k = a.k ?? 0, draw = smooth((k - 0.1) / 0.5), hold = smooth((k - 0.1) / 0.5) * (1 - smooth((k - 0.62) / 0.05)), rel = smooth((k - 0.62) / 0.16);
+      solve(a, 0, 0, null, 0, { crouch: 0.03 + 0.03 * draw, lean: -0.04 });
+      const yawT = -0.55 - 0.1 * draw, yawH = -0.25 - 0.05 * draw;   // корпус боком: левое плечо (лук) смотрит на цель
+      hips.rotation.y = yawH; torso.rotation.y = yawT; torso.rotation.x -= 0.03;
+      head.rotation.set(-0.02, -(yawT + yawH) + 0.08, 0);          // голова — прямо на цель
+      const yt = yawT + yawH; FW.set(-Math.sin(yt), 0, Math.cos(yt));   // направление на цель в системе торса
+      TL.copy(SL).addScaledVector(FW, 0.64 - 0.05 * rel).setY(0.58 + 0.01 * rel);
+      // правая кисть: от груди (у тетивы) к щеке; после выстрела — резко назад
+      TR.set(-0.14, 0.34, 0.3).lerp(new THREE.Vector3(-0.1, 0.6, 0).addScaledVector(FW, 0.17), draw).addScaledVector(FW, -0.14 * rel);
+      armIK(THREE, armL, armL.elbow, SL, TL, PL, 0.35, 0.33);
+      armIK(THREE, armR, armR.elbow, SR, TR, PR, 0.35, 0.36);
+      handR.rotation.x = 0.8; bowDraw = hold;
+    }
     const anims = {
       idle: a => { solve(a, 0, 0, null, 0); },
       walk: a => { solve(a, 1, a.speed, null, 0); },
       attack: a => { solve(a, 0, 0, atkOf(a.k, a.combo), 0); },
       hit: a => { solve(a, 0, 0, null, 1 - a.k); },
       cast: a => {   // воздеть меч и обрушить: поза «замах» → «выброс»; у лучника — натянуть лук
-        if (V.cast === 'bow') { const draw = smooth(a.k / 0.6), rel = smooth((a.k - 0.62) / 0.14); solve(a, 0, 0, null, 0, { crouch: 0.03, lean: -0.05 }); torso.rotation.y = 0.8; head.rotation.y = -0.8; armL.rotation.set(-1.5, 0, 0.1); armL.elbow.rotation.x = -0.05; armR.rotation.set(-1.45 + 0.1 * rel, 0, -0.5 * draw * (1 - rel)); armR.elbow.rotation.x = -1.9 * draw * (1 - rel) - 0.2; handR.rotation.x = 0.8; return; }
+        if (V.cast === 'bow') { bowPose(a); return; }
         const up = smooth(a.k / 0.5), down = smooth((a.k - 0.5) / 0.25);
         solve(a, 0, 0, null, 0, { crouch: 0.04 * down, lean: -0.1 * up + 0.2 * down });
         armR.rotation.set(lerp(-0.1, -2.9, up) + down * 1.5, 0, -0.1); armR.elbow.rotation.x = lerp(-0.7, -0.3, up);
@@ -195,12 +213,12 @@ export function heroModel(kit, V = {}) {
       bones: { spin, body, hips, torso, head, armR, armL, elR: armR.elbow, elL: armL.elbow, legL, legR, kneeL: legL.knee, kneeR: legR.knee, footL: legL.foot, footR: legR.foot, handR, handL },
       clips: { idle: { loop: true }, walk: { loop: true }, attack: { dur: 0.5, hit: 0.42 }, hit: { dur: 0.3 }, death: { dur: 1.1 }, cast: { dur: 0.7, fire: 0.5 }, dodge: { dur: 0.42 } },
       anims,
+      get bowDraw() { return bowDraw; },
       update(dt, t, env, actor) {
         const wind = env && env.wind ? env.wind : new THREE.Vector2(0, 0);
-        cape.update(dt, capeAnchor.matrixWorld, root.matrixWorld, wind, t);
-        cape.mesh.visible = actor.root.visible;
+        if (cape) { cape.update(dt, capeAnchor.matrixWorld, root.matrixWorld, wind, t); cape.mesh.visible = actor.root.visible; }
       },
-      dispose() { cape.mesh.removeFromParent(); },
+      dispose() { if (cape) cape.mesh.removeFromParent(); },
     };
   }
 }

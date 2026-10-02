@@ -22,6 +22,7 @@ let zone = null, world = null, lights = null, quality = '', post = null;
 let LV = LIGHT.village3;                 // пресет света текущей зоны (presetFor)
 const slots = [];                        // пул точечных огней: { lt, L, k } — ближайшие огни зоны, плавно появляются и гаснут
 const actors = new Map();            // сущность игры → Actor
+const swarmPool = new Map();         // «Жатва»: освободившиеся модели врагов по типам (чтобы не собирать геометрию заново для каждого)
 const camTarget = new THREE.Vector3();
 let camDist = CAMERA.village.dist, last = performance.now(), tAll = 0, spawned = false;
 
@@ -42,12 +43,14 @@ export function webglAvailable() {
 // что умеет 3D-срез прямо сейчас: деревня и герой-воин (остальное рисует 2D-рендерер)
 // что умеет 3D: деревня и все подземелья (катакомбы, глубины, цитадель, арена) для героя-воина; лучник и маг пока идут в 2D
 // «Кровавую жатву» (рой мобов и кристаллы) пока рисует 2D; походы (wild) — 3D: снег/трава, чаща, вода, стены и башни форта
-export function supports(z, profile) { return !!z && z.id !== 'survival' && !!HEROES[(profile && profile.cls) || 'warrior']; }
+export function supports(z, profile) { return !!z && !!HEROES[(profile && profile.cls) || 'warrior']; }
 
 export function init() {
   canvas = document.createElement('canvas'); canvas.id = 'game3d';
   document.body.insertBefore(canvas, document.getElementById('game'));
   renderer = new THREE.WebGLRenderer({ canvas, antialias: (window.devicePixelRatio || 1) < 2, powerPreference: 'high-performance', preserveDrawingBuffer: params.has('shot') });
+  // потеря контекста WebGL (нехватка видеопамяти/драйвер): экран чернеет, а кнопки «не работают» — сохраняем игру и перезагружаем страницу
+  canvas.addEventListener('webglcontextlost', e => { e.preventDefault(); try { import('../game/game.js').then(m => m.saveNow()); } catch { } setTimeout(() => location.reload(), 900); });
   scene = new THREE.Scene(); camera = new THREE.PerspectiveCamera(CAMERA.fov, 1, CAMERA.near, CAMERA.far);
   kit = makeKit(scene);
   renderer.info.autoReset = false;                      // считаем все проходы кадра (тень, сцена, постобработка) вместе
@@ -75,7 +78,7 @@ export function resize(w, h) {
   camera.updateProjectionMatrix();
 }
 // «Авто»: стартуем по типу устройства, а регулятор ниже сам опускает качество, если кадры затягиваются
-let govLevel = null, govSlow = 0, govAcc = 0, govN = 0;
+let postKey = '', govLevel = null, govSlow = 0, govAcc = 0, govN = 0;
 function qualityNow() {
   const q = G.profile && G.profile.settings ? G.profile.settings.quality : 'auto';
   if (q === 'low' || q === 'high' || q === 'med') return q;
@@ -93,7 +96,8 @@ function governor(dt) {
 function applyQuality(force) {
   const q = qualityNow(); if (q === quality && !force) return; quality = q;
   const Q = QUALITY[q];
-  DPR = Math.min(window.devicePixelRatio || 1, Q.pr); renderer.setPixelRatio(DPR);
+  // потолок по числу пикселей (≈3,2 Мпикс): на больших мониторах с HiDPI цели постобработки с MSAA съедали видеопамять — после смены зоны кадр мог стать чёрным
+  DPR = Math.max(0.6, Math.min(window.devicePixelRatio || 1, Q.pr, Math.sqrt(3.2e6 / Math.max(1, W * H)))); renderer.setPixelRatio(DPR);
   setOutlinesVisible(q !== 'low'); if (world) { world.ground.setQuality(q); world.props.setQuality(q); }
   const sm = Q.shadow;
   lights.hemi.intensity = LV.hemi.i * (Q.light ?? 1); lights.moon.intensity = LV.key.i * (Q.light ?? 1);
@@ -103,14 +107,15 @@ function applyQuality(force) {
     if (sm) { lights.moon.shadow.mapSize.set(sm, sm); if (lights.moon.shadow.map) { lights.moon.shadow.map.dispose(); lights.moon.shadow.map = null; } }
     scene.traverse(o => { if (o.material && o.material.isMaterial) o.material.needsUpdate = true; });
   }
-  const msaa = DPR < 1.5 ? Q.msaa : 0;
-  post.setup(Math.round(W * DPR), Math.round(H * DPR), { enabled: Q.post, samples: msaa, levels: Q.bloom });
+  const msaa = DPR < 1.5 ? Q.msaa : 0, pk = [Math.round(W * DPR), Math.round(H * DPR), Q.post, msaa, Q.bloom].join();
+  if (pk !== postKey) { postKey = pk; post.setup(Math.round(W * DPR), Math.round(H * DPR), { enabled: Q.post, samples: msaa, levels: Q.bloom }); }   // цели постобработки пересоздаём только при смене размера/качества
   setSmoothFade(Q.post && msaa > 0);
 }
 
 // ---------------------------------------------------------------- мир зоны
 function disposeWorld() {
   for (const a of actors.values()) a.dispose(); actors.clear();
+  for (const l of swarmPool.values()) for (const a of l) a.dispose(); swarmPool.clear();
   if (!world) return;
   world.ground.dispose(); world.props.dispose(); world.glow.removeFromParent(); world.pool.removeFromParent(); world = null;
 }
@@ -121,7 +126,8 @@ function presetFor(z) {
   if (z.id === 'town') return { ...LIGHT.village3, look: null };
   if (z.id === 'wild') { const fj = z.json.wild.realm === 'fjord', d = z.json.wild.mood && z.json.wild.mood.dark, B = fj ? LIGHT.wildFjord : LIGHT.wildForest;
     return { ...B, hemi: d ? { ...B.hemi, i: B.hemi.i * 0.8 } : B.hemi, key: d ? { ...B.key, i: B.key.i * 0.85 } : B.key, look: null }; }
-  if (z.id === 'castle' || z.id === 'survival') return { ...LIGHT.castle, look: { floor: 0x9a8e7a, grime: 0x4a4034, moss: 0x5a6a3a } };
+  if (z.id === 'survival') return { ...LIGHT.castle, look: { floor: 0x7a6e96, grime: 0x2a2040, moss: 0x5a3a8a } };   // арена Бездны: светло, но фиолетово
+  if (z.id === 'castle') return { ...LIGHT.castle, look: { floor: 0x9a8e7a, grime: 0x4a4034, moss: 0x5a6a3a } };
   const C = LIGHT.crypt, b = C.biome[z.json && z.json.biome];
   const look = { floor: 0x7a7266, grime: 0x3a3028, moss: 0x3a5a3a };
   if (z.json && z.json.biome === 'flooded') Object.assign(look, { floor: 0x6a7a80, moss: 0x2a6a6a });
@@ -179,8 +185,16 @@ function syncPlayer(dt) {
   const c = measure(a, P, dt), an = P.anim; let clip = 'idle', k, impact, speed = 0;
   if (P.dead) { clip = 'death'; k = an.prog; }
   else if (P.state === 'dodge') { clip = 'dodge'; k = an.prog; speed = 6; }
-  else if (P.state === 'attack' || P.state === 'cast') { clip = (P.state === 'cast' || wt === 'staff' || wt === 'bow') ? 'cast' : 'attack'; k = an.prog; impact = P.act ? P.act.impact : undefined; }
+  else if (P.state === 'attack' || P.state === 'cast') {
+    clip = (P.state === 'cast' || wt === 'staff' || wt === 'bow') ? 'cast' : 'attack'; k = an.prog; impact = P.act ? P.act.impact : undefined;
+    if (wt === 'bow' && P.act) {   // у лука игра ведёт два клипа подряд (натяжение, потом спуск): склеиваем в одну шкалу 0..1 для позы лучника
+      impact = undefined;
+      if (P.act.kind === 'bow') k = P.act.phase === 'draw' ? an.prog * 0.62 : 0.62 + an.prog * 0.38;
+      else k = 0.42 + an.prog * 0.58;   // навыки лучника: короткий рывок тетивы
+    }
+  }
   else if (P.state === 'hit') { clip = 'hit'; k = an.prog; }
+  else if (G.surv && G.surv.fireT > 0 && !c.moving) { clip = (wt === 'sword' || wt === 'axe' || wt === 'greatsword') ? 'attack' : 'cast'; k = 1 - G.surv.fireT / 0.4; if (wt === 'bow') k = 0.62 + 0.38 * k; }
   else if (c.moving) { clip = 'walk'; speed = c.v; }
   a.place(P.x, P.y); a.faceAngle(yawOfDir(P.dir));
   a.update(dt, { clip, k, impact, speed, combo: (P.combo - 1) & 1 }, env); a.flash(flashOf(P), 0xffffff);
@@ -212,6 +226,23 @@ function syncNpcs(dt) {
     const def = NPCS[n.model] || NPCS.npc_elder, a = getActor(n, def);
     a.place(n.x, n.y); a.faceAngle(yawOfDir(n.dir));
     a.update(dt, { clip: n.talkT > 0 ? 'talk' : 'idle' }, env);
+  }
+}
+// «Жатва Бездны»: рой — настоящие 3D-модели (по типу врага), берутся из пула и возвращаются в него после гибели
+function syncSwarm(dt) {
+  const S = G.surv, live = new Set(S ? S.swarm : []);
+  for (const [k, a] of actors) if (a.isSwarm && !live.has(k)) { actors.delete(k); a.setVisible(false); a.root.visible = false; if (!swarmPool.has(a.swType)) swarmPool.set(a.swType, []); swarmPool.get(a.swType).push(a); }
+  if (!S) return;
+  for (const e of S.swarm) {
+    let a = actors.get(e);
+    if (!a) {
+      const def = MOBS[e.type] || MOBS.skel_warrior, pool = swarmPool.get(e.type);
+      a = pool && pool.length ? pool.pop() : new Actor(def, kit, scene); a.isSwarm = true; a.swType = e.type; a.root.visible = true;
+      a.root.scale.setScalar(e.boss ? 1.4 : e.elite ? 1.2 : 1); actors.set(e, a);
+    }
+    const c = measure(a, e, dt);
+    a.place(e.x, e.y); a.faceAngle(yawOfDir(e.dir));
+    const hitting = e.hitCd > 0.6; a.update(dt, hitting ? { clip: 'attack', k: (0.9 - e.hitCd) / 0.3 } : { clip: 'walk', speed: Math.max(1.2, c.v) }, env); a.flash(e.flash > 0 ? Math.min(1, e.flash * 8) : 0, 0xffffff);
   }
 }
 const env = { wind: new THREE.Vector2() };
@@ -274,7 +305,7 @@ export function render() {
   if (Z !== zone) setZone(Z);
   applyQuality();
   updateCamera(); updateLights(tAll, dt);
-  syncPlayer(dt); syncEnemies(dt); syncNpcs(dt); cullActors();
+  syncPlayer(dt); syncEnemies(dt); syncSwarm(dt); syncNpcs(dt); cullActors();
   world.props.cull(camera); world.props.update(tAll);
   world.ground.update([{ x: G.player.x, z: G.player.y, r: 0.7, w: 1 }, ...G.enemies.filter(e => !e.dead).slice(0, 10).map(e => ({ x: e.x, z: e.y, r: e.r * 1.6, w: 1 }))]);
   devSpawn();

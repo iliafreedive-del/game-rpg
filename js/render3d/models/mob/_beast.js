@@ -74,7 +74,7 @@ export function beastModel(kit, C = {}) {
     let ph = Math.random();
     function pose(a, sp, lunge = 0, rear = 0, roar = 0, hurt = 0) {
       const w = clamp(sp / 2.5);
-      if (sp > 0.25) ph = (ph + a.dt * sp / 2.2) % 1;
+      if (sp > 0.25) ph = ((ph + (a.back ? -1 : 1) * a.dt * sp / 2.2) % 1 + 1) % 1;   // a.back — пятится: ноги идут в обратную фазу
       const th = ph * 6.283, br = Math.sin(a.t * 1.6);
       [[FL, 0], [BR, 0], [FR, Math.PI], [BL, Math.PI]].forEach(([l, o]) => { const s = Math.sin(th + o) * w; l.rotation.x = s * 0.55 - rear * 0.6 + lunge * (l === FL || l === FR ? -0.7 : 0.4); l.knee.rotation.x = Math.max(0, -Math.cos(th + o)) * 0.7 * w + rear * 0.4; });
       body.position.y = 1.0 + Math.abs(Math.sin(th)) * 0.06 * w + br * 0.015 + rear * 0.25 - lunge * 0.1;

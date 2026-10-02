@@ -605,7 +605,7 @@ function floorResult(r) {
       nx.textContent = `Этаж ${next} ▶`;
       nx.onclick = async () => { const keepBoons = true; if (G.profile.level < floorLevel(next) - 1) { bus.emit('toast', { text: `Этаж ${next} — с ${floorLevel(next) - 1} уровня`, sub: 'Фармите опыт на пройденных этажах', kind: 'warn' }); return; } if (!CS.spendTorch()) { bus.emit('toast', { text: 'Нет факелов', sub: '+1 за 20 минут или +5 за рекламу в меню Глубин', kind: 'warn' }); return; } closeModal(); await maybeInterstitial('floor'); loadZone('depths', { floor: next, keepBoons }); };
       const home = el('button', 'btn', 'В деревню');
-      home.onclick = async () => { closeModal(); await maybeInterstitial('floor'); loadZone('town', { from: 'catacombs' }); };
+      home.onclick = async () => { closeModal(); await maybeInterstitial('floor'); loadZone('town', { from: 'depths' }); };
       row.append(ad, nx, home); b.appendChild(row);
       const P = G.profile; if (G.run && G.run.boons.length) b.appendChild(el('p', 'muted', `Дары Бездны (${G.run.boons.length}) сохранятся, если идти глубже без возвращения в деревню.`)); if (P.attrPts || P.skillPts) b.appendChild(el('p', 'muted', 'Есть неизрасходованные очки — наставник Элвин ждёт в деревне.'));
     }, { sticky: true });
@@ -670,13 +670,12 @@ const mmssT = t => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(
 W.survival = () => modal('Жатва Бездны', 'md', b => {
   const P = G.profile; P.surv = P.surv || { best: 0, ach: {}, runs: 0 };
   b.appendChild(el('p', '', 'Бескрайняя арена Бездны и бесконечные волны. <b>Нужно только бегать</b> — герой атакует сам. Собирайте кристаллы душ, растите в уровне, выбирайте перки и пробуждайте оружие. Цель — продержаться 20 минут.'));
+  const row = el('div', 'row'); row.style.cssText = 'justify-content:center;margin:10px 0'; const go = el('button', 'btn gold', '▶ В бой'); go.style.width = '100%'; go.onclick = () => { closeModal(); loadZone('survival'); }; row.appendChild(go); b.appendChild(row);   // кнопка вверху: не нужно листать список
   b.appendChild(el('div', 'stats', `<div><span>Рекорд</span><b>${mmssT(P.surv.best)}</b></div><div><span>Забегов</span><b>${P.surv.runs}</b></div>`));
   b.appendChild(el('h3', '', 'Достижения'));
   for (const a of SV.ACH) b.appendChild(el('div', 'q' + (P.surv.ach[a.id] ? ' done' : ''), `<div class="qt">${P.surv.ach[a.id] ? '🏆 ' : '○ '}${esc(a.name)}</div><div class="muted">+${a.gold} зол. · +${a.shards}◆</div>`));
   b.appendChild(el('h3', '', 'Пробуждения оружия'));
   b.appendChild(el('div', 'muted', SV.EVOS.map(e => `<b>${esc(e.name)}</b>: ${esc(SV.PERKS[e.from].name)} 5 ур. + ${esc(SV.PERKS[e.need].name)}`).join('<br>')));
-  const row = el('div', 'row'); row.style.cssText = 'justify-content:center;margin-top:12px';
-  const go = el('button', 'btn gold', '▶ В бой'); go.onclick = () => { closeModal(); loadZone('survival'); }; row.appendChild(go); b.appendChild(row);
 });
 function survLevel() {
   const S = G.surv; if (!S || S.over) return;
@@ -703,7 +702,7 @@ function survEnd(r) {
     if (r.newAch.length) b.appendChild(el('p', 'goldc', '🏆 ' + r.newAch.map(esc).join(' · ')));
     const row = el('div', 'row'); row.style.justifyContent = 'center';
     const again = el('button', 'btn gold', 'Ещё раз'); again.onclick = () => { closeModal(); loadZone('survival'); };
-    const home = el('button', 'btn', 'В деревню'); home.onclick = () => { closeModal(); loadZone('town', { from: 'catacombs' }); };
+    const home = el('button', 'btn', 'В деревню'); home.onclick = () => { closeModal(); loadZone('town', { from: 'survival' }); };
     row.append(again, home); b.appendChild(row);
   }, { sticky: true }), 700);
 }

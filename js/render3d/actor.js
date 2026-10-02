@@ -124,7 +124,7 @@ export class Actor {
     } else this.time += dt;
     const spec = (this.model.clips || {})[name] || {};
     const k = drive.k == null ? undefined : clamp01(warp(drive.k, drive.impact, spec.hit ?? spec.fire));
-    this.model.anims[name]({ t: this.t, dt, time: this.time, k, speed: drive.speed || 0, move: clamp01((drive.speed || 0) / 3.7), combo: drive.combo || 0, env });
+    this.model.anims[name]({ t: this.t, dt, time: this.time, k, speed: drive.speed || 0, move: clamp01((drive.speed || 0) / 3.7), combo: drive.combo || 0, back: !!drive.back, env });
     if (this.blend < 1) {
       this.blend = Math.min(1, this.blend + dt / this.blendDur); const w = this.blend * this.blend * (3 - 2 * this.blend);
       for (const [b, [p, q, s]] of this.snap) { b.position.lerpVectors(p, b.position, w); b.quaternion.slerpQuaternions(q, b.quaternion, w); b.scale.lerpVectors(s, b.scale, w); }
@@ -134,6 +134,7 @@ export class Actor {
     this.yaw += d * (1 - Math.exp(-14 * dt)); this.root.rotation.y = this.yaw;
     this.root.updateMatrixWorld(true);
     if (this.model.update) this.model.update(dt, this.t, env, this);
+    for (const e of Object.values(this.weapons)) if (e.w.update) e.w.update(this);
     this.shadow.position.x = this.root.position.x; this.shadow.position.z = this.root.position.z;
   }
   setVisible(v) { this.root.visible = this.shadow.visible = v; }

@@ -21,7 +21,7 @@ const PROP = {
   board_dungeon: { spr: 'board', r: 0.3 },
   well: { spr: 'well', r: 0.62 },
   runebed: { spr: 'runebed', r: 1.1, light: { r: 5, c: [110, 230, 255], flicker: 0.25, z: 0.8 } }, forge: { spr: 'forge', box: [0.75, 0.6], light: { r: 4, c: [255, 120, 40], flicker: 1, dx: 0, dy: 0.2 } },
-  stall: { spr: 'stall', box: [0.95, 0.45] }, lamp: { spr: 'lamp', r: 0.12, tall: 1, light: { r: 5.5, c: [255, 190, 110], flicker: 0.5, z: 1.9 } },
+  stall: { spr: 'stall', box: [0.95, 0.45] }, market_tent: { spr: 'stall', box: [1.8, 1.25], model: 'market_tent' }, lamp: { spr: 'lamp', r: 0.12, tall: 1, light: { r: 5.5, c: [255, 190, 110], flicker: 0.5, z: 1.9 } },
   tree_0: { spr: 'tree_0', r: 0.3, tall: 1 }, tree_1: { spr: 'tree_1', r: 0.3, tall: 1 },
   hay: { spr: 'hay', r: 0.45 }, grave: { spr: 'grave', r: 0.2 }, fence_x: { spr: 'fence_x', box: [0.5, 0.08] }, fence_y: { spr: 'fence_y', box: [0.08, 0.5] },
   house_0: { spr: 'house_0', box: [2.85, 2.2], tall: 1 }, house_1: { spr: 'house_1', box: [3.25, 2.4], tall: 1 }, house_2: { spr: 'house_2', box: [2.95, 2.2], tall: 1 },   // под крупные 3D-дома (ART_BIBLE, раздел 7)
@@ -184,11 +184,14 @@ export class Zone {
 
   buildTown(J, W) {
     const m = this.map;
+    const PORTALS = J.objects.filter(o => o.t === 'portal' || o.t === 'survportal' || o.t === 'castle' || o.t === 'depths' || o.t === 'wildportal');   // у порталов — расчищенная опушка
+    const nearPortal = (x, y) => PORTALS.some(o => (o.x - x) ** 2 + (o.y - y) ** 2 < 6.2 * 6.2);
     // border forest (collision comes from 'x' tiles)
     for (let y = 0; y < m.h; y += 1) for (let x = 0; x < m.w; x += 1) {
       if (m.ch(x, y) !== 'x') continue;
       const inner = [[1, 0], [-1, 0], [0, 1], [0, -1], [2, 0], [-2, 0], [0, 2], [0, -2]].some(([dx, dy]) => { const X = x + dx, Y = y + dy; return X >= 0 && Y >= 0 && X < m.w && Y < m.h && m.ch(X, Y) !== 'x'; });
       const hsh = hash(x, y);
+      if (nearPortal(x, y)) continue;
       if (inner && hsh % 3 !== 0) this.add({ x: x + 0.3 + (hsh % 5) / 10, y: y + 0.3 + ((hsh >> 3) % 5) / 10, spr: hsh % 2 ? 'tree_0' : 'tree_1', tall: 1 });
       else if (!inner && hsh % 4 === 0) this.add({ x: x + 0.5, y: y + 0.5, spr: hsh % 2 ? 'tree_1' : 'tree_0', tall: 1 });
     }
@@ -199,12 +202,12 @@ export class Zone {
         this.inter.push({ id: 'portal_town', type: 'portal', to: 'catacombs', x: o.x, y: o.y, r: 1.8, label: 'Спуститься в катакомбы', draw: d, reqLevel: 1, plate: 'Катакомбы' });
         this.map.circles.push({ x: o.x, y: o.y - 0.1, r: 0.2 });
       } else if (o.t === 'survportal') {
-        const d = this.add({ x: o.x, y: o.y, spr: 'portal', anim: 'portal' });
+        const d = this.add({ x: o.x, y: o.y, spr: 'portal_maw', anim: 'portal' });
         this.addLight(o.x, o.y, { r: 5, c: [255, 60, 60], flicker: 0.4, z: 1.2 });
         this.inter.push({ id: 'portal_survival', type: 'survival', x: o.x, y: o.y, r: 1.8, label: 'Жатва Бездны', draw: d, reqLevel: 5, plate: 'Жатва Бездны' });
         this.map.circles.push({ x: o.x, y: o.y - 0.1, r: 0.2 });
       } else if (o.t === 'castle') {
-        const d = this.add({ x: o.x, y: o.y, spr: 'portal', anim: 'portal' });
+        const d = this.add({ x: o.x, y: o.y, spr: 'portal_crown', anim: 'portal' });
         this.addLight(o.x, o.y, { r: 5, c: [255, 200, 110], flicker: 0.3, z: 1.2 });
         this.inter.push({ id: 'portal_castle', type: 'portal', to: 'castle', x: o.x, y: o.y, r: 1.8, label: 'Цитадель Ордена', draw: d, reqLevel: 3, plate: 'Цитадель' });
         this.map.circles.push({ x: o.x, y: o.y - 0.1, r: 0.2 });
@@ -216,12 +219,12 @@ export class Zone {
         this.addLight(o.x, o.y, { r: 5, c: [255, 200, 110], flicker: 0.3, z: 1.4 });
         this.inter.push({ id: 'herospath', type: 'herospath', x: o.x, y: o.y + 0.2, r: 2.2, label: 'Летопись битв', plate: 'Летопись битв', reqLevel: 2 });
       } else if (o.t === 'depths') {
-        const d = this.add({ x: o.x, y: o.y, spr: 'portal', anim: 'portal' });
+        const d = this.add({ x: o.x, y: o.y, spr: 'portal_ring', anim: 'portal' });
         this.addLight(o.x, o.y, { r: 5, c: [120, 200, 255], flicker: 0.3, z: 1.2 });
         this.inter.push({ id: 'portal_depths', type: 'depths', x: o.x, y: o.y, r: 1.8, label: 'Глубины катакомб', draw: d, reqLevel: 6, plate: 'Глубины' });
         this.map.circles.push({ x: o.x, y: o.y - 0.1, r: 0.2 });
       } else if (o.t === 'wildportal') {
-        const RL = REALMS[o.realm]; const d = this.add({ x: o.x, y: o.y, spr: 'portal', anim: 'portal' });
+        const RL = REALMS[o.realm]; const d = this.add({ x: o.x, y: o.y, spr: o.realm === 'fjord' ? 'portal_spire' : 'portal_gate', anim: 'portal' });
         this.addLight(o.x, o.y, { r: 5, c: RL.portalColor, flicker: 0.3, z: 1.2 });
         this.inter.push({ id: 'portal_' + o.realm, type: 'wildportal', realm: o.realm, x: o.x, y: o.y, r: 1.8, label: RL.name, draw: d, reqLevel: RL.reqLevel, plate: RL.name });
         this.map.circles.push({ x: o.x, y: o.y - 0.1, r: 0.2 });
@@ -236,7 +239,7 @@ export class Zone {
     }
     for (const n of J.npcs) {
       this.map.circles.push({ x: n.x, y: n.y, r: 0.35 });
-      this.inter.push({ id: n.id, type: 'npc', npc: n, x: n.x, y: n.y, r: 2.2, label: 'Говорить: ' + n.name.split(' ')[0], panel: n.id !== 'elder' && n.id !== 'fortune' });
+      this.inter.push({ id: n.id, type: 'npc', npc: n, x: n.x, y: n.y, r: n.reach || 2.2, label: 'Говорить: ' + n.name.split(' ')[0], panel: n.id !== 'elder' && n.id !== 'fortune' });
     }
   }
 
@@ -261,8 +264,8 @@ export class Zone {
           this.inter.push({ id: 'wild_home', type: 'portal', to: 'town', x: o.x, y: o.y, r: 1.6, label: 'Вернуться в деревню', draw: d, plate: 'В деревню' }); break;
         }
         case 'wild_next': {
-          const d = this.add({ x: o.x, y: o.y, spr: 'portal', anim: 'portal', hidden: true }); const L = this.addLight(o.x, o.y, { r: 5, c: col, flicker: 0.3, z: 1.2 }); L.on = false;
-          this.inter.push({ id: 'wild_next', type: 'wildnext', x: o.x, y: o.y, r: 1.7, label: 'Вглубь', draw: d, light: L, hidden: true, plate: 'Вглубь' }); break;
+          const d = this.add({ x: o.x, y: o.y, spr: fj ? 'portal_spire' : 'portal_gate', anim: 'portal', hidden: !!o.hidden }); const L = this.addLight(o.x, o.y, { r: 5, c: col, flicker: 0.3, z: 1.2 }); L.on = !o.hidden;
+          this.inter.push({ id: 'wild_next', type: 'wildnext', x: o.x, y: o.y, r: 1.7, label: 'Вглубь', draw: d, light: L, hidden: !!o.hidden, plate: 'Вглубь' }); break;
         }
         case 'wchest': {
           const d = this.add({ x: o.x, y: o.y, spr: o.rich ? 'chest_rich' : 'chest' }); this.map.circles.push({ x: o.x, y: o.y, r: 0.35 });
