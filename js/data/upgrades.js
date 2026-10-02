@@ -1,13 +1,9 @@
 // Gold upgrades bought from NPCs (endless gold sink, «Разрыв»-style small visible steps).
 export const UPGRADES = {
-  dmg:     { name: 'Урон', icon: '⚔', step: 4, unit: '%', max: 60, base: 40, mul: 1.16, fmt: l => `+${l * 4}% урона` },
-  hp:      { name: 'Здоровье', icon: '♥', step: 12, unit: '', max: 60, base: 30, mul: 1.15, fmt: l => `+${l * 12} здоровья` },
-  crit:    { name: 'Шанс крита', icon: '✷', step: 0.6, unit: '%', max: 30, base: 90, mul: 1.18, fmt: l => `+${(l * 0.6).toFixed(1)}% шанса крита` },
-  critDmg: { name: 'Крит. урон', icon: '✹', step: 6, unit: '%', max: 30, base: 110, mul: 1.18, fmt: l => `+${l * 6}% крит. урона` },
-  aps:     { name: 'Скорость атаки', icon: '⚡', step: 2, unit: '%', max: 25, base: 100, mul: 1.2, fmt: l => `+${l * 2}% скорости атаки` },
-  move:    { name: 'Скорость бега', icon: '»', step: 2, unit: '%', max: 15, base: 140, mul: 1.22, fmt: l => `+${l * 2}% скорости бега` },
-  mp:      { name: 'Мана', icon: '◆', step: 8, unit: '', max: 40, base: 35, mul: 1.15, fmt: l => `+${l * 8} маны` },
-  regen:   { name: 'Восстановление', icon: '✚', step: 0.4, unit: '', max: 30, base: 60, mul: 1.17, fmt: l => `+${(l * 0.4).toFixed(1)} здоровья/с` },
+  dmg:  { name: 'Сила удара', icon: '⚔', step: 4, unit: '%', max: 40, base: 40, mul: 1.14, fmt: l => `+${l * 4}% урона` },
+  hp:   { name: 'Крепость', icon: '♥', step: 12, unit: '', max: 40, base: 30, mul: 1.13, fmt: l => `+${l * 12} здоровья` },
+  crit: { name: 'Меткость', icon: '✷', step: 0.6, unit: '%', max: 25, base: 90, mul: 1.16, fmt: l => `+${(l * 0.6).toFixed(1)}% шанса крита` },
+  aps:  { name: 'Проворство', icon: '⚡', step: 2, unit: '%', max: 20, base: 100, mul: 1.17, fmt: l => `+${l * 2}% скорости атаки` },
 };
 export const upgCost = (id, l) => Math.round(UPGRADES[id].base * Math.pow(UPGRADES[id].mul, l));
 

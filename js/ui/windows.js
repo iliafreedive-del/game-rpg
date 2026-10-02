@@ -137,39 +137,55 @@ const SORTS = { type: (a, b) => a.slot.localeCompare(b.slot) || b.ilvl - a.ilvl,
 // ---------------------------------------------------------------- windows
 const W = {};
 W.inventory = (arg = {}) => {
-  const P = G.profile;
+  const P = G.profile; let filter = W._invFilter || 'all';
+  const FILTERS = [['all', 'Всё'], ['weapon', 'Оружие'], ['head', 'Шлем'], ['chest', 'Доспех'], ['amulet', 'Амулет']];
   const m = modal('Герой', 'md', b => {
     const S = G.stats, C = CLASSES[P.cls || 'warrior'];
-    const card = (it, slot) => {
-      const d = el('button', 'iv-slot r' + (it ? it.rarity : 'x'), it ? `<img src="${iconURL(iconOf(it))}"><span class="iv-lv">ур.${it.ilvl}</span>${it.upg ? `<span class="iv-up">+${it.upg}</span>` : ''}${it.isNew ? '<span class="iv-new">NEW</span>' : ''}` : `<span class="ph">${esc(SLOT_NAMES[slot] || '')}</span>`);
+    const cell = (it, slot, arrow) => {
+      const d = el('button', 'eq-slot r' + (it ? it.rarity : 'x'), it ? `<img src="${iconURL(iconOf(it))}"><span class="eq-lv">${it.ilvl}</span>${it.upg ? `<span class="eq-up">+${it.upg}</span>` : ''}${arrow ? `<span class="eq-ar ${arrow > 0 ? 'good' : 'bad'}">${arrow > 0 ? '▲' : '▼'}</span>` : ''}${it.isNew ? '<span class="eq-new"></span>' : ''}` : `<span class="ph">${esc(SLOT_NAMES[slot] || '')}</span>`);
       if (it) d.onclick = () => itemCard(it, slot); return d;
     };
-    const top = el('div', 'iv-top');
-    const L = el('div', 'iv-col'), R = el('div', 'iv-col');
-    L.append(card(P.gear.weapon, 'weapon'), card(P.gear.head, 'head')); R.append(card(P.gear.chest, 'chest'), card(P.gear.amulet, 'amulet'));
-    const hero = el('div', 'iv-hero', `<div class="iv-pt" style="background-image:url(assets/sprites/${(P.cls || 'warrior') === 'warrior' ? 'portrait' : 'portrait_' + P.cls}.png)"></div><b>${esc(C.name)}</b><small>Уровень ${P.level}</small>`);
-    top.append(L, hero, R); b.appendChild(top);
-    b.appendChild(el('div', 'iv-stats', `<span class="st-atk">⚔ Атака <b>${S.dmgMin}–${S.dmgMax}</b></span><span class="st-hp">♥ Здоровье <b>${S.maxHP}</b></span><span class="st-def">🛡 Защита <b>${S.armor}</b></span>`));
-    b.appendChild(el('p', 'muted iv-hint', 'Нажмите на вещь — откроется карточка: что она даёт и что с ней сделать.'));
-    if (P.bag.length) {
-      b.appendChild(el('h3', '', 'Сумка'));
-      const g = el('div', 'iv-grid'); for (const it of P.bag) g.appendChild(card(it, null)); b.appendChild(g);
-    }
+    // ---- кукла героя: четыре ячейки вокруг портрета, подписи под ними
+    const wrap = el('div', 'eq-wrap'), left = el('div', 'eq-left'), right = el('div', 'eq-right'); wrap.append(left, right); b.appendChild(wrap);
+    const doll = el('div', 'eq-doll');
+    const side = (slot, cls) => { const w = el('div', 'eq-w ' + cls); w.append(cell(P.gear[slot], slot), el('small', '', SLOT_NAMES[slot])); return w; };
+    doll.append(side('weapon', 'a'), side('head', 'b'), el('div', 'eq-pt', `<div class="iv-pt" style="background-image:url(assets/sprites/${(P.cls || 'warrior') === 'warrior' ? 'portrait' : 'portrait_' + P.cls}.png)"></div><b>${esc(C.name)}</b><small>Уровень ${P.level}</small>`), side('chest', 'c'), side('amulet', 'd'));
+    left.appendChild(doll);
+    left.appendChild(el('div', 'iv-stats', `<span class="st-atk">⚔ Урон/с <b>${S.dps}</b></span><span class="st-hp">♥ Здоровье <b>${S.maxHP}</b></span><span class="st-def">🛡 Защита <b>${S.armor}</b></span>`));
+    // ---- сумка
+    const full = P.bag.length >= P.bagSize;
+    const gray = P.bag.filter(it => it.rarity === 0 && !it.locked);
+    right.appendChild(el('div', 'eq-bagh', `<b>Сумка</b><span class="${full ? 'bad' : 'muted'}">${P.bag.length} / ${P.bagSize}</span>`));
+    const tabs = el('div', 'eq-tabs');
+    for (const [id, name] of FILTERS) { const t = el('button', 'eq-tab' + (filter === id ? ' on' : ''), name); t.onclick = () => { filter = W._invFilter = id; rerender(); }; tabs.appendChild(t); }
+    right.appendChild(tabs);
+    const score = new Map(P.bag.map(it => [it, it.slot === 'weapon' && !CH.canEquip(it).ok ? -999 : usefulness(P, it)]));
+    const list = P.bag.filter(it => filter === 'all' || it.slot === filter).sort((x, y) => (score.get(y) > 0.5) - (score.get(x) > 0.5) || y.rarity - x.rarity || score.get(y) - score.get(x));
+    if (!list.length) right.appendChild(el('p', 'muted iv-hint', P.bag.length ? 'В этой вкладке пусто.' : 'Сумка пуста. Вещи падают с сильных врагов и из сундуков — каждая что-то да меняет.'));
+    else { const g = el('div', 'eq-grid'); for (const it of list) { const sc = score.get(it); g.appendChild(cell(it, null, sc > 0.5 ? 1 : sc < -0.5 ? -1 : 0)); } right.appendChild(g); }
+    if (gray.length) { const v = gray.reduce((a, it) => a + sellValue(it), 0); const sb = el('button', 'btn eq-sellgray', `Продать серое: ${gray.length} шт. · +${fmt(v)} зол.`); sb.onclick = () => { EC.sellAllCommon(); rerender(); }; right.appendChild(sb); }
+    right.appendChild(el('p', 'muted iv-hint', '▲ — лучше надетого · ▼ — хуже. Нажмите на вещь, чтобы сравнить.'));
     if (arg.select) { const it = P.bag.find(x => x.id === arg.select); arg.select = null; if (it) setTimeout(() => itemCard(it, null), 50); }
   });
   m.live = true;
   function itemCard(it, slot) {
-    const S = G.stats, inBag = !slot, tslot = CH.slotFor(it), eq = P.gear[tslot];
+    const inBag = !slot, tslot = CH.slotFor(it), eq = inBag ? P.gear[tslot] : null;
     const ov = el('div', 'ic-ov'); const box = el('div', 'ic-box r' + it.rarity);
+    const um = x => 1 + (x.upg || 0) * 0.1;
+    const lines = x => !x ? '<div class="muted">— пусто —</div>' : `${x.dmg ? `<div>Урон <b>${Math.round(x.dmg[0] * um(x))}–${Math.round(x.dmg[1] * um(x))}</b></div>` : ''}${x.armor ? `<div>Защита <b>${Math.round(x.armor * um(x))}</b></div>` : ''}${x.block ? `<div>Блок <b>${Math.round(x.block * 100)}%</b></div>` : ''}${x.affixes.map(a => `<div class="it-aff">${esc(affixText(a))}</div>`).join('')}${epicOf(x) ? `<div class="it-epic">★ ${esc(epicOf(x).desc)}</div>` : ''}`;
+    const head = (x, tag) => `<div class="cc-h">${tag ? `<small class="muted">${tag}</small>` : ''}<div class="cc-n" style="color:${RARITY[x.rarity].color}">${esc(x.name)}${x.upg ? ` <span class="good">+${x.upg}</span>` : ''}</div><small>${RARITY[x.rarity].name} · ур. ${x.ilvl}</small></div>`;
     const rows = inBag ? compare(P, it, tslot).filter(r => typeof r.delta === 'number' && r.delta !== 0).slice(0, 6) : [];
-    box.innerHTML = `<button class="ic-x">✕</button><div class="ic-name" style="color:${RARITY[it.rarity].color}">${esc(it.name)}</div><div class="ic-rar">${RARITY[it.rarity].name}</div>
-      <div class="ic-main"><div class="iv-slot big r${it.rarity}"><img src="${iconURL(iconOf(it))}"></div><div class="ic-desc">${it.wt ? WEAPONS[it.wt].name : SLOT_NAMES[it.slot]}<br><small>ур. предмета ${it.ilvl}${it.upg ? ` · закалка +${it.upg}` : ''}</small>${epicOf(it) ? `<div class="it-epic">★ ${esc(epicOf(it).desc)}</div>` : ''}</div></div>
-      <div class="ic-stats">${it.dmg ? `<div>Урон <b>${Math.round(it.dmg[0] * (1 + (it.upg || 0) * 0.1))}–${Math.round(it.dmg[1] * (1 + (it.upg || 0) * 0.1))}</b></div>` : ''}${it.armor ? `<div>Защита <b>${Math.round(it.armor * (1 + (it.upg || 0) * 0.1))}</b></div>` : ''}${it.affixes.map(a => `<div class="it-aff">${esc(affixText(a))}</div>`).join('')}</div>
-      ${rows.length ? `<div class="ic-cmp"><b>Если надеть:</b>${rows.map(r => `<span class="${r.delta > 0 ? 'good' : 'bad'}">${r.label} ${r.delta > 0 ? '+' : ''}${Math.round(r.delta * 100) / 100}${r.suf}</span>`).join('')}</div>` : ''}`;
+    const ok = inBag ? CH.canEquip(it) : { ok: true };
+    box.innerHTML = `<button class="ic-x">✕</button><div class="cc ${eq ? 'two' : ''}">
+      <div class="cc-col">${head(it, inBag ? 'Эта вещь' : '')}<div class="iv-slot big r${it.rarity}"><img src="${iconURL(iconOf(it))}"></div><div class="ic-stats">${lines(it)}</div></div>
+      ${eq ? `<div class="cc-col dim">${head(eq, 'Надето сейчас')}<div class="ic-stats">${lines(eq)}</div></div>` : ''}</div>
+      ${rows.length ? `<div class="ic-cmp"><b>Если надеть:</b>${rows.map(r => `<span class="${r.delta > 0 ? 'good' : 'bad'}">${r.delta > 0 ? '▲' : '▼'} ${r.label} ${r.delta > 0 ? '+' : ''}${Math.round(r.delta * 100) / 100}${r.suf}</span>`).join('')}</div>` : ''}
+      ${!ok.ok ? `<div class="bad ic-why">${esc(ok.why)}</div>` : ''}`;
     const btns = el('div', 'ic-btns');
-    if (G.zoneId === 'town') { const c = upgradeCost(it); const up = el('button', 'btn ad-green', `Закалить +${(it.upg || 0) + 1}<small>${fmt(c)} зол.</small>`); up.disabled = P.gold < c || (it.upg || 0) >= MAX_UPG; up.onclick = () => { EC.upgrade(it.id); ov.remove(); rerender(); }; btns.appendChild(up); }
-    if (inBag) { const c2 = CH.canEquip(it); const eqb = el('button', 'btn gold', c2.ok ? 'Надеть' : c2.why); eqb.disabled = !c2.ok; eqb.onclick = () => { CH.equip(it.id); ov.remove(); rerender(); }; btns.appendChild(eqb);
-      const sell = el('button', 'btn', 'Убрать'); sell.onclick = () => { EC.sellItem(it.id); ov.remove(); rerender(); }; btns.appendChild(sell); }
+    if (inBag) { const eqb = el('button', 'btn gold', ok.ok ? 'Надеть' : 'Нельзя надеть'); eqb.disabled = !ok.ok; eqb.onclick = () => { CH.equip(it.id); ov.remove(); rerender(); }; btns.appendChild(eqb);
+      const sell = el('button', 'btn', `Продать · ${fmt(sellValue(it))} зол.`); sell.onclick = () => { EC.sellItem(it.id); ov.remove(); rerender(); }; btns.appendChild(sell); }
+    else { const un = el('button', 'btn', 'Снять'); un.onclick = () => { CH.unequip(slot); ov.remove(); rerender(); }; btns.appendChild(un); }
+    if (G.zoneId === 'town') { const c = upgradeCost(it); const up = el('button', 'btn ad-green', `Закалить +${(it.upg || 0) + 1} · ${fmt(c)}`); up.disabled = P.gold < c || (it.upg || 0) >= MAX_UPG; up.onclick = () => { EC.upgrade(it.id); ov.remove(); rerender(); }; btns.appendChild(up); }
     box.appendChild(btns);
     box.querySelector('.ic-x').onclick = () => ov.remove(); ov.onclick = e => { if (e.target === ov) ov.remove(); };
     ov.appendChild(box); cur.bg.appendChild(ov);
@@ -181,15 +197,10 @@ W.character = (arg = {}) => {
   const m = modal(edit ? 'Наставник: характеристики' : 'Персонаж', 'md', b => {
     const P = G.profile, S = G.stats;
     b.appendChild(el('div', 'row', `<b class="goldc" style="font:600 17px Georgia">${CLASSES[P.cls || 'warrior'].name} · уровень ${P.level}</b><span class="muted">Опыт ${fmt(P.xp)} / ${fmt(xpToNext(P.level))}</span>`));
-    b.appendChild(el('h3', '', `Характеристики ${P.attrPts ? `<span class="good">(свободно: ${P.attrPts})</span>` : ''} <span class="c-gold" style="float:right">💰 ${fmt(P.gold)} зол.</span>`));
-    if (!edit && P.attrPts) b.appendChild(el('p', 'muted', 'Вложить очки можно у наставника Элвина в деревне.'));
-    if (edit && P.attrPts) b.appendChild(el('p', 'goldc', `Каждое очко — ${CH.attrCost()} зол. · у вас ${fmt(P.gold)} зол.`));
-    const hints = { str: '+2% урона ближнего боя за очко', dex: '+2% урона луком, +0,15% крита, защита', int: '+2,5% силы заклинаний, +3 маны', vit: '+5 здоровья, регенерация' };
-    for (const k of ['str', 'dex', 'int', 'vit']) {
-      const r = el('div', 'attr', `<b>${CH.ATTR_NAMES[k]}<br><span class="muted" style="font:12px sans-serif">${hints[k]}</span></b><span class="v">${S[k]}</span>`);
-      if (edit && P.attrPts > 0) { const p = el('button', 'plus', '+'); p.title = CH.attrCost() + ' зол.'; p.onclick = () => CH.addAttr(k, 1, true); r.appendChild(p); if (P.attrPts >= 5) { const p5 = el('button', 'plus', '5'); p5.style.fontSize = '13px'; p5.onclick = () => CH.addAttr(k, 5, true); r.appendChild(p5); } }
-      b.appendChild(r);
-    }
+    b.appendChild(el('h3', '', `Характеристики <span class="c-gold" style="float:right">💰 ${fmt(P.gold)} зол.</span>`));
+    b.appendChild(el('p', 'muted', 'Растут сами с каждым уровнем — вкладывать очки не нужно.'));
+    const hints = { str: 'урон мечом и топором', dex: 'урон луком, крит, защита', int: 'сила заклинаний, мана', vit: 'здоровье и восстановление' };
+    for (const k of ['str', 'dex', 'int', 'vit']) b.appendChild(el('div', 'attr', `<b>${CH.ATTR_NAMES[k]}<br><span class="muted" style="font:12px sans-serif">${hints[k]}</span></b><span class="v">${S[k]}</span>`));
     b.appendChild(el('h3', '', 'Боевые показатели'));
     const st = [['Физический урон', `${S.dmgMin}–${S.dmgMax}`], ['Урон в секунду', S.dps], ['Скорость атаки', S.aps + ' уд/с'], ['Шанс крит. удара', Math.round(S.critChance * 100) + '%'], ['Крит. урон', Math.round(S.critMult * 100) + '%'],
       ['Сила заклинаний', Math.round(S.spellPower * 100) + '%'], ['Урон огнём / льдом / молнией', `${Math.round(S.elem.fire * 100)}% / ${Math.round(S.elem.cold * 100)}% / ${Math.round(S.elem.light * 100)}%`],
@@ -294,7 +305,7 @@ W.settings = () => modal('Настройки', 'sm', b => {
   const P = G.profile, s = P.settings;
   const range = (lab, key) => { const r = el('div', 'attr', `<b>${lab}</b>`); const i = document.createElement('input'); i.type = 'range'; i.min = 0; i.max = 1; i.step = 0.05; i.value = s[key]; i.oninput = () => { s[key] = +i.value; setVolumes(s.sfx, s.music); }; i.onchange = () => bus.emit('save'); r.appendChild(i); b.appendChild(r); };
   range('Звуки', 'sfx'); range('Музыка', 'music');
-  const q = el('div', 'attr', '<b>Качество графики</b>'); for (const [k, n] of [['low', 'Низкое'], ['auto', 'Авто'], ['high', 'Высокое']]) { const bt = el('button', 'btn sm' + (s.quality === k ? ' gold' : ''), n); bt.onclick = () => { s.quality = k; resize(); bus.emit('save'); rerender(); }; q.appendChild(bt); } b.appendChild(q);
+  const q = el('div', 'attr', '<b>Качество графики</b>'); for (const [k, n] of [['low', 'Низкое'], ['auto', 'Авто'], ['med', 'Среднее'], ['high', 'Высокое']]) { const bt = el('button', 'btn sm' + (s.quality === k ? ' gold' : ''), n); bt.onclick = () => { s.quality = k; resize(); bus.emit('save'); rerender(); }; q.appendChild(bt); } b.appendChild(q);
   { let cur = '3d'; try { cur = localStorage.getItem('da_render') || '3d'; } catch { } if (new URLSearchParams(location.search).get('render')) cur = new URLSearchParams(location.search).get('render');
     const g = el('div', 'attr', '<b>Графика</b>'); for (const [k, n] of [['3d', '3D (по умолчанию)'], ['2d', 'Классика 2D']]) { const bt = el('button', 'btn sm' + (cur === k ? ' gold' : ''), n); bt.onclick = () => { try { localStorage.setItem('da_render', k); } catch { } saveNow(); const u = new URL(location.href); u.searchParams.delete('render'); location.href = u.toString(); }; g.appendChild(bt); } b.appendChild(g); b.appendChild(el('p', 'muted', '<small>Смена графики перезапускает игру (прогресс сохраняется). Лучник и маг пока всегда в 2D.</small>')); }
   const sh = el('div', 'attr', '<b>Тряска камеры</b>'); const bs = el('button', 'btn sm', s.shake ? 'Вкл' : 'Выкл'); bs.onclick = () => { s.shake = !s.shake; rerender(); }; sh.appendChild(bs); b.appendChild(sh);
@@ -408,11 +419,9 @@ W.npc_trainer = () => {
     }
     b.appendChild(el('h3', '', 'Услуги'));
     const r1 = el('div', 'row');
-    const at = el('button', 'btn ' + (P.attrPts ? 'gold' : ''), `Характеристики${P.attrPts ? ` (+${P.attrPts})` : ''}`); at.onclick = () => W.character({ npc: true }); r1.appendChild(at);
-    const sk = el('button', 'btn ' + (P.skillPts ? 'gold' : ''), `Навыки${P.skillPts ? ` (+${P.skillPts})` : ''}`); sk.onclick = () => W.skills({ npc: true }); r1.appendChild(sk); b.appendChild(r1);
+        const sk = el('button', 'btn ' + (P.skillPts ? 'gold' : ''), `Навыки${P.skillPts ? ` (+${P.skillPts})` : ''}`); sk.onclick = () => W.skills({ npc: true }); r1.appendChild(sk); b.appendChild(r1);
     const r2 = el('div', 'row'); r2.style.marginTop = '8px';
     const rs = el('button', 'btn', `Сбросить навыки — ${EC.respecSkillPrice()} зол.`); rs.disabled = P.gold < EC.respecSkillPrice(); rs.onclick = () => { if (confirm('Сбросить все навыки и вернуть очки?')) { EC.respecSkills(); rerender(); } }; r2.appendChild(rs);
-    const ra = el('button', 'btn', `Сбросить характеристики — ${EC.respecAttrPrice()} зол.`); ra.disabled = P.gold < EC.respecAttrPrice(); ra.onclick = () => { if (confirm('Сбросить характеристики?')) { EC.respecAttrs(); rerender(); } }; r2.appendChild(ra);
     b.appendChild(r2);
   });
   Q.talked('trainer');

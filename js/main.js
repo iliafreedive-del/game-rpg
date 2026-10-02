@@ -20,7 +20,7 @@ import { $, el, esc } from './core/util.js';
 import { CLASSES } from './data/items.js';
 import { iconURL } from './ui/icons.js';
 
-export const BUILD = '2026-10-02 · сборка 8';   // видно на титульном экране и в настройках: так проверяют, что загрузилась свежая версия
+export const BUILD = '2026-10-02 · сборка 9';   // видно на титульном экране и в настройках: так проверяют, что загрузилась свежая версия
 const CORE = ['props', 'icons'];
 // hero sheets are big (HD): load only the chosen class
 export const CLASS_ATLAS = { warrior: ['hero_body', 'hero_sword', 'hero_axe', 'hero_greatsword', 'hero_shield'], archer: ['hero_archer_body', 'hero_archer_bow'], mage: ['hero_mage_body', 'hero_mage_staff'] };
@@ -57,6 +57,7 @@ async function boot() {
     bus.on('zoneEntered', z => startMusic(z));
     restorePurchases().catch(() => { });
     const dz = dozorPending(); if (dz) setTimeout(() => showDozor(dz), 900); else { initDozor(); G.dozorChecked = true; }
+    if (p.simplified && p.simplified.upg) { bus.emit('toast', { text: 'Улучшения упрощены', sub: `Лишние усиления вернули ${p.simplified.gold} зол.`, kind: 'good' }); delete p.simplified; }
     if (p.simplified) { bus.emit('toast', { text: 'Снаряжение упрощено до 4 вещей', sub: `Лишние вещи (${p.simplified.n}) проданы за ${p.simplified.gold} зол.`, kind: 'good' }); delete p.simplified; }
     if (p.legacyKey) bus.emit('toast', { text: 'Сохранение из версии 1.x перенесено', sub: 'Уровень, золото и характеристики сохранены', kind: 'good' });
     requestAnimationFrame(loop);

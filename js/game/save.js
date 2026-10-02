@@ -1,10 +1,10 @@
 // Save System: versioned profile in localStorage (+ optional cloud via platform), migrations from build 1.x.
 import { makeItem, makeStarterGear, sellValue } from './items.js';
-import { CLASSES, SLOTS } from '../data/items.js';
+import { CLASSES, SLOTS, GROWTH } from '../data/items.js';
 
 export const SAVE_KEY = 'dark_ascent_save_v2';
 export const LEGACY_KEYS = ['dark_ascent_chapter1_save', 'dark_ascent_v03_save'];
-export const SAVE_VERSION = 3;
+export const SAVE_VERSION = 4;
 
 export function newProfile(cls = 'warrior') {
   const p = {
@@ -52,7 +52,19 @@ function migrateV1(old) {
   p.migratedFrom = 1;
   return p;
 }
+const OLD_UPG = { critDmg: [110, 1.18], move: [140, 1.22], mp: [35, 1.15], regen: [60, 1.17] };
 const MIGRATIONS = {
+  // v3 → v4: характеристики растут сами; из золотых усилений остаются 4 — остальные возвращаются золотом.
+  3: p => {
+    let pts = Math.max(0, p.attrPts | 0); p.attrPts = 0;
+    const g = GROWTH[p.cls || 'warrior'];
+    for (const k in g) { const n = Math.floor(pts * g[k] / 5); p.attrs[k] += n; }
+    let refund = 0; p.upg = p.upg || {};
+    for (const id in OLD_UPG) { const l = p.upg[id] | 0; for (let i = 0; i < l; i++) refund += Math.round(OLD_UPG[id][0] * Math.pow(OLD_UPG[id][1], i)); delete p.upg[id]; }
+    for (const [id, mx] of [['dmg', 40], ['hp', 40], ['crit', 25], ['aps', 20]]) if ((p.upg[id] | 0) > mx) p.upg[id] = mx;
+    p.gold = (p.gold | 0) + refund; if (refund) p.simplified = { n: 0, gold: refund, upg: true };
+    p.v = 4; return p;
+  },
   // v2 → v3: hero classes + 4 gear slots. Items that no longer fit are sold automatically.
   2: p => {
     const wt = p.gear && p.gear.weapon && p.gear.weapon.wt;

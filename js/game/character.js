@@ -36,7 +36,7 @@ export function unequip(slot) {
   P.gear[slot] = null; P.bag.push(it); bus.emit('sfx', 'equip'); bus.emit('equipChanged', slot); recalc(); return true;
 }
 export const attrCost = () => 5 + 5 * G.profile.level;
-export const skillCost = id => Object.keys(G.profile.skills).length === 0 ? 0 : 20 + 15 * G.profile.level * ((G.profile.skills[id] || 0) + 1);   // самый первый навык — бесплатно
+export const skillCost = id => Object.keys(G.profile.skills).length === 0 ? 0 : 12 + 10 * G.profile.level * ((G.profile.skills[id] || 0) + 1);   // самый первый навык — бесплатно
 export function addAttr(k, n = 1, pay = false) {
   const P = G.profile; n = Math.min(n, P.attrPts); if (n <= 0) return false;
   if (pay) { const c = attrCost() * n; if (P.gold < c) { bus.emit('toast', { text: `Нужно ${c} золота`, sub: 'Соберите золото в катакомбах', kind: 'warn' }); bus.emit('sfx', 'deny'); return false; } P.gold -= c; bus.emit('sfx', 'coin'); }

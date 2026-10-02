@@ -74,9 +74,21 @@ export function resize(w, h) {
   camDist = W / H < 1 ? CAMERA.village.dist * Math.min(CAMERA.portrait.maxScale, 1 / (W / H) * CAMERA.portrait.refAspect) : CAMERA.village.dist;
   camera.updateProjectionMatrix();
 }
+// «Авто»: стартуем по типу устройства, а регулятор ниже сам опускает качество, если кадры затягиваются
+let govLevel = null, govSlow = 0, govAcc = 0, govN = 0;
 function qualityNow() {
   const q = G.profile && G.profile.settings ? G.profile.settings.quality : 'auto';
-  return q === 'low' || q === 'high' ? q : (matchMedia('(pointer: coarse)').matches ? 'med' : 'high');
+  if (q === 'low' || q === 'high' || q === 'med') return q;
+  return govLevel || (matchMedia('(pointer: coarse)').matches ? 'med' : 'high');
+}
+function governor(dt) {
+  const q = G.profile && G.profile.settings ? G.profile.settings.quality : 'auto';
+  if (q !== 'auto' || quality === 'low' || document.hidden || G.paused) { govAcc = 0; govN = 0; return; }
+  govAcc += Math.min(dt, 0.2); govN++;
+  if (govAcc < 3) return;
+  const ms = govAcc / govN * 1000; govAcc = 0; govN = 0;
+  govSlow = ms > 26 ? govSlow + 1 : 0;      // медленнее ~38 к/с три окна подряд → ступенькой ниже
+  if (govSlow >= 2) { govSlow = 0; govLevel = quality === 'high' ? 'med' : 'low'; applyQuality(); }
 }
 function applyQuality(force) {
   const q = qualityNow(); if (q === quality && !force) return; quality = q;
@@ -258,7 +270,7 @@ function cullActors() {
 // ---------------------------------------------------------------- кадр
 export function render() {
   const Z = G.zone; if (!Z || !G.player) return;
-  const now = performance.now(), dt = Math.min(0.05, (now - last) / 1000); last = now; tAll += dt; U.uTime.value = tAll;
+  const now = performance.now(), dt = Math.min(0.05, (now - last) / 1000), rawDt = (now - last) / 1000; last = now; tAll += dt; U.uTime.value = tAll; governor(rawDt);
   if (Z !== zone) setZone(Z);
   applyQuality();
   updateCamera(); updateLights(tAll, dt);

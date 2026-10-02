@@ -7,6 +7,8 @@ export const CLASSES = {
   archer: { name: 'Вороний страж', desc: 'Лучник в маске ворона. Бьёт издалека, замедляет льдом.', weapons: ['bow'], main: 'bow', branches: ['bow', 'ice'], attrs: { str: 9, dex: 17, int: 10, vit: 11 }, block: 0, gift: 'volley', icon: 'bow' },
   mage: { name: 'Звездочтец', desc: 'Маг Бездны в фарфоровой маске: огонь, лёд и молния.', weapons: ['staff'], main: 'staff', branches: ['fire', 'ice', 'light'], attrs: { str: 7, dex: 10, int: 18, vit: 11 }, block: 0, gift: null, icon: 'staff' },
 };
+// Рост характеристик за уровень (5 очков) — автоматический, по классу.
+export const GROWTH = { warrior: { str: 2, vit: 2, dex: 1, int: 0 }, archer: { dex: 3, vit: 1, str: 1, int: 0 }, mage: { int: 3, vit: 1, dex: 1, str: 0 } };
 export const SLOT_NAMES = { weapon: 'Оружие', head: 'Шлем', chest: 'Доспех', amulet: 'Амулет' };
 export const RARITY = [
   { id: 'white', name: 'Обычный', color: '#e8e2d4', affixes: [0, 0] },

@@ -28,9 +28,17 @@ const rollRarity = table => weighted(table.map((w, i) => [i, w]));
 export function enemyLoot(e) {
   // Items come only from quests, contracts and the shop (design decision: fewer, meaningful rewards).
   const D = e.D, L = e.lvl;
-  const piles = D.boss ? 6 : D.elite ? 4 : e.champion ? 2 : (rand() < 0.45 ? 1 : 0);
+  const piles = D.boss ? 6 : D.elite ? 4 : e.champion ? 2 : (rand() < 0.6 ? 1 : 0);
   for (let i = 0; i < piles; i++) dropGold(e.x, e.y, rint(D.gold[0], D.gold[1]) * (1 + 0.12 * (L - 1)) / (D.boss || D.elite ? piles / 2 : 1));
   if (rand() < (D.boss ? 1 : D.elite ? 0.7 : e.champion ? 0.5 : 0.06)) dropPotion(e.x, e.y, rand() < 0.7 ? 'hp' : 'mp');
+  // вещи: редкие и заметные. Рядовой враг почти никогда, чемпион — иногда, страж и босс — всегда
+  const ch = D.boss ? 1 : D.elite ? 0.8 : e.champion ? 0.3 : G.zoneId === 'wild' ? 0.04 : 0.025;
+  if (rand() < ch) dropItem(e.x, e.y, rollDrop(L + (D.boss || D.elite ? 1 : 0), D.boss ? [0, 40, 52, 8] : D.elite || e.champion ? [20, 55, 24, 1] : [62, 33, 5, 0]));
+}
+export function rollDrop(ilvl, table) {
+  const P = G.profile, r = rollRarity(table);
+  if (r >= 3) return makeItem({ epic: pickEpic(P.cls), ilvl, cls: P.cls });
+  return makeItem({ ilvl, rarity: r, cls: P.cls });
 }
 export function pickEpic(cls) {
   cls = cls || G.profile.cls || 'warrior';
@@ -42,6 +50,7 @@ export function chestLoot(x, y, rich, lvl, id) {
   for (let i = 0; i < (rich ? 5 : 3); i++) dropGold(x, y, rint(3, 7) * (1 + 0.15 * (lvl - 1)));
   if (rich || rand() < 0.5) dropPotion(x, y, rand() < 0.75 ? 'hp' : 'mp');
   if (rich && rand() < 0.5) dropPotion(x, y, 'hp');
+  if (rand() < (rich ? 0.9 : 0.12)) dropItem(x, y + 0.2, rollDrop(lvl, rich ? [10, 55, 33, 2] : [55, 40, 5, 0]));
 }
 
 // pickups: gold automatically, items/potions automatically when room in bag
@@ -74,11 +83,13 @@ export function updatePickups(dt) {
 }
 
 // ------------------------------------------------------------------ XP & levels
+import { GROWTH } from '../data/items.js';
+export function autoGrow(P, n = 1) { const g = GROWTH[P.cls || 'warrior']; for (const k in g) P.attrs[k] += g[k] * n; }
 export function gainXP(n, x, y) {
   const P = G.profile; n = Math.round(n * xpMul()); if (n <= 0) return;
   P.xp += n; if (x != null) float(x, y, '+' + n + ' опыта', '#b8e3ff', { z: 2.6, life: 0.8 });
   let up = 0;
-  while (P.xp >= xpToNext(P.level) && P.level < 50) { P.xp -= xpToNext(P.level); P.level++; P.attrPts += 5; P.skillPts += 1; up++; }
+  while (P.xp >= xpToNext(P.level) && P.level < 50) { P.xp -= xpToNext(P.level); P.level++; autoGrow(P); P.skillPts += 1; up++; }
   if (up) {
     G.stats = stats(P); G.player.hp = G.stats.maxHP; G.player.mp = G.stats.maxMP;
     particles(G.player.x, G.player.y, 30, { c: [255, 220, 120], z: 0.2, sp: 1.2, vz: 4, g: 1, size: 4, life: 1.2 });

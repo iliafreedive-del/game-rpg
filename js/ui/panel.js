@@ -45,11 +45,10 @@ function render(force) {
   const bal = () => box.appendChild(el('div', 'pn-bal', `${coin(P.gold)} зол. · ${shard(P.shards || 0)}`));
   const T = target;
   if (T.id === 'trainer') {
-    head('Наставник Элвин', 'Здесь изучают умения и тратят очки. Ниже — усиления за золото.'); bal();
+    head('Наставник Элвин', 'Здесь изучают умения. Ниже — усиления за золото.'); bal();
     const b2 = el('div', 'pn-tabs');
     const sk = el('button', 'pn-tab' + (P.skillPts ? ' hot' : ''), `<span>✦</span><b>Навыки</b>${P.skillPts ? `<i>+${P.skillPts}</i>` : ''}`); sk.id = 'tBtnSkills'; sk.onclick = () => W.skills({ npc: true });
-    const at = el('button', 'pn-tab' + (P.attrPts ? ' hot' : ''), `<span>🛡</span><b>Характеристики</b>${P.attrPts ? `<i>+${P.attrPts}</i>` : ''}`); at.onclick = () => W.character({ npc: true });
-    b2.append(sk, at); box.appendChild(b2);
+    b2.append(sk); box.appendChild(b2);
     if (P.skillPts && !Object.values(P.skills || {}).some(Boolean)) box.appendChild(el('div', 'pn-tip', '💡 Сначала изучите <b>активное умение</b> — оно появится кнопкой справа внизу и сильно упростит бои.'));
     box.appendChild(el('div', 'pn-sub', 'Усиления за золото'));
     for (const [id, U] of Object.entries(UPGRADES)) {
