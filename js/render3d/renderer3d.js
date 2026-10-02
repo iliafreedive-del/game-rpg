@@ -41,8 +41,8 @@ export function webglAvailable() {
 }
 // что умеет 3D-срез прямо сейчас: деревня и герой-воин (остальное рисует 2D-рендерер)
 // что умеет 3D: деревня и все подземелья (катакомбы, глубины, цитадель, арена) для героя-воина; лучник и маг пока идут в 2D
-// походы (zone 'wild') и «Кровавую жатву» (рой мобов и кристаллы) пока рисует 2D: у 3D нет земли/стен для чащи, воды и стен форта (были невидимые стены)
-export function supports(z, profile) { return !!z && z.id !== 'wild' && z.id !== 'survival' && !!HEROES[(profile && profile.cls) || 'warrior']; }
+// «Кровавую жатву» (рой мобов и кристаллы) пока рисует 2D; походы (wild) — 3D: снег/трава, чаща, вода, стены и башни форта
+export function supports(z, profile) { return !!z && z.id !== 'survival' && !!HEROES[(profile && profile.cls) || 'warrior']; }
 
 export function init() {
   canvas = document.createElement('canvas'); canvas.id = 'game3d';
@@ -85,7 +85,7 @@ function applyQuality(force) {
   setOutlinesVisible(q !== 'low'); if (world) { world.ground.setQuality(q); world.props.setQuality(q); }
   const sm = Q.shadow;
   lights.hemi.intensity = LV.hemi.i * (Q.light ?? 1); lights.moon.intensity = LV.key.i * (Q.light ?? 1);
-  setPointCount(zone && zone.id === 'town' ? 2 : Q.points);
+  setPointCount(zone && (zone.id === 'town' || zone.id === 'wild') ? 2 : Q.points);
   if (lights.moon.castShadow !== !!sm || lights.moon.shadow.mapSize.x !== sm) {
     lights.moon.castShadow = !!sm;
     if (sm) { lights.moon.shadow.mapSize.set(sm, sm); if (lights.moon.shadow.map) { lights.moon.shadow.map.dispose(); lights.moon.shadow.map = null; } }
@@ -107,6 +107,8 @@ const hex = c => (c[0] << 16) | (c[1] << 8) | c[2];
 function presetFor(z) {
   U.uBiome.value = ({ flooded: 1, ash: 2, abyss: 3 })[z.json && z.json.biome] || 0;
   if (z.id === 'town') return { ...LIGHT.village3, look: null };
+  if (z.id === 'wild') { const fj = z.json.wild.realm === 'fjord', d = z.json.wild.mood && z.json.wild.mood.dark, B = fj ? LIGHT.wildFjord : LIGHT.wildForest;
+    return { ...B, hemi: d ? { ...B.hemi, i: B.hemi.i * 0.8 } : B.hemi, key: d ? { ...B.key, i: B.key.i * 0.85 } : B.key, look: null }; }
   if (z.id === 'castle' || z.id === 'survival') return { ...LIGHT.castle, look: { floor: 0x9a8e7a, grime: 0x4a4034, moss: 0x5a6a3a } };
   const C = LIGHT.crypt, b = C.biome[z.json && z.json.biome];
   const look = { floor: 0x7a7266, grime: 0x3a3028, moss: 0x3a5a3a };
@@ -115,6 +117,7 @@ function presetFor(z) {
   if (z.json && z.json.biome === 'abyss') Object.assign(look, { floor: 0x5a5470, moss: 0x5a3a8a });
   return { ...C, look, hemi: b ? { ...C.hemi, sky: b.sky } : C.hemi, fog: b ? { ...C.fog, color: b.fog } : C.fog, clear: b ? b.fog : C.clear };
 }
+const wildKind = ch => ch === ',' ? 'c' : ch === 'D' ? 'p' : ch === 'x' ? 'f' : ch === '~' ? 'w' : 'g';   // земля похода: двор и тракт — плиты, под стеной — тропа
 function setPointCount(n) {
   if (slots.length === n) return;
   while (slots.length > n) slots.pop().lt.removeFromParent();
@@ -124,7 +127,7 @@ function setPointCount(n) {
 function lightSets(z) {
   const on = z.lights.filter(l => l.on);
   const glow = glowSet(on.map(l => ({ x: l.x, y: l.z || 1, z: l.y, s: 0.3 + l.r * 0.09, c: hex(l.c), k: 0.7 })), false);   // ореол небольшой: не «засвечивает» тех, кто рядом
-  const pool = glowSet(on.map(l => ({ x: l.x, y: 0.05, z: l.y, s: l.r * 0.55, c: hex(l.c), k: z.id === 'town' ? 0.35 : 0.5 })), true);
+  const pool = glowSet(on.map(l => ({ x: l.x, y: 0.05, z: l.y, s: l.r * 0.55, c: hex(l.c), k: z.id === 'town' || z.id === 'wild' ? 0.35 : 0.5 })), true);
   scene.add(glow, pool); return { glow, pool, onKey: on.length };
 }
 function setZone(z) {
@@ -132,8 +135,8 @@ function setZone(z) {
   renderer.setClearColor(LV.clear); scene.fog.color.setHex(LV.fog.color); scene.fog.near = LV.fog.near; scene.fog.far = LV.fog.far;
   lights.hemi.color.setHex(LV.hemi.sky); lights.hemi.groundColor.setHex(LV.hemi.ground); lights.moon.color.setHex(LV.key.color);
   for (const s of slots) { s.L = null; s.k = 0; s.lt.intensity = 0; }
-  const town = z.id === 'town';
-  const ground = town ? buildGround(scene, z) : buildDungeonFloor(scene, z, LV.look), props = new PropLayer(scene, kit, z, town);
+  const town = z.id === 'town', wild = z.id === 'wild', open = town || wild, fj = wild && z.json.wild.realm === 'fjord';
+  const ground = wild ? buildGround(scene, z, { snow: fj, kindOf: wildKind, stoneCh: '\u0000', grassK: 0.3, farColor: fj ? 0xb4c6d8 : 0x0f2418, margin: 6 }) : town ? buildGround(scene, z) : buildDungeonFloor(scene, z, LV.look), props = new PropLayer(scene, kit, z, open);
   world = { ground, props, ...lightSets(z) };
   props.cull(camera, true); applyQuality(true); ground.setQuality(quality); spawned = false;
 }
@@ -224,7 +227,7 @@ function updateLights(t, dt) {
   // огонь, выпавший из ближних, плавно гаснет; освободившийся слот плавно зажигает новый — без «прыжков» света
   for (const s of slots) if (s.L && !want.includes(s.L)) { s.k -= dt * 3; if (s.k <= 0) { s.L = null; s.k = 0; } }
   for (const L of want) if (!slots.some(s => s.L === L)) { const s = slots.find(s => !s.L); if (s) { s.L = L; s.k = 0; } }
-  const town = zone.id === 'town', base = town ? LV.warm : LV.point;
+  const town = zone.id === 'town' || zone.id === 'wild', base = town ? LV.warm : LV.point;
   { const H = LV.hero, hl = lights.hero; if (H && P) { hl.color.setHex(H.color); hl.distance = H.dist; hl.decay = H.decay; hl.position.set(P.x, H.y, P.y); hl.intensity = H.i * (0.96 + Math.sin(t * 3.1) * 0.04); } else hl.intensity = 0; }
   for (const s of slots) {
     const L = s.L; if (!L) { s.lt.intensity = 0; continue; }

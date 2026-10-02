@@ -4,8 +4,8 @@
 import { REALMS, WILD_MOBS, moodOf, wildLevel, isWildBoss } from '../data/wild.js';
 
 function rng(seed) { let s = seed >>> 0; return () => { s = (s + 0x6D2B79F5) >>> 0; let t = s; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
-export const WILD_SIZE = 52;
-const FORT = { w: 15, h: 12 };
+export const WILD_SIZE = 64;
+const FORT = { w: 26, h: 20 };   // масштабный лагерь: стены, башни, ворота, длинный дом, шатры
 
 export function generateWild(realm, depth) {
   const RL = REALMS[realm], mood = moodOf(realm, depth), boss = isWildBoss(depth);
@@ -27,7 +27,7 @@ function build(RL, mood, depth, boss, attempt, force) {
   for (let i = 0; i < 160; i++) { const side = ri(0, 3), d = ri(0, 2), t = ri(3, W - 4); if (side === 0) set(t, 3 + d, 'x'); else if (side === 1) set(t, H - 4 - d, 'x'); else if (side === 2) set(3 + d, t, 'x'); else set(W - 4 - d, t, 'x'); }
 
   const start = [7.5, H - 9.5], exit = [W - 9.5, 8.5];
-  const fx0 = Math.floor(W / 2 - FORT.w / 2) + ri(-2, 6), fy0 = 11 + ri(-1, 3);
+  const fx0 = Math.floor(W / 2 - FORT.w / 2) + ri(-2, 3), fy0 = 10 + ri(-1, 2);
   const fort = { x: fx0, y: fy0, w: FORT.w, h: FORT.h };
   const gate = { x: fx0 + Math.floor(FORT.w / 2), y: fy0 + FORT.h - 1 };   // центр проёма (3 клетки) в южной стене
   const dist = (ax, ay, bx, by) => Math.hypot(ax - bx, ay - by);
@@ -81,26 +81,31 @@ function build(RL, mood, depth, boss, attempt, force) {
   objects.push({ t: 'wild_next', x: exit[0], y: exit[1], hidden: true });
 
   // --- форт: башни, знамёна, жаровни, добыча
-  const cxF = fort.x + fort.w / 2, cyF = fort.y + fort.h / 2;
-  for (const [x, y] of [[fort.x + 0.5, fort.y + 0.5], [fort.x + fort.w - 0.5, fort.y + 0.5], [fort.x + 0.5, fort.y + fort.h - 0.5], [fort.x + fort.w - 0.5, fort.y + fort.h - 0.5]]) objects.push({ t: 'pillar', x, y });
+  for (const [x, y] of [[fort.x + 0.5, fort.y + 0.5], [fort.x + fort.w - 0.5, fort.y + 0.5], [fort.x + 0.5, fort.y + fort.h - 0.5], [fort.x + fort.w - 0.5, fort.y + fort.h - 0.5], [fort.x + fort.w / 2 + 0.5, fort.y + 0.5], [fort.x + 0.5, fort.y + fort.h / 2], [fort.x + fort.w - 0.5, fort.y + fort.h / 2]]) objects.push({ t: 'fort_tower', x, y });
+  objects.push({ t: 'fort_gate', x: gate.x + 0.5, y: fort.y + fort.h - 0.5, rot: 0 });
   for (const dx of [-3, 3]) objects.push({ t: 'banner', x: gate.x + 0.5 + dx, y: fort.y + fort.h - 0.8 });
-  for (const [x, y] of [[fort.x + 2.5, fort.y + 2], [fort.x + fort.w - 2.5, fort.y + 2], [cxF, fort.y + fort.h - 3]]) objects.push({ t: 'brazier', x, y });
+  const cxF = fort.x + fort.w / 2, cyF = fort.y + fort.h / 2;
+  // длинный дом вождя у северной стены, шатры и склады по сторонам, костры
+  objects.push({ t: 'fort_hall', x: cxF, y: fort.y + 5.2 });
+  for (const [dx, dy] of [[-8, 4.5], [8, 4.5], [-8, 11.5], [8, 11.5]]) objects.push({ t: 'tent', x: cxF + dx, y: fort.y + dy, rot: R() * 6.28 });
+  for (const [x, y] of [[fort.x + 2.5, fort.y + 2.5], [fort.x + fort.w - 2.5, fort.y + 2.5], [cxF - 4, fort.y + 9.5], [cxF + 4, fort.y + 9.5], [cxF, fort.y + fort.h - 3.5], [cxF - 6, fort.y + fort.h - 3.5], [cxF + 6, fort.y + fort.h - 3.5]]) objects.push({ t: 'brazier', x, y });
   const dec = realm === 'fjord' ? ['barrel', 'crate', 'weapon_rack', 'bones', 'skulls'] : ['hay', 'crate', 'barrel', 'weapon_rack', 'bones'];
-  for (let i = 0; i < 7; i++) objects.push({ t: dec[i % dec.length], x: fort.x + 2 + R() * (fort.w - 4), y: fort.y + 2 + R() * (fort.h - 5) });
-  objects.push({ t: 'wchest', id: 'wfort_rich', rich: true, x: cxF, y: fort.y + 1.7 });
-  objects.push({ t: 'wchest', id: 'wfort_2', x: fort.x + 2, y: fort.y + fort.h - 2.5 });
-  if (boss) objects.push({ t: 'statue', x: fort.x + 3, y: fort.y + 3 }, { t: 'statue', x: fort.x + fort.w - 3, y: fort.y + 3 });
+  for (let i = 0; i < 14; i++) objects.push({ t: dec[i % dec.length], x: fort.x + 2 + R() * (fort.w - 4), y: fort.y + 8 + R() * (fort.h - 12) });
+  objects.push({ t: 'wchest', id: 'wfort_rich', rich: true, x: cxF, y: fort.y + 7.7 });
+  objects.push({ t: 'wchest', id: 'wfort_2', x: fort.x + 3, y: fort.y + fort.h - 3 });
+  objects.push({ t: 'wchest', id: 'wfort_3', x: fort.x + fort.w - 3, y: fort.y + fort.h - 3 });
+  if (boss) objects.push({ t: 'statue', x: cxF - 5, y: fort.y + 8 }, { t: 'statue', x: cxF + 5, y: fort.y + 8 });
   // стража и командир
   const avail = RL.pool.filter(([, d]) => d <= depth).map(([t]) => t).filter(t => WILD_MOBS[t].ai !== 'giant');
-  const nGuards = Math.min(9, 4 + Math.floor(depth / 2)) + (boss ? 2 : 0);
+  const nGuards = Math.min(14, 7 + Math.floor(depth / 2)) + (boss ? 3 : 0);
   const gA = avail[ri(0, avail.length - 1)], gB = avail[ri(0, avail.length - 1)];
-  spawns.push([gA, cxF, cyF + 1, Math.ceil(nGuards * 0.6), 3.5, lvl, 'fortguard']);
-  spawns.push([gB, cxF, cyF + 1, Math.floor(nGuards * 0.4), 3.5, lvl, 'fortguard']);
-  spawns.push([boss ? RL.boss : RL.commander, cxF, fort.y + 3.4, 1, 0, lvl + (boss ? 2 : 1), boss ? 'wildboss' : 'wildkeep']);
-  placed.push([cxF, cyF, 11]);
+  spawns.push([gA, cxF, cyF + 3, Math.ceil(nGuards * 0.6), 5, lvl, 'fortguard']);
+  spawns.push([gB, cxF, cyF + 3, Math.floor(nGuards * 0.4), 5, lvl, 'fortguard']);
+  spawns.push([boss ? RL.boss : RL.commander, cxF, fort.y + 8.9, 1, 0, lvl + (boss ? 2 : 1), boss ? 'wildboss' : 'wildkeep']);
+  placed.push([cxF, cyF, 16]);
 
   // --- лагеря мобов
-  const nCamps = Math.min(13, 6 + depth);
+  const nCamps = Math.min(18, 8 + depth);
   const bigPool = RL.pool.filter(([, d]) => d <= depth).map(([t]) => t);
   let camps = 0;
   for (let i = 0; i < nCamps * 4 && camps < nCamps; i++) {
@@ -131,7 +136,7 @@ function build(RL, mood, depth, boss, attempt, force) {
   const flora = realm === 'fjord'
     ? (depth >= 5 ? ['rocks', 'stalagmite', 'crystals', 'tree_0'] : ['tree_1', 'stalagmite', 'tree_0', 'deadtree', 'tree_1', 'rocks'])
     : (mood.dark ? ['tree_0', 'tree_1', 'deadtree', 'mushrooms', 'rocks', 'tree_0'] : ['tree_0', 'tree_1', 'tree_0', 'tree_1', 'rocks', 'deadtree']);
-  const nFlora = 70 + Math.floor(depth * 6) + (realm === 'forest' ? 30 : 0);
+  const nFlora = 110 + Math.floor(depth * 8) + (realm === 'forest' ? 40 : 0);
   for (let i = 0; i < nFlora; i++) { const p = pick((x, y) => !inFort(x, y, 1) && dist(x, y, start[0], start[1]) > 3 && dist(x, y, exit[0], exit[1]) > 3 && free(x, y, 0) && !near(x, y, 1.1)); if (p) { placed.push([p[0], p[1], 1.1]); objects.push({ t: flora[ri(0, flora.length - 1)], x: p[0], y: p[1] }); } }
   for (let i = 0; i < 8; i++) { const p = pick((x, y) => free(x, y, 0)); if (p) objects.push({ t: realm === 'fjord' ? 'skulls' : 'bones', x: p[0], y: p[1], deco: 1 }); }
   // жаровни у выхода и старта

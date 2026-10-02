@@ -78,14 +78,14 @@ function clumpGeometry() {
 
 // материал земли: toon (свет, тени, туман) + рисованные текстуры по маскам типов. aKind = веса (трава, тропа, брусчатка, лес);
 // край тропы рвёт шум, вдоль края — тёмная кромка (трава нависает над землёй), крупные пятна шума — солнечные и тенистые участки
-function groundMaterial() {
+function groundMaterial(snow = false) {
   const m = toon(0xffffff, { vc: true, rim: 0.05 });
-  const T = { tNoise: { value: noiseTex() }, tGrass: { value: grassTex() }, tDirt: { value: dirtTex() }, tMoss: { value: mossTex() }, tFlag: { value: flagTex() } };
+  const T = { tNoise: { value: noiseTex() }, tGrass: { value: grassTex() }, tDirt: { value: dirtTex() }, tMoss: { value: mossTex() }, tFlag: { value: flagTex() }, uSnow: { value: snow ? 1 : 0 } };
   const prev = m.onBeforeCompile;
   m.onBeforeCompile = sh => {
     prev(sh); Object.assign(sh.uniforms, T);
     sh.vertexShader = 'attribute vec4 aKind; attribute float aPath; varying vec4 vKind; varying float vPath; varying vec2 vGW;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvKind = aKind; vPath = aPath; vGW = (modelMatrix * vec4(position, 1.0)).xz;');
-    sh.fragmentShader = 'uniform sampler2D tNoise, tGrass, tDirt, tMoss, tFlag; varying vec4 vKind; varying float vPath; varying vec2 vGW;\n' + sh.fragmentShader.replace('#include <color_fragment>', /* glsl */`
+    sh.fragmentShader = 'uniform sampler2D tNoise, tGrass, tDirt, tMoss, tFlag; uniform float uSnow; varying vec4 vKind; varying float vPath; varying vec2 vGW;\n' + sh.fragmentShader.replace('#include <color_fragment>', /* glsl */`
 #include <color_fragment>
 {
   vec2 wp = vGW;
@@ -94,6 +94,13 @@ function groundMaterial() {
   gr *= mix(vec3(0.62, 0.74, 0.62), vec3(1.32, 1.25, 0.82), smoothstep(0.25, 0.8, nz.r));      // тенистые и солнечные пятна
   vec3 dt = mix(texture2D(tDirt, wp * 0.17).rgb, texture2D(tDirt, wp * 0.061 + 0.21).rgb, 0.3) * (0.85 + nz.g * 0.3);
   vec3 ms = texture2D(tMoss, wp * 0.27).rgb * (0.8 + nz.r * 0.5);
+  if (uSnow > 0.5) {   // Фьорды: снег с голубыми тенями, камень и наст под соснами, утоптанная снежная каша на тропах
+    float sn = texture2D(tNoise, wp * 0.09).g;
+    gr = mix(vec3(0.82, 0.88, 0.95), vec3(0.98, 1.0, 1.0), smoothstep(0.3, 0.75, nz.r)) * (0.92 + sn * 0.1);
+    gr = mix(gr, vec3(0.6, 0.72, 0.86), smoothstep(0.55, 0.8, nz2.g) * 0.55);
+    ms = mix(vec3(0.3, 0.34, 0.42) * (0.8 + nz.r * 0.5), gr * 0.9, step(0.56, nz2.r) * 0.85);
+    dt = mix(vec3(0.46, 0.42, 0.4), vec3(0.74, 0.74, 0.76), nz.g) * (0.85 + nz2.r * 0.3);
+  }
   float pm = smoothstep(0.44, 0.56, vKind.y + vKind.z * 0.8 + (nz2.g - 0.5) * 0.5 + (nz2.b - 0.5) * 0.3);
   float cm = smoothstep(0.3, 0.7, vKind.z + (nz2.b - 0.5) * 0.25);
   vec3 base = mix(gr, ms, smoothstep(0.2, 0.8, vKind.w + (nz.b - 0.5) * 0.4));
@@ -120,7 +127,7 @@ function groundMaterial() {
   vec2 dl = cf - (vec2(h1, h2) - 0.5) * 0.45; float ca = h1 * 6.283;
   dl = vec2(cos(ca) * dl.x + sin(ca) * dl.y, -sin(ca) * dl.x + cos(ca) * dl.y);
   float leaf = 1.0 - smoothstep(0.7, 1.0, length(dl / vec2(0.16, 0.075)));
-  float lm = step(0.45, h2) * clamp(smoothstep(0.3, 0.8, vKind.w + (nz2.r - 0.5) * 0.3) + smoothstep(0.62, 0.8, nz.g) * 0.55, 0.0, 1.0) * (1.0 - pud) * (1.0 - cm);
+  float lm = (1.0 - uSnow) * step(0.45, h2) * clamp(smoothstep(0.3, 0.8, vKind.w + (nz2.r - 0.5) * 0.3) + smoothstep(0.62, 0.8, nz.g) * 0.55, 0.0, 1.0) * (1.0 - pud) * (1.0 - cm);
   col = mix(col, mix(vec3(0.5, 0.2, 0.07), vec3(0.8, 0.58, 0.14), fract(h1 * 7.0)) * (0.65 + h2 * 0.6), leaf * lm * 0.92);
   float edge = smoothstep(0.0, 0.35, pm) * (1.0 - smoothstep(0.35, 0.8, pm));
   col *= 1.0 - 0.35 * edge;                                                                      // кромка тропы
@@ -132,12 +139,12 @@ function groundMaterial() {
 }
 
 // вода: тёмная глубина к середине, бирюзовая у берега, рябь из шумовой текстуры, блики солнца, пена у кромки
-function waterMaterial(x0, y0, x1, y1) {
+function waterMaterial(x0, y0, x1, y1, ice = false) {
   return new THREE.ShaderMaterial({
-    uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.fog, { uTime: { value: 0 }, tNoise: { value: null }, uBox: { value: new THREE.Vector4(x0, y0, x1, y1) } }]),
+    uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.fog, { uTime: { value: 0 }, tNoise: { value: null }, uBox: { value: new THREE.Vector4(x0, y0, x1, y1) }, uIce: { value: ice ? 1 : 0 } }]),
     fog: true, transparent: false,
     vertexShader: `#include <common>\n#include <fog_pars_vertex>\nvarying vec3 vW; void main(){ vW = (modelMatrix * vec4(position, 1.0)).xyz; vec4 mvPosition = viewMatrix * vec4(vW, 1.0); gl_Position = projectionMatrix * mvPosition;\n#include <fog_vertex>\n}`,
-    fragmentShader: `#include <common>\n#include <fog_pars_fragment>\nuniform float uTime; uniform sampler2D tNoise; uniform vec4 uBox; varying vec3 vW;
+    fragmentShader: `#include <common>\n#include <fog_pars_fragment>\nuniform float uTime; uniform sampler2D tNoise; uniform vec4 uBox; uniform float uIce; varying vec3 vW;
       void main(){
         vec2 p = vW.xz;
         float n1 = texture2D(tNoise, p * 0.12 + vec2(uTime * 0.012, uTime * 0.007)).b, n2 = texture2D(tNoise, p * 0.19 - vec2(uTime * 0.009, -uTime * 0.013)).b;
@@ -147,6 +154,7 @@ function waterMaterial(x0, y0, x1, y1) {
         vec3 col = mix(shallow, deep, smoothstep(0.1, 0.75, 1.0 - d + rip * 0.2));
         float glint = smoothstep(0.32, 0.5, rip) * 0.9; col += vec3(1.0, 0.9, 0.7) * glint * 0.35;
         col += vec3(0.6, 0.8, 0.75) * smoothstep(0.55, 0.0, abs(rip)) * 0.03;
+        if (uIce > 0.5) { vec3 si = vec3(0.7, 0.86, 0.95), di = vec3(0.34, 0.55, 0.74); col = mix(si, di, smoothstep(0.1, 0.8, 1.0 - d + rip * 0.3)); float cr = 1.0 - smoothstep(0.0, 0.025, abs(n1 - 0.5)); cr = max(cr, 1.0 - smoothstep(0.0, 0.02, abs(n2 - 0.52))); col = mix(col, vec3(0.95, 0.99, 1.0), cr * 0.75); col += vec3(1.0) * glint * 0.15; }
         gl_FragColor = vec4(col, 1.0);
         #include <colorspace_fragment>
         #include <fog_fragment>
@@ -156,9 +164,9 @@ function waterMaterial(x0, y0, x1, y1) {
 
 const kindOf = ch => ch === ',' ? 'p' : ch === '#' ? 'c' : ch === 'x' ? 'f' : ch === '~' ? 'w' : 'g';
 
-export function buildGround(scene, zone) {
-  const m = zone.map, W = m.w, H = m.h, MARGIN = 3, STEP = 0.5;
-  const tile = (tx, ty) => (tx < 0 || ty < 0 || tx >= W || ty >= H) ? 'f' : kindOf(m.rows[ty][tx]);
+export function buildGround(scene, zone, opts = {}) {
+  const m = zone.map, W = m.w, H = m.h, MARGIN = opts.margin ?? 3, STEP = 0.5, kOf = opts.kindOf || kindOf, snow = !!opts.snow;
+  const tile = (tx, ty) => (tx < 0 || ty < 0 || tx >= W || ty >= H) ? 'f' : kOf(m.rows[ty][tx]);
   // вес типа в точке: билинейная интерполяция «one-hot» поля по центрам тайлов
   const weights = (x, y) => {
     const fx = x - 0.5, fy = y - 0.5, x0 = Math.floor(fx), y0 = Math.floor(fy), u = fx - x0, v = fy - y0, w = { g: 0, p: 0, c: 0, f: 0, w: 0 };
@@ -180,23 +188,23 @@ export function buildGround(scene, zone) {
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('color', new THREE.BufferAttribute(col, 4)); geo.setAttribute('aKind', new THREE.BufferAttribute(kind, 4)); geo.setAttribute('aPath', new THREE.BufferAttribute(pathF, 1));
   geo.setIndex(idx); geo.computeVertexNormals();
-  const ground = new THREE.Mesh(geo, groundMaterial()); ground.userData.noOutline = true; ground.receiveShadow = true; scene.add(ground);
+  const ground = new THREE.Mesh(geo, groundMaterial(snow)); ground.userData.noOutline = true; ground.receiveShadow = true; scene.add(ground);
   // подложка до горизонта: тёмный мох, чтобы за краем карты не было пустоты
-  const far = new THREE.Mesh(new THREE.PlaneGeometry(400, 400).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0x0f2418 })); far.position.set(W / 2, -0.4, H / 2); scene.add(far);
+  const far = new THREE.Mesh(new THREE.PlaneGeometry(400, 400).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: opts.farColor ?? 0x0f2418 })); far.position.set(W / 2, -0.4, H / 2); scene.add(far);
 
   // вода: плоскость над впадиной; видна только там, где земля провалилась ниже -0.08, поэтому берег получается плавным
   let water = null; const wt = [];
   for (let ty = 0; ty < H; ty++) for (let tx = 0; tx < W; tx++) if (m.rows[ty][tx] === '~') wt.push([tx, ty]);
   if (wt.length) {
     const x0w = Math.min(...wt.map(t => t[0])) - 1, x1w = Math.max(...wt.map(t => t[0])) + 2, y0w = Math.min(...wt.map(t => t[1])) - 1, y1w = Math.max(...wt.map(t => t[1])) + 2;
-    water = new THREE.Mesh(new THREE.PlaneGeometry(x1w - x0w, y1w - y0w).rotateX(-Math.PI / 2).translate((x0w + x1w) / 2, -0.08, (y0w + y1w) / 2), waterMaterial(x0w, y0w, x1w, y1w));
+    water = new THREE.Mesh(new THREE.PlaneGeometry(x1w - x0w, y1w - y0w).rotateX(-Math.PI / 2).translate((x0w + x1w) / 2, -0.08, (y0w + y1w) / 2), waterMaterial(x0w, y0w, x1w, y1w, snow));
     water.material.uniforms.uTime = U.uTime; water.material.uniforms.tNoise.value = noiseTex();
     water.userData.noOutline = true; scene.add(water);
   }
 
   // булыжник площади: instanced-камни 0.5 м
   const R = rng(11), stones = [];
-  for (let ty = 0; ty < H; ty++) for (let tx = 0; tx < W; tx++) if (m.rows[ty][tx] === '#') for (let a = 0; a < 2; a++) for (let b = 0; b < 2; b++) stones.push([tx + 0.25 + a * 0.5 + (R() - 0.5) * 0.06, ty + 0.25 + b * 0.5 + (R() - 0.5) * 0.06]);
+  for (let ty = 0; ty < H; ty++) for (let tx = 0; tx < W; tx++) if ((opts.stoneCh || '#').includes(m.rows[ty][tx])) for (let a = 0; a < 2; a++) for (let b = 0; b < 2; b++) stones.push([tx + 0.25 + a * 0.5 + (R() - 0.5) * 0.06, ty + 0.25 + b * 0.5 + (R() - 0.5) * 0.06]);
   let cob = null;
   if (stones.length) {
     const g = new THREE.DodecahedronGeometry(0.27, 0); g.scale(1, 0.26, 1);
@@ -212,7 +220,7 @@ export function buildGround(scene, zone) {
     uBlobs: { value: Array.from({ length: 12 }, () => new THREE.Vector4(999, 999, 0.5, 0)) },
     uShadowMat: { value: new THREE.Matrix4() }, uShadowMap: { value: null }, uShadowOn: { value: 0 }, uShadowDark: { value: SHADOW.grassDark }, uShadowTexel: { value: new THREE.Vector2(1 / 1024, 1 / 1024) },
     tNoise: { value: noiseTex() },
-    uBase: { value: new THREE.Color(GRASS.base) }, uTip: { value: new THREE.Color(GRASS.tip) }, uDry: { value: new THREE.Color(GRASS.dry) }, uLight: { value: new THREE.Color(1, 1, 1) },
+    uBase: { value: new THREE.Color(snow ? 0x8a9aa8 : GRASS.base) }, uTip: { value: new THREE.Color(snow ? 0xe8f2f8 : GRASS.tip) }, uDry: { value: new THREE.Color(snow ? 0xc8c0a8 : GRASS.dry) }, uLight: { value: new THREE.Color(1, 1, 1) },
   };
   const gmat = new THREE.ShaderMaterial({ uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.fog, {}]), vertexShader: GRASS_VS, fragmentShader: GRASS_FS, side: THREE.DoubleSide, fog: true });
   Object.assign(gmat.uniforms, grassU);
@@ -225,7 +233,7 @@ export function buildGround(scene, zone) {
       // гуще у краёв троп (трава нависает) и пятнами в поле; на тропе и площади — нет
       const edge = w.g * (w.p + w.c) * 4, patch = Math.min(1, Math.max(0, (fbm(x * 0.12 + 9, z * 0.12) - 0.32) * 3));
       const dens = (w.g * (0.25 + 0.75 * patch) + w.f * 0.45 + edge * 0.8) * (1 - Math.min(1, (w.p + w.c) * 1.6)) * (1 - w.w);
-      if (RG() > dens || (m.free && !m.free(x, z, 0.05))) continue;
+      if (RG() > dens * (snow ? 0.3 : 1) * (opts.grassK ?? 1) || (m.free && !m.free(x, z, 0.05))) continue;
       const tall = 0.22 + Math.pow(fbm(x * 0.21, z * 0.21), 2) * 0.35 + edge * 0.08, sc = 0.8 + RG() * 0.7;
       mm.compose(p.set(x, -0.02, z), q.setFromAxisAngle(up, RG() * 6.283), s.set(sc, tall * (0.7 + RG() * 0.6), sc)); im.setMatrixAt(n, mm); rnd[n] = RG(); n++;
     }

@@ -80,6 +80,21 @@ export const LIGHT = {
     warm: { color: 0xff9a4a, i: 13, dist: 14, decay: 1.8 },
     violet: { color: 0x9a62ff, i: 14, dist: 11, decay: 1.6, y: 2.0 },
   },
+  // походы: Фьорды — холодный яркий день над снегом; Старый Лес — солнечный, как деревня
+  wildFjord: {
+    clear: 0x9db8d0, fog: { color: 0xb0c8dc, near: 34, far: 96 },
+    hemi: { sky: 0xcfe4f6, ground: 0xdde8f2, i: 1.55 },
+    key: { color: 0xfff0dc, i: 2.7, offset: [-11, 24, 20] },
+    warm: { color: 0xff9a4a, i: 13, dist: 14, decay: 1.8 },
+    violet: { color: 0x9a62ff, i: 14, dist: 11, decay: 1.6, y: 2.0 },
+  },
+  wildForest: {
+    clear: 0x2c4a40, fog: { color: 0x3a5a4c, near: 32, far: 90 },
+    hemi: { sky: 0xa8d0c0, ground: 0x6a5a38, i: 1.6 },
+    key: { color: 0xffe0a8, i: 3.0, offset: [-11, 24, 20] },
+    warm: { color: 0xff9a4a, i: 13, dist: 14, decay: 1.8 },
+    violet: { color: 0x9a62ff, i: 14, dist: 11, decay: 1.6, y: 2.0 },
+  },
   // подземелья (катакомбы, глубины): холодная синева вместо неба, тёплые факелы — пул ближайших точечных огней;
   // луна сверху даёт тени колонн и стен. Биомы глубин подкрашивают заливку и туман (biome)
   crypt: {

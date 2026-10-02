@@ -12,6 +12,8 @@ const warned = new Set();
 // предметы, которые игра меняет на лету: открытие дверей, сундуков, саркофагов, проявление порталов, секретная стена
 const DYN = new Set(['door', 'door_open', 'gate_sealed', 'chest', 'chest_open', 'chest_rich', 'chest_rich_open', 'sarcophagus', 'sarcophagus_open', 'altar', 'altar_medallion', 'portal']);
 // порода дерева по позиции: взвешенный выбор из TREE_KINDS (tree_0 — лиственные, tree_1 — хвойные)
+// Фьорды: только ели и сосны (лиственных там нет)
+function pickFj(h) { return h < 0.5 ? 'tree_fir_blue' : h < 0.92 ? 'tree_pine_tall' : 'deadtree'; }
 function pickTree(spr, h) { const L = TREE_KINDS[spr]; if (!L) return spr; let t = h * L.reduce((a, k) => a + k[1], 0); for (const [id, w] of L) { if ((t -= w) < 0) return id; } return L[0][0]; }
 // оттенок экземпляра: светлее/темнее, теплее/холоднее — соседние деревья одной породы не одинаковые
 function tintOf(x, y, k) { const a = hash(x * 1.3 + 7, y * 0.7), b = hash(y * 1.9, x * 2.7 + 3), l = 1 + (a - 0.5) * 2 * k, w = (b - 0.5) * k; return new THREE.Color(l * (1 + w * 0.6), l * (1 + w * 0.25), l * (1 - w * 0.8)); }
@@ -24,7 +26,10 @@ export class PropLayer {
     const lists = new Map();   // id → [{x,y,rot,s,q}]
     this._lists = lists; this.decorK = 1; this.zoneLights = zone.lights;
     const push = (id, x, y, rot, s, opts) => { if (!lists.has(id)) lists.set(id, []); const t = PROPS[id] && PROPS[id].tint; lists.get(id).push({ x, y, rot, s, opts, col: t ? tintOf(x, y, t) : null }); };
-    const dungeon = zone.id !== 'town', m = zone.map;
+    const mode = zone.id === 'town' ? 'town' : zone.id === 'wild' ? 'wild' : 'dungeon', dungeon = mode === 'dungeon', wild = mode === 'wild', m = zone.map;
+    const fj = wild && zone.json.wild.realm === 'fjord', open = !dungeon;   // open — открытая местность (деревня, поход)
+    const MODEL = { fort_hall: fj ? 'fort_hall_i' : 'fort_hall_w', tent: fj ? 'tent_i' : 'tent_w', fort_gate: fj ? 'fort_gate_i' : 'fort_gate_w', fort_tower: fj ? 'fort_tower' : 'watchtower' };
+    this.fj = fj;
     this.live = [];   // предметы, которые игра меняет на лету: { d, rot, cur, g }
     for (const d of zone.statics) {
       if (dungeon && d.wall && /^wall_/.test(d.spr)) {   // стены подземелья строятся по тайлам (dungeon.js); тут — факелы и секретная стена
@@ -36,23 +41,37 @@ export class PropLayer {
         }
         continue;
       }
+      if (wild && d.wall) continue;   // стены форта строятся по тайлам 'D' ниже
       if (d.tag || d.hidden !== undefined || DYN.has(d.spr)) { this.live.push({ d, rot: d.flip ? Math.PI / 2 : 0 }); continue; }
       if (d.hidden || (d.flat && !PROPS[d.spr])) continue;
+      if (d.model) { push(MODEL[d.model] || d.model, d.x, d.y, d.rot || 0, 1); continue; }
       if (!PROPS[d.spr]) { if (!warned.has(d.spr)) { warned.add(d.spr); console.warn('[3D] нет модели предмета «' + d.spr + '» — не показан'); } continue; }
-      const h = hash(d.x, d.y), isTree = d.spr === 'tree_0' || d.spr === 'tree_1' || d.spr === 'deadtree';
+      const h = hash(d.x, d.y), isTree = d.spr === 'tree_0' || d.spr === 'tree_1' || (d.spr === 'deadtree' && !fj);
       const light = zone.lights.find(L => Math.hypot(L.x - d.x, L.y - d.y) < 0.3);
-      push(isTree ? pickTree(d.spr, hash(d.x * 3.1 + 1, d.y * 1.7 + 2)) : d.spr, d.x, d.y, isTree ? h * 6.283 : 0, isTree ? 0.85 + h * 0.55 : 1, light ? { color: new THREE.Color(light.c[0] / 255, light.c[1] / 255, light.c[2] / 255) } : null);
+      push(isTree ? (fj ? pickFj(hash(d.x * 3.1 + 1, d.y * 1.7 + 2)) : pickTree(d.spr, hash(d.x * 3.1 + 1, d.y * 1.7 + 2))) : d.spr, d.x, d.y, isTree ? h * 6.283 : 0, isTree ? 0.85 + h * 0.55 : 1, light ? { color: new THREE.Color(light.c[0] / 255, light.c[1] / 255, light.c[2] / 255) } : null);
+    }
+    if (wild) {   // стены форта по тайлам 'D' (лицом наружу) и густая чаща по тайлам 'x'
+      for (let ty = 0; ty < m.h; ty++) for (let tx = 0; tx < m.w; tx++) {
+        const c = m.ch(tx, ty);
+        if (c === 'D') {
+          const ext = [[1, 0], [0, 1], [-1, 0], [0, -1]].find(([dx, dy]) => { const n = m.ch(tx + dx, ty + dy); return n === '.' || n === 'x' || n === '~'; }) || [0, 1];
+          push(fj ? 'fort_wall' : 'palisade', tx + 0.5, ty + 0.5, Math.atan2(ext[0], ext[1]), 1);
+        } else if (c === 'x') {
+          const h = hash(tx * 1.9 + 3, ty * 2.3 - 1), edge = tx < 3 || ty < 3 || tx >= m.w - 3 || ty >= m.h - 3;
+          if (h < (edge ? 0.8 : fj ? 0.34 : 0.22)) { const id = fj ? (h < 0.2 ? 'rocks' : hash(tx, ty) < 0.5 ? 'tree_fir_blue' : 'tree_pine_tall') : pickTree(h > 0.3 ? 'tree_1' : 'tree_0', hash(tx * 2.1, ty * 1.3 + 5)); push(id === 'rocks' ? id : id + '_far', tx + 0.2 + hash(tx, ty + 9) * 0.6, ty + 0.2 + hash(ty, tx + 4) * 0.6, h * 40, id === 'rocks' ? 1.2 + h : 1.0 + hash(ty, tx) * 0.65); }
+        }
+      }
     }
     if (dungeon) for (const w of wallPieces(zone)) push(w.id === 'dwall_lo' ? 'dwall_lo' : w.v < 0.62 ? 'dwall_hi' : w.v < 0.86 ? 'dwall_buttress' : 'dwall_niche', w.x, w.y, w.rot, 1);
-    if (wantBackdrop && !dungeon) {  // лес за краем карты
+    if (wantBackdrop && open) {  // лес за краем карты
       const m = zone.map, G = 3.4, ring = 11;
       for (let y = -ring; y < m.h + ring; y += G) for (let x = -ring; x < m.w + ring; x += G) {
         if (x > -1.5 && y > -1.5 && x < m.w + 1.5 && y < m.h + 1.5) continue;
         const h = hash(x + 3, y - 7); if (h > 0.7) continue;
-        push(pickTree(h > 0.4 ? 'tree_1' : 'tree_0', hash(x * 2.3, y * 1.1 + 5)) + '_far', x + (hash(x, y) - 0.5) * 2, y + (hash(y, x) - 0.5) * 2, h * 6.28, 1 + hash(x * 2, y) * 0.6);
+        push((fj ? (hash(x * 2.3, y * 1.1 + 5) < 0.5 ? 'tree_fir_blue' : 'tree_pine_tall') : pickTree(h > 0.4 ? 'tree_1' : 'tree_0', hash(x * 2.3, y * 1.1 + 5))) + '_far', x + (hash(x, y) - 0.5) * 2, y + (hash(y, x) - 0.5) * 2, h * 6.28, 1 + hash(x * 2, y) * 0.6);
       }
     }
-    if (wantBackdrop && !dungeon) this.scatterDecor(zone, push);
+    if (wantBackdrop && open) this.scatterDecor(zone, push, fj);
     for (const [id, list] of lists) {
       const def = PROPS[id];
       if (def.batch) this.addBatch(def, list); else for (const it of list) this.addSingle(def, it);
@@ -62,7 +81,7 @@ export class PropLayer {
   }
   // Декор земли по карте: папоротники и кусты у кромки леса, цветы пятнами в траве, камешки у троп, грибы под деревьями.
   // Каждому предмету — порог качества q: на низком качестве остаётся только часть (QUALITY.decor).
-  scatterDecor(zone, push) {
+  scatterDecor(zone, push, fj) {
     const m = zone.map, ch = (x, y) => m.ch(Math.floor(x), Math.floor(y));
     const near = (x, y, c, r) => { for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) if (ch(x + dx, y + dy) === c) return true; return false; };
     const clear = (x, y, r) => {
@@ -79,7 +98,7 @@ export class PropLayer {
       const spots = [['barrel', hx + 0.45, -hz * 0.55], ['crate', hx + 0.5, -hz * 0.1], ['sacks', -hx * 0.75, hz + 0.45], ['logpile', hx + 0.42, hz * 0.55], ['barrel', hx * 0.55, hz + 0.45]];
       spots.forEach(([id, ox, oz], i) => { if (hash(d.x + i, d.y - i) < 0.72) { push(id, d.x + ox, d.y + oz, id === 'logpile' ? Math.PI / 2 : h * 6.28 + i, 0.9 + h * 0.2); this.lastPushedQ(id, 0.2 + i * 0.1); } });
     }
-    const S = 0.85;
+    const S = zone.id === 'wild' ? 1.25 : 0.85;
     for (let y = -3; y < m.h + 3; y += S) for (let x = -3; x < m.w + 3; x += S) {
       const h1 = hash(x * 1.7 + 11, y * 1.3 - 5), h2 = hash(y * 2.1 - 3, x * 0.7 + 9), h3 = hash(x + y * 3.1, x * 2.3), px = x + (h2 - 0.5) * S, py = y + (h3 - 0.5) * S;
       const c = ch(px, py), q = hash(px * 3.3, py * 5.1), rot = h1 * 6.283;
@@ -97,6 +116,7 @@ export class PropLayer {
         else if (h1 < 0.035) id = 'pebbles';
         else if (h1 < 0.06) id = 'fern';
       }
+      if (fj && (id === 'fern' || id === 'flowers' || id === 'bush' || id === 'mushrooms' || id === 'stump')) id = h1 < 0.4 ? 'pebbles' : null;
       if (id) { push(id, px, py, rot, sc); this.lastPushedQ(id, q); }
     }
   }

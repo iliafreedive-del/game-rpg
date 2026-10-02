@@ -27,6 +27,16 @@ import axe_hand from './models/weapon/axe_hand.js';
 import club_giant from './models/weapon/club_giant.js';
 import staff_ice from './models/weapon/staff_ice.js';
 import staff_root from './models/weapon/staff_root.js';
+import fort_wall from './models/prop/fort_wall.js';
+import palisade from './models/prop/palisade.js';
+import fort_tower from './models/prop/fort_tower.js';
+import watchtower from './models/prop/watchtower.js';
+import fort_gate_i from './models/prop/fort_gate_i.js';
+import fort_gate_w from './models/prop/fort_gate_w.js';
+import fort_hall_i from './models/prop/fort_hall_i.js';
+import fort_hall_w from './models/prop/fort_hall_w.js';
+import tent_i from './models/prop/tent_i.js';
+import tent_w from './models/prop/tent_w.js';
 import npc_elder from './models/npc/npc_elder.js';
 import npc_smith from './models/npc/npc_smith.js';
 import npc_merchant from './models/npc/npc_merchant.js';
@@ -110,7 +120,7 @@ export const HEROES = by(warrior);                       // ключ — кла�
 export const MOBS = by(skel_warrior, ghoul, skel_archer, skel_mage, beast, elite_guard, boss, f_draugr, f_berserk, f_hag, f_jotun, f_jarl, w_poacher, w_leshy, w_ataman, f_wolf, w_wolf, w_boar, w_bear, f_boss, w_boss);             // ключ — тип врага (ENEMIES)
 export const NPCS = by(npc_elder, npc_smith, npc_merchant, npc_trainer);
 export const WEAPONS = by(axe_hand, club_giant, staff_ice, staff_root, sword_iron, shield_round, sword_rust, shield_bone, bow_bone, staff_bone, axe_great);
-export const PROPS = by(tree_0, tree_1, tree_birch, tree_autumn, tree_elm, tree_pine_tall, tree_fir_blue, deadtree, house_0, house_1, house_2, rocks, grave, fence_x, fence_y, barrel, crate, hay, lamp, runebed, forge, stall, board, altar, banner, statue, weapon_rack, crystals, portal,
+export const PROPS = by(fort_wall, palisade, fort_tower, watchtower, fort_gate_i, fort_gate_w, fort_hall_i, fort_hall_w, tent_i, tent_w, tree_0, tree_1, tree_birch, tree_autumn, tree_elm, tree_pine_tall, tree_fir_blue, deadtree, house_0, house_1, house_2, rocks, grave, fence_x, fence_y, barrel, crate, hay, lamp, runebed, forge, stall, board, altar, banner, statue, weapon_rack, crystals, portal,
   fern, flowers, pebbles, mushrooms, bush, sacks, logpile, stump,
   dwall_hi, dwall_lo, dwall_buttress, dwall_niche, wall_block, torch_sconce, pillar, brazier, bones, skulls, rubble, candles, chest, chest_open, chest_rich, chest_rich_open, sarcophagus, sarcophagus_open, door, door_open, gate_sealed, altar_medallion, stalagmite, lavarock, puddle, rug, bookshelf, throne, well);   // подземелье (стены dwall_* ставит dungeon.js по тайлам)   // последние восемь — декор земли и хлам у домов (js/render3d/props.js, scatterDecor), в картах не стоят
 

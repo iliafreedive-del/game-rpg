@@ -6,6 +6,21 @@ export function beastModel(kit, C = {}) {
     const { clamp, smooth, lerp } = rig;
     const FUR = C.fur ?? 0x3a3430, FURL = C.furL ?? 0x7a6a58, SKIN = C.skin ?? 0x5a4a44, BONE = MOB.bone, BONE_D = MOB.boneD, EYE = C.eye ?? MOB.ghoulEye, F = { top: FURL, tex: 'cloth' };
     const LEAN = C.lean ?? 1, HUMP = C.hump ?? 1, SNOUT = C.snout ?? 1, SC = C.scale ?? 1;
+    // --- шерсть: клочья-конусы по поверхности эллипсоидов (кончик светлее), наклонены назад по ходу роста шерсти
+    const RN = kit.geo.rng(C.seed ?? 7), FLEN = C.furLen ?? 0.2, FDENS = C.furDens ?? 1, FST = C.furStiff ?? 1.15;
+    const _q = new THREE.Quaternion(), _e = new THREE.Euler(), _u = new THREE.Vector3(0, 1, 0), _d = new THREE.Vector3();
+    function tufts(c, rad, n, len = FLEN, opt = {}) {
+      const o = [];
+      for (let i = 0; i < Math.round(n * FDENS); i++) {
+        const u = RN() * 6.283, v = (opt.up ? RN() * 0.9 : RN() * 2 - 1) * (opt.belly ? 1 : 1), z = Math.sqrt(1 - v * v) * 1;
+        let nx = Math.cos(u) * z, ny = opt.noBelly ? Math.abs(v) * 0.9 + 0.1 : v, nz = Math.sin(u) * z;
+        if (opt.noBelly) { const t = nx; nx = Math.cos(u) * Math.sqrt(1 - ny * ny); nz = Math.sin(u) * Math.sqrt(1 - ny * ny); }
+        _d.set(nx * 0.55 * (opt.out ?? 1), ny * 0.55 + 0.05, nz - FST).normalize(); _q.setFromUnitVectors(_u, _d); _e.setFromQuaternion(_q);
+        const L = len * (0.8 + RN() * 0.7), W = 0.06 + L * 0.4;
+        o.push(part(new THREE.ConeGeometry(W, L, 4), (i & 1) ? FUR : SKIN === FUR ? FUR : FUR, [c[0] + nx * rad[0], c[1] + ny * rad[1], c[2] + nz * rad[2]], [_e.x, _e.y, _e.z], 1, { top: i % 3 ? FURL : (C.tipC ?? FURL), tex: 'cloth' }));
+      }
+      return o;
+    }
     const mat = kit.mat({ rim: MOB.rim, rimColor: C.rim ?? 0xffd0a0 });
     const M = g => new THREE.Mesh(g, mat);
     const root = new THREE.Group(), { spin, body: rg } = pivot(root, 0.7);
@@ -19,9 +34,19 @@ export function beastModel(kit, C = {}) {
       ...[-1, 1].flatMap(sx => [0, 1, 2].map(i => kit.tube([[sx * 0.4, 0.25 - i * 0.1, 0.55 - i * 0.12], [sx * 0.62, 0.2 - i * 0.1, 0.5 - i * 0.12]], 0.05, 0.01, FUR, F, 4))),
     ])));
     if (C.spikes) body.add(M(merge([0, 1, 2, 3].map(i => part(new THREE.ConeGeometry(0.06, 0.28 - i * 0.03, 5), C.spikes, [(i % 2 - 0.5) * 0.2, 0.62 - i * 0.06, 0.45 - i * 0.28], [0, 0, (i % 2 - 0.5) * 0.6], 1, { top: 0xffffff, emit: true })))));
+    body.add(M(merge([
+      ...tufts([0, 0.12 * HUMP, 0.35], [0.62 * 0.95 * LEAN, 0.62 * 0.95 * (0.7 + 0.3 * HUMP), 0.62 * 1.05], 70, FLEN, { noBelly: true }),
+      ...tufts([0, -0.02, -0.45], [0.48 * 0.9 * LEAN, 0.48 * 0.85, 0.48 * 1.1], 46, FLEN * 0.9, { noBelly: true }),
+      // загривок: длинный гребень шерсти по хребту; у вепря — жёсткая щетина
+      ...Array.from({ length: 12 }, (_, i) => part(new THREE.ConeGeometry(0.06 + FLEN * 0.15, FLEN * (0.9 + (i < 5 ? 0.5 : 0)), 4), C.mane ?? FUR, [(RN() - 0.5) * 0.14, 0.62 * (0.7 + 0.3 * HUMP) + 0.12 * HUMP + 0.02 - i * 0.012, 0.7 - i * 0.14], [-0.9 - RN() * 0.3, 0, (RN() - 0.5) * 0.3], 1, { top: C.maneL ?? FURL, tex: 'cloth' })),
+      // воротник-грива вокруг шеи
+      ...tufts([0, 0.15, 0.78], [0.3 * LEAN, 0.3, 0.2], 26, FLEN * 1.3, { noBelly: false }),
+    ])));
     const tail = group([0, 0.0, -0.9], body);
     tail.add(M(merge([kit.tube([[0, 0, 0], [0, -0.1, -0.35], [0, -0.3, -0.65], [0, -0.35, -0.9]], C.bushy ? 0.17 : 0.12, C.bushy ? 0.06 : 0.03, FUR, F, 6), part(new THREE.ConeGeometry(0.06, 0.2, 4), BONE, [0, -0.35, -0.95], [-1.8, 0, 0])])));
+    tail.add(M(merge(Array.from({ length: C.bushy ? 22 : 8 }, (_, i) => { const t = i / (C.bushy ? 22 : 8); return part(new THREE.ConeGeometry(0.06 + FLEN * 0.2, FLEN * 1.5, 4), FUR, [(RN() - 0.5) * 0.12, -0.1 - t * 0.28 + (RN() - 0.5) * 0.1, -0.1 - t * 0.85], [-1.4, (RN() - 0.5), (RN() - 0.5) * 1.2], 1, { top: FURL, tex: 'cloth' }); }))));
     const head = group([0, 0.15, 0.95], body);
+    head.add(M(merge([...[-1, 1].flatMap(sx => [0, 1, 2].map(i => part(new THREE.ConeGeometry(0.05 + FLEN * 0.12, FLEN * 1.2, 4), FUR, [sx * (0.22 + i * 0.02), -0.02 - i * 0.05, 0.05 - i * 0.07], [0.3, 0, sx * (1.0 + i * 0.2)], 1, { top: FURL, tex: 'cloth' }))), ...tufts([0, 0.08, 0.05], [0.28, 0.24, 0.3], 14, FLEN * 0.7, { up: true })])));
     const jaw = group([0, -0.12, 0.05], head);
     head.add(M(merge([
       part(new THREE.SphereGeometry(0.32, 12, 9), FUR, [0, 0.05, 0.1], 0, [1, 0.85, 1.15], F),
@@ -42,6 +67,7 @@ export function beastModel(kit, C = {}) {
       const k = group([0, -0.45, front ? 0.05 : -0.05], g);
       k.add(M(merge([part(new THREE.CylinderGeometry(0.1, 0.08, 0.45, 8), SKIN, [0, -0.22, 0], 0, 1, { top: FUR }), kit.bbox(0.22, 0.1, 0.26, 0.04, SKIN, [0, -0.47, 0.05], 0, { top: FUR }),
         ...[-0.07, 0, 0.07].map(cx => part(new THREE.ConeGeometry(0.02, 0.1, 4), BONE, [cx, -0.48, 0.2], [Math.PI / 2, 0, 0]))])));
+      g.add(M(merge(tufts([0, -0.15, 0], [front ? 0.24 : 0.2, 0.3, front ? 0.24 : 0.2], front ? 14 : 12, FLEN * 0.9)))); k.add(M(merge([...Array.from({ length: 8 }, (_, i) => part(new THREE.ConeGeometry(0.04 + FLEN * 0.1, FLEN * 1.1, 4), FUR, [Math.cos(i * 0.8) * 0.09, -0.08 - (i % 4) * 0.08, Math.sin(i * 0.8) * 0.09 - 0.02], [-0.4, 0, Math.cos(i * 0.8) * 0.5], 1, { top: FURL, tex: 'cloth' }))])));
       g.knee = k; return g;
     };
     const FL = leg(0.38, 0.5, true), FR = leg(-0.38, 0.5, true), BL = leg(0.32, -0.55, false), BR = leg(-0.32, -0.55, false);
