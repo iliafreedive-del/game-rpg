@@ -3,7 +3,7 @@ import { G, bus } from './game/ctx.js';
 import { loadGroup, getAtlas } from './core/assets.js';
 import { initInput, initMouse, input } from './core/input.js';
 import { initAudio, sfx, startMusic, setVolumes, setPaused } from './core/audio.js';
-import { initRenderer, render, resize } from './render/renderer.js';
+import { initRenderer, render, resize } from './render/index.js';
 import { newProfile, loadLocal, migrate } from './game/save.js';
 import { stats } from './game/stats.js';
 import { initQuests } from './game/quests.js';
@@ -26,7 +26,7 @@ export const CLASS_ATLAS = { warrior: ['hero_body', 'hero_sword', 'hero_axe', 'h
 const MONSTERS = ['skel_warrior', 'skel_archer', 'skel_mage', 'ghoul', 'beast', 'elite', 'boss'];
 
 async function boot() {
-  initRenderer($('game'));
+  await initRenderer($('game'));
   initAudio(); bus.on('sfx', sfx); bus.on('audioPause', p => setPaused(p));
   const bar = $('loadbar').firstElementChild, txt = $('loadtxt');
   const prog = (f, t) => { bar.style.width = Math.round(f * 100) + '%'; txt.textContent = t; };

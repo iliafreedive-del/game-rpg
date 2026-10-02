@@ -9,8 +9,8 @@ import * as SV from '../game/survival.js';
 
 let cv, ctx, lightCv, lctx, W = 0, H = 0, DPR = 1;
 const floorImgs = new Map();
-export function initRenderer(canvas) {
-  cv = canvas; ctx = cv.getContext('2d', { alpha: false });
+export function initRenderer(canvas, o = {}) {
+  cv = canvas; ctx = cv.getContext('2d', { alpha: !!o.overlay });   // overlay: холст должен быть прозрачным, когда под ним рисует 3D (js/render/index.js)
   lightCv = document.createElement('canvas'); lctx = lightCv.getContext('2d');
   resize();
   const later = () => { resize(); window.scrollTo(0, 0); };
@@ -159,6 +159,17 @@ export function render() {
   drawEffects(); drawParticles(); drawBlades();
   drawBars(); drawPickupLabels(); drawPlates(); drawTexts(); drawInteractMarker();
 }
+
+// Всё, что 3D-рендерер не рисует сам: эффекты, снаряды, телеграфы, полоски, подписи, цифры. Холст прозрачный, проекция — G.cam.proj.
+export function renderOverlay() {
+  if (!G.zone) return;
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0); ctx.clearRect(0, 0, W, H);
+  drawGroundFx(); drawTelegraphs(); drawGuide(); drawPickupsGround();
+  drawProjectiles(false); drawProjectiles(true);
+  drawEffects(); drawParticles(); drawBlades();
+  drawBars(); drawPickupLabels(); drawPlates(); drawTexts(); drawInteractMarker();
+}
+export function clearOverlay() { if (ctx) { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height); } }
 
 // ---------------------------------------------------------------- characters
 function heroLayers(P) {

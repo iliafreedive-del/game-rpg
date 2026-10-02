@@ -44,7 +44,8 @@ js/data/                 — items, skills, enemies, quests (все игровы
 js/world/                — map (коллизии, линия видимости, поиск пути), zone (сборка уровня из JSON)
 js/game/                 — ctx (контекст+шина событий), entities (герой, враги+ИИ, NPC), combat, loot,
                            quests, economy, character, stats, items, save (версии+миграции), game (оркестрация)
-js/render/renderer.js    — пол, сортировка по глубине, прозрачность стен у героя, освещение, эффекты
+js/render/renderer.js    — 2D: пол, сортировка по глубине, прозрачность стен у героя, освещение, эффекты (index.js выбирает 2D или 3D)
+js/render3d/             — 3D: рендерер, актёры, слой окружения, земля, модели (docs/MODEL_SPEC.md)
 js/ui/                   — hud (панели, кнопки, мини-карта), windows (окна), icons
 js/platform/             — platform (Яндекс/демо), monetize (реклама, покупки, ежедневки)
 assets/maps              — уровни (JSON) и запечённый пол
@@ -63,5 +64,8 @@ cd ../level && python3 levels.py && python3 bake.py
 ```
 Нужны Python 3.10+, numpy, Pillow. Полная сборка ~40 минут на одном ядре.
 
+## 3D-отрисовка (идёт перенос)
+По умолчанию деревня и герой-воин рисуются в 3D (Three.js, стиль torch-вида), остальное — прежней 2D-отрисовкой. Принудительно старая графика: добавьте к адресу `?render=2d`. План и состояние: `docs/RENDER3D_PLAN.md`, формат моделей для всего контента: `docs/MODEL_SPEC.md`, проверка моделей: `node tools/check_models.mjs`. Код — `js/render3d/`, выбор отрисовки — `js/render/index.js`.
+
 ## Прототип 3D-графики (Three.js)
-`lab/three/` — демо-сцена в стилизованном 3D: трава и деревья на ветру, плащ на физике, чиби-герой и мобы. Запуск и план переноса в игру описаны в `lab/three/README.md`, обоснование стиля — в `docs/GRAPHICS_STYLE.md`. В архив для Яндекс Игр папки `lab/`, `docs/` и `tools/` не включаются.
+`lab/three/` — демо-сцена в стилизованном 3D: трава и деревья на ветру, плащ на физике, чиби-герой и мобы. Запуск и план переноса в игру описаны в `lab/three/README.md`, обоснование стиля — в `docs/GRAPHICS_STYLE.md`. В архив для Яндекс Игр папки `lab/`, `docs/` и `tools/` не включаются; `js/render3d/` и `js/vendor/` (three.js, ≈ 0,7 МБ) входят в сборку.

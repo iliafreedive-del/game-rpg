@@ -4,14 +4,16 @@ export const PX_PER_M = 45.2548;               // sprite pixels-per-metre at zoo
 export const Z_PX = 0.8660 * PX_PER_M;         // vertical px per metre of height (cos 30°)
 
 export class Camera {
-  constructor() { this.x = 0; this.y = 0; this.zoom = 1; this.w = 800; this.h = 450; this.shake = 0; this.sx = 0; this.sy = 0; }
+  constructor() { this.x = 0; this.y = 0; this.zoom = 1; this.w = 800; this.h = 450; this.shake = 0; this.sx = 0; this.sy = 0; this.proj = null; }   // proj: внешняя проекция (3D-рендерер подставляет свою, см. js/render3d)
   // world -> screen (CSS px)
   toScreen(x, y, z = 0) {
+    if (this.proj) return this.proj.toScreen(x, y, z);
     const s = this.zoom;
     return [((x - y) - (this.x - this.y)) * 32 * s + this.w / 2 + this.sx,
             ((x + y) - (this.x + this.y)) * 16 * s + this.h / 2 - z * Z_PX * s + this.sy];
   }
   toWorld(sx, sy) {
+    if (this.proj) return this.proj.toWorld(sx, sy);
     const s = this.zoom;
     const a = (sx - this.w / 2 - this.sx) / (32 * s), b = (sy - this.h / 2 - this.sy) / (16 * s);
     const cx = this.x - this.y, cy = this.x + this.y;
