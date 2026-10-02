@@ -105,7 +105,7 @@ export async function loadZone(id, how = {}) {
     const portal = zone.inter.find(i => i.id === (how.from === 'wild' ? 'portal_' + how.realm : 'portal_town')) || zone.inter.find(i => i.id === 'portal_town');
     [pl.x, pl.y] = from ? [portal.x + 1.2, portal.y + 1.6] : zone.start; pl.face = pl.dir = 1;
     for (const n of zone.json.npcs) G.npcs.push(new NPC({ ...n }));
-    await loadGroup(zone.json.npcs.map(n => 'npc_' + n.id)).catch(() => { });
+    await loadGroup(zone.json.npcs.filter(n => !G.render3d || n.id !== 'fortune').map(n => 'npc_' + (n.id === 'fortune' ? 'merchant' : n.id))).catch(() => { });
   } else if (id === 'survival') {
     [pl.x, pl.y] = zone.start; pl.face = pl.dir = 1;
   } else if (id === 'castle') {
