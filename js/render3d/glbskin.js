@@ -40,7 +40,7 @@ export const skinLoaded = name => data.has(name);
 const _q = new THREE.Quaternion(), _qi = new THREE.Quaternion(), _m = new THREE.Matrix4(), _inv = new THREE.Matrix4();
 // повороты костей относительно корня модели
 function worldQ(o, root, out) { _inv.copy(root.matrixWorld).invert(); _m.multiplyMatrices(_inv, o.matrixWorld); _m.decompose(_v, out, _s); return out; }
-const _v = new THREE.Vector3(), _s = new THREE.Vector3();
+const _v = new THREE.Vector3(), _s = new THREE.Vector3(), _d = new THREE.Vector3(), _u = new THREE.Vector3(), _t = new THREE.Vector3(), _qc = new THREE.Quaternion();
 
 /**
  * Надеть шкуру name на построенную процедурную модель героя (model из heroModel). o: { rim, rimColor, noEquip: ['handL'], legK }
@@ -73,9 +73,20 @@ export function attachSkin(kit, model, name, o = {}) {
   const idleQ = new Map(), idleP = new Map(), restP = new Map();
   for (const [b, p] of map) { idleQ.set(b, worldQ(p, root, new THREE.Quaternion()).invert()); idleP.set(b, p.position.clone()); restP.set(b, b.position.clone()); }
   const legK = o.legK ?? 1, wq = new Map();
+  const bowHand = o.bowHand ? byName[o.bowHand] : null, armDir = new THREE.Vector3(...at.elL).sub(new THREE.Vector3(...at.armL)).normalize();
   // копирование движения: Wнов = Wтек · Wпокоя⁻¹ (в пространстве корня), локальный = Wнов(родитель)⁻¹ · Wнов
   function sync() {
     for (const [b, p] of map) wq.set(b, worldQ(p, root, new THREE.Quaternion()).multiply(idleQ.get(b)));
+    // лук в руке: в покое висит вдоль руки; когда рука поднята вперёд (прицел), кисть доворачивает лук вертикально
+    // (поперёк руки, как у настоящего лучника), иначе он ложится горизонтально над головой. Вертикаль — в системе оси кувырка.
+    if (bowHand) {
+      const wa = wq.get(byName.armL), wh = wq.get(bowHand), wsp = wq.get(byName.spin);
+      const f = Math.min(1, Math.max(0, (_d.copy(armDir).applyQuaternion(wa).y + 0.6) / 0.6)), ff = f * f * (3 - 2 * f);
+      if (ff > 0.001) {
+        _u.set(0, 1, 0).applyQuaternion(wh); _t.set(0, 1, 0).applyQuaternion(wsp);
+        _qc.setFromUnitVectors(_u, _t); _q.identity().slerp(_qc, ff); wh.premultiply(_q);
+      }
+    }
     for (const [b, p] of map) {
       const w = wq.get(b), pw = b.parent && wq.get(b.parent);
       b.quaternion.copy(pw ? _qi.copy(pw).invert().multiply(w) : w);

@@ -32,7 +32,7 @@ RIGS = {
     },
     # правила для отдельных кусков меша (по рамке куска в метрах): первое подходящее
     'parts': [
-      ('лук', lambda lo, hi: lo[0] > 0.55 and lo[2] > 0.3, ['handL']),
+      ('лук', lambda lo, hi: lo[0] > 0.4 and lo[2] > 0.3, ['handL']),   # плечи, рукоять, тетива и обмотки — всё спереди слева от тела
       ('плащ и колчан', lambda lo, hi: hi[2] < -0.05 and hi[1] > 1.4, ['torso']),
       ('штаны', lambda lo, hi: hi[1] < 1.15 and lo[1] > 0.35 and lo[0] < -0.3 and hi[0] > 0.3, ['hips', 'legL', 'legR', 'kneeL', 'kneeR']),
       ('сапог Л', lambda lo, hi: hi[1] < 0.55 and lo[0] > -0.05, ['kneeL', 'footL']),
