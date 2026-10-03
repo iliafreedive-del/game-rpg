@@ -70,6 +70,7 @@ export function buildMob(kit, name, o = {}) {
   const legs = Object.keys(B).filter(n => /leg/i.test(n)).map(n => B[n]), tail = Object.keys(B).filter(n => /tail/i.test(n)).map(n => B[n]);
   const head = B.head || B.Head, chest = B.chest || B.Chest || B.spine, hips = B.Hips || B.hips;
   const rest = new Map(); for (const b of Object.values(B)) rest.set(b, b.quaternion.clone());
+  const touched = [...new Set([...legs, ...tail, head, chest].filter(Boolean))], clean = new Map(touched.map(b => [b, b.quaternion.clone()]));
   const speed0 = o.speed0 ?? H * 1.1, runAt = o.run ?? H * 2.2;
   let ph = Math.random(), lastSp = 0;
 
@@ -78,8 +79,12 @@ export function buildMob(kit, name, o = {}) {
     const runK = clamp((sp - runAt * 0.75) / (runAt * 0.5));
     if (sp > 0.2) ph = ((ph + a.dt * sp / (speed0 * (1 + runK * 0.6)) / durW * (run ? lerp(1, durW / durR, runK) : 1)) % 1 + 1) % 1;
     const mv = clamp(sp / (speed0 * 0.5));
+    // микшер three.js пишет кость, только если значение клипа изменилось: на месте (атака, рёв, удар) он молчит, и наши добавки
+    // копились бы каждый кадр (голова уходила под живот). Поэтому сначала возвращаем кости к чистому кадру клипа
+    for (const [b, q] of clean) b.quaternion.copy(q);
     walk.time = ph * durW; walk.weight = run ? 1 - runK : 1; if (run) { run.time = ph * durR; run.weight = runK; }
     mixer.update(0);
+    for (const b of touched) clean.get(b).copy(b.quaternion);
     // стоит — ноги из первого кадра ходьбы, смешанные с позой покоя; бег без клипа — шаг шире (экстраполяция от покоя)
     const amp = mv * (run ? 1 : 1 + runK * 0.45);
     if (amp !== 1) for (const l of legs) l.quaternion.copy(_q.copy(rest.get(l)).slerp(l.quaternion, amp));
@@ -99,9 +104,10 @@ export function buildMob(kit, name, o = {}) {
     idle: a => pose(a, 0),
     walk: a => pose(a, a.speed),
     // атака хищника: присесть и отпрянуть назад (замах), рывок вперёд с опущенной головой (укус), возврат
-    attack: a => { const q = a.k ?? 0, w = smooth(q / 0.4) * (1 - smooth((q - 0.42) / 0.08)), l = smooth((q - 0.42) / 0.12) * (1 - smooth((q - 0.6) / 0.4)); pose(a, 0, l - w * 0.35, 0, -l * 0.45 + w * 0.2); },
+    attack: a => { const q = a.k ?? 0, w = smooth(q / 0.4) * (1 - smooth((q - 0.42) / 0.08)), l = smooth((q - 0.42) / 0.12) * (1 - smooth((q - 0.6) / 0.4)); pose(a, 0, l - w * 0.35, 0, -l * 0.12 + w * 0.15); },
     hit: a => pose(a, 0, 0, 0, 0, 1 - (a.k ?? 1)),
-    cast: a => { const q = a.k ?? 0; pose(a, 0, 0, smooth(q / 0.3) * (1 - smooth((q - 0.75) / 0.25)), smooth(q / 0.4) * (1 - smooth((q - 0.8) / 0.2))); },
+    // рёв/вой: голова вверх, корпус чуть назад, лапы на земле (на дыбы — передние лапы торчат вперёд, волку не идёт)
+    cast: a => { const q = a.k ?? 0, h = smooth(q / 0.35) * (1 - smooth((q - 0.8) / 0.2)); pose(a, 0, -0.12 * h, 0, h * 1.6); },
     death: a => { const e = smooth(Math.min(1, (a.k ?? 1) / 0.7)); pose(a, 0, 0, 0, 0, 0.3); spin.rotation.z = Math.PI / 2 * 0.95 * e; spin.position.y = lerp(H * 0.45, H * 0.2, e); turn(head, root, X, 0.4 * e); },
   };
   return {

@@ -2588,7 +2588,8 @@ class GLTFParser {
 
 		}
 
-		if ( typeof createImageBitmap === 'undefined' || ( isSafari && safariVersion < 17 ) || ( isFirefox && firefoxVersion < 98 ) ) {
+		// Dark Ascent: всегда TextureLoader (картинка через <img>): ImageBitmapLoader читает blob через fetch, а его режут строгие CSP (просмотр-артефакт) — волк был белым
+		if ( true || typeof createImageBitmap === 'undefined' || ( isSafari && safariVersion < 17 ) || ( isFirefox && firefoxVersion < 98 ) ) {
 
 			this.textureLoader = new TextureLoader( this.options.manager );
 
