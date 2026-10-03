@@ -12,6 +12,7 @@ from PIL import Image
 
 # локти — выше края перчатки (у этой модели короткое плечо): иначе рука «ломается» на перчатке
 # кости — порядок важен (индексы в skinIndex); parent — по иерархии _hero.js; at — сустав в метрах (координаты модели после масштаба)
+PURPLE = lambda c: c[2] > 0.22 and c[2] > c[1] * 1.45 and c[0] > c[1] * 1.05   # фиолетовая ткань (плащ, табард)
 RIGS = {
   'archer_raven': {
     'height': 2.3,
@@ -40,6 +41,34 @@ RIGS = {
       ('штаны', lambda lo, hi: hi[1] < 1.15 and lo[1] > 0.35 and lo[0] < -0.3 and hi[0] > 0.3, ['hips', 'legL', 'legR', 'kneeL', 'kneeR']),
       ('сапог Л', lambda lo, hi: hi[1] < 0.55 and lo[0] > -0.05, ['kneeL', 'footL']),
       ('сапог П', lambda lo, hi: hi[1] < 0.55 and hi[0] < 0.05, ['kneeR', 'footR']),
+    ],
+    'blend': 0.05,
+  },
+  # воин «Violet Vanguard» (Meshy): рост с рогами 2.4 м, пропорции обычные; меч, щит и плащ — одним куском с телом
+  'warrior_vanguard': {
+    'height': 2.4,
+    'bones': [
+      ('spin', None, [0, 0.9, 0]), ('body', 'spin', [0, 0, 0]), ('hips', 'body', [0, 1.2, 0]), ('torso', 'hips', [0, 1.2, 0]),
+      ('head', 'torso', [0, 1.9, 0]),
+      ('armL', 'torso', [0.38, 1.7, 0]), ('elL', 'armL', [0.455, 1.39, 0]), ('handL', 'elL', [0.53, 1.14, 0.06]),
+      ('armR', 'torso', [-0.38, 1.7, 0]), ('elR', 'armR', [-0.455, 1.39, 0]), ('handR', 'elR', [-0.505, 1.05, 0.04]),
+      ('legL', 'body', [0.152, 1.1, 0]), ('kneeL', 'legL', [0.164, 0.57, 0.02]), ('footL', 'kneeL', [0.177, 0.165, 0.0]),
+      ('legR', 'body', [-0.152, 1.1, 0]), ('kneeR', 'legR', [-0.164, 0.57, 0.02]), ('footR', 'kneeR', [-0.177, 0.165, 0.0]),
+    ],
+    'segs': {
+      'hips': ([0, 1.02, 0], [0, 1.3, 0], 0.27), 'torso': ([0, 1.3, 0], [0, 1.88, 0], 0.32), 'head': ([0, 1.92, 0.02], [0, 2.3, 0.02], 0.25),
+      'armL': ([0.38, 1.7, 0], [0.455, 1.39, 0], 0.14), 'elL': ([0.455, 1.39, 0], [0.53, 1.14, 0.06], 0.12), 'handL': ([0.53, 1.14, 0.06], [0.55, 1.0, 0.08], 0.09),
+      'armR': ([-0.38, 1.7, 0], [-0.455, 1.39, 0], 0.14), 'elR': ([-0.455, 1.39, 0], [-0.505, 1.05, 0.04], 0.12), 'handR': ([-0.505, 1.05, 0.04], [-0.53, 0.92, 0.06], 0.09),
+      'legL': ([0.152, 1.1, 0], [0.164, 0.57, 0.02], 0.15), 'kneeL': ([0.164, 0.57, 0.02], [0.177, 0.165, 0], 0.13), 'footL': ([0.177, 0.15, 0], [0.177, 0.05, 0.22], 0.12),
+      'legR': ([-0.152, 1.1, 0], [-0.164, 0.57, 0.02], 0.15), 'kneeR': ([-0.164, 0.57, 0.02], [-0.177, 0.165, 0], 0.13), 'footR': ([-0.177, 0.15, 0], [-0.177, 0.05, 0.22], 0.12),
+    },
+    'parts': [],
+    'regions': [
+      ('меч', lambda p, c: p[0] < -0.53 and p[1] < 1.0, ['handR']),
+      ('край плаща у рук', lambda p, c: PURPLE(c) and c[2] > 0.42 and p[2] < 0.05 and p[1] >= 1.15, ['torso']),   # плащ не тянется за поднятой рукой
+      ('щит', lambda p, c: p[0] > 0.56 and 0.6 < p[1] < 1.65 and not (PURPLE(c) and c[2] > 0.42 and p[2] < 0.05), ['elL']),   # светло-фиолетовый сзади — край плаща, не щит
+      ('плащ и табард ниже пояса', lambda p, c: PURPLE(c) and p[1] < 1.15, ['hips']),
+      ('плащ на спине', lambda p, c: PURPLE(c) and p[2] < -0.12, ['torso']),
     ],
     'blend': 0.05,
   },
@@ -112,6 +141,16 @@ def main(src, name):
                 for i in np.where(m)[0]: allowed[i] = bl
                 log[nm] += int(m.sum()); break
     print('куски:', dict(log))
+    # области (для моделей одним куском): правило по точке (метры) и цвету текстуры под вершиной
+    if R.get('regions'):
+        W, H = img.size; px = np.asarray(img).astype(np.float32) / 255
+        col = px[np.clip((UV[:, 1] * H).astype(int), 0, H - 1), np.clip((UV[:, 0] * W).astype(int), 0, W - 1)]
+        rlog = collections.Counter()
+        for i in range(len(P)):
+            if allowed[i] is not None: continue
+            for nm, test, bl in R['regions']:
+                if test(P[i], col[i]): allowed[i] = bl; rlog[nm] += 1; break
+        print('области:', dict(rlog))
     segs = R['segs']; names = list(segs.keys())
     D = np.stack([seg_dist(P, *segs[n][:2]) - segs[n][2] for n in names], 1)   # «насколько глубоко внутри» кости
     SI = np.zeros((len(P), 4), np.uint8); SW = np.zeros((len(P), 4), np.float32)
