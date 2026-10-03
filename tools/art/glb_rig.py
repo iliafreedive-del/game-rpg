@@ -12,10 +12,11 @@ from PIL import Image
 
 # локти — выше края перчатки (у этой модели короткое плечо): иначе рука «ломается» на перчатке
 # кости — порядок важен (индексы в skinIndex); parent — по иерархии _hero.js; at — сустав в метрах (координаты модели после масштаба)
+STAFF_D = lambda p: ((p[0] + 0.534) ** 2 + (p[2] - (0.346 + 0.082 * (p[1] - 0.9))) ** 2) ** 0.5   # расстояние до оси посоха мага
 PURPLE = lambda c: c[2] > 0.22 and c[2] > c[1] * 1.45 and c[0] > c[1] * 1.05   # фиолетовая ткань (плащ, табард)
 RIGS = {
   'archer_raven': {
-    'height': 2.3, 'outHeight': 1.9,   # разметка — в росте 2.3, в игру — 1.9
+    'height': 2.3, 'outHeight': 1.9, 'cutBridges': False,   # разметка — в росте 2.3, в игру — 1.9; лук и плащ — отдельные куски, мостики не мешают
     'bones': [
       ('spin', None, [0, 0.8, 0]), ('body', 'spin', [0, 0, 0]), ('hips', 'body', [0, 0.874, 0]), ('torso', 'hips', [0, 0.874, 0]),
       ('head', 'torso', [0, 1.63, 0]),
@@ -98,7 +99,7 @@ RIGS = {
     'parts': [],
     'regions': [
       # посох: тонкий цилиндр вокруг древка и шире у навершия; фиолетовое ниже навершия — это мантия, не посох
-      ('посох', lambda p, c: p[1] < 1.86 and (((p[0] + 0.576) ** 2 + (p[2] - 0.367) ** 2) ** 0.5 < (0.06 if p[1] >= 1.74 else 0.17 if p[1] > 1.25 else 0.09)) and not (PURPLE(c) and p[1] < 1.25), ['handR']),
+      ('посох', lambda p, c: p[1] < 1.86 and STAFF_D(p) < (0.06 if p[1] >= 1.74 else 0.17 if p[1] > 1.25 else 0.075) and not (PURPLE(c) and p[1] < 1.25), ['handR']),   # ось посоха наклонная (подобрана по точкам древка)
       ('шляпа и голова', lambda p, c: p[1] > 1.5, ['head']),
       ('сапог Л', lambda p, c: p[1] <= 0.2 and p[0] > 0, ['footL']), ('сапог П', lambda p, c: p[1] <= 0.2 and p[0] <= 0, ['footR']),
       # мантия — по цвету (фиолетовое ниже пояса) и подол (низ) — за тазом; рукава и кисти не фиолетовые — остаются рукам
@@ -207,6 +208,20 @@ def main(src, name):
         wn = np.clip(1 - np.abs(y - mid) / half, 0, 1) ** 0.8
         SI[st, 0], SI[st, 1] = BI['nock'], BI['handL']; SW[st, 0], SW[st, 1] = wn, 1 - wn
     cnt = collections.Counter(bones[k] for k in SI[:, 0]); print('вершин по костям:', dict(cnt))
+    # «мостики»: Meshy сплавляет всё в одну сетку, и треугольник может соединять посох с подолом или локоть с рёбрами.
+    # Когда кости расходятся, такой треугольник тянется длинным клином. Убираем треугольники между костями,
+    # которые не соседи по суставу (сустав — родитель/ребёнок; таз, торс и бёдра — тоже соседи)
+    par = {b: p for b, p, _ in R['bones']}
+    adj = set()
+    for b, p in par.items():
+        if p: adj |= {(b, p), (p, b)}
+    for a, b in [('hips', 'legL'), ('hips', 'legR'), ('torso', 'legL'), ('torso', 'legR'), ('legL', 'legR')]: adj |= {(a, b), (b, a)}
+    dom = [bones[SI[i, int(np.argmax(SW[i]))]] for i in range(len(P))]
+    ok = lambda a, b: a == b or (a, b) in adj
+    keep = np.ones(len(T), bool) if not R.get('cutBridges', True) else np.array([ok(dom[a], dom[b]) and ok(dom[b], dom[c]) and ok(dom[a], dom[c]) for a, b, c in T])
+    br = collections.Counter(tuple(sorted({dom[a], dom[b], dom[c]})) for (a, b, c), k in zip(T, keep) if not k)
+    print('убрано мостиков:', int((~keep).sum()), dict(br.most_common(6)))
+    T = T[keep]
     # плоскость лука: «пузо» — от середины тетивы к рукояти (вершины лука на кисти, дальше всего от тетивы)
     if bowInfo:
         up = np.array(bowInfo['up']); mid = np.array(bowInfo['mid'])
