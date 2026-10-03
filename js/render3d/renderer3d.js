@@ -15,6 +15,7 @@ import { buildDungeonFloor } from './dungeon.js';
 import { glowSet } from './glow.js';
 import { HEROES, MOBS, NPCS, WEAPONS, WEAPON_MODEL, OFFHAND_MODEL } from './registry.js';
 import { LIGHT, CAMERA, QUALITY, SHADOW, HERO } from './style.js';
+import { SKINS, skinLoaded } from './glbskin.js';
 import { Post } from './post.js';
 
 const params = new URLSearchParams(location.search);
@@ -183,9 +184,15 @@ function getActor(key, def, o = {}) {
 }
 function flashOf(e) { return e.flash > 0 ? Math.min(1, e.flash * 8) : 0; }
 
+const HERO_SKIN = { archer: 'archer_raven' };   // класс → модель из assets/models (tools/art/glb_rig.py)
 function syncPlayer(dt) {
   const P = G.player; if (!P) return;
-  const cls = (G.profile && G.profile.cls) || 'warrior', a = getActor(P, HEROES[cls], { scale: HERO.scale });
+  const cls = (G.profile && G.profile.cls) || 'warrior';
+  // «Новые модели» (Настройки): готовая модель художника поверх рига (glbskin.js). Переключили или модель догрузилась — пересобрать героя
+  SKINS.on = !(G.profile && G.profile.settings && G.profile.settings.skins === false);
+  let a = getActor(P, HEROES[cls], { scale: HERO.scale });
+  const sk = HERO_SKIN[cls];
+  if (sk && !!a.model.skin !== SKINS.on && (!SKINS.on || skinLoaded(sk))) { a.dispose(); actors.delete(P); a = getActor(P, HEROES[cls], { scale: HERO.scale }); }
   const wt = P.weaponType(), key = wt + cls;
   if (a.gear !== key) { a.gear = key; const wm = WEAPONS[WEAPON_MODEL[wt] || 'sword_iron'], off = OFFHAND_MODEL[cls] ? WEAPONS[OFFHAND_MODEL[cls]] : null; if (wt === 'bow') { a.equip('handL', wm); a.equip('handR', null); } else { a.equip('handR', wm); a.equip('handL', off); } }
   const c = measure(a, P, dt), an = P.anim; let clip = 'idle', k, impact, speed = 0;

@@ -7,7 +7,7 @@ import * as THREE from '../vendor/three.module.min.js';
 import { toon, outline } from './toon.js';
 import { OUTLINE } from './style.js';
 
-export const SKINS = { on: false };     // переключатель (Настройки → «Новые модели»): false — процедурные модели
+export const SKINS = { on: true };     // переключатель (Настройки → «Новые модели»): false — процедурные модели
 const BASE = new URL('../../assets/models/', import.meta.url).href;
 const HAS_DOM = typeof document !== 'undefined';
 const data = new Map(), wait = new Map();

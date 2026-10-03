@@ -24,7 +24,7 @@ export function newProfile(cls = 'warrior') {
     ads: { used: {} }, iap: { tx: {} },
     shop: { seed: 1, refreshedAtLevel: 1, stock: [] },
     epicPity: 0, bossFirstKill: false, chapterDone: false,
-    settings: { sfx: 0.7, music: 0.5, shake: true, quality: 'auto' },
+    settings: { sfx: 0.7, music: 0.5, shake: true, quality: 'auto', skins: true },
     tutorial: {},
   };
   const g = makeStarterGear(cls);
