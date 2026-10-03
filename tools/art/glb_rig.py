@@ -16,7 +16,7 @@ STAFF_D = lambda p: ((p[0] + 0.534) ** 2 + (p[2] - (0.346 + 0.082 * (p[1] - 0.9)
 PURPLE = lambda c: c[2] > 0.22 and c[2] > c[1] * 1.45 and c[0] > c[1] * 1.05   # фиолетовая ткань (плащ, табард)
 RIGS = {
   'archer_raven': {
-    'height': 2.3, 'outHeight': 1.9, 'cutBridges': False,   # разметка — в росте 2.3, в игру — 1.9; лук и плащ — отдельные куски, мостики не мешают
+    'height': 2.3, 'outHeight': 1.9,   # разметка — в росте 2.3, в игру — 1.9; лук и плащ — отдельные куски, мостики не мешают
     'bones': [
       ('spin', None, [0, 0.8, 0]), ('body', 'spin', [0, 0, 0]), ('hips', 'body', [0, 0.874, 0]), ('torso', 'hips', [0, 0.874, 0]),
       ('head', 'torso', [0, 1.63, 0]),
@@ -208,7 +208,7 @@ def main(src, name):
         wn = np.clip(1 - np.abs(y - mid) / half, 0, 1) ** 0.8
         SI[st, 0], SI[st, 1] = BI['nock'], BI['handL']; SW[st, 0], SW[st, 1] = wn, 1 - wn
     cnt = collections.Counter(bones[k] for k in SI[:, 0]); print('вершин по костям:', dict(cnt))
-    # «мостики»: Meshy сплавляет всё в одну сетку, и треугольник может соединять посох с подолом или локоть с рёбрами.
+    # «мостики» (по умолчанию ВЫКЛЮЧЕНО — дают дыры на стыках, сборка 27): Meshy сплавляет всё в одну сетку, и треугольник может соединять посох с подолом или локоть с рёбрами.
     # Когда кости расходятся, такой треугольник тянется длинным клином. Убираем треугольники между костями,
     # которые не соседи по суставу (сустав — родитель/ребёнок; таз, торс и бёдра — тоже соседи)
     par = {b: p for b, p, _ in R['bones']}
@@ -218,7 +218,7 @@ def main(src, name):
     for a, b in [('hips', 'legL'), ('hips', 'legR'), ('torso', 'legL'), ('torso', 'legR'), ('legL', 'legR')]: adj |= {(a, b), (b, a)}
     dom = [bones[SI[i, int(np.argmax(SW[i]))]] for i in range(len(P))]
     ok = lambda a, b: a == b or (a, b) in adj
-    keep = np.ones(len(T), bool) if not R.get('cutBridges', True) else np.array([ok(dom[a], dom[b]) and ok(dom[b], dom[c]) and ok(dom[a], dom[c]) for a, b, c in T])
+    keep = np.ones(len(T), bool) if not R.get('cutBridges', False) else np.array([ok(dom[a], dom[b]) and ok(dom[b], dom[c]) and ok(dom[a], dom[c]) for a, b, c in T])
     br = collections.Counter(tuple(sorted({dom[a], dom[b], dom[c]})) for (a, b, c), k in zip(T, keep) if not k)
     print('убрано мостиков:', int((~keep).sum()), dict(br.most_common(6)))
     T = T[keep]
