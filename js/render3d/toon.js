@@ -126,6 +126,7 @@ if (vTexId > 0.5) {
   bool vert = id == 1.0 || id == 8.0;   // волокна вдоль Y
   float sc = MSC[int(L)];
   vec2 ux = (vert ? vTP.yz : vTP.zy) * sc, uy = vTP.xz * sc, uz = (vert ? vTP.yx : vTP.xy) * sc;
+  if (id > 17.5) { ux.y = -ux.y; uy.y = -uy.y; uz.y = -uz.y; }   // мех: рисунок «сверху вниз» = вниз по телу и назад по спине
   vec2 dxX = dFdx(ux), dyX = dFdy(ux), dxY = dFdx(uy), dyY = dFdy(uy), dxZ = dFdx(uz), dyZ = dFdy(uz);
   vec3 m = textureGrad(tMats, vec3(ux, L), dxX, dyX).rgb * tw.x + textureGrad(tMats, vec3(uy, L), dxY, dyY).rgb * tw.y + textureGrad(tMats, vec3(uz, L), dxZ, dyZ).rgb * tw.z;
   vec3 f = clamp(1.0 + (m - 0.5) * MAMP[int(L)], 0.25, 1.8);

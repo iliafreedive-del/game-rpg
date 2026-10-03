@@ -6,6 +6,7 @@ import { leafTex, pineTex } from './textures.js';
 import * as geo from './geo.js';
 import * as rig from './rig.js';
 import { Cape, blobShadow } from './cape.js';
+import * as fur from './fur.js';
 import { PAL, HERO, MOB, OUTLINE, RIM, FOLIAGE, LOOKS, SHADOW } from './style.js';
 
 export function makeKit(scene) {
@@ -13,6 +14,8 @@ export function makeKit(scene) {
   return {
     THREE, scene, geo, rig, PAL, HERO, MOB, OUTLINE, RIM, FOLIAGE, Cape, blobShadow,
     part, merge,
+    // шерсть-пряди и наклейки морд (fur.js); fur.FUR.on — переключатель «было / стало»
+    fur,
     // бокс с фасками: размеры, фаска, цвет, позиция, поворот, опции покраски ({ top, tex, emit })
     bbox: (w, h, d, b, c, p, r, o) => part(geo.chamferBox(w, h, d, b), c, p, r, 1, o),
     // сужающаяся трубка по точкам (рога, рёбра, когти) и тело вращения по профилю [[r, y], …]
