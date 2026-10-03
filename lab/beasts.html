@@ -89,6 +89,7 @@ function build() {
     return { a, side, on, ph: 0 };
   });
   kit.fur.FUR.on = true; kit.skin.SKINS.on = true;
+  target.y = S.mob === 'archer' ? 1.15 : 0.8;   // камера смотрит в середину фигуры
   document.getElementById('tags').classList.toggle('show', S.mode === 'side');
   clipT = 0;
 }
@@ -119,6 +120,8 @@ function zoomTo(d) { d = Math.min(40, Math.max(2.5, d)); if (S.cam === 'game') g
 // --- клипы: разовые повторяются по кругу (прогресс k 0…1 за dur, пауза), «ходьба» — по кругу радиусом 2.6 м
 const CLIPS = [['idle', 'Стоит'], ['walk', 'Ходьба'], ['attack', 'Атака'], ['cast', 'Выстрел/рёв'], ['hit', 'Удар'], ['dodge', 'Перекат'], ['death', 'Смерть']];
 let clipT = 0, t = 0, last = performance.now();
+const YAW0 = (() => { try { return +(new URLSearchParams(location.search).get('yaw') || 0); } catch { return 0; } })();   // ?yaw=3.14 — повернуть «Профиль» (для снимков)
+const FREEZE = (() => { try { const v = new URLSearchParams(location.search).get('freeze'); return v == null ? null : +v; } catch { return null; } })();   // ?freeze=0.5 — остановить разовый клип на этой фазе (для снимков)
 const env = { wind: new THREE.Vector2(0.6, 0.3) };
 function drive(dt) {
   clipT += dt;
@@ -135,7 +138,7 @@ function drive(dt) {
       a.place(sideOff.x, sideOff.z); a.faceAngle(CAMERA.yaw);
       if (spec.loop || S.clip === 'idle') a.update(dt, { clip: S.clip }, env);
       else {
-        const dur = spec.dur || 1, hold = S.clip === 'death' ? 1.2 : 0.5, cyc = (clipT % (dur + hold)), k = Math.min(1, cyc / dur);
+        const dur = spec.dur || 1, hold = S.clip === 'death' ? 1.2 : 0.5, cyc = (clipT % (dur + hold)), k = FREEZE ?? Math.min(1, cyc / dur);
         if (cyc < dt && clipT > dt) a.update(0, { clip: 'idle' }, env);   // перезапуск клипа
         a.update(dt, { clip: S.clip, k }, env);
         a.flash(S.clip === 'hit' ? Math.max(0, 1 - k * 4) : 0, 0xffffff);
@@ -155,7 +158,7 @@ const setCam = c => { S.cam = c; camR(); };
 chips('mobs', Object.entries(NAMES), () => S.mob, k => { S.mob = k; build(); });
 chips('mode', [['old', 'Было'], ['new', 'Стало'], ['side', 'Рядом']], () => S.mode, k => { S.mode = k; build(); });
 chips('clips', CLIPS, () => S.clip, k => { S.clip = k; clipT = 0; });
-const camR = chips('cam', [['game', 'Игровая'], ['free', 'Свободная'], ['close', 'Крупно'], ['side', 'Профиль']], () => S.cam, k => { if (k === 'side') { const hh = actors[0] ? actors[0].a.model.height : 1.5; S.cam = 'free'; dist = (S.mode === 'side' ? 6 : 3.4) * Math.max(1, hh / 1.4) + 1; pitch = 0.12; yaw = CAMERA.yaw + Math.PI / 2; } else if (k === 'close') { const hh = actors[0] ? actors[0].a.model.height : 1.5; S.cam = 'free'; dist = (S.mode === 'side' ? 6 : 3.2) * Math.max(1, hh / 1.4) + 1; pitch = 0.3; yaw = CAMERA.yaw; } else S.cam = k; camR(); });
+const camR = chips('cam', [['game', 'Игровая'], ['free', 'Свободная'], ['close', 'Крупно'], ['side', 'Профиль']], () => S.cam, k => { if (k === 'side') { const hh = actors[0] ? actors[0].a.model.height : 1.5; S.cam = 'free'; dist = (S.mode === 'side' ? 6 : 3.4) * Math.max(1, hh / 1.4) + 1; pitch = 0.12; yaw = CAMERA.yaw + Math.PI / 2 + YAW0; } else if (k === 'close') { const hh = actors[0] ? actors[0].a.model.height : 1.5; S.cam = 'free'; dist = (S.mode === 'side' ? 6 : 3.2) * Math.max(1, hh / 1.4) + 1; pitch = 0.3; yaw = CAMERA.yaw; } else S.cam = k; camR(); });
 chips('light', Object.entries(LIGHTS), () => S.light, k => { S.light = k; setLight(k); });
 const spinB = document.getElementById('spin'); spinB.onclick = () => { S.spin = !S.spin; if (S.spin && S.cam === 'game') setCam('free'); spinB.classList.toggle('on', S.spin); };
 

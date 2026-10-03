@@ -20,6 +20,7 @@ RIGS = {
       ('armL', 'torso', [0.46, 1.495, 0]), ('elL', 'armL', [0.667, 1.15, 0.07]), ('handL', 'elL', [0.69, 1.035, 0.46]),
       ('armR', 'torso', [-0.46, 1.495, 0]), ('elR', 'armR', [-0.667, 1.15, 0.0]), ('handR', 'elR', [-0.713, 0.897, 0.115]),
       ('legL', 'body', [0.207, 0.759, 0]), ('kneeL', 'legL', [0.253, 0.391, 0.0]), ('footL', 'kneeL', [0.276, 0.115, 0.046]),
+      ('nock', 'handL', [0.55, 1.12, 0.40]),   # середина тетивы: при натяжении идёт за правой кистью (glbskin.js)
       ('legR', 'body', [-0.207, 0.759, 0]), ('kneeR', 'legR', [-0.253, 0.391, 0.0]), ('footR', 'kneeR', [-0.276, 0.115, 0.046]),
     ],
     # отрезки для привязки: кость → (начало, конец, «толщина»)
@@ -32,6 +33,7 @@ RIGS = {
     },
     # правила для отдельных кусков меша (по рамке куска в метрах): первое подходящее
     'parts': [
+      ('тетива', lambda lo, hi: lo[0] > 0.4 and lo[2] > 0.3 and hi[0] - lo[0] < 0.2 and hi[1] - lo[1] > 1.2, 'STRING'),
       ('лук', lambda lo, hi: lo[0] > 0.4 and lo[2] > 0.3, ['handL']),   # плечи, рукоять, тетива и обмотки — всё спереди слева от тела
       ('плащ и колчан', lambda lo, hi: hi[2] < -0.05 and hi[1] > 1.4, ['torso']),
       ('штаны', lambda lo, hi: hi[1] < 1.15 and lo[1] > 0.35 and lo[0] < -0.3 and hi[0] > 0.3, ['hips', 'legL', 'legR', 'kneeL', 'kneeR']),
@@ -78,6 +80,29 @@ def main(src, name):
     lo, hi = P.min(0), P.max(0); s = R['height'] / (hi[1] - lo[1])
     P = (P - [ (lo[0] + hi[0]) / 2, lo[1], (lo[2] + hi[2]) / 2 ]) * s
     bones = [b[0] for b in R['bones']]; BI = {b: i for i, b in enumerate(bones)}
+    comp = components(P, T)
+    # тетива в модели — длинная трёхгранная палочка без вершин в середине: заменяем её на такую же из 8 звеньев,
+    # чтобы середина могла оттягиваться к правой кисти
+    for r in np.unique(comp):
+        m = comp == r; clo, chi = P[m].min(0), P[m].max(0)
+        if not (clo[0] > 0.4 and clo[2] > 0.3 and chi[0] - clo[0] < 0.2 and chi[1] - clo[1] > 1.2): continue
+        idx = np.where(m)[0]; q = P[idx]; top, bot = q[q[:, 1] > q[:, 1].mean()], q[q[:, 1] <= q[:, 1].mean()]
+        a, b = bot.mean(0), top.mean(0); uva, uvb = UV[idx][q[:, 1] <= q[:, 1].mean()].mean(0), UV[idx][q[:, 1] > q[:, 1].mean()].mean(0)
+        rad = max(0.006, np.linalg.norm(top - b, axis=1).mean()); ax = (b - a) / np.linalg.norm(b - a)
+        e1 = np.cross(ax, [0, 0, 1.0]); e1 /= np.linalg.norm(e1); e2 = np.cross(ax, e1)
+        T = T[~np.isin(T, idx).any(1)]
+        n0 = len(P); NP, NN, NU, NT = [], [], [], []
+        for k in range(9):
+            t = k / 8
+            for j in range(3):
+                g = j / 3 * 2 * np.pi; d = e1 * np.cos(g) + e2 * np.sin(g)
+                NP.append(a + (b - a) * t + d * rad); NN.append(d); NU.append(uva + (uvb - uva) * t)
+        for k in range(8):
+            for j in range(3):
+                i0, i1, i2, i3 = n0 + k * 3 + j, n0 + k * 3 + (j + 1) % 3, n0 + (k + 1) * 3 + j, n0 + (k + 1) * 3 + (j + 1) % 3
+                NT += [[i0, i1, i2], [i1, i3, i2]]
+        P = np.vstack([P, NP]).astype(np.float32); N = np.vstack([N, NN]).astype(np.float32); UV = np.vstack([UV, NU]).astype(np.float32); T = np.vstack([T, NT])
+        print('тетива: 8 звеньев вместо одного'); break
     comp = components(P, T); allowed = [None] * len(P); log = collections.Counter()
     for r in np.unique(comp):
         m = comp == r; clo, chi = P[m].min(0), P[m].max(0)
@@ -90,11 +115,18 @@ def main(src, name):
     D = np.stack([seg_dist(P, *segs[n][:2]) - segs[n][2] for n in names], 1)   # «насколько глубоко внутри» кости
     SI = np.zeros((len(P), 4), np.uint8); SW = np.zeros((len(P), 4), np.float32)
     for i in range(len(P)):
+        if allowed[i] == 'STRING':   # тетива: середина — на кости nock (треугольником), концы — на кисти с луком
+            continue
         cand = names if allowed[i] is None else allowed[i]
         d = np.array([D[i, names.index(n)] for n in cand]); o = np.argsort(d)
         if len(o) == 1: SI[i, 0] = BI[cand[o[0]]]; SW[i, 0] = 1; continue
         d1, d2 = d[o[0]], d[o[1]]; w2 = 0.5 * np.exp(-(d2 - d1) / R['blend'])   # равные — 50/50, дальше — быстро к 0
         SI[i, 0], SI[i, 1] = BI[cand[o[0]]], BI[cand[o[1]]]; SW[i, 0], SW[i, 1] = 1 - w2, w2
+    st = np.array([a == 'STRING' for a in allowed])
+    if st.any():
+        y = P[st, 1]; mid, half = (y.min() + y.max()) / 2, (y.max() - y.min()) / 2
+        wn = np.clip(1 - np.abs(y - mid) / half, 0, 1) ** 0.8
+        SI[st, 0], SI[st, 1] = BI['nock'], BI['handL']; SW[st, 0], SW[st, 1] = wn, 1 - wn
     cnt = collections.Counter(bones[k] for k in SI[:, 0]); print('вершин по костям:', dict(cnt))
     Nn = N / np.maximum(np.linalg.norm(N, axis=1, keepdims=True), 1e-9)
     out = {'pos': P.astype('<f4').tobytes(), 'nrm': np.concatenate([np.round(Nn * 127).astype(np.int8), np.zeros((len(P), 1), np.int8)], 1).tobytes(),

@@ -67,7 +67,7 @@ export function attachSkin(kit, model, name, o = {}) {
   root.add(ol); ol.bind(mesh.skeleton, mesh.bindMatrix);
 
   // поза покоя процедурной модели: idle в момент t=0
-  const map = bones.map(b => [b, B[{ elL: 'elL', elR: 'elR' }[b.name] || b.name]]).filter(([, p]) => p);
+  const map = bones.map(b => [b, B[b.name]]).filter(([, p]) => p);   // nock (середина тетивы) — своя кость, без пары в риге
   model.anims.idle({ t: 0, dt: 0, time: 0, speed: 0, move: 0, combo: 0, back: false, env: {} });
   root.updateMatrixWorld(true);
   const idleQ = new Map(), idleP = new Map(), restP = new Map();
@@ -95,9 +95,71 @@ export function attachSkin(kit, model, name, o = {}) {
       if (k) b.position.copy(restP.get(b)).addScaledVector(_v.subVectors(p.position, idleP.get(b)), k);
     }
   }
-  sync();
+  // ---- выстрел из лука: руки ставятся заново по длинам рук самой модели (копия позы старого рига уводила правую руку
+  // в грудь и наклоняла лук). Стойка как у настоящего лучника: корпус боком к цели, левая рука с луком прямо на цель
+  // на высоте плеча, лук вертикально и поперёк руки, правая рука с высоким локтем тянет тетиву к щеке, середина тетивы
+  // (кость nock) идёт за правой кистью. Цель — вперёд по +Z модели. model.bowAim / bowPull — из позы старого рига (_hero.js).
+  const nock = byName.nock, nockRest = nock ? nock.position.clone() : null;
+  const UP = new THREE.Vector3(0, 1, 0), AIM = new THREE.Vector3(0, 0, 1), _rinv = new THREE.Matrix4(), _mm = new THREE.Matrix4(), _mb = new THREE.Matrix4();
+  const V = Array.from({ length: 12 }, () => new THREE.Vector3()), Q = Array.from({ length: 6 }, () => new THREE.Quaternion());
+  const rsM = o3 => _mm.multiplyMatrices(_rinv, o3.matrixWorld);
+  const rsPos = (o3, out) => out.setFromMatrixPosition(rsM(o3));
+  const rsQuat = (o3, out) => { rsM(o3).decompose(_v, out, _s); return out; };
+  const refresh = () => { root.updateMatrixWorld(true); _rinv.copy(root.matrixWorld).invert(); };
+  const setWorldQ = (b, q) => { const pq = b.parent === root ? Q[5].identity() : rsQuat(b.parent, Q[5]); b.quaternion.copy(pq.invert().multiply(q)); };
+  const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
+  // двухзвенная IK руки: плечо → локоть → кисть в точку T, локоть смотрит в сторону pole; w — сила (0…1)
+  function ik(arm, el, hand, T, pole, w) {
+    refresh();
+    const S = rsPos(arm, V[0]), E0 = rsPos(el, V[1]), H0 = rsPos(hand, V[2]);
+    const L1 = S.distanceTo(E0), L2 = E0.distanceTo(H0), d = V[3].subVectors(T, S), D = clamp(d.length(), Math.abs(L1 - L2) + 0.01, L1 + L2 - 0.005); d.normalize();
+    const p = V[4].copy(pole).addScaledVector(d, -pole.dot(d)).normalize(), cA = clamp((L1 * L1 + D * D - L2 * L2) / (2 * L1 * D), -1, 1), sA = Math.sqrt(1 - cA * cA);
+    const E = V[5].copy(S).addScaledVector(d, L1 * cA).addScaledVector(p, L1 * sA), H = V[6].copy(S).addScaledVector(d, D);
+    const qa = rsQuat(arm, Q[0]), qe = rsQuat(el, Q[1]);
+    const qU = Q[2].setFromUnitVectors(V[7].subVectors(E0, S).normalize(), V[8].subVectors(E, S).normalize()); qU.copy(Q[4].identity().slerp(qU, w));
+    const na = Q[3].copy(qU).multiply(qa);
+    const fd = V[9].subVectors(H0, E0).normalize().applyQuaternion(qU), qF = Q[4].setFromUnitVectors(fd, V[10].subVectors(H, E).normalize());
+    qF.copy(new THREE.Quaternion().slerp(qF, w));
+    const ne = qF.multiply(qU).multiply(qe);
+    setWorldQ(arm, na); el.quaternion.copy(na.clone().invert().multiply(ne));
+  }
+  function bowShot() {
+    if (nock) nock.position.copy(nockRest);
+    const aim = model.bowAim || 0; if (!bowHand || aim < 0.001) return;
+    const pull = model.bowPull || 0, T = byName.torso, Hd = byName.head;
+    // корпус ещё сильнее боком (левым плечом к цели), голова поворачивается обратно — смотрит на цель
+    T.quaternion.premultiply(Q[0].setFromAxisAngle(UP, -0.5 * aim)); Hd.quaternion.premultiply(Q[0].setFromAxisAngle(UP, 0.5 * aim));
+    refresh();
+    // линия стрелы: на высоте плеча, сбоку от лица (со стороны груди) на «радиус» головы — иначе правая рука у щеки
+    // оказывается внутри капюшона и груди. Левая рука с луком — на этой линии впереди, правая — на ней же у щеки.
+    const SL = rsPos(byName.armL, new THREE.Vector3()), head = rsPos(Hd, new THREE.Vector3()), tc = rsPos(T, new THREE.Vector3());
+    const chest = V[1].set(0, 0, 1).applyQuaternion(rsQuat(T, Q[1])).setY(0).normalize();   // куда смотрит грудь
+    const line = head.clone().addScaledVector(chest, o.cheek ?? 0.27); line.y = SL.y + 0.04;
+    const reach = SL.distanceTo(rsPos(byName.elL, V[11])) + V[11].distanceTo(rsPos(bowHand, V[0]));
+    const fwd = Math.sqrt(Math.max(0.01, reach * reach * 0.9 - (line.x - SL.x) ** 2 - (line.y - SL.y) ** 2));   // рука почти прямая
+    const TL = new THREE.Vector3(line.x, line.y, SL.z + fwd);
+    ik(byName.armL, byName.elL, bowHand, TL, new THREE.Vector3(1, -0.6, 0), aim);
+    // лук вертикально, «пузом» к цели: ось лука (Y в покое) — вверх, выпуклость (+X в покое) — на цель
+    refresh();
+    _mb.makeBasis(AIM, UP, V[0].crossVectors(AIM, UP)); const qh = rsQuat(bowHand, Q[1]).slerp(Q[2].setFromRotationMatrix(_mb), aim); setWorldQ(bowHand, qh.clone());
+    // правая рука: от тетивы у лука к щеке по линии стрелы; локоть высоко, назад и наружу
+    refresh();
+    const hand = rsPos(bowHand, new THREE.Vector3()), SR = rsPos(byName.armR, new THREE.Vector3());
+    const cheek = new THREE.Vector3(line.x, line.y, head.z + 0.02);
+    const nockAt = new THREE.Vector3(line.x, line.y, hand.z - 0.22);
+    const TR = nockAt.lerp(cheek, pull);
+    const pole = SR.clone().sub(tc).setY(0).normalize().addScaledVector(UP, 0.9).addScaledVector(AIM, -0.6);
+    ik(byName.armR, byName.elR, byName.handR, TR, pole, aim);
+    // середина тетивы — к правой кисти
+    if (nock && pull > 0.001) {
+      refresh();
+      const hm = rsM(bowHand).clone(), rest = nockRest.clone().applyMatrix4(hm), to = rsPos(byName.handR, V[1]);
+      nock.position.copy(rest.lerp(to, pull).applyMatrix4(hm.invert()));
+    }
+  }
+  sync(); bowShot();
   const upd = model.update;
-  model.update = (dt, t, env, actor) => { if (upd) upd(dt, t, env, actor); root.updateMatrixWorld(true); sync(); };
+  model.update = (dt, t, env, actor) => { if (upd) upd(dt, t, env, actor); root.updateMatrixWorld(true); sync(); bowShot(); };
   model.materials = [...(model.materials || []), mat];
   model.noEquip = o.noEquip || [];
   model.skin = name;

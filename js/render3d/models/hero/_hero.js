@@ -132,7 +132,7 @@ export function heroModel(kit, V = {}) {
     const ST = HERO.stanceFraction, S = { phase: 0, bank: 0, yaw: 0 };
     // r — «бежит» 0..1, sp — скорость, atk — {k1,k2,k3,dir} или null, hurt 0..1
     function solve(a, r, sp, atk, hurt, extra = {}) {
-      bowDraw = 0;
+      bowDraw = 0; bowAim = 0; bowPull = 0;
       const spN = clamp(sp / HERO.speed), stride = clamp(0.3 + 0.15 * sp, 0.3, 0.9);
       if (sp > 0.25) S.phase = ((S.phase + (a.back ? -1 : 1) * a.dt * sp * ST / stride) % 1 + 1) % 1;   // a.back — пятится лицом к врагу
       const th = S.phase * Math.PI * 2, breath = Math.sin(a.t * 2.4) * (1 - r), shift = Math.sin(a.t * 1.15) * (1 - r);   // breath — дыхание/«пружинка» боевой стойки, shift — перенос веса с ноги на ногу
@@ -168,7 +168,7 @@ export function heroModel(kit, V = {}) {
 
     // ---- лучник: боком к цели, левая рука с луком вытянута, правая тянет тетиву к щеке (IK рук; тетива лука идёт за правой кистью)
     const SL = new THREE.Vector3(0.46, 0.52, 0), SR = new THREE.Vector3(-0.46, 0.52, 0), TL = new THREE.Vector3(), TR = new THREE.Vector3(), PL = new THREE.Vector3(0, -1, 0.1), PR = new THREE.Vector3(-0.4, -1, -0.35), FW = new THREE.Vector3();
-    let bowDraw = 0;
+    let bowDraw = 0, bowAim = 0, bowPull = 0;   // bowAim — насколько лук поднят на цель, bowPull — насколько натянута тетива (для моделей-шкур, glbskin.js)
     function bowPose(a) {
       const k = a.k ?? 0, draw = smooth((k - 0.1) / 0.5), hold = smooth((k - 0.1) / 0.5) * (1 - smooth((k - 0.62) / 0.05)), rel = smooth((k - 0.62) / 0.16);
       solve(a, 0, 0, null, 0, { crouch: 0.03 + 0.03 * draw, lean: -0.04 });
@@ -182,6 +182,7 @@ export function heroModel(kit, V = {}) {
       armIK(THREE, armL, armL.elbow, SL, TL, PL, 0.35, 0.33);
       armIK(THREE, armR, armR.elbow, SR, TR, PR, 0.35, 0.36);
       handR.rotation.x = 0.8; bowDraw = hold;
+      bowAim = smooth(k / 0.12) * (1 - smooth((k - 0.86) / 0.14)); bowPull = draw * (1 - rel);
     }
     const anims = {
       idle: a => { solve(a, 0, 0, null, 0); },
@@ -213,7 +214,7 @@ export function heroModel(kit, V = {}) {
       bones: { spin, body, hips, torso, head, armR, armL, elR: armR.elbow, elL: armL.elbow, legL, legR, kneeL: legL.knee, kneeR: legR.knee, footL: legL.foot, footR: legR.foot, handR, handL },
       clips: { idle: { loop: true }, walk: { loop: true }, attack: { dur: 0.5, hit: 0.42 }, hit: { dur: 0.3 }, death: { dur: 1.1 }, cast: { dur: 0.7, fire: 0.5 }, dodge: { dur: 0.42 } },
       anims,
-      get bowDraw() { return bowDraw; },
+      get bowDraw() { return bowDraw; }, get bowAim() { return bowAim; }, get bowPull() { return bowPull; },
       update(dt, t, env, actor) {
         const wind = env && env.wind ? env.wind : new THREE.Vector2(0, 0);
         if (cape) { cape.update(dt, capeAnchor.matrixWorld, root.matrixWorld, wind, t); cape.mesh.visible = actor.root.visible; }
