@@ -23,6 +23,6 @@ export default { id: 'smithy', kind: 'prop', outline: false,
     L.push(part(new THREE.CylinderGeometry(0.34, 0.34, 0.12, 12), 0x7a7462, [x1 - 0.6, 0.62, -1.6], [Math.PI / 2, 0, 0], 1, { top: 0xb8ae96, tex: 'stone' }), bbox(0.5, 0.56, 0.3, 0.03, T, [x1 - 0.6, 0.28, -1.6], 0, { top: TL, tex: 'wood' }));   // точило
     const root = new THREE.Group(); root.add(new THREE.Mesh(merge(L), kit.propMat(this)));
     const s = sign(kit, this, ['КУЗНИЦА'], 1.5, 0.42); s.position.set(-0.45, 2.62, OPTS.d / 2 + 0.06); root.add(s);   // на стене мастерской над окном — не заслоняет горн
-    if (smoke) root.userData.smoke = [[smoke[0] - 1.5, smoke[1], smoke[2]], [1.92, 3.5, -0.05, 1]];   // труба мастерской и дымоход горна под навесом
+    if (smoke) root.userData.smoke = [[smoke[0] - 1.5, smoke[1], smoke[2]]];   // дым только из трубы мастерской
     return { root };
   } };

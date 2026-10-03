@@ -1,7 +1,7 @@
 // Stylised materials: soft 3-band toon ramp + rim light + self-lit vertex flag + wind sway + inverted-hull outline.
 // All variants are MeshToonMaterial / MeshBasicMaterial patched in onBeforeCompile, so three.js lights & fog keep working.
 import * as THREE from '../vendor/three.module.min.js';
-import { matArray, MAT_SCALE, MAT_AMP } from './textures.js';
+import { matArray, MAT_SCALE, MAT_AMP, noiseTex } from './textures.js';
 
 // global uniforms shared by every patched shader
 export const U = {
@@ -12,7 +12,22 @@ export const U = {
   uFocus: { value: new THREE.Vector3() },    // hero chest       } stands between them
   uBiome: { value: 0 },                      // биом подземелья для стен: 1 затопленные, 2 пепельные, 3 Бездна
   uFadeSmooth: { value: 0 },                 // 1 — плавная прозрачность через alpha-to-coverage (нужен MSAA), 0 — мелкий дизеринг
+  uHFog: { value: 0 },                       // стелющийся туман у земли (деревня): сила; 0 — выключен
+  uHFogCol: { value: new THREE.Color(0xb4c8c0) },
+  tHNoise: { value: null },                  // шум пятен тумана (плывут по ветру)
 };
+// Туман у земли: плавно густеет книзу (без резкой границы — переход на 2,5–4 м высоты), пятнами по шуму мира, дрейфует.
+// Один код для всех toon-материалов, травы и воды (ground.js): HFOG_PARS в объявления, HFOG_F после fog_fragment.
+U.uHTime = U.uTime;   // то же время под своим именем: uTime уже объявлен в части шейдеров
+export const HFOG_PARS = 'uniform float uHFog; uniform vec3 uHFogCol; uniform sampler2D tHNoise; uniform float uHTime;\n';
+export const HFOG_F = /* glsl */`
+if (uHFog > 0.0) {
+  float hn = texture2D(tHNoise, hfW.xz * 0.04 + vec2(uHTime * 0.006, uHTime * 0.004)).r * 0.6 + texture2D(tHNoise, hfW.xz * 0.11 - vec2(uHTime * 0.01, 0.0)).g * 0.4;
+  float hf = uHFog * (1.0 - smoothstep(-0.2, 2.6 + hn * 1.8, hfW.y)) * (0.35 + 1.1 * hn);
+  gl_FragColor.rgb = mix(gl_FragColor.rgb, uHFogCol, clamp(hf, 0.0, 0.4));
+}
+`;
+export function hfogTex() { if (!U.tHNoise.value && typeof document !== 'undefined') U.tHNoise.value = noiseTex(); return U.tHNoise.value; }
 
 // материалы с растворением: плавная прозрачность (alpha-to-coverage) включается, когда есть MSAA (renderer3d.applyQuality)
 const fadeMats = [];
@@ -191,8 +206,10 @@ export function toon(color = 0xffffff, o = {}) {
       Object.assign(sh.uniforms, { uSwayBase: { value: sw.base ?? 0 }, uSwayAmt: { value: sw.amt ?? 0.02 }, uFlutter: { value: sw.flutter ?? 0 } });
       sh.vertexShader = SWAY_PARS + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n' + SWAY);
     }
-    sh.fragmentShader = 'uniform float uFlash; uniform vec3 uFlashColor; uniform float uRim; uniform vec3 uRimColor; uniform float uGlow;\n' +
-      sh.fragmentShader.replace('#include <opaque_fragment>', RIM + '#include <opaque_fragment>');
+    hfogTex();
+    sh.vertexShader = 'varying vec3 hfWv;\n' + sh.vertexShader.replace('#include <project_vertex>', '#include <project_vertex>\n#ifdef USE_INSTANCING\n  hfWv = (modelMatrix * instanceMatrix * vec4(transformed, 1.0)).xyz;\n#else\n  hfWv = (modelMatrix * vec4(transformed, 1.0)).xyz;\n#endif');
+    sh.fragmentShader = 'uniform float uFlash; uniform vec3 uFlashColor; uniform float uRim; uniform vec3 uRimColor; uniform float uGlow;\nvarying vec3 hfWv;\n' + HFOG_PARS +
+      sh.fragmentShader.replace('#include <opaque_fragment>', RIM + '#include <opaque_fragment>').replace('#include <fog_fragment>', '#include <fog_fragment>\n{ vec3 hfW = hfWv;\n' + HFOG_F + '}');
     if (o.fade) addFade(sh, !!o.alphaTest);
     if (o.ao) addAO(sh, o.ao, o.aoH ?? 0.8);
     if (o.tex) addTex(sh, o.texWorld);

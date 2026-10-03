@@ -125,6 +125,7 @@ function build(RL, mood, depth, boss, attempt, force) {
     // лагерная обстановка и сундук
     objects.push({ t: realm === 'fjord' ? 'brazier' : 'rocks', x: p[0] + 1.6, y: p[1] - 1.2 });
     for (let k = 0; k < 2; k++) objects.push({ t: ['bones', 'skulls', 'crate', 'barrel'][ri(0, 3)], x: p[0] - 1.5 + R() * 3, y: p[1] + 1.5 + R() * 1.5 });
+    if (realm === 'forest') { const t3 = ['cart_load', 'barrel_stack', 'log_stack', 'plank_pile', 'cart'][ri(0, 4)]; objects.push({ t: t3, x: p[0] + 2.4, y: p[1] + 1.8, rot: R() * 6.28 }); }   // лагерь разбойников: награбленное (набор POLYGON Adventure)
     if (R() < 0.35) objects.push({ t: 'wchest', id: 'wc' + camps, x: p[0] - 2.2, y: p[1] - 0.6 });
   }
   // отдельные сундуки и тайники в стороне от боёв
@@ -151,6 +152,9 @@ function build(RL, mood, depth, boss, attempt, force) {
     if (p) { placed.push([p[0], p[1], 2.4]); objects.push({ t: flora[ri(0, flora.length - 1)], x: p[0], y: p[1] }); if (objects.filter(o => o.t === 'tree_0' || o.t === 'tree_1' || o.t === 'rocks' || o.t === 'deadtree' || o.t === 'stalagmite' || o.t === 'crystals' || o.t === 'mushrooms').length >= nFlora) break; }
   }
   for (let i = 0; i < 8; i++) { const p = pick((x, y) => free(x, y, 0)); if (p) objects.push({ t: realm === 'fjord' ? 'skulls' : 'bones', x: p[0], y: p[1], deco: 1 }); }
+  // указатель у входа и брошенный скарб по полю (в Старом Лесу — телеги, поленницы, бочки)
+  objects.push({ t: 'signpost', x: start[0] + 2.6, y: start[1] + 1.2, rot: R() * 6.28 });
+  if (realm === 'forest') for (let i = 0; i < 3; i++) { const p = pick((x, y) => !inFort(x, y, 2) && dist(x, y, start[0], start[1]) > 8 && free(x, y, 1) && !near(x, y, 3)); if (p) { placed.push([p[0], p[1], 3]); objects.push({ t: ['cart', 'log_stack', 'barrel_stack'][i], x: p[0], y: p[1], rot: R() * 6.28 }); } }
   // жаровни у выхода и старта
   objects.push({ t: 'brazier', x: start[0] + 1.5, y: start[1] - 1.5 }, { t: 'brazier', x: exit[0] - 2.2, y: exit[1] + 1.6 });
 

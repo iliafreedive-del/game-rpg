@@ -1,7 +1,5 @@
-// Атмосфера деревни: полупрозрачный дым из труб и стелющийся туман (низкие пласты над землёй, гуще у ручья, над полями
-// и у кромки леса). Один материал «мягких клубов»: квадраты с размытым краем и шумом, туман сцены их тоже касается.
-// Дым — клубы, повёрнутые к камере; туман — плоские пласты, лежащие над землёй (с камеры под 37° они читаются как дымка
-// у земли, а не как стены). Около героя туман тает, чтобы не закрывать его. Всё считается на CPU: ~150 клубов дыма + ~30 пластов.
+// Атмосфера деревни: полупрозрачный дым из труб — клубы с размытым краем и шумом, повёрнутые к камере, их сносит ветром.
+// Туман у земли — не здесь: он считается в шейдерах (toon.js HFOG_F), плавно, без резкой границы на предметах.
 import * as THREE from '../vendor/three.module.min.js';
 import { U } from './toon.js';
 import { noiseTex } from './textures.js';
@@ -60,15 +58,8 @@ export class Atmo {
     this.PER = 14;
     this.smoke = this.pipes.length ? makeLayer(this.pipes.length * this.PER, false) : null;
     if (this.smoke) scene.add(this.smoke.mesh);
-    // туман: пласты в окне 56×56 м вокруг камеры, «приклеены» к миру и медленно плывут по ветру; гуще у воды, полей и леса
-    this.MN = 34; this.mist = makeLayer(this.MN, true); scene.add(this.mist.mesh);
-    this.mseed = Array.from({ length: this.MN }, (_, i) => ({ x: h1(i * 3 + 1) * 56, y: h1(i * 7 + 2) * 56, s: 9 + h1(i * 5 + 4) * 9, layer: i % 3 === 0 ? 1 : 0, a: 0 }));
   }
   setQuality(q) { this.k = q === 'low' ? 0.5 : q === 'med' ? 0.8 : 1; }
-  density(x, y) {   // насколько туманно в точке карты: вода, луг за рекой, поля и лес — гуще, площадь и дороги — реже
-    const m = this.zone.map, c = m.ch(Math.floor(x), Math.floor(y));
-    return c === '~' || c === 'b' || c === 'n' ? 1 : c === 'F' || c === 'V' || c === 'K' ? 0.8 : c === 'x' ? 0.75 : c === '#' ? 0.25 : c === ',' ? 0.45 : 0.55;
-  }
   update(dt, t, cx, cz, px, pz) {
     const wind = U.uWind ? U.uWind.value : { x: 1, y: 0 }, ws = U.uWindStr ? U.uWindStr.value : 1;
     if (this.smoke) {
@@ -88,20 +79,6 @@ export class Atmo {
       });
       for (const n of ['iPos', 'iSize', 'iAlpha', 'iSeed', 'iCol']) g.attributes[n].needsUpdate = true;
     }
-    {
-      const { A, g } = this.mist, S = 56, ox = cx - S / 2, oz = cz - S / 2, drift = t * 0.35;
-      this.mseed.forEach((m, i) => {
-        // позиция в мире: исходная клетка + дрейф по ветру, свёрнутая в окно вокруг камеры
-        const wx = ox + fract((m.x + drift * (0.6 + wind.x * 0.4) - ox) / S) * S, wz = oz + fract((m.y + drift * (0.3 + wind.y * 0.4) - oz) / S) * S;
-        const edge = Math.min(wx - ox, ox + S - wx, wz - oz, oz + S - wz) / 6;   // у краёв окна — плавно исчезает (не «выскакивает»)
-        const nearHero = Math.min(1, Math.hypot(wx - px, wz - pz) / (m.s * 0.5 + 1.5));
-        const want = Math.min(1, edge) * this.density(wx, wz) * (0.35 + 0.65 * nearHero * nearHero) * (m.layer ? 0.16 : 0.26) * this.k;
-        m.a += (want - m.a) * Math.min(1, dt * 1.5);
-        A.iPos.set([wx, m.layer ? 1.3 : 0.45, wz], i * 3); A.iSize[i] = m.s * (m.layer ? 1.3 : 1); A.iAlpha[i] = m.a; A.iSeed[i] = h1(i * 13) + t * 0.004 * (i % 2 ? 1 : -1);
-        A.iCol.set([0.86, 0.92, 0.88], i * 3);
-      });
-      for (const n of ['iPos', 'iSize', 'iAlpha', 'iSeed', 'iCol']) g.attributes[n].needsUpdate = true;
-    }
   }
-  dispose() { for (const L of [this.smoke, this.mist]) if (L) { L.mesh.removeFromParent(); L.g.dispose(); L.mesh.material.dispose(); } }
+  dispose() { for (const L of [this.smoke]) if (L) { L.mesh.removeFromParent(); L.g.dispose(); L.mesh.material.dispose(); } }
 }

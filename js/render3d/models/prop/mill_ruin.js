@@ -45,29 +45,27 @@ export default { id: 'mill_ruin', kind: 'prop', outline: false,
           if (R() < 0.3) moss(s * Math.cos(pitch) * along * 1.02, ridge + 0.2 - Math.sin(pitch) * along, zc, 0.9);
         }
       }
-      for (let k = 0; k < 6; k++) {   // стропила (видны в провале)
-        const z = -md / 2 + 0.3 + k * (md - 0.6) / 5, g = geo.chamferBox(0.12, 0.14, slope, 0.02); g.rotateX(Math.PI / 2); g.rotateY(Math.PI / 2); g.rotateZ(-s * pitch);
-        L.push(geo.paint(g.translate(s * Math.cos(pitch) * slope / 2, ridge - Math.sin(pitch) * slope / 2 + 0.02, z), T, { top: TL, tex: 'wood' }));
+      if (s > 0) for (let k = 0; k < 3; k++) {   // стропила только в провале и под дранкой — наружу не торчат
+        const z0 = -len / 2 + len / 5, z = z0 + (k + 0.5) * (len * 2 / 5) / 3, a0 = slope * 0.9 / rows, a1 = slope * 5.1 / rows, sl = a1 - a0;
+        const g = geo.chamferBox(sl, 0.12, 0.1, 0.02); g.rotateZ(-pitch);
+        L.push(geo.paint(g.translate(Math.cos(pitch) * (a0 + sl / 2), ridge + 0.1 - Math.sin(pitch) * (a0 + sl / 2) - 0.12, z), T, { top: TL, tex: 'wood' }));
       }
     }
     L.push(bbox(0.2, 0.18, len * 0.55, 0.03, T, [0, ridge + 0.14, -len * 0.2], [0.06, 0, 0], { top: TL, tex: 'woodH' }));   // конёк обломан
-    L.push(bbox(0.16, 0.16, 1.6, 0.03, T, [0.3, ridge - 0.4, len * 0.28], [0.5, 0.2, 0.3], { top: TL, tex: 'woodH' }));       // упавшая балка
     // ---- опора колеса: каменная стенка-бык от юго-западного угла и деревянные козлы в воде
-    const WR = 1.9, ay = 0.2 + WR, ww = 0.75;
+    const WR = 1.55, ay = WR - 0.15, ww = 0.7;   // колесо по пояс в воде
     L.push(bbox(0.6, ay + 0.2, 4.0, 0.07, ST, [wx + ww / 2 + 0.55, (ay + 0.2) / 2 - 0.2, wz - 0.6], 0, { top: STL, tex: 'stone' }));
     for (let i = 0; i < 8; i++) moss(wx + ww / 2 + 0.86, R() * ay, wz - 2.4 + R() * 3.6, 0.9);
     for (const d of [-1, 1]) { const g = geo.chamferBox(0.16, ay + 0.9, 0.16, 0.03); g.rotateX(d * 0.32); L.push(geo.paint(g.translate(wx - ww / 2 - 0.35, (ay + 0.9) / 2 - 0.5, wz + d * 0.45), T, { top: TL, tex: 'wood' })); }
     L.push(bbox(0.2, 0.2, 1.4, 0.03, T, [wx - ww / 2 - 0.35, ay + 0.1, wz], 0, { top: TL, tex: 'woodH' }));
     L.push(part(new THREE.CylinderGeometry(0.13, 0.13, ww + 1.4, 8), 0x2a2420, [wx + 0.15, ay, wz], [0, 0, Math.PI / 2], 1, { top: 0x5a5048, tex: 'iron' }));   // ось
     // ---- жёлоб на столбах вдоль берега с севера, обломан над колесом; струя воды
-    const fy = ay + WR + 0.35;
-    for (let k = 0; k < 4; k++) { const z = wz - 1.4 - k * 2.0; if (k === 1) continue; L.push(bbox(0.14, fy + 0.4, 0.14, 0.03, T, [wx + (R() - 0.5) * 0.1, (fy + 0.4) / 2 - 0.4, z], [0, 0, (R() - 0.5) * 0.08], { top: TL, tex: 'wood' })); }
-    for (const [z0, z1, tilt] of [[wz - 7.2, wz - 3.2, 0], [wz - 3.2, wz - 0.9, -0.18]]) {
-      const lz = z1 - z0, zc = (z0 + z1) / 2, yc = fy + (tilt ? -0.25 : 0);
-      L.push(bbox(0.7, 0.08, lz, 0.02, 0x4a3a28, [wx, yc, zc], [tilt, 0, 0], { top: 0x7a6448, tex: 'woodH' }));
-      for (const sx of [-1, 1]) L.push(bbox(0.06, 0.32, lz, 0.02, 0x4a3a28, [wx + sx * 0.33, yc + 0.15, zc], [tilt, 0, 0], { top: 0x7a6448, tex: 'woodH' }));
-    }
-    for (let i = 0; i < 3; i++) L.push(part(new THREE.BoxGeometry(0.42 - i * 0.1, 0.9 + i * 0.3, 0.06), 0x9ad8e8, [wx + (i - 1) * 0.12, fy - 0.9 - i * 0.2, wz - 0.75 + i * 0.05], [0.1, 0, 0], 1, { emit: true }));
+    // жёлоб: ровный, на уровне верха колеса, на козлах вдоль берега с севера (как на референсах)
+    const fy = ay + WR + 0.12, z0 = wz - 5.2, z1 = wz - 0.5, lz = z1 - z0, zc = (z0 + z1) / 2;
+    for (const z of [z0 + 0.4, zc, z1 - 0.6]) for (const d of [-1, 1]) L.push(bbox(0.12, fy + 0.3, 0.12, 0.02, T, [wx + d * 0.32, (fy + 0.3) / 2 - 0.3, z], [0, 0, d * 0.06], { top: TL, tex: 'wood' }));
+    L.push(bbox(0.72, 0.08, lz, 0.02, 0x4a3a28, [wx, fy, zc], 0, { top: 0x7a6448, tex: 'woodH' }));
+    for (const sx of [-1, 1]) L.push(bbox(0.06, 0.3, lz, 0.02, 0x4a3a28, [wx + sx * 0.33, fy + 0.15, zc], 0, { top: 0x7a6448, tex: 'woodH' }));
+    for (let i = 0; i < 4; i++) moss(wx + (R() - 0.5) * 0.5, fy + 0.28, z0 + R() * lz, 0.6);
     // ---- папоротники и камни у стен
     for (let i = 0; i < 14; i++) { const a = R() * 6.283, x = Math.cos(a) * (mw / 2 + 0.3), z = Math.sin(a) * (md / 2 + 0.3); L.push(part(new THREE.ConeGeometry(0.22, 0.7, 4), 0x2e5a22, [x, 0.3, z], [(R() - 0.5) * 0.8, R(), (R() - 0.5) * 0.8], [1.6, 1, 0.5], { top: 0x7ab04a })); }
     for (let i = 0; i < 6; i++) L.push(part(new THREE.DodecahedronGeometry(0.3 + R() * 0.25, 0), 0x5a5444, [mw / 2 + 0.4 + R() * 0.8, 0.1, (R() - 0.5) * md], [R(), R(), 0], [1, 0.6, 1], { top: MOSSL, tex: 'stone' }));

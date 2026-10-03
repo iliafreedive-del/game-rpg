@@ -71,7 +71,11 @@ export class PropLayer {
       const m = zone.map, G = zone.json.big ? 3.8 : 3.4, ring = zone.json.big ? 17 : 11;
       for (let y = -ring; y < m.h + ring; y += G) for (let x = -ring; x < m.w + ring; x += G) {
         if (x > -1.5 && y > -1.5 && x < m.w + 1.5 && y < m.h + 1.5) continue;
-        if (clearOf(x, y)) continue;   // «конус взгляда» на мельницу за рекой: деревья за краем карты её бы закрыли
+        if (clearOf(x, y)) {   // «конус взгляда» на мельницу/завал за рекой: вместо деревьев (закрыли бы) — низкие кусты, папоротник, камни
+          for (let k = 0; k < 3; k++) { const h3 = hash(x * 3.1 + k, y * 1.3 - k); push(h3 < 0.5 ? 'bush' : 'fern', x + (h3 - 0.5) * 3.4, y + (hash(y + k, x) - 0.5) * 3.4, h3 * 30, 0.9 + h3 * 0.8); }
+          const h2 = hash(x * 1.7, y * 2.3); if (h2 < 0.85) push(h2 < 0.45 ? 'bush' : h2 < 0.7 ? 'fern' : 'rocks', x + (hash(y, x) - 0.5) * 2, y + (hash(x, y) - 0.5) * 2, h2 * 40, 1.1 + h2 * 0.9);
+          continue;
+        }
         const h = hash(x + 3, y - 7); if (h > (wild ? 0.5 : 0.7)) continue;
         push((fj ? (hash(x * 2.3, y * 1.1 + 5) < 0.5 ? 'tree_fir_blue' : 'tree_pine_tall') : pickTree(h > 0.4 ? 'tree_1' : 'tree_0', hash(x * 2.3, y * 1.1 + 5))) + '_far', x + (hash(x, y) - 0.5) * 2, y + (hash(y, x) - 0.5) * 2, h * 6.28, 1 + hash(x * 2, y) * 0.6);
       }

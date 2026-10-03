@@ -15,16 +15,16 @@
 //   8) проверка: от старта можно дойти до всех NPC и порталов, здания не закрывают их от камеры.
 // Тайлы: '.' трава, ',' дорога, '#' брусчатка (в деревне проходима), 'x' лес, '~' вода, 'b' мост (проходим),
 // 'F' пшеница, 'V' виноградник, 'K' огород, 'n' луг за ручьём и ';' дорога за ручьём (непроходимы — туда нельзя).
-const W = 70, H = 70, K = W / 64;   // замысел записан в координатах 64×64 и растягивается под карту 70×70 (просторнее на ~10 %)
+const W = 74, H = 70, K = 70 / 64;   // замысел записан в координатах 64×64 и растягивается в 70/64 раза; карта на 4 м шире к востоку — за рекой место под мельницу
 
 // растянуть замысел под размер карты; главные улицы на 0,5 м шире, переулки — на 0,3 м
 function scalePlan(p) {
   const sp = ([x, y]) => [+(x * K).toFixed(2), +(y * K).toFixed(2)];
-  return { ...p, center: sp(p.center), square: { hw: p.square.hw * K, hh: p.square.hh * K, r: p.square.r * K }, stream: { ...p.stream, pts: p.stream.pts.map(sp) },
+  return { ...p, center: sp(p.center), square: { hw: p.square.hw * K, hh: p.square.hh * K, r: p.square.r * K }, stream: { ...p.stream, pts: p.stream.pts.map(sp), millY: p.stream.millY * K },
     portals: Object.fromEntries(Object.entries(p.portals).map(([k, v]) => [k, sp(v)])), roads: p.roads.map(r => ({ ...r, w: r.w + (r.main ? 0.5 : 0.3), pts: r.pts.map(sp) })), start: sp(p.start) };
 }
 // коллайдеры мелочи (как в js/world/zone.js PROP): число — радиус, пара — полуоси коробки
-const COL = { barrel: 0.3, crate: 0.35, sacks: 0.3, lamp: 0.12, well: 0.62, board: 0.3, banner: 0.15, table: 0.6, dummy: 0.3, target: 0.35, hay: 0.45, tree_0: 0.3, tree_1: 0.3, grave: 0.2, deadtree: 0.25, shrine: 0.45, crystals: 0.3, rocks: 0.35, logpile: [0.7, 0.4], bench: [0.75, 0.22], weapon_rack: [0.6, 0.18], forge: [0.75, 0.6], fortune_tent: [1.5, 1.3] };
+const COL = { cart: [1.0, 0.55], cart_load: [1.0, 0.55], signpost: 0.15, barrel_stack: [0.9, 0.55], log_stack: [1.35, 0.6], plank_pile: [1.3, 0.35], pumpkins: 0.45, tool_stand: [0.6, 0.25], barrel: 0.3, crate: 0.35, sacks: 0.3, lamp: 0.12, well: 0.62, board: 0.3, banner: 0.15, table: 0.6, dummy: 0.3, target: 0.35, hay: 0.45, tree_0: 0.3, tree_1: 0.3, grave: 0.2, deadtree: 0.25, shrine: 0.45, crystals: 0.3, rocks: 0.35, logpile: [0.7, 0.4], bench: [0.75, 0.22], weapon_rack: [0.6, 0.18], forge: [0.75, 0.6], fortune_tent: [1.5, 1.3] };
 const KEEP = new Set(['well', 'board', 'banner', 'shrine', 'forge', 'fortune_tent', 'portal']);   // то, что не убирается ради зазора
 const GAP = 1.3;   // свободный проход между препятствиями (герой ≈ 0,85 м в ширину + запас)
 
@@ -32,7 +32,7 @@ export const PLAN = {
   seed: 11,
   center: [31.5, 29.5],
   square: { hw: 6.5, hh: 4.6, r: 2.4 },
-  stream: { pts: [[50.5, -3], [53.5, 9], [57.2, 20], [56.6, 31], [58.4, 43], [56.6, 67]], w: [2.6, 3.4] },
+  stream: { pts: [[51.5, -3], [54.5, 9], [58.2, 20], [57.6, 31], [59.4, 43], [57.6, 67]], w: [4.0, 5.0], millY: 13.5, millW: 3.2 },   // millY — где у мельницы река разливается шире (на millW м)
   portals: { catacombs: [34.5, 5.6], fjord: [46.5, 5.6], depths: [9.0, 7.5], castle: [5.4, 29.5], forest: [7.2, 56.4], survival: [31.5, 59.6] },
   roads: [
     { id: 'west', w: 2.7, main: 1, pts: [[25.5, 29.5], [19, 30.1], [12, 29.3], [5.4, 29.5]] },
@@ -101,10 +101,10 @@ export function generateVillage(plan0 = PLAN) {
     if (d < 3 || (d < depth && !nearPortal(x + 0.5, y + 0.5, 7.5))) { set(x, y, 'x'); setU(x, y, 3); }
   }
   // 2. ручей: сплайн с переменной шириной; дальний берег — луг, куда пройти нельзя
-  const stream = spline(plan.stream.pts, 0.2), sw = s => plan.stream.w[0] + (plan.stream.w[1] - plan.stream.w[0]) * vnoise(s * 0.08, 1.7, 5);
+  const ST = plan.stream, stream = spline(ST.pts, 0.2), sw = (s, y = -99) => ST.w[0] + (ST.w[1] - ST.w[0]) * vnoise(s * 0.08, 1.7, 5) + (ST.millW || 0) * Math.exp(-(((y - ST.millY) / 6) ** 2));
   const streamX = new Float32Array(H).fill(-1), streamHW = new Float32Array(H);
   for (const p of stream) {
-    const r = sw(p.s) / 2;
+    const r = sw(p.s, p.y) / 2;
     for (let y = Math.floor(p.y - r - 1); y <= p.y + r + 1; y++) for (let x = Math.floor(p.x - r - 1); x <= p.x + r + 1; x++) {
       if ((x + 0.5 - p.x) ** 2 + (y + 0.5 - p.y) ** 2 < r * r) { set(x, y, '~'); setU(x, y, 2); }
     }
@@ -196,7 +196,7 @@ export function generateVillage(plan0 = PLAN) {
   // ---- NPC и их места
   const npc = (id, name, x, y, extra = {}) => { const n = { id, name, x: +x.toFixed(2), y: +y.toFixed(2), model: 'npc_' + id, ...extra }; npcs.push(n); targets.push({ x, y }); return n; };
   // староста — у ступеней церкви слева, доска заданий рядом
-  { const [fx, fy] = front(church, 2.4); npc('elder', 'Староста Эдрик', fx - 3.8, fy + 0.2); put('board', fx + 4.0, fy + 0.3); put('banner', fx - 1.9, fy - 2.45); put('banner', fx + 1.9, fy - 2.45); }   // знамёна вплотную к стене
+  { const [fx, fy] = front(church, 2.4); npc('elder', 'Староста Эдрик', fx - 3.8, fy + 0.2); put('board', fx + 4.0, fy + 0.3); }
   if (shop) {
     const [mx, my] = front(shop, 0.55); npc('merchant', 'Торговка Мира', mx, my, { reach: 3.2 });
     const cs = [[-1.75, 3.0], [1.75, 3.0], [-1.75, 3.7], [1.75, 3.7]].map(([u, v]) => side(shop, u, v)), xs = cs.map(c => c[0]), ys = cs.map(c => c[1]);
@@ -249,12 +249,12 @@ export function generateVillage(plan0 = PLAN) {
   const junk = (b, list) => { for (const [id, u, v, rot] of list) { const [x, y] = side(b, u, v); if (at(Math.floor(x), Math.floor(y)) === '.' || at(Math.floor(x), Math.floor(y)) === ',') put(id, x, y, rot !== undefined ? { rot: b.rot + rot } : {}); } };
   if (tavern) {
     // хлам — вплотную к стене (одно препятствие со стеной), столы — с проходом ≥ 1,3 м вокруг
-    junk(tavern, [['barrel', tavern.w / 2 + 0.3, tavern.d / 2 - 0.6], ['barrel', tavern.w / 2 + 0.3, tavern.d / 2 - 1.25], ['barrel', tavern.w / 2 + 0.92, tavern.d / 2 - 0.92], ['crate', -tavern.w / 2 - 0.42, tavern.d / 2 - 0.5]]);
+    junk(tavern, [['barrel_stack', tavern.w / 2 + 0.6, tavern.d / 2 - 1.1, Math.PI / 2], ['crate', -tavern.w / 2 - 0.42, tavern.d / 2 - 0.5]]);
     junk(tavern, [['table', 2.0, tavern.d / 2 + 2.6, 0], ['table', -2.4, tavern.d / 2 + 2.6, 0]]);
     put('lamp', ...side(tavern, tavern.w / 2 + 1.8, tavern.d / 2 + 0.8));
   }
-  if (shop) { junk(shop, [['crate', shop.w / 2 + 0.3, -0.4], ['sacks', shop.w / 2 + 0.25, -1.1], ['barrel', -shop.w / 2 - 0.2, 0.2]]); }
-  if (smithy) { junk(smithy, [['logpile', -smithy.w / 2 - 0.42, 0, Math.PI / 2], ['barrel', smithy.w / 2 + 0.3, -smithy.d / 2 + 0.5], ['crate', smithy.w / 2 + 0.35, -1.15]]); put('lamp', ...side(smithy, -smithy.w / 2 + 0.4, smithy.d / 2 + 1.7)); }
+  if (shop) { junk(shop, [['crate', shop.w / 2 + 0.3, -0.4], ['sacks', shop.w / 2 + 0.25, -1.1], ['cart_load', -shop.w / 2 - 0.62, 0.0, Math.PI / 2], ['pumpkins', shop.w / 2 + 0.5, shop.d / 2 + 0.9]]); }
+  if (smithy) { junk(smithy, [['log_stack', -smithy.w / 2 - 0.62, 0, Math.PI / 2], ['plank_pile', 0.2, -smithy.d / 2 - 0.4, 0], ['barrel', smithy.w / 2 + 0.3, -smithy.d / 2 + 0.5], ['crate', smithy.w / 2 + 0.35, -1.15]]); put('lamp', ...side(smithy, -smithy.w / 2 + 0.4, smithy.d / 2 + 1.7)); }
   for (const b of buildings.filter(b => b.house)) {
     const s = hh(b.x, b.y, 7), pick = (a, k) => a[Math.floor(hh(b.x, b.y, k) * a.length)];
     junk(b, [[pick(['barrel', 'crate', 'sacks'], 1), b.w / 2 + 0.3, b.d / 2 - 0.5], [pick(['logpile', 'barrel', 'crate'], 2), -b.w / 2 - 0.42, -0.2, Math.PI / 2]]);
@@ -262,7 +262,8 @@ export function generateVillage(plan0 = PLAN) {
     const sgn = s < 0.5 ? 1 : -1, gu = sgn * (b.w / 2 + 2.6), [gx, gy] = side(b, gu, 0.2);
     const yard = { x: gx, y: gy, rot: b.rot, w: 2.6, d: b.d * 0.9 };
     if (fits(yard, 0.6)) {
-      put('garden_bed', gx, gy, { rot: b.rot + Math.PI / 2 });
+      if (hh(b.x, b.y, 3) < 0.45) put('clothesline', gx, gy, { rot: b.rot + Math.PI / 2, nocol: 1 });   // бельё на верёвке
+      else { put('garden_bed', gx, gy, { rot: b.rot + Math.PI / 2 }); const [px, py] = side(b, gu, -b.d / 2 + 0.2); put('pumpkins', px, py); }
       for (let i = 0; i < 3; i++) { const [fx, fy] = side(b, gu + (i - 1) * 1.0, b.d / 2 + 0.3); put(Math.abs(Math.sin(b.rot)) > 0.7 ? 'fence_y' : 'fence_x', fx, fy, { rot: b.rot, nocol: 1 }); }
       for (const [tx, ty] of tilesOf(yard, 0.3)) setU(tx, ty, 5);
     }
@@ -302,9 +303,16 @@ export function generateVillage(plan0 = PLAN) {
     if (f.type === 'F') { put('scarecrow', x0 + f.w * (0.3 + hh(x0, y0) * 0.4), y0 + f.h * 0.45, { nocol: 1, rot: 0.6 }); }
     // у ворот поля — стог и телега
     const gx = x0 + gate + 0.5, gy = y1 + 1.0;
-    if (at(Math.floor(gx + 1.8), Math.floor(gy)) === '.' && U(Math.floor(gx + 1.8), Math.floor(gy)) !== 1) put(f.type === 'F' ? 'hay' : 'crate', gx + 1.8, gy);
+    if (at(Math.floor(gx + 1.8), Math.floor(gy)) === '.' && U(Math.floor(gx + 1.8), Math.floor(gy)) !== 1) put(f.type === 'F' ? 'hay' : f.type === 'K' ? 'pumpkins' : 'barrel_stack', gx + 1.8, gy);
+    if (at(Math.floor(gx - 2.2), Math.floor(gy + 0.4)) === '.' && U(Math.floor(gx - 2.2), Math.floor(gy + 0.4)) !== 1) put(f.type === 'F' ? 'cart' : 'tool_stand', gx - 2.2, gy + 0.4, { rot: f.type === 'F' ? 0.4 : 0 });   // у ворот: телега или стойка с вилами и косой
   }
 
+  // ---- указатели на развилках: у начала каждого ответвления, на обочине
+  for (const r of roads.filter(r => !r.main && r.id !== 'north')) {
+    const p = r.line[Math.min(r.line.length - 1, 10)], sx = p.x + p.ty * (r.w / 2 + 0.9), sy = p.y - p.tx * (r.w / 2 + 0.9), sx2 = p.x - p.ty * (r.w / 2 + 0.9), sy2 = p.y + p.tx * (r.w / 2 + 0.9);
+    const [x, y] = sx + sy > sx2 + sy2 ? [sx, sy] : [sx2, sy2];   // ближняя к камере обочина — указатель виден
+    if (at(Math.floor(x), Math.floor(y)) === '.' && U(Math.floor(x), Math.floor(y)) !== 4) put('signpost', x, y, { rot: Math.atan2(p.tx, p.ty) });
+  }
   // ---- лампы вдоль главных улиц (на ближней стороне), каждые ~10 м
   for (const r of roads.filter(r => r.main)) {
     let last = -99;
@@ -325,7 +333,7 @@ export function generateVillage(plan0 = PLAN) {
     for (let y = Math.floor(by - 5); y <= by + 5; y++) for (let x = bx1; x < W; x++) if (at(x, y) === 'x' && Math.hypot(x - bx1, y - by) < 5.5) set(x, y, 'n');
   }
   // ---- берега: камни и камыш (не на мосту)
-  for (const p of stream) if (hh(p.x, p.y, 21) < 0.08 && !bridges.some(b => Math.hypot(b.x + 0.5 - p.x, b.y + 0.5 - p.y) < 5)) { const sgn = hh(p.y, p.x) < 0.5 ? 1 : -1, r = sw(p.s) / 2 + 0.3, x = p.x + sgn * r, y = p.y; const c = at(Math.floor(x), Math.floor(y)); if ((c === '.' || c === 'n') && U(Math.floor(x), Math.floor(y)) !== 1) put(hh(x, y) < 0.5 ? 'rocks' : 'reeds', x, y, { nocol: 1 }); }
+  for (const p of stream) if (hh(p.x, p.y, 21) < 0.08 && !bridges.some(b => Math.hypot(b.x + 0.5 - p.x, b.y + 0.5 - p.y) < 5)) { const sgn = hh(p.y, p.x) < 0.5 ? 1 : -1, r = sw(p.s, p.y) / 2 + 0.3, x = p.x + sgn * r, y = p.y; const c = at(Math.floor(x), Math.floor(y)); if ((c === '.' || c === 'n') && U(Math.floor(x), Math.floor(y)) !== 1) put(hh(x, y) < 0.5 ? 'rocks' : 'reeds', x, y, { nocol: 1 }); }
 
   // ---- за рекой (туда не пройти — для атмосферы): завал деревьев за табличкой и полуразрушенная водяная мельница выше по течению.
   // Камера смотрит с +x,+z: всё, что правее и ниже мельницы, её заслоняет, поэтому в «конусе взгляда» лес прореживается (viewClear).
@@ -333,12 +341,14 @@ export function generateVillage(plan0 = PLAN) {
   const inClear = (x, y) => viewClear.some(c => { const dx = x - c.x, dy = y - c.y, al = (dx + dy) / Math.SQRT2, lat = Math.abs(dx - dy) / Math.SQRT2; return al > -2.5 && al < c.len && lat < c.lat; });
   if (bridges.length) {
     const xs = bridges.map(b => b.x), ys = bridges.map(b => b.y), bx1 = Math.max(...xs) + 1, by = (Math.min(...ys) + Math.max(...ys) + 1) / 2;
-    put('deadfall', bx1 + 3.4, by + 0.2, { rot: 0.2, nocol: 1 });
+    // завал за табличкой: штабель брёвен поперёк дороги, брошенная телега, бочки и доски
+    put('log_stack', bx1 + 2.6, by, { rot: Math.PI / 2, nocol: 1 }); put('cart', bx1 + 3.4, by + 2.4, { rot: 2.5, nocol: 1 });
+    put('barrel_stack', bx1 + 2.4, by - 2.3, { rot: 0.3, nocol: 1 }); put('plank_pile', bx1 + 4.4, by - 0.6, { rot: 1.2, nocol: 1 });
     viewClear.push({ x: bx1 + 3.4, y: by + 0.2, len: 12, lat: 4.5 });   // завал видно с моста: лес перед ним (ближе к камере) прореживается
-    const ym = Math.round(by - 16 * K);
+    const ym = Math.round(ST.millY);
     if (ym > 4 && streamX[ym] > 0) {
       const sx = streamX[ym], shw = streamHW[ym], mw = 4.4, md = 5.4, mx = sx + shw + 0.4 + mw / 2, my = ym - 1.4;   // дом вдоль ручья; колесо — в воде у берега, южнее дома (его видно камере)
-      const opts = { mw, md, wx: +(sx + shw - 0.75 - mx).toFixed(2), wz: +(md / 2 + 1.1).toFixed(2) };
+      const opts = { mw, md, wx: +(sx + shw - 1.25 - mx).toFixed(2), wz: +(md / 2 + 0.7).toFixed(2) };   // колесо целиком в воде у дальнего берега
       put('mill_ruin', mx, my, { rot: 0, nocol: 1, opts });
       mills.push({ x: mx, y: my });
       for (let y = Math.floor(my - md / 2 - 1.5); y <= my + md / 2 + 1.5; y++) for (let x = Math.floor(mx - mw / 2 - 0.5); x <= mx + mw / 2 + 1.5; x++) if (at(x, y) !== '~') { set(x, y, 'n'); setU(x, y, 4); }
@@ -373,7 +383,7 @@ export function generateVillage(plan0 = PLAN) {
   // ---- зазоры: два препятствия либо вплотную, либо с проходом ≥ GAP; иначе убираем менее важное (мелочь раньше деревьев)
   {
     const shapeOf = o => { if (o.nocol) return null; if (o.boxes) return o.boxes.map(b => ({ b })); const c = COL[o.t]; if (c === undefined) return null; if (typeof c === 'number') return [{ c: [o.x, o.y, c] }]; const sw2 = o.rot && Math.abs(Math.sin(o.rot)) > 0.7, [hx, hy] = sw2 ? [c[1], c[0]] : c; return [{ b: [o.x - hx, o.y - hy, o.x + hx, o.y + hy] }]; };
-    const prio = I => ({ barrel: 0, crate: 0, sacks: 0, logpile: 0, hay: 0, rocks: 0, crystals: 1, tree_0: 1, tree_1: 1, grave: 1, deadtree: 1, bench: 2, table: 2, dummy: 3, target: 3, weapon_rack: 3 })[I.o.t] ?? 2;
+    const prio = I => ({ pumpkins: 0, plank_pile: 0, tool_stand: 1, cart: 1, cart_load: 2, barrel_stack: 1, log_stack: 1, signpost: 2, barrel: 0, crate: 0, sacks: 0, logpile: 0, hay: 0, rocks: 0, crystals: 1, tree_0: 1, tree_1: 1, grave: 1, deadtree: 1, bench: 2, table: 2, dummy: 3, target: 3, weapon_rack: 3 })[I.o.t] ?? 2;
     const items = objects.map(o => ({ o, sh: shapeOf(o), keep: KEEP.has(o.t) || !!o.boxes })).filter(i => i.sh);
     for (const n of npcs) items.push({ o: n, sh: [{ c: [n.x, n.y, 0.35] }], keep: true });
     for (const dx of [-1.7, 1.7]) items.push({ o: { t: 'hwsign' }, sh: [{ c: [hwsign[0] + dx, hwsign[1], 0.45] }], keep: true });
