@@ -36,7 +36,7 @@ import { rand, rrange, rint } from '../core/util.js';
 import { pollMove, input, mouse, tapAim } from '../core/input.js';
 import { gate, BOSS_LEVEL, nextStep } from './progress.js';
 import { platform } from '../platform/platform.js';
-import { maybeInterstitial } from '../platform/monetize.js';
+import { maybeInterstitial, dailyStatus, blessed } from '../platform/monetize.js';
 
 G.npcs = [];
 let saveTimer = 0, saveQueued = false, meterAcc = 0, questT = 0;
@@ -140,6 +140,7 @@ export async function loadZone(id, how = {}) {
   if (id === 'survival') SV.startRun(); else G.surv = null;
   G.zoneReady = true;
   bus.emit('zoneEntered', id); bus.emit('hud'); requestSave();
+  if (id === 'town' && G.profile.tutorial.prologue) setTimeout(() => { const d = dailyStatus(); if (d.claimable) bus.emit('toast', { text: 'Дары богини ждут!', sub: `День ${d.day} из 28 — алтарь на площади`, kind: 'quest' }); else if (!blessed()) bus.emit('toast', { text: 'Алтарь богини на площади', sub: 'Благословение: +50% золота и опыта на 10 минут', kind: 'info' }); }, 2500);   // сборка 19
   if (id === 'town' && P.tutorial.prologue) setTimeout(() => { if (G.zoneId === 'town') bus.emit('toast', { text: 'Дальше: ' + nextStep(), kind: 'info' }); }, 2200);
   if (id === 'town' && how.from && how.from !== 'death') setTimeout(() => maybeInterstitial('return'), 1200);   // реклама только на спокойном переходе (не чаще раза в 4 минуты)
 }
@@ -436,9 +437,9 @@ export function update(dt) {
   // автоатака: враг в зоне удара — герой бьёт сам, и стоя, и на ходу (ближний бой — на всю длину оружия, а не «впритык»;
   // стрелок на ходу стреляет по тем, кто ближе 60 % дальности, начатый на ходу выстрел не сбрасывается движением)
   if (!pl.busy() && !pl.dead && !G.modalOpen && !input.attackHeld && G.zoneId !== 'survival' && G.zoneId !== 'town' && G.zoneId !== 'castle') {
-    const W = G.stats, moving = inp.mag >= 0.12, rng = W.ranged ? W.range * (moving ? 0.6 : 0.9) : W.range + 0.2;
-    const t = moving && W.ranged && G.time < (pl.moveShotT || 0) ? null : C.pickTarget(pl, rng);   // стрелок на ходу — выстрел и ~0,8 с хода, чтобы мог отступать
-    if (t && (t.aggro || G.auto) && G.zone.map.los(pl.x, pl.y, t.x, t.y) && C.playerAttack(pl) && pl.act) { pl.act.auto = true; if (moving && W.ranged) pl.moveShotT = G.time + pl.act.dur + 0.8; }
+    const W = G.stats, moving = inp.mag >= 0.12, rng = W.ranged ? W.range * (moving ? 0.8 : 0.9) : W.range + 0.2;
+    const t = C.pickTarget(pl, rng);   // сборка 19: удар и выстрел на ходу героя не останавливают (entities.js), поэтому стрелок бьёт без пауз
+    if (t && (t.aggro || G.auto) && G.zone.map.los(pl.x, pl.y, t.x, t.y) && C.playerAttack(pl) && pl.act) pl.act.auto = true;
   }
   if (pl.comboT > 0) { pl.comboT -= dt; if (pl.comboT <= 0) pl.combo = 0; }
   if (G.auto && !G.modalOpen) autoTick(inp);

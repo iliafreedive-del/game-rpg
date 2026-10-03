@@ -11,7 +11,7 @@ import * as C from '../game/combat.js';
 import { interact, usePotion, useScroll } from '../game/game.js';
 import { drawIcon, skillIcon, iconURL } from './icons.js';
 import { iconOf } from '../game/items.js';
-import { dailyStatus, chestStatus } from '../platform/monetize.js';
+import { dailyStatus, chestStatus, blessLeft, blessTick } from '../platform/monetize.js';
 import { dailyReady } from '../game/daily.js';
 import { BOONS } from '../data/boons.js';
 import { openWindow, pumpRewards } from './windows.js';
@@ -124,9 +124,12 @@ export function updateHUD(dt) {
   $('btnScroll').classList.toggle('hidden', G.zoneId !== 'catacombs');
   const newItems = P.bag.filter(x => x.isNew).length; dot('dotInv', newItems);
   dot('dotChar', G.zoneId === 'town' ? P.attrPts : 0); dot('dotSkill', G.zoneId === 'town' ? P.skillPts : 0);
-  const ds = dailyStatus(), cs = chestStatus(); dot('dotGift', (ds.claimable ? 1 : 0) + (cs.ready ? 1 : 0) + (dailyReady() ? 1 : 0));
+  const ds = dailyStatus(), cs = chestStatus(), gifts = (ds.claimable ? 1 : 0) + (cs.ready ? 1 : 0) + (dailyReady() ? 1 : 0); dot('dotGift', gifts);
+  const sh = G.zone && G.zone.inter.find(i => i.id === 'shrine'); if (sh) { sh.plate = 'Алтарь богини' + (gifts ? ` 🎁${gifts}` : blessLeft() > 0 ? '' : ' ✦'); sh.marker = gifts ? '!' : null; }   // значок над алтарём
+  blessTick();
   // buffs
   const now = Date.now(); const bf = [];
+  if (blessLeft() > 0) bf.push(`<b class="bless">✦ Благословение ${mmss(blessLeft())}</b>`);
   if (P.boosts.xpUntil > now) bf.push(`Опыт +50% ${mmss(P.boosts.xpUntil - now)}`);
   if (P.boosts.goldUntil > now) bf.push(`Золото +50% ${mmss(P.boosts.goldUntil - now)}`);
   if (pl.shield > 1) bf.push(`Щит ${Math.round(pl.shield)}`);

@@ -13,7 +13,7 @@ import * as EC from '../game/economy.js';
 import * as Q from '../game/quests.js';
 import { iconURL, skillCanvas } from './icons.js';
 import { drawMap, seen, seenKey } from './hud.js';
-import { offers, buy, restorePurchases, dailyStatus, claimDaily, chestStatus, chestSkip, openOrderChest, DAILY, watchRewarded, offerToken } from '../platform/monetize.js';
+import { offers, buy, restorePurchases, dailyStatus, claimDaily, chestStatus, chestSkip, openOrderChest, DAILY, LOGIN_DAYS, watchRewarded, offerToken, blessing, blessLeft, BLESS_MIN, BLESS_CAP } from '../platform/monetize.js';
 import { PRODUCTS, platform } from '../platform/platform.js';
 import { revive, saveNow, loadZone, depthsUnlocked, MAX_REVIVES } from '../game/game.js';
 import { generateFloor, isBossFloor, floorLevel } from '../world/floorgen.js';
@@ -460,27 +460,31 @@ W.board = () => {
 };
 
 // ---------------------------------------------------------------- rewards / shop (monetization hub)
-W.shrine = () => modal('Святилище наград', 'md', b => {
+W.shrine = () => modal('Алтарь богини', 'md', b => {
   const P = G.profile, now = Date.now();
-  dailyBlock(b);
-  // daily
-  const ds = dailyStatus();
-  b.appendChild(el('h3', '', `Ежедневная награда · серия ${ds.streak} дн.`));
-  const days = el('div', 'row'); DAILY.forEach((r, i) => { const on = i === ds.streak % 7 && ds.claimable; const got = i < ds.streak % 7 || (!ds.claimable && i === (ds.streak - 1) % 7); days.appendChild(el('div', 'buff', `${i + 1}: ${r.gold ? r.gold * P.level + ' зол.' : r.potions ? r.potions + ' зел.' : r.item === 2 ? 'редкий' : 'магич.'}${got ? ' ✔' : on ? ' ◀' : ''}`)); }); b.appendChild(days);
+  // 1) благословение — главное предложение алтаря
+  { const left = blessLeft(), on = left > 0, full = left > (BLESS_CAP - BLESS_MIN) * 60000;
+    const c = el('div', 'bless-card' + (on ? ' on' : ''), `<div class="bl-ic">✦</div><div class="tx"><b>Благословение богини</b><div>+50% золота и опыта, +25% к выпадению вещей — ${BLESS_MIN} минут</div><div class="muted">${on ? `Действует ещё <b>${Math.floor(left / 60000)}:${String(Math.floor(left / 1000) % 60).padStart(2, '0')}</b>${full ? ' · предел ' + BLESS_CAP + ' мин' : ' · можно продлить'}` : 'Посмотрите рекламу — и 10 минут всё падает щедрее'}</div></div>`);
+    const bt = el('button', 'btn ad', on ? `+${BLESS_MIN} мин` : 'Получить'); bt.disabled = full || inCombat(); bt.onclick = () => blessing().then(rerender); c.appendChild(bt); b.appendChild(c); }
+  // 2) календарь входа: 28 дней, пропуск не сбрасывает, каждый 3-й больше, 7/14/21/28 — вещь
+  const ds = dailyStatus(), cur = ds.day, base = ds.streak - (ds.claimable ? 0 : 1) - (cur - 1);   // base — сколько дней было до этого круга
+  b.appendChild(el('h3', '', `Дары богини · день ${cur} из ${LOGIN_DAYS}${ds.streak >= LOGIN_DAYS ? ` · круг ${Math.floor(base / LOGIN_DAYS) + 1}` : ''}`));
+  const cal = el('div', 'login-cal');
+  DAILY.forEach((r, i) => { const d = i + 1, got = d < cur || (d === cur && !ds.claimable), today = d === cur && ds.claimable, soon = !got && !today && d - cur <= 3;
+    const what = r.item ? (r.item >= 3 ? '◆ золотая вещь' : '◆ синяя вещь') : r.mid ? '✉ свиток' : (r.gold * P.level) + ' зол.';
+    const cell = el('div', 'lc' + (r.big ? ' big' : r.mid ? ' mid' : '') + (got ? ' got' : '') + (today ? ' today' : '') + (soon ? ' soon' : ''), `<i>${d}</i><span>${what}</span>${got ? '<em>✔</em>' : soon ? `<em>${d - cur === 1 ? "завтра" : "через " + (d - cur) + " дн."}</em>` : ''}`);
+    cal.appendChild(cell); });
+  b.appendChild(cal);
+  const nb = DAILY.findIndex((r, i) => i + 1 > cur && (r.big || r.mid)), nr = nb >= 0 ? DAILY[nb] : null;
   const dr = el('div', 'row'); dr.style.marginTop = '6px';
-  if (ds.claimable) { const a = el('button', 'btn gold', 'Забрать'); a.onclick = () => { claimDaily(false); rerender(); }; const x2 = el('button', 'btn ad', 'Забрать ×2'); x2.onclick = () => watchRewarded('daily_double', offerToken('daily_double', 'd' + new Date().toDateString()), () => claimDaily(true)).then(rerender); dr.append(a, x2); }
-  else dr.appendChild(el('span', 'muted', 'Следующая награда — завтра. Не прерывайте серию!'));
+  if (ds.claimable) { const a = el('button', 'btn gold', `Забрать день ${cur}`); a.onclick = () => { claimDaily(false); rerender(); }; const x2 = el('button', 'btn ad', 'Забрать ×2'); x2.onclick = () => watchRewarded('daily_double', offerToken('daily_double', 'd' + new Date().toDateString()), () => claimDaily(true)).then(rerender); dr.append(a, x2); }
+  else dr.appendChild(el('span', 'muted', `Следующий дар — завтра.${nr ? ` Через ${nb + 1 - cur} дн.: <b>${nr.label}</b>` : ''} Пропуск дня не сбрасывает календарь.`));
   b.appendChild(dr);
+  dailyBlock(b);
   // order chest
   const cs = chestStatus(); b.appendChild(el('h3', '', 'Сундук Ордена'));
   const cr = el('div', 'offer', `<div class="ic">▣</div><div class="tx"><b>Редкий + магический предмет и золото</b><div class="muted">${cs.ready ? 'Готов к открытию!' : 'Откроется через ' + Math.ceil(cs.left / 60000) + ' мин'}</div></div>`);
   const cb = el('button', 'btn ' + (cs.ready ? 'gold' : 'ad'), cs.ready ? 'Открыть' : 'Открыть сейчас'); cb.onclick = () => { (cs.ready ? Promise.resolve(openOrderChest()) : chestSkip()).then(rerender); }; cr.appendChild(cb); b.appendChild(cr);
-  // blessings
-  b.appendChild(el('h3', '', 'Благословения'));
-  for (const [k, t, until, fn] of [['xp', '+50% опыта на 15 минут', P.boosts.xpUntil, offers.xpBoost], ['gold', '+50% золота на 15 минут', P.boosts.goldUntil, offers.goldBoost]]) {
-    const o = el('div', 'offer', `<div class="ic">${k === 'xp' ? '✦' : '⛁'}</div><div class="tx"><b>${t}</b><div class="muted">${until > now ? 'Активно ещё ' + Math.ceil((until - now) / 60000) + ' мин (можно продлить)' : 'Складывается с другими бонусами'}</div></div>`);
-    const bt = el('button', 'btn ad', 'Смотреть'); bt.disabled = inCombat(); bt.onclick = () => fn().then(rerender); o.appendChild(bt); b.appendChild(o);
-  }
   // IAP
   b.appendChild(el('h3', '', 'Лавка Ордена'));
   for (const [id, p] of Object.entries(PRODUCTS)) {

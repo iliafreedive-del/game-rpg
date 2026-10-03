@@ -20,7 +20,7 @@ export function newProfile(cls = 'warrior') {
     repeat: {},            // id -> {accepted, base, completions}
     stats: { kills: 0, skeletons: 0, elites: 0, chests: 0, meters: 0, gold: 0, bossKills: 0, deaths: 0, bossNoDeath: 0, playTime: 0 },
     world: { opened: {}, lastZone: 'town' },   // persistent story objects (key sarcophagus, secret wall, gate…)
-    boosts: { xpUntil: 0, goldUntil: 0 },
+    boosts: { xpUntil: 0, goldUntil: 0, blessUntil: 0 },
     ads: { used: {} }, iap: { tx: {} },
     shop: { seed: 1, refreshedAtLevel: 1, stock: [] },
     epicPity: 0, bossFirstKill: false, chapterDone: false,

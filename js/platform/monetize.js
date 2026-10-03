@@ -9,6 +9,7 @@ import { uid } from '../core/util.js';
 
 const MIN = 60 * 1000;
 export const OFFERS = {
+  bless: { title: 'Благословение богини: +50% золота и опыта на 10 минут', icon: '✦' },
   xp_boost: { title: '+50% опыта на 15 минут', icon: '✦' },
   gold_boost: { title: '+50% золота на 15 минут', icon: '⛁' },
   revive: { title: 'Воскреснуть на месте', icon: '✚' },
@@ -87,24 +88,49 @@ export async function restorePurchases() {
   for (const p of list) await grantPurchase(p.productId, p.token);
 }
 
-// ---- retention: daily login streak + ripening chest
-export const DAILY = [{ gold: 50 }, { potions: 2 }, { gold: 100 }, { item: 1 }, { gold: 200 }, { potions: 4 }, { item: 2 }];
+// ---- retention: календарь входа у алтаря богини (сборка 19) + сундук Ордена
+// 28 дней по кругу; пропуск дня НЕ сбрасывает прогресс (следующий вход = следующий день календаря).
+// Каждый 3-й день награда больше (свиток, зелья), 7/14/21/28 — крупная (вещь). Видно, что будет через 1–3 дня.
+export const LOGIN_DAYS = 28;
+export function loginReward(d) {   // d — день календаря 1..28
+  if (d % 7 === 0) return { big: true, gold: 120, potions: 3, scrolls: 1, item: d >= 21 ? 3 : 2, label: d >= 21 ? 'Золотая вещь' : 'Синяя вещь' };
+  if (d % 3 === 0) return { mid: true, gold: 70, potions: 3, scrolls: 1, label: 'Свиток и зелья' };
+  return { gold: 35, potions: d % 2 ? 1 : 0, label: 'Золото' };
+}
+export const DAILY = Array.from({ length: LOGIN_DAYS }, (_, i) => loginReward(i + 1));
 const dayKey = t => { const d = new Date(t); return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate(); };
 export function dailyStatus() {
   const P = G.profile; P.daily = P.daily || { last: 0, streak: 0 };
-  const today = dayKey(Date.now()); const last = P.daily.last;
-  const y = dayKey(Date.now() - 864e5);
-  const streak = last === today ? P.daily.streak : last === y ? P.daily.streak : 0;
-  return { claimable: last !== today, streak, day: streak % 7, reward: DAILY[(last === today ? streak - 1 : streak) % 7] };
+  const today = dayKey(Date.now()), claimable = P.daily.last !== today, n = P.daily.streak;   // streak — сколько дней календаря уже получено (всего)
+  const day = claimable ? n % LOGIN_DAYS + 1 : (n - 1) % LOGIN_DAYS + 1;   // текущий день календаря
+  return { claimable, streak: n, day, reward: loginReward(day) };
 }
 export function claimDaily(double) {
   const P = G.profile; const s = dailyStatus(); if (!s.claimable) return false;
-  const r = DAILY[s.streak % 7]; const m = double ? 2 : 1;
+  const r = s.reward, m = double ? 2 : 1;
   if (r.gold) P.gold += r.gold * m * P.level;
   if (r.potions) P.potions.hp += r.potions * m;
+  if (r.scrolls) P.scrolls += r.scrolls * m;
   if (r.item) for (let i = 0; i < m; i++) { const it = makeItem({ ilvl: P.level, rarity: r.item, cls: P.cls }); delete it.req; autoEquip(it); }
   P.daily.last = dayKey(Date.now()); P.daily.streak = s.streak + 1;
-  bus.emit('toast', { text: `Награда за вход — день ${s.streak + 1}`, kind: 'good' }); bus.emit('hud'); bus.emit('save'); return true;
+  bus.emit('toast', { text: `Дар богини — день ${s.day} из ${LOGIN_DAYS}`, sub: r.big ? 'Большая награда!' : r.mid ? 'Награда каждого 3-го дня' : '', kind: 'good' }); bus.emit('sfx', 'quest'); bus.emit('hud'); bus.emit('save'); return true;
+}
+
+// ---- благословение богини за рекламу: +50% золота и опыта, +25% к выпадению вещей; 10 минут за просмотр, не больше 30 подряд
+export const BLESS_MIN = 10, BLESS_CAP = 30;
+export const blessLeft = () => Math.max(0, ((G.profile.boosts && G.profile.boosts.blessUntil) || 0) - Date.now());
+export const blessed = () => blessLeft() > 0;
+export function blessing() {
+  if (blessLeft() > (BLESS_CAP - BLESS_MIN) * MIN) { bus.emit('toast', { text: 'Благословение уже на пределе', sub: `Не больше ${BLESS_CAP} минут подряд`, kind: 'warn' }); return Promise.resolve(false); }
+  return watchRewarded('bless', offerToken('bless'), () => { const P = G.profile; P.boosts.blessUntil = Math.max(Date.now(), P.boosts.blessUntil || 0) + BLESS_MIN * MIN; P.boosts.blessWarned = false;
+    bus.emit('toast', { text: 'Благословение богини!', sub: '+50% золота и опыта, +25% вещей — 10 минут. Вперёд, в бой!', kind: 'good' }); bus.emit('sfx', 'levelup'); });
+}
+// напоминание за минуту до конца и по окончании (вызывается раз в секунду из hud.js)
+export function blessTick() {
+  const P = G.profile, B = P.boosts; if (!B || !B.blessUntil) return;
+  const left = B.blessUntil - Date.now();
+  if (left > 0 && left < 60000 && !B.blessWarned) { B.blessWarned = true; bus.emit('toast', { text: 'Благословение угасает — минута!', sub: 'Вернитесь к алтарю богини на площади, чтобы продлить', kind: 'quest' }); }
+  if (left <= 0 && B.blessWarned !== 'done') { B.blessWarned = 'done'; bus.emit('toast', { text: 'Благословение угасло', sub: 'Алтарь богини на площади деревни даст новое', kind: 'info' }); bus.emit('save'); }
 }
 export const CHEST_TIME = 4 * 60 * MIN;
 export function chestStatus() { const P = G.profile; P.orderChest = P.orderChest || { readyAt: Date.now() + 20 * MIN }; const left = P.orderChest.readyAt - Date.now(); return { ready: left <= 0, left }; }
