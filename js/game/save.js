@@ -1,5 +1,5 @@
 // Save System: versioned profile in localStorage (+ optional cloud via platform), migrations from build 1.x.
-import { makeItem, makeStarterGear, sellValue } from './items.js';
+import { makeItem, makeStarterGear, sellValue, applyKindPerk } from './items.js';
 import { CLASSES, SLOTS, GROWTH } from '../data/items.js';
 import { STORY } from '../data/quests.js';
 
@@ -14,7 +14,7 @@ export function newProfile(cls = 'warrior') {
     level: 1, xp: 0, gold: 25,
     attrs: { str: 10, dex: 10, int: 10, vit: 10 }, attrPts: 0, skillPts: 1,
     skills: {}, slots: [null, null, null, null],
-    gear: {}, bag: [], bagSize: 30,
+    gear: {}, bag: [], bagSize: 40,
     potions: { hp: 3, mp: 1 }, scrolls: 1,
     story: { stage: 0, counters: {}, flags: {}, done: [] },
     repeat: {},            // id -> {accepted, base, completions}
@@ -100,6 +100,9 @@ export function migrate(p) {
   for (const k in d) if (!(k in p)) p[k] = d[k];
   for (const k of ['stats', 'story', 'world', 'boosts', 'ads', 'iap', 'settings', 'potions', 'shop', 'tutorial'])
     for (const kk in d[k]) if (!(kk in p[k])) p[k][kk] = d[k][kk];
+  p.bagSize = Math.max(p.bagSize || 30, 40);   // сборка 20: сумка 40 (больше серого — сырьё для слияния)
+  // сборка 20: «свойство вида» у синих и выше — для вещей из старых сохранений
+  for (const it of [...Object.values(p.gear || {}), ...(p.bag || [])]) if (it && it.affixes && it.rarity >= 2 && !it.affixes.some(a => a.kp)) applyKindPerk(it);
   return p;
 }
 

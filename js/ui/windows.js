@@ -3,11 +3,11 @@ import { SETS, bonusText } from '../data/sets.js';
 import { setCounts } from '../game/stats.js';
 import { G, bus, inCombat } from '../game/ctx.js';
 import { $, el, esc, fmt } from '../core/util.js';
-import { SLOTS, SLOT_NAMES, RARITY, WEAPONS, BASE, CLASSES } from '../data/items.js';
+import { SLOTS, SLOT_NAMES, RARITY, WEAPONS, BASE, CLASSES, RARITY_SHORT } from '../data/items.js';
 import { SKILLS, BRANCHES } from '../data/skills.js';
 import { STORY, REPEATABLE, DIALOG, CHAPTER, chapterOf } from '../data/quests.js';
 import { stats, compare, usefulness, meetsReq, xpToNext, effRank } from '../game/stats.js';
-import { iconOf, affixText, epicOf, sellValue, upgradeCost, reforgeCost, MAX_UPG } from '../game/items.js';
+import { iconOf, affixText, epicOf, sellValue, upgradeCost, reforgeCost, MAX_UPG, itemPower, kindPerkText, upgMult, heroPower } from '../game/items.js';
 import * as CH from '../game/character.js';
 import * as EC from '../game/economy.js';
 import * as Q from '../game/quests.js';
@@ -117,13 +117,14 @@ function setHTML(x) { if (!x || !x.set || !SETS[x.set]) return ''; const S = SET
   return `<div class="it-set" style="color:#7ee0a8">◈ Сет «${esc(S.name)}» · надето ${c}/3</div><div class="${c >= 2 ? 'good' : 'muted'}" style="font-size:12px">2 части: ${esc(bonusText(x.set, S.b2))}</div><div class="${c >= 3 ? 'good' : 'muted'}" style="font-size:12px">3 части: ${esc(bonusText(x.set, S.b3))}</div>`; }
 function itemHTML(it, S) {
   const b = BASE[it.base], r = RARITY[it.rarity];
-  let h = `<div class="it-name" style="color:${r.color}">${esc(it.name)}${it.upg ? ` <span class="good">+${it.upg}</span>` : ''}</div>`;
+  let h = `<div class="it-name" style="color:${r.color}">${esc(it.name)}${it.upg ? ` <span class="good">+${it.upg}</span>` : ''}<span class="it-pow">⚔ ${itemPower(it)}</span></div>`;
   h += `<div class="it-type">${r.name} · ${it.wt ? WEAPONS[it.wt].name : SLOT_NAMES[it.slot === 'ring' ? 'ring1' : it.slot]} · ур. предмета ${it.ilvl}</div>`;
-  const um = 1 + (it.upg || 0) * 0.1;
+  const um = upgMult(it);
   if (it.dmg) h += `<div class="it-stat">Урон: <b>${Math.round(it.dmg[0] * um)}–${Math.round(it.dmg[1] * um)}</b> · Урон в сек.: <b>${Math.round((it.dmg[0] + it.dmg[1]) / 2 * um * WEAPONS[it.wt].aps * 10) / 10}</b> · Скорость: ${WEAPONS[it.wt].aps} уд/с · Дальность: ${WEAPONS[it.wt].range} м</div><div class="it-stat muted" style="font-size:12px">${WEAPONS[it.wt].note}</div>`;
   if (it.armor) h += `<div class="it-stat">Защита: <b>${Math.round(it.armor * um)}</b></div>`;
   if (it.block) h += `<div class="it-stat">Шанс блока: ${Math.round(it.block * 100)}%</div>`;
-  for (const a of it.affixes) h += `<div class="it-aff">${esc(affixText(a))}</div>`;
+  for (const a of it.affixes) h += a.kp ? `<div class="it-aff kp">◆ ${esc(kindPerkText(it))}: ${esc(affixText(a))}</div>` : `<div class="it-aff">${esc(affixText(a))}</div>`;
+  if (it.rarity < 4) h += `<div class="it-stat muted" style="font-size:12px">Слияние у кузнеца: 3 ${RARITY_SHORT[it.rarity]} ${SLOT_NAMES[it.slot] ? SLOT_NAMES[it.slot].toLowerCase() : ''} → 1 ${RARITY_SHORT[it.rarity + 1]}</div>`;
   const ep = epicOf(it); if (ep) h += `<div class="it-epic">★ ${esc(ep.desc)}</div>`;
   h += setHTML(it);
   if (it.req) { const ok = meetsReq(G.profile, it, S); h += `<div class="it-stat ${ok ? 'muted' : 'bad'}">Требуется: ${Object.entries(it.req).map(([k, v]) => `${CH.ATTR_NAMES[k]} ${v}`).join(', ')}</div>`; }
@@ -155,7 +156,7 @@ W.inventory = (arg = {}) => {
     const wrap = el('div', 'eq-wrap'), left = el('div', 'eq-left'), right = el('div', 'eq-right'); wrap.append(left, right); b.appendChild(wrap);
     const doll = el('div', 'eq-doll');
     const side = (slot, cls) => { const w = el('div', 'eq-w ' + cls); w.append(cell(P.gear[slot], slot), el('small', '', SLOT_NAMES[slot])); return w; };
-    doll.append(side('weapon', 'a'), side('head', 'b'), el('div', 'eq-pt', `<div class="iv-pt" style="background-image:url(assets/sprites/${(P.cls || 'warrior') === 'warrior' ? 'portrait' : 'portrait_' + P.cls}.png)"></div><b>${esc(C.name)}</b><small>Уровень ${P.level}</small>`), side('chest', 'c'), side('amulet', 'd'));
+    doll.append(side('weapon', 'a'), side('head', 'b'), el('div', 'eq-pt', `<div class="iv-pt" style="background-image:url(assets/sprites/${(P.cls || 'warrior') === 'warrior' ? 'portrait' : 'portrait_' + P.cls}.png)"></div><b>${esc(C.name)}<br><span class="it-pow" style="float:none">⚔ сила ${heroPower(P)}</span></b><small>Уровень ${P.level}</small>`), side('chest', 'c'), side('amulet', 'd'));
     left.appendChild(doll);
     left.appendChild(el('div', 'iv-stats', `<span class="st-atk">⚔ Урон/с <b>${S.dps}</b></span><span class="st-hp">♥ Здоровье <b>${S.maxHP}</b></span><span class="st-def">🛡 Защита <b>${S.armor}</b></span>`));
     // ---- сумка
@@ -203,7 +204,7 @@ W.character = (arg = {}) => {
   const edit = !!arg.npc;
   const m = modal(edit ? 'Наставник: характеристики' : 'Персонаж', 'md', b => {
     const P = G.profile, S = G.stats;
-    b.appendChild(el('div', 'row', `<b class="goldc" style="font:600 17px Georgia">${CLASSES[P.cls || 'warrior'].name} · уровень ${P.level}</b><span class="muted">Опыт ${fmt(P.xp)} / ${fmt(xpToNext(P.level))}</span>`));
+    b.appendChild(el('div', 'row', `<b class="goldc" style="font:600 17px Georgia">${CLASSES[P.cls || 'warrior'].name} · уровень ${P.level} · ⚔ сила ${heroPower(P)}</b><span class="muted">Опыт ${fmt(P.xp)} / ${fmt(xpToNext(P.level))}</span>`));
     b.appendChild(el('h3', '', `Характеристики <span class="c-gold" style="float:right">💰 ${fmt(P.gold)} зол.</span>`));
     b.appendChild(el('p', 'muted', 'Растут сами с каждым уровнем — вкладывать очки не нужно.'));
     const hints = { str: 'урон мечом и топором', dex: 'урон луком, крит, защита', int: 'сила заклинаний, мана', vit: 'здоровье и восстановление' };
@@ -352,10 +353,12 @@ W.npc_elder = () => {
     row.appendChild(nx); b.appendChild(row);
   }, { sticky: true });
 };
-W.npc_smith = () => {
-  let sel = null;
+W.npc_smith = (tab0) => {
+  let sel = null, tab = tab0 || (EC.mergeGroups().some(g => g.can) ? 'merge' : 'upg');
   modal('Кузнец Горан', 'md', b => {
     const P = G.profile;
+    const tabs = el('div', 'tabs big-tabs'); for (const [k, n] of [['merge', 'Слияние 3→1'], ['upg', 'Закалка']]) { const t = el('button', 'tab' + (tab === k ? ' on' : ''), n); t.onclick = () => { tab = k; sel = null; rerender(); }; tabs.appendChild(t); } b.appendChild(tabs);
+    if (tab === 'merge') { mergeTab(b); b.appendChild(el('p', 'goldc', `Ваше золото: ${fmt(P.gold)}`)); return; }
     b.appendChild(el('p', '', `<i>«${esc(DIALOG.smith.hello[1])}»</i>`));
     b.appendChild(el('p', 'muted', 'Закалка: +10% к урону или защите за уровень (до +10), без риска поломки. Закалять вещи можно только здесь, у кузнеца.'));
     const list = [...Object.entries(P.gear).filter(([, i]) => i).map(([s, i]) => i), ...P.bag.filter(i => i.rarity >= 1 || i.dmg || i.armor)];
@@ -374,6 +377,23 @@ W.npc_smith = () => {
   }).live = true;
   Q.talked('smith');
 };
+// Слияние (сборка 20): сетка «слот × редкость», в каждой клетке — сколько есть из трёх; кнопка «Слить всё»
+let lastMerged = null;
+function mergeTab(b) {
+  const P = G.profile, groups = EC.mergeGroups();
+  b.appendChild(el('p', 'muted', 'Три вещи одного слота и одной редкости → одна вещь следующей редкости. Серое → зелёное → синее → золотое → мифическое. С синего у вещи появляется свойство вида, с золотого — особый эффект. Надетые и 🔒 не трогаются.'));
+  const all = el('button', 'btn gold', 'Слить всё'); all.disabled = !groups.some(g => g.can); all.onclick = () => { const m = EC.mergeAll(); lastMerged = m.length ? m[m.length - 1] : null; rerender(); };
+  b.appendChild(all);
+  const grid = el('div', 'merge-grid'); grid.appendChild(el('div', 'mg-h', ''));
+  for (let r = 0; r < 4; r++) grid.appendChild(el('div', 'mg-h', `<span style="color:${RARITY[r].color}">${RARITY_SHORT[r]}</span>`));
+  for (const slot of ['weapon', 'head', 'chest', 'amulet']) {
+    grid.appendChild(el('div', 'mg-s', SLOT_NAMES[slot]));
+    for (let r = 0; r < 4; r++) { const g = groups.find(x => x.slot === slot && x.rarity === r), c = el('button', 'mg-c' + (g.can ? ' ok' : ''), `<b>${g.can ? 3 : g.n}/3</b>${g.can > 1 ? `<i>×${g.can}</i>` : ''}<small>${g.can ? EC.mergeCost(r) + ' з.' : g.n ? 'ещё ' + (3 - g.n % 3) : '—'}</small>`);
+      c.style.borderColor = RARITY[r + 1].color; c.disabled = !g.can; c.onclick = () => { lastMerged = EC.mergeOnce(slot, r); rerender(); }; grid.appendChild(c); }
+  }
+  b.appendChild(grid);
+  if (lastMerged) { const det = el('div', 'detail'); det.innerHTML = '<div class="muted">Получено:</div>' + itemHTML(lastMerged, G.stats); const eq = el('button', 'btn', 'Надеть'); eq.onclick = () => { CH.equip(lastMerged.id); lastMerged = null; rerender(); }; det.appendChild(eq); b.appendChild(det); }
+}
 W.npc_merchant = () => {
   let tab = 'buy', sel = null; EC.ensureStock();
   modal('Торговка Мира', 'md', b => {

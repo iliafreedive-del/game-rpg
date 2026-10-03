@@ -7,7 +7,7 @@ import { G } from './ctx.js';
 import { DECOR } from '../data/upgrades.js';
 export const hasBoon = id => !!(G.run && G.run.boons && G.run.boons.includes(id));
 
-export const xpToNext = l => Math.round(75 * Math.pow(l, 1.75))   // чуть круче прежнего: до босса (ур. 6) приходится заглянуть в лес и перепройти катакомбы;
+export const xpToNext = l => Math.round(75 * Math.pow(l, 1.75) * Math.pow(1.1, l - 1))   // сборка 20: ×1,1 за уровень (как цены) — топ — это долгий фарм;   // чуть круче прежнего: до босса (ур. 6) приходится заглянуть в лес и перепройти катакомбы;
 export const rank = (p, id) => p.skills[id] || 0;
 
 export function branchBonus(p, branch) {

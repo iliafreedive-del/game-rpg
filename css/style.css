@@ -537,3 +537,22 @@ canvas#game{filter:saturate(1.22) contrast(1.08) brightness(1.06)}
 .login-cal .lc.today{border:2px solid #5ae8d8;box-shadow:0 0 10px #5ae8d888;opacity:1}
 .login-cal .lc.soon{border-style:dashed}
 .login-cal .lc em{display:block;font-style:normal;font-size:9px;color:#8af6e6}
+
+/* слияние у кузнеца и «Сила» вещи (сборка 20) */
+.it-pow{float:right;font-size:12px;color:#ffd88a;font-weight:700}
+.it-aff.kp{color:#8af6e6}
+.merge-grid{display:grid;grid-template-columns:72px repeat(4,1fr);gap:4px;margin:8px 0}
+.merge-grid .mg-h{font-size:11px;text-align:center;font-weight:700}
+.merge-grid .mg-s{font-size:12px;align-self:center;color:#cfc6e6}
+.merge-grid .mg-c{position:relative;border:1px solid #444;border-radius:6px;background:#1e1a2a;color:#cfc6e6;padding:4px 2px;font-size:12px;min-height:46px;cursor:pointer}
+.merge-grid .mg-c b{display:block;font-size:14px}
+.merge-grid .mg-c small{display:block;font-size:10px;opacity:.8}
+.merge-grid .mg-c i{position:absolute;top:2px;right:4px;font-size:10px;color:#ffd88a;font-style:normal}
+.merge-grid .mg-c.ok{background:#2a2410;box-shadow:0 0 8px #d6a54866;color:#fff}
+.merge-grid .mg-c:disabled{opacity:.55;cursor:default}
+/* мифическая редкость (сборка 20) */
+.slot.r4{box-shadow:inset 0 0 0 2px #ff5a4a,inset 0 0 18px #a8201a}
+.iv-slot.r4,.eq-slot.r4{background:linear-gradient(#c83a2a,#5a1410);box-shadow:0 0 12px #ff5a4a88}
+.ic-box.r4{border-color:#ff5a4a;box-shadow:0 0 34px #ff5a4a77}
+.rw-card.r4{border-color:#a8201a;box-shadow:0 0 24px #ff5a4a77}
+.rw-rays.r4{background:repeating-conic-gradient(#ff5a4a55 0 10deg,#0000 10deg 20deg)}

@@ -1,7 +1,7 @@
 // Character management: equipment, attribute points, skill tree learning & slots.
 import { G, bus } from './ctx.js';
 import { WEAPONS, CLASSES, SLOTS } from '../data/items.js';
-import { SKILLS, BRANCHES } from '../data/skills.js';
+import { SKILLS, BRANCHES, unlockLevel } from '../data/skills.js';
 import { stats, meetsReq, usefulness, compare } from './stats.js';
 import { sellValue } from './items.js';
 
@@ -36,7 +36,13 @@ export function unequip(slot) {
   P.gear[slot] = null; P.bag.push(it); bus.emit('sfx', 'equip'); bus.emit('equipChanged', slot); recalc(); return true;
 }
 export const attrCost = () => 5 + 5 * G.profile.level;
-export const skillCost = id => Object.keys(G.profile.skills).length === 0 ? 0 : 12 + 10 * G.profile.level * ((G.profile.skills[id] || 0) + 1);   // самый первый навык — бесплатно
+// сборка 20: первый навык бесплатно, каждый следующий новый — вдвое дороже (25, 50, 100, 200…; 10-й ≈ 13 тыс.);
+// ранг уже изученного навыка — в 1,5 раза дороже предыдущего ранга, база растёт на 10% за уровень героя
+export const skillCost = id => {
+  const P = G.profile, n = Object.values(P.skills).filter(Boolean).length, r = P.skills[id] || 0;
+  if (!r) return n === 0 ? 0 : Math.round(25 * Math.pow(2, n - 1));
+  return Math.round(30 * Math.pow(1.5, r) * Math.pow(1.1, P.level - 1));
+};
 export function addAttr(k, n = 1, pay = false) {
   const P = G.profile; n = Math.min(n, P.attrPts); if (n <= 0) return false;
   if (pay) { const c = attrCost() * n; if (P.gold < c) { bus.emit('toast', { text: `Нужно ${c} золота`, sub: 'Соберите золото в катакомбах', kind: 'warn' }); bus.emit('sfx', 'deny'); return false; } P.gold -= c; bus.emit('sfx', 'coin'); }
@@ -51,7 +57,7 @@ export function canLearn(id) {
   if (P.skillPts <= 0) return { ok: false, why: 'Нет очков навыков' };
   if (s.req && (P.skills[s.req[0]] || 0) < s.req[1]) return { ok: false, why: `Нужно: «${SKILLS[s.req[0]].name}» ${s.req[1]}+` };
   if (s.branchPts && branchPoints(s.b) < s.branchPts) return { ok: false, why: `Нужно ${s.branchPts} очков в ветке` };
-  const lvReq = s.row === 3 ? 6 : s.row === 1 ? 1 + r : s.row * 2 + r;
+  const lvReq = unlockLevel(P.cls || 'warrior', id) + r;   // сборка 20: свой уровень открытия у каждого навыка (data/skills.js), +1 за каждый ранг
   if (P.level < lvReq) return { ok: false, why: `Нужен уровень ${lvReq}` };
   return { ok: true };
 }

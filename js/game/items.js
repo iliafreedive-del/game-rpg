@@ -1,7 +1,7 @@
 // Item generation and helpers (Inventory/Equipment domain logic, no DOM).
 import { SETS, SET_SLOTS, SET_BASE } from '../data/sets.js';
 import { G } from './ctx.js';
-import { BASES, BASE, WEAPONS, AFFIXES, AFFIX_GROUP, RARITY, EPICS, CLASSES, SLOTS } from '../data/items.js';
+import { BASES, BASE, WEAPONS, AFFIXES, AFFIX_GROUP, RARITY, EPICS, CLASSES, SLOTS, RMUL, KIND_PERK } from '../data/items.js';
 import { BRANCHES } from '../data/skills.js';
 import { rand, rint, weighted, pick, uid } from '../core/util.js';
 
@@ -34,9 +34,9 @@ export function rollAffix(k, ilvl, cls) {
 
 // opts: {slot, ilvl, rarity, base, wt, epic}
 // Редкость растёт вместе с героем: серые и зелёные вещи в начале, синие с 6-го уровня, золотые (эпики) с 12-го — не в первые 10 минут
-export const maxRarityFor = lvl => lvl >= 12 ? 3 : lvl >= 6 ? 2 : 1;
+export const maxRarityFor = lvl => lvl >= 12 ? 3 : lvl >= 6 ? 2 : 1;   // ограничение для выпадения; слияние у кузнеца его обходит
 export function makeItem(opts = {}) {
-  const lvlNow = G && G.profile ? G.profile.level : 99;
+  const lvlNow = G && G.profile && !opts.noClamp ? G.profile.level : 99;
   if (opts.epic && maxRarityFor(lvlNow) < 3) { opts = { ...opts }; delete opts.epic; opts.rarity = 2; }
   if (opts.rarity !== undefined && opts.rarity > maxRarityFor(lvlNow)) opts = { ...opts, rarity: maxRarityFor(lvlNow) };
   const ilvl = Math.max(1, opts.ilvl || 1);
@@ -75,7 +75,36 @@ export function makeItem(opts = {}) {
     const [a, b] = RARITY[rarity].affixes; rollAffixes(it, rint(a, b), opts.cls);
   }
   it.name = it.name || itemName(it, base);
+  applyKindPerk(it);
   return it;
+}
+// свойство вида (сборка 20): с синей редкости, ×1/×2/×3
+export function applyKindPerk(it) {
+  it.affixes = it.affixes.filter(a => !a.kp);
+  const P = KIND_PERK[it.wt || it.slot], m = [0, 0, 1, 2, 3][it.rarity] || 0;
+  if (P && m) it.affixes.unshift({ k: P.k, v: P.v * m, kp: true });
+}
+export const kindPerkText = it => { const P = KIND_PERK[it.wt || it.slot]; return P ? P.txt : ''; };
+// Слияние: три вещи одного слота и редкости → одна следующей редкости. Вид (база) — от первой, уровень и закалка — лучшие из трёх.
+export function mergeItems(list, cls) {
+  const [a] = list, r = a.rarity + 1; if (r >= RARITY.length) return null;
+  const ilvl = Math.max(...list.map(i => i.ilvl)), upg = Math.max(...list.map(i => i.upg || 0));
+  const it = makeItem({ base: a.base, ilvl, rarity: r, cls, noClamp: true }); it.rarity = r; it.upg = upg; delete it.req;
+  // золотые и мифические получают особый эффект вида (как у вещей боссов); у мифических — ещё и полный набор свойств
+  if (r >= 3) { const E = EPICS.find(e => BASE[e.base].slot === a.slot && (!a.wt || BASE[e.base].wt === a.wt)) || EPICS.find(e => BASE[e.base].slot === a.slot) || (a.epic && EPICS.find(e => e.id === a.epic));
+    if (E) { it.epic = E.id; it.effect = E.effect; it.name = E.name; } }
+  if (r === 4) { rollAffixes(it, Math.max(0, 5 - it.affixes.filter(x => !x.kp).length), cls); it.name = 'Мифический ' + lower(it.name); }
+  const keep = list.map(i => i.dmg).filter(Boolean); if (keep.length && it.dmg) it.dmg = [Math.max(it.dmg[0], ...keep.map(d => d[0])), Math.max(it.dmg[1], ...keep.map(d => d[1]))];
+  const ka = list.map(i => i.armor || 0); if (it.armor) it.armor = Math.max(it.armor, ...ka);
+  if (a.set) it.set = a.set;
+  applyKindPerk(it); it.isNew = true;
+  return it;
+}
+export const heroPower = P => Object.values(P.gear).reduce((a, it) => a + (it ? itemPower(it) : 0), 0) + P.level * 25;
+// «Сила» вещи — одна цифра для сравнения: урон/защита × редкость × закалка + свойства
+export function itemPower(it) {
+  const core = it.dmg ? (it.dmg[0] + it.dmg[1]) * 2.2 : (it.armor || 0) * 3.5 + (it.slot === 'amulet' ? 12 + it.ilvl * 3 : 0);
+  return Math.round(core * upgMult(it) + it.affixes.length * (6 + it.ilvl * 1.5) + it.ilvl * 4);
 }
 
 const PREFIX = { dmgPct: 'Жестокий', ias: 'Быстрый', crit: 'Точный', armor: 'Крепкий', hp: 'Живучий', fire: 'Пылающий', cold: 'Ледяной', light: 'Грозовой', str: 'Могучий', dex: 'Ловкий', int: 'Мудрый', goldFind: 'Счастливый' };
@@ -121,12 +150,13 @@ export function pickSet(cls) { const own = Object.keys(SETS).filter(k => SETS[k]
 export const baseOf = it => BASE[it.base];
 export const iconOf = it => it.wt ? WEAPONS[it.wt].icon : (BASE[it.base].icon || it.slot);
 export const rarityColor = it => RARITY[it.rarity].color;
-export const upgMult = it => 1 + (it.upg || 0) * 0.1;
+export const upgMult = it => (1 + (it.upg || 0) * 0.1) * (RMUL[it.rarity] || 1);   // закалка и редкость (сборка 20)
 export function affixText(a) { const A = AFFIXES[a.k]; if (!A) return ''; return A.branch ? A.name(a.v, (BRANCHES.find(b => b.id === a.b) || {}).name) : A.name(a.v); }
 export function epicOf(it) { return it.epic ? EPICS.find(e => e.id === it.epic) : null; }
 
 // Sell value & smith costs (gold sinks scale with level so they stay relevant)
-export function sellValue(it) { return Math.round((4 + it.ilvl * 3) * [1, 2.5, 6, 15][it.rarity] * (1 + (it.upg || 0) * 0.3)); }
-export function upgradeCost(it) { const u = it.upg || 0; return Math.round((30 + it.ilvl * 12) * Math.pow(1.55, u) * [1, 1.3, 1.7, 2.5][it.rarity]); }
-export function reforgeCost(it) { return Math.round((50 + it.ilvl * 20) * [1, 1.2, 1.6, 2.4][it.rarity]); }
+export const PRICE_K = 1.1;   // сборка 20: цены вещей и закалки растут на 10% за уровень вещи — с той же скоростью, что и опыт до уровня
+export function sellValue(it) { return Math.round((4 + it.ilvl * 3) * [1, 2.5, 6, 15, 40][it.rarity] * (1 + (it.upg || 0) * 0.3)); }
+export function upgradeCost(it) { const u = it.upg || 0; return Math.round((30 + it.ilvl * 12) * Math.pow(1.55, u) * [1, 1.3, 1.7, 2.5, 3.5][it.rarity] * Math.pow(PRICE_K, it.ilvl - 1)); }
+export function reforgeCost(it) { return Math.round((50 + it.ilvl * 20) * [1, 1.2, 1.6, 2.4, 3.2][it.rarity] * Math.pow(PRICE_K, it.ilvl - 1)); }
 export const MAX_UPG = 10;
