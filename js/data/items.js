@@ -15,7 +15,18 @@ export const RARITY = [
   { id: 'green', name: 'Необычный', color: '#5fd16a', affixes: [1, 1] },
   { id: 'blue', name: 'Редкий', color: '#6ea8ff', affixes: [2, 3] },
   { id: 'purple', name: 'Эпический', color: '#f2cf4a', affixes: [4, 5] },
+  { id: 'red', name: 'Мифический', color: '#ff5a4a', affixes: [5, 5] },   // сборка 20: только слиянием трёх золотых
 ];
+// Слияние у кузнеца (сборка 20): три вещи одного слота и одной редкости → одна следующей редкости.
+// Редкость теперь прямо усиливает вещь: урон оружия и защита × RMUL (вместе с закалкой).
+export const RMUL = [1, 1.1, 1.25, 1.45, 1.8];
+export const RARITY_SHORT = ['серое', 'зелёное', 'синее', 'золотое', 'мифическое'];
+// «Свойство вида»: у каждого вида вещи своё, открывается на синем и растёт с редкостью (×1 синее, ×2 золотое, ×3 мифическое)
+export const KIND_PERK = {
+  sword: { k: 'ias', v: 6, txt: 'Меч: быстрее удары' }, greatsword: { k: 'critDmg', v: 15, txt: 'Двуручник: тяжелее криты' }, axe: { k: 'leech', v: 2, txt: 'Топор: лечит за удар' },
+  bow: { k: 'crit', v: 3, txt: 'Лук: чаще криты' }, staff: { k: 'mp', v: 15, txt: 'Посох: больше маны' },
+  head: { k: 'hp', v: 20, txt: 'Шлем: больше здоровья' }, chest: { k: 'armorPct', v: 12, txt: 'Доспех: крепче защита' }, amulet: { k: 'goldFind', v: 10, txt: 'Амулет: больше золота' },
+};
 
 // Weapon profiles — differ in speed, range, animation and ability, not only damage.
 export const WEAPONS = {

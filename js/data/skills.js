@@ -81,3 +81,13 @@ export const SKILLS = {
 export const SKILL_IDS = Object.keys(SKILLS);
 export const ACTIVE_IDS = SKILL_IDS.filter(k => SKILLS[k].kind === 'active');
 export const branchOf = id => SKILLS[id].b;
+
+// Навыки открываются по уровню (сборка 20): у каждого класса — свой порядок. До нужного уровня навык виден, но закрыт.
+// Каждый следующий ранг навыка требует ещё +1 уровень. Цена урока у наставника удваивается с каждым новым навыком (character.js skillCost).
+const ORDER = {
+  warrior: [['blade_mastery', 1], ['whirlwind', 2], ['heat', 3], ['fireball', 4], ['leap', 6], ['warcry', 8], ['cleave', 10], ['ignite_plus', 12], ['bloodletting', 14], ['fire_spread', 16], ['meteor', 18], ['crush', 20], ['burn_explode', 24]],
+  archer: [['marksman', 1], ['volley', 2], ['cold', 3], ['ice_shard', 4], ['pierce_shot', 6], ['arrow_rain', 8], ['pierce', 10], ['deep_cold', 12], ['quickstring', 14], ['ice_armor', 16], ['frost_nova', 18], ['explosive', 20], ['shatter', 24]],
+  mage: [['heat', 1], ['fireball', 2], ['cold', 3], ['ice_shard', 4], ['static', 5], ['chain', 6], ['meteor', 8], ['frost_nova', 9], ['ignite_plus', 10], ['deep_cold', 12], ['conduct', 13], ['fire_spread', 14], ['ice_armor', 16], ['overload', 17], ['burn_explode', 20], ['shatter', 22], ['thunder', 24]],
+};
+export const unlockLevel = (cls, id) => { const e = (ORDER[cls] || ORDER.warrior).find(([k]) => k === id); return e ? e[1] : 99; };
+export const classSkillOrder = cls => (ORDER[cls] || ORDER.warrior).map(([k]) => k);

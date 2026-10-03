@@ -263,7 +263,9 @@ function updateCamera() {
   cam.zoom = ppm / PX_PER_M;
   if (cam.sx || cam.sy) { camera.position.addScaledVector(_right.set(Math.cos(CAMERA.yaw), 0, -Math.sin(CAMERA.yaw)), -cam.sx / ppm); camera.position.y += cam.sy / ppm; }
   camera.updateMatrixWorld(true);
-  const P = G.player; if (P) { U.uCam.value.copy(camera.position); U.uFocus.value.set(P.x, 1.0, P.y); }
+  const P = G.player; if (P) { U.uCam.value.copy(camera.position); U.uFocus.value.set(P.x, 1.0, P.y);
+    const near = (G.enemies || []).filter(e => !e.dead && (e.x - P.x) ** 2 + (e.y - P.y) ** 2 < 144).sort((a, b) => ((a.x - P.x) ** 2 + (a.y - P.y) ** 2) - ((b.x - P.x) ** 2 + (b.y - P.y) ** 2));
+    U.uFoc.value.forEach((v, i) => { const e = near[i]; if (e) v.set(e.x, 0.9, e.y, 1); else v.w = 0; }); }   // три ближайших врага в 12 м: деревья и скалы перед ними растворяются
   // тень: центр ортокамеры чуть вглубь кадра, привязка к текселю карты, чтобы края теней не дрожали при движении
   const sm = lights.moon.shadow, tex = (2 * SHADOW.half) / (sm.mapSize.x || 1024);
   _sc.set(camTarget.x - SQ * SHADOW.ahead, 0, camTarget.z - SQ * SHADOW.ahead);

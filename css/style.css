@@ -521,3 +521,51 @@ canvas#game{filter:saturate(1.22) contrast(1.08) brightness(1.06)}
 #wildExit .we-ar{font-size:18px;letter-spacing:-3px;animation:wear .8s ease-in-out infinite;color:#fff3c8}
 @keyframes wexp{0%,100%{box-shadow:0 0 8px #e8c26a66;transform:scale(1)}50%{box-shadow:0 0 24px #ffd86aee;transform:scale(1.05)}}
 @keyframes wear{0%,100%{transform:translateX(-4px);opacity:.5}50%{transform:translateX(5px);opacity:1}}
+
+/* алтарь богини (сборка 19): благословение и календарь входа */
+.buff .bless,.buff b.bless{color:#8af6e6;font-size:12px}
+.bless-card{display:flex;align-items:center;gap:10px;padding:10px;border-radius:8px;border:1px solid #3ac8b8;background:linear-gradient(135deg,#123a3a,#1e1a34);margin-bottom:8px}
+.bless-card.on{box-shadow:0 0 14px #3ae8d877}
+.bless-card .bl-ic{font-size:30px;color:#ffe08a;text-shadow:0 0 10px #5ae8d8}
+.bless-card .tx{flex:1;font-size:13px;line-height:1.35}
+.login-cal{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.login-cal .lc{position:relative;padding:4px 2px 3px;border-radius:5px;background:#221c30;border:1px solid #3a3150;text-align:center;font-size:10px;line-height:1.15;min-height:42px;color:#cfc6e6}
+.login-cal .lc i{display:block;font-style:normal;font-weight:700;font-size:12px;color:#fff}
+.login-cal .lc.mid{background:#22304a;border-color:#4a7ab8}
+.login-cal .lc.big{background:#3a2c12;border-color:#d6a548;color:#ffe2a0}
+.login-cal .lc.got{opacity:.45}
+.login-cal .lc.today{border:2px solid #5ae8d8;box-shadow:0 0 10px #5ae8d888;opacity:1}
+.login-cal .lc.soon{border-style:dashed}
+.login-cal .lc em{display:block;font-style:normal;font-size:9px;color:#8af6e6}
+
+/* слияние у кузнеца и «Сила» вещи (сборка 20) */
+.it-pow{float:right;font-size:12px;color:#ffd88a;font-weight:700}
+.it-aff.kp{color:#8af6e6}
+.merge-grid{display:grid;grid-template-columns:72px repeat(4,1fr);gap:4px;margin:8px 0}
+.merge-grid .mg-h{font-size:11px;text-align:center;font-weight:700}
+.merge-grid .mg-s{font-size:12px;align-self:center;color:#cfc6e6}
+.merge-grid .mg-c{position:relative;border:1px solid #444;border-radius:6px;background:#1e1a2a;color:#cfc6e6;padding:4px 2px;font-size:12px;min-height:46px;cursor:pointer}
+.merge-grid .mg-c b{display:block;font-size:14px}
+.merge-grid .mg-c small{display:block;font-size:10px;opacity:.8}
+.merge-grid .mg-c i{position:absolute;top:2px;right:4px;font-size:10px;color:#ffd88a;font-style:normal}
+.merge-grid .mg-c.ok{background:#2a2410;box-shadow:0 0 8px #d6a54866;color:#fff}
+.merge-grid .mg-c:disabled{opacity:.55;cursor:default}
+/* мифическая редкость (сборка 20) */
+.slot.r4{box-shadow:inset 0 0 0 2px #ff5a4a,inset 0 0 18px #a8201a}
+.iv-slot.r4,.eq-slot.r4{background:linear-gradient(#c83a2a,#5a1410);box-shadow:0 0 12px #ff5a4a88}
+.ic-box.r4{border-color:#ff5a4a;box-shadow:0 0 34px #ff5a4a77}
+.rw-card.r4{border-color:#a8201a;box-shadow:0 0 24px #ff5a4a77}
+.rw-rays.r4{background:repeating-conic-gradient(#ff5a4a55 0 10deg,#0000 10deg 20deg)}
+
+/* путь сезона, испытание недели, коллекция (сборка 21) */
+.weekly-card{border:1px solid #c84a3a;background:linear-gradient(135deg,#3a1414,#1e1a2a);border-radius:8px;padding:10px;margin:8px 0;font-size:13px;line-height:1.4}
+.weekly-card .btn{margin-top:6px;width:100%}
+.season-pb{height:10px;background:#221c30;border-radius:5px;overflow:hidden;margin:6px 0}.season-pb i{display:block;height:100%;background:linear-gradient(90deg,#d6a548,#ffe08a)}
+.season-list{display:flex;flex-direction:column;gap:3px;max-height:52vh;overflow:auto}
+.season-list .sl{display:flex;align-items:center;gap:8px;padding:4px 8px;border-radius:6px;background:#221c30;border:1px solid #3a3150;font-size:13px}
+.season-list .sl i{font-style:normal;font-weight:700;width:24px;text-align:center;color:#fff}
+.season-list .sl span{flex:1}
+.season-list .sl.mid{border-color:#4a7ab8}.season-list .sl.big{border-color:#d6a548;background:#3a2c12}
+.season-list .sl.open{box-shadow:0 0 8px #d6a54866}.season-list .sl.got{opacity:.5}
+.codex-grid .mg-c{min-height:26px;cursor:default}
+#goalLine{font:600 11px/1.3 sans-serif;color:#ffe2a0;text-shadow:0 1px 2px #000;margin-top:3px}

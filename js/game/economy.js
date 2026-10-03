@@ -1,6 +1,6 @@
 // Economy: merchant (consumables, rotating stock, buy-back by selling), smith (upgrade/reforge), trainer (respec, spell lesson).
 import { G, bus } from './ctx.js';
-import { makeItem, sellValue, upgradeCost, reforgeCost, MAX_UPG, rollAffix } from './items.js';
+import { makeItem, sellValue, upgradeCost, reforgeCost, MAX_UPG, rollAffix, mergeItems, itemPower } from './items.js';
 import { AFFIXES, AFFIX_GROUP, CLASSES } from '../data/items.js';
 import { stats } from './stats.js';
 import { autoEquip } from './character.js';
@@ -10,7 +10,7 @@ export const potionPrice = k => k === 'hp' ? 15 + 3 * G.profile.level : k === 'm
 export const stockRefreshPrice = () => 40 * G.profile.level;
 export const respecSkillPrice = () => 100 * G.profile.level;
 export const respecAttrPrice = () => 80 * G.profile.level;
-export const buyPrice = it => sellValue(it) * 4 + 20;
+export const buyPrice = it => Math.round((sellValue(it) * 4 + 20) * Math.pow(1.1, it.ilvl - 1));   // сборка 20: +10% за уровень вещи
 
 function pay(n) { const P = G.profile; if (P.gold < n) { bus.emit('toast', { text: 'Недостаточно золота', kind: 'warn' }); bus.emit('sfx', 'deny'); return false; } P.gold -= n; bus.emit('sfx', 'coin'); bus.emit('hud'); return true; }
 const recalc = () => { G.stats = stats(G.profile); bus.emit('statsChanged'); bus.emit('hud'); bus.emit('save'); };
@@ -76,4 +76,33 @@ export function respecAttrs() {
   const P = G.profile; if (!pay(respecAttrPrice())) return false;
   let pts = 0; for (const k in P.attrs) { pts += P.attrs[k] - 10; P.attrs[k] = 10; } P.attrPts += pts;
   bus.emit('toast', { text: 'Характеристики сброшены', sub: `Возвращено очков: ${pts}`, kind: 'info' }); recalc(); return true;
+}
+
+// ---- слияние у кузнеца (сборка 20): три вещи одного слота и редкости из сумки → одна следующей редкости
+// Надетые и закреплённые (🔒) вещи не участвуют. Основа — самая сильная из трёх.
+const MERGE_SLOTS = ['weapon', 'head', 'chest', 'amulet'];
+export const mergeCost = r => Math.round([20, 60, 200, 800][r] * Math.pow(1.1, Math.max(0, G.profile.level - 1)));
+export function mergeGroups() {
+  const P = G.profile, out = [];
+  for (const slot of MERGE_SLOTS) for (let r = 0; r < 4; r++) {
+    const list = P.bag.filter(it => it.slot === slot && it.rarity === r && !it.locked && (slot !== 'weapon' || !it.wt || CLASSES[P.cls || 'warrior'].weapons.includes(it.wt)));
+    out.push({ slot, rarity: r, n: list.length, can: Math.floor(list.length / 3), list: list.sort((a, b) => itemPower(b) - itemPower(a)) });
+  }
+  return out;
+}
+export function mergeOnce(slot, rarity, quiet) {
+  const P = G.profile, g = mergeGroups().find(x => x.slot === slot && x.rarity === rarity);
+  if (!g || g.can < 1) return null;
+  const cost = mergeCost(rarity); if (P.gold < cost) { if (!quiet) { bus.emit('toast', { text: `Слияние стоит ${cost} зол.`, kind: 'warn' }); bus.emit('sfx', 'deny'); } return null; }
+  const three = g.list.slice(0, 3), it = mergeItems(three, P.cls); if (!it) return null;
+  P.gold -= cost; P.bag = P.bag.filter(x => !three.includes(x)); P.bag.push(it);
+  P.stats.merges = (P.stats.merges || 0) + 1; bus.emit('merged', it);
+  if (!quiet) { bus.emit('sfx', rarity >= 2 ? 'epicDrop' : 'rareDrop'); bus.emit('toast', { text: 'Слияние: ' + it.name, sub: 'Новая вещь в сумке', kind: 'item' }); }
+  bus.emit('save'); return it;
+}
+export function mergeAll() {   // снизу вверх: серые → зелёные → синие → золотые, пока хватает вещей и золота
+  const made = [];
+  for (let r = 0; r < 4; r++) for (const slot of MERGE_SLOTS) { let it; while ((it = mergeOnce(slot, r, true))) made.push(it); }
+  if (made.length) { bus.emit('sfx', made.some(i => i.rarity >= 3) ? 'epicDrop' : 'rareDrop'); bus.emit('toast', { text: `Слияний: ${made.length}`, sub: made.slice(-3).map(i => i.name).join(', '), kind: 'item' }); }
+  return made;
 }

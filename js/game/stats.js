@@ -7,7 +7,7 @@ import { G } from './ctx.js';
 import { DECOR } from '../data/upgrades.js';
 export const hasBoon = id => !!(G.run && G.run.boons && G.run.boons.includes(id));
 
-export const xpToNext = l => Math.round(75 * Math.pow(l, 1.75))   // чуть круче прежнего: до босса (ур. 6) приходится заглянуть в лес и перепройти катакомбы;
+export const xpToNext = l => Math.round(75 * Math.pow(l, 1.75) * Math.pow(1.1, l - 1))   // сборка 20: ×1,1 за уровень (как цены) — топ — это долгий фарм;   // чуть круче прежнего: до босса (ур. 6) приходится заглянуть в лес и перепройти катакомбы;
 export const rank = (p, id) => p.skills[id] || 0;
 
 export function branchBonus(p, branch) {
@@ -77,7 +77,8 @@ export function stats(p, gearOverride) {
   const DB = { hp: 0, dmg: 0, xp: 0, critDmg: 0, regen: 0, gold: 0 };
   if (p.castle && p.castle.decor) for (const id of Object.values(p.castle.decor)) { const D = DECOR[id]; if (D) for (const k in D.bonus) DB[k] += D.bonus[k]; }
   if (p.nemesis) for (const t of p.nemesis.trophies) { DB.dmg += t.bonus; DB.gold += t.bonus; }   // трофеи немезисов
-  s.decor = DB; s.maxHP += DB.hp; s.critMult += DB.critDmg / 100; s.mpRegen += DB.regen; s.goldFind += DB.gold;
+  const codex = Object.keys(p.codex || {}).length; DB.dmg += codex * 0.5;   // коллекция вещей (сборка 21): +0,5% урона и здоровья за запись
+  s.decor = DB; s.maxHP = Math.round((s.maxHP + DB.hp) * (1 + codex * 0.005)); s.codex = codex; s.critMult += DB.critDmg / 100; s.mpRegen += DB.regen; s.goldFind += DB.gold;
   { const m = 1 + (U.dmg || 0) * 0.04 + tr * 0.03 + DB.dmg / 100; s.dmgMin = Math.round(s.dmgMin * m); s.dmgMax = Math.round(s.dmgMax * m); s.spellPower *= m; }
   s.maxHP += (U.hp || 0) * 12; s.maxMP += (U.mp || 0) * 8; s.hpRegen += (U.regen || 0) * 0.4;
   s.critChance = Math.min(0.75, s.critChance + (U.crit || 0) * 0.006); s.critMult += (U.critDmg || 0) * 0.06;

@@ -55,11 +55,29 @@ export class Player {
       return;
     }
     if (this.state === 'hit') { if (this.anim.done) this.state = 'idle'; }
-    if (this.state === 'attack' || this.state === 'cast') { C.updatePlayerAction(this, dt); if (this.state === 'attack' || this.state === 'cast') { if (input.mag > 0.2 && this.act && this.act.cancelable && ((this.act.kind === 'bow' && !this.act.auto) || this.act.fired)) { this.state = 'idle'; this.act = null; } else return; } }
+    // подвижность (сборка 19): движение главнее удара — на ходу герой бьёт и стреляет, не останавливаясь;
+    // резкий разворот от цели до попадания отменяет замах; навыки (кроме обычных ударов) по-прежнему держат на месте
+    let acting = false;
+    if (this.state === 'attack' || this.state === 'cast') {
+      C.updatePlayerAction(this, dt);
+      if (this.state === 'attack' || this.state === 'cast') {
+        const a = this.act;
+        if (input.mag > 0.2 && a && a.kind !== 'skill') {
+          const tg = a.tgt && !a.tgt.dead ? a.tgt : null, away = tg && ((tg.x - this.x) * input.wx + (tg.y - this.y) * input.wy) < -0.3 * Math.hypot(tg.x - this.x, tg.y - this.y);
+          if ((away && !a.fired) || (a.cancelable && a.fired)) { this.state = 'idle'; this.act = null; }   // отбегаю — замах брошен
+          else acting = true;
+        } else return;
+      }
+    }
+    if (acting) {   // бег во время удара: скорость ×0,85, лицо — к цели (удар уходит туда), анимация удара не прерывается
+      const sp = 5.4 * 0.85 * (this.S.moveMul || 1) * (this.slowT > 0 ? 0.6 : 1) * (G.wild ? G.wild.slow : 1);
+      const ox = this.x, oy = this.y; [this.x, this.y] = G.zone.map.move(this.x, this.y, input.wx * sp * dt, input.wy * sp * dt, this.r); this.meters += Math.hypot(this.x - ox, this.y - oy);
+      if (this.slowT > 0) this.slowT -= dt; return;
+    }
     // movement
     const mag = input.mag;
-    if (mag > 0.12 && (this.state !== 'hit' || this.stateT > 0.08)) {   // удар по герою не должен «залипать»: после короткого вздрога можно идти
-      const run = mag > 0.6; const sp = (run ? 4.6 : 2.8) * (this.S.moveMul || 1) * (G.surv ? 1 + (G.surv.p.swift || 0) * 0.08 : 1) * (this.slowT > 0 ? 0.6 : 1) * (G.wild ? G.wild.slow : 1) * (G.run && G.run.boons && G.run.boons.includes('haste') ? 1.25 : 1);
+    if (mag > 0.12) {   // удар по герою не сбивает шаг (сборка 19)
+      const run = mag > 0.55; const sp = (run ? 5.4 : 3.2) * (this.S.moveMul || 1) * (G.surv ? 1 + (G.surv.p.swift || 0) * 0.08 : 1) * (this.slowT > 0 ? 0.6 : 1) * (G.wild ? G.wild.slow : 1) * (G.run && G.run.boons && G.run.boons.includes('haste') ? 1.25 : 1);
       const ox = this.x, oy = this.y;
       [this.x, this.y] = G.zone.map.move(this.x, this.y, input.wx * sp * dt, input.wy * sp * dt, this.r);
       const moved = Math.hypot(this.x - ox, this.y - oy); this.meters += moved;

@@ -27,7 +27,7 @@ const PROP = {
   house_0: { spr: 'house_0', box: [2.85, 2.2], tall: 1 }, house_1: { spr: 'house_1', box: [3.25, 2.4], tall: 1 }, house_2: { spr: 'house_2', box: [2.95, 2.2], tall: 1 },   // под крупные 3D-дома (ART_BIBLE, раздел 7)
   fort_hall: { spr: 'house_0', box: [3.7, 1.9], tall: 1, model: 'fort_hall' }, tent: { spr: 'hay', r: 1.6, model: 'tent' }, fort_gate: { spr: 'banner', model: 'fort_gate' }, fort_tower: { spr: 'pillar', tall: 1, model: 'fort_tower' },   // постройки лагерей походов: в 3D свои модели, в 2D — запасные спрайты
   logpile: { spr: 'crate', box: [0.7, 0.4], model: 'logpile' },
-  shrine: { spr: 'altar', r: 0.45, light: { r: 3, c: [190, 140, 255], flicker: 0.3 } },
+  shrine: { spr: 'altar', r: 1.3, model: 'goddess_altar', light: { r: 6.5, c: [110, 235, 220], flicker: 0.25, z: 2.6 } },   // алтарь богини (сборка 19)
   // деревня по правилам (js/world/villagegen.js): здания с поворотом и коллайдерами из генератора (o.boxes), сельские мелочи
   church: { spr: 'house_1', tall: 1, model: 'church' },   // без точечного света у двери: герой на ступенях «засвечивался»
   tavern: { spr: 'house_1', tall: 1, model: 'tavern', light: { r: 4.5, c: [255, 170, 90], flicker: 0.5, z: 2, dy: 3.4 } },
@@ -42,8 +42,8 @@ const PROP = {
   barrel_stack: { spr: 'barrel', box: [0.9, 0.55], model: 'barrel_stack' }, log_stack: { spr: 'crate', box: [1.35, 0.6], model: 'log_stack' }, plank_pile: { spr: 'crate', box: [1.3, 0.35], model: 'plank_pile' },
   clothesline: { spr: 'banner', model: 'clothesline' }, pumpkins: { spr: 'hay', r: 0.45, model: 'pumpkins' }, tool_stand: { spr: 'weapon_rack', box: [0.6, 0.25], model: 'tool_stand' },
   // Костяные пустоши: красный песчаник, акации, скелеты великанов (коллайдеры — o.boxes из wildgen), лагерь дикарей
-  rock_spire: { spr: 'rock_spire', r: 0.8, tall: 1 }, rock_spire_b: { spr: 'rock_spire_b', r: 0.75, tall: 1 }, rock_tooth: { spr: 'rock_tooth', r: 0.5, tall: 1 }, rock_mesa: { spr: 'rock_mesa', r: 1.6, tall: 1 },
-  rock_red: { spr: 'rock_red', r: 0.4 }, rock_red_b: { spr: 'rock_red_b', r: 0.4 },
+  sand_spire: { spr: 'sand_spire', r: 0.8, tall: 1 }, sand_spire_b: { spr: 'sand_spire_b', r: 0.75, tall: 1 }, sand_tooth: { spr: 'sand_tooth', r: 0.5, tall: 1 }, sand_mesa: { spr: 'sand_mesa', r: 1.6, tall: 1 },
+  sand_rock: { spr: 'sand_rock', r: 0.4 }, sand_rock_b: { spr: 'sand_rock_b', r: 0.4 },
   tree_acacia: { spr: 'tree_acacia', r: 0.3, tall: 1 }, tree_acacia_b: { spr: 'tree_acacia_b', r: 0.3, tall: 1 }, tree_acacia_c: { spr: 'tree_acacia_c', r: 0.3, tall: 1 },
   bush_dry: { spr: 'bush_dry' }, agave: { spr: 'agave', r: 0.25 }, tumbleweed: { spr: 'tumbleweed' },
   giant_skull: { spr: 'giant_skull', tall: 1 }, giant_ribs: { spr: 'giant_ribs', tall: 1 }, giant_spine: { spr: 'giant_spine' }, tusk_arch: { spr: 'tusk_arch', tall: 1 }, giant_fallen: { spr: 'giant_fallen', tall: 1 },
@@ -261,7 +261,7 @@ export class Zone {
         this.inter.push({ id: 'board', type: 'board', x: o.x, y: o.y, r: 2.0, label: 'Доска заданий', plate: 'Доска заданий', panel: true });
       } else if (o.t === 'shrine') {
         this.prop(o);
-        this.inter.push({ id: 'shrine', type: 'shrine', x: o.x, y: o.y, r: 1.7, label: 'Святилище благословений' });
+        this.inter.push({ id: 'shrine', type: 'shrine', x: o.x, y: o.y, r: 2.3, label: 'Алтарь богини', plate: 'Алтарь богини' });
       } else this.prop(o.t === 'well' && !J.big ? { ...o, t: 'runebed' } : o);
     }
     for (const n of J.npcs) {
@@ -278,11 +278,11 @@ export class Zone {
       if (c === 'D') { this.add({ x: x + 0.5, y: y + 0.5, spr: 'wall_' + (h % 4), wall: true }); continue; }
       if (c !== 'x') continue;
       const inner = [[1, 0], [-1, 0], [0, 1], [0, -1], [2, 0], [-2, 0], [0, 2], [0, -2]].some(([dx, dy]) => { const X = x + dx, Y = y + dy; return X >= 0 && Y >= 0 && X < m.w && Y < m.h && m.ch(X, Y) !== 'x'; });
-      if (!inner || h % 3 === 0 || (bn && h % 5 < 2)) continue;   // в пустошах камни внутри скоплений реже: поле не загромождено
-      { const px = x + 0.3 + (h % 5) / 10, py = y + 0.3 + ((h >> 3) % 5) / 10; if (put.some(q => (q[0] - px) ** 2 + (q[1] - py) ** 2 < 2.9)) continue; put.push([px, py]); }
+      if (!inner || h % 3 !== 1 || (bn && h % 5 < 2) || ((x >= m.w - 5 || y >= m.h - 5) && h % 2)) continue;   // сборка 18: на опушке каждое третье дерево, у ближнего края — ещё реже   // в пустошах камни внутри скоплений реже: поле не загромождено
+      { const px = x + 0.3 + (h % 5) / 10, py = y + 0.3 + ((h >> 3) % 5) / 10; if (put.some(q => (q[0] - px) ** 2 + (q[1] - py) ** 2 < 5.8)) continue; put.push([px, py]); }
       const front = x >= m.w - 5 || y >= m.h - 5;   // ближний к камере край: только низкое (иначе закрывает героя)
-      const spr = bn ? (front ? ['rock_red', 'rock_red_b', 'tree_acacia_b', 'rock_red'][h % 4] : ['rock_spire', 'rock_red', 'tree_acacia', 'rock_tooth', 'rock_red_b', 'rock_red', 'tree_acacia_b'][h % 7]) : fj ? ['rocks', 'stalagmite', 'tree_1', 'rocks'][h % 4] : (h % 5 === 0 ? 'rocks' : h % 2 ? 'tree_0' : 'tree_1');
-      this.add({ x: x + 0.3 + (h % 5) / 10, y: y + 0.3 + ((h >> 3) % 5) / 10, spr, tall: spr === 'rocks' || spr.startsWith('rock_red') ? 0 : 1 });
+      const spr = bn ? (front ? ['sand_rock', 'sand_rock_b', 'tree_acacia_b', 'sand_rock'][h % 4] : ['sand_spire', 'sand_rock', 'tree_acacia', 'sand_tooth', 'sand_rock_b', 'sand_rock', 'tree_acacia_b'][h % 7]) : fj ? ['rocks', 'stalagmite', 'tree_1', 'rocks'][h % 4] : (h % 5 === 0 ? 'rocks' : h % 2 ? 'tree_0' : 'tree_1');
+      this.add({ x: x + 0.3 + (h % 5) / 10, y: y + 0.3 + ((h >> 3) % 5) / 10, spr, tall: spr === 'rocks' || spr.startsWith('sand_rock') ? 0 : 1 });
     }
     const col = REALMS[realm].portalColor;
     for (const o of J.objects) {

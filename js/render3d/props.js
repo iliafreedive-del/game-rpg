@@ -17,7 +17,7 @@ const DYN = new Set(['door', 'door_open', 'gate_sealed', 'chest', 'chest_open', 
 function pickFj(h) { return h < 0.5 ? 'tree_fir_blue' : h < 0.92 ? 'tree_pine_tall' : 'deadtree'; }
 const pickW = (L, h) => { let t = h * L.reduce((a, k) => a + k[1], 0); for (const [id, w] of L) { if ((t -= w) < 0) return id; } return L[0][0]; };
 // Костяные пустоши: камни, столбы и деревья — свои формы; поворот и размер — по позиции
-const STEPPE_FREE = new Set(['rock_spire', 'rock_spire_b', 'rock_tooth', 'rock_mesa', 'rock_red', 'rock_red_b', 'tree_acacia', 'tree_acacia_b', 'tree_acacia_c', 'bush_dry', 'agave', 'tumbleweed']);
+const STEPPE_FREE = new Set(['sand_spire', 'sand_spire_b', 'sand_tooth', 'sand_mesa', 'sand_rock', 'sand_rock_b', 'tree_acacia', 'tree_acacia_b', 'tree_acacia_c', 'bush_dry', 'agave', 'tumbleweed']);
 function pickTree(spr, h) { const L = TREE_KINDS[spr] || (spr === 'deadtree' ? DEAD_KINDS : spr === 'rocks' ? ROCK_KINDS : null); if (!L) return spr; let t = h * L.reduce((a, k) => a + k[1], 0); for (const [id, w] of L) { if ((t -= w) < 0) return id; } return L[0][0]; }
 // оттенок экземпляра: светлее/темнее, теплее/холоднее — соседние деревья одной породы не одинаковые
 function tintOf(x, y, k) { const a = hash(x * 1.3 + 7, y * 0.7), b = hash(y * 1.9, x * 2.7 + 3), l = 1 + (a - 0.5) * 2 * k, w = (b - 0.5) * k; return new THREE.Color(l * (1 + w * 0.6), l * (1 + w * 0.25), l * (1 - w * 0.8)); }
@@ -66,7 +66,8 @@ export class PropLayer {
         } else if (c === 'x') {
           const h = hash(tx * 1.9 + 3, ty * 2.3 - 1), edge = tx < 3 || ty < 3 || tx >= m.w - 3 || ty >= m.h - 3;
           if (bn) { const back = tx < 3 || ty < 3; if (h < (edge ? (back ? 0.55 : 0.3) : 0.1)) { const big = back && h < 0.3, id = big ? pickW(STEPPE_SPIRES, hash(tx * 2.1, ty * 1.3 + 5)) : h < 0.08 ? pickW(STEPPE_TREES, hash(tx, ty * 3.3)) + '_far' : pickW(STEPPE_ROCKS, hash(tx * 1.3, ty)); push(id, tx + 0.2 + hash(tx, ty + 9) * 0.6, ty + 0.2 + hash(ty, tx + 4) * 0.6, h * 40, big ? 1.1 + hash(ty, tx) * 0.8 : 0.9 + hash(ty, tx) * 0.6); } continue; }   // пустоши: край — стена из красных столбов и останцев
-          if (h < (edge ? 0.7 : fj ? 0.14 : 0.09)) { const id = fj ? (h < 0.2 ? 'rocks' : hash(tx, ty) < 0.5 ? 'tree_fir_blue' : 'tree_pine_tall') : pickTree(h > 0.3 ? 'tree_1' : 'tree_0', hash(tx * 2.1, ty * 1.3 + 5)); push(id === 'rocks' ? id : id + '_far', tx + 0.2 + hash(tx, ty + 9) * 0.6, ty + 0.2 + hash(ty, tx + 4) * 0.6, h * 40, id === 'rocks' ? 1.2 + h : 1.0 + hash(ty, tx) * 0.65); }
+          const frontE = tx >= m.w - 3 || ty >= m.h - 3;   // ближний к камере край — реже: деревья там закрывают героя и мобов (сборка 18)
+          if (h < (edge ? (frontE ? 0.22 : 0.6) : fj ? 0.09 : 0.06)) { const id = fj ? (h < 0.2 ? 'rocks' : hash(tx, ty) < 0.5 ? 'tree_fir_blue' : 'tree_pine_tall') : pickTree(h > 0.3 ? 'tree_1' : 'tree_0', hash(tx * 2.1, ty * 1.3 + 5)); push(id === 'rocks' ? id : id + '_far', tx + 0.2 + hash(tx, ty + 9) * 0.6, ty + 0.2 + hash(ty, tx + 4) * 0.6, h * 40, id === 'rocks' ? 1.2 + h : 1.0 + hash(ty, tx) * 0.65); }
         }
       }
     }
@@ -82,7 +83,7 @@ export class PropLayer {
           const h2 = hash(x * 1.7, y * 2.3); if (h2 < 0.85) push(h2 < 0.45 ? 'bush' : h2 < 0.7 ? 'fern' : 'rocks', x + (hash(y, x) - 0.5) * 2, y + (hash(x, y) - 0.5) * 2, h2 * 40, 1.1 + h2 * 0.9);
           continue;
         }
-        const h = hash(x + 3, y - 7); if (h > (wild ? 0.5 : 0.7)) { if (zone.json.village) push(h > 0.85 ? 'fern' : 'bush', x + (hash(x, y) - 0.5) * 2, y + (hash(y, x) - 0.5) * 2, h * 30, 1.3 + hash(x * 2, y) * 0.8); continue; }   // деревня: просвет в лесу за краем — кусты, а не пустота
+        const h = hash(x + 3, y - 7); if (h > (wild ? (x > m.w || y > m.h ? 0.22 : 0.5) : 0.7)) { if (zone.json.village) push(h > 0.85 ? 'fern' : 'bush', x + (hash(x, y) - 0.5) * 2, y + (hash(y, x) - 0.5) * 2, h * 30, 1.3 + hash(x * 2, y) * 0.8); continue; }   // деревня: просвет в лесу за краем — кусты, а не пустота
         if (bn) { const h2 = hash(x * 2.3, y * 1.1 + 5), front = x > m.w || y > m.h; if (front && h2 < 0.5) { push(pickW(STEPPE_ROCKS, h2 * 2), x + (hash(x, y) - 0.5) * 2, y + (hash(y, x) - 0.5) * 2, h * 6.28, 1 + h2); continue; } push(h2 < 0.5 ? pickW(STEPPE_SPIRES, h2 * 2) : h2 < 0.8 ? pickW(STEPPE_TREES, h2) + '_far' : pickW(STEPPE_ROCKS, h2), x + (hash(x, y) - 0.5) * 2, y + (hash(y, x) - 0.5) * 2, h * 6.28, h2 < 0.5 ? 1.3 + hash(x * 2, y) * 1.1 : 1 + hash(x * 2, y) * 0.5); continue; }   // за краем пустошей — каньон из столбов и акации
         push((fj ? (hash(x * 2.3, y * 1.1 + 5) < 0.5 ? 'tree_fir_blue' : 'tree_pine_tall') : pickTree(h > 0.4 ? 'tree_1' : 'tree_0', hash(x * 2.3, y * 1.1 + 5))) + '_far', x + (hash(x, y) - 0.5) * 2, y + (hash(y, x) - 0.5) * 2, h * 6.28, 1 + hash(x * 2, y) * 0.6);
       }
@@ -105,7 +106,7 @@ export class PropLayer {
       for (const b of m.rects) if (x > b.x0 - r && x < b.x1 + r && y > b.y0 - r && y < b.y1 + r) return false;
       return true;
     };
-    const trees = zone.statics.filter(d => d.spr === 'tree_0' || d.spr === 'tree_1');   // в статике карты — исходные tree_0/tree_1
+    const trees = zone.statics.filter(d => d.spr === 'tree_0' || d.spr === 'tree_1'), camps = (zone.json.wild && zone.json.wild.camps) || [];   // в статике карты — исходные tree_0/tree_1
     // хлам у домов: у видимых стен (+x, +z) — бочки, ящики, мешки, поленница; вплотную к стене, где герой почти не ходит
     const HB = { house_0: [2.7, 2.0], house_1: [3.1, 2.2], house_2: [2.3, 2.0] };
     for (const d of zone.statics) {
@@ -133,7 +134,8 @@ export class PropLayer {
         else if (h1 < 0.06) id = 'fern';
       }
       if (this.wildForest && id === 'flowers') id = null;
-      if (this.bn && id) { id = ({ fern: h1 < 0.12 ? 'agave' : h1 < 0.22 ? 'bush_dry' : null, bush: 'bush_dry', flowers: h1 < 0.1 ? 'agave' : 'tumbleweed', mushrooms: 'bones', stump: 'rock_red', pebbles: 'pebbles' })[id] || id; if (id === 'rock_red') sc *= 0.5; }
+      if (id && camps.some(([cx, cy]) => (px - cx) ** 2 + (py - cy) ** 2 < 25) && id !== 'pebbles' && id !== 'flowers') id = null;   // вокруг лагерей — пусто (сборка 18)
+      if (this.bn && id) { id = ({ fern: h1 < 0.12 ? 'agave' : h1 < 0.22 ? 'bush_dry' : null, bush: 'bush_dry', flowers: h1 < 0.1 ? 'agave' : 'tumbleweed', mushrooms: 'bones', stump: 'sand_rock', pebbles: 'pebbles' })[id] || id; if (id === 'sand_rock') sc *= 0.5; }
       if (fj && (id === 'fern' || id === 'flowers' || id === 'bush' || id === 'mushrooms' || id === 'stump')) id = h1 < 0.4 ? 'pebbles' : null;
       if (id) { push(id, px, py, rot, sc); this.lastPushedQ(id, q); }
     }

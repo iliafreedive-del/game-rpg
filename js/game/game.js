@@ -13,6 +13,10 @@ import { REPEATABLE } from '../data/quests.js';
 import { saveLocal } from './save.js';
 import { loadJSON, loadGroup } from '../core/assets.js';
 import { loadFloor, buildFloorCanvas } from '../render/index.js';
+import { widen } from '../world/widen.js';
+import { respawnTick } from './respawn.js';
+import { weeklyRule, finishWeekly, codexScan } from './season.js';
+const ROOMY = 1.5;   // «простор» (сборка 18): подземелья в 3D растянуты в 1,5 раза — шире комнаты и коридоры
 import { generateFloor, isBossFloor, parTime } from '../world/floorgen.js';
 import { generateWild } from '../world/wildgen.js';
 import { prepareWildAtlases, setPropsPalette, buildWildFloor } from '../world/wildfloor.js';
@@ -33,7 +37,7 @@ import { rand, rrange, rint } from '../core/util.js';
 import { pollMove, input, mouse, tapAim } from '../core/input.js';
 import { gate, BOSS_LEVEL, nextStep } from './progress.js';
 import { platform } from '../platform/platform.js';
-import { maybeInterstitial } from '../platform/monetize.js';
+import { maybeInterstitial, dailyStatus, blessed } from '../platform/monetize.js';
 
 G.npcs = [];
 let saveTimer = 0, saveQueued = false, meterAcc = 0, questT = 0;
@@ -69,7 +73,7 @@ export async function loadZone(id, how = {}) {
       json.objects.push({ t: 'nem_wall', x: 14.8, y: 19.2, plate: tr.length || lv ? `Стена врагов: ${tr.length} трофеев${lv ? ' · ☠ ' + lv : ''}` : 'Стена врагов' });
       const slots = [[22.8, 10.4], [24.6, 10.4], [26.4, 10.4], [28.2, 10.4], [23.8, 4.9], [26, 4.9], [28.2, 4.9]];
       tr.slice(0, slots.length).forEach((t, i) => json.objects.push({ t: t.rank >= 3 ? 'statue' : 'skulls', x: slots[i][0], y: slots[i][1] })); }
-    zone = new Zone('castle', json, P); zone.dark = false;   // bright, readable citadel
+    zone = new Zone('castle', G.render3d ? widen(json, ROOMY) : json, P); zone.dark = false;   // bright, readable citadel
     await buildFloorCanvas(zone);
   } else if (id === 'wild') {
     const json = generateWild(how.realm, how.depth); addEchoes(json);
@@ -77,7 +81,8 @@ export async function loadZone(id, how = {}) {
     await prepareWildAtlases(how.realm); setPropsPalette(how.realm === 'fjord'); buildWildFloor(zone);
   } else if (id === 'depths') {
     const json = generateFloor(how.floor ?? 1);
-    zone = new Zone('depths', json, P);
+    if (how.weekly) { const R = weeklyRule(); json.name = 'Испытание недели · ' + R.name; json.weekly = R.id; if (R.count) json.spawns = json.spawns.map(s => { const n = s.slice(); if (!n[6]) n[3] = n[3] * R.count; return n; }); }   // сборка 21
+    zone = new Zone('depths', G.render3d ? widen(json, ROOMY) : json, P);
     await buildFloorCanvas(zone);
   } else {
     const big = id === 'town' && G.render3d;   // в 3D — деревня 64×64 по правилам (js/world/villagegen.js), в 2D-запасном режиме — прежняя 40×40
@@ -89,8 +94,9 @@ export async function loadZone(id, how = {}) {
     if (id === 'town' && B) json.objects.push({ t: 'hwsign', x: B.hwsign[0], y: B.hwsign[1] });
     if (id === 'town' && B) json.objects.push({ t: 'wildportal', realm: 'bones', x: B.bones[0], y: B.bones[1] });   // Костяные пустоши: пока открыты всегда (вход со 2 ур., для проверки)
     if (id === 'catacombs') json.objects.push({ t: 'crystals', x: 47.5, y: 42 }, { t: 'crystals', x: 55, y: 51 }, { t: 'mushrooms', x: 7, y: 25 }, { t: 'mushrooms', x: 13, y: 31 }, { t: 'stalagmite', x: 5.5, y: 32 }, { t: 'puddle', x: 10, y: 28 }, { t: 'banner', x: 43, y: 23 });
-    zone = new Zone(id, json, P);
-    await loadFloor(zone);
+    const roomy = id === 'catacombs' && G.render3d;
+    zone = new Zone(id, roomy ? widen(json, ROOMY) : json, P);
+    if (roomy) await buildFloorCanvas(zone); else await loadFloor(zone);
   }
   if (G.run && G.run.boons) G.lastBoons = G.run.boons.slice();
   G.zone = zone; G.zoneId = id; G.run = null; if (id !== 'wild') G.wild = null; G.revives = 0;   // не больше 2 воскрешений за заход (подземелье, глубины, поход)
@@ -122,7 +128,8 @@ export async function loadZone(id, how = {}) {
   } else if (id === 'depths') {
     [pl.x, pl.y] = zone.start; pl.face = pl.dir = 1;
     spawnFloor(zone); G.diedThisRun = false; G.dungeonCache = null;
-    G.run = { floor: zone.json.floorN, free: !!how.free, t0: G.time, kills: 0, total: G.enemies.length, gold0: P.stats.gold, deaths: 0, done: false, boons: how.keepBoons && G.lastBoons ? G.lastBoons.slice() : [] }; G.lastBoons = null;
+    G.run = { weekly: zone.json.weekly ? weeklyRule() : null, floor: zone.json.floorN, free: !!how.free, t0: G.time, kills: 0, total: G.enemies.length, gold0: P.stats.gold, deaths: 0, done: false, boons: how.keepBoons && G.lastBoons ? G.lastBoons.slice() : [] }; G.lastBoons = null;
+    if (G.run.weekly) { const R = G.run.weekly; for (const e of G.enemies) { if (R.hp) { e.maxHP = Math.round(e.maxHP * R.hp); e.hp = e.maxHP; } if (R.dmg) e.dmgMul *= R.dmg; if (R.spd) e.spdBonus = (e.spdBonus || 1) * R.spd; } bus.emit('toast', { text: 'Испытание недели: ' + R.name, sub: R.txt, kind: 'quest' }); }
   } else {
     if (how.useCache && G.dungeonCache) { pl.x = G.dungeonCache.x; pl.y = G.dungeonCache.y; G.dungeonCache = null; }
     else { [pl.x, pl.y] = zone.start; spawnDungeon(zone); G.diedThisRun = false; G.dungeonCache = null; }
@@ -136,6 +143,7 @@ export async function loadZone(id, how = {}) {
   if (id === 'survival') SV.startRun(); else G.surv = null;
   G.zoneReady = true;
   bus.emit('zoneEntered', id); bus.emit('hud'); requestSave();
+  if (id === 'town' && G.profile.tutorial.prologue) setTimeout(() => { const d = dailyStatus(); if (d.claimable) bus.emit('toast', { text: 'Дары богини ждут!', sub: `День ${d.day} из 28 — алтарь на площади`, kind: 'quest' }); else if (!blessed()) bus.emit('toast', { text: 'Алтарь богини на площади', sub: 'Благословение: +50% золота и опыта на 10 минут', kind: 'info' }); }, 2500);   // сборка 19
   if (id === 'town' && P.tutorial.prologue) setTimeout(() => { if (G.zoneId === 'town') bus.emit('toast', { text: 'Дальше: ' + nextStep(), kind: 'info' }); }, 2200);
   if (id === 'town' && how.from && how.from !== 'death') setTimeout(() => maybeInterstitial('return'), 1200);   // реклама только на спокойном переходе (не чаще раза в 4 минуты)
 }
@@ -184,11 +192,11 @@ function spawnElite(zone) {
 bus.on('kill', e => {
   if (e.story === 'trial') { const t = G.trial; G.trial = null; if (t) setTimeout(() => CS.trialReward(t), 1200); }
   L.gainXP(L.killXP(e), e.x, e.y); if (e.story !== 'trial') L.enemyLoot(e);
-  if (G.run && !e.summoned) {
+  if (G.run && !e.summoned && !e.respawned) {
     G.run.kills++;
     const r = G.run; if (r.floor > 0 && !r.done) { r.boonAt = r.boonAt || [Math.ceil(r.total * 0.5)]; if (r.boonAt.length && r.kills >= r.boonAt[0]) { r.boonAt.shift(); setTimeout(() => bus.emit('boonChoice'), 350); } }
   }
-  if (G.zoneId === 'depths' && G.run && G.run.floor > 0 && G.enemies.every(x => x.dead || x.summoned)) {
+  if (G.zoneId === 'depths' && G.run && G.run.floor > 0 && G.enemies.every(x => x.dead || x.summoned || x.respawned)) {
     const ex = G.zone.inter.find(i => i.id === 'floor_exit'); if (ex && ex.hidden) { ex.hidden = false; ex.draw.hidden = false; ex.light.on = true; C.particles(ex.x, ex.y, 30, { c: [140, 210, 255], sp: 3, size: 4 }); bus.emit('toast', { text: 'Этаж зачищен!', sub: 'Портал выхода открыт', kind: 'good' }); bus.emit('sfx', 'portal'); }
   }
   if (e.D.boss && G.zoneId === 'catacombs') {
@@ -265,7 +273,7 @@ export function interact(it) {
       if (it.hidden || !G.wild) { bus.emit('toast', { text: 'Портал запечатан', sub: 'Сначала отбейте форт', kind: 'warn' }); bus.emit('sfx', 'deny'); return; }
       const nd = G.wild.depth + 1, need = wildReqLevel(G.wild.realm, nd);
       if (P.level < need) { bus.emit('toast', { text: `Дальше — с ${need} уровня`, sub: `У вас ${P.level}. Наберитесь сил на этом поле или в катакомбах`, kind: 'warn' }); bus.emit('sfx', 'deny'); return; }
-      bankCarry('Вы прошли через портал «Вглубь»'); bus.emit('sfx', 'portal'); loadZone('wild', { realm: G.wild.realm, depth: nd }); return;
+      bankCarry('Вы прошли через портал «Вглубь»'); bus.emit('wildField'); bus.emit('sfx', 'portal'); loadZone('wild', { realm: G.wild.realm, depth: nd }); return;
     }
     case 'stash': openStash(it); return;
     case 'cache': useCache(it); return;
@@ -375,6 +383,12 @@ export function finishFloor() {
     loadZone('town', { from: 'catacombs' }); return;
   }
   P.depths = P.depths || { best: 0, stars: {} };
+  if (r.weekly) {   // испытание недели: свой рекорд, рекорд и звёзды обычных этажей не трогает
+    const time = G.time - r.t0, w = finishWeekly(time), gold = Math.round((40 + r.floor * 20) * (w.first ? 2 : 1)), xp = Math.round((30 + r.floor * 18) * (w.first ? 2 : 1));
+    P.gold += gold; L.gainXP(xp); P.stats.floors = (P.stats.floors || 0) + 1;
+    const res = { floor: r.floor, time, kills: r.kills, total: r.total, stars: 3, prevStars: 3, gold, xp, first: false, weekly: r.weekly.name, weeklyFirst: w.first, weeklyRec: w.rec, runGold: P.stats.gold - r.gold0, boss: false, token: 'weekly_' + Math.round(r.t0 * 1000) };
+    G.lastFloorResult = res; bus.emit('floorResult', res); bus.emit('hud'); saveNow(); return;
+  }
   const time = G.time - r.t0, first = r.floor > P.depths.best;
   const stars = 1 + (r.kills >= Math.ceil(r.total * 0.9) ? 1 : 0) + (time <= parTime(r.floor, r.total) && r.deaths === 0 ? 1 : 0);
   const prevStars = P.depths.stars[r.floor] || 0;
@@ -417,6 +431,7 @@ export function update(dt) {
   if (!G.zoneReady || G.paused) return;
   G.dt = dt;
   G.time += dt; G.profile.stats.playTime += dt;
+  respawnTick();
   const pl = G.player, inp = pollMove();
   // mouse: LMB fires/strikes toward the cursor (the hero turns to it); keys/joystick still move
   if (tapAim.held != null && !pl.busy() && !pl.dead && !G.modalOpen && G.zoneId !== 'survival') { const [wx, wy] = G.cam.toWorld(tapAim.x, tapAim.y + 20); C.playerAttack(pl, { x: wx, y: wy }); }
@@ -431,9 +446,9 @@ export function update(dt) {
   // автоатака: враг в зоне удара — герой бьёт сам, и стоя, и на ходу (ближний бой — на всю длину оружия, а не «впритык»;
   // стрелок на ходу стреляет по тем, кто ближе 60 % дальности, начатый на ходу выстрел не сбрасывается движением)
   if (!pl.busy() && !pl.dead && !G.modalOpen && !input.attackHeld && G.zoneId !== 'survival' && G.zoneId !== 'town' && G.zoneId !== 'castle') {
-    const W = G.stats, moving = inp.mag >= 0.12, rng = W.ranged ? W.range * (moving ? 0.6 : 0.9) : W.range + 0.2;
-    const t = moving && W.ranged && G.time < (pl.moveShotT || 0) ? null : C.pickTarget(pl, rng);   // стрелок на ходу — выстрел и ~0,8 с хода, чтобы мог отступать
-    if (t && (t.aggro || G.auto) && G.zone.map.los(pl.x, pl.y, t.x, t.y) && C.playerAttack(pl) && pl.act) { pl.act.auto = true; if (moving && W.ranged) pl.moveShotT = G.time + pl.act.dur + 0.8; }
+    const W = G.stats, moving = inp.mag >= 0.12, rng = W.ranged ? W.range * (moving ? 0.8 : 0.9) : W.range + 0.2;
+    const t = C.pickTarget(pl, rng);   // сборка 19: удар и выстрел на ходу героя не останавливают (entities.js), поэтому стрелок бьёт без пауз
+    if (t && (t.aggro || G.auto) && G.zone.map.los(pl.x, pl.y, t.x, t.y) && C.playerAttack(pl) && pl.act) pl.act.auto = true;
   }
   if (pl.comboT > 0) { pl.comboT -= dt; if (pl.comboT <= 0) pl.combo = 0; }
   if (G.auto && !G.modalOpen) autoTick(inp);

@@ -57,7 +57,7 @@ function build(RL, mood, depth, boss, attempt, force) {
     }
   }
   // заросли и скалы
-  const nBlobs = Math.round((ri(10, 15) + Math.floor(depth / 2)) * [0.8, 1.2, 0.9, 1.7, 1.1, 1][variant]);
+  const nBlobs = Math.round((ri(10, 15) + Math.floor(depth / 2)) * [0.8, 1.2, 0.9, 1.7, 1.1, 1][variant] * 0.55);   // сборка 18: скоплений чащи и скал вдвое меньше — просторнее
   for (let k = 0; k < nBlobs; k++) {
     const r = 1 + R() * 2, cx = ri(5, W - 6), cy = ri(5, H - 6);
     if (reserved(cx, cy, r)) continue;
@@ -73,7 +73,7 @@ function build(RL, mood, depth, boss, attempt, force) {
   }
   for (let y = fort.y + fort.h; y < fort.y + fort.h + 3; y++) for (let x = gate.x - 1; x <= gate.x + 1; x++) set(x, y, ',');   // тропа у ворот
   // стартовая поляна и портал вглубь расчищены
-  for (let y = 3; y < H - 3; y++) for (let x = 3; x < W - 3; x++) if (dist(x + 0.5, y + 0.5, start[0], start[1]) < 4.5 || dist(x + 0.5, y + 0.5, exit[0], exit[1]) < 3.5) set(x, y, '.');
+  for (let y = 3; y < H - 3; y++) for (let x = 3; x < W - 3; x++) if (dist(x + 0.5, y + 0.5, start[0], start[1]) < 6 || dist(x + 0.5, y + 0.5, exit[0], exit[1]) < 4.5) set(x, y, '.');   // поляны у порталов (сборка 18 — шире)
 
   // связность: старт → ворота форта и портал вглубь; иначе прорубаем просеку
   const reach = () => { const seen = new Uint8Array(W * H), q = [[Math.floor(start[0]), Math.floor(start[1])]]; seen[q[0][1] * W + q[0][0]] = 1; for (let i = 0; i < q.length; i++) { const [x, y] = q[i]; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const X = x + dx, Y = y + dy, c = at(X, Y); if (c === 'x' || c === '~' || c === 'D' || seen[Y * W + X]) continue; seen[Y * W + X] = 1; q.push([X, Y]); } } return seen; };
@@ -138,10 +138,10 @@ function build(RL, mood, depth, boss, attempt, force) {
   // --- лагеря мобов
   const nCamps = isFort ? Math.min(8, 4 + Math.floor((depth + 1) / 3)) : Math.min(11, 6 + Math.floor((depth + 1) / 3));   // у форта — лагеря вокруг (их надо перебить, чтобы открылись ворота); на открытых полях — главное содержание   // на всё поле ~8–10 мобов: бой по одному-двое
   const bigPool = RL.pool.filter(([, d]) => d <= depth).map(([t]) => t);
-  let camps = 0;
+  let camps = 0; const campPts = [];
   for (let i = 0; i < nCamps * 8 && camps < nCamps; i++) {
     const p = pick((x, y) => !inFort(x, y, 4) && dist(x, y, start[0], start[1]) > 11 && dist(x, y, exit[0], exit[1]) > 5 && !near(x, y, isFort ? 8 : 6.5) && free(x, y, 1));
-    if (!p) continue; camps++; placed.push([p[0], p[1], isFort ? 8 : 6.5]);
+    if (!p) continue; camps++; placed.push([p[0], p[1], isFort ? 8 : 6.5]); campPts.push(p);
     const t = bigPool[ri(0, bigPool.length - 1)], MT = WILD_MOBS[t];
     const n = MT.ai === 'giant' ? 1 : Math.min(4, ri(isFort ? 1 : 2, isFort ? 2 : 3) + (depth >= 6 ? 1 : 0));
     spawns.push([t, p[0], p[1], n, 2.2, lvl]);
@@ -173,14 +173,14 @@ function build(RL, mood, depth, boss, attempt, force) {
   // по вариантам поля — своя растительность: роща, ручьи и камни, бор, бурелом (деревья и камни стоят не ближе ~2,4 м друг к другу)
   const flora = {
     forest: [['tree_0', 'tree_0', 'tree_1', 'tree_0', 'rocks', 'tree_1'], ['tree_0', 'tree_0', 'tree_0', 'tree_1', 'tree_0', 'rocks'], ['rocks', 'tree_0', 'rocks', 'tree_1', 'rocks', 'tree_0'], ['tree_1', 'tree_1', 'tree_0', 'tree_1', 'tree_1', 'deadtree'], ['deadtree', 'tree_0', 'deadtree', 'rocks', 'tree_1', 'deadtree'], mood.dark ? ['tree_0', 'tree_1', 'deadtree', 'mushrooms', 'rocks', 'tree_0'] : ['tree_0', 'tree_1', 'tree_0', 'tree_1', 'rocks', 'deadtree']],
-    bones: [['tree_acacia', 'rocks', 'tree_acacia_b', 'rock_spire', 'rocks', 'agave'], ['rocks', 'rock_spire', 'tree_acacia', 'rock_tooth', 'rocks', 'tree_acacia_c'], ['tree_acacia', 'tree_acacia_b', 'tree_acacia_c', 'rocks', 'agave', 'deadtree'], ['rock_spire', 'rock_spire_b', 'rock_tooth', 'rocks', 'rock_mesa', 'tree_acacia'], ['rocks', 'deadtree', 'rock_tooth', 'tree_acacia_b', 'rocks', 'agave'], ['rocks', 'rock_spire', 'tree_acacia', 'deadtree', 'rock_tooth']],
+    bones: [['tree_acacia', 'rocks', 'tree_acacia_b', 'sand_spire', 'rocks', 'agave'], ['rocks', 'sand_spire', 'tree_acacia', 'sand_tooth', 'rocks', 'tree_acacia_c'], ['tree_acacia', 'tree_acacia_b', 'tree_acacia_c', 'rocks', 'agave', 'deadtree'], ['sand_spire', 'rocks', 'sand_tooth', 'rocks', 'sand_mesa', 'tree_acacia', 'agave'], ['rocks', 'deadtree', 'sand_tooth', 'tree_acacia_b', 'rocks', 'agave'], ['rocks', 'sand_spire', 'tree_acacia', 'deadtree', 'sand_tooth']],
     fjord: [['tree_1', 'tree_1', 'rocks', 'tree_0', 'tree_1', 'rocks'], ['rocks', 'stalagmite', 'rocks', 'tree_1', 'rocks', 'crystals'], ['rocks', 'tree_1', 'stalagmite', 'rocks', 'rocks', 'deadtree'], ['tree_1', 'rocks', 'tree_1', 'rocks', 'tree_0', 'tree_1'], ['stalagmite', 'rocks', 'rocks', 'crystals', 'deadtree', 'stalagmite'], depth >= 5 ? ['rocks', 'stalagmite', 'crystals', 'tree_0'] : ['tree_1', 'stalagmite', 'tree_0', 'deadtree', 'tree_1', 'rocks']],
   }[realm][variant];
-  const nFlora = Math.round((realm === 'forest' ? 125 : bn ? 66 : 110) * [0.8, 1.1, 1, 1.5, 0.9, 1][variant]) + Math.floor(depth * 4);
-  let nF = 0;
+  const nFlora = Math.round(0.5 * (realm === 'forest' ? 125 : bn ? 66 : 110) * [0.8, 1.1, 1, 1.5, 0.9, 1][variant]) + Math.floor(depth * 4);
+  let nF = 0; const CAMP_CLEAR = 5;   // вокруг лагеря — пусто: мобов видно, есть где драться
   for (let i = 0; i < nFlora * 2; i++) {
-    const p = pick((x, y) => !inFort(x, y, 1) && dist(x, y, start[0], start[1]) > 3 && dist(x, y, exit[0], exit[1]) > 3 && free(x, y, 0) && !near(x, y, 2.4));
-    if (p) { const t = flora[ri(0, flora.length - 1)]; if (t === 'rock_mesa' && !free(p[0], p[1], 2)) continue; placed.push([p[0], p[1], t === 'rock_mesa' ? 3.6 : 2.4]); objects.push({ t, x: p[0], y: p[1] }); if (++nF >= nFlora) break; }
+    const p = pick((x, y) => !inFort(x, y, 1) && dist(x, y, start[0], start[1]) > 3 && dist(x, y, exit[0], exit[1]) > 3 && free(x, y, 0) && !near(x, y, 3.5) && !campPts.some(c => dist(x, y, c[0], c[1]) < CAMP_CLEAR));
+    if (p) { const t = flora[ri(0, flora.length - 1)]; if (t === 'sand_mesa' && !free(p[0], p[1], 2)) continue; placed.push([p[0], p[1], t === 'sand_mesa' ? 3.6 : 3.5]); objects.push({ t, x: p[0], y: p[1] }); if (++nF >= nFlora) break; }
   }
   for (let i = 0; i < (bn ? 16 : 8); i++) { const p = pick((x, y) => free(x, y, 0)); if (p) objects.push({ t: realm === 'fjord' ? 'skulls' : bn && i % 3 === 0 ? 'skulls' : 'bones', x: p[0], y: p[1], deco: 1 }); }
   // указатель у входа и брошенный скарб по полю (в Старом Лесу — телеги, поленницы, бочки)
@@ -191,7 +191,7 @@ function build(RL, mood, depth, boss, attempt, force) {
 
   const total = spawns.reduce((a, s) => a + s[3], 0);
   return {
-    name: `${RL.name} · ${locationName(realm, depth)} · глубина ${depth}`, floorN: (realm === 'fjord' ? 1200 : bn ? 1300 : 1100) + depth, wild: { realm, depth, mood: moodOf(realm, depth), boss, fort: isFort ? fort : null, gate: isFort ? gate : null, kind: isFort ? 'fort' : 'field', variant, locName: locationName(realm, depth) },
+    name: `${RL.name} · ${locationName(realm, depth)} · глубина ${depth}`, floorN: (realm === 'fjord' ? 1200 : bn ? 1300 : 1100) + depth, wild: { camps: campPts.map(p => [p[0], p[1]]), realm, depth, mood: moodOf(realm, depth), boss, fort: isFort ? fort : null, gate: isFort ? gate : null, kind: isFort ? 'fort' : 'field', variant, locName: locationName(realm, depth) },
     w: W, h: H, rows, objects, torches: [], spawns, total, rooms: {}, start, boss, level: lvl, story: [],
   };
 }

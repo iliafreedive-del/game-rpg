@@ -30,7 +30,7 @@ export function dailyQuests() {
 export const dqReward = () => ({ gold: 40 + G.profile.level * 20, potions: 1 });
 export function claimDaily(id) {
   const P = G.profile; const list = dailyQuests(); const q = list.find(x => x.id === id); if (!q || !q.done || q.claimed) return false;
-  P.dq.list.find(x => x.id === id).claimed = true;
+  P.dq.list.find(x => x.id === id).claimed = true; bus.emit('dailyClaimed');
   const r = dqReward(); P.gold += r.gold; P.potions.hp += r.potions;
   bus.emit('toast', { text: 'Ежедневное задание выполнено', sub: `+${r.gold} зол. · +${r.potions} зелье`, kind: 'good' }); bus.emit('sfx', 'quest');
   if (P.dq.list.every(x => x.claimed) && !P.dq.bonus) {

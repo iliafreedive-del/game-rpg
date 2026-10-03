@@ -10,6 +10,7 @@ export const U = {
   uWindStr: { value: 1 },
   uCam: { value: new THREE.Vector3() },      // camera position  } used to dither away whatever
   uFocus: { value: new THREE.Vector3() },    // hero chest       } stands between them
+  uFoc: { value: [new THREE.Vector4(0, -50, 0, 0), new THREE.Vector4(0, -50, 0, 0), new THREE.Vector4(0, -50, 0, 0)] },   // три ближайших врага (xyz, w = 1 — включён): то, что их закрывает, тоже растворяется (сборка 18)
   uBiome: { value: 0 },                      // биом подземелья для стен: 1 затопленные, 2 пепельные, 3 Бездна
   uFadeSmooth: { value: 0 },                 // 1 — плавная прозрачность через alpha-to-coverage (нужен MSAA), 0 — мелкий дизеринг
   uHFog: { value: 0 },                       // стелющийся туман у земли (деревня): сила; 0 — выключен
@@ -85,7 +86,7 @@ const FADE_V = /* glsl */`
   vFadeW = (modelMatrix * vec4(transformed, 1.0)).xyz;
 #endif
 `;
-const FADE_FS = 'varying vec3 vFadeW; uniform vec3 uCam; uniform vec3 uFocus; uniform float uFadeSmooth;\n';
+const FADE_FS = 'varying vec3 vFadeW; uniform vec3 uCam; uniform vec3 uFocus; uniform vec4 uFoc[3]; uniform float uFadeSmooth;\n';
 const FADE_F = /* glsl */`
 float fadeA = 1.0;
 {
@@ -93,6 +94,9 @@ float fadeA = 1.0;
   float tt = clamp(dot(vFadeW - uCam, ab) / dot(ab, ab), 0.0, 1.0);
   float dd = length(vFadeW - (uCam + ab * tt));
   float f = (1.0 - smoothstep(0.9, 2.6, dd)) * (1.0 - smoothstep(0.88, 0.97, tt));
+  for (int i = 0; i < 3; i++) { if (uFoc[i].w < 0.5) continue;   // враги: окно поуже, чем у героя
+    vec3 eb = uFoc[i].xyz - uCam; float te = clamp(dot(vFadeW - uCam, eb) / dot(eb, eb), 0.0, 1.0);
+    f = max(f, (1.0 - smoothstep(0.7, 1.9, length(vFadeW - (uCam + eb * te)))) * (1.0 - smoothstep(0.86, 0.96, te)) * uFoc[i].w); }
   fadeA = 1.0 - f * 0.82;
   // MSAA: плавная прозрачность (alpha-to-coverage); без него — мелкий дизеринг, на высоком DPR почти незаметный
   float ign = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));

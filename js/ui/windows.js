@@ -3,17 +3,17 @@ import { SETS, bonusText } from '../data/sets.js';
 import { setCounts } from '../game/stats.js';
 import { G, bus, inCombat } from '../game/ctx.js';
 import { $, el, esc, fmt } from '../core/util.js';
-import { SLOTS, SLOT_NAMES, RARITY, WEAPONS, BASE, CLASSES } from '../data/items.js';
+import { SLOTS, SLOT_NAMES, RARITY, WEAPONS, BASE, CLASSES, RARITY_SHORT } from '../data/items.js';
 import { SKILLS, BRANCHES } from '../data/skills.js';
 import { STORY, REPEATABLE, DIALOG, CHAPTER, chapterOf } from '../data/quests.js';
 import { stats, compare, usefulness, meetsReq, xpToNext, effRank } from '../game/stats.js';
-import { iconOf, affixText, epicOf, sellValue, upgradeCost, reforgeCost, MAX_UPG } from '../game/items.js';
+import { iconOf, affixText, epicOf, sellValue, upgradeCost, reforgeCost, MAX_UPG, itemPower, kindPerkText, upgMult, heroPower } from '../game/items.js';
 import * as CH from '../game/character.js';
 import * as EC from '../game/economy.js';
 import * as Q from '../game/quests.js';
 import { iconURL, skillCanvas } from './icons.js';
 import { drawMap, seen, seenKey } from './hud.js';
-import { offers, buy, restorePurchases, dailyStatus, claimDaily, chestStatus, chestSkip, openOrderChest, DAILY, watchRewarded, offerToken } from '../platform/monetize.js';
+import { offers, buy, restorePurchases, dailyStatus, claimDaily, chestStatus, chestSkip, openOrderChest, DAILY, LOGIN_DAYS, watchRewarded, offerToken, blessing, blessLeft, BLESS_MIN, BLESS_CAP } from '../platform/monetize.js';
 import { PRODUCTS, platform } from '../platform/platform.js';
 import { revive, saveNow, loadZone, depthsUnlocked, MAX_REVIVES } from '../game/game.js';
 import { generateFloor, isBossFloor, floorLevel } from '../world/floorgen.js';
@@ -27,6 +27,7 @@ import { openHeroPath } from './herospath.js';
 import { adButton } from './adbtn.js';
 import { openWheel, wheelReady } from './wheel.js';
 import * as SV from '../game/survival.js';
+import * as SE from '../game/season.js';
 import { BOONS, BOON_IDS } from '../data/boons.js';
 import { stats as calcStats } from '../game/stats.js';
 import { maybeInterstitial } from '../platform/monetize.js';
@@ -117,13 +118,14 @@ function setHTML(x) { if (!x || !x.set || !SETS[x.set]) return ''; const S = SET
   return `<div class="it-set" style="color:#7ee0a8">◈ Сет «${esc(S.name)}» · надето ${c}/3</div><div class="${c >= 2 ? 'good' : 'muted'}" style="font-size:12px">2 части: ${esc(bonusText(x.set, S.b2))}</div><div class="${c >= 3 ? 'good' : 'muted'}" style="font-size:12px">3 части: ${esc(bonusText(x.set, S.b3))}</div>`; }
 function itemHTML(it, S) {
   const b = BASE[it.base], r = RARITY[it.rarity];
-  let h = `<div class="it-name" style="color:${r.color}">${esc(it.name)}${it.upg ? ` <span class="good">+${it.upg}</span>` : ''}</div>`;
+  let h = `<div class="it-name" style="color:${r.color}">${esc(it.name)}${it.upg ? ` <span class="good">+${it.upg}</span>` : ''}<span class="it-pow">⚔ ${itemPower(it)}</span></div>`;
   h += `<div class="it-type">${r.name} · ${it.wt ? WEAPONS[it.wt].name : SLOT_NAMES[it.slot === 'ring' ? 'ring1' : it.slot]} · ур. предмета ${it.ilvl}</div>`;
-  const um = 1 + (it.upg || 0) * 0.1;
+  const um = upgMult(it);
   if (it.dmg) h += `<div class="it-stat">Урон: <b>${Math.round(it.dmg[0] * um)}–${Math.round(it.dmg[1] * um)}</b> · Урон в сек.: <b>${Math.round((it.dmg[0] + it.dmg[1]) / 2 * um * WEAPONS[it.wt].aps * 10) / 10}</b> · Скорость: ${WEAPONS[it.wt].aps} уд/с · Дальность: ${WEAPONS[it.wt].range} м</div><div class="it-stat muted" style="font-size:12px">${WEAPONS[it.wt].note}</div>`;
   if (it.armor) h += `<div class="it-stat">Защита: <b>${Math.round(it.armor * um)}</b></div>`;
   if (it.block) h += `<div class="it-stat">Шанс блока: ${Math.round(it.block * 100)}%</div>`;
-  for (const a of it.affixes) h += `<div class="it-aff">${esc(affixText(a))}</div>`;
+  for (const a of it.affixes) h += a.kp ? `<div class="it-aff kp">◆ ${esc(kindPerkText(it))}: ${esc(affixText(a))}</div>` : `<div class="it-aff">${esc(affixText(a))}</div>`;
+  if (it.rarity < 4) h += `<div class="it-stat muted" style="font-size:12px">Слияние у кузнеца: 3 ${RARITY_SHORT[it.rarity]} ${SLOT_NAMES[it.slot] ? SLOT_NAMES[it.slot].toLowerCase() : ''} → 1 ${RARITY_SHORT[it.rarity + 1]}</div>`;
   const ep = epicOf(it); if (ep) h += `<div class="it-epic">★ ${esc(ep.desc)}</div>`;
   h += setHTML(it);
   if (it.req) { const ok = meetsReq(G.profile, it, S); h += `<div class="it-stat ${ok ? 'muted' : 'bad'}">Требуется: ${Object.entries(it.req).map(([k, v]) => `${CH.ATTR_NAMES[k]} ${v}`).join(', ')}</div>`; }
@@ -155,7 +157,7 @@ W.inventory = (arg = {}) => {
     const wrap = el('div', 'eq-wrap'), left = el('div', 'eq-left'), right = el('div', 'eq-right'); wrap.append(left, right); b.appendChild(wrap);
     const doll = el('div', 'eq-doll');
     const side = (slot, cls) => { const w = el('div', 'eq-w ' + cls); w.append(cell(P.gear[slot], slot), el('small', '', SLOT_NAMES[slot])); return w; };
-    doll.append(side('weapon', 'a'), side('head', 'b'), el('div', 'eq-pt', `<div class="iv-pt" style="background-image:url(assets/sprites/${(P.cls || 'warrior') === 'warrior' ? 'portrait' : 'portrait_' + P.cls}.png)"></div><b>${esc(C.name)}</b><small>Уровень ${P.level}</small>`), side('chest', 'c'), side('amulet', 'd'));
+    doll.append(side('weapon', 'a'), side('head', 'b'), el('div', 'eq-pt', `<div class="iv-pt" style="background-image:url(assets/sprites/${(P.cls || 'warrior') === 'warrior' ? 'portrait' : 'portrait_' + P.cls}.png)"></div><b>${esc(C.name)}<br><span class="it-pow" style="float:none">⚔ сила ${heroPower(P)}</span></b><small>Уровень ${P.level}</small>`), side('chest', 'c'), side('amulet', 'd'));
     left.appendChild(doll);
     left.appendChild(el('div', 'iv-stats', `<span class="st-atk">⚔ Урон/с <b>${S.dps}</b></span><span class="st-hp">♥ Здоровье <b>${S.maxHP}</b></span><span class="st-def">🛡 Защита <b>${S.armor}</b></span>`));
     // ---- сумка
@@ -203,7 +205,7 @@ W.character = (arg = {}) => {
   const edit = !!arg.npc;
   const m = modal(edit ? 'Наставник: характеристики' : 'Персонаж', 'md', b => {
     const P = G.profile, S = G.stats;
-    b.appendChild(el('div', 'row', `<b class="goldc" style="font:600 17px Georgia">${CLASSES[P.cls || 'warrior'].name} · уровень ${P.level}</b><span class="muted">Опыт ${fmt(P.xp)} / ${fmt(xpToNext(P.level))}</span>`));
+    b.appendChild(el('div', 'row', `<b class="goldc" style="font:600 17px Georgia">${CLASSES[P.cls || 'warrior'].name} · уровень ${P.level} · ⚔ сила ${heroPower(P)}</b><span class="muted">Опыт ${fmt(P.xp)} / ${fmt(xpToNext(P.level))}</span>`));
     b.appendChild(el('h3', '', `Характеристики <span class="c-gold" style="float:right">💰 ${fmt(P.gold)} зол.</span>`));
     b.appendChild(el('p', 'muted', 'Растут сами с каждым уровнем — вкладывать очки не нужно.'));
     const hints = { str: 'урон мечом и топором', dex: 'урон луком, крит, защита', int: 'сила заклинаний, мана', vit: 'здоровье и восстановление' };
@@ -352,10 +354,12 @@ W.npc_elder = () => {
     row.appendChild(nx); b.appendChild(row);
   }, { sticky: true });
 };
-W.npc_smith = () => {
-  let sel = null;
+W.npc_smith = (tab0) => {
+  let sel = null, tab = tab0 || (EC.mergeGroups().some(g => g.can) ? 'merge' : 'upg');
   modal('Кузнец Горан', 'md', b => {
     const P = G.profile;
+    const tabs = el('div', 'tabs big-tabs'); for (const [k, n] of [['merge', 'Слияние 3→1'], ['upg', 'Закалка']]) { const t = el('button', 'tab' + (tab === k ? ' on' : ''), n); t.onclick = () => { tab = k; sel = null; rerender(); }; tabs.appendChild(t); } b.appendChild(tabs);
+    if (tab === 'merge') { mergeTab(b); b.appendChild(el('p', 'goldc', `Ваше золото: ${fmt(P.gold)}`)); return; }
     b.appendChild(el('p', '', `<i>«${esc(DIALOG.smith.hello[1])}»</i>`));
     b.appendChild(el('p', 'muted', 'Закалка: +10% к урону или защите за уровень (до +10), без риска поломки. Закалять вещи можно только здесь, у кузнеца.'));
     const list = [...Object.entries(P.gear).filter(([, i]) => i).map(([s, i]) => i), ...P.bag.filter(i => i.rarity >= 1 || i.dmg || i.armor)];
@@ -374,6 +378,45 @@ W.npc_smith = () => {
   }).live = true;
   Q.talked('smith');
 };
+// Слияние (сборка 20): сетка «слот × редкость», в каждой клетке — сколько есть из трёх; кнопка «Слить всё»
+let lastMerged = null;
+function mergeTab(b) {
+  const P = G.profile, groups = EC.mergeGroups();
+  b.appendChild(el('p', 'muted', 'Три вещи одного слота и одной редкости → одна вещь следующей редкости. Серое → зелёное → синее → золотое → мифическое. С синего у вещи появляется свойство вида, с золотого — особый эффект. Надетые и 🔒 не трогаются.'));
+  const all = el('button', 'btn gold', 'Слить всё'); all.disabled = !groups.some(g => g.can); all.onclick = () => { const m = EC.mergeAll(); lastMerged = m.length ? m[m.length - 1] : null; rerender(); };
+  b.appendChild(all);
+  const grid = el('div', 'merge-grid'); grid.appendChild(el('div', 'mg-h', ''));
+  for (let r = 0; r < 4; r++) grid.appendChild(el('div', 'mg-h', `<span style="color:${RARITY[r].color}">${RARITY_SHORT[r]}</span>`));
+  for (const slot of ['weapon', 'head', 'chest', 'amulet']) {
+    grid.appendChild(el('div', 'mg-s', SLOT_NAMES[slot]));
+    for (let r = 0; r < 4; r++) { const g = groups.find(x => x.slot === slot && x.rarity === r), c = el('button', 'mg-c' + (g.can ? ' ok' : ''), `<b>${g.can ? 3 : g.n}/3</b>${g.can > 1 ? `<i>×${g.can}</i>` : ''}<small>${g.can ? EC.mergeCost(r) + ' з.' : g.n ? 'ещё ' + (3 - g.n % 3) : '—'}</small>`);
+      c.style.borderColor = RARITY[r + 1].color; c.disabled = !g.can; c.onclick = () => { lastMerged = EC.mergeOnce(slot, r); rerender(); }; grid.appendChild(c); }
+  }
+  b.appendChild(grid);
+  if (lastMerged) { const det = el('div', 'detail'); det.innerHTML = '<div class="muted">Получено:</div>' + itemHTML(lastMerged, G.stats); const eq = el('button', 'btn', 'Надеть'); eq.onclick = () => { CH.equip(lastMerged.id); lastMerged = null; rerender(); }; det.appendChild(eq); b.appendChild(det); }
+}
+// ---------------------------------------------------------------- путь сезона и коллекция (сборка 21)
+W.season = () => modal('Путь сезона · ' + SE.seasonName(), 'md', b => {
+  const S = SE.season(), L = SE.seasonLevel(), P = G.profile;
+  b.appendChild(el('div', 'row', `<b class="goldc" style="font:600 17px Georgia">Ступень ${L.lvl} из ${SE.SEASON_LEVELS}</b><span class="muted">${L.need ? `${L.into}/${L.need} очков до следующей` : 'Путь пройден!'}</span>`));
+  b.appendChild(el('div', 'pb season-pb', `<i style="width:${L.need ? L.into / L.need * 100 : 100}%"></i>`));
+  b.appendChild(el('p', 'muted', 'Очки идут за любую игру: враги, этажи Глубин, поля походов, слияния, находки в коллекцию, дары богини и задания дня. Новый месяц — новый сезон.'));
+  const list = el('div', 'season-list');
+  for (let l = 1; l <= SE.SEASON_LEVELS; l++) { const r = SE.seasonReward(l), got = !!S.claimed[l], open = L.lvl >= l;
+    const row = el('div', 'sl' + (r.big ? ' big' : r.mid ? ' mid' : '') + (got ? ' got' : open ? ' open' : ''), `<i>${l}</i><span>${r.label}${r.gold ? ` · ${r.gold * P.level} зол.` : ''}</span>`);
+    if (open && !got) { const bt = el('button', 'btn sm gold', 'Забрать'); bt.onclick = () => { SE.claimSeason(l); rerender(); }; row.appendChild(bt); } else row.appendChild(el('em', '', got ? '✔' : '🔒'));
+    list.appendChild(row); }
+  b.appendChild(list);
+});
+W.codex = () => modal('Коллекция', 'md', b => {
+  const P = G.profile; SE.codexScan(); const n = SE.codexCount(P), bases = SE.codexBases(P.cls);
+  b.appendChild(el('p', '', `<b class="goldc">Записей: ${n}</b> · бонус навсегда: <b>+${(n * SE.CODEX_PCT).toFixed(1)}%</b> к урону и здоровью`));
+  b.appendChild(el('p', 'muted', 'Каждая вещь нового вида или новой редкости (от зелёной) заносится сюда сама. Слияние у кузнеца — быстрый путь к новым записям.'));
+  const g = el('div', 'merge-grid codex-grid'); g.appendChild(el('div', 'mg-h', ''));
+  for (let r = 1; r <= 4; r++) g.appendChild(el('div', 'mg-h', `<span style="color:${RARITY[r].color}">${RARITY_SHORT[r]}</span>`));
+  for (const B of bases) { g.appendChild(el('div', 'mg-s', esc(B.name))); for (let r = 1; r <= 4; r++) { const has = P.codex && P.codex[B.k + ':' + r]; g.appendChild(el('div', 'mg-c' + (has ? ' ok' : ''), has ? '✔' : '·')); } }
+  b.appendChild(g);
+});
 W.npc_merchant = () => {
   let tab = 'buy', sel = null; EC.ensureStock();
   modal('Торговка Мира', 'md', b => {
@@ -460,27 +503,31 @@ W.board = () => {
 };
 
 // ---------------------------------------------------------------- rewards / shop (monetization hub)
-W.shrine = () => modal('Святилище наград', 'md', b => {
+W.shrine = () => modal('Алтарь богини', 'md', b => {
   const P = G.profile, now = Date.now();
-  dailyBlock(b);
-  // daily
-  const ds = dailyStatus();
-  b.appendChild(el('h3', '', `Ежедневная награда · серия ${ds.streak} дн.`));
-  const days = el('div', 'row'); DAILY.forEach((r, i) => { const on = i === ds.streak % 7 && ds.claimable; const got = i < ds.streak % 7 || (!ds.claimable && i === (ds.streak - 1) % 7); days.appendChild(el('div', 'buff', `${i + 1}: ${r.gold ? r.gold * P.level + ' зол.' : r.potions ? r.potions + ' зел.' : r.item === 2 ? 'редкий' : 'магич.'}${got ? ' ✔' : on ? ' ◀' : ''}`)); }); b.appendChild(days);
+  // 1) благословение — главное предложение алтаря
+  { const left = blessLeft(), on = left > 0, full = left > (BLESS_CAP - BLESS_MIN) * 60000;
+    const c = el('div', 'bless-card' + (on ? ' on' : ''), `<div class="bl-ic">✦</div><div class="tx"><b>Благословение богини</b><div>+50% золота и опыта, +25% к выпадению вещей — ${BLESS_MIN} минут</div><div class="muted">${on ? `Действует ещё <b>${Math.floor(left / 60000)}:${String(Math.floor(left / 1000) % 60).padStart(2, '0')}</b>${full ? ' · предел ' + BLESS_CAP + ' мин' : ' · можно продлить'}` : 'Посмотрите рекламу — и 10 минут всё падает щедрее'}</div></div>`);
+    const bt = el('button', 'btn ad', on ? `+${BLESS_MIN} мин` : 'Получить'); bt.disabled = full || inCombat(); bt.onclick = () => blessing().then(rerender); c.appendChild(bt); b.appendChild(c); }
+  // 2) календарь входа: 28 дней, пропуск не сбрасывает, каждый 3-й больше, 7/14/21/28 — вещь
+  const ds = dailyStatus(), cur = ds.day, base = ds.streak - (ds.claimable ? 0 : 1) - (cur - 1);   // base — сколько дней было до этого круга
+  b.appendChild(el('h3', '', `Дары богини · день ${cur} из ${LOGIN_DAYS}${ds.streak >= LOGIN_DAYS ? ` · круг ${Math.floor(base / LOGIN_DAYS) + 1}` : ''}`));
+  const cal = el('div', 'login-cal');
+  DAILY.forEach((r, i) => { const d = i + 1, got = d < cur || (d === cur && !ds.claimable), today = d === cur && ds.claimable, soon = !got && !today && d - cur <= 3;
+    const what = r.item ? (r.item >= 3 ? '◆ золотая вещь' : '◆ синяя вещь') : r.mid ? '✉ свиток' : (r.gold * P.level) + ' зол.';
+    const cell = el('div', 'lc' + (r.big ? ' big' : r.mid ? ' mid' : '') + (got ? ' got' : '') + (today ? ' today' : '') + (soon ? ' soon' : ''), `<i>${d}</i><span>${what}</span>${got ? '<em>✔</em>' : soon ? `<em>${d - cur === 1 ? "завтра" : "через " + (d - cur) + " дн."}</em>` : ''}`);
+    cal.appendChild(cell); });
+  b.appendChild(cal);
+  const nb = DAILY.findIndex((r, i) => i + 1 > cur && (r.big || r.mid)), nr = nb >= 0 ? DAILY[nb] : null;
   const dr = el('div', 'row'); dr.style.marginTop = '6px';
-  if (ds.claimable) { const a = el('button', 'btn gold', 'Забрать'); a.onclick = () => { claimDaily(false); rerender(); }; const x2 = el('button', 'btn ad', 'Забрать ×2'); x2.onclick = () => watchRewarded('daily_double', offerToken('daily_double', 'd' + new Date().toDateString()), () => claimDaily(true)).then(rerender); dr.append(a, x2); }
-  else dr.appendChild(el('span', 'muted', 'Следующая награда — завтра. Не прерывайте серию!'));
+  if (ds.claimable) { const a = el('button', 'btn gold', `Забрать день ${cur}`); a.onclick = () => { claimDaily(false); rerender(); }; const x2 = el('button', 'btn ad', 'Забрать ×2'); x2.onclick = () => watchRewarded('daily_double', offerToken('daily_double', 'd' + new Date().toDateString()), () => claimDaily(true)).then(rerender); dr.append(a, x2); }
+  else dr.appendChild(el('span', 'muted', `Следующий дар — завтра.${nr ? ` Через ${nb + 1 - cur} дн.: <b>${nr.label}</b>` : ''} Пропуск дня не сбрасывает календарь.`));
   b.appendChild(dr);
+  dailyBlock(b);
   // order chest
   const cs = chestStatus(); b.appendChild(el('h3', '', 'Сундук Ордена'));
   const cr = el('div', 'offer', `<div class="ic">▣</div><div class="tx"><b>Редкий + магический предмет и золото</b><div class="muted">${cs.ready ? 'Готов к открытию!' : 'Откроется через ' + Math.ceil(cs.left / 60000) + ' мин'}</div></div>`);
   const cb = el('button', 'btn ' + (cs.ready ? 'gold' : 'ad'), cs.ready ? 'Открыть' : 'Открыть сейчас'); cb.onclick = () => { (cs.ready ? Promise.resolve(openOrderChest()) : chestSkip()).then(rerender); }; cr.appendChild(cb); b.appendChild(cr);
-  // blessings
-  b.appendChild(el('h3', '', 'Благословения'));
-  for (const [k, t, until, fn] of [['xp', '+50% опыта на 15 минут', P.boosts.xpUntil, offers.xpBoost], ['gold', '+50% золота на 15 минут', P.boosts.goldUntil, offers.goldBoost]]) {
-    const o = el('div', 'offer', `<div class="ic">${k === 'xp' ? '✦' : '⛁'}</div><div class="tx"><b>${t}</b><div class="muted">${until > now ? 'Активно ещё ' + Math.ceil((until - now) / 60000) + ' мин (можно продлить)' : 'Складывается с другими бонусами'}</div></div>`);
-    const bt = el('button', 'btn ad', 'Смотреть'); bt.disabled = inCombat(); bt.onclick = () => fn().then(rerender); o.appendChild(bt); b.appendChild(o);
-  }
   // IAP
   b.appendChild(el('h3', '', 'Лавка Ордена'));
   for (const [id, p] of Object.entries(PRODUCTS)) {
@@ -539,6 +586,10 @@ W.depths = () => modal('Глубины катакомб', 'sm', b => {
   // новый этаж (дальше рекорда) — без факела, факел уйдёт только за поражение; повтор пройденного — факел сразу
   const enter = f => { const free = f > (P.depths.best || 0); if (!free && !CS.spendTorch()) { bus.emit('toast', { text: 'Нет факелов', sub: 'Они восстанавливаются сами: 1 за 20 минут. Новые этажи — без факела', kind: 'warn' }); return; } closeModal(); loadZone('depths', { floor: f, free }); };
   b.appendChild(el('p', 'muted', 'Короткие забеги на 5–8 минут. Каждый 5-й этаж — страж. Звёзды: ★ пройти, ★★ убить 90% врагов, ★★★ быстро и без смертей.'));
+  { const R = SE.weeklyRule(), WS = SE.weeklyState(), f = SE.weeklyFloor(P.level), days = 7 - ((Math.floor(Date.now() / 864e5) + 3) % 7);   // испытание недели (сборка 21)
+    const c = el('div', 'weekly-card', `<b>⚔ Испытание недели: ${esc(R.name)}</b><div>${esc(R.txt)}</div><div class="muted">Этаж под ваш уровень · ${WS.done ? `ваш рекорд ${Math.floor(WS.best / 60)}:${String(Math.floor(WS.best % 60)).padStart(2, '0')} · улучшайте время` : 'первая победа недели — вещь (синяя/золотая) и двойная награда'} · до смены ${days} дн.</div><div class="lb muted"></div>`);
+    const go = el('button', 'btn gold', WS.done ? 'Ещё раз (на время)' : 'Принять вызов'); go.onclick = () => { closeModal(); loadZone('depths', { floor: f, weekly: true }); }; c.appendChild(go); b.appendChild(c);
+    platform.p.getLeaderboard && platform.p.getLeaderboard('weeklyDepths').then(L => { const d = c.querySelector('.lb'); if (d && L && L.length) d.innerHTML = 'Лучшие недели: ' + L.slice(0, 5).map(e => `${e.rank}. ${esc(e.name)} ${Math.floor(e.score / 60000)}:${String(Math.floor(e.score / 1000) % 60).padStart(2, '0')}`).join(' · '); }); }
   const next = P.depths.best + 1;
   const go = el('button', 'btn gold', `▶ Этаж ${next}${isBossFloor(next) ? ' · страж' : ''} (ур. врагов ${floorLevel(next)})`);
   go.style.width = '100%'; go.disabled = P.level < floorLevel(next) - 1; if (go.disabled) go.textContent = `Этаж ${next}: нужен уровень ${floorLevel(next) - 1}`; go.onclick = () => enter(next);
@@ -604,11 +655,12 @@ W.wildResult = r => {
 };
 function floorResult(r) {
   setTimeout(() => {
-    const m = modal(r.first ? 'Новый рекорд глубины!' : 'Этаж пройден', 'sm reward', b => {
-      b.appendChild(el('div', 'rw-head', `<div class="rw-rays r${r.stars >= 3 ? 3 : r.stars >= 2 ? 2 : 1}"></div><div class="rw-t">Этаж ${r.floor}</div><div class="stars">${[0, 1, 2].map(i => `<span class="${i < r.stars ? 'on' : ''}" style="animation-delay:${0.3 + i * 0.35}s">★</span>`).join('')}</div>`));
+    const m = modal(r.weekly ? 'Испытание недели пройдено!' : r.first ? 'Новый рекорд глубины!' : 'Этаж пройден', 'sm reward', b => {
+      b.appendChild(el('div', 'rw-head', `<div class="rw-rays r${r.stars >= 3 ? 3 : r.stars >= 2 ? 2 : 1}"></div><div class="rw-t">${r.weekly ? 'Испытание недели' : 'Этаж ' + r.floor}</div><div class="stars"${r.weekly ? ' style="display:none"' : ''}>${[0, 1, 2].map(i => `<span class="${i < r.stars ? 'on' : ''}" style="animation-delay:${0.3 + i * 0.35}s">★</span>`).join('')}</div>`));
       const mm = Math.floor(r.time / 60), ss = String(Math.floor(r.time % 60)).padStart(2, '0');
       b.appendChild(el('div', 'stats', `<div><span>Время</span><b>${mm}:${ss}</b></div><div><span>Враги</span><b>${r.kills}/${r.total}</b></div><div><span>Собрано золота</span><b>${r.runGold}</b></div>`));
       b.appendChild(el('div', 'rw-loot', `<span class="goldc">+${r.gold} золота</span> · <span style="color:#b8e3ff">+${r.xp} опыта</span>${r.first ? ' · <span style="color:#ff9a9a">+1 зелье</span>' : ''}`));
+      if (r.weekly) b.appendChild(el('p', 'goldc', `${esc(r.weekly)}${r.weeklyFirst ? ' · первая победа недели: вещь в сумке/надета' : ''}${r.weeklyRec ? ' · новый личный рекорд!' : ''}`));
       const row = el('div', 'row'); row.style.justifyContent = 'center';
       const ad = el('button', 'btn ad', `×2 золото (+${r.gold})`);
       ad.onclick = () => watchRewarded('floor_x2', offerToken('floor_x2', r.token), () => { G.profile.gold += r.gold; bus.emit('toast', { text: `+${r.gold} золота`, kind: 'good' }); }).then(ok => { if (ok) { ad.disabled = true; ad.textContent = '✔ Удвоено'; } });
@@ -618,6 +670,7 @@ function floorResult(r) {
       nx.onclick = async () => { const keepBoons = true; if (G.profile.level < floorLevel(next) - 1) { bus.emit('toast', { text: `Этаж ${next} — с ${floorLevel(next) - 1} уровня`, sub: 'Фармите опыт на пройденных этажах', kind: 'warn' }); return; } const free = next > (G.profile.depths.best || 0); if (!free && !CS.spendTorch()) { bus.emit('toast', { text: 'Нет факелов', sub: '+1 за 20 минут или +5 за рекламу в меню Глубин', kind: 'warn' }); return; } closeModal(); await maybeInterstitial('floor'); loadZone('depths', { floor: next, keepBoons, free }); };
       const home = el('button', 'btn', 'В деревню');
       home.onclick = async () => { closeModal(); await maybeInterstitial('floor'); loadZone('town', { from: 'depths' }); };
+      if (r.weekly) { nx.textContent = 'Ещё раз ▶'; nx.onclick = () => { closeModal(); loadZone('depths', { floor: r.floor, weekly: true }); }; }   // испытание недели: повтор на время, а не следующий этаж
       row.append(ad, nx, home); b.appendChild(row);
       const P = G.profile; if (G.run && G.run.boons.length) b.appendChild(el('p', 'muted', `Дары Бездны (${G.run.boons.length}) сохранятся, если идти глубже без возвращения в деревню.`)); if (P.attrPts || P.skillPts) b.appendChild(el('p', 'muted', 'Есть неизрасходованные очки — наставник Элвин ждёт в деревне.'));
     }, { sticky: true });
@@ -733,7 +786,7 @@ W.menu = () => modal('Меню', 'md', b => {
   const tiles = [
     ['character', '🛡', 'Персонаж', 'характеристики', 'dotChar'], ['skills', '✦', 'Навыки', 'умения и кнопки', 'dotSkill'],
     ['journal', '📜', 'Задания', 'сюжет и ежедневные'], ['map', '🗺', 'Карта', 'текущая локация'],
-    ['herospath', '⚔', 'Летопись битв', 'автобои', 'dotHW'], ['shrine', '🎁', 'Награды', 'ежедневно и магазин', 'dotGift'],
+    ['herospath', '⚔', 'Летопись битв', 'автобои', 'dotHW'], ['shrine', '🎁', 'Алтарь богини', 'дары, благословение', 'dotGift'], ['season', '🏆', 'Путь сезона', SE.seasonName() + ' · 30 ступеней', 'dotSeason'], ['codex', '📖', 'Коллекция', '+0,5% за каждую находку'],
     ['tutorial', '❓', 'Обучение', 'показать подсказки снова'], ['settings', '⚙', 'Настройки', 'звук, графика'],
   ];
   const g = el('div', 'menu-grid');

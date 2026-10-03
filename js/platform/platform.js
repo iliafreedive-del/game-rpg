@@ -20,10 +20,14 @@ class DemoProvider {
   async cloudLoad() { return null; } async cloudSave() { return false; }
   async requestReview() { return false; }
   catalogPrice(id) { return PRODUCTS[id]?.price; }
+  async setLeaderboardScore() { return false; } async getLeaderboard() { return null; }   // демо: таблиц рекордов нет
 }
 
 class YandexProvider {
   constructor() { this.name = 'yandex'; this.ysdk = null; this.payments = null; this.player = null; }
+  // таблицы рекордов (сборка 21): новая (ysdk.leaderboards) и старая (getLeaderboards) версии SDK. Таблицу создать в консоли Яндекс Игр.
+  async setLeaderboardScore(name, score) { try { if (this.ysdk.leaderboards && this.ysdk.leaderboards.setScore) { await this.ysdk.leaderboards.setScore(name, score); return true; } const lb = await this.ysdk.getLeaderboards(); await lb.setLeaderboardScore(name, score); return true; } catch (e) { console.warn('leaderboard', e); return false; } }
+  async getLeaderboard(name) { try { const lb = this.ysdk.leaderboards && this.ysdk.leaderboards.getEntries ? this.ysdk.leaderboards : await this.ysdk.getLeaderboards(); const r = await (lb.getEntries ? lb.getEntries(name, { quantityTop: 5, includeUser: true, quantityAround: 1 }) : lb.getLeaderboardEntries(name, { quantityTop: 5, includeUser: true, quantityAround: 1 })); return r.entries.map(e => ({ rank: e.rank, name: (e.player && e.player.publicName) || 'Игрок', score: e.score })); } catch { return null; } }
   async init() {
     await new Promise((res, rej) => { const s = document.createElement('script'); s.src = '/sdk.js'; s.onload = res; s.onerror = rej; document.head.appendChild(s); });
     this.ysdk = await window.YaGames.init();

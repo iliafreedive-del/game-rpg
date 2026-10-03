@@ -21,12 +21,12 @@ const W = 74, H = 70, K = 70 / 64;   // замысел записан в коо�
 function scalePlan(p) {
   const sp = ([x, y]) => [+(x * K).toFixed(2), +(y * K).toFixed(2)];
   return { ...p, center: sp(p.center), square: { hw: p.square.hw * K, hh: p.square.hh * K, r: p.square.r * K }, stream: { ...p.stream, pts: p.stream.pts.map(sp), millY: p.stream.millY * K },
-    portals: Object.fromEntries(Object.entries(p.portals).map(([k, v]) => [k, sp(v)])), roads: p.roads.map(r => ({ ...r, w: r.w + (r.main ? 0.5 : 0.3), pts: r.pts.map(sp) })), start: sp(p.start) };
+    portals: Object.fromEntries(Object.entries(p.portals).map(([k, v]) => [k, sp(v)])), roads: p.roads.map(r => ({ ...r, w: r.w + (r.main ? 0.5 : 0.3), pts: r.pts.map(sp) })), start: sp(p.start), altar: sp(p.altar) };
 }
 // коллайдеры мелочи (как в js/world/zone.js PROP): число — радиус, пара — полуоси коробки
-const COL = { cart: [1.0, 0.55], cart_load: [1.0, 0.55], signpost: 0.15, barrel_stack: [0.9, 0.55], log_stack: [1.35, 0.6], plank_pile: [1.3, 0.35], pumpkins: 0.45, tool_stand: [0.6, 0.25], barrel: 0.3, crate: 0.35, sacks: 0.3, lamp: 0.12, well: 0.62, board: 0.3, banner: 0.15, table: 0.6, dummy: 0.3, target: 0.35, hay: 0.45, tree_0: 0.3, tree_1: 0.3, grave: 0.2, deadtree: 0.25, shrine: 0.45, crystals: 0.3, rocks: 0.35, logpile: [0.7, 0.4], bench: [0.75, 0.22], weapon_rack: [0.6, 0.18], forge: [0.75, 0.6], fortune_tent: [1.5, 1.3] };
+const COL = { cart: [1.0, 0.55], cart_load: [1.0, 0.55], signpost: 0.15, barrel_stack: [0.9, 0.55], log_stack: [1.35, 0.6], plank_pile: [1.3, 0.35], pumpkins: 0.45, tool_stand: [0.6, 0.25], barrel: 0.3, crate: 0.35, sacks: 0.3, lamp: 0.12, well: 0.62, board: 0.3, banner: 0.15, table: 0.6, dummy: 0.3, target: 0.35, hay: 0.45, tree_0: 0.3, tree_1: 0.3, grave: 0.2, deadtree: 0.25, shrine: 1.3, crystals: 0.3, rocks: 0.35, logpile: [0.7, 0.4], bench: [0.75, 0.22], weapon_rack: [0.6, 0.18], forge: [0.75, 0.6], fortune_tent: [1.5, 1.3] };
 const KEEP = new Set(['well', 'board', 'banner', 'shrine', 'forge', 'fortune_tent', 'portal']);   // то, что не убирается ради зазора
-const GAP = 1.3;   // свободный проход между препятствиями (герой ≈ 0,85 м в ширину + запас)
+const GAP = 1.8;   // свободный проход между препятствиями (герой ≈ 0,85 м в ширину + запас); сборка 18: шире — просторнее
 
 export const PLAN = {
   seed: 11,
@@ -46,6 +46,7 @@ export const PLAN = {
     { id: 'eastlane', w: 1.9, pts: [[31.8, 46.5], [39, 47.6], [47, 46.6], [52.5, 47.4]] },
   ],
   start: [31.4, 44.5],
+  altar: [35.4, 32.4],   // алтарь богини (сборка 19): на площади, у выхода с южной дороги — видно сразу со старта
 };
 
 // ---- утилиты
@@ -215,6 +216,7 @@ export function generateVillage(plan0 = PLAN) {
   if (smithy) { const [sx, sy] = side(smithy, 2.4, smithy.d / 2 + 0.9); npc('smith', 'Кузнец Горан', sx, sy); const [fx, fy] = side(smithy, 1.72, 0.1); put('forge', fx, fy, { rot: smithy.rot }); }   // горн вплотную к стене мастерской
   // площадь: колодец, летопись, фонари по углам, лавки и бочки
   put('well', CX + 1.5, CY + 0.3);
+  put('shrine', plan.altar[0], plan.altar[1], { s: 1.35 });   // алтарь богини — на площади (сборка 19)
   const hwsign = [CX - SQ.hw + 4.3, CY + SQ.hh - 1.0];
   for (const [sx, sy] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) put('lamp', CX + sx * (SQ.hw - 0.6), CY + sy * (SQ.hh - 0.5));
   put('bench', CX + 4.6, CY - 2.6, { rot: 0 }); put('bench', CX - 1.4, CY + 3.6, { rot: 0 });
@@ -240,7 +242,7 @@ export function generateVillage(plan0 = PLAN) {
   {
     const gx0 = church.x - 4.2, gy0 = church.y - church.d / 2 - 4.6;
     for (let r = 0; r < 2; r++) for (let k = 0; k < 4; k++) if (hh(k, r, 4) < 0.85) put('grave', gx0 + 0.8 + k * 1.75, gy0 + 0.9 + r * 1.8, { rot: (hh(k, r) - 0.5) * 0.3 });
-    put('deadtree', gx0 + 8.6, gy0 + 0.6); put('shrine', church.x + BUILDINGS.church.col[0] + 0.5, church.y + 2.5);
+    put('deadtree', gx0 + 8.6, gy0 + 0.6);
     markRect(gx0 - 0.5, gy0, gx0 + 9, gy0 + 4, 5);
   }
 
@@ -428,8 +430,8 @@ export function generateVillage(plan0 = PLAN) {
     }
     const dead = new Set(items.filter(i => i.dead).map(i => i.o));
     for (let i = objects.length - 1; i >= 0; i--) if (dead.has(objects[i])) objects.splice(i, 1);
-    // остаток: пары «ключевых» предметов, которые всё равно стоят тесно — в предупреждения
-    for (let i = 0; i < items.length; i++) for (let j = i + 1; j < items.length; j++) { const A = items[i], B = items[j]; if (A.dead || B.dead || !near(A, B)) continue; const gg = gapI(A, B); if (bad(gg) && A.o !== B.o) warn.push(`тесно: ${A.o.t || A.o.id}–${B.o.t || B.o.id} ${gg.toFixed(2)} м`); }
+    // остаток: пары «ключевых» предметов (NPC у своих построек, порталы), между которыми не пройти (< 1,3 м), — в предупреждения
+    for (let i = 0; i < items.length; i++) for (let j = i + 1; j < items.length; j++) { const A = items[i], B = items[j]; if (A.dead || B.dead || !near(A, B)) continue; const gg = gapI(A, B); if (gg > 0.12 && gg < 1.3 && A.o !== B.o) warn.push(`тесно: ${A.o.t || A.o.id}–${B.o.t || B.o.id} ${gg.toFixed(2)} м`); }
     var gapRemoved = removed;
   }
   // ---- куры и собаки: стайки у домов ближе к площади и у таверны, собака у кузницы и собака на площади

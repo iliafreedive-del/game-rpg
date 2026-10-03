@@ -76,15 +76,15 @@ const tumbleweed = { id: 'tumbleweed', kind: 'prop', batch: true, outline: false
   } };
 
 export const STEPPE_PROPS = [
-  rockDef('rock_spire', 3, [[1.0, 0.85, 1.1], [0.85, 0.8, 0.9], [0.8, 0.62, 1.2], [0.62, 0.5, 0.8], [0.52, 0.3, 0.7]], { rubble: 5 }),
-  rockDef('rock_spire_b', 8, [[0.9, 0.8, 0.8], [0.8, 0.85, 1.0], [0.85, 0.55, 0.9], [0.58, 0.62, 0.7]], { cap: 0.75, rubble: 4 }),   // «гриб»: шапка шире ножки
-  rockDef('rock_mesa', 5, [[1.9, 1.75, 0.8], [1.75, 1.65, 0.7], [1.65, 1.5, 0.6]], { seg: 8, flat: 0.75, rubble: 6, cap: 1.2 }),
-  rockDef('rock_tooth', 13, [[0.6, 0.45, 1.0], [0.45, 0.25, 1.3], [0.25, 0.06, 0.9]], { seg: 6, rubble: 3 }),
-  boulderDef('rock_red', 4), boulderDef('rock_red_b', 9),
+  rockDef('sand_spire', 3, [[1.0, 0.85, 1.1], [0.85, 0.8, 0.9], [0.8, 0.62, 1.2], [0.62, 0.5, 0.8], [0.52, 0.3, 0.7]], { rubble: 5 }),
+  rockDef('sand_spire_b', 8, [[0.9, 0.8, 0.8], [0.8, 0.85, 1.0], [0.85, 0.55, 0.9], [0.58, 0.62, 0.7]], { cap: 0.75, rubble: 4 }),   // «гриб»: шапка шире ножки
+  rockDef('sand_mesa', 5, [[1.9, 1.75, 0.8], [1.75, 1.65, 0.7], [1.65, 1.5, 0.6]], { seg: 8, flat: 0.75, rubble: 6, cap: 1.2 }),
+  rockDef('sand_tooth', 13, [[0.6, 0.45, 1.0], [0.45, 0.25, 1.3], [0.25, 0.06, 0.9]], { seg: 6, rubble: 3 }),
+  boulderDef('sand_rock', 4), boulderDef('sand_rock_b', 9),
   acaciaDef('tree_acacia', 31, 3.0, 1.15), acaciaDef('tree_acacia_b', 47, 2.5, 1.0, { lean: 0.4, opts: { leafHue: 0.17, sat: 0.65 } }), acaciaDef('tree_acacia_c', 59, 3.4, 1.35, { lean: -0.1, opts: { leafHue: 0.23, sat: 0.7, light: -0.05 } }),
   bushDry, agave, tumbleweed,
 ];
 // для поля: порода по позиции
-export const STEPPE_ROCKS = [['rock_red', 2], ['rock_red_b', 2], ['rock_tooth', 1]];
-export const STEPPE_SPIRES = [['rock_spire', 2], ['rock_spire_b', 1.5], ['rock_tooth', 1.5], ['rock_mesa', 1]];
+export const STEPPE_ROCKS = [['sand_rock', 2], ['sand_rock_b', 2], ['sand_tooth', 1]];
+export const STEPPE_SPIRES = [['sand_spire', 2], ['sand_spire_b', 1.5], ['sand_tooth', 1.5], ['sand_mesa', 1]];
 export const STEPPE_TREES = [['tree_acacia', 2], ['tree_acacia_b', 1.5], ['tree_acacia_c', 1.5]];
