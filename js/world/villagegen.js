@@ -26,7 +26,7 @@ function scalePlan(p) {
 // коллайдеры мелочи (как в js/world/zone.js PROP): число — радиус, пара — полуоси коробки
 const COL = { cart: [1.0, 0.55], cart_load: [1.0, 0.55], signpost: 0.15, barrel_stack: [0.9, 0.55], log_stack: [1.35, 0.6], plank_pile: [1.3, 0.35], pumpkins: 0.45, tool_stand: [0.6, 0.25], barrel: 0.3, crate: 0.35, sacks: 0.3, lamp: 0.12, well: 0.62, board: 0.3, banner: 0.15, table: 0.6, dummy: 0.3, target: 0.35, hay: 0.45, tree_0: 0.3, tree_1: 0.3, grave: 0.2, deadtree: 0.25, shrine: 0.45, crystals: 0.3, rocks: 0.35, logpile: [0.7, 0.4], bench: [0.75, 0.22], weapon_rack: [0.6, 0.18], forge: [0.75, 0.6], fortune_tent: [1.5, 1.3] };
 const KEEP = new Set(['well', 'board', 'banner', 'shrine', 'forge', 'fortune_tent', 'portal']);   // то, что не убирается ради зазора
-const GAP = 1.3;   // свободный проход между препятствиями (герой ≈ 0,85 м в ширину + запас)
+const GAP = 1.8;   // свободный проход между препятствиями (герой ≈ 0,85 м в ширину + запас); сборка 18: шире — просторнее
 
 export const PLAN = {
   seed: 11,
@@ -428,8 +428,8 @@ export function generateVillage(plan0 = PLAN) {
     }
     const dead = new Set(items.filter(i => i.dead).map(i => i.o));
     for (let i = objects.length - 1; i >= 0; i--) if (dead.has(objects[i])) objects.splice(i, 1);
-    // остаток: пары «ключевых» предметов, которые всё равно стоят тесно — в предупреждения
-    for (let i = 0; i < items.length; i++) for (let j = i + 1; j < items.length; j++) { const A = items[i], B = items[j]; if (A.dead || B.dead || !near(A, B)) continue; const gg = gapI(A, B); if (bad(gg) && A.o !== B.o) warn.push(`тесно: ${A.o.t || A.o.id}–${B.o.t || B.o.id} ${gg.toFixed(2)} м`); }
+    // остаток: пары «ключевых» предметов (NPC у своих построек, порталы), между которыми не пройти (< 1,3 м), — в предупреждения
+    for (let i = 0; i < items.length; i++) for (let j = i + 1; j < items.length; j++) { const A = items[i], B = items[j]; if (A.dead || B.dead || !near(A, B)) continue; const gg = gapI(A, B); if (gg > 0.12 && gg < 1.3 && A.o !== B.o) warn.push(`тесно: ${A.o.t || A.o.id}–${B.o.t || B.o.id} ${gg.toFixed(2)} м`); }
     var gapRemoved = removed;
   }
   // ---- куры и собаки: стайки у домов ближе к площади и у таверны, собака у кузницы и собака на площади

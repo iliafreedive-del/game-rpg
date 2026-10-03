@@ -43,7 +43,7 @@ function openNext(e) {
 }
 
 // Ворота форта открываются, когда перебиты лагеря и звери на поле вокруг (стража и командир внутри не считаются)
-export const outsideLeft = () => G.enemies.filter(e => !e.dead && !e.summoned && e.story !== 'fortguard' && e.story !== 'wildkeep' && e.story !== 'wildboss').length;
+export const outsideLeft = () => G.enemies.filter(e => !e.dead && !e.summoned && !e.respawned && e.story !== 'fortguard' && e.story !== 'wildkeep' && e.story !== 'wildboss').length;
 export function gateClosed() { const g = G.zone && G.zone.wildGate; return !!(g && !g.open); }
 export function checkGate() {
   const g = G.zone && G.zone.wildGate; if (!g || g.open || outsideLeft() > 0) return;

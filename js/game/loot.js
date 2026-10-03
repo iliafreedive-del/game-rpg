@@ -32,7 +32,7 @@ export function enemyLoot(e) {
   for (let i = 0; i < piles; i++) dropGold(e.x, e.y, rint(D.gold[0], D.gold[1]) * (1 + 0.12 * (L - 1)) / (D.boss || D.elite ? piles / 2 : 1));
   if (rand() < (D.boss ? 1 : D.elite ? 0.7 : e.champion ? 0.5 : 0.06)) dropPotion(e.x, e.y, rand() < 0.7 ? 'hp' : 'mp');
   // вещи: редкие и заметные. Рядовой враг почти никогда, чемпион — иногда, страж и босс — всегда
-  const ch = D.boss ? 1 : D.elite ? 0.8 : e.champion ? 0.25 : G.zoneId === 'wild' ? 0.04 : 0.025;
+  const ch = (D.boss ? 1 : D.elite ? 0.8 : e.champion ? 0.25 : G.zoneId === 'wild' ? 0.04 : 0.025) / (e.respawned ? 3 : 1);   // возрождённые (respawn.js) — втрое реже
   // таблицы: серый / зелёный / синий / золотой. Рядовые враги почти всегда дают серое
   if (rand() < ch) dropItem(e.x, e.y, rollDrop(L + (D.boss || D.elite ? 1 : 0), D.boss ? [8, 47, 38, 7] : D.elite ? [30, 50, 19, 1] : e.champion ? [55, 38, 7, 0] : [88, 11, 1, 0]));
 }

@@ -53,7 +53,7 @@ export function createStage(canvas, { cls, wt, enemyType, boss, ci }) {
   return {
     resize, worldX, pxPerM, get halfW() { return halfW; },
     draw(dt, hero, foe) {
-      t += dt; U.uTime.value = t; U.uCam.value.copy(cam.position); U.uFocus.value.set(0, -50, 0);
+      t += dt; U.uTime.value = t; U.uCam.value.copy(cam.position); U.uFocus.value.set(0, -50, 0); for (const v of U.uFoc.value) v.w = 0;
       drive(H, hero, dt); drive(F, foe, dt); renderer.render(scene, cam);
     },
     dispose() { H.a.dispose(); F.a.dispose(); renderer.dispose(); try { renderer.forceContextLoss(); } catch { } },
