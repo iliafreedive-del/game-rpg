@@ -148,7 +148,7 @@ const setCam = c => { S.cam = c; camR(); };
 chips('mobs', Object.entries(NAMES), () => S.mob, k => { S.mob = k; build(); });
 chips('mode', [['old', 'Было'], ['new', 'Стало'], ['side', 'Рядом']], () => S.mode, k => { S.mode = k; build(); });
 chips('clips', CLIPS, () => S.clip, k => { S.clip = k; clipT = 0; });
-const camR = chips('cam', [['game', 'Игровая'], ['free', 'Свободная'], ['close', 'Крупно']], () => S.cam, k => { if (k === 'close') { const hh = actors[0] ? actors[0].a.model.height : 1.5; S.cam = 'free'; dist = (S.mode === 'side' ? 6 : 3.2) * Math.max(1, hh / 1.4) + 1; pitch = 0.3; yaw = CAMERA.yaw; } else S.cam = k; camR(); });
+const camR = chips('cam', [['game', 'Игровая'], ['free', 'Свободная'], ['close', 'Крупно'], ['side', 'Профиль']], () => S.cam, k => { if (k === 'side') { const hh = actors[0] ? actors[0].a.model.height : 1.5; S.cam = 'free'; dist = (S.mode === 'side' ? 6 : 3.4) * Math.max(1, hh / 1.4) + 1; pitch = 0.12; yaw = CAMERA.yaw + Math.PI / 2; } else if (k === 'close') { const hh = actors[0] ? actors[0].a.model.height : 1.5; S.cam = 'free'; dist = (S.mode === 'side' ? 6 : 3.2) * Math.max(1, hh / 1.4) + 1; pitch = 0.3; yaw = CAMERA.yaw; } else S.cam = k; camR(); });
 chips('light', Object.entries(LIGHTS), () => S.light, k => { S.light = k; setLight(k); });
 const spinB = document.getElementById('spin'); spinB.onclick = () => { S.spin = !S.spin; if (S.spin && S.cam === 'game') setCam('free'); spinB.classList.toggle('on', S.spin); };
 

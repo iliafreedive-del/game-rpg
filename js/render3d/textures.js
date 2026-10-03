@@ -360,8 +360,8 @@ const grayLayer = () => { const c = canvas(512), x = c.getContext('2d'); x.fillS
 const IMG_LAYERS = { 16: 'mat_fur_short.png', 17: 'mat_fur_shaggy.png', 18: 'mat_bristle.png' };
 // id → слой массива; масштаб (повторов на метр) и «сила» фактуры — в шейдере (toon.js, MAT_SCALE / MAT_AMP)
 export const MAT_LAYERS = [woodTex, stoneTex, roofTex, plasterTex, metalTex, clothTex, barkTex, tileTex, thatchTex, cobbleTex, ironTex, leatherTex, goldTex, boneTex, crystalTex, rockTex, grayLayer, grayLayer, grayLayer];
-export const MAT_SCALE = [1.1, 0.7, 0.9, 0.8, 1.4, 1.8, 1.3, 0.75, 0.8, 0.9, 1.5, 1.8, 1.8, 1.6, 1.0, 0.45, 1.5, 1.1, 1.6];
-export const MAT_AMP = [3.2, 3.2, 3.2, 2.6, 1.5, 2.2, 3.2, 3.2, 2.6, 3.0, 1.8, 2.4, 2.0, 2.4, 2.0, 2.6, 1.6, 1.6, 1.5];
+export const MAT_SCALE = [1.1, 0.7, 0.9, 0.8, 1.4, 1.8, 1.3, 0.75, 0.8, 0.9, 1.5, 1.8, 1.8, 1.6, 1.0, 0.45, 2.6, 2.0, 2.6];
+export const MAT_AMP = [3.2, 3.2, 3.2, 2.6, 1.5, 2.2, 3.2, 3.2, 2.6, 3.0, 1.8, 2.4, 2.0, 2.4, 2.0, 2.6, 1.1, 1.1, 1.1];
 // все слои в одном DataArrayTexture (sampler2DArray): N = 384 на ПК, 256 на телефоне (вдвое меньше памяти и времени)
 let matArr = null;
 export function matArray() {

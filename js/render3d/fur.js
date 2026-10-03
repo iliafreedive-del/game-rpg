@@ -129,49 +129,72 @@ export function furBuilder(rnd) {
 }
 
 // ---------------------------------------------------------------- наклейки
-// Шейдер: проекция из пространства детали. aDec = (x, y, z) в долях «коробки» наклейки (−1…1) + номер набора (0 морда, 1 спина, 2 грудь),
+// Шейдер: проекция из пространства детали. aDec = (x, y, z) в пространстве кости + номер набора (0 морда, 1 спина, 2 грудь),
 // aDN — нормаль детали в том же пространстве (после «запекания» в SkinnedMesh обычная нормаль уже в пространстве модели).
+// Коробки проекций — uniform'ы: спереди (cx, cy, hx, hy), сбоку (cz, cy, hz, hy), спина (cx, cz, hx, hz), грудь (cx, cy, hx, hy);
+// они подогнаны по ориентирам (глаза, нос) картинки и модели — decalFit().
 const DEC_V = 'attribute vec4 aDec; attribute vec3 aDN; varying vec4 vDec; varying vec3 vDN;\n';
 const DEC_F = /* glsl */`
 {
   vec3 q = vDec.xyz; vec3 dn = normalize(vDN); vec4 dc = vec4(0.0);
   if (vDec.w < 0.5) {
-    // морда: спереди (x, y) и сбоку (z, y); у картинки сбоку нос смотрит влево, на обе стороны кладём одну и ту же
-    float wf = pow(max(dn.z, 0.0), 1.5) + 0.35 * max(dn.y, 0.0) * step(0.0, q.z);
-    float ws = pow(abs(dn.x), 1.5) * uSideW;
-    vec4 f = decS(0.0, 0.0, vec2(q.x * 0.5 + 0.5, q.y * 0.5 + 0.5));
-    vec4 s = decS(1.0, 0.0, vec2(0.5 - q.z * 0.5, q.y * 0.5 + 0.5));
-    dc = (f * wf + s * ws) / max(wf + ws, 1e-3);
+    // морда: спереди (x, y) и сбоку (z, y); у картинки сбоку нос смотрит влево, на обе стороны кладём одну и ту же.
+    // Веса не нормируются «до единицы»: где ни одна проекция не подходит (затылок, шея снизу) — наклейки нет
+    float wf = smoothstep(0.15, 0.55, dn.z);
+    float ws = smoothstep(0.25, 0.6, abs(dn.x)) * (1.0 - wf);
+    vec4 f = decS(0.0, 0.0, vec2(0.5 + (q.x - uF.x) / (2.0 * uF.z), 0.5 + (q.y - uF.y) / (2.0 * uF.w)));
+    vec4 s = decS(1.0, 0.0, vec2(0.5 - (q.z - uS.x) / (2.0 * uS.z), 0.5 + (q.y - uS.y) / (2.0 * uS.w)));
+    f.a *= wf; s.a *= ws;
+    dc = f.a >= s.a ? f : s;
   } else if (vDec.w < 1.5) {
-    dc = decS(0.0, 1.0, vec2(q.x * 0.5 + 0.5, q.z * 0.5 + 0.5)); dc.a *= smoothstep(0.05, 0.45, dn.y);
+    dc = decS(0.0, 1.0, vec2(0.5 + (q.x - uB.x) / (2.0 * uB.z), 0.5 + (q.z - uB.y) / (2.0 * uB.w))); dc.a *= smoothstep(0.05, 0.45, dn.y);
   } else {
-    dc = decS(1.0, 1.0, vec2(q.x * 0.5 + 0.5, q.y * 0.5 + 0.5)); dc.a *= smoothstep(0.05, 0.45, dn.z);
+    dc = decS(1.0, 1.0, vec2(0.5 + (q.x - uC.x) / (2.0 * uC.z), 0.5 + (q.y - uC.y) / (2.0 * uC.w))); dc.a *= smoothstep(0.05, 0.45, dn.z);
   }
   if (dc.a < 0.5) discard;
   diffuseColor.rgb = dc.rgb * uDecGain;
 }
 `;
+const V4 = a => new THREE.Vector4(...(a || [0, 0, 1, 1]));
+// o.boxes = { F: [cx, cy, hx, hy], S: [cz, cy, hz, hy], B: [cx, cz, hx, hz], C: [cx, cy, hx, hy] }
 export function decalMat(id, o = {}) {
   const m = toon(0xffffff, { vc: true, rim: o.rim ?? 0.45, rimColor: o.rimColor ?? 0xffe2b8, ao: 0.72, aoH: 0.55 });
-  const tex = decalAtlas(id), base = m.onBeforeCompile;
+  const tex = decalAtlas(id), base = m.onBeforeCompile, B = o.boxes || {};
   m.polygonOffset = true; m.polygonOffsetFactor = -1; m.polygonOffsetUnits = -2;
   m.onBeforeCompile = sh => {
     base(sh);
-    Object.assign(sh.uniforms, { tDec: { value: tex }, uDecGain: { value: o.gain ?? 1.15 }, uSideW: { value: o.sideW ?? 1.0 } });
+    Object.assign(sh.uniforms, { tDec: { value: tex }, uDecGain: { value: o.gain ?? 1.15 }, uF: { value: V4(B.F) }, uS: { value: V4(B.S) }, uB: { value: V4(B.B) }, uC: { value: V4(B.C) } });
     sh.vertexShader = DEC_V + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvDec = aDec; vDN = aDN;');
-    sh.fragmentShader = 'uniform sampler2D tDec; uniform float uDecGain; uniform float uSideW; varying vec4 vDec; varying vec3 vDN;\n' +
+    sh.fragmentShader = 'uniform sampler2D tDec; uniform float uDecGain; uniform vec4 uF, uS, uB, uC; varying vec4 vDec; varying vec3 vDN;\n' +
       // слот атласа (sx, sy) — картинка 512 в углу 1024; за пределами слота прозрачно (без заступа на соседнюю наклейку)
       'vec4 decS(float sx, float sy, vec2 uv) { if (uv.x < 0.01 || uv.x > 0.99 || uv.y < 0.01 || uv.y > 0.99) return vec4(0.0); return texture2D(tDec, vec2(sx * 0.5 + uv.x * 0.5, (1.0 - sy) * 0.5 + uv.y * 0.5)); }\n' +
       sh.fragmentShader.replace('#include <color_fragment>', '#include <color_fragment>\n' + DEC_F);
   };
   const key = m.customProgramCacheKey; m.customProgramCacheKey = () => key() + '-decal';
-  m.userData.noOutline = true;
+  m.userData.noOutline = true; m.userData.boxes = B;
   return m;
 }
-// оболочка-наклейка: geos — геометрии детали (уже на своих местах в пространстве кости), box = { c:[x,y,z], h:[hx,hy,hz] } — коробка проекции,
-// set: 0 морда, 1 спина, 2 грудь; push — насколько сдвинуть наружу (м)
-export function decalShell(geos, box, set, push = 0.006) {
-  let n = 0; for (const g of geos) n += g.attributes.position.count;
+// Ориентиры на картинках наклеек (доли кадра, отсчёт сверху-слева): глаз (правый на картинке) и нос; сбоку — глаз и кончик носа.
+// По ним и по точкам модели (глаз, кончик носа) строятся коробки проекций — нарисованные глаза ложатся на глаза модели.
+export const DECAL_MARKS = {
+  w_wolf: { F: { eye: [0.65, 0.38], nose: [0.5, 0.58] }, S: { eye: [0.38, 0.40], nose: [0.06, 0.55] } },
+  f_wolf: { F: { eye: [0.64, 0.38], nose: [0.5, 0.57] }, S: { eye: [0.38, 0.40], nose: [0.06, 0.56] } },
+  w_bear: { F: { eye: [0.64, 0.42], nose: [0.5, 0.57] }, S: { eye: [0.35, 0.42], nose: [0.07, 0.55] } },
+  w_boar: { F: { eye: [0.66, 0.42], nose: [0.5, 0.62] }, S: { eye: [0.43, 0.42], nose: [0.04, 0.58] } },
+  beast: { F: { eye: [0.67, 0.38], nose: [0.5, 0.50] }, S: { eye: [0.37, 0.40], nose: [0.07, 0.47] } },
+};
+// eye = [x, y, z] (глаз модели с +X), nose = [x, y, z] (кончик носа) → { F, S } для decalMat
+export function decalFit(id, eye, nose) {
+  const M = DECAL_MARKS[id]; if (!M) return {};
+  const hx = eye[0] / (2 * (M.F.eye[0] - 0.5)), hy = (eye[1] - nose[1]) / (2 * (M.F.nose[1] - M.F.eye[1])), cy = eye[1] - (0.5 - M.F.eye[1]) * 2 * hy;
+  const hz = (nose[2] - eye[2]) / (2 * (M.S.eye[0] - M.S.nose[0])), cz = eye[2] - (0.5 - M.S.eye[0]) * 2 * hz;
+  const hyS = (eye[1] - nose[1]) / (2 * (M.S.nose[1] - M.S.eye[1])), cyS = eye[1] - (0.5 - M.S.eye[1]) * 2 * hyS;
+  return { F: [0, cy, hx, hy], S: [cz, cyS, hz, hyS] };
+}
+// оболочка-наклейка: geos — геометрии детали (уже на своих местах в пространстве кости), set: 0 морда, 1 спина, 2 грудь;
+// push — насколько сдвинуть наружу (м)
+export function decalShell(geos, set, push = 0.006, off = [0, 0, 0]) {
+  let n = 0; for (const g of geos) n += (g.index ? g.index.count : g.attributes.position.count);
   const P = new Float32Array(n * 3), N = new Float32Array(n * 3), D = new Float32Array(n * 4), C = new Float32Array(n * 4).fill(1);
   let o = 0;
   for (const g0 of geos) {
@@ -181,7 +204,7 @@ export function decalShell(geos, box, set, push = 0.006) {
     for (let i = 0; i < pa.count; i++, o++) {
       const nx = na.getX(i), ny = na.getY(i), nz = na.getZ(i), x = pa.getX(i) + nx * push, y = pa.getY(i) + ny * push, z = pa.getZ(i) + nz * push;
       P.set([x, y, z], o * 3); N.set([nx, ny, nz], o * 3);
-      D.set([(x - box.c[0]) / box.h[0], (y - box.c[1]) / box.h[1], (z - box.c[2]) / box.h[2], set], o * 4);
+      D.set([x + off[0], y + off[1], z + off[2], set], o * 4);   // off — сдвиг из пространства этой кости в пространство коробок (челюсть → голова)
     }
   }
   const g = new THREE.BufferGeometry();
