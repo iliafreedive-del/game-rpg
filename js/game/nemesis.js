@@ -114,6 +114,8 @@ function drawExit() {
     document.body.appendChild(exitBtn);
   }
   exitBtn.style.display = show && !G.modalOpen ? 'flex' : 'none';
+  // под миникартой (раньше стояла поверх неё); если миникарта скрыта — у правого края под трекером
+  if (show) { const mm = document.getElementById('minimap'), r = mm && mm.offsetParent !== null ? mm.getBoundingClientRect() : null; exitBtn.style.top = (r && r.height ? Math.round(r.bottom + 8) : 150) + 'px'; }
 }
 function drawBar() {
   drawExit();

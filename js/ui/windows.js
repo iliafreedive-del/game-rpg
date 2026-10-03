@@ -317,7 +317,7 @@ W.settings = () => modal('Настройки', 'sm', b => {
   const q = el('div', 'attr', '<b>Качество графики</b>'); for (const [k, n] of [['low', 'Низкое'], ['auto', 'Авто'], ['med', 'Среднее'], ['high', 'Высокое']]) { const bt = el('button', 'btn sm' + (s.quality === k ? ' gold' : ''), n); bt.onclick = () => { s.quality = k; resize(); bus.emit('save'); rerender(); }; q.appendChild(bt); } b.appendChild(q);
   { let cur = '3d'; try { cur = localStorage.getItem('da_render') || '3d'; } catch { } if (new URLSearchParams(location.search).get('render')) cur = new URLSearchParams(location.search).get('render');
     const g = el('div', 'attr', '<b>Графика</b>'); for (const [k, n] of [['3d', '3D (по умолчанию)'], ['2d', 'Классика 2D']]) { const bt = el('button', 'btn sm' + (cur === k ? ' gold' : ''), n); bt.onclick = () => { try { localStorage.setItem('da_render', k); } catch { } saveNow(); const u = new URL(location.href); u.searchParams.delete('render'); location.href = u.toString(); }; g.appendChild(bt); } b.appendChild(g); b.appendChild(el('p', 'muted', '<small>Смена графики перезапускает игру (прогресс сохраняется). Лучник и маг пока всегда в 2D.</small>')); }
-  { const nm = el('div', 'attr', '<b>Новые модели</b> <small class="muted">(лучник, воин)</small>'); const bn = el('button', 'btn sm', s.skins !== false ? 'Вкл' : 'Выкл'); bn.onclick = () => { s.skins = s.skins === false; bus.emit('save'); rerender(); }; nm.appendChild(bn); b.appendChild(nm); }
+  { const nm = el('div', 'attr', '<b>Новые модели</b> <small class="muted">(герои)</small>'); const bn = el('button', 'btn sm', s.skins !== false ? 'Вкл' : 'Выкл'); bn.onclick = () => { s.skins = s.skins === false; bus.emit('save'); rerender(); }; nm.appendChild(bn); b.appendChild(nm); }
   const sh = el('div', 'attr', '<b>Тряска камеры</b>'); const bs = el('button', 'btn sm', s.shake ? 'Вкл' : 'Выкл'); bs.onclick = () => { s.shake = !s.shake; rerender(); }; sh.appendChild(bs); b.appendChild(sh);
   b.appendChild(el('p', 'muted', `<small>Версия сборки: ${window.__BUILD || ''}</small>`));
   b.appendChild(el('h3', '', 'Управление'));
@@ -532,8 +532,8 @@ W.shrine = () => modal('Алтарь богини', 'md', b => {
   // IAP
   b.appendChild(el('h3', '', 'Лавка Ордена'));
   for (const [id, p] of Object.entries(PRODUCTS)) {
-    const owned = (p.once && P.iap.tx['once_' + id]) || (!p.consumable && P.iap[{ gold_perk: 'goldPerk', no_ads: 'noAds' }[id]]);
-    const o = el('div', 'offer', `<div class="ic">${id === 'starter_pack' ? '★' : id === 'potion_pack' ? '✚' : id === 'no_ads' ? '⊘' : '⛁'}</div><div class="tx"><b>${esc(p.title)}</b><div class="muted">${esc(p.desc)}</div></div>`);
+    const owned = (p.once && P.iap.tx['once_' + id]) || (!p.consumable && P.iap[{ gold_perk: 'goldPerk', no_ads: 'noAds', bag_big: 'bagBig' }[id]]);
+    const o = el('div', 'offer', `<div class="ic">${id === 'starter_pack' ? '★' : id === 'potion_pack' ? '✚' : id === 'no_ads' ? '⊘' : id === 'bag_big' ? '▤' : '⛁'}</div><div class="tx"><b>${esc(p.title)}</b><div class="muted">${esc(p.desc)}</div></div>`);
     const bt = el('button', 'btn gold', owned ? 'Куплено' : (platform.p.catalogPrice(id) || p.price)); bt.disabled = !!owned; bt.onclick = () => buy(id).then(rerender); o.appendChild(bt); b.appendChild(o);
   }
   if (platform.name === 'demo') b.appendChild(el('p', 'muted', '<small>Демо-режим: реклама и покупки имитируются, деньги не списываются. На Яндекс Играх подключается SDK площадки.</small>'));

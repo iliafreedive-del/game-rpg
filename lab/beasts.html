@@ -53,17 +53,19 @@ const { LIGHT, CAMERA, HERO } = await import(BASE + 'js/render3d/style.js');
 const MOBS = {};
 MOBS.archer = (await import(BASE + 'js/render3d/models/hero/archer.js')).default;
 MOBS.warrior = (await import(BASE + 'js/render3d/models/hero/warrior.js')).default;
+MOBS.mage = (await import(BASE + 'js/render3d/models/hero/mage.js')).default;
+const STAFF = (await import(BASE + 'js/render3d/models/weapon/staff_mage.js')).default;
 const SWORD = (await import(BASE + 'js/render3d/models/weapon/sword_iron.js')).default, SHIELD = (await import(BASE + 'js/render3d/models/weapon/shield_round.js')).default;
 const BOW = (await import(BASE + 'js/render3d/models/weapon/bow_hunter.js')).default;
 for (const id of ['w_wolf', 'f_wolf', 'w_bear', 'w_boar', 'beast']) MOBS[id] = (await import(BASE + `js/render3d/models/mob/${id}.js`)).default;
-const NAMES = { archer: 'Лучник', warrior: 'Воин', w_wolf: 'Волк', f_wolf: 'Ледяной волк', w_bear: 'Медведь', w_boar: 'Кабан', beast: 'Пещерный зверь' };
+const NAMES = { archer: 'Лучник', warrior: 'Воин', mage: 'Маг', w_wolf: 'Волк', f_wolf: 'Ледяной волк', w_bear: 'Медведь', w_boar: 'Кабан', beast: 'Пещерный зверь' };
 
 const canvas = document.getElementById('c');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
 renderer.setPixelRatio(Math.min(2, devicePixelRatio || 1));
 renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 const scene = new THREE.Scene(), kit = makeKit(scene);
-await kit.fur.ready; await kit.skin.preloadSkin('archer_raven'); await kit.skin.preloadSkin('warrior_vanguard');
+await kit.fur.ready; await kit.skin.preloadSkin('archer_raven'); await kit.skin.preloadSkin('warrior_vanguard'); await kit.skin.preloadSkin('mage_archmage');
 const camera = new THREE.PerspectiveCamera(CAMERA.fov, 1, 0.3, 200);
 const hemi = new THREE.HemisphereLight(), sun = new THREE.DirectionalLight();
 sun.castShadow = true; sun.shadow.mapSize.set(1024, 1024); Object.assign(sun.shadow.camera, { left: -8, right: 8, top: 8, bottom: -8, near: 1, far: 60 }); sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.03;
@@ -88,11 +90,12 @@ function build() {
     kit.fur.FUR.on = on; kit.skin.SKINS.on = on;
     const a = new Actor(MOBS[S.mob], kit, scene); a.root.traverse(o => { if (o.isMesh && !o.userData.isOutline) o.castShadow = true; });
     if (S.mob === 'archer') { a.root.scale.setScalar(HERO.scale); a.equip('handL', BOW); }   // как в игре: герой на 10 % крупнее, лук в левой руке
+    if (S.mob === 'mage') { a.root.scale.setScalar(HERO.scale); a.equip('handR', STAFF); }
     if (S.mob === 'warrior') { a.root.scale.setScalar(HERO.scale); a.equip('handR', SWORD); if (SHIELD) a.equip('handL', SHIELD); }
     return { a, side, on, ph: 0 };
   });
   kit.fur.FUR.on = true; kit.skin.SKINS.on = true;
-  target.y = S.mob === 'archer' || S.mob === 'warrior' ? 1.15 : 0.8;   // камера смотрит в середину фигуры
+  target.y = ['archer', 'warrior', 'mage'].includes(S.mob) ? 1.15 : 0.8;   // камера смотрит в середину фигуры
   document.getElementById('tags').classList.toggle('show', S.mode === 'side');
   clipT = 0;
 }
@@ -136,7 +139,7 @@ function drive(dt) {
       // по кругу вокруг своей точки; смотрит по касательной
       a.place(sideOff.x + Math.cos(ang) * R * (S.mode === 'side' ? 0.45 : 1), sideOff.z + Math.sin(ang) * R * (S.mode === 'side' ? 0.45 : 1));
       a.faceAngle(Math.atan2(Math.cos(ang), -Math.sin(ang)));
-      a.update(dt, { clip: 'walk', speed: S.mob === 'archer' || S.mob === 'warrior' ? 3.6 : 2.6 }, env);
+      a.update(dt, { clip: 'walk', speed: ['archer', 'warrior', 'mage'].includes(S.mob) ? 3.6 : 2.6 }, env);
     } else {
       a.place(sideOff.x, sideOff.z); a.faceAngle(CAMERA.yaw);
       if (spec.loop || S.clip === 'idle') a.update(dt, { clip: S.clip }, env);

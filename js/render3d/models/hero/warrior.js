@@ -5,5 +5,5 @@ const SKIN = 'warrior_vanguard';
 export default { id: 'warrior', kind: 'hero', outline: 'hero', build(kit) {
   const skin = !!(kit.skin && kit.skin.SKINS.on && kit.skin.skinLoaded(SKIN));
   const m = heroModel(kit, { noCape: skin });
-  return skin ? kit.skin.attachSkin(kit, m, SKIN, { noEquip: ['handR', 'handL'], legK: 1.09, rimColor: 0xc8a8ff, rim: 0.7 }) : m;
+  return skin ? kit.skin.attachSkin(kit, m, SKIN, { noEquip: ['handR', 'handL'], legK: 0.91, rimColor: 0xc8a8ff, rim: 0.7 }) : m;
 } };

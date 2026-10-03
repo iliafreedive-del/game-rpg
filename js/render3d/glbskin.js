@@ -100,6 +100,8 @@ export function attachSkin(kit, model, name, o = {}) {
   // на высоте плеча, лук вертикально и поперёк руки, правая рука с высоким локтем тянет тетиву к щеке, середина тетивы
   // (кость nock) идёт за правой кистью. Цель — вперёд по +Z модели. model.bowAim / bowPull — из позы старого рига (_hero.js).
   const nock = byName.nock, nockRest = nock ? nock.position.clone() : null;
+  const bowBindInv = new THREE.Matrix4();
+  if (meta.bow) { const u = new THREE.Vector3(...meta.bow.up).normalize(), b = new THREE.Vector3(...meta.bow.belly); b.addScaledVector(u, -b.dot(u)).normalize(); bowBindInv.makeBasis(b, u, new THREE.Vector3().crossVectors(b, u)).invert(); }
   // стрела на тетиве: от середины тетивы через рукоять лука вперёд; видна, пока лучник целится, до спуска (дальше летит снаряд игры)
   let arrow = null;
   if (o.arrow && nock) {
@@ -109,6 +111,7 @@ export function attachSkin(kit, model, name, o = {}) {
       part(new THREE.ConeGeometry(0.028, 0.11, 4), 0x9a9aa8, [0, 0, 0.9], [Math.PI / 2, 0, 0], 1, { top: 0xe0e0ea }),
       ...[0, 1, 2].map(i => part(new THREE.BoxGeometry(0.004, 0.05, 0.13), F, [0, 0, 0.09], [0, 0, i * 2.094], [1, 1, 1], { top: 0xb48cff })).map((gg, i) => { gg.translate(Math.sin(i * 2.094) * 0.025, Math.cos(i * 2.094) * 0.025, 0); return gg; }),
     ]);
+    if (o.arrow.scale) g.scale(o.arrow.scale, o.arrow.scale, o.arrow.scale);
     arrow = new THREE.Mesh(g, kit.mat({ rim: 0.4 })); arrow.userData.noBake = true; arrow.userData.noOutline = true; arrow.visible = false; root.add(arrow);
     model.materials = [...(model.materials || []), arrow.material];
   }
@@ -154,7 +157,9 @@ export function attachSkin(kit, model, name, o = {}) {
     ik(byName.armL, byName.elL, bowHand, TL, new THREE.Vector3(1, -0.6, 0), aim);
     // лук вертикально, «пузом» к цели: ось лука (Y в покое) — вверх, выпуклость (+X в покое) — на цель
     refresh();
-    _mb.makeBasis(AIM, UP, V[0].crossVectors(AIM, UP)); const qh = rsQuat(bowHand, Q[1]).slerp(Q[2].setFromRotationMatrix(_mb), aim); setWorldQ(bowHand, qh.clone());
+    // плоскость лука в модели — наискось (meta.bow из glb_rig.py: ось и «пузо»); поворот, который ставит ось вверх, а пузо — на цель
+    _mb.makeBasis(AIM, UP, V[0].crossVectors(AIM, UP)).multiply(bowBindInv);
+    const qh = rsQuat(bowHand, Q[1]).slerp(Q[2].setFromRotationMatrix(_mb), aim); setWorldQ(bowHand, qh.clone());
     // правая рука: от тетивы у лука к щеке по линии стрелы; локоть высоко, назад и наружу
     refresh();
     const hand = rsPos(bowHand, new THREE.Vector3()), SR = rsPos(byName.armR, new THREE.Vector3());

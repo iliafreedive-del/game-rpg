@@ -327,11 +327,12 @@ function drawTelegraphs() {
 function drawProjectiles(emissive) {
   const cam = G.cam, z = cam.zoom, T = G.time;
   for (const p of G.projectiles) {
-    const [x, y] = cam.toScreen(p.x, p.y, 1.0);
-    const [x2, y2] = cam.toScreen(p.x - p.vx * 0.035, p.y - p.vy * 0.035, 1.0);
+    const pz = p.z ?? 1.0;   // высота полёта (у стрел героя — от лука, на высоте плеча)
+    const [x, y] = cam.toScreen(p.x, p.y, pz);
+    const [x2, y2] = cam.toScreen(p.x - p.vx * 0.035, p.y - p.vy * 0.035, pz);
     const ang = Math.atan2(y - y2, x - x2);
     if (p.kind === 'arrow') {
-      if (emissive) { if (p.owner === 'p') { ctx.globalCompositeOperation = 'lighter'; const [tx, ty] = cam.toScreen(p.x - p.vx * 0.09, p.y - p.vy * 0.09, 1.0); const g = ctx.createLinearGradient(tx, ty, x, y); g.addColorStop(0, 'rgba(255,200,90,0)'); g.addColorStop(1, 'rgba(255,220,130,0.8)'); ctx.strokeStyle = g; ctx.lineWidth = 5 * z; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(x, y); ctx.stroke(); ctx.globalCompositeOperation = 'source-over'; } continue; }
+      if (emissive) { if (p.owner === 'p') { ctx.globalCompositeOperation = 'lighter'; const [tx, ty] = cam.toScreen(p.x - p.vx * 0.09, p.y - p.vy * 0.09, pz); const g = ctx.createLinearGradient(tx, ty, x, y); g.addColorStop(0, 'rgba(255,200,90,0)'); g.addColorStop(1, 'rgba(255,220,130,0.8)'); ctx.strokeStyle = g; ctx.lineWidth = 5 * z; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(x, y); ctx.stroke(); ctx.globalCompositeOperation = 'source-over'; } continue; }
       ctx.save(); ctx.translate(x, y); ctx.rotate(ang);
       ctx.strokeStyle = '#6a4a2a'; ctx.lineWidth = 2.2 * z; ctx.beginPath(); ctx.moveTo(-22 * z, 0); ctx.lineTo(0, 0); ctx.stroke();
       ctx.fillStyle = '#cfd6de'; ctx.beginPath(); ctx.moveTo(4 * z, 0); ctx.lineTo(-3 * z, -3 * z); ctx.lineTo(-3 * z, 3 * z); ctx.fill();

@@ -100,7 +100,7 @@ export function migrate(p) {
   for (const k in d) if (!(k in p)) p[k] = d[k];
   for (const k of ['stats', 'story', 'world', 'boosts', 'ads', 'iap', 'settings', 'potions', 'shop', 'tutorial'])
     for (const kk in d[k]) if (!(kk in p[k])) p[k][kk] = d[k][kk];
-  p.bagSize = Math.max(p.bagSize || 30, 40);   // сборка 20: сумка 40 (больше серого — сырьё для слияния)
+  p.bagSize = Math.max(p.bagSize || 30, 40 + (p.iap && p.iap.bagBig ? 20 : 0));   // сборка 20: сумка 40 (больше серого — сырьё для слияния)
   // сборка 20: «свойство вида» у синих и выше — для вещей из старых сохранений
   for (const it of [...Object.values(p.gear || {}), ...(p.bag || [])]) if (it && it.affixes && it.rarity >= 2 && !it.affixes.some(a => a.kp)) applyKindPerk(it);
   return p;

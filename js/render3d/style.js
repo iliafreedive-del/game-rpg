@@ -138,6 +138,7 @@ export const CAMERA = {
   dark: { pitch: 0.74, dist: 15, aim: 2.6 },
   village: { pitch: 0.64, dist: 30, aim: 1.0 },       // как torch-вид
   portrait: { maxScale: 1.5, refAspect: 0.85 },      // на вертикальном экране дистанция растёт, чтобы ширина обзора не падала
+  zoomIn: 1.05,                                      // общее приближение камеры (сборка 24: на 5 % ближе)
   follow: { lead: 0.25, smooth: 5, targetY: 0.8 },
   shake: { decay: 2.5, amp: 0.4 }, hitStop: 0.06,
 };

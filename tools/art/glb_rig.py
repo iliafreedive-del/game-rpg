@@ -15,7 +15,7 @@ from PIL import Image
 PURPLE = lambda c: c[2] > 0.22 and c[2] > c[1] * 1.45 and c[0] > c[1] * 1.05   # фиолетовая ткань (плащ, табард)
 RIGS = {
   'archer_raven': {
-    'height': 2.3,
+    'height': 2.3, 'outHeight': 1.9,   # разметка — в росте 2.3, в игру — 1.9
     'bones': [
       ('spin', None, [0, 0.8, 0]), ('body', 'spin', [0, 0, 0]), ('hips', 'body', [0, 0.874, 0]), ('torso', 'hips', [0, 0.874, 0]),
       ('head', 'torso', [0, 1.63, 0]),
@@ -46,7 +46,7 @@ RIGS = {
   },
   # воин «Violet Vanguard» (Meshy): рост с рогами 2.4 м, пропорции обычные; меч, щит и плащ — одним куском с телом
   'warrior_vanguard': {
-    'height': 2.4,
+    'height': 2.4, 'outHeight': 2.0,   # разметка — в росте 2.4, в игру — 2.0 (с рогами): иначе выше NPC на две головы
     'bones': [
       ('spin', None, [0, 0.9, 0]), ('body', 'spin', [0, 0, 0]), ('hips', 'body', [0, 1.2, 0]), ('torso', 'hips', [0, 1.2, 0]),
       ('head', 'torso', [0, 1.9, 0]),
@@ -66,9 +66,40 @@ RIGS = {
     'regions': [
       ('меч', lambda p, c: p[0] < -0.53 and p[1] < 1.0, ['handR']),
       ('край плаща у рук', lambda p, c: PURPLE(c) and c[2] > 0.42 and p[2] < 0.05 and p[1] >= 1.15, ['torso']),   # плащ не тянется за поднятой рукой
-      ('щит', lambda p, c: p[0] > 0.56 and 0.6 < p[1] < 1.65 and not (PURPLE(c) and c[2] > 0.42 and p[2] < 0.05), ['elL']),   # светло-фиолетовый сзади — край плаща, не щит
+      ('щит', lambda p, c: p[0] > 0.56 and 0.55 < p[1] < 1.85 and not (PURPLE(c) and c[2] > 0.42 and p[2] < 0.05), ['elL']),   # весь щит, с верхним краем; светло-фиолетовый сзади — край плаща
+      ('наплечник Л', lambda p, c: p[0] > 0.3 and p[1] > 1.6, ['armL']), ('наплечник П', lambda p, c: p[0] < -0.3 and p[1] > 1.6, ['armR']),   # наплечник целиком на плече — не сминается
       ('плащ и табард ниже пояса', lambda p, c: PURPLE(c) and p[1] < 1.15, ['hips']),
       ('плащ на спине', lambda p, c: PURPLE(c) and p[2] < -0.12, ['torso']),
+      ('бока и рёбра', lambda p, c: abs(p[0]) < 0.36 and 0.95 < p[1] <= 1.6, ['torso', 'hips']),   # броня корпуса не тянется за локтями и кистями
+      ('бёдра', lambda p, c: abs(p[0]) < 0.38 and 0.8 < p[1] <= 0.95, ['hips', 'legL', 'legR']),
+    ],
+    'blend': 0.05,
+  },
+  # маг «Starlight Archmage» (Meshy): мантия до пола, посох в правой руке — одним куском; разметка в росте 2.4, в игру 2.2 (со шляпой)
+  'mage_archmage': {
+    'height': 2.4, 'outHeight': 2.2,
+    'bones': [
+      ('spin', None, [0, 0.9, 0]), ('body', 'spin', [0, 0, 0]), ('hips', 'body', [0, 0.88, 0]), ('torso', 'hips', [0, 0.88, 0]),
+      ('head', 'torso', [0, 1.45, 0]),
+      ('armL', 'torso', [0.316, 1.39, 0]), ('elL', 'armL', [0.48, 1.07, 0.06]), ('handL', 'elL', [0.57, 0.63, 0.12]),
+      ('armR', 'torso', [-0.316, 1.39, 0]), ('elR', 'armR', [-0.506, 1.136, 0.1]), ('handR', 'elR', [-0.582, 0.946, 0.33]),
+      ('legL', 'body', [0.152, 0.757, 0]), ('kneeL', 'legL', [0.19, 0.377, 0.0]), ('footL', 'kneeL', [0.228, 0.124, 0.0]),
+      ('legR', 'body', [-0.152, 0.757, 0]), ('kneeR', 'legR', [-0.19, 0.377, 0.0]), ('footR', 'kneeR', [-0.228, 0.124, 0.0]),
+    ],
+    'segs': {
+      'hips': ([0, 0.6, 0], [0, 1.0, 0], 0.32), 'torso': ([0, 1.0, 0], [0, 1.45, 0], 0.32), 'head': ([0, 1.5, 0.02], [0, 1.95, 0.02], 0.3),
+      'armL': ([0.316, 1.39, 0], [0.48, 1.07, 0.06], 0.14), 'elL': ([0.48, 1.07, 0.06], [0.57, 0.63, 0.12], 0.13), 'handL': ([0.57, 0.63, 0.12], [0.58, 0.5, 0.14], 0.1),
+      'armR': ([-0.316, 1.39, 0], [-0.506, 1.136, 0.1], 0.14), 'elR': ([-0.506, 1.136, 0.1], [-0.582, 0.946, 0.33], 0.13), 'handR': ([-0.582, 0.946, 0.33], [-0.58, 0.85, 0.36], 0.1),
+      'legL': ([0.152, 0.757, 0], [0.19, 0.377, 0], 0.15), 'kneeL': ([0.19, 0.377, 0], [0.228, 0.124, 0], 0.13), 'footL': ([0.228, 0.12, 0], [0.228, 0.04, 0.2], 0.13),
+      'legR': ([-0.152, 0.757, 0], [-0.19, 0.377, 0], 0.15), 'kneeR': ([-0.19, 0.377, 0], [-0.228, 0.124, 0], 0.13), 'footR': ([-0.228, 0.12, 0], [-0.228, 0.04, 0.2], 0.13),
+    },
+    'parts': [],
+    'regions': [
+      ('посох', lambda p, c: ((p[0] + 0.576) ** 2 + (p[2] - 0.367) ** 2) ** 0.5 < 0.15 and p[1] < 1.8, ['handR']),   # цилиндр вокруг оси посоха (с кистью)
+      ('шляпа и голова', lambda p, c: p[1] > 1.5, ['head']),
+      ('сапог Л', lambda p, c: p[1] <= 0.2 and p[0] > 0, ['footL']), ('сапог П', lambda p, c: p[1] <= 0.2 and p[0] <= 0, ['footR']),
+      ('мантия ниже пояса', lambda p, c: p[1] < 0.88 and abs(p[0]) < 0.5, ['hips']),   # длинная мантия — за тазом, не рвётся за ногами
+      ('тело', lambda p, c: abs(p[0]) < 0.3 and 0.88 <= p[1] <= 1.5, ['torso', 'hips']),
     ],
     'blend': 0.05,
   },
@@ -110,7 +141,7 @@ def main(src, name):
     lo, hi = P.min(0), P.max(0); s = R['height'] / (hi[1] - lo[1])
     P = (P - [ (lo[0] + hi[0]) / 2, lo[1], (lo[2] + hi[2]) / 2 ]) * s
     bones = [b[0] for b in R['bones']]; BI = {b: i for i, b in enumerate(bones)}
-    comp = components(P, T)
+    comp = components(P, T); bowInfo = None
     # тетива в модели — длинная трёхгранная палочка без вершин в середине: заменяем её на такую же из 8 звеньев,
     # чтобы середина могла оттягиваться к правой кисти
     for r in np.unique(comp):
@@ -132,6 +163,7 @@ def main(src, name):
                 i0, i1, i2, i3 = n0 + k * 3 + j, n0 + k * 3 + (j + 1) % 3, n0 + (k + 1) * 3 + j, n0 + (k + 1) * 3 + (j + 1) % 3
                 NT += [[i0, i1, i2], [i1, i3, i2]]
         P = np.vstack([P, NP]).astype(np.float32); N = np.vstack([N, NN]).astype(np.float32); UV = np.vstack([UV, NU]).astype(np.float32); T = np.vstack([T, NT])
+        bowInfo = {'up': ax.tolist(), 'mid': ((a + b) / 2).tolist()}
         print('тетива: 8 звеньев вместо одного'); break
     comp = components(P, T); allowed = [None] * len(P); log = collections.Counter()
     for r in np.unique(comp):
@@ -168,11 +200,21 @@ def main(src, name):
         wn = np.clip(1 - np.abs(y - mid) / half, 0, 1) ** 0.8
         SI[st, 0], SI[st, 1] = BI['nock'], BI['handL']; SW[st, 0], SW[st, 1] = wn, 1 - wn
     cnt = collections.Counter(bones[k] for k in SI[:, 0]); print('вершин по костям:', dict(cnt))
+    # плоскость лука: «пузо» — от середины тетивы к рукояти (вершины лука на кисти, дальше всего от тетивы)
+    if bowInfo:
+        up = np.array(bowInfo['up']); mid = np.array(bowInfo['mid'])
+        bw = np.array([i for i in range(len(P)) if allowed[i] == ['handL'] and not (SI[i, 0] == BI.get('nock', -1))])
+        q = P[bw]; d = q - mid; d -= np.outer(d @ up, up); far = q[np.argsort(np.linalg.norm(d, axis=1))[-max(5, len(q) // 20):]].mean(0) - mid
+        far -= (far @ up) * up; bowInfo['belly'] = (far / np.linalg.norm(far)).tolist()
+        print('лук: ось', np.round(up, 2), 'пузо', np.round(bowInfo['belly'], 2))
+    k = R.get('outHeight', R['height']) / R['height']
+    P = P * k
     Nn = N / np.maximum(np.linalg.norm(N, axis=1, keepdims=True), 1e-9)
     out = {'pos': P.astype('<f4').tobytes(), 'nrm': np.concatenate([np.round(Nn * 127).astype(np.int8), np.zeros((len(P), 1), np.int8)], 1).tobytes(),
            'uv': np.round(np.clip(UV, 0, 1) * 65535).astype('<u2').tobytes(), 'si': SI.tobytes(), 'sw': np.round(SW * 255).astype(np.uint8).tobytes(),
            'idx': T.astype('<u2').ravel().tobytes()}
-    meta = {'vertices': len(P), 'triangles': len(T), 'bones': [[b, p, at] for b, p, at in R['bones']], 'height': R['height'], 'layout': {}}
+    meta = {'vertices': len(P), 'triangles': len(T), 'bones': [[b, p, [v * k for v in at]] for b, p, at in R['bones']], 'height': R.get('outHeight', R['height']), 'layout': {}}
+    if bowInfo: meta['bow'] = {'up': bowInfo['up'], 'belly': bowInfo['belly']}
     buf = b''
     for k in ['pos', 'nrm', 'uv', 'si', 'sw', 'idx']:
         while len(buf) % 4: buf += b'\0'

@@ -38,7 +38,7 @@ bus.on('showDeath', () => { if (G.zoneId === 'wild') hint('dead'); });
 // Строка цели (под шкалой ноши)
 export function goalText() {
   const W = G.wild; if (!W) return '';
-  if (W.greed >= 0.5) { const c = nearestCache(); if (c) return `🎒 Ноша тяжёлая — вынесите её в ▣ схрон (${Math.round(c.d)} м ${dirWord(c.it.x - G.player.x, c.it.y - G.player.y)}), пока не отняли`; }
+  if (W.greed >= 0.5) { const c = nearestCache(); if (c) return `▣ Схрон: ${Math.round(c.d)} м ${dirWord(c.it.x - G.player.x, c.it.y - G.player.y)} — вынесите ношу`; }   // коротко: строка висит всё время
   if (G.zone && G.zone.json.wild.kind === 'field') { const nd = W.depth + 1; return `🎯 Идите к порталу «Вглубь» (стрелка на земле) — следующая локация: ${locationName(W.realm, nd)}, ур. ${wildReqLevel(W.realm, nd)}+`; }
   if (G.zone && G.zone.wildGate && !G.zone.wildGate.open) return `🎯 Ворота форта закрыты: перебейте зверей и лагеря вокруг (осталось ${outsideLeft()})`;
   if (!W.done) { const k = G.enemies.find(e => (e.story === 'wildkeep' || e.story === 'wildboss') && !e.dead); return k ? `🎯 Отбейте форт: убейте ${k.nem ? k.nem.name : k.D.name} (стрелка ведёт к нему)` : ''; }

@@ -87,7 +87,10 @@ export function updatePickups(dt) {
         if (p.item.rarity === 0) { const g = sellValue(p.item); prof.gold += g; p.taken = true; bus.emit('sfx', 'gold'); float(P.x, P.y, '+' + g + ' зол.', '#ffd76a'); bus.emit('toast', { text: `Сумка полна — серая вещь продана: +${g} зол.`, kind: 'info' }); bus.emit('hud'); continue; }
         const gi = prof.bag.reduce((bi, it, i) => it.rarity === 0 && !it.locked && (bi < 0 || sellValue(it) < sellValue(prof.bag[bi])) ? i : bi, -1);
         if (gi >= 0) { const [old] = prof.bag.splice(gi, 1); const g = sellValue(old); prof.gold += g; bus.emit('toast', { text: `Сумка полна — продано «${old.name}»: +${g} зол.`, sub: 'Совет: у кузнеца три одинаковые по редкости вещи сливаются в одну лучше', kind: 'info' }); }
-        else { if (!p.warnT || G.time - p.warnT > 6) { p.warnT = G.time; bus.emit('toast', { text: 'Сумка полна — вещь не помещается', sub: 'Продайте лишнее у торговки или в окне «Герой»', kind: 'warn' }); } continue; }
+        else {   // каждый раз, когда вещь не подбирается (не чаще раза в 2,5 с, чтобы не мигало каждый кадр)
+          if (!G.bagWarnT || G.time - G.bagWarnT > 2.5) { G.bagWarnT = G.time; bus.emit('toast', { text: 'Сумка полна — вещь осталась на земле', sub: 'Продайте лишнее у торговки в деревне (или в окне «Герой»), слейте три в одну у кузнеца — или купите «Большую сумку» (+20 мест) у алтаря богини за 300 ₽', kind: 'warn' }); bus.emit('sfx', 'deny'); }
+          continue;
+        }
       }
       p.taken = true; p.item.isNew = true; prof.bag.push(p.item); bus.emit('itemPicked', p.item); bus.emit('sfx', 'pickup');
     }

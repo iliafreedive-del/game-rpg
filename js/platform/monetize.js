@@ -66,7 +66,7 @@ export async function buy(productId) {
   if (!r.ok) return false;
   return grantPurchase(productId, r.token);
 }
-const flagOf = id => ({ gold_perk: 'goldPerk', no_ads: 'noAds' }[id] || id);
+export const flagOf = id => ({ gold_perk: 'goldPerk', no_ads: 'noAds', bag_big: 'bagBig' }[id] || id);
 export async function grantPurchase(productId, token) {
   const P = G.profile;
   if (P.iap.tx[token]) { await platform.p.consume(token); return false; }   // already granted — just finish the transaction
@@ -77,6 +77,7 @@ export async function grantPurchase(productId, token) {
     case 'potion_pack': P.potions.hp += 15; P.potions.mp += 10; break;
     case 'gold_perk': P.iap.goldPerk = true; break;
     case 'no_ads': P.iap.noAds = true; break;
+    case 'bag_big': if (!P.iap.bagBig) { P.iap.bagBig = true; P.bagSize += 20; } break;   // повторное восстановление покупки не добавит мест
   }
   bus.emit('save');   // persist grant BEFORE consuming, so a crash cannot lose it
   if (PRODUCTS[productId].consumable) await platform.p.consume(token);

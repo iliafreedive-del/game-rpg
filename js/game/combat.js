@@ -222,9 +222,10 @@ function meleeImpact(P, a) {
 }
 function fireArrow(P, ang, dmgMul) {
   const S = G.stats; const pierce = R('pierce');
-  const mk = (a, split) => spawnProj({ kind: 'arrow', x: P.x, y: P.y, vx: Math.cos(a) * 15, vy: Math.sin(a) * 15, owner: 'p', dmg: rollWeapon(S) * dmgMul, elem: 'phys', range: 9.5, pierce, explosive: R('explosive'), src: 'weapon', split });
+  // стрела вылетает из лука: на 0,55 м впереди героя и на высоте плеча (z — только для рисования), а не из центра тела
+  const mk = (a, split) => spawnProj({ kind: 'arrow', x: P.x + Math.cos(a) * 0.55, y: P.y + Math.sin(a) * 0.55, z: 1.35, vx: Math.cos(a) * 15, vy: Math.sin(a) * 15, owner: 'p', dmg: rollWeapon(S) * dmgMul, elem: 'phys', range: 9.5, pierce, explosive: R('explosive'), src: 'weapon', split });
   mk(ang, S.effects.splitArrow ? 0.25 : 0);
-  if (hasBoon('split')) { for (const da of [-0.2, 0.2]) spawnProj({ kind: 'arrow', x: P.x, y: P.y, vx: Math.cos(ang + da) * 15, vy: Math.sin(ang + da) * 15, owner: 'p', dmg: rollWeapon(S) * dmgMul * 0.6, elem: 'phys', range: 9.5, pierce, src: 'weapon' }); }
+  if (hasBoon('split')) { for (const da of [-0.2, 0.2]) spawnProj({ kind: 'arrow', x: P.x + Math.cos(ang + da) * 0.55, y: P.y + Math.sin(ang + da) * 0.55, z: 1.35, vx: Math.cos(ang + da) * 15, vy: Math.sin(ang + da) * 15, owner: 'p', dmg: rollWeapon(S) * dmgMul * 0.6, elem: 'phys', range: 9.5, pierce, src: 'weapon' }); }
 }
 
 // ------------------------------------------------------------------ player: skills

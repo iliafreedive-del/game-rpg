@@ -71,6 +71,7 @@ export const PRODUCTS = {
   gold_perk: { title: 'Кошель Ордена', price: '79 ₽', desc: 'Навсегда +25% к находимому золоту.', consumable: false },
   no_ads: { title: 'Без обязательной рекламы', price: '99 ₽', desc: 'Отключает межуровневую рекламу. Бонусы за просмотр остаются по желанию.', consumable: false },
   gold_small: { title: 'Мешочек золота', price: '19 ₽', desc: '600 золота.', consumable: true },
+  bag_big: { title: 'Большая сумка', price: '300 ₽', desc: 'Навсегда +20 мест в сумке.', consumable: false },
 };
 
 function onYandex() {

@@ -77,7 +77,11 @@ export function resize(w, h) {
   W = w; H = h; if (!renderer) return;
   applyQuality(true);
   renderer.setSize(W, H, false); camera.aspect = W / H;
-  camDist = W / H < 1 ? CAMERA.village.dist * Math.min(CAMERA.portrait.maxScale, 1 / (W / H) * CAMERA.portrait.refAspect) : CAMERA.village.dist;
+  // вертикально: дистанция растёт, чтобы ширина обзора не падала. Телефон горизонтально (низкий экран): тот же масштаб,
+  // что у этого же телефона вертикально (пикселей на метр поровну) — персонаж и подписи не мельчают, обзор растёт только по бокам
+  const portraitDist = (w, h) => CAMERA.village.dist * Math.min(CAMERA.portrait.maxScale, 1 / (w / h) * CAMERA.portrait.refAspect);
+  camDist = W / H < 1 ? portraitDist(W, H) : H < 600 ? portraitDist(H, W) * H / W : CAMERA.village.dist;
+  camDist /= CAMERA.zoomIn;   // приближение (сборка 24: +5 %)
   camera.updateProjectionMatrix();
 }
 // «Авто»: стартуем по типу устройства, а регулятор ниже сам опускает качество, если кадры затягиваются
@@ -184,7 +188,7 @@ function getActor(key, def, o = {}) {
 }
 function flashOf(e) { return e.flash > 0 ? Math.min(1, e.flash * 8) : 0; }
 
-const HERO_SKIN = { archer: 'archer_raven', warrior: 'warrior_vanguard' };   // класс → модель из assets/models (tools/art/glb_rig.py)
+const HERO_SKIN = { archer: 'archer_raven', warrior: 'warrior_vanguard', mage: 'mage_archmage' };   // класс → модель из assets/models (tools/art/glb_rig.py)
 function syncPlayer(dt) {
   const P = G.player; if (!P) return;
   const cls = (G.profile && G.profile.cls) || 'warrior';

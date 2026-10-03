@@ -11,7 +11,7 @@ import * as skin from './glbskin.js';
 import { PAL, HERO, MOB, OUTLINE, RIM, FOLIAGE, LOOKS, SHADOW } from './style.js';
 
 export function makeKit(scene) {
-  skin.preloadSkin('archer_raven'); skin.preloadSkin('warrior_vanguard');
+  skin.preloadSkin('archer_raven'); skin.preloadSkin('warrior_vanguard'); skin.preloadSkin('mage_archmage');
   const { part, merge } = geo;
   return {
     THREE, scene, geo, rig, PAL, HERO, MOB, OUTLINE, RIM, FOLIAGE, Cape, blobShadow,
