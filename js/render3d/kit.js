@@ -7,15 +7,19 @@ import * as geo from './geo.js';
 import * as rig from './rig.js';
 import { Cape, blobShadow } from './cape.js';
 import * as fur from './fur.js';
+import * as skin from './glbskin.js';
 import { PAL, HERO, MOB, OUTLINE, RIM, FOLIAGE, LOOKS, SHADOW } from './style.js';
 
 export function makeKit(scene) {
+  skin.preloadSkin('archer_raven');
   const { part, merge } = geo;
   return {
     THREE, scene, geo, rig, PAL, HERO, MOB, OUTLINE, RIM, FOLIAGE, Cape, blobShadow,
     part, merge,
     // шерсть-пряди и наклейки морд (fur.js); fur.FUR.on — переключатель «было / стало»
     fur,
+    // готовые модели художника/нейросети поверх процедурного рига (glbskin.js); грузятся заранее
+    skin,
     // бокс с фасками: размеры, фаска, цвет, позиция, поворот, опции покраски ({ top, tex, emit })
     bbox: (w, h, d, b, c, p, r, o) => part(geo.chamferBox(w, h, d, b), c, p, r, 1, o),
     // сужающаяся трубка по точкам (рога, рёбра, когти) и тело вращения по профилю [[r, y], …]

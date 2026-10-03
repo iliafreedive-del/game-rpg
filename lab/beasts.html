@@ -51,15 +51,17 @@ const { U } = await import(BASE + 'js/render3d/toon.js');
 const { grassTex } = await import(BASE + 'js/render3d/textures.js');
 const { LIGHT, CAMERA, HERO } = await import(BASE + 'js/render3d/style.js');
 const MOBS = {};
+MOBS.archer = (await import(BASE + 'js/render3d/models/hero/archer.js')).default;
+const BOW = (await import(BASE + 'js/render3d/models/weapon/bow_hunter.js')).default;
 for (const id of ['w_wolf', 'f_wolf', 'w_bear', 'w_boar', 'beast']) MOBS[id] = (await import(BASE + `js/render3d/models/mob/${id}.js`)).default;
-const NAMES = { w_wolf: 'Волк', f_wolf: 'Ледяной волк', w_bear: 'Медведь', w_boar: 'Кабан', beast: 'Пещерный зверь' };
+const NAMES = { archer: 'Лучник', w_wolf: 'Волк', f_wolf: 'Ледяной волк', w_bear: 'Медведь', w_boar: 'Кабан', beast: 'Пещерный зверь' };
 
 const canvas = document.getElementById('c');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
 renderer.setPixelRatio(Math.min(2, devicePixelRatio || 1));
 renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 const scene = new THREE.Scene(), kit = makeKit(scene);
-await kit.fur.ready;
+await kit.fur.ready; await kit.skin.preloadSkin('archer_raven');
 const camera = new THREE.PerspectiveCamera(CAMERA.fov, 1, 0.3, 200);
 const hemi = new THREE.HemisphereLight(), sun = new THREE.DirectionalLight();
 sun.castShadow = true; sun.shadow.mapSize.set(1024, 1024); Object.assign(sun.shadow.camera, { left: -8, right: 8, top: 8, bottom: -8, near: 1, far: 60 }); sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.03;
@@ -75,13 +77,18 @@ function setLight(k) {
 }
 
 // --- состояние
-const S = { mob: 'w_wolf', mode: 'side', clip: 'walk', cam: 'game', spin: false, light: 'village' };
+const S = { mob: 'archer', mode: 'side', clip: 'walk', cam: 'game', spin: false, light: 'village' };
 let actors = [];   // { a, side: -1 | 0 | 1, on }
 function build() {
   for (const e of actors) { e.a.root.removeFromParent(); e.a.shadow.removeFromParent(); }
   const list = S.mode === 'side' ? [[false, -1], [true, 1]] : [[S.mode === 'new', 0]];
-  actors = list.map(([on, side]) => { kit.fur.FUR.on = on; const a = new Actor(MOBS[S.mob], kit, scene); a.root.traverse(o => { if (o.isMesh) o.castShadow = true; }); return { a, side, on, ph: 0 }; });
-  kit.fur.FUR.on = true;
+  actors = list.map(([on, side]) => {
+    kit.fur.FUR.on = on; kit.skin.SKINS.on = on;
+    const a = new Actor(MOBS[S.mob], kit, scene); a.root.traverse(o => { if (o.isMesh && !o.userData.isOutline) o.castShadow = true; });
+    if (S.mob === 'archer') { a.root.scale.setScalar(HERO.scale); a.equip('handL', BOW); }   // как в игре: герой на 10 % крупнее, лук в левой руке
+    return { a, side, on, ph: 0 };
+  });
+  kit.fur.FUR.on = true; kit.skin.SKINS.on = true;
   document.getElementById('tags').classList.toggle('show', S.mode === 'side');
   clipT = 0;
 }
@@ -110,7 +117,7 @@ canvas.addEventListener('wheel', e => { e.preventDefault(); zoomTo((S.cam === 'g
 function zoomTo(d) { d = Math.min(40, Math.max(2.5, d)); if (S.cam === 'game') gameDist = d; else dist = d; }
 
 // --- клипы: разовые повторяются по кругу (прогресс k 0…1 за dur, пауза), «ходьба» — по кругу радиусом 2.6 м
-const CLIPS = [['idle', 'Стоит'], ['walk', 'Ходьба'], ['attack', 'Атака'], ['cast', 'Каст/рёв'], ['hit', 'Удар'], ['death', 'Смерть']];
+const CLIPS = [['idle', 'Стоит'], ['walk', 'Ходьба'], ['attack', 'Атака'], ['cast', 'Выстрел/рёв'], ['hit', 'Удар'], ['dodge', 'Перекат'], ['death', 'Смерть']];
 let clipT = 0, t = 0, last = performance.now();
 const env = { wind: new THREE.Vector2(0.6, 0.3) };
 function drive(dt) {
@@ -123,7 +130,7 @@ function drive(dt) {
       // по кругу вокруг своей точки; смотрит по касательной
       a.place(sideOff.x + Math.cos(ang) * R * (S.mode === 'side' ? 0.45 : 1), sideOff.z + Math.sin(ang) * R * (S.mode === 'side' ? 0.45 : 1));
       a.faceAngle(Math.atan2(Math.cos(ang), -Math.sin(ang)));
-      a.update(dt, { clip: 'walk', speed: 2.6 }, env);
+      a.update(dt, { clip: 'walk', speed: S.mob === 'archer' ? 3.6 : 2.6 }, env);
     } else {
       a.place(sideOff.x, sideOff.z); a.faceAngle(CAMERA.yaw);
       if (spec.loop || S.clip === 'idle') a.update(dt, { clip: S.clip }, env);

@@ -42,4 +42,6 @@ function head({ kit, STEEL, STEEL_L, DARK, BR }) {
   for (let i = 0; i < 14; i++) { const a = i / 14 * 6.283; L.push(part(new THREE.ConeGeometry(0.06, 0.24, 4), 0x14101a, [Math.cos(a) * 0.27, -0.02, Math.sin(a) * 0.25], [Math.sin(a) * 0.9, 0, -Math.cos(a) * 0.9 + Math.PI], [1, 1, 0.35], { top: 0x4a4068 })); }
   return L;
 }
-export default { id: 'archer', kind: 'hero', outline: 'hero', build(kit) { return heroModel(kit, { steel: 0x6a4a2a, steelL: 0xc89a58, steelD: 0x3a2814, dark: 0x5a2a1a, tex: 'leather', rimColor: 0xffe0a0, noCape: true, height: 2.35, cast: 'bow', torso, head }); } };
+export default { id: 'archer', kind: 'hero', outline: 'hero', build(kit) { const m = heroModel(kit, { steel: 0x6a4a2a, steelL: 0xc89a58, steelD: 0x3a2814, dark: 0x5a2a1a, tex: 'leather', rimColor: 0xffe0a0, noCape: true, height: 2.35, cast: 'bow', torso, head });
+  // новая модель «Вороний лучник» (Meshy → tools/art/glb_rig.py): лук — часть модели, ноги короче рига
+  return kit.skin ? kit.skin.attachSkin(kit, m, 'archer_raven', { noEquip: ['handL'], legK: 0.75, rimColor: 0xffe0a0 }) : m; } };

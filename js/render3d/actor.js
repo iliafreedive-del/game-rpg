@@ -100,6 +100,7 @@ export class Actor {
   // надеть оружие (модель kind:'weapon') в сокет: 'handR' | 'handL' | 'back' | 'head'
   equip(slot, weaponDef) {
     const sock = this.sockets[slot]; if (!sock) return false;
+    if (this.model.noEquip && this.model.noEquip.includes(slot)) { this.unequip(slot); return true; }   // оружие — часть модели (glbskin.js)
     this.unequip(slot);
     if (!weaponDef) return true;
     const w = weaponDef.build(this.kit);
