@@ -29,7 +29,7 @@ const PROP = {
   logpile: { spr: 'crate', box: [0.7, 0.4], model: 'logpile' },
   shrine: { spr: 'altar', r: 0.45, light: { r: 3, c: [190, 140, 255], flicker: 0.3 } },
   // деревня по правилам (js/world/villagegen.js): здания с поворотом и коллайдерами из генератора (o.boxes), сельские мелочи
-  church: { spr: 'house_1', tall: 1, model: 'church', light: { r: 4.5, c: [255, 190, 110], flicker: 0.3, z: 2.2, dy: 6.6 } },
+  church: { spr: 'house_1', tall: 1, model: 'church' },   // без точечного света у двери: герой на ступенях «засвечивался»
   tavern: { spr: 'house_1', tall: 1, model: 'tavern', light: { r: 4.5, c: [255, 170, 90], flicker: 0.5, z: 2, dy: 3.4 } },
   shop: { spr: 'house_0', tall: 1, model: 'shop' }, smithy: { spr: 'house_2', tall: 1, model: 'smithy', light: { r: 4.5, c: [255, 120, 40], flicker: 1, z: 1.2, dx: 2.4, dy: 0.6 } },
   cottage_a: { spr: 'house_2', tall: 1, model: 'cottage_a' }, cottage_b: { spr: 'house_2', tall: 1, model: 'cottage_b' }, cottage_c: { spr: 'house_2', tall: 1, model: 'cottage_c' },

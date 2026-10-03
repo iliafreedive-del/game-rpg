@@ -47,6 +47,8 @@ export function makeItem(opts = {}) {
     if (!slot || !SLOTS.includes(slot)) slot = weighted([['weapon', 40], ['head', 20], ['chest', 25], ['amulet', 15]]);
     let cands = basesFor(slot, ilvl, opts.wt);
     if (slot === 'weapon' && opts.cls) cands = cands.filter(b => CLASSES[opts.cls].weapons.includes(b.wt));
+    // классу не выпадают вещи, требующие чужую характеристику (магу и лучнику — кольчуга, латы, шлем «на силу»)
+    if (opts.cls) { const MAIN = { warrior: 'str', archer: 'dex', mage: 'int' }[opts.cls]; const own = cands.filter(b => !b.req || Object.keys(b.req).every(k => k === MAIN)); if (own.length) cands = own; }
     if (!cands.length) cands = basesFor(slot, 99, opts.wt).filter(b => !opts.cls || slot !== 'weapon' || CLASSES[opts.cls].weapons.includes(b.wt)).sort((a, b) => a.lvl - b.lvl).slice(0, 1);
     // prefer the highest tiers available but keep variety
     base = weighted(cands.map(b => [b, 1 + b.lvl]));

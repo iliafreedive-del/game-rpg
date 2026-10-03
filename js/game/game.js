@@ -233,9 +233,14 @@ export function revive(inPlace) {
 }
 
 // ------------------------------------------------------------------ interactions
+// после пролога в деревне сначала — староста: пока задание «Поговорить со старостой» не сдано, остальное закрыто
+const elderFirst = () => G.zoneId === 'town' && Q.current() && Q.current().id === 'talk_elder';
+let nagT = -9;
+function nagElder() { if (G.time - nagT < 2.5) return; nagT = G.time; bus.emit('toast', { text: 'Сначала поговорите со старостой Эдриком', sub: 'Он ждёт на площади у церкви — идите по стрелке', kind: 'warn' }); bus.emit('sfx', 'deny'); }
 export function interact(it) {
   const P = G.profile, W = P.world.opened, pl = G.player;
   if (!it || pl.dead) return;
+  if (elderFirst() && !(it.type === 'npc' && it.id === 'elder')) { nagElder(); return; }
   switch (it.type) {
     case 'portal':
       if (it.hidden) return;
@@ -456,6 +461,7 @@ export function update(dt) {
   for (const it of G.zone.inter) { if (!it.panel || it.hidden || (it.type === 'roomgate' && it.done)) continue; const d = Math.hypot(it.x - pl.x, it.y - pl.y); if (d < it.r + 0.3 && d < pd) { pd = d; pt = it; } }
   if (pt !== G.panelDismissed) G.panelDismissed = null;   // walked away → the panel may open again
   if (pt && pt === G.panelDismissed) pt = null;
+  if (pt && elderFirst() && pt.id !== 'elder') { nagElder(); pt = null; }   // лавка, кузнец, наставник — после старосты
   if (pt !== G.panelTarget) { G.panelTarget = pt; bus.emit('panel', pt); }
   if (best && best.panel) best = null;
   if (best && best.type === 'door' && G.profile.world.hasKey && !best.done && bd < 1.6) interact(best);

@@ -174,6 +174,7 @@ export function generateVillage(plan0 = PLAN) {
 
   // ---- церковь: на северной стороне площади, фасадом (с башней) к площади
   const church = place('church', CX - 1.0, CY - SQ.hh - BUILDINGS.church.d / 2 - 1.3, 0);
+  { const [x0, y0] = side(church, -1.6, BUILDINGS.church.col[1]), [x1, y1] = side(church, 1.6, BUILDINGS.church.d / 2 + 1.3); church.obj.boxes.push([+Math.min(x0, x1).toFixed(2), +Math.min(y0, y1).toFixed(2), +Math.max(x0, x1).toFixed(2), +Math.max(y0, y1).toFixed(2)]); }   // ступени и портал — сплошные: в них не застрять
   // ---- кандидаты участков: точки вдоль дорог на дальней стороне
   const cands = [];
   for (const r of roads) for (let i = 0; i < r.line.length; i += 2) {
@@ -204,7 +205,7 @@ export function generateVillage(plan0 = PLAN) {
   // ---- NPC и их места
   const npc = (id, name, x, y, extra = {}) => { const n = { id, name, x: +x.toFixed(2), y: +y.toFixed(2), model: 'npc_' + id, ...extra }; npcs.push(n); targets.push({ x, y }); return n; };
   // староста — у ступеней церкви слева, доска заданий рядом
-  { const [fx, fy] = front(church, 2.4); npc('elder', 'Староста Эдрик', fx - 3.8, fy + 0.2); put('board', fx + 4.0, fy + 0.3); }
+  { const [fx, fy] = front(church, 3.4); npc('elder', 'Староста Эдрик', fx - 3.8, fy + 0.2); put('board', fx + 4.0, fy + 0.3); }
   if (shop) {
     const [mx, my] = front(shop, 0.55); npc('merchant', 'Торговка Мира', mx, my, { reach: 3.2 });
     const cs = [[-1.75, 3.0], [1.75, 3.0], [-1.75, 3.7], [1.75, 3.7]].map(([u, v]) => side(shop, u, v)), xs = cs.map(c => c[0]), ys = cs.map(c => c[1]);

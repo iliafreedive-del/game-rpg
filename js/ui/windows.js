@@ -115,7 +115,7 @@ function itemHTML(it, S) {
   let h = `<div class="it-name" style="color:${r.color}">${esc(it.name)}${it.upg ? ` <span class="good">+${it.upg}</span>` : ''}</div>`;
   h += `<div class="it-type">${r.name} · ${it.wt ? WEAPONS[it.wt].name : SLOT_NAMES[it.slot === 'ring' ? 'ring1' : it.slot]} · ур. предмета ${it.ilvl}</div>`;
   const um = 1 + (it.upg || 0) * 0.1;
-  if (it.dmg) h += `<div class="it-stat">Урон: <b>${Math.round(it.dmg[0] * um)}–${Math.round(it.dmg[1] * um)}</b> · Скорость: ${WEAPONS[it.wt].aps} уд/с · Дальность: ${WEAPONS[it.wt].range} м</div><div class="it-stat muted" style="font-size:12px">${WEAPONS[it.wt].note}</div>`;
+  if (it.dmg) h += `<div class="it-stat">Урон: <b>${Math.round(it.dmg[0] * um)}–${Math.round(it.dmg[1] * um)}</b> · Урон в сек.: <b>${Math.round((it.dmg[0] + it.dmg[1]) / 2 * um * WEAPONS[it.wt].aps * 10) / 10}</b> · Скорость: ${WEAPONS[it.wt].aps} уд/с · Дальность: ${WEAPONS[it.wt].range} м</div><div class="it-stat muted" style="font-size:12px">${WEAPONS[it.wt].note}</div>`;
   if (it.armor) h += `<div class="it-stat">Защита: <b>${Math.round(it.armor * um)}</b></div>`;
   if (it.block) h += `<div class="it-stat">Шанс блока: ${Math.round(it.block * 100)}%</div>`;
   for (const a of it.affixes) h += `<div class="it-aff">${esc(affixText(a))}</div>`;
@@ -172,7 +172,7 @@ W.inventory = (arg = {}) => {
     const inBag = !slot, tslot = CH.slotFor(it), eq = inBag ? P.gear[tslot] : null;
     const ov = el('div', 'ic-ov'); const box = el('div', 'ic-box r' + it.rarity);
     const um = x => 1 + (x.upg || 0) * 0.1;
-    const lines = x => !x ? '<div class="muted">— пусто —</div>' : `${x.dmg ? `<div>Урон <b>${Math.round(x.dmg[0] * um(x))}–${Math.round(x.dmg[1] * um(x))}</b></div>` : ''}${x.armor ? `<div>Защита <b>${Math.round(x.armor * um(x))}</b></div>` : ''}${x.block ? `<div>Блок <b>${Math.round(x.block * 100)}%</b></div>` : ''}${x.affixes.map(a => `<div class="it-aff">${esc(affixText(a))}</div>`).join('')}${epicOf(x) ? `<div class="it-epic">★ ${esc(epicOf(x).desc)}</div>` : ''}`;
+    const lines = x => !x ? '<div class="muted">— пусто —</div>' : `${x.dmg ? `<div>Урон <b>${Math.round(x.dmg[0] * um(x))}–${Math.round(x.dmg[1] * um(x))}</b></div><div>Урон в сек. <b>${(Math.round((x.dmg[0] + x.dmg[1]) / 2 * um(x) * WEAPONS[x.wt].aps * 10) / 10)}</b></div>` : ''}${x.armor ? `<div>Защита <b>${Math.round(x.armor * um(x))}</b></div>` : ''}${x.block ? `<div>Блок <b>${Math.round(x.block * 100)}%</b></div>` : ''}${x.affixes.map(a => `<div class="it-aff">${esc(affixText(a))}</div>`).join('')}${epicOf(x) ? `<div class="it-epic">★ ${esc(epicOf(x).desc)}</div>` : ''}`;
     const head = (x, tag) => `<div class="cc-h">${tag ? `<small class="muted">${tag}</small>` : ''}<div class="cc-n" style="color:${RARITY[x.rarity].color}">${esc(x.name)}${x.upg ? ` <span class="good">+${x.upg}</span>` : ''}</div><small>${RARITY[x.rarity].name} · ур. ${x.ilvl}</small></div>`;
     const rows = inBag ? compare(P, it, tslot).filter(r => typeof r.delta === 'number' && r.delta !== 0).slice(0, 6) : [];
     const ok = inBag ? CH.canEquip(it) : { ok: true };
