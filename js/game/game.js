@@ -121,7 +121,7 @@ export async function loadZone(id, how = {}) {
   } else if (id === 'depths') {
     [pl.x, pl.y] = zone.start; pl.face = pl.dir = 1;
     spawnFloor(zone); G.diedThisRun = false; G.dungeonCache = null;
-    G.run = { floor: zone.json.floorN, t0: G.time, kills: 0, total: G.enemies.length, gold0: P.stats.gold, deaths: 0, done: false, boons: how.keepBoons && G.lastBoons ? G.lastBoons.slice() : [] }; G.lastBoons = null;
+    G.run = { floor: zone.json.floorN, free: !!how.free, t0: G.time, kills: 0, total: G.enemies.length, gold0: P.stats.gold, deaths: 0, done: false, boons: how.keepBoons && G.lastBoons ? G.lastBoons.slice() : [] }; G.lastBoons = null;
   } else {
     if (how.useCache && G.dungeonCache) { pl.x = G.dungeonCache.x; pl.y = G.dungeonCache.y; G.dungeonCache = null; }
     else { [pl.x, pl.y] = zone.start; spawnDungeon(zone); G.diedThisRun = false; G.dungeonCache = null; }
@@ -229,7 +229,7 @@ export function revive(inPlace) {
   if (inPlace) G.revives = (G.revives || 0) + 1;
   const pl = G.player; pl.dead = false; pl.state = 'idle'; pl.hp = G.stats.maxHP; pl.mp = G.stats.maxMP; pl.inv = 2; pl.setAnim('idle', 5, true);
   if (inPlace) { C.effect({ kind: 'ring', x: pl.x, y: pl.y, r: 4, dur: 0.6, c: [255, 230, 150] }); for (const e of G.enemies) if (!e.dead && Math.hypot(e.x - pl.x, e.y - pl.y) < 4) { e.kb = { vx: (e.x - pl.x), vy: (e.y - pl.y), t: 0.25 }; } }
-  else loadZone('town', { from: 'death', fullHeal: true });
+  else { if (G.zoneId === 'depths' && G.run && G.run.free) CS.spendTorch(); loadZone('town', { from: 'death', fullHeal: true }); }   // новый этаж бесплатен, пока побеждаешь: факел уходит только за поражение
 }
 
 // ------------------------------------------------------------------ interactions

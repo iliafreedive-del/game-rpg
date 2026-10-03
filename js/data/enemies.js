@@ -12,6 +12,8 @@ export const ENEMIES = {
 for (const [k, m] of Object.entries(WILD_MOBS)) ENEMIES[k] = { ...m, atlas: 'w_' + k };   // походы: графика выводится из базовых спрайтов (world/wildfloor.js)
 // Room -> base monster level (Chapter I progression: 1 → 6)
 export const ROOM_LEVEL = { entry: 1, ossuary: 2, gallery: 3, cave: 3, cross: 4, altar: 4, secret: 5, guard: 5, arena: 6 };
-export const scaleHP = l => 1 + 0.3 * (l - 1);
-export const scaleDmg = l => 1 + 0.2 * (l - 1);
+// рост силы врагов (сборка 16): до 3 уровня как раньше, дальше — быстрее (квадратичная добавка), чтобы прокачанный герой
+// не выкашивал толпы одним ударом: ур. 6 — HP ×2,9 (было ×2,5); ур. 12 — HP ×7,5 (было ×4,3), урон ×4,5 (было ×3,2); ур. 20 — HP ×19
+export const scaleHP = l => 1 + 0.3 * (l - 1) + 0.04 * Math.max(0, l - 3) ** 2;
+export const scaleDmg = l => 1 + 0.2 * (l - 1) + 0.017 * Math.max(0, l - 3) ** 2;
 export const scaleXP = l => 1 + 0.25 * (l - 1);

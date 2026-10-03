@@ -1,9 +1,11 @@
 // Modal windows. All fit the viewport with internal scrolling; the game pauses while one is open.
+import { SETS, bonusText } from '../data/sets.js';
+import { setCounts } from '../game/stats.js';
 import { G, bus, inCombat } from '../game/ctx.js';
 import { $, el, esc, fmt } from '../core/util.js';
 import { SLOTS, SLOT_NAMES, RARITY, WEAPONS, BASE, CLASSES } from '../data/items.js';
 import { SKILLS, BRANCHES } from '../data/skills.js';
-import { STORY, REPEATABLE, DIALOG, CHAPTER } from '../data/quests.js';
+import { STORY, REPEATABLE, DIALOG, CHAPTER, chapterOf } from '../data/quests.js';
 import { stats, compare, usefulness, meetsReq, xpToNext, effRank } from '../game/stats.js';
 import { iconOf, affixText, epicOf, sellValue, upgradeCost, reforgeCost, MAX_UPG } from '../game/items.js';
 import * as CH from '../game/character.js';
@@ -64,7 +66,7 @@ bus.on('boonChoice', () => boonChoice());
 bus.on('openSurvival', () => W.survival()); bus.on('survLevel', () => survLevel()); bus.on('survEnd', r => survEnd(r)); bus.on('openShrine', () => W.shrine());
 bus.on('showDeath', () => showDeath());
 bus.on('bossDefeated', k => bossReward(k));
-bus.on('chapterDone', () => chapterDone());
+bus.on('chapterDone', n => chapterDone(n));
 const rewardQ = [];
 bus.on('reward', r => { rewardQ.push(r); });
 export function pumpRewards() {
@@ -93,7 +95,7 @@ function showReward(r) {
       box.appendChild(c);
     }
     if (r.items.length) b.appendChild(box);
-    const loot = [r.gold && `<span class="goldc">+${fmt(r.gold)} золота</span>`, r.xp && `<span style="color:#b8e3ff">+${r.xp} опыта</span>`, r.potions && `<span style="color:#ff9a9a">+${r.potions} зелья</span>`, r.scrolls && `<span>+${r.scrolls} свитка возврата</span>`, r.skillPts && `<span class="good">+${r.skillPts} очко навыка</span>`].filter(Boolean);
+    const loot = [r.gold && `<span class="goldc">+${fmt(r.gold)} золота</span>`, r.xp && `<span style="color:#b8e3ff">+${r.xp} опыта</span>`, r.potions && `<span style="color:#ff9a9a">+${r.potions} зелья</span>`, r.scrolls && `<span>+${r.scrolls} свитка возврата</span>`, r.skillPts && `<span class="good">+${r.skillPts} очко навыка</span>`, r.shards && `<span class="c-shard">+${r.shards}◆ осколков</span>`].filter(Boolean);
     if (loot.length) b.appendChild(el('div', 'rw-loot', loot.join(' · ')));
     const q = Q.current(); if (q) b.appendChild(el('p', 'muted', `Следующее задание: <b class="goldc">${esc(q.title)}</b>`));
     const row = el('div', 'row'); row.style.justifyContent = 'center'; const ok = el('button', 'btn gold', 'Забрать'); ok.onclick = closeModal; row.appendChild(ok); b.appendChild(row);
@@ -110,6 +112,9 @@ function slotEl(it, ph, cls = '') {
   } else d.innerHTML = `<span class="ph">${esc(ph || '')}</span>`;
   return d;
 }
+// сет в карточке: название, сколько надето, бонусы (работающие — зелёные)
+function setHTML(x) { if (!x || !x.set || !SETS[x.set]) return ''; const S = SETS[x.set], c = setCounts(G.profile.gear)[x.set] || 0;
+  return `<div class="it-set" style="color:#7ee0a8">◈ Сет «${esc(S.name)}» · надето ${c}/3</div><div class="${c >= 2 ? 'good' : 'muted'}" style="font-size:12px">2 части: ${esc(bonusText(x.set, S.b2))}</div><div class="${c >= 3 ? 'good' : 'muted'}" style="font-size:12px">3 части: ${esc(bonusText(x.set, S.b3))}</div>`; }
 function itemHTML(it, S) {
   const b = BASE[it.base], r = RARITY[it.rarity];
   let h = `<div class="it-name" style="color:${r.color}">${esc(it.name)}${it.upg ? ` <span class="good">+${it.upg}</span>` : ''}</div>`;
@@ -120,6 +125,7 @@ function itemHTML(it, S) {
   if (it.block) h += `<div class="it-stat">Шанс блока: ${Math.round(it.block * 100)}%</div>`;
   for (const a of it.affixes) h += `<div class="it-aff">${esc(affixText(a))}</div>`;
   const ep = epicOf(it); if (ep) h += `<div class="it-epic">★ ${esc(ep.desc)}</div>`;
+  h += setHTML(it);
   if (it.req) { const ok = meetsReq(G.profile, it, S); h += `<div class="it-stat ${ok ? 'muted' : 'bad'}">Требуется: ${Object.entries(it.req).map(([k, v]) => `${CH.ATTR_NAMES[k]} ${v}`).join(', ')}</div>`; }
   h += `<div class="it-stat muted" style="font-size:12px">Цена продажи: ${sellValue(it)} зол.</div>`;
   return h;
@@ -172,7 +178,7 @@ W.inventory = (arg = {}) => {
     const inBag = !slot, tslot = CH.slotFor(it), eq = inBag ? P.gear[tslot] : null;
     const ov = el('div', 'ic-ov'); const box = el('div', 'ic-box r' + it.rarity);
     const um = x => 1 + (x.upg || 0) * 0.1;
-    const lines = x => !x ? '<div class="muted">— пусто —</div>' : `${x.dmg ? `<div>Урон <b>${Math.round(x.dmg[0] * um(x))}–${Math.round(x.dmg[1] * um(x))}</b></div><div>Урон в сек. <b>${(Math.round((x.dmg[0] + x.dmg[1]) / 2 * um(x) * WEAPONS[x.wt].aps * 10) / 10)}</b></div>` : ''}${x.armor ? `<div>Защита <b>${Math.round(x.armor * um(x))}</b></div>` : ''}${x.block ? `<div>Блок <b>${Math.round(x.block * 100)}%</b></div>` : ''}${x.affixes.map(a => `<div class="it-aff">${esc(affixText(a))}</div>`).join('')}${epicOf(x) ? `<div class="it-epic">★ ${esc(epicOf(x).desc)}</div>` : ''}`;
+    const lines = x => !x ? '<div class="muted">— пусто —</div>' : `${x.dmg ? `<div>Урон <b>${Math.round(x.dmg[0] * um(x))}–${Math.round(x.dmg[1] * um(x))}</b></div><div>Урон в сек. <b>${(Math.round((x.dmg[0] + x.dmg[1]) / 2 * um(x) * WEAPONS[x.wt].aps * 10) / 10)}</b></div>` : ''}${x.armor ? `<div>Защита <b>${Math.round(x.armor * um(x))}</b></div>` : ''}${x.block ? `<div>Блок <b>${Math.round(x.block * 100)}%</b></div>` : ''}${x.affixes.map(a => `<div class="it-aff">${esc(affixText(a))}</div>`).join('')}${epicOf(x) ? `<div class="it-epic">★ ${esc(epicOf(x).desc)}</div>` : ''}${setHTML(x)}`;
     const head = (x, tag) => `<div class="cc-h">${tag ? `<small class="muted">${tag}</small>` : ''}<div class="cc-n" style="color:${RARITY[x.rarity].color}">${esc(x.name)}${x.upg ? ` <span class="good">+${x.upg}</span>` : ''}</div><small>${RARITY[x.rarity].name} · ур. ${x.ilvl}</small></div>`;
     const rows = inBag ? compare(P, it, tslot).filter(r => typeof r.delta === 'number' && r.delta !== 0).slice(0, 6) : [];
     const ok = inBag ? CH.canEquip(it) : { ok: true };
@@ -277,7 +283,7 @@ W.journal = (arg = {}) => {
       d.appendChild(btn); return d;
     };
     if (tab === 'story') {
-      b.appendChild(el('div', 'q-ch', esc(CHAPTER) + `<div class="pbar"><i style="width:${st / STORY.length * 100}%"></i></div>`));
+      { const cq = STORY[Math.min(st, STORY.length - 1)], ch = cq.chapter || 1, inCh = STORY.filter(x => (x.chapter || 1) === ch), k = st >= STORY.length ? inCh.length : inCh.indexOf(cq); b.appendChild(el('div', 'q-ch', esc(chapterOf(cq)) + `<div class="pbar"><i style="width:${k / inCh.length * 100}%"></i></div>`)); }
       const q = STORY[st];
       if (q) { const pr = Q.progressOf(q); const it = el('div', 'q-card cur', `<div class="q-t">➤ ${esc(q.title)}</div><div class="muted">${esc(q.text)}</div>${pr ? `<div class="q-prog"><div class="pbar"><i style="width:${pr.cur / pr.max * 100}%"></i></div><span>${pr.cur}/${pr.max}</span></div>` : ''}${chips({ gold: q.reward && q.reward.gold, xp: q.reward && q.reward.xp, item: q.reward && q.reward.items && q.reward.items.length, skillPts: q.reward && q.reward.skillPts, potions: q.reward && q.reward.potions })}`);
         const go = el('button', 'btn sm gold', 'Показать путь'); go.onclick = () => { closeModal(); bus.emit('toast', { text: 'Идите за золотыми стрелками', kind: 'quest' }); }; it.appendChild(go); b.appendChild(it); }
@@ -509,11 +515,16 @@ function bossReward(k) {
     const ok = el('button', 'btn gold', 'Собрать добычу'); ok.onclick = closeModal; row.append(ad, ok); b.appendChild(row);
   });
 }
-function chapterDone() {
-  G.profile.chapterDone = true; bus.emit('save');
-  setTimeout(() => modal('Глава I пройдена!', 'sm', b => {
-    b.appendChild(el('p', '', 'Тихий Брод спасён. Но в глубинах ещё шевелится тьма.'));
-    b.appendChild(el('p', 'muted', 'Что дальше: катакомбы теперь растут вместе с вами (монстры вашего уровня и чемпионы), Палача можно побеждать снова ради эпических вещей, а доска объявлений даёт бесконечные контракты. Глава II — в следующем обновлении.'));
+function chapterDone(n = 1) {
+  if (n === 1) G.profile.chapterDone = true; bus.emit('save');
+  setTimeout(() => modal(n === 1 ? 'Глава I пройдена!' : 'Глава II пройдена!', 'sm', b => {
+    if (n === 1) {
+      b.appendChild(el('p', '', 'Тихий Брод спасён. Но за порогом деревни ещё шевелится тьма.'));
+      b.appendChild(el('p', 'muted', 'Начинается Глава II «Тени за порогом». Первое задание — найти ледяной портал во Фьорды (северо-восток деревни, за виноградником). Дальше — Глубины, форты Старого Леса и Фьордов, Летопись битв. Катакомбы растут вместе с вами, Палача можно побеждать снова.'));
+    } else {
+      b.appendChild(el('p', '', 'Форты отбиты, Глубины пройдены на десять этажей. Эдрик гордится вами.'));
+      b.appendChild(el('p', 'muted', 'Глава III — в следующем обновлении. А пока: рекорды Глубин (дальше 10-го этажа — сильнее и щедрее), Жатва Бездны, следующие форты походов и контракты доски.'));
+    }
     const r = el('div', 'row'); const ok = el('button', 'btn gold', 'Продолжить'); ok.onclick = closeModal; r.appendChild(ok); b.appendChild(r);
   }), 1200);
 }
@@ -525,7 +536,8 @@ W.depths = () => modal('Глубины катакомб', 'sm', b => {
   const tq = CS.torches(); const tl = CS.nextIn(tq, CS.TORCH_MS);
   const trow = el('div', 'row', `<b class="goldc">🔥 Факелы: ${tq.n}/${CS.TORCH_MAX}</b>${tl ? `<span class="muted">+1 через ${Math.ceil(tl / 60000)} мин</span>` : ''}`);
   trow.appendChild(adButton('+5 факелов', 'torch5', 30 * 60e3, () => CS.addTorches(5), rerender, 'btn ad sm')); b.appendChild(trow);
-  const enter = f => { if (!CS.spendTorch()) { bus.emit('toast', { text: 'Нет факелов', sub: 'Они восстанавливаются сами: 1 за 20 минут', kind: 'warn' }); return; } closeModal(); loadZone('depths', { floor: f }); };
+  // новый этаж (дальше рекорда) — без факела, факел уйдёт только за поражение; повтор пройденного — факел сразу
+  const enter = f => { const free = f > (P.depths.best || 0); if (!free && !CS.spendTorch()) { bus.emit('toast', { text: 'Нет факелов', sub: 'Они восстанавливаются сами: 1 за 20 минут. Новые этажи — без факела', kind: 'warn' }); return; } closeModal(); loadZone('depths', { floor: f, free }); };
   b.appendChild(el('p', 'muted', 'Короткие забеги на 5–8 минут. Каждый 5-й этаж — страж. Звёзды: ★ пройти, ★★ убить 90% врагов, ★★★ быстро и без смертей.'));
   const next = P.depths.best + 1;
   const go = el('button', 'btn gold', `▶ Этаж ${next}${isBossFloor(next) ? ' · страж' : ''} (ур. врагов ${floorLevel(next)})`);
@@ -603,7 +615,7 @@ function floorResult(r) {
       const nx = el('button', 'btn gold', `Этаж ${r.floor + (r.first ? 1 : 0) + (r.first ? 0 : 1)} ▶`);
       const next = Math.max(r.floor + 1, 1);
       nx.textContent = `Этаж ${next} ▶`;
-      nx.onclick = async () => { const keepBoons = true; if (G.profile.level < floorLevel(next) - 1) { bus.emit('toast', { text: `Этаж ${next} — с ${floorLevel(next) - 1} уровня`, sub: 'Фармите опыт на пройденных этажах', kind: 'warn' }); return; } if (!CS.spendTorch()) { bus.emit('toast', { text: 'Нет факелов', sub: '+1 за 20 минут или +5 за рекламу в меню Глубин', kind: 'warn' }); return; } closeModal(); await maybeInterstitial('floor'); loadZone('depths', { floor: next, keepBoons }); };
+      nx.onclick = async () => { const keepBoons = true; if (G.profile.level < floorLevel(next) - 1) { bus.emit('toast', { text: `Этаж ${next} — с ${floorLevel(next) - 1} уровня`, sub: 'Фармите опыт на пройденных этажах', kind: 'warn' }); return; } const free = next > (G.profile.depths.best || 0); if (!free && !CS.spendTorch()) { bus.emit('toast', { text: 'Нет факелов', sub: '+1 за 20 минут или +5 за рекламу в меню Глубин', kind: 'warn' }); return; } closeModal(); await maybeInterstitial('floor'); loadZone('depths', { floor: next, keepBoons, free }); };
       const home = el('button', 'btn', 'В деревню');
       home.onclick = async () => { closeModal(); await maybeInterstitial('floor'); loadZone('town', { from: 'depths' }); };
       row.append(ad, nx, home); b.appendChild(row);

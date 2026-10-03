@@ -1,4 +1,5 @@
 // Item generation and helpers (Inventory/Equipment domain logic, no DOM).
+import { SETS, SET_SLOTS, SET_BASE } from '../data/sets.js';
 import { G } from './ctx.js';
 import { BASES, BASE, WEAPONS, AFFIXES, AFFIX_GROUP, RARITY, EPICS, CLASSES, SLOTS } from '../data/items.js';
 import { BRANCHES } from '../data/skills.js';
@@ -107,6 +108,16 @@ export function makeStarterGear(cls = 'warrior') {
   return { weapon: w, chest: c };
 }
 
+// часть сета: шлем/доспех/амулет без требований, защита ×1,6 (наравне с кольчугой и латами), 1–2 свойства сверху бонусов сета
+export function makeSetItem(setId, slot, ilvl, cls) {
+  const S = SETS[setId]; slot = slot || SET_SLOTS[Math.floor(rand() * SET_SLOTS.length)];
+  const it = makeItem({ base: SET_BASE[slot], ilvl, rarity: 1, cls });
+  it.set = setId; it.name = S.parts[slot]; it.rarity = 2; delete it.req;
+  if (it.armor) it.armor = Math.round(it.armor * 1.6);
+  return it;
+}
+// какой сет выпадет классу: навыки своих ветвей чаще, золото и оплот — реже
+export function pickSet(cls) { const own = Object.keys(SETS).filter(k => SETS[k].branch && SETS[k].cls.includes(cls)); const r = rand(); return r < 0.6 ? own[Math.floor(rand() * own.length)] : r < 0.8 ? 'gold' : 'guard'; }
 export const baseOf = it => BASE[it.base];
 export const iconOf = it => it.wt ? WEAPONS[it.wt].icon : (BASE[it.base].icon || it.slot);
 export const rarityColor = it => RARITY[it.rarity].color;

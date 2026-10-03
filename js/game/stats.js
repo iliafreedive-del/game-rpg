@@ -1,4 +1,5 @@
 // Derived character stats from attributes, gear and skills. Pure: stats(profile) → object.
+import { SETS } from '../data/sets.js';
 import { WEAPONS, CLASSES } from '../data/items.js';
 import { SKILLS } from '../data/skills.js';
 import { upgMult } from './items.js';
@@ -12,8 +13,11 @@ export const rank = (p, id) => p.skills[id] || 0;
 export function branchBonus(p, branch) {
   let n = 0;
   for (const it of Object.values(p.gear)) if (it) for (const a of it.affixes) if (a.k === 'skill' && a.b === branch) n += a.v;
+  for (const [id, c] of Object.entries(setCounts(p.gear))) { const S = SETS[id]; if (S.branch !== branch) continue; if (c >= 2) n += S.b2.skills || 0; if (c >= 3) n += S.b3.skills || 0; }   // сеты навыков
   return n;
 }
+// сколько частей каждого сета надето
+export function setCounts(gear) { const c = {}; for (const it of Object.values(gear)) if (it && it.set && SETS[it.set]) c[it.set] = (c[it.set] || 0) + 1; return c; }
 // effective rank = learned rank + item bonus (only if learned)
 export function effRank(p, id) { const r = rank(p, id); return r ? r + branchBonus(p, SKILLS[id].b) : 0; }
 
@@ -36,6 +40,8 @@ export function stats(p, gearOverride) {
     if (it.block) s.block += it.block;
     if (it.effect) s.effects[it.effect] = true;
   }
+  // бонусы сетов (кроме «+к навыкам» — те в branchBonus)
+  for (const [id, c] of Object.entries(setCounts(gear))) for (const [need, b] of [[2, SETS[id].b2], [3, SETS[id].b3]]) if (c >= need) for (const [k, v] of Object.entries(b)) if (k === 'armorPct') armorItems *= 1 + v / 100; else if (k !== 'skills' && k in s) s[k] += v;
   const w = gear.weapon; const W = w ? WEAPONS[w.wt] : WEAPONS.sword;
   s.weaponType = w ? w.wt : 'fist';
   s.ranged = !!W.projectile;

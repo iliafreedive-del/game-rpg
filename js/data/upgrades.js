@@ -1,9 +1,9 @@
 // Gold upgrades bought from NPCs (endless gold sink, «Разрыв»-style small visible steps).
 export const UPGRADES = {
-  dmg:  { name: 'Сила удара', icon: '⚔', step: 4, unit: '%', max: 40, base: 40, mul: 1.14, fmt: l => `+${l * 4}% урона (оружия и заклинаний)` },
-  hp:   { name: 'Крепость', icon: '♥', step: 12, unit: '', max: 40, base: 30, mul: 1.13, fmt: l => `+${l * 12} здоровья` },
-  crit: { name: 'Меткость', icon: '✷', step: 0.6, unit: '%', max: 25, base: 90, mul: 1.16, fmt: l => `+${(l * 0.6).toFixed(1)}% шанса крита` },
-  aps:  { name: 'Проворство', icon: '⚡', step: 2, unit: '%', max: 20, base: 100, mul: 1.17, fmt: l => `+${l * 2}% скорости атаки` },
+  dmg:  { name: 'Сила удара', icon: '⚔', step: 4, unit: '%', max: 40, base: 40, mul: 1.17, fmt: l => `+${l * 4}% урона (оружия и заклинаний)` },
+  hp:   { name: 'Крепость', icon: '♥', step: 12, unit: '', max: 40, base: 30, mul: 1.16, fmt: l => `+${l * 12} здоровья` },
+  crit: { name: 'Меткость', icon: '✷', step: 0.6, unit: '%', max: 25, base: 90, mul: 1.19, fmt: l => `+${(l * 0.6).toFixed(1)}% шанса крита` },
+  aps:  { name: 'Проворство', icon: '⚡', step: 2, unit: '%', max: 20, base: 100, mul: 1.2, fmt: l => `+${l * 2}% скорости атаки` },
 };
 export const upgCost = (id, l) => Math.round(UPGRADES[id].base * Math.pow(UPGRADES[id].mul, l));
 

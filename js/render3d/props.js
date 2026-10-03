@@ -71,6 +71,7 @@ export class PropLayer {
       const m = zone.map, G = zone.json.big ? 3.8 : 3.4, ring = zone.json.big ? 17 : 11;
       for (let y = -ring; y < m.h + ring; y += G) for (let x = -ring; x < m.w + ring; x += G) {
         if (x > -1.5 && y > -1.5 && x < m.w + 1.5 && y < m.h + 1.5) continue;
+        if (zone.json.village) { const ex = Math.max(0, Math.min(m.w - 1, Math.round(x))), ey = Math.max(0, Math.min(m.h - 1, Math.round(y))); let wet = false; for (let k = -3; k <= 3 && !wet; k++) { const c1 = m.ch(Math.max(0, Math.min(m.w - 1, ex + k)), ey), c2 = m.ch(ex, Math.max(0, Math.min(m.h - 1, ey + k))); wet = c1 === '~' || c2 === '~'; } if (wet) continue; }   // продолжение ручья за краем — без деревьев в воде
         if (clearOf(x, y)) {   // «конус взгляда» на мельницу/завал за рекой: вместо деревьев (закрыли бы) — низкие кусты, папоротник, камни
           for (let k = 0; k < 3; k++) { const h3 = hash(x * 3.1 + k, y * 1.3 - k); push(h3 < 0.5 ? 'bush' : 'fern', x + (h3 - 0.5) * 3.4, y + (hash(y + k, x) - 0.5) * 3.4, h3 * 30, 0.9 + h3 * 0.8); }
           const h2 = hash(x * 1.7, y * 2.3); if (h2 < 0.85) push(h2 < 0.45 ? 'bush' : h2 < 0.7 ? 'fern' : 'rocks', x + (hash(y, x) - 0.5) * 2, y + (hash(x, y) - 0.5) * 2, h2 * 40, 1.1 + h2 * 0.9);

@@ -2,7 +2,8 @@
 import { G, bus } from './ctx.js';
 import { STORY, REPEATABLE } from '../data/quests.js';
 import { gainXP, pickEpic } from './loot.js';
-import { makeItem } from './items.js';
+import { makeItem, makeSetItem } from './items.js';
+import { SETS } from '../data/sets.js';
 import { autoEquip } from './character.js';
 import { rint } from '../core/util.js';
 
@@ -10,9 +11,12 @@ export const current = () => STORY[G.profile.story.stage] || null;
 export const storyDone = () => G.profile.story.stage >= STORY.length;
 
 export function progressOf(q) {
-  const s = G.profile.story;
+  const s = G.profile.story, P = G.profile;
   if (!q) return null;
   if (q.obj.count) return { cur: Math.min(q.obj.n, s.counters[q.id] || 0), max: q.obj.n };
+  if (q.obj.depths) return { cur: Math.min(q.obj.depths, (P.depths && P.depths.best) || 0), max: q.obj.depths };
+  if (q.obj.wild) { const d = (P.wild && P.wild[q.obj.wild.realm] && P.wild[q.obj.wild.realm].depth) || 0; return { cur: Math.min(q.obj.wild.n - 1, Math.max(0, d - 1)), max: q.obj.wild.n - 1 }; }
+  if (q.obj.hw) return { cur: Math.min(q.obj.hw, ((P.hw && P.hw.top) || 1) - 1), max: q.obj.hw };
   return null;
 }
 export const isReady = () => { const q = current(); return !!(q && q.turnIn && G.profile.story.ready === q.id); }
@@ -29,8 +33,9 @@ function complete() {
   grant(q.reward, q.title, { sub: 'Задание выполнено' });
   bus.emit('save');
   const n = current();
+  if (q.id === 'finish') bus.emit('chapterDone', 1);   // конец Главы I — дальше сразу Глава II
   if (n) { bus.emit('questNew', n); check(); }
-  else bus.emit('chapterDone');
+  else bus.emit('chapterDone', 2);
 }
 export function grant(r, title, opts = {}) {
   const P = G.profile; const got = { title, sub: opts.sub || '', gold: 0, xp: 0, potions: 0, scrolls: 0, skillPts: 0, items: [] };
@@ -38,6 +43,7 @@ export function grant(r, title, opts = {}) {
   if (r.potions) { P.potions.hp += r.potions; got.potions = r.potions; }
   if (r.scrolls) { P.scrolls += r.scrolls; got.scrolls = r.scrolls; }
   if (r.skillPts) { P.skillPts += r.skillPts; got.skillPts = r.skillPts; }
+  if (r.shards) { P.shards = (P.shards || 0) + r.shards; got.shards = r.shards; }
   for (const spec of r.items || []) {
     const it0 = rewardItem(spec); const entry = autoEquip(it0);   // выбор — в окне награды: надеть или оставить в сумке
     got.items.push(entry);
@@ -55,6 +61,7 @@ function rewardItem(spec) {
   const P = G.profile, cls = P.cls || 'warrior', lvl = Math.max(P.level, 2);
   let it;
   if (spec.epic) it = makeItem({ epic: pickEpic(cls), ilvl: lvl + 1, cls });
+  else if (spec.set) { const own = Object.keys(SETS).filter(k => SETS[k].branch && SETS[k].cls.includes(cls)); it = makeSetItem(own[0], spec.slot, lvl + 1, cls); }   // Глава II собирает первый сет своей ветви
   else {
     const base = spec.slot === 'weapon' ? TIER[cls].weapon[spec.tier || 1] : ARMOR[spec.slot][spec.tier || 1];
     it = makeItem({ base, ilvl: lvl + (spec.tier || 1) - 1, rarity: spec.rarity ?? 1, cls });
@@ -71,6 +78,10 @@ export function check() {
   if (o.flag && s.flags[o.flag]) return q.turnIn ? markReady(q) : complete();
   if (o.count && (s.counters[q.id] || 0) >= o.n) return q.turnIn ? markReady(q) : complete();
   if (o.enter && G.zoneId === o.enter && G.zoneReady) return complete();
+  const P = G.profile;
+  if (o.depths && ((P.depths && P.depths.best) || 0) >= o.depths) return complete();
+  if (o.wild && ((P.wild && P.wild[o.wild.realm] && P.wild[o.wild.realm].depth) || 0) >= o.wild.n) return complete();
+  if (o.hw && ((P.hw && P.hw.top) || 1) > o.hw) return complete();
   if (o.near && G.player && G.zone) {
     const t = G.zone.inter.find(i => i.id === o.near);
     if (t && Math.hypot(t.x - G.player.x, t.y - G.player.y) < 3.2) return complete();

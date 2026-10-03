@@ -4,7 +4,7 @@ function rng(seed) { let s = seed >>> 0; return () => { s = (s + 0x6D2B79F5) >>>
 
 import { biomeOf } from '../data/biomes.js';
 export const isBossFloor = f => f % 5 === 0;
-export const floorLevel = f => 1 + Math.round(f * 0.85);
+export const floorLevel = f => 1 + Math.round(f * 0.85 + Math.max(0, f - 8) * 0.4);   // после 8-го этажа уровень растёт быстрее (+1,25 за этаж)
 export const parTime = (f, total) => 70 + total * 7;   // seconds for the ★★★ "fast" star
 
 function prologue() {

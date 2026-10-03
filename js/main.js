@@ -20,7 +20,7 @@ import { $, el, esc } from './core/util.js';
 import { CLASSES } from './data/items.js';
 import { iconURL } from './ui/icons.js';
 
-export const BUILD = '2026-10-03 · сборка 15';   // видно на титульном экране и в настройках: так проверяют, что загрузилась свежая версия
+export const BUILD = '2026-10-04 · сборка 16';   // видно на титульном экране и в настройках: так проверяют, что загрузилась свежая версия
 const CORE = ['props', 'icons'];
 // hero sheets are big (HD): load only the chosen class
 export const CLASS_ATLAS = { warrior: ['hero_body', 'hero_sword', 'hero_axe', 'hero_greatsword', 'hero_shield'], archer: ['hero_archer_body', 'hero_archer_bow'], mage: ['hero_mage_body', 'hero_mage_staff'] };

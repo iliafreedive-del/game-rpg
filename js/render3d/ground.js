@@ -216,7 +216,8 @@ export function buildGround(scene, zone, opts = {}) {
   let water = null; const wt = [];
   for (let ty = 0; ty < H; ty++) for (let tx = 0; tx < W; tx++) if (m.rows[ty][tx] === '~') wt.push([tx, ty]);
   if (wt.length) {
-    const x0w = Math.min(...wt.map(t => t[0])) - 1, x1w = Math.max(...wt.map(t => t[0])) + 2, y0w = Math.min(...wt.map(t => t[1])) - 1, y1w = Math.max(...wt.map(t => t[1])) + 2;
+    let x0w = Math.min(...wt.map(t => t[0])) - 1, x1w = Math.max(...wt.map(t => t[0])) + 2, y0w = Math.min(...wt.map(t => t[1])) - 1, y1w = Math.max(...wt.map(t => t[1])) + 2;
+    if (vil) { if (y0w < 0) y0w = -MARGIN; if (y1w > H) y1w = H + MARGIN; if (x0w < 0) x0w = -MARGIN; if (x1w > W) x1w = W + MARGIN; }   // деревня: ручей уходит за край карты, а не обрывается
     water = new THREE.Mesh(new THREE.PlaneGeometry(x1w - x0w, y1w - y0w).rotateX(-Math.PI / 2).translate((x0w + x1w) / 2, -0.08, (y0w + y1w) / 2), waterMaterial(x0w, y0w, x1w, y1w, snow));
     water.material.uniforms.uTime = U.uTime; water.material.uniforms.tNoise.value = noiseTex(); Object.assign(water.material.uniforms, { uHFog: U.uHFog, uHFogCol: U.uHFogCol, tHNoise: U.tHNoise, uHTime: U.uTime, uHFogC: U.uHFogC }); hfogTex();
     if (zone.json.village) {   // ручей деревни: глубина — по расстоянию до берега (текстура W×H), а не по эллипсу вокруг центра

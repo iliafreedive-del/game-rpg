@@ -65,7 +65,7 @@ export const fieldVariant = d => isWildFort(d) ? FIELDS_PER_FORT : (d - 1) % FOR
 export const locationName = (realm, d) => isWildFort(d) ? REALMS[realm].fortName : FIELD_NAMES[realm][fieldVariant(d)];
 export const wildReqLevel = (realm, d) => Math.max(1, wildLevel(realm, d) - 2);
 export const moodOf = (realm, depth) => REALMS[realm].moods[Math.min(2, Math.floor((depth - 1) / 2))];
-export const wildLevel = (realm, depth) => REALMS[realm].baseLevel + Math.floor((depth - 1) * 0.9);
+export const wildLevel = (realm, depth) => REALMS[realm].baseLevel + Math.floor((depth - 1) * 0.9 + Math.max(0, depth - 6) * 0.4);   // за первым фортом — круче
 
 // Задания походов. Прогресс — счётчики P.wild.stat[realm] (реальные события). Награда забирается в окне портала.
 const R = (slot, tier, rarity, names) => ({ slot, tier, rarity, names });

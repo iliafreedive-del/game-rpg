@@ -5,7 +5,7 @@ import { input, resetBase, mouse } from '../core/input.js';
 import { xpToNext } from '../game/stats.js';
 import { SKILLS } from '../data/skills.js';
 import { WEAPONS, RARITY } from '../data/items.js';
-import { CHAPTER, STORY } from '../data/quests.js';
+import { CHAPTER, STORY, chapterOf } from '../data/quests.js';
 import * as Q from '../game/quests.js';
 import * as C from '../game/combat.js';
 import { interact, usePotion, useScroll } from '../game/game.js';
@@ -146,14 +146,14 @@ function tracker() {
     h = `<div class="t">${r.floor === 0 ? 'Пролог · Склеп пробуждения' : esc(G.zone.name)}</div><div class="d" style="display:block">Враги ${r.kills}/${r.total} · ${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}${r.kills >= r.total ? ' · портал открыт' : ' · убейте всех — откроется портал'}</div>`;
     if (h !== lastTrack) { $('tracker').innerHTML = h; lastTrack = h; } return;
   }
-  if (!q) h = `<div class="ch">${CHAPTER}</div><div class="t">Глава пройдена!</div><div class="d">Доска объявлений ждёт: контракты и бои с Палачом</div>`;
+  if (!q) h = `<div class="ch">${chapterOf(STORY[STORY.length - 1])}</div><div class="t">Глава пройдена!</div><div class="d">Рекорды Глубин, Жатва Бездны, форты и контракты доски — Глава III в следующем обновлении</div>`;
   else {
-    const pr = Q.progressOf(q); const done = G.profile.story.stage;
+    const pr = Q.progressOf(q), ch = q.chapter || 1, inCh = STORY.filter(x => (x.chapter || 1) === ch), done = inCh.indexOf(q);
     let txt = q.text; const Wd = G.profile.world;
     if (q.id === 'medallion') txt = !Wd.hasKey ? 'Шаг 1/3: найдите ключ — светящийся саркофаг в оссуарии (север).' : !Wd.opened.door_altar ? 'Шаг 2/3: ключ у вас. Подойдите к запертой двери на востоке.' : 'Шаг 3/3: победите Хранителя в зале за дверью и возьмите амулет с алтаря.';
     if (Q.isReady()) txt = G.zoneId === 'town' ? '✔ Выполнено! Подойдите к старосте Эдрику (над ним «?») — за наградой.' : '✔ Выполнено! Вернитесь в деревню к старосте Эдрику за наградой.';
     else if (q.where && q.where !== G.zoneId) txt = (q.where === 'catacombs' ? 'Спуститесь в катакомбы через портал. ' : 'Вернитесь в деревню через портал. ') + txt;
-    h = `<div class="ch">${CHAPTER} · ${done}/${STORY.length}</div><div class="t">${esc(q.title)}${pr ? ` <span class="muted">${pr.cur}/${pr.max}</span>` : ''}</div><div class="d">${esc(txt)}</div>` + (pr ? `<div class="pb"><i style="width:${pr.cur / pr.max * 100}%"></i></div>` : '');
+    h = `<div class="ch">${chapterOf(q)} · ${done}/${inCh.length}</div><div class="t">${esc(q.title)}${pr ? ` <span class="muted">${pr.cur}/${pr.max}</span>` : ''}</div><div class="d">${esc(txt)}</div>` + (pr ? `<div class="pb"><i style="width:${pr.cur / pr.max * 100}%"></i></div>` : '');
   }
   if (h !== lastTrack) { $('tracker').innerHTML = h; lastTrack = h; }
 }

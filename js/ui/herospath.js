@@ -13,7 +13,10 @@ import { adButton } from './adbtn.js';
 import { gate } from '../game/progress.js';
 import { paintScene } from './hwscenes.js';
 
-export const EN_MAX = 20, EN_MS = 6 * 60e3;
+export const EN_MAX = 20, EN_MS = 9 * 60e3;   // полный запас — 3 часа
+// энергия тратится на повторы пройденных этапов и на поражение; первая победа на новом этапе — бесплатно (сборка 16)
+const spendEn = h => { if (h.en.n >= EN_MAX) h.en.at = Date.now(); h.en.n = Math.max(0, h.en.n - 1); };
+function tryFight(s) { const h = HW(); if (h.en.n <= 0) return; if (s < h.top) spendEn(h); fight(s); }
 // 4 главы по 30 этапов, у каждой свой фон (hwscenes.js): подземелье → лес → снега → скалы
 const CHAPTERS = [
   { name: 'Подземелья Ордена', pool: ['skel_warrior', 'skel_archer', 'ghoul', 'skel_mage'] },
@@ -31,7 +34,7 @@ const stageEnemy = s => {
 };
 const enemyStats = s => {
   const e = stageEnemy(s), m = e.boss ? (e.type === 'boss' ? 3.2 : 2.2) : 1, a = Math.min(s, 30) - 1, b = Math.max(0, s - 30);
-  return { ...e, hp: Math.round(55 * Math.pow(1.17, a) * Math.pow(1.06, b) * m), dmg: 5.5 * Math.pow(1.14, a) * Math.pow(1.05, b) * (e.boss ? 1.3 : 1), aps: e.type === 'ghoul' ? 1.3 : e.boss ? 0.7 : 0.9, lvl: 1 + Math.floor(s * 0.6) };
+  return { ...e, hp: Math.round(55 * Math.pow(1.17, a) * Math.pow(1.095, b) * m), dmg: 5.5 * Math.pow(1.14, a) * Math.pow(1.075, b) * (e.boss ? 1.3 : 1),   /* после 30-го этапа — круче (было ×1,06/×1,05 за этап) */ aps: e.type === 'ghoul' ? 1.3 : e.boss ? 0.7 : 0.9, lvl: 1 + Math.floor(s * 0.6) };
 };
 
 function HW() { const P = G.profile; P.hw = P.hw || { top: 1, stars: {}, en: { n: EN_MAX, at: Date.now() } }; const e = P.hw.en; const now = Date.now(); if (e.n < EN_MAX) { const k = Math.floor((now - e.at) / EN_MS); if (k > 0) { e.n = Math.min(EN_MAX, e.n + k); e.at = e.n >= EN_MAX ? now : e.at + k * EN_MS; } } else e.at = now; return P.hw; }
@@ -88,8 +91,8 @@ function showPrefight(s) {
     <p class="${power >= foe ? 'good' : 'bad'}" style="text-align:center">${power >= foe * 1.3 ? 'Лёгкий бой' : power >= foe ? 'Равный бой' : 'Враг сильнее — улучшите героя у наставника или кузнеца'}</p>`);
   const row = el('div', 'hw-nav');
   const back = el('button', 'btn', 'К карте'); back.onclick = showMap;
-  const go = el('button', 'btn gold', 'В бой · 1 ⚡'); go.disabled = h.en.n <= 0;
-  go.onclick = () => { if (h.en.n <= 0) return; if (h.en.n >= EN_MAX) h.en.at = Date.now(); h.en.n--; fight(s); };
+  const fresh = s >= h.top, go = el('button', 'btn gold', fresh ? 'В бой · ⚡ только при поражении' : 'В бой · 1 ⚡'); go.disabled = h.en.n <= 0;
+  go.onclick = () => tryFight(s);
   row.append(back, go); if (h.en.n <= 3) row.appendChild(adButton('+10 ⚡', 'hw_en', 30 * 60e3, () => { h.en.n = Math.min(EN_MAX + 10, h.en.n + 10); }, () => showPrefight(s))); card.appendChild(row); root.appendChild(card);
 }
 
@@ -318,6 +321,7 @@ async function fight(s) {
   function end(win) {
     cancelAnimationFrame(raf); raf = 0; speedB.remove(); over = win ? 'win' : 'lose';
     const h = HW(), P = G.profile; const first = win && s >= h.top;
+    if (!win && s >= h.top) spendEn(h);   // новый этап: энергия уходит только за поражение
     const pct = hero.hp / hero.max; const stars = win ? (pct > 0.7 ? 3 : pct > 0.35 ? 2 : 1) : 0;
     let gold = 0, xp = 0, shards = 0;
     if (win) {
@@ -330,7 +334,7 @@ async function fight(s) {
     const ov = el('div', 'hw-result ' + (win ? 'win' : 'lose'), `<div class="hw-rt">${win ? 'ПОБЕДА' : 'ПОРАЖЕНИЕ'}</div>${win ? `<div class="stars">${[0, 1, 2].map(i => `<span class="${i < stars ? 'on' : ''}" style="animation-delay:${0.2 + i * 0.3}s">★</span>`).join('')}</div><div class="rw-loot"><span class="goldc">+${gold} золота</span> · <span style="color:#b8e3ff">+${xp} опыта</span>${shards ? ` · <span class="c-shard">+${shards}◆</span>` : ''}</div>` : '<p>Улучшите героя у наставника, закалите оружие у кузнеца — и возвращайтесь.</p>'}`);
     const row = el('div', 'hw-nav');
     const map = el('button', 'btn', 'Карта'); map.onclick = async () => { await maybeInterstitial('hw'); showMap(); };
-    const again = el('button', 'btn', 'Повтор · 1 ⚡'); again.onclick = () => { if (h.en.n <= 0) return; if (h.en.n >= EN_MAX) h.en.at = Date.now(); h.en.n--; fight(s); };
+    const again = el('button', 'btn', s >= h.top ? 'Ещё раз · ⚡ при поражении' : 'Повтор · 1 ⚡'); again.onclick = () => tryFight(s);
     row.append(map, again);
     if (win && s < STAGES && h.top > s) { const nx = el('button', 'btn gold', `Этап ${s + 1} ▶`); nx.onclick = () => showPrefight(s + 1); row.appendChild(nx); }
     ov.appendChild(row); root.appendChild(ov);

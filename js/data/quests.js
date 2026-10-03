@@ -1,6 +1,8 @@
 // Chapter I «Пробуждение под катакомбами». Objectives are checked by game/quests.js
 // against real counters/flags — nothing is credited for actions the player did not perform.
 export const CHAPTER = 'Глава I. Пробуждение под катакомбами';
+export const CHAPTERS = { 1: CHAPTER, 2: 'Глава II. Тени за порогом' };
+export const chapterOf = q => CHAPTERS[(q && q.chapter) || 1];
 export const STORY = [
   { id: 'talk_elder', title: 'Поговорить со старостой', text: 'Староста Эдрик ждёт на площади у колодца.', obj: { talk: 'elder' }, reward: { xp: 20, gold: 60, potions: 2, items: [{ slot: 'weapon', tier: 1, rarity: 1, names: { warrior: 'Клинок ополченца', archer: 'Лук егеря', mage: 'Посох травника' } }] }, where: 'town', target: 'elder' },
   { id: 'find_portal', title: 'Найти портал', text: 'Старый портал Ордена стоит на северо-западе деревни.', obj: { near: 'portal_town' }, reward: { xp: 20, skillPts: 1 }, where: 'town', target: 'portal_town' },
@@ -13,6 +15,16 @@ export const STORY = [
   { id: 'boss', title: 'Победить Палача Бездны', text: 'Палач Бездны ждёт на арене. Следите за его замахами — от ударов можно уклониться.', obj: { flag: 'bossKilled' }, reward: { xp: 300, gold: 150, items: [{ slot: 'weapon', epic: true }] }, where: 'catacombs', target: 'boss' },
   { id: 'return', title: 'Вернуться в деревню', text: 'После гибели Палача открылся портал домой.', obj: { enter: 'town' }, reward: { xp: 50, gold: 50 }, where: 'catacombs', target: 'portal_return' },
   { id: 'finish', title: 'Получить награду у старосты', text: 'Расскажите Эдрику о победе.', obj: { talk: 'elder' }, reward: { xp: 250, gold: 300, items: [{ slot: 'chest', tier: 3, rarity: 2, names: { warrior: 'Латы Тихого Брода', archer: 'Плащ Тихого Брода', mage: 'Облачение Тихого Брода' } }] }, where: 'town', target: 'elder' },
+  // ---- Глава II «Тени за порогом» (сборка 16): ведёт по уже открытому миру — Фьорды, Старый Лес, Глубины, Летопись, форты.
+  // obj: wild {realm, n} — дойти до n-й локации похода (n = 7 — пройти через первый форт); depths n — рекорд Глубин; hw n — пройден этап Летописи
+  { id: 'c2_fjord_portal', chapter: 2, title: 'Найти ледяной портал', text: 'Портал во Фьорды Скъёльда — на северо-востоке деревни, за виноградником, у ручья. Идите по стрелке.', obj: { near: 'portal_fjord' }, reward: { xp: 60, gold: 80, potions: 2 }, where: 'town', target: 'portal_fjord' },
+  { id: 'c2_fjord3', chapter: 2, title: 'Пройти три поля Фьордов', text: 'Войдите в ледяной портал и пройдите три поля подряд (через порталы «Вглубь»).', obj: { wild: { realm: 'fjord', n: 4 } }, reward: { xp: 260, gold: 260, shards: 3 }, where: 'town', target: 'portal_fjord' },
+  { id: 'c2_depths5', chapter: 2, title: 'Спуститься на 5-й этаж Глубин', text: 'Синий портал в деревне. Новые этажи — без факела, пока побеждаете.', obj: { depths: 5 }, reward: { xp: 300, gold: 300, items: [{ slot: 'amulet', set: 1 }] }, where: 'town', target: 'portal_depths' },
+  { id: 'c2_forest_fort', chapter: 2, title: 'Отбить форт Старого Леса', text: 'Пять полей Старого Леса, шестое — форт. Перебейте лагеря, откройте ворота, победите командира и пройдите «Вглубь».', obj: { wild: { realm: 'forest', n: 7 } }, reward: { xp: 450, gold: 450, shards: 5 }, where: 'town', target: 'portal_forest' },
+  { id: 'c2_hw10', chapter: 2, title: 'Летопись битв: 10 этапов', text: 'Арка «Летопись битв» на площади. Бой идёт сам; первая победа на новом этапе не тратит энергию.', obj: { hw: 10 }, reward: { xp: 350, gold: 350, items: [{ slot: 'head', set: 1 }] }, where: 'town', target: 'herospath' },
+  { id: 'c2_depths10', chapter: 2, title: 'Спуститься на 10-й этаж Глубин', text: 'После 8-го этажа враги крепнут быстрее — улучшите героя у наставника и закалите вещи у кузнеца.', obj: { depths: 10 }, reward: { xp: 600, gold: 600, shards: 8 }, where: 'town', target: 'portal_depths' },
+  { id: 'c2_fjord_fort', chapter: 2, title: 'Отбить форт Фьордов', text: 'Ледяной форт ярла за пятью полями Фьордов: лагеря вокруг, ворота, командир.', obj: { wild: { realm: 'fjord', n: 7 } }, reward: { xp: 800, gold: 800, items: [{ slot: 'weapon', tier: 3, rarity: 2 }] }, where: 'town', target: 'portal_fjord' },
+  { id: 'c2_finish', chapter: 2, title: 'Рассказать старосте', text: 'Эдрик ждёт вестей о Фьордах и Лесе.', obj: { talk: 'elder' }, reward: { xp: 900, gold: 1000, shards: 10, items: [{ slot: 'chest', set: 1 }] }, where: 'town', target: 'elder' },
 ];
 
 // Ежедневные и недельные задания — js/game/daily.js; здесь — «долгие» контракты доски: прогресс идёт сам после принятия.

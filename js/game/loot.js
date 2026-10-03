@@ -1,6 +1,6 @@
 // Loot & progression: drops on the ground, proximity pickup (single credit), XP/levels, chest contents.
 import { G, bus } from './ctx.js';
-import { makeItem } from './items.js';
+import { makeItem, sellValue, makeSetItem, pickSet } from './items.js';
 import { EPICS } from '../data/items.js';
 import { ENEMIES, scaleXP } from '../data/enemies.js';
 import { xpToNext, stats } from './stats.js';
@@ -39,6 +39,7 @@ export function enemyLoot(e) {
 export function rollDrop(ilvl, table) {
   const P = G.profile, r = rollRarity(table);
   if (r >= 3) return makeItem({ epic: pickEpic(P.cls), ilvl, cls: P.cls });
+  if (r === 2 && P.level >= 6 && rand() < 0.3) return makeSetItem(pickSet(P.cls), null, ilvl, P.cls);   // часть синих — части сетов (с 6 уровня)
   return makeItem({ ilvl, rarity: r, cls: P.cls });
 }
 export function pickEpic(cls) {
@@ -57,6 +58,7 @@ function chestLoot0(x, y, rich, lvl, id) {
   if (rich || rand() < 0.5) dropPotion(x, y, rand() < 0.75 ? 'hp' : 'mp');
   if (rich && rand() < 0.5) dropPotion(x, y, 'hp');
   if (rand() < (rich ? 0.6 : 0.06)) dropItem(x, y + 0.2, rollDrop(lvl, rich ? [30, 50, 19, 1] : [82, 17, 1, 0]));
+  if (rich && G.profile.level >= 6 && rand() < 0.2) dropItem(x + 0.3, y + 0.4, makeSetItem(pickSet(G.profile.cls), null, lvl, G.profile.cls));   // сундук Ордена — шанс части сета
 }
 
 // pickups: gold automatically, items/potions automatically when room in bag
@@ -80,7 +82,12 @@ export function updatePickups(dt) {
     } else if (p.kind === 'potion') {
       p.taken = true; prof.potions[p.potion]++; float(P.x, P.y, p.potion === 'hp' ? '+ Зелье здоровья' : '+ Зелье маны', '#ff8f8f', { z: 2.3 }); bus.emit('sfx', 'potionPick'); bus.emit('hud');
     } else if (p.kind === 'item') {
-      if (prof.bag.length >= prof.bagSize) { if (!p.warned) { p.warned = true; bus.emit('toast', { text: 'Сумка полна! Продайте вещи торговке.', kind: 'warn' }); } continue; }
+      if (prof.bag.length >= prof.bagSize) {   // сумка полна: серое продаётся само (с пола или самое дешёвое из сумки), иначе — напоминание
+        if (p.item.rarity === 0) { const g = sellValue(p.item); prof.gold += g; p.taken = true; bus.emit('sfx', 'gold'); float(P.x, P.y, '+' + g + ' зол.', '#ffd76a'); bus.emit('toast', { text: `Сумка полна — серая вещь продана: +${g} зол.`, kind: 'info' }); bus.emit('hud'); continue; }
+        const gi = prof.bag.reduce((bi, it, i) => it.rarity === 0 && !it.locked && (bi < 0 || sellValue(it) < sellValue(prof.bag[bi])) ? i : bi, -1);
+        if (gi >= 0) { const [old] = prof.bag.splice(gi, 1); const g = sellValue(old); prof.gold += g; bus.emit('toast', { text: `Сумка полна — продано «${old.name}»: +${g} зол.`, kind: 'info' }); }
+        else { if (!p.warnT || G.time - p.warnT > 6) { p.warnT = G.time; bus.emit('toast', { text: 'Сумка полна — вещь не помещается', sub: 'Продайте лишнее у торговки или в окне «Герой»', kind: 'warn' }); } continue; }
+      }
       p.taken = true; p.item.isNew = true; prof.bag.push(p.item); bus.emit('itemPicked', p.item); bus.emit('sfx', 'pickup');
     }
   }
