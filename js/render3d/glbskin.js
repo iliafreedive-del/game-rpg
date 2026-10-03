@@ -100,6 +100,18 @@ export function attachSkin(kit, model, name, o = {}) {
   // на высоте плеча, лук вертикально и поперёк руки, правая рука с высоким локтем тянет тетиву к щеке, середина тетивы
   // (кость nock) идёт за правой кистью. Цель — вперёд по +Z модели. model.bowAim / bowPull — из позы старого рига (_hero.js).
   const nock = byName.nock, nockRest = nock ? nock.position.clone() : null;
+  // стрела на тетиве: от середины тетивы через рукоять лука вперёд; видна, пока лучник целится, до спуска (дальше летит снаряд игры)
+  let arrow = null;
+  if (o.arrow && nock) {
+    const { part, merge } = kit, F = o.arrow.fletch ?? 0x6b3fd0;
+    const g = merge([
+      part(new THREE.CylinderGeometry(0.011, 0.011, 0.86, 5), 0x6a4426, [0, 0, 0.43], [Math.PI / 2, 0, 0], 1, { top: 0xa87444 }),
+      part(new THREE.ConeGeometry(0.028, 0.11, 4), 0x9a9aa8, [0, 0, 0.9], [Math.PI / 2, 0, 0], 1, { top: 0xe0e0ea }),
+      ...[0, 1, 2].map(i => part(new THREE.BoxGeometry(0.004, 0.05, 0.13), F, [0, 0, 0.09], [0, 0, i * 2.094], [1, 1, 1], { top: 0xb48cff })).map((gg, i) => { gg.translate(Math.sin(i * 2.094) * 0.025, Math.cos(i * 2.094) * 0.025, 0); return gg; }),
+    ]);
+    arrow = new THREE.Mesh(g, kit.mat({ rim: 0.4 })); arrow.userData.noBake = true; arrow.userData.noOutline = true; arrow.visible = false; root.add(arrow);
+    model.materials = [...(model.materials || []), arrow.material];
+  }
   const UP = new THREE.Vector3(0, 1, 0), AIM = new THREE.Vector3(0, 0, 1), _rinv = new THREE.Matrix4(), _mm = new THREE.Matrix4(), _mb = new THREE.Matrix4();
   const V = Array.from({ length: 12 }, () => new THREE.Vector3()), Q = Array.from({ length: 6 }, () => new THREE.Quaternion());
   const rsM = o3 => _mm.multiplyMatrices(_rinv, o3.matrixWorld);
@@ -125,6 +137,7 @@ export function attachSkin(kit, model, name, o = {}) {
   }
   function bowShot() {
     if (nock) nock.position.copy(nockRest);
+    if (arrow) arrow.visible = false;
     const aim = model.bowAim || 0; if (!bowHand || aim < 0.001) return;
     const pull = model.bowPull || 0, T = byName.torso, Hd = byName.head;
     // корпус ещё сильнее боком (левым плечом к цели), голова поворачивается обратно — смотрит на цель
@@ -155,6 +168,12 @@ export function attachSkin(kit, model, name, o = {}) {
       refresh();
       const hm = rsM(bowHand).clone(), rest = nockRest.clone().applyMatrix4(hm), to = rsPos(byName.handR, V[1]);
       nock.position.copy(rest.lerp(to, pull).applyMatrix4(hm.invert()));
+    }
+    // стрела: хвост — в середине тетивы, наконечник — через рукоять лука
+    if (arrow && aim > 0.3 && (model.bowRel || 0) < 0.05) {
+      refresh();
+      const tail = rsPos(nock, V[2]), grip = rsPos(bowHand, V[3]).addScaledVector(UP, 0.04);
+      arrow.position.copy(tail); arrow.quaternion.setFromUnitVectors(V[4].set(0, 0, 1), V[5].subVectors(grip, tail).normalize()); arrow.visible = true;
     }
   }
   sync(); bowShot();

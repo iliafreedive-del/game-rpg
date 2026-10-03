@@ -44,4 +44,4 @@ function head({ kit, STEEL, STEEL_L, DARK, BR }) {
 }
 export default { id: 'archer', kind: 'hero', outline: 'hero', build(kit) { const m = heroModel(kit, { steel: 0x6a4a2a, steelL: 0xc89a58, steelD: 0x3a2814, dark: 0x5a2a1a, tex: 'leather', rimColor: 0xffe0a0, noCape: true, height: 2.35, cast: 'bow', torso, head });
   // новая модель «Вороний лучник» (Meshy → tools/art/glb_rig.py): лук — часть модели, ноги короче рига
-  return kit.skin ? kit.skin.attachSkin(kit, m, 'archer_raven', { noEquip: ['handL'], bowHand: 'handL', legK: 0.75, rimColor: 0xffe0a0 }) : m; } };
+  return kit.skin ? kit.skin.attachSkin(kit, m, 'archer_raven', { noEquip: ['handL'], bowHand: 'handL', arrow: {}, legK: 0.75, rimColor: 0xffe0a0 }) : m; } };
