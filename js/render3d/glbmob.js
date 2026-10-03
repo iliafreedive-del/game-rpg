@@ -36,6 +36,25 @@ function turn(bone, root, axis, ang) {
   _m.copy(root.matrixWorld).invert().multiply(bone.parent.matrixWorld); _m.decompose(_ax, _pq, _ax);
   _q.setFromAxisAngle(axis, ang); _q2.copy(_pq).invert().multiply(_q).multiply(_pq); bone.quaternion.premultiply(_q2);
 }
+// поза «лёг на живот» (как собака): кость → дочерняя → направление сегмента в пространстве модели (+Z — вперёд, +Y — вверх).
+// Скелет Meshy-четвероногого: frontleg (плечо) → frontleg0 (локоть) → frontleg1 (запястье) → frontleg2 (лапа); backleg — так же
+const LIE = [
+  ['frontleg', 'frontleg0', [0, -0.9, -0.45]], ['frontleg0', 'frontleg1', [0, -0.12, 1]], ['frontleg1', 'frontleg2', [0, -0.25, 1]],
+  ['backleg0', 'backleg1', [0, -0.4, 0.92]], ['backleg1', 'backleg2', [0, -0.2, -1]],
+  ['tailstart', 'tail1', [0, -0.35, -1]], ['tail1', 'tail2', [0, -0.15, -1]], ['tail2', 'tail3', [0, -0.05, -1]],
+].map(([a, b, d]) => [a, b, new THREE.Vector3(...d)]);
+// повернуть кость так, чтобы направление от неё к дочерней кости стало dir (в пространстве модели), с силой w
+const _a = new THREE.Vector3(), _b = new THREE.Vector3(), _wq = new THREE.Quaternion(), _iq = new THREE.Quaternion(), _rq = new THREE.Quaternion();
+function aim(bone, child, root, dir, w) {
+  if (!bone || !child || !w) return;
+  root.updateMatrixWorld(true);
+  _m.copy(root.matrixWorld).invert();
+  _a.setFromMatrixPosition(_m.clone().multiply(bone.matrixWorld)); _b.setFromMatrixPosition(_m.clone().multiply(child.matrixWorld));
+  const cur = _b.sub(_a).normalize();
+  _q.setFromUnitVectors(cur, _ax.copy(dir).normalize()); _q.slerp(_iq.identity(), 1 - w);
+  _m.copy(root.matrixWorld).invert().multiply(bone.parent.matrixWorld); _m.decompose(_a, _pq, _b);
+  _q2.copy(_pq).invert().multiply(_q).multiply(_pq); bone.quaternion.premultiply(_q2);
+}
 const X = new THREE.Vector3(1, 0, 0), Y = new THREE.Vector3(0, 1, 0), Z = new THREE.Vector3(0, 0, 1);
 
 /**
@@ -49,6 +68,19 @@ export function buildMob(kit, name, o = {}) {
   root.add(spin); spin.position.y = H * 0.45; spin.add(body); body.position.y = -H * 0.45;
   const norm = new THREE.Group(); norm.scale.setScalar(k); norm.position.set(-(D.box.min.x + D.box.max.x) / 2 * k, -D.box.min.y * k, -(D.box.min.z + D.box.max.z) / 2 * k); body.add(norm);
   const sc = cloneSkinned(D.gltf.scene); norm.add(sc);
+  // стопы на землю: нижняя точка модели со скелетом (поза покоя и кадры ходьбы опускают лапы ниже рамки покоя) — считается один раз
+  root.updateMatrixWorld(true);
+  if (D.footY == null) {
+    const mx = new THREE.AnimationMixer(sc), ac = mx.clipAction(D.walk); ac.play();
+    let lo = Infinity; const v = new THREE.Vector3();
+    for (const t of [0, 0.25, 0.5, 0.75]) {
+      ac.time = t * (D.walk.duration || 1); mx.update(0); sc.updateMatrixWorld(true);
+      sc.traverse(n => { if (n.isSkinnedMesh) { const pa = n.geometry.attributes.position; for (let i = 0; i < pa.count; i += 3) { n.getVertexPosition(i, v); v.applyMatrix4(n.matrixWorld); v.applyMatrix4(_m.copy(norm.matrixWorld).invert()); lo = Math.min(lo, v.y); } } });
+    }
+    mx.stopAllAction(); mx.uncacheRoot(sc);
+    D.footY = isFinite(lo) ? lo : D.box.min.y;
+  }
+  norm.position.y = -D.footY * k;
   const mat = toon(o.tint ?? 0xffffff, { rim: o.rim ?? 0.55, rimColor: o.rimColor ?? 0xffe2b8, side: THREE.DoubleSide, ao: 0.75, aoH: 0.5 });
   const B = {}; let mesh = null;
   sc.traverse(n => {
@@ -108,7 +140,13 @@ export function buildMob(kit, name, o = {}) {
     hit: a => pose(a, 0, 0, 0, 0, 1 - (a.k ?? 1)),
     // рёв/вой: голова вверх, корпус чуть назад, лапы на земле (на дыбы — передние лапы торчат вперёд, волку не идёт)
     cast: a => { const q = a.k ?? 0, h = smooth(q / 0.35) * (1 - smooth((q - 0.8) / 0.2)); pose(a, 0, -0.12 * h, 0, h * 1.6); },
-    death: a => { const e = smooth(Math.min(1, (a.k ?? 1) / 0.7)); pose(a, 0, 0, 0, 0, 0.3); spin.rotation.z = Math.PI / 2 * 0.95 * e; spin.position.y = lerp(H * 0.45, H * 0.2, e); turn(head, root, X, 0.4 * e); },
+    // смерть: ложится на живот, как собака — передние лапы вперёд, задние подгибает под себя, голову кладёт
+    death: a => {
+      const e = smooth(Math.min(1, (a.k ?? 1) / 0.75)); pose(a, 0, 0, 0, 0, 0);
+      body.position.y -= H * 0.21 * e; body.rotation.x = 0.03 * e;
+      for (const [n, c, d] of LIE) for (const p of ['', 'R_']) aim(B[p + n], B[p + c], root, d, e);
+      root.updateMatrixWorld(true); turn(head, root, X, 0.3 * e);
+    },
   };
   return {
     root, height: H, radius: o.radius ?? 0.34, shadow: o.shadow ?? H * 1.4, materials: [mat],
