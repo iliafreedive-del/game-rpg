@@ -355,10 +355,13 @@ function rockTex() {
   for (let i = 0; i < 10; i++) { let X = R() * S, Y = R() * S; x.strokeStyle = col(30, SOOT, 0.7); x.lineWidth = 1 + R() * 1.4; x.beginPath(); x.moveTo(X, Y); for (let q = 0; q < 6; q++) { X += (R() - 0.5) * 10; Y += 8 + R() * 10; x.lineTo(X, Y); } x.stroke(); }   // трещины
   return c;
 }
+// мех зверей — серые бесшовные тайлы художника (assets/art/mat_*.png): пока картинка грузится, слой ровно серый (50 %, без рисунка)
+const grayLayer = () => { const c = canvas(512), x = c.getContext('2d'); x.fillStyle = gray(128); x.fillRect(0, 0, 512, 512); return c; };
+const IMG_LAYERS = { 16: 'mat_fur_short.png', 17: 'mat_fur_shaggy.png', 18: 'mat_bristle.png' };
 // id → слой массива; масштаб (повторов на метр) и «сила» фактуры — в шейдере (toon.js, MAT_SCALE / MAT_AMP)
-export const MAT_LAYERS = [woodTex, stoneTex, roofTex, plasterTex, metalTex, clothTex, barkTex, tileTex, thatchTex, cobbleTex, ironTex, leatherTex, goldTex, boneTex, crystalTex, rockTex];
-export const MAT_SCALE = [1.1, 0.7, 0.9, 0.8, 1.4, 1.8, 1.3, 0.75, 0.8, 0.9, 1.5, 1.8, 1.8, 1.6, 1.0, 0.45];
-export const MAT_AMP = [3.2, 3.2, 3.2, 2.6, 1.5, 2.2, 3.2, 3.2, 2.6, 3.0, 1.8, 2.4, 2.0, 2.4, 2.0, 2.6];
+export const MAT_LAYERS = [woodTex, stoneTex, roofTex, plasterTex, metalTex, clothTex, barkTex, tileTex, thatchTex, cobbleTex, ironTex, leatherTex, goldTex, boneTex, crystalTex, rockTex, grayLayer, grayLayer, grayLayer];
+export const MAT_SCALE = [1.1, 0.7, 0.9, 0.8, 1.4, 1.8, 1.3, 0.75, 0.8, 0.9, 1.5, 1.8, 1.8, 1.6, 1.0, 0.45, 2.6, 2.0, 2.6];
+export const MAT_AMP = [3.2, 3.2, 3.2, 2.6, 1.5, 2.2, 3.2, 3.2, 2.6, 3.0, 1.8, 2.4, 2.0, 2.4, 2.0, 2.6, 1.1, 1.1, 1.1];
 // все слои в одном DataArrayTexture (sampler2DArray): N = 384 на ПК, 256 на телефоне (вдвое меньше памяти и времени)
 let matArr = null;
 export function matArray() {
@@ -371,6 +374,12 @@ export function matArray() {
   const t = new THREE.DataArrayTexture(d, N, N, L);
   t.format = THREE.RGBAFormat; t.type = THREE.UnsignedByteType; t.wrapS = t.wrapT = THREE.RepeatWrapping;
   t.magFilter = THREE.LinearFilter; t.minFilter = THREE.LinearMipmapLinearFilter; t.generateMipmaps = true; t.anisotropy = 4; t.needsUpdate = true;
+  // слои-картинки дозагружаются и подменяются в массиве (один повторный upload)
+  for (const [L, name] of Object.entries(IMG_LAYERS)) {
+    const im = new Image();
+    im.onload = () => { const c = document.createElement('canvas'); c.width = c.height = N; const x = c.getContext('2d', { willReadFrequently: true }); x.drawImage(im, 0, 0, N, N); d.set(x.getImageData(0, 0, N, N).data, +L * N * N * 4); t.needsUpdate = true; };
+    im.src = new URL('../../assets/art/' + name, import.meta.url).href;
+  }
   matArr = t; return t;
 }
 

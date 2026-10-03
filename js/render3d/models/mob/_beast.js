@@ -1,6 +1,9 @@
 // Пещерный зверь: массивный горбатый хищник на четырёх лапах, костяные пластины вдоль хребта, клыки, светящиеся глаза.
 // Свой риг (не IK): лапы переставляются диагональными парами, атака — рывок с укусом, «каст» — рёв, смерть — заваливается на бок.
+import { beastAnat } from './_beast_anat.js';
+// Новая шерсть включена (fur.js FUR.on) и у зверя есть анатомический профиль (C.anat) → анатомическая модель _beast_anat.js
 export function beastModel(kit, C = {}) {
+  if (kit.fur && kit.fur.FUR.on && C.anat) return beastAnat(kit, C);
   {
     const { THREE, PAL, MOB, part, merge, ball, group, rig, pivot } = kit;
     const { clamp, smooth, lerp } = rig;

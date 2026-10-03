@@ -30,10 +30,12 @@ export function bakeRigid(modelRoot, holder) {
   modelRoot.traverse(o => { if (o.isMesh && !o.isSkinnedMesh && !o.userData.isOutline && !o.userData.noBake) { if (!groups.has(o.material)) groups.set(o.material, []); groups.get(o.material).push(o); } });
   const out = [];
   for (const [mat, list] of groups) {
-    if (list.length < 2) continue;
+    if (list.length < 2 && !mat.userData.noOutline) continue;
     let n = 0; for (const m of list) n += m.geometry.attributes.position.count;
     const P = new Float32Array(n * 3), N = new Float32Array(n * 3), C = new Float32Array(n * 4), TX = new Float32Array(n), SI = new Uint16Array(n * 4), SW = new Float32Array(n * 4);
     const inv = [], bones = [], v = new THREE.Vector3(), nm = new THREE.Matrix3(), rel = new THREE.Matrix4();
+    // прочие атрибуты (UV прядей шерсти, проекция наклеек — fur.js) переносятся как есть
+    const extra = Object.entries(list[0].geometry.attributes).filter(([k]) => !['position', 'normal', 'color', 'aTex'].includes(k)).map(([k, a]) => [k, a.itemSize, new Float32Array(n * a.itemSize)]);
     let o = 0;
     list.forEach((m, bi) => {
       const g = m.geometry, pa = g.attributes.position, na = g.attributes.normal, ca = g.attributes.color, c = pa.count;
@@ -44,12 +46,14 @@ export function bakeRigid(modelRoot, holder) {
         if (ca) C.set([ca.getX(i), ca.getY(i), ca.getZ(i), ca.itemSize > 3 ? ca.getW(i) : 1], (o + i) * 4); else C.fill(1, (o + i) * 4, (o + i) * 4 + 4);
         SI[(o + i) * 4] = bi; SW[(o + i) * 4] = 1; if (g.attributes.aTex) TX[o + i] = g.attributes.aTex.getX(i);
       }
+      for (const [k, sz, arr] of extra) { const a = g.attributes[k]; if (a) for (let i = 0; i < c; i++) for (let j = 0; j < sz; j++) arr[(o + i) * sz + j] = a.getComponent(i, j); }
       o += c; bones.push(m); inv.push(rel.clone().invert());
       m.layers.disableAll(); m.userData.noOutline = true;
     });
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.BufferAttribute(P, 3)); geo.setAttribute('normal', new THREE.BufferAttribute(N, 3));
     geo.setAttribute('color', new THREE.BufferAttribute(C, 4)); geo.setAttribute('aTex', new THREE.BufferAttribute(TX, 1)); geo.setAttribute('skinIndex', new THREE.BufferAttribute(SI, 4)); geo.setAttribute('skinWeight', new THREE.BufferAttribute(SW, 4));
+    for (const [k, sz, arr] of extra) geo.setAttribute(k, new THREE.BufferAttribute(arr, sz));
     const sk = new THREE.SkinnedMesh(geo, mat);
     // кости — исходные меши; SkinnedMesh стоит в корне актёра (attached: bindMatrixInverse = обратная его matrixWorld),
     // а обратные матрицы костей переводят из пространства корня модели, поэтому корень актёра и модели должны совпадать
@@ -78,6 +82,7 @@ export class Actor {
     this.olMat = outlineMat(def.outline || (def.kind === 'hero' ? 'hero' : def.kind === 'prop' ? 'prop' : 'mob'));
     this.skinned = o.bake === false ? [] : bakeRigid(this.model.root, this.root);
     for (const sk of this.skinned) {
+      if (sk.material.userData.noOutline) continue;   // пряди шерсти и наклейки — без обводки
       const ol = new THREE.SkinnedMesh(sk.geometry, this.olMat); ol.frustumCulled = false; ol.userData.isOutline = true;
       ol.bind(sk.skeleton, sk.bindMatrix); this.root.add(ol);
     }
