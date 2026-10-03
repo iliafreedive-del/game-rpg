@@ -8,10 +8,11 @@ import * as rig from './rig.js';
 import { Cape, blobShadow } from './cape.js';
 import * as fur from './fur.js';
 import * as skin from './glbskin.js';
+import * as mob from './glbmob.js';
 import { PAL, HERO, MOB, OUTLINE, RIM, FOLIAGE, LOOKS, SHADOW } from './style.js';
 
 export function makeKit(scene) {
-  skin.preloadSkin('archer_raven'); skin.preloadSkin('warrior_vanguard'); skin.preloadSkin('mage_archmage');
+  skin.preloadSkin('archer_raven'); skin.preloadSkin('warrior_vanguard'); skin.preloadSkin('mage_archmage'); mob.preloadMob('wolf_grey');
   const { part, merge } = geo;
   return {
     THREE, scene, geo, rig, PAL, HERO, MOB, OUTLINE, RIM, FOLIAGE, Cape, blobShadow,
@@ -20,6 +21,8 @@ export function makeKit(scene) {
     fur,
     // готовые модели художника/нейросети поверх процедурного рига (glbskin.js); грузятся заранее
     skin,
+    // ригнутые модели из Meshy со своими анимациями (glbmob.js): звери
+    mob,
     // бокс с фасками: размеры, фаска, цвет, позиция, поворот, опции покраски ({ top, tex, emit })
     bbox: (w, h, d, b, c, p, r, o) => part(geo.chamferBox(w, h, d, b), c, p, r, 1, o),
     // сужающаяся трубка по точкам (рога, рёбра, когти) и тело вращения по профилю [[r, y], …]

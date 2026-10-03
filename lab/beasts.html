@@ -65,7 +65,7 @@ const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
 renderer.setPixelRatio(Math.min(2, devicePixelRatio || 1));
 renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 const scene = new THREE.Scene(), kit = makeKit(scene);
-await kit.fur.ready; await kit.skin.preloadSkin('archer_raven'); await kit.skin.preloadSkin('warrior_vanguard'); await kit.skin.preloadSkin('mage_archmage');
+await kit.fur.ready; await kit.skin.preloadSkin('archer_raven'); await kit.skin.preloadSkin('warrior_vanguard'); await kit.skin.preloadSkin('mage_archmage'); await kit.mob.preloadMob('wolf_grey');
 const camera = new THREE.PerspectiveCamera(CAMERA.fov, 1, 0.3, 200);
 const hemi = new THREE.HemisphereLight(), sun = new THREE.DirectionalLight();
 sun.castShadow = true; sun.shadow.mapSize.set(1024, 1024); Object.assign(sun.shadow.camera, { left: -8, right: 8, top: 8, bottom: -8, near: 1, far: 60 }); sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.03;
@@ -124,7 +124,7 @@ canvas.addEventListener('wheel', e => { e.preventDefault(); zoomTo((S.cam === 'g
 function zoomTo(d) { d = Math.min(40, Math.max(2.5, d)); if (S.cam === 'game') gameDist = d; else dist = d; }
 
 // --- клипы: разовые повторяются по кругу (прогресс k 0…1 за dur, пауза), «ходьба» — по кругу радиусом 2.6 м
-const CLIPS = [['idle', 'Стоит'], ['walk', 'Ходьба'], ['attack', 'Атака'], ['cast', 'Выстрел/рёв'], ['hit', 'Удар'], ['dodge', 'Перекат'], ['death', 'Смерть']];
+const CLIPS = [['idle', 'Стоит'], ['walk', 'Ходьба'], ['run', 'Бег'], ['attack', 'Атака'], ['cast', 'Выстрел/рёв'], ['hit', 'Удар'], ['dodge', 'Перекат'], ['death', 'Смерть']];
 let clipT = 0, t = 0, last = performance.now();
 const YAW0 = (() => { try { return +(new URLSearchParams(location.search).get('yaw') || 0); } catch { return 0; } })();   // ?yaw=3.14 — повернуть «Профиль» (для снимков)
 const FREEZE = (() => { try { const v = new URLSearchParams(location.search).get('freeze'); return v == null ? null : +v; } catch { return null; } })();   // ?freeze=0.5 — остановить разовый клип на этой фазе (для снимков)
@@ -134,12 +134,12 @@ function drive(dt) {
   const right = new THREE.Vector3(Math.cos(CAMERA.yaw), 0, -Math.sin(CAMERA.yaw));
   for (const e of actors) {
     const a = e.a, spec = a.model.clips[S.clip] || {}, sideOff = right.clone().multiplyScalar(e.side * 1.1 * Math.max(1.3, a.model.height));
-    if (S.clip === 'walk') {
-      const ang = clipT * 0.55 + (e.side > 0 ? 0 : 0), R = 2.4;
+    if (S.clip === 'walk' || S.clip === 'run') {
+      const ang = clipT * (S.clip === 'run' ? 1.2 : 0.55), R = 2.4;
       // по кругу вокруг своей точки; смотрит по касательной
       a.place(sideOff.x + Math.cos(ang) * R * (S.mode === 'side' ? 0.45 : 1), sideOff.z + Math.sin(ang) * R * (S.mode === 'side' ? 0.45 : 1));
       a.faceAngle(Math.atan2(Math.cos(ang), -Math.sin(ang)));
-      a.update(dt, { clip: 'walk', speed: ['archer', 'warrior', 'mage'].includes(S.mob) ? 3.6 : 2.6 }, env);
+      a.update(dt, { clip: 'walk', speed: S.clip === 'run' ? 4.3 : ['archer', 'warrior', 'mage'].includes(S.mob) ? 3.6 : 1.6 }, env);   // бег — скорость волка в игре (4,3 м/с)
     } else {
       a.place(sideOff.x, sideOff.z); a.faceAngle(CAMERA.yaw);
       if (spec.loop || S.clip === 'idle') a.update(dt, { clip: S.clip }, env);
