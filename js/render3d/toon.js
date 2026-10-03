@@ -130,7 +130,7 @@ if (vTexId > 0.5) {
   vec3 m = textureGrad(tMats, vec3(ux, L), dxX, dyX).rgb * tw.x + textureGrad(tMats, vec3(uy, L), dxY, dyY).rgb * tw.y + textureGrad(tMats, vec3(uz, L), dxZ, dyZ).rgb * tw.z;
   vec3 f = clamp(1.0 + (m - 0.5) * MAMP[int(L)], 0.25, 1.8);
   // второй слой — износ: дерево, камень, штукатурка и брусчатка грязнее и темнее у земли; на камне сверху мох
-  if (id < 3.5 || id == 5.0 || id == 11.0) {
+  if (id < 3.5 || id == 5.0 || id == 11.0 || id == 17.0) {
     float nzs = 0.5 + 0.5 * sin(vTP.x * 1.9 + sin(vTP.z * 2.3 + vTP.y * 1.3) * 2.1 + vTP.y * 3.1);
     float low = 1.0 - smoothstep(0.0, 1.15, vTP.y);
     f *= mix(vec3(1.0), vec3(0.58, 0.52, 0.44), low * (0.45 + 0.55 * nzs) * 0.8);

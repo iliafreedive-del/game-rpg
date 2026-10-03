@@ -27,6 +27,14 @@ import w_boar from './models/mob/w_boar.js';
 import w_bear from './models/mob/w_bear.js';
 import f_boss from './models/mob/f_boss.js';
 import w_boss from './models/mob/w_boss.js';
+import b_raider from './models/mob/b_raider.js';
+import b_thrower from './models/mob/b_thrower.js';
+import b_hyena from './models/mob/b_hyena.js';
+import b_boar from './models/mob/b_boar.js';
+import b_shaman from './models/mob/b_shaman.js';
+import b_scorpid from './models/mob/b_scorpid.js';
+import b_chief from './models/mob/b_chief.js';
+import b_boss from './models/mob/b_boss.js';
 import axe_hand from './models/weapon/axe_hand.js';
 import club_giant from './models/weapon/club_giant.js';
 import staff_ice from './models/weapon/staff_ice.js';
@@ -128,6 +136,10 @@ import tree_sapling from './models/prop/tree_sapling.js';
 import { DEAD_VARIANTS, ROCK_VARIANTS } from './models/prop/_variants.js';
 import { PORTAL_VARIANTS } from './models/prop/_portals.js';
 import market_tent from './models/prop/market_tent.js';
+// Костяные пустоши: биом полупустыни, скелеты великанов, лагерь дикарей
+import { STEPPE_PROPS } from './models/prop/_steppe.js';
+import { GIANT_PROPS } from './models/prop/_giants.js';
+import { CAMP_PROPS } from './models/prop/_camp.js';
 // деревня по правилам (js/world/villagegen.js)
 import church from './models/prop/church.js';
 import tavern from './models/prop/tavern.js';
@@ -160,11 +172,11 @@ import tool_stand from './models/prop/tool_stand.js';
 
 const by = (...l) => Object.fromEntries(l.map(m => [m.id, m]));
 export const HEROES = by(warrior, archer, mage);                       // ключ — класс героя
-export const MOBS = by(skel_warrior, ghoul, skel_archer, skel_mage, beast, elite_guard, boss, f_draugr, f_berserk, f_hag, f_jotun, f_jarl, w_poacher, w_leshy, w_ataman, f_wolf, w_wolf, w_boar, w_bear, f_boss, w_boss);             // ключ — тип врага (ENEMIES)
+export const MOBS = by(skel_warrior, ghoul, skel_archer, skel_mage, beast, elite_guard, boss, f_draugr, f_berserk, f_hag, f_jotun, f_jarl, w_poacher, w_leshy, w_ataman, f_wolf, w_wolf, w_boar, w_bear, f_boss, w_boss, b_raider, b_thrower, b_hyena, b_boar, b_shaman, b_scorpid, b_chief, b_boss);             // ключ — тип врага (ENEMIES)
 export const NPCS = by(npc_fortune, npc_elder, npc_smith, npc_merchant, npc_trainer);
 export const WEAPONS = by(bow_hunter, staff_mage, axe_hand, club_giant, staff_ice, staff_root, sword_iron, shield_round, sword_rust, shield_bone, bow_bone, staff_bone, axe_great);
 export const PROPS = by(fort_door_i, fort_door_w, chronicle, fort_wall, palisade, fort_tower, watchtower, fort_gate_i, fort_gate_w, fort_hall_i, fort_hall_w, tent_i, tent_w, tree_0, tree_1, tree_birch, tree_autumn, tree_elm, tree_pine_tall, tree_fir_blue, deadtree, house_0, house_1, house_2, rocks, grave, fence_x, fence_y, barrel, crate, hay, lamp, runebed, forge, stall, board, altar, banner, statue, weapon_rack, crystals, portal,
-  fern, flowers, pebbles, mushrooms, bush, sacks, logpile, stump, tree_poplar, tree_oakwide, tree_sapling, ...DEAD_VARIANTS, ...ROCK_VARIANTS, ...PORTAL_VARIANTS, market_tent,
+  fern, flowers, pebbles, mushrooms, bush, sacks, logpile, stump, tree_poplar, tree_oakwide, tree_sapling, ...DEAD_VARIANTS, ...ROCK_VARIANTS, ...PORTAL_VARIANTS, market_tent, ...STEPPE_PROPS, ...GIANT_PROPS, ...CAMP_PROPS,
   church, tavern, shop, smithy, cottage_a, cottage_b, cottage_c, bridge, barricade, vine_row, garden_bed, scarecrow, dummy, target, bench, table, reeds, fortune_tent, mill_ruin, cart, cart_load, signpost, barrel_stack, log_stack, plank_pile, clothesline, pumpkins, tool_stand,
   dwall_hi, dwall_lo, dwall_buttress, dwall_niche, wall_block, torch_sconce, pillar, brazier, bones, skulls, rubble, candles, chest, chest_open, chest_rich, chest_rich_open, sarcophagus, sarcophagus_open, door, door_open, gate_sealed, altar_medallion, stalagmite, lavarock, puddle, rug, bookshelf, throne, well);   // подземелье (стены dwall_* ставит dungeon.js по тайлам)   // последние восемь — декор земли и хлам у домов (js/render3d/props.js, scatterDecor), в картах не стоят
 
@@ -181,6 +193,6 @@ export const TREE_KINDS = {
   tree_0: [['tree_0', 3], ['tree_elm', 3], ['tree_birch', 2.5], ['tree_autumn', 1.4], ['tree_oakwide', 2], ['tree_poplar', 1.6], ['tree_sapling', 1.6], ['tree_1', 1]],
   tree_1: [['tree_1', 3], ['tree_pine_tall', 2.5], ['tree_fir_blue', 1.5], ['tree_elm', 1.2], ['tree_birch', 0.8], ['tree_poplar', 0.8], ['tree_sapling', 0.8], ['tree_autumn', 0.7]],
 };
-for (const id of [...TREE_KINDS.tree_0, ...TREE_KINDS.tree_1].map(k => k[0])) {
+for (const id of [...TREE_KINDS.tree_0, ...TREE_KINDS.tree_1].map(k => k[0]).concat(['tree_acacia', 'tree_acacia_b', 'tree_acacia_c'])) {
   const d = PROPS[id]; PROPS[id + '_far'] = { ...d, id: id + '_far', density: d.leaf === 'pine' ? 0.6 : Math.max(5, Math.round(d.density * 0.3)) };
 }

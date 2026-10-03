@@ -15,6 +15,7 @@
 | Глубины | `js/world/floorgen.js` (`generateFloor`, `floorLevel`) | `buildDungeon`, биомы `LIGHT.crypt.biome` в `js/render3d/style.js` |
 | Походы (поля, форты) | `js/world/wildgen.js`, `js/data/wild.js` (`REALMS`, `wildLevel`), `js/game/wild.js` (спавн, ворота, итог) | `zone.js` `buildWild`, `js/world/wildfloor.js` |
 | Цитадель | `js/world/castlegen.js`, `js/game/castle.js` (факелы, осколки) | `buildDungeon` |
+| Костяные пустоши (сборка 17) | `js/data/wild.js` (`REALMS.bones`, мобы `b_*`), `js/world/wildgen.js` (`bn`: скелеты великанов `GIANT_FOOT`, лагеря) | `zone.js` `buildWild`, модели `prop/_steppe.js`, `_giants.js`, `_camp.js`, `_bones.js`; земля `ground.js` `uSteppe`, свет `LIGHT.wildSteppe` |
 | Жатва Бездны | `js/game/survival.js` (`generateArena`) | — |
 | Летопись битв | `js/ui/herospath.js`, сцена `js/render3d/hwstage.js` | — |
 
@@ -32,6 +33,12 @@
 - Готовые сценарии: `tools/qa/scenarios/town_reach.js` (достижимость всех NPC/порталов с реальными коллайдерами), `depths_balance.js` (автобой на этаже; `localStorage` LVL/FLOOR), `autoattack_moving.js` (удары на ходу; `CLS=1|2` — лучник/маг). Раскладка деревни ASCII: `node tools/qa/village_ascii.mjs`.
 - Модели: `node tools/check_models.mjs [id…]`.
 - Подсказки в походах (окна «Понятно») закрывать кликом по кнопке, иначе они перекрывают кадр; меню Глубин при входе — тоже окно (`.modal-bg`).
+
+## Костяные пустоши — что осталось (сборка 18)
+- Модели: клыкастый дикарь (`_brute.js`: рубака, метатель, шаман, вождь), скорпион с клешнями и жалом, босс — Костяной исполин. Сейчас `b_raider/b_thrower/b_shaman/b_chief` — перекрашенные скелеты, `b_scorpid` — зверь, `b_boss` — заготовка босса.
+- Руины на 6-й глубине: песчаные колонны, арки, плиты; сейчас стены — частокол форта Леса (`props.js` `MODEL`, стена `tusk_fence` уже есть).
+- Вход со 2 уровня и `baseLevel: 3` — временно; место в цепочке (`progress.js gate`) не задано.
+- Сценарии проверки: `tools/qa/scenarios/bones_field.js` (поле глубины `BD`), `bones_flow.js` (портал → бой), `bones_perf.js` (нагрузка), `bones_portal.js`.
 
 ## Известные хвосты
 - Ничего из сборок 11–16 не проверено на iPhone, кроме того, что прислал пользователь (по его скриншотам всё работает).

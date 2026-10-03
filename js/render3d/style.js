@@ -95,6 +95,21 @@ export const LIGHT = {
     warm: { color: 0xff9a4a, i: 8, dist: 12, decay: 1.9 },
     violet: { color: 0x9a62ff, i: 10, dist: 10, decay: 1.6, y: 2.0 },
   },
+  // Костяные пустоши: жаркое пыльное солнце над красной землёй, охристая дымка; «Кладбище великанов» — закат
+  wildSteppe: {
+    clear: 0xd8a070, fog: { color: 0xd8a476, near: 34, far: 98 },
+    hemi: { sky: 0xffe2b8, ground: 0x9a5a34, i: 1.5 },
+    key: { color: 0xfff0d0, i: 3.1, offset: [-11, 24, 20] },
+    warm: { color: 0xff9a4a, i: 10, dist: 13, decay: 1.8 },
+    violet: { color: 0x9a62ff, i: 12, dist: 10, decay: 1.6, y: 2.0 },
+  },
+  wildSteppeDusk: {
+    clear: 0x8a4a48, fog: { color: 0x9a5a50, near: 30, far: 90 },
+    hemi: { sky: 0xffb890, ground: 0x6a3428, i: 1.35 },
+    key: { color: 0xffb070, i: 2.7, offset: [-16, 18, 14] },
+    warm: { color: 0xff8a3a, i: 12, dist: 13, decay: 1.8 },
+    violet: { color: 0x9a62ff, i: 12, dist: 10, decay: 1.6, y: 2.0 },
+  },
   // подземелья (катакомбы, глубины): холодная синева вместо неба, тёплые факелы — пул ближайших точечных огней;
   // луна сверху даёт тени колонн и стен. Биомы глубин подкрашивают заливку и туман (biome)
   crypt: {

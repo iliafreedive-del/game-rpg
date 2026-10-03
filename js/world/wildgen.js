@@ -7,7 +7,17 @@ const ROUTES = [{ s: [7.5, 54.5], e: [54.5, 9.5] }, { s: [32.5, 56.5], e: [32.5,
 
 function rng(seed) { let s = seed >>> 0; return () => { s = (s + 0x6D2B79F5) >>> 0; let t = s; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
 export const WILD_SIZE = 64;
-const FORT = { w: 26, h: 20 };   // масштабный лагерь: стены, башни, ворота, длинный дом, шатры
+const FORT = { w: 26, h: 20 };
+// Костяные пустоши: скелеты великанов — «следы» коллайдеров [x0, y0, x1, y1] в осях модели (без поворота) и радиус, который они занимают
+const GIANT_FOOT = {
+  giant_skull: { r: 3.4, boxes: [[-2.0, -1.8, 2.0, 1.9]] },
+  giant_ribs: { r: 5.0, boxes: [[-4.3, -2.0, 4.3, 2.0]] },
+  giant_spine: { r: 4.6, boxes: [[-4.0, -0.7, 4.0, 0.7]] },
+  tusk_arch: { r: 3.4, boxes: [[-2.6, -0.5, -1.6, 0.5], [1.6, -0.5, 2.6, 0.5]] },
+  giant_fallen: { r: 4.4, boxes: [[-3.2, -1.4, 1.2, 1.2], [1.2, -0.3, 3.0, 2.0]] },
+};
+// какие скелеты чаще на каком поле (варианты 0–5): степь, долина черепов, балки, хребет великана, курганы, руины
+const GIANTS_BY_VARIANT = [['giant_skull', 'tusk_arch', 'giant_ribs'], ['giant_skull', 'giant_skull', 'giant_fallen'], ['tusk_arch', 'giant_spine', 'giant_skull'], ['giant_ribs', 'giant_spine', 'giant_fallen'], ['giant_fallen', 'giant_skull', 'giant_ribs'], ['giant_ribs', 'giant_skull']];   // масштабный лагерь: стены, башни, ворота, длинный дом, шатры
 
 export function generateWild(realm, depth) {
   const RL = REALMS[realm], mood = moodOf(realm, depth), boss = isWildBoss(depth);   // boss: форт с боссом поля
@@ -20,7 +30,7 @@ export function generateWild(realm, depth) {
 
 function build(RL, mood, depth, boss, attempt, force) {
   const W = WILD_SIZE, H = WILD_SIZE, realm = RL.id, isFort = isWildFort(depth), variant = fieldVariant(depth);
-  const R = rng((realm === 'fjord' ? 7001 : 3003) + depth * 7919 + attempt * 104729);
+  const bn = realm === 'bones', R = rng((realm === 'fjord' ? 7001 : bn ? 5005 : 3003) + depth * 7919 + attempt * 104729);
   const ri = (a, b) => a + Math.floor(R() * (b - a + 1));
   const g = Array.from({ length: H }, (_, y) => Array.from({ length: W }, (_, x) => (x < 3 || y < 3 || x >= W - 3 || y >= H - 3) ? 'x' : '.'));
   const set = (x, y, c) => { if (x >= 0 && y >= 0 && x < W && y < H) g[y][x] = c; };
@@ -38,9 +48,9 @@ function build(RL, mood, depth, boss, attempt, force) {
 
   // озёра / заливы
   const LK = [0.7, 0.4, 2.2, 0.3, 0.6][variant] ?? 1;   // водоёмов по вариантам: ручьи — больше, бор — почти нет
-  const nLakes = Math.round((0.6 + mood.lake * 7 + R() * 1.4) * LK);   // водоёмов мало: обходить их по всему полю — мучение
+  const nLakes = bn ? (R() < 0.3 ? 1 : 0) : Math.round((0.6 + mood.lake * 7 + R() * 1.4) * LK);   // в пустошах — редкий оазис   // водоёмов мало: обходить их по всему полю — мучение
   for (let k = 0; k < nLakes; k++) {
-    const r = 2 + R() * (realm === 'fjord' ? 4 : 2.2), cx = ri(6, W - 7), cy = ri(6, H - 7);
+    const r = (bn ? 1.6 : 2) + R() * (realm === 'fjord' ? 4 : bn ? 1.2 : 2.2), cx = ri(6, W - 7), cy = ri(6, H - 7);
     if (reserved(cx, cy, r)) continue;
     for (let y = Math.floor(cy - r - 1); y <= cy + r + 1; y++) for (let x = Math.floor(cx - r * 1.3 - 1); x <= cx + r * 1.3 + 1; x++) {
       const dx = (x - cx) / 1.3, dy = y - cy; if (dx * dx + dy * dy < r * r * (0.75 + R() * 0.4) && at(x, y) === '.' && !reserved(x, y)) set(x, y, '~');
@@ -94,7 +104,7 @@ function build(RL, mood, depth, boss, attempt, force) {
     objects.push({ t: 'fort_hall', x: cxF, y: fort.y + 5.2 });
     for (const [dx, dy] of [[-8, 4.5], [8, 4.5], [-8, 11.5], [8, 11.5]]) objects.push({ t: 'tent', x: cxF + dx, y: fort.y + dy, rot: R() * 6.28 });
     for (const [x, y] of [[fort.x + 2.5, fort.y + 2.5], [fort.x + fort.w - 2.5, fort.y + 2.5], [cxF - 4, fort.y + 9.5], [cxF + 4, fort.y + 9.5], [cxF, fort.y + fort.h - 3.5], [cxF - 6, fort.y + fort.h - 3.5], [cxF + 6, fort.y + fort.h - 3.5]]) objects.push({ t: 'brazier', x, y });
-    const dec = realm === 'fjord' ? ['barrel', 'crate', 'weapon_rack', 'bones', 'skulls'] : ['hay', 'crate', 'barrel', 'weapon_rack', 'bones'];
+    const dec = realm === 'fjord' ? ['barrel', 'crate', 'weapon_rack', 'bones', 'skulls'] : bn ? ['hide_rack', 'skulls', 'crate', 'weapon_rack', 'bones'] : ['hay', 'crate', 'barrel', 'weapon_rack', 'bones'];
     for (let i = 0; i < 14; i++) objects.push({ t: dec[i % dec.length], x: fort.x + 2 + R() * (fort.w - 4), y: fort.y + 8 + R() * (fort.h - 12) });
     objects.push({ t: 'wchest', id: 'wfort_rich', rich: true, x: cxF, y: fort.y + 7.7 });
     objects.push({ t: 'wchest', id: 'wfort_2', x: fort.x + 3, y: fort.y + fort.h - 3 });
@@ -111,6 +121,20 @@ function build(RL, mood, depth, boss, attempt, force) {
 
   }
 
+  // --- Костяные пустоши: скелеты великанов-ориентиры (1–3 на поле), коллайдеры по следу модели с учётом поворота
+  if (bn) {
+    const list = GIANTS_BY_VARIANT[variant], nG = isFort ? 1 : 2 + (R() < 0.5 ? 1 : 0);
+    const boxesAt = (t, x, y, rot) => GIANT_FOOT[t].boxes.map(([x0, y0, x1, y1]) => { const c = Math.cos(rot), s = Math.sin(rot), P = [[x0, y0], [x1, y0], [x0, y1], [x1, y1]].map(([lx, lz]) => [x + lx * c + lz * s, y - lx * s + lz * c]); return [Math.min(...P.map(p => p[0])), Math.min(...P.map(p => p[1])), Math.max(...P.map(p => p[0])), Math.max(...P.map(p => p[1]))]; });
+    const boxFree = b => { for (let ty = Math.floor(b[1]) - 1; ty <= Math.floor(b[3]) + 1; ty++) for (let tx = Math.floor(b[0]) - 1; tx <= Math.floor(b[2]) + 1; tx++) { if (at(tx, ty) !== '.' || inFort(tx, ty, 2)) return false; } return true; };
+    for (let k = 0, got = 0; k < 80 && got < nG; k++) {
+      const t = list[(got + k) % list.length], F = GIANT_FOOT[t], rot = R() < 0.5 ? 0 : Math.PI / 2;
+      const p = pick((x, y) => dist(x, y, start[0], start[1]) > 9 + F.r && dist(x, y, exit[0], exit[1]) > 5 + F.r && !near(x, y, F.r + 3) && free(x, y, 1));
+      if (!p) continue; const boxes = boxesAt(t, p[0], p[1], rot); if (!boxes.every(boxFree)) continue;
+      got++; placed.push([p[0], p[1], F.r + 1]); objects.push({ t, x: p[0], y: p[1], rot, boxes });
+      for (let j = 0; j < 4; j++) { const a = R() * 6.28, d = F.r + 0.6 + R() * 1.5; objects.push({ t: j % 2 ? 'skulls' : 'bones', x: p[0] + Math.cos(a) * d, y: p[1] + Math.sin(a) * d, deco: 1 }); }   // кости вокруг
+    }
+  }
+
   // --- лагеря мобов
   const nCamps = isFort ? Math.min(8, 4 + Math.floor((depth + 1) / 3)) : Math.min(11, 6 + Math.floor((depth + 1) / 3));   // у форта — лагеря вокруг (их надо перебить, чтобы открылись ворота); на открытых полях — главное содержание   // на всё поле ~8–10 мобов: бой по одному-двое
   const bigPool = RL.pool.filter(([, d]) => d <= depth).map(([t]) => t);
@@ -123,8 +147,13 @@ function build(RL, mood, depth, boss, attempt, force) {
     spawns.push([t, p[0], p[1], n, 2.2, lvl]);
     if (MT.ai !== 'giant' && depth >= 4 && R() < 0.3) { const t2 = bigPool[ri(0, bigPool.length - 1)]; if (WILD_MOBS[t2].ai !== 'giant') spawns.push([t2, p[0], p[1], 1, 2.5, lvl]); }
     // лагерная обстановка и сундук
-    objects.push({ t: realm === 'fjord' ? 'brazier' : 'rocks', x: p[0] + 1.6, y: p[1] - 1.2 });
-    for (let k = 0; k < 2; k++) objects.push({ t: ['bones', 'skulls', 'crate', 'barrel'][ri(0, 3)], x: p[0] - 1.5 + R() * 3, y: p[1] + 1.5 + R() * 1.5 });
+    objects.push({ t: realm === 'fjord' ? 'brazier' : bn ? 'bonfire' : 'rocks', x: p[0] + 1.6, y: p[1] - 1.2 });
+    if (bn) {   // стоянка дикарей: хижина из шкур на рёбрах, тотем или знамя, рама со шкурой
+      const hx = p[0] - 3.2 + R() * 1.2, hy = p[1] - 2.6 + R() * 0.8; if (free(hx, hy, 2) && !near(hx, hy, 2.5)) { objects.push({ t: 'bone_hut', x: hx, y: hy, rot: R() < 0.5 ? 0 : Math.PI / 2, s: 1.2 }); placed.push([hx, hy, 2.6]); }
+      objects.push({ t: R() < 0.55 ? 'bone_totem' : 'war_banner', x: p[0] + 2.6, y: p[1] + 0.4 });
+      if (R() < 0.6) objects.push({ t: 'hide_rack', x: p[0] - 0.6, y: p[1] + 2.6, rot: R() < 0.5 ? 0 : Math.PI / 2 });
+    }
+    for (let k = 0; k < 2; k++) objects.push({ t: (bn ? ['bones', 'skulls', 'skulls', 'crate'] : ['bones', 'skulls', 'crate', 'barrel'])[ri(0, 3)], x: p[0] - 1.5 + R() * 3, y: p[1] + 1.5 + R() * 1.5 });
     if (realm === 'forest') { const t3 = ['cart_load', 'barrel_stack', 'log_stack', 'plank_pile', 'cart'][ri(0, 4)]; objects.push({ t: t3, x: p[0] + 2.4, y: p[1] + 1.8, rot: R() * 6.28 }); }   // лагерь разбойников: награбленное (набор POLYGON Adventure)
     if (R() < 0.35) objects.push({ t: 'wchest', id: 'wc' + camps, x: p[0] - 2.2, y: p[1] - 0.6 });
   }
@@ -144,23 +173,25 @@ function build(RL, mood, depth, boss, attempt, force) {
   // по вариантам поля — своя растительность: роща, ручьи и камни, бор, бурелом (деревья и камни стоят не ближе ~2,4 м друг к другу)
   const flora = {
     forest: [['tree_0', 'tree_0', 'tree_1', 'tree_0', 'rocks', 'tree_1'], ['tree_0', 'tree_0', 'tree_0', 'tree_1', 'tree_0', 'rocks'], ['rocks', 'tree_0', 'rocks', 'tree_1', 'rocks', 'tree_0'], ['tree_1', 'tree_1', 'tree_0', 'tree_1', 'tree_1', 'deadtree'], ['deadtree', 'tree_0', 'deadtree', 'rocks', 'tree_1', 'deadtree'], mood.dark ? ['tree_0', 'tree_1', 'deadtree', 'mushrooms', 'rocks', 'tree_0'] : ['tree_0', 'tree_1', 'tree_0', 'tree_1', 'rocks', 'deadtree']],
+    bones: [['tree_acacia', 'rocks', 'tree_acacia_b', 'rock_spire', 'rocks', 'agave'], ['rocks', 'rock_spire', 'tree_acacia', 'rock_tooth', 'rocks', 'tree_acacia_c'], ['tree_acacia', 'tree_acacia_b', 'tree_acacia_c', 'rocks', 'agave', 'deadtree'], ['rock_spire', 'rock_spire_b', 'rock_tooth', 'rocks', 'rock_mesa', 'tree_acacia'], ['rocks', 'deadtree', 'rock_tooth', 'tree_acacia_b', 'rocks', 'agave'], ['rocks', 'rock_spire', 'tree_acacia', 'deadtree', 'rock_tooth']],
     fjord: [['tree_1', 'tree_1', 'rocks', 'tree_0', 'tree_1', 'rocks'], ['rocks', 'stalagmite', 'rocks', 'tree_1', 'rocks', 'crystals'], ['rocks', 'tree_1', 'stalagmite', 'rocks', 'rocks', 'deadtree'], ['tree_1', 'rocks', 'tree_1', 'rocks', 'tree_0', 'tree_1'], ['stalagmite', 'rocks', 'rocks', 'crystals', 'deadtree', 'stalagmite'], depth >= 5 ? ['rocks', 'stalagmite', 'crystals', 'tree_0'] : ['tree_1', 'stalagmite', 'tree_0', 'deadtree', 'tree_1', 'rocks']],
   }[realm][variant];
-  const nFlora = Math.round((realm === 'forest' ? 125 : 110) * [0.8, 1.1, 1, 1.5, 0.9, 1][variant]) + Math.floor(depth * 4);
+  const nFlora = Math.round((realm === 'forest' ? 125 : bn ? 66 : 110) * [0.8, 1.1, 1, 1.5, 0.9, 1][variant]) + Math.floor(depth * 4);
+  let nF = 0;
   for (let i = 0; i < nFlora * 2; i++) {
     const p = pick((x, y) => !inFort(x, y, 1) && dist(x, y, start[0], start[1]) > 3 && dist(x, y, exit[0], exit[1]) > 3 && free(x, y, 0) && !near(x, y, 2.4));
-    if (p) { placed.push([p[0], p[1], 2.4]); objects.push({ t: flora[ri(0, flora.length - 1)], x: p[0], y: p[1] }); if (objects.filter(o => o.t === 'tree_0' || o.t === 'tree_1' || o.t === 'rocks' || o.t === 'deadtree' || o.t === 'stalagmite' || o.t === 'crystals' || o.t === 'mushrooms').length >= nFlora) break; }
+    if (p) { const t = flora[ri(0, flora.length - 1)]; if (t === 'rock_mesa' && !free(p[0], p[1], 2)) continue; placed.push([p[0], p[1], t === 'rock_mesa' ? 3.6 : 2.4]); objects.push({ t, x: p[0], y: p[1] }); if (++nF >= nFlora) break; }
   }
-  for (let i = 0; i < 8; i++) { const p = pick((x, y) => free(x, y, 0)); if (p) objects.push({ t: realm === 'fjord' ? 'skulls' : 'bones', x: p[0], y: p[1], deco: 1 }); }
+  for (let i = 0; i < (bn ? 16 : 8); i++) { const p = pick((x, y) => free(x, y, 0)); if (p) objects.push({ t: realm === 'fjord' ? 'skulls' : bn && i % 3 === 0 ? 'skulls' : 'bones', x: p[0], y: p[1], deco: 1 }); }
   // указатель у входа и брошенный скарб по полю (в Старом Лесу — телеги, поленницы, бочки)
-  objects.push({ t: 'signpost', x: start[0] + 2.6, y: start[1] + 1.2, rot: R() * 6.28 });
+  objects.push(bn ? { t: 'war_banner', x: start[0] + 2.6, y: start[1] + 1.2 } : { t: 'signpost', x: start[0] + 2.6, y: start[1] + 1.2, rot: R() * 6.28 });
   if (realm === 'forest') for (let i = 0; i < 3; i++) { const p = pick((x, y) => !inFort(x, y, 2) && dist(x, y, start[0], start[1]) > 8 && free(x, y, 1) && !near(x, y, 3)); if (p) { placed.push([p[0], p[1], 3]); objects.push({ t: ['cart', 'log_stack', 'barrel_stack'][i], x: p[0], y: p[1], rot: R() * 6.28 }); } }
   // жаровни у выхода и старта
-  objects.push({ t: 'brazier', x: start[0] + 1.5, y: start[1] - 1.5 }, { t: 'brazier', x: exit[0] - 2.2, y: exit[1] + 1.6 });
+  objects.push({ t: bn ? 'bonfire' : 'brazier', x: start[0] + 1.5, y: start[1] - 1.5 }, { t: bn ? 'bonfire' : 'brazier', x: exit[0] - 2.2, y: exit[1] + 1.6 });
 
   const total = spawns.reduce((a, s) => a + s[3], 0);
   return {
-    name: `${RL.name} · ${locationName(realm, depth)} · глубина ${depth}`, floorN: (realm === 'fjord' ? 1200 : 1100) + depth, wild: { realm, depth, mood: moodOf(realm, depth), boss, fort: isFort ? fort : null, gate: isFort ? gate : null, kind: isFort ? 'fort' : 'field', variant, locName: locationName(realm, depth) },
+    name: `${RL.name} · ${locationName(realm, depth)} · глубина ${depth}`, floorN: (realm === 'fjord' ? 1200 : bn ? 1300 : 1100) + depth, wild: { realm, depth, mood: moodOf(realm, depth), boss, fort: isFort ? fort : null, gate: isFort ? gate : null, kind: isFort ? 'fort' : 'field', variant, locName: locationName(realm, depth) },
     w: W, h: H, rows, objects, torches: [], spawns, total, rooms: {}, start, boss, level: lvl, story: [],
   };
 }
