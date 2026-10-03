@@ -112,7 +112,7 @@ export function claimDaily(double) {
   if (r.potions) P.potions.hp += r.potions * m;
   if (r.scrolls) P.scrolls += r.scrolls * m;
   if (r.item) for (let i = 0; i < m; i++) { const it = makeItem({ ilvl: P.level, rarity: r.item, cls: P.cls }); delete it.req; autoEquip(it); }
-  P.daily.last = dayKey(Date.now()); P.daily.streak = s.streak + 1;
+  P.daily.last = dayKey(Date.now()); P.daily.streak = s.streak + 1; bus.emit('loginClaimed');
   bus.emit('toast', { text: `Дар богини — день ${s.day} из ${LOGIN_DAYS}`, sub: r.big ? 'Большая награда!' : r.mid ? 'Награда каждого 3-го дня' : '', kind: 'good' }); bus.emit('sfx', 'quest'); bus.emit('hud'); bus.emit('save'); return true;
 }
 

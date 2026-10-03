@@ -1,4 +1,5 @@
 // Loot & progression: drops on the ground, proximity pickup (single credit), XP/levels, chest contents.
+import { rm } from './season.js';
 import { G, bus } from './ctx.js';
 import { makeItem, sellValue, makeSetItem, pickSet } from './items.js';
 import { EPICS } from '../data/items.js';
@@ -7,8 +8,8 @@ import { xpToNext, stats } from './stats.js';
 import { rand, rint, weighted, pick, uid } from '../core/util.js';
 import { float, particles } from './combat.js';
 
-const goldMul = () => (G.run && G.run.boons && G.run.boons.includes('greed') ? 1.6 : 1) * (1 + G.stats.goldFind / 100) * (G.profile.boosts.goldUntil > Date.now() || G.profile.boosts.blessUntil > Date.now() ? 1.5 : 1) * (G.profile.iap.goldPerk ? 1.25 : 1);
-export const xpMul = () => (G.profile.boosts.xpUntil > Date.now() || G.profile.boosts.blessUntil > Date.now() ? 1.5 : 1) * (1 + ((G.stats && G.stats.decor && G.stats.decor.xp) || 0) / 100);
+const goldMul = () => rm('gold') * (G.run && G.run.boons && G.run.boons.includes('greed') ? 1.6 : 1) * (1 + G.stats.goldFind / 100) * (G.profile.boosts.goldUntil > Date.now() || G.profile.boosts.blessUntil > Date.now() ? 1.5 : 1) * (G.profile.iap.goldPerk ? 1.25 : 1);
+export const xpMul = () => rm('xp') * (G.profile.boosts.xpUntil > Date.now() || G.profile.boosts.blessUntil > Date.now() ? 1.5 : 1) * (1 + ((G.stats && G.stats.decor && G.stats.decor.xp) || 0) / 100);
 
 export function dropGold(x, y, amount) {
   amount = Math.max(1, Math.round(amount * goldMul()));
@@ -32,7 +33,7 @@ export function enemyLoot(e) {
   for (let i = 0; i < piles; i++) dropGold(e.x, e.y, rint(D.gold[0], D.gold[1]) * (1 + 0.12 * (L - 1)) / (D.boss || D.elite ? piles / 2 : 1));
   if (rand() < (D.boss ? 1 : D.elite ? 0.7 : e.champion ? 0.5 : 0.06)) dropPotion(e.x, e.y, rand() < 0.7 ? 'hp' : 'mp');
   // вещи: редкие и заметные. Рядовой враг почти никогда, чемпион — иногда, страж и босс — всегда
-  const ch = (D.boss ? 1 : D.elite ? 0.8 : e.champion ? 0.25 : G.zoneId === 'wild' ? 0.08 : 0.06)   // сборка 20: серого больше — сырьё для слияния у кузнеца / (e.respawned ? 3 : 1) * (G.profile.boosts.blessUntil > Date.now() ? 1.25 : 1);   // благословение богини — +25% вещей   // возрождённые (respawn.js) — втрое реже
+  const ch = (D.boss ? 1 : D.elite ? 0.8 : e.champion ? 0.25 : G.zoneId === 'wild' ? 0.08 : 0.06)   // сборка 20: серого больше — сырьё для слияния у кузнеца / (e.respawned ? 3 : 1) * (G.profile.boosts.blessUntil > Date.now() ? 1.25 : 1) * rm('items');   // благословение богини — +25% вещей; испытание недели «Орда» — ×2   // возрождённые (respawn.js) — втрое реже
   // таблицы: серый / зелёный / синий / золотой. Рядовые враги почти всегда дают серое
   if (rand() < ch) dropItem(e.x, e.y, rollDrop(L + (D.boss || D.elite ? 1 : 0), D.boss ? [8, 47, 38, 7] : D.elite ? [30, 50, 19, 1] : e.champion ? [55, 38, 7, 0] : [93, 6, 1, 0]));
 }

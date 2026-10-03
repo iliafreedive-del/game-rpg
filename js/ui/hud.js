@@ -12,6 +12,7 @@ import { interact, usePotion, useScroll } from '../game/game.js';
 import { drawIcon, skillIcon, iconURL } from './icons.js';
 import { iconOf } from '../game/items.js';
 import { dailyStatus, chestStatus, blessLeft, blessTick } from '../platform/monetize.js';
+import { seasonClaimable, nextGoalLine } from '../game/season.js';
 import { dailyReady } from '../game/daily.js';
 import { BOONS } from '../data/boons.js';
 import { openWindow, pumpRewards } from './windows.js';
@@ -126,7 +127,8 @@ export function updateHUD(dt) {
   dot('dotChar', G.zoneId === 'town' ? P.attrPts : 0); dot('dotSkill', G.zoneId === 'town' ? P.skillPts : 0);
   const ds = dailyStatus(), cs = chestStatus(), gifts = (ds.claimable ? 1 : 0) + (cs.ready ? 1 : 0) + (dailyReady() ? 1 : 0); dot('dotGift', gifts);
   const sh = G.zone && G.zone.inter.find(i => i.id === 'shrine'); if (sh) { sh.plate = 'Алтарь богини' + (gifts ? ` 🎁${gifts}` : blessLeft() > 0 ? '' : ' ✦'); sh.marker = gifts ? '!' : null; }   // значок над алтарём
-  blessTick();
+  blessTick(); dot('dotSeason', seasonClaimable());
+  { let gl = $('goalLine'); if (!gl) { gl = el('div', '', ''); gl.id = 'goalLine'; $('buffs').after(gl); } const t = G.zoneId === 'town' || !inCombat() ? nextGoalLine() : ''; if (gl.textContent !== t) gl.textContent = t; }   // «до цели» (сборка 21)
   // buffs
   const now = Date.now(); const bf = [];
   if (blessLeft() > 0) bf.push(`<b class="bless">✦ Благословение ${mmss(blessLeft())}</b>`);
@@ -139,7 +141,7 @@ export function updateHUD(dt) {
 }
 const mmss = ms => { const s = Math.ceil(ms / 1000); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
 export const BADGES = {};
-function dot(id, n) { BADGES[id] = n || 0; const d = $(id); if (!d) { const m = $('dotMenu'); const tot = ['dotChar', 'dotSkill', 'dotGift', 'dotHW'].reduce((a, k) => a + (BADGES[k] || 0), 0); if (m) { m.classList.toggle('hidden', !tot); m.textContent = tot > 9 ? '9+' : tot; } return; } d.classList.toggle('hidden', !n); d.textContent = n > 9 ? '9+' : n; }
+function dot(id, n) { BADGES[id] = n || 0; const d = $(id); if (!d) { const m = $('dotMenu'); const tot = ['dotChar', 'dotSkill', 'dotGift', 'dotHW', 'dotSeason'].reduce((a, k) => a + (BADGES[k] || 0), 0); if (m) { m.classList.toggle('hidden', !tot); m.textContent = tot > 9 ? '9+' : tot; } return; } d.classList.toggle('hidden', !n); d.textContent = n > 9 ? '9+' : n; }
 function setBar(id, f, txt) { const b = $(id); b.firstElementChild.style.width = Math.max(0, Math.min(1, f)) * 100 + '%'; if (txt != null) b.querySelector('b').textContent = txt; }
 let lastTrack = '';
 function tracker() {

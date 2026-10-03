@@ -15,6 +15,7 @@ import { loadJSON, loadGroup } from '../core/assets.js';
 import { loadFloor, buildFloorCanvas } from '../render/index.js';
 import { widen } from '../world/widen.js';
 import { respawnTick } from './respawn.js';
+import { weeklyRule, finishWeekly, codexScan } from './season.js';
 const ROOMY = 1.5;   // «простор» (сборка 18): подземелья в 3D растянуты в 1,5 раза — шире комнаты и коридоры
 import { generateFloor, isBossFloor, parTime } from '../world/floorgen.js';
 import { generateWild } from '../world/wildgen.js';
@@ -80,6 +81,7 @@ export async function loadZone(id, how = {}) {
     await prepareWildAtlases(how.realm); setPropsPalette(how.realm === 'fjord'); buildWildFloor(zone);
   } else if (id === 'depths') {
     const json = generateFloor(how.floor ?? 1);
+    if (how.weekly) { const R = weeklyRule(); json.name = 'Испытание недели · ' + R.name; json.weekly = R.id; if (R.count) json.spawns = json.spawns.map(s => { const n = s.slice(); if (!n[6]) n[3] = n[3] * R.count; return n; }); }   // сборка 21
     zone = new Zone('depths', G.render3d ? widen(json, ROOMY) : json, P);
     await buildFloorCanvas(zone);
   } else {
@@ -126,7 +128,8 @@ export async function loadZone(id, how = {}) {
   } else if (id === 'depths') {
     [pl.x, pl.y] = zone.start; pl.face = pl.dir = 1;
     spawnFloor(zone); G.diedThisRun = false; G.dungeonCache = null;
-    G.run = { floor: zone.json.floorN, free: !!how.free, t0: G.time, kills: 0, total: G.enemies.length, gold0: P.stats.gold, deaths: 0, done: false, boons: how.keepBoons && G.lastBoons ? G.lastBoons.slice() : [] }; G.lastBoons = null;
+    G.run = { weekly: zone.json.weekly ? weeklyRule() : null, floor: zone.json.floorN, free: !!how.free, t0: G.time, kills: 0, total: G.enemies.length, gold0: P.stats.gold, deaths: 0, done: false, boons: how.keepBoons && G.lastBoons ? G.lastBoons.slice() : [] }; G.lastBoons = null;
+    if (G.run.weekly) { const R = G.run.weekly; for (const e of G.enemies) { if (R.hp) { e.maxHP = Math.round(e.maxHP * R.hp); e.hp = e.maxHP; } if (R.dmg) e.dmgMul *= R.dmg; if (R.spd) e.spdBonus = (e.spdBonus || 1) * R.spd; } bus.emit('toast', { text: 'Испытание недели: ' + R.name, sub: R.txt, kind: 'quest' }); }
   } else {
     if (how.useCache && G.dungeonCache) { pl.x = G.dungeonCache.x; pl.y = G.dungeonCache.y; G.dungeonCache = null; }
     else { [pl.x, pl.y] = zone.start; spawnDungeon(zone); G.diedThisRun = false; G.dungeonCache = null; }
@@ -270,7 +273,7 @@ export function interact(it) {
       if (it.hidden || !G.wild) { bus.emit('toast', { text: 'Портал запечатан', sub: 'Сначала отбейте форт', kind: 'warn' }); bus.emit('sfx', 'deny'); return; }
       const nd = G.wild.depth + 1, need = wildReqLevel(G.wild.realm, nd);
       if (P.level < need) { bus.emit('toast', { text: `Дальше — с ${need} уровня`, sub: `У вас ${P.level}. Наберитесь сил на этом поле или в катакомбах`, kind: 'warn' }); bus.emit('sfx', 'deny'); return; }
-      bankCarry('Вы прошли через портал «Вглубь»'); bus.emit('sfx', 'portal'); loadZone('wild', { realm: G.wild.realm, depth: nd }); return;
+      bankCarry('Вы прошли через портал «Вглубь»'); bus.emit('wildField'); bus.emit('sfx', 'portal'); loadZone('wild', { realm: G.wild.realm, depth: nd }); return;
     }
     case 'stash': openStash(it); return;
     case 'cache': useCache(it); return;
@@ -380,6 +383,12 @@ export function finishFloor() {
     loadZone('town', { from: 'catacombs' }); return;
   }
   P.depths = P.depths || { best: 0, stars: {} };
+  if (r.weekly) {   // испытание недели: свой рекорд, рекорд и звёзды обычных этажей не трогает
+    const time = G.time - r.t0, w = finishWeekly(time), gold = Math.round((40 + r.floor * 20) * (w.first ? 2 : 1)), xp = Math.round((30 + r.floor * 18) * (w.first ? 2 : 1));
+    P.gold += gold; L.gainXP(xp); P.stats.floors = (P.stats.floors || 0) + 1;
+    const res = { floor: r.floor, time, kills: r.kills, total: r.total, stars: 3, prevStars: 3, gold, xp, first: false, weekly: r.weekly.name, weeklyFirst: w.first, weeklyRec: w.rec, runGold: P.stats.gold - r.gold0, boss: false, token: 'weekly_' + Math.round(r.t0 * 1000) };
+    G.lastFloorResult = res; bus.emit('floorResult', res); bus.emit('hud'); saveNow(); return;
+  }
   const time = G.time - r.t0, first = r.floor > P.depths.best;
   const stars = 1 + (r.kills >= Math.ceil(r.total * 0.9) ? 1 : 0) + (time <= parTime(r.floor, r.total) && r.deaths === 0 ? 1 : 0);
   const prevStars = P.depths.stars[r.floor] || 0;
