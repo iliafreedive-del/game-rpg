@@ -338,10 +338,27 @@ function crystalTex() {
   for (let i = 0; i < 6; i++) { const X = (i % 3 + 0.5) * (S / 3), Y = (i < 3 ? 0.27 : 0.77) * S; x.beginPath(); x.moveTo(X - 22, Y + 28); x.lineTo(X, Y - 28); x.lineTo(X + 22, Y + 28); x.moveTo(X - 14, Y + 4 * (i % 3)); x.lineTo(X + 14, Y + 4 * (i % 3) - 6); x.stroke(); }
   return c;
 }
+// песчаник (Костяные пустоши): слои разной толщины и тона с волнистыми швами, поры, вертикальные трещины — без «кладки»
+function rockTex() {
+  const S = 512, [c, x] = base(S, 140, [1.06, 0.97, 0.88]), R = rng(207), hs = []; let sum = 0;
+  while (sum < S - 12) { const h = 9 + R() * 40; hs.push(h); sum += h; }
+  const k = S / sum; let y = 0;
+  for (const h0 of hs) {
+    const h = h0 * k, v = 100 + R() * 90, ph = R() * 6.28, wav = X => Math.sin(X / S * 6.283 * 2 + ph) * 2.5 + Math.sin(X / S * 6.283 * 5 + ph * 2) * 1.2;
+    x.fillStyle = col(v, R() < 0.5 ? WARM : SAND); x.beginPath(); x.moveTo(0, y + wav(0));
+    for (let X = 0; X <= S; X += 16) x.lineTo(X, y + wav(X)); x.lineTo(S, y + h + 3); x.lineTo(0, y + h + 3); x.closePath(); x.fill();
+    x.strokeStyle = gray(v > 150 ? 230 : 55, 0.4); x.lineWidth = 1.4; x.beginPath(); for (let X = 0; X <= S; X += 16) x.lineTo(X, y + wav(X) + (R() - 0.5)); x.stroke();
+    for (let i = 0; i < 30; i++) { const X = R() * S, Y = y + R() * h, L = 6 + R() * 26; x.strokeStyle = gray(R() < 0.5 ? 70 : 200, 0.25); x.lineWidth = 1; x.beginPath(); x.moveTo(X, Y); x.lineTo(X + L, Y + (R() - 0.5) * 2); x.stroke(); }   // штрихи вдоль слоя
+    y += h;
+  }
+  for (let i = 0; i < 220; i++) { const X = R() * S, Y = R() * S, r = 0.8 + R() * 2.6; wrap(S, X, Y, r, (a, b) => { x.fillStyle = gray(R() < 0.6 ? 50 : 220, 0.5); x.beginPath(); x.arc(a, b, r, 0, 6.28); x.fill(); }); }   // поры
+  for (let i = 0; i < 10; i++) { let X = R() * S, Y = R() * S; x.strokeStyle = col(30, SOOT, 0.7); x.lineWidth = 1 + R() * 1.4; x.beginPath(); x.moveTo(X, Y); for (let q = 0; q < 6; q++) { X += (R() - 0.5) * 10; Y += 8 + R() * 10; x.lineTo(X, Y); } x.stroke(); }   // трещины
+  return c;
+}
 // id → слой массива; масштаб (повторов на метр) и «сила» фактуры — в шейдере (toon.js, MAT_SCALE / MAT_AMP)
-export const MAT_LAYERS = [woodTex, stoneTex, roofTex, plasterTex, metalTex, clothTex, barkTex, tileTex, thatchTex, cobbleTex, ironTex, leatherTex, goldTex, boneTex, crystalTex];
-export const MAT_SCALE = [1.1, 0.7, 0.9, 0.8, 1.4, 1.8, 1.3, 0.75, 0.8, 0.9, 1.5, 1.8, 1.8, 1.6, 1.0];
-export const MAT_AMP = [3.2, 3.2, 3.2, 2.6, 1.5, 2.2, 3.2, 3.2, 2.6, 3.0, 1.8, 2.4, 2.0, 2.4, 2.0];
+export const MAT_LAYERS = [woodTex, stoneTex, roofTex, plasterTex, metalTex, clothTex, barkTex, tileTex, thatchTex, cobbleTex, ironTex, leatherTex, goldTex, boneTex, crystalTex, rockTex];
+export const MAT_SCALE = [1.1, 0.7, 0.9, 0.8, 1.4, 1.8, 1.3, 0.75, 0.8, 0.9, 1.5, 1.8, 1.8, 1.6, 1.0, 0.45];
+export const MAT_AMP = [3.2, 3.2, 3.2, 2.6, 1.5, 2.2, 3.2, 3.2, 2.6, 3.0, 1.8, 2.4, 2.0, 2.4, 2.0, 2.6];
 // все слои в одном DataArrayTexture (sampler2DArray): N = 384 на ПК, 256 на телефоне (вдвое меньше памяти и времени)
 let matArr = null;
 export function matArray() {

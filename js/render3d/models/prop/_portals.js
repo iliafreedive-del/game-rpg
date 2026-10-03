@@ -2,6 +2,8 @@
 //  portal       — каменная арка (катакомбы, фиолетовый)        portal_ring  — кольцо из рунных камней (Глубины, голубой)
 //  portal_spire — ледяные шпили-готика (Фьорды, ледяной)       portal_gate  — бревенчатые врата с лианами (Старый Лес, зелёный)
 //  portal_crown — золотые колонны с фронтоном (Цитадель)        portal_maw   — железный обруч с шипами и черепом (Жатва Бездны, красный)
+//  portal_bone  — арка из рёбер великана, череп с огнём в глазницах, груды черепов (Костяные пустоши, оранжевый)
+import { skull, rib, tusk, vertebra, BONE_COL } from './_bones.js';
 // Вихрь внутри — общий шейдер (цвет берётся из света у портала), форма диска меняется масштабом.
 function vortex(kit, col, sx, sy, y) {
   const { THREE } = kit;
@@ -17,6 +19,27 @@ function vortex(kit, col, sx, sy, y) {
   return { disc, mat };
 }
 const FRAMES = {
+  bone(kit) {
+    const { THREE, part, bbox } = kit, L = [], { BONE, BONED, OLD } = BONE_COL;
+    // основание: плиты песчаника и песчаный холм
+    L.push(part(new THREE.CylinderGeometry(2.1, 2.4, 0.22, 9), 0x7a3e22, [0, 0.11, 0], 0, [1, 1, 0.62], { top: 0xc07a48, tex: 'rock' }));
+    for (const [x, z, w] of [[-0.9, 0.55, 1.0], [0.3, 0.75, 1.1], [1.1, 0.3, 0.8]]) L.push(bbox(w, 0.12, 0.6, 0.04, 0x8a5a3a, [x, 0.26, z], [0, x * 0.3, 0], { top: 0xd8a070, tex: 'stone' }));
+    // два огромных ребра — арка; сходятся под черепом
+    for (const s of [-1, 1]) {
+      L.push(kit.tube([[s * 1.45, 0.1, 0], [s * 1.75, 1.2, 0.05], [s * 1.55, 2.4, 0], [s * 0.95, 3.25, -0.05], [s * 0.35, 3.55, 0]], 0.26, 0.12, BONED, { top: BONE, tex: 'bone' }, 8));
+      for (let k = 0; k < 3; k++) rib(kit, L, [s * 0.55, 3.2 - k * 0.35, -0.35 - k * 0.12], s, 1.5 - k * 0.2, 0.075, { dir: [0, 0, -1], flare: 0.75 });   // малые рёбра позади арки
+      tusk(kit, L, [s * 1.6, 0.25, 0.35], 1.4, 0.16, s * 0.9 + 0.4, 0.55);   // бивни у подножия
+      for (let k = 0; k < 4; k++) skull(kit, L, [s * (1.85 + (k % 2) * 0.35), 0.32 + Math.floor(k / 2) * 0.22, 0.35 - k * 0.22], 1.4, { ry: s * 0.6 + k * 0.4, jaw: k % 2 === 0 });   // груды черепов
+      vertebra(kit, L, [s * 0.75, 0.34, 0.95], 0.9, s * 0.4);
+    }
+    // череп-навершие: глазницы горят
+    skull(kit, L, [0, 3.55, 0.12], 4.4, { eye: 0xff8a2a, horns: true });
+    for (const s of [-1, 1]) L.push(part(new THREE.ConeGeometry(0.12, 0.42, 5), 0xffb04a, [s * 0.2, 3.62, 0.62], [0.2, 0, 0], 1, { emit: true }));   // пламя из глазниц
+    // перья и ремни на арке
+    for (const s of [-1, 1]) { L.push(bbox(0.06, 0.6, 0.02, 0.005, 0x6a1a12, [s * 1.62, 1.6, 0.28], [0, 0, s * 0.1], { top: 0xb83a22, tex: 'cloth' })); L.push(part(new THREE.ConeGeometry(0.06, 0.4, 4), 0x2a1a10, [s * 1.62, 1.12, 0.3], [Math.PI, 0, 0], [1, 1, 0.3], { top: 0xd8c8a0 })); }
+    L.push(part(new THREE.SphereGeometry(0.12, 7, 6), 0xff9a3a, [0, 0.42, 0.9], 0, 1, { emit: true }));
+    return { L, sx: 1.05, sy: 1.25, y: 1.6 };
+  },
   ring(kit) {
     const { THREE, PAL, part, bbox } = kit, L = [];
     for (let i = 0; i < 12; i++) { const a = i / 12 * 6.283, x = Math.cos(a) * 1.25, y = 1.45 + Math.sin(a) * 1.25;
@@ -75,4 +98,4 @@ export function portalDef(id, kind) {
       return { root, update(t) { v.mat.uniforms.uTime.value = t; } };
     } };
 }
-export const PORTAL_VARIANTS = [portalDef('portal_ring', 'ring'), portalDef('portal_spire', 'spire'), portalDef('portal_gate', 'gate'), portalDef('portal_crown', 'crown'), portalDef('portal_maw', 'maw')];
+export const PORTAL_VARIANTS = [portalDef('portal_ring', 'ring'), portalDef('portal_spire', 'spire'), portalDef('portal_gate', 'gate'), portalDef('portal_crown', 'crown'), portalDef('portal_maw', 'maw'), portalDef('portal_bone', 'bone')];

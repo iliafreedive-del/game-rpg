@@ -4,6 +4,7 @@ import { G, bus } from '../game/ctx.js';
 import { $, el, esc, fmt } from '../core/util.js';
 import { UPGRADES, upgCost, ROOMS, DECOR } from '../data/upgrades.js';
 import { REPEATABLE } from '../data/quests.js';
+import { REALMS } from '../data/wild.js';
 import * as CH from '../game/character.js';
 import * as EC from '../game/economy.js';
 import * as Q from '../game/quests.js';
@@ -97,7 +98,7 @@ function render(force) {
     const S = P.nemesis || { list: [], trophies: [] }, foes = S.list.filter(n => n.alive && (n.rank > 0 || n.defeats || n.fled));
     head('Стена врагов', 'Убитые немезисы висят трофеями (+урон и золото навсегда). Живые ждут мести.');
     box.appendChild(el('div', 'pn-big', `Трофеи: <b>${S.trophies.length}</b> · бонус +${S.trophies.reduce((a, t) => a + t.bonus, 0).toFixed(1)}% урона и золота`));
-    for (const t of S.trophies) box.appendChild(row('☠', esc(t.name), `${t.realm === 'fjord' ? 'Фьорды' : 'Лес'} · ранг ${t.rank} · +${t.bonus.toFixed(1)}%`, null, false, null));
+    for (const t of S.trophies) box.appendChild(row('☠', esc(t.name), `${(REALMS[t.realm] || REALMS.forest).short} · ранг ${t.rank} · +${t.bonus.toFixed(1)}%`, null, false, null));
     for (const n of foes) box.appendChild(row('⚔', esc(n.name + (n.title ? ', ' + n.title : '')), `жив · ранг ${n.rank}${n.stash ? ` · хранит ${n.stash} зол.` : ''}`, null, false, null, 'hot'));
     if (!S.trophies.length && !foes.length) box.appendChild(el('p', 'muted', '<small>Пока пусто. Отбейте форт в Фьордах или Старом Лесу — его командир станет вашим немезисом.</small>'));
   } else if (T.type === 'socket') {

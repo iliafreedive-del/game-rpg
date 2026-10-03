@@ -1,4 +1,4 @@
-// «Походы»: открытые локации-поля с порталов деревни — Фьорды Скъёльда и Старый Лес.
+// «Походы»: открытые локации-поля с порталов деревни — Фьорды Скъёльда, Старый Лес и Костяные пустоши.
 // Здесь только данные: мобы, миры, настроение по глубине, задания. Логика — world/wildgen.js, game/wildai.js, game/wild.js.
 //
 // Поля мобов: from/filter/size — временная графика (перекраска существующих спрайтов), tele — телеграф атаки
@@ -24,11 +24,20 @@ export const WILD_MOBS = {
   w_bear: { realm: 'forest', name: 'Медведь-шатун', from: 'beast', filter: 'sepia(.8) brightness(.55) saturate(1.2)', size: 1.4, ai: 'giant', hp: 120, dmg: [9, 14], speed: 2.3, range: 1.9, cd: 2.2, impact: 0.55, xp: 60, gold: [10, 26], armor: 12, radius: 0.6, enrage: 0.5, fps: { walk: 9, attack: 9 }, tele: { attack: T('cone', { r: 2.4, arc: 95, mult: 1.0 }), attack2: T('circle', { at: 'self', r: 2.2, mult: 1.1 }) } },
   w_ataman: { realm: 'forest', name: 'Атаман Рваное Ухо', from: 'elite', filter: 'sepia(1) saturate(2.2) hue-rotate(-20deg) brightness(.95)', size: 1.12, elite: true, ai: 'jarl', hp: 280, dmg: [9, 14], speed: 2.7, range: 1.8, cd: 1.7, impact: 0.6, xp: 200, gold: [80, 130], armor: 18, radius: 0.5, minion: ['w_poacher', 'w_wolf', 'w_wolf'], fps: { walk: 10, attack: 10, attack2: 10 }, tele: { attack: T('cone', { r: 2.6, arc: 80 }), attack2: T('circle', { at: 'self', r: 2.4, mult: 0.9 }) } },
   w_boss: { realm: 'forest', name: 'Хозяин Чащи', from: 'boss', filter: 'hue-rotate(90deg) saturate(1.5) brightness(.9)', size: 1.25, boss: true, ai: 'wildboss', hp: 720, dmg: [12, 17], speed: 2.5, range: 2.5, cd: 1.7, impact: 0.6, xp: 650, gold: [240, 320], armor: 24, radius: 0.8, minion: ['w_wolf', 'w_wolf', 'w_boar'], novaElem: 'phys', fps: { walk: 9, attack: 10, attack2: 10, slam: 11, roar: 9 }, tele: { attack: T('cone', { r: 3.4, arc: 75 }), attack2: T('circle', { at: 'self', r: 3.2, mult: 0.9 }), slam: T('circle', { at: 'target', r: 2.2, mult: 1.3, rift: true, slow: 2.5 }) } },
+  // ------------------------------------------------------------- Костяные пустоши (сборка 17: дикари и скорпион пока на временных моделях — заменятся в сборке 18)
+  b_raider: { realm: 'bones', name: 'Клыкач-рубака', from: 'skel_warrior', filter: 'sepia(1) saturate(2.4) hue-rotate(-25deg) brightness(.95)', size: 1.12, ai: 'melee', hp: 34, dmg: [4, 7], speed: 2.5, range: 1.2, cd: 1.8, impact: 0.55, xp: 15, gold: [3, 8], armor: 8, radius: 0.38, fps: { walk: 11, attack: 11 } },
+  b_thrower: { realm: 'bones', name: 'Клыкач-метатель', from: 'skel_archer', filter: 'sepia(1) saturate(2) hue-rotate(-20deg) brightness(.95)', size: 1.05, ai: 'archer', hp: 22, dmg: [4, 7], speed: 2.4, range: 8, keep: 5.5, cd: 2.1, impact: 0.66, xp: 15, gold: [4, 10], armor: 3, radius: 0.34, proj: 'arrow', fps: { attack: 9 } },
+  b_hyena: { realm: 'bones', name: 'Пятнистая гиена', from: 'beast', filter: 'sepia(1) saturate(1.3) brightness(1.05)', size: 0.78, ai: 'pack', hp: 17, dmg: [3, 5], speed: 4.4, range: 1.1, cd: 2.1, impact: 0.5, xp: 11, gold: [1, 4], armor: 2, radius: 0.33, fps: { walk: 16, attack: 12 }, tele: { lunge: T('line', { r: 3.4, w: 0.6 }) } },
+  b_boar: { realm: 'bones', name: 'Пустынный кабан', from: 'beast', filter: 'sepia(1) saturate(2) hue-rotate(-15deg) brightness(.9)', size: 0.9, ai: 'charge', hp: 36, dmg: [6, 9], speed: 2.9, range: 1.2, cd: 1.8, impact: 0.5, xp: 16, gold: [2, 7], armor: 7, radius: 0.4, charge: { r: 5.5, w: 0.9, cd: 4.5, speed: 9.5, mult: 1.5, crashStun: 1.4 }, fps: { walk: 12, attack: 12 }, tele: { lunge: T('line', { r: 5.5, w: 0.9, mult: 1.5 }) } },
+  b_shaman: { realm: 'bones', name: 'Шаман-костогрыз', from: 'skel_mage', filter: 'sepia(1) saturate(2.6) hue-rotate(-30deg) brightness(1)', size: 1.08, ai: 'root', hp: 40, dmg: [6, 9], speed: 2.0, range: 8, keep: 6, cd: 3.2, impact: 0.6, xp: 28, gold: [6, 14], armor: 5, radius: 0.34, fps: { attack: 8 }, tele: { attack: T('circle', { at: 'target', r: 1.8, mult: 1.0, rift: true, slow: 2.0 }) } },
+  b_scorpid: { realm: 'bones', name: 'Скорпион-панцирник', from: 'beast', filter: 'sepia(1) saturate(1.5) hue-rotate(-30deg) brightness(.7)', size: 1.45, ai: 'giant', hp: 125, dmg: [9, 14], speed: 2.2, range: 1.9, cd: 2.2, impact: 0.55, xp: 62, gold: [10, 26], armor: 18, radius: 0.62, onHit: 'slow', fps: { walk: 10, attack: 9 }, tele: { attack: T('cone', { r: 2.4, arc: 90, mult: 1.0 }), attack2: T('circle', { at: 'self', r: 2.6, mult: 1.3 }) } },
+  b_chief: { realm: 'bones', name: 'Вождь Кровавый Клык', from: 'elite', filter: 'sepia(1) saturate(2.6) hue-rotate(-25deg) brightness(.95)', size: 1.15, elite: true, ai: 'jarl', hp: 290, dmg: [9, 14], speed: 2.6, range: 1.8, cd: 1.7, impact: 0.6, xp: 210, gold: [85, 135], armor: 20, radius: 0.52, minion: ['b_raider', 'b_hyena', 'b_hyena'], fps: { walk: 10, attack: 10, attack2: 10 }, tele: { attack: T('cone', { r: 2.2, arc: 110, mult: 1.0 }), attack2: T('circle', { at: 'self', r: 2.8, mult: 1.4 }) } },
+  b_boss: { realm: 'bones', name: 'Пробуждённый Костяной исполин', from: 'boss', filter: 'sepia(1) saturate(1.2) brightness(1.1)', size: 1.3, boss: true, ai: 'wildboss', hp: 760, dmg: [12, 18], speed: 2.4, range: 2.5, cd: 1.7, impact: 0.6, xp: 680, gold: [250, 330], armor: 26, radius: 0.85, minion: ['b_hyena', 'b_hyena', 'b_raider'], novaElem: 'phys', fps: { walk: 9, attack: 10, attack2: 10, slam: 11, roar: 9 }, tele: { attack: T('cone', { r: 3.4, arc: 75 }), attack2: T('circle', { at: 'self', r: 3.2, mult: 0.9 }), slam: T('circle', { at: 'target', r: 2.2, mult: 1.3, rift: true, slow: 2.5 }) } },
 };
 
 export const REALMS = {
   fjord: {
-    id: 'fjord', name: 'Фьорды Скъёльда', short: 'Фьорды', portalColor: [150, 210, 255], reqLevel: 5, baseLevel: 5,
+    id: 'fjord', name: 'Фьорды Скъёльда', short: 'Фьорды', portalColor: [150, 210, 255], portal: 'portal_spire', reqLevel: 5, baseLevel: 5,
     blurb: 'Снежные берега, замёрзшие заливы и крепости ётунов. Драугры, ледяные волки и снежные ведьмы держат захваченные форты.',
     pool: [['f_draugr', 1], ['f_wolf', 1], ['f_berserk', 1], ['f_hag', 2], ['f_jotun', 3]],   // [тип, с какой глубины]
     commander: 'f_jarl', boss: 'f_boss', fortName: 'Захваченный форт',
@@ -40,7 +49,7 @@ export const REALMS = {
     ],
   },
   forest: {
-    id: 'forest', name: 'Старый Лес', short: 'Лес', portalColor: [120, 230, 120], reqLevel: 3, baseLevel: 3,
+    id: 'forest', name: 'Старый Лес', short: 'Лес', portalColor: [120, 230, 120], portal: 'portal_gate', reqLevel: 3, baseLevel: 3,
     blurb: 'Дремучий лес за околицей. Кабаны, волки и медведи; по тропам хозяйничают браконьеры, а в чаще бродит леший.',
     pool: [['w_boar', 1], ['w_wolf', 1], ['w_poacher', 1], ['w_leshy', 2], ['w_bear', 3]],
     commander: 'w_ataman', boss: 'w_boss', fortName: 'Разбойничий острог',
@@ -48,6 +57,17 @@ export const REALMS = {
       { name: 'Опушка', ground: [70, 104, 48], alt: [58, 90, 40], water: [48, 84, 96], tint: null, dark: false, fog: [4, 10, 4], particles: { c: [255, 240, 170], rate: 8, vz: 0.4, g: -0.1, size: 2.5, life: 2.2 }, lake: 0.05 },
       { name: 'Чаща', ground: [52, 82, 40], alt: [42, 70, 34], water: [34, 64, 74], tint: 'rgba(10,40,20,0.25)', dark: false, fog: [2, 8, 4], particles: { c: [190, 255, 160], rate: 14, vz: 0.5, g: -0.1, size: 2.5, life: 2.4 }, lake: 0.08 },
       { name: 'Болотная глушь', ground: [40, 62, 40], alt: [32, 52, 36], water: [26, 52, 56], tint: 'rgba(10,30,30,0.32)', dark: true, fog: [2, 7, 8], particles: { c: [200, 255, 120], rate: 16, vz: 0.3, g: -0.1, size: 3, life: 2.8 }, lake: 0.16 },
+    ],
+  },
+  bones: {
+    id: 'bones', name: 'Костяные пустоши', short: 'Пустоши', portalColor: [255, 150, 70], portal: 'portal_bone', reqLevel: 2, baseLevel: 3,   // reqLevel 2 и baseLevel 3 — временно, для проверки разработчиком (сборка 17)
+    blurb: 'Красная полупустыня среди костей древних великанов. Клыкастые дикари живут в хижинах из шкур и рёбер, в балках — гиены, кабаны и скорпионы. За полями — руины древних.',
+    pool: [['b_raider', 1], ['b_hyena', 1], ['b_boar', 1], ['b_thrower', 1], ['b_shaman', 2], ['b_scorpid', 3]],
+    commander: 'b_chief', boss: 'b_boss', fortName: 'Древние руины',
+    moods: [
+      { name: 'Красная степь', ground: [176, 102, 58], alt: [160, 92, 52], water: [48, 98, 104], tint: null, dark: false, fog: [24, 12, 6], particles: { c: [255, 220, 170], rate: 10, vz: 0.2, g: 0.05, size: 2.5, life: 2.6 }, lake: 0.02 },
+      { name: 'Пыльные балки', ground: [168, 96, 56], alt: [150, 86, 50], water: [44, 90, 98], tint: 'rgba(160,80,30,0.12)', dark: false, fog: [26, 12, 6], particles: { c: [240, 200, 150], rate: 22, vz: 0.1, g: 0.02, size: 2.5, life: 2.4 }, lake: 0.02 },
+      { name: 'Кладбище великанов', ground: [140, 80, 54], alt: [124, 70, 48], water: [34, 70, 80], tint: 'rgba(120,40,40,0.22)', dark: true, fog: [20, 8, 8], particles: { c: [255, 170, 110], rate: 14, vz: 0.4, g: -0.05, size: 3, life: 2.6 }, lake: 0.0 },
     ],
   },
 };
@@ -59,6 +79,7 @@ export const isWildFort = d => d % FORT_EVERY === 0;
 export const isWildBoss = d => d % BOSS_EVERY === 0;
 export const FIELD_NAMES = {
   forest: ['Опушка', 'Берёзовая роща', 'Каменистые ручьи', 'Дремучий бор', 'Бурелом'],
+  bones: ['Красная степь', 'Долина черепов', 'Колючие балки', 'Хребет великана', 'Пыльные курганы'],
   fjord: ['Береговая полоса', 'Ледяное поле', 'Ущелье ветров', 'Замёрзший залив', 'Курганы ётунов'],
 };
 export const fieldVariant = d => isWildFort(d) ? FIELDS_PER_FORT : (d - 1) % FORT_EVERY;
@@ -70,6 +91,14 @@ export const wildLevel = (realm, depth) => REALMS[realm].baseLevel + Math.floor(
 // Задания походов. Прогресс — счётчики P.wild.stat[realm] (реальные события). Награда забирается в окне портала.
 const R = (slot, tier, rarity, names) => ({ slot, tier, rarity, names });
 export const WILD_QUESTS = {
+  bones: [
+    { id: 'bn_kill', title: 'Кровь на песке', text: 'Убейте 15 тварей Костяных пустошей.', stat: 'kills', n: 15, reward: { xp: 140, gold: 80, potions: 2 } },
+    { id: 'bn_chest', title: 'Добыча клыкачей', text: 'Откройте 5 сундуков в Костяных пустошах.', stat: 'chests', n: 5, reward: { xp: 130, gold: 110, items: [R('head', 1, 1, { warrior: 'Шлем с бивнями', archer: 'Повязка следопыта', mage: 'Венец из позвонков' })] } },
+    { id: 'bn_fort', title: 'Древние руины', text: 'Пройдите пять полей и победите вождя в руинах.', stat: 'forts', n: 1, reward: { xp: 240, gold: 130, items: [R('weapon', 1, 2, { warrior: 'Тесак Кровавого Клыка', archer: 'Лук из ребра', mage: 'Посох шамана' })] } },
+    { id: 'bn_scorpid', title: 'Панцирь и жало', text: 'Убейте 3 скорпионов-панцирников.', stat: 'k_b_scorpid', n: 3, reward: { xp: 280, gold: 160, skillPts: 1 } },
+    { id: 'bn_deep', title: 'К кладбищу великанов', text: 'Дойдите до глубины 3.', stat: 'depth', n: 3, reward: { xp: 260, gold: 140, potions: 3 } },
+    { id: 'bn_boss', title: 'Сон исполина', text: 'Победите Пробуждённого Костяного исполина (руины-босс, глубина 12).', stat: 'bosses', n: 1, reward: { xp: 560, gold: 370, items: [{ slot: 'weapon', epic: true }] } },
+  ],
   fjord: [
     { id: 'fj_kill', title: 'Первая кровь на берегу', text: 'Убейте 15 тварей Фьордов.', stat: 'kills', n: 15, reward: { xp: 180, gold: 90, potions: 2 } },
     { id: 'fj_chest', title: 'Добыча ярлов', text: 'Откройте 5 сундуков во Фьордах.', stat: 'chests', n: 5, reward: { xp: 150, gold: 120, items: [R('head', 2, 1, { warrior: 'Шлем-горностай', archer: 'Капюшон лыжника', mage: 'Венец метели' })] } },

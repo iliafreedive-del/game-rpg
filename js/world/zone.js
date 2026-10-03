@@ -41,6 +41,14 @@ const PROP = {
   cart: { spr: 'crate', box: [1.0, 0.55], model: 'cart' }, cart_load: { spr: 'crate', box: [1.0, 0.55], model: 'cart_load' }, signpost: { spr: 'banner', r: 0.15, model: 'signpost' },
   barrel_stack: { spr: 'barrel', box: [0.9, 0.55], model: 'barrel_stack' }, log_stack: { spr: 'crate', box: [1.35, 0.6], model: 'log_stack' }, plank_pile: { spr: 'crate', box: [1.3, 0.35], model: 'plank_pile' },
   clothesline: { spr: 'banner', model: 'clothesline' }, pumpkins: { spr: 'hay', r: 0.45, model: 'pumpkins' }, tool_stand: { spr: 'weapon_rack', box: [0.6, 0.25], model: 'tool_stand' },
+  // Костяные пустоши: красный песчаник, акации, скелеты великанов (коллайдеры — o.boxes из wildgen), лагерь дикарей
+  rock_spire: { spr: 'rock_spire', r: 0.8, tall: 1 }, rock_spire_b: { spr: 'rock_spire_b', r: 0.75, tall: 1 }, rock_tooth: { spr: 'rock_tooth', r: 0.5, tall: 1 }, rock_mesa: { spr: 'rock_mesa', r: 1.6, tall: 1 },
+  rock_red: { spr: 'rock_red', r: 0.4 }, rock_red_b: { spr: 'rock_red_b', r: 0.4 },
+  tree_acacia: { spr: 'tree_acacia', r: 0.3, tall: 1 }, tree_acacia_b: { spr: 'tree_acacia_b', r: 0.3, tall: 1 }, tree_acacia_c: { spr: 'tree_acacia_c', r: 0.3, tall: 1 },
+  bush_dry: { spr: 'bush_dry' }, agave: { spr: 'agave', r: 0.25 }, tumbleweed: { spr: 'tumbleweed' },
+  giant_skull: { spr: 'giant_skull', tall: 1 }, giant_ribs: { spr: 'giant_ribs', tall: 1 }, giant_spine: { spr: 'giant_spine' }, tusk_arch: { spr: 'tusk_arch', tall: 1 }, giant_fallen: { spr: 'giant_fallen', tall: 1 },
+  bone_hut: { spr: 'bone_hut', r: 1.75, tall: 1 }, bone_totem: { spr: 'bone_totem', r: 0.25, tall: 1 }, hide_rack: { spr: 'hide_rack', box: [0.95, 0.15] }, war_banner: { spr: 'war_banner', r: 0.12, tall: 1 }, tusk_fence: { spr: 'tusk_fence', box: [0.5, 0.15] },
+  bonfire: { spr: 'bonfire', r: 0.55, light: { r: 5.5, c: [255, 140, 60], flicker: 1, z: 0.7 } },
   fortune_tent: { spr: 'hay', box: [1.5, 1.3], model: 'fortune_tent', light: { r: 3.5, c: [200, 120, 255], flicker: 0.4, z: 1.2 } }, reeds: { spr: 'bush', model: 'reeds' }, sacks: { spr: 'sacks', r: 0.3 },
 };
 
@@ -243,7 +251,7 @@ export class Zone {
         this.inter.push({ id: 'portal_depths', type: 'depths', x: o.x, y: o.y, r: 1.8, label: 'Глубины катакомб', draw: d, reqLevel: 6, plate: 'Глубины' });
         this.map.circles.push({ x: o.x, y: o.y - 0.1, r: 0.2 });
       } else if (o.t === 'wildportal') {
-        const RL = REALMS[o.realm]; const d = this.add({ x: o.x, y: o.y, spr: o.realm === 'fjord' ? 'portal_spire' : 'portal_gate', anim: 'portal' });
+        const RL = REALMS[o.realm]; const d = this.add({ x: o.x, y: o.y, spr: RL.portal, anim: 'portal' });
         this.addLight(o.x, o.y, { r: 5, c: RL.portalColor, flicker: 0.3, z: 1.2 });
         this.inter.push({ id: 'portal_' + o.realm, type: 'wildportal', realm: o.realm, x: o.x, y: o.y, r: 1.8, label: RL.name, draw: d, reqLevel: RL.reqLevel, plate: RL.name });
         this.map.circles.push({ x: o.x, y: o.y - 0.1, r: 0.2 });
@@ -262,20 +270,21 @@ export class Zone {
     }
   }
 
-  // Открытое поле похода (Фьорды / Старый Лес): чаща по 'x', стены форта по 'D', сундуки, тайники, порталы.
+  // Открытое поле похода (Фьорды / Старый Лес / Костяные пустоши): чаща по 'x', стены форта по 'D', сундуки, тайники, порталы.
   buildWild(J) {
-    const m = this.map, realm = J.wild.realm, fj = realm === 'fjord', put = [];   // put — уже посаженные деревья: между соседними не меньше ~1,7 м
+    const m = this.map, realm = J.wild.realm, fj = realm === 'fjord', bn = realm === 'bones', put = [];   // put — уже посаженные деревья: между соседними не меньше ~1,7 м
     for (let y = 0; y < m.h; y++) for (let x = 0; x < m.w; x++) {
       const c = m.ch(x, y), h = hash(x, y);
       if (c === 'D') { this.add({ x: x + 0.5, y: y + 0.5, spr: 'wall_' + (h % 4), wall: true }); continue; }
       if (c !== 'x') continue;
       const inner = [[1, 0], [-1, 0], [0, 1], [0, -1], [2, 0], [-2, 0], [0, 2], [0, -2]].some(([dx, dy]) => { const X = x + dx, Y = y + dy; return X >= 0 && Y >= 0 && X < m.w && Y < m.h && m.ch(X, Y) !== 'x'; });
-      if (!inner || h % 3 === 0) continue;
+      if (!inner || h % 3 === 0 || (bn && h % 5 < 2)) continue;   // в пустошах камни внутри скоплений реже: поле не загромождено
       { const px = x + 0.3 + (h % 5) / 10, py = y + 0.3 + ((h >> 3) % 5) / 10; if (put.some(q => (q[0] - px) ** 2 + (q[1] - py) ** 2 < 2.9)) continue; put.push([px, py]); }
-      const spr = fj ? ['rocks', 'stalagmite', 'tree_1', 'rocks'][h % 4] : (h % 5 === 0 ? 'rocks' : h % 2 ? 'tree_0' : 'tree_1');
-      this.add({ x: x + 0.3 + (h % 5) / 10, y: y + 0.3 + ((h >> 3) % 5) / 10, spr, tall: spr === 'rocks' ? 0 : 1 });
+      const front = x >= m.w - 5 || y >= m.h - 5;   // ближний к камере край: только низкое (иначе закрывает героя)
+      const spr = bn ? (front ? ['rock_red', 'rock_red_b', 'tree_acacia_b', 'rock_red'][h % 4] : ['rock_spire', 'rock_red', 'tree_acacia', 'rock_tooth', 'rock_red_b', 'rock_red', 'tree_acacia_b'][h % 7]) : fj ? ['rocks', 'stalagmite', 'tree_1', 'rocks'][h % 4] : (h % 5 === 0 ? 'rocks' : h % 2 ? 'tree_0' : 'tree_1');
+      this.add({ x: x + 0.3 + (h % 5) / 10, y: y + 0.3 + ((h >> 3) % 5) / 10, spr, tall: spr === 'rocks' || spr.startsWith('rock_red') ? 0 : 1 });
     }
-    const col = fj ? [150, 210, 255] : [120, 230, 120];
+    const col = REALMS[realm].portalColor;
     for (const o of J.objects) {
       switch (o.t) {
         case 'wild_home': {
@@ -283,7 +292,7 @@ export class Zone {
           this.inter.push({ id: 'wild_home', type: 'portal', to: 'town', x: o.x, y: o.y, r: 1.6, label: 'Вернуться в деревню', draw: d, plate: 'В деревню' }); break;
         }
         case 'wild_next': {
-          const d = this.add({ x: o.x, y: o.y, spr: fj ? 'portal_spire' : 'portal_gate', anim: 'portal', hidden: !!o.hidden }); const L = this.addLight(o.x, o.y, { r: 5, c: col, flicker: 0.3, z: 1.2 }); L.on = !o.hidden;
+          const d = this.add({ x: o.x, y: o.y, spr: REALMS[realm].portal, anim: 'portal', hidden: !!o.hidden }); const L = this.addLight(o.x, o.y, { r: 5, c: col, flicker: 0.3, z: 1.2 }); L.on = !o.hidden;
           this.inter.push({ id: 'wild_next', type: 'wildnext', x: o.x, y: o.y, r: 1.7, label: 'Вглубь', draw: d, light: L, hidden: !!o.hidden, plate: 'Вглубь' }); break;
         }
         case 'wchest': {
