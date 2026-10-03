@@ -177,7 +177,7 @@ export function updatePlayerAction(P, dt) {
       a.phase = 'rel'; P.setAnim('bowrel', 3 / (a.dur * 0.32));
       const t = a.tgt && !a.tgt.dead ? a.tgt : a.aim ? null : pickTarget(P, 9);
       const ang = t ? Math.atan2(t.y - P.y, t.x - P.x) : a.aim ? Math.atan2(a.aim.y - P.y, a.aim.x - P.x) : P.face * Math.PI / 4;
-      fireArrow(P, ang, 1); bus.emit('sfx', 'bow');
+      fireArrow(P, ang, 1); bus.emit('sfx', 'bow'); a.fired = true;
     } else if (a.phase === 'rel' && P.anim.done) endAction(P);
     return;
   }

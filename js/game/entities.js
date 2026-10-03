@@ -55,7 +55,7 @@ export class Player {
       return;
     }
     if (this.state === 'hit') { if (this.anim.done) this.state = 'idle'; }
-    if (this.state === 'attack' || this.state === 'cast') { C.updatePlayerAction(this, dt); if (this.state === 'attack' || this.state === 'cast') { if (input.mag > 0.2 && this.act && this.act.cancelable && (this.act.kind === 'bow' || this.act.fired)) { this.state = 'idle'; this.act = null; } else return; } }
+    if (this.state === 'attack' || this.state === 'cast') { C.updatePlayerAction(this, dt); if (this.state === 'attack' || this.state === 'cast') { if (input.mag > 0.2 && this.act && this.act.cancelable && ((this.act.kind === 'bow' && !this.act.auto) || this.act.fired)) { this.state = 'idle'; this.act = null; } else return; } }
     // movement
     const mag = input.mag;
     if (mag > 0.12 && (this.state !== 'hit' || this.stateT > 0.08)) {   // удар по герою не должен «залипать»: после короткого вздрога можно идти

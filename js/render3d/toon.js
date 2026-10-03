@@ -15,15 +15,17 @@ export const U = {
   uHFog: { value: 0 },                       // стелющийся туман у земли (деревня): сила; 0 — выключен
   uHFogCol: { value: new THREE.Color(0xb4c8c0) },
   tHNoise: { value: null },                  // шум пятен тумана (плывут по ветру)
+  uHFogC: { value: new THREE.Vector3(0, 0, 0) },   // центр деревни (x, z) и радиус: в центре тумана ~20 % от силы, к полям — полный
 };
 // Туман у земли: плавно густеет книзу (без резкой границы — переход на 2,5–4 м высоты), пятнами по шуму мира, дрейфует.
 // Один код для всех toon-материалов, травы и воды (ground.js): HFOG_PARS в объявления, HFOG_F после fog_fragment.
 U.uHTime = U.uTime;   // то же время под своим именем: uTime уже объявлен в части шейдеров
-export const HFOG_PARS = 'uniform float uHFog; uniform vec3 uHFogCol; uniform sampler2D tHNoise; uniform float uHTime;\n';
+export const HFOG_PARS = 'uniform float uHFog; uniform vec3 uHFogCol; uniform sampler2D tHNoise; uniform float uHTime; uniform vec3 uHFogC;\n';
 export const HFOG_F = /* glsl */`
 if (uHFog > 0.0) {
   float hn = texture2D(tHNoise, hfW.xz * 0.04 + vec2(uHTime * 0.006, uHTime * 0.004)).r * 0.6 + texture2D(tHNoise, hfW.xz * 0.11 - vec2(uHTime * 0.01, 0.0)).g * 0.4;
   float hf = uHFog * (1.0 - smoothstep(-0.2, 2.6 + hn * 1.8, hfW.y)) * (0.35 + 1.1 * hn);
+  if (uHFogC.z > 0.0) hf *= mix(0.2, 1.0, smoothstep(uHFogC.z * 0.55, uHFogC.z, length(hfW.xz - uHFogC.xy)));
   gl_FragColor.rgb = mix(gl_FragColor.rgb, uHFogCol, clamp(hf, 0.0, 0.4));
 }
 `;

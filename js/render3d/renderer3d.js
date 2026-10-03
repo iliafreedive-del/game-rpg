@@ -156,9 +156,10 @@ function setZone(z) {
   lights.hemi.color.setHex(LV.hemi.sky); lights.hemi.groundColor.setHex(LV.hemi.ground); lights.moon.color.setHex(LV.key.color);
   for (const s of slots) { s.L = null; s.k = 0; s.lt.intensity = 0; }
   const town = z.id === 'town', wild = z.id === 'wild', open = town || wild, fj = wild && z.json.wild.realm === 'fjord';
-  const ground = wild ? buildGround(scene, z, { snow: fj, forest: !fj, kindOf: wildKind, stoneCh: '\u0000', grassK: 0.15, farColor: fj ? 0xb4c6d8 : 0x0f2418, margin: 6 }) : town ? buildGround(scene, z, { margin: z.json.big ? 14 : 3 }) : buildDungeonFloor(scene, z, LV.look), props = new PropLayer(scene, kit, z, open);
+  const ground = wild ? buildGround(scene, z, { snow: fj, forest: !fj, kindOf: wildKind, stoneCh: '\u0000', grassK: 0.15, farColor: fj ? 0xb4c6d8 : 0x0f2418, margin: 6 }) : town ? buildGround(scene, z, { margin: z.json.big ? 14 : 3, farColor: z.json.village ? 0x22341c : undefined }) : buildDungeonFloor(scene, z, LV.look), props = new PropLayer(scene, kit, z, open);
   // деревня: дым из труб, стелющийся туман, куры и собаки
   U.uHFog.value = town && z.json.village ? 0.24 : 0;   // туман у земли — только в деревне
+  if (z.json.center) U.uHFogC.value.set(z.json.center[0], z.json.center[1], 17); else U.uHFogC.value.set(0, 0, 0);   // в центре деревни тумана почти нет
   const atmo = town && z.json.village ? new Atmo(scene, z, props.smoke) : null, critters = town && z.json.village ? new Critters(scene, kit, z) : null;
   world = { ground, props, atmo, critters, ...lightSets(z) };
   props.cull(camera, true); applyQuality(true); ground.setQuality(quality); spawned = false;

@@ -39,7 +39,7 @@ const GRASS_FS = /* glsl */`
 #include <fog_pars_fragment>
 #include <packing>
 uniform vec3 uBase; uniform vec3 uTip; uniform vec3 uDry; uniform vec3 uLight; varying vec3 hfWv;
-uniform float uHFog; uniform vec3 uHFogCol; uniform sampler2D tHNoise; uniform float uHTime;
+uniform float uHFog; uniform vec3 uHFogCol; uniform sampler2D tHNoise; uniform float uHTime; uniform vec3 uHFogC;
 uniform sampler2D uShadowMap; uniform float uShadowOn; uniform float uShadowDark; uniform vec2 uShadowTexel;
 varying float vH; varying float vRand; varying float vSheen; varying float vShade; varying vec4 vSh; varying float vPatch; varying float vBlade;
 float shadowLit() {
@@ -157,7 +157,7 @@ function waterMaterial(x0, y0, x1, y1, ice = false) {
     fog: true, transparent: false,
     vertexShader: `#include <common>\n#include <fog_pars_vertex>\nvarying vec3 vW; void main(){ vW = (modelMatrix * vec4(position, 1.0)).xyz; vec4 mvPosition = viewMatrix * vec4(vW, 1.0); gl_Position = projectionMatrix * mvPosition;\n#include <fog_vertex>\n}`,
     fragmentShader: `#include <common>\n#include <fog_pars_fragment>\nuniform float uTime; uniform sampler2D tNoise; uniform vec4 uBox; uniform float uIce; uniform sampler2D tDist; uniform float uDist; uniform vec2 uSize; varying vec3 vW;
-      uniform float uHFog; uniform vec3 uHFogCol; uniform sampler2D tHNoise; uniform float uHTime;
+      uniform float uHFog; uniform vec3 uHFogCol; uniform sampler2D tHNoise; uniform float uHTime; uniform vec3 uHFogC;
       void main(){
         vec2 p = vW.xz, fl = vec2(0.0, uTime * 0.25 * uDist);   // ручей: рябь сносит течением
         float n1 = texture2D(tNoise, (p - fl) * 0.12 + vec2(uTime * 0.012, uTime * 0.007)).b, n2 = texture2D(tNoise, (p - fl * 1.4) * 0.19 - vec2(uTime * 0.009, -uTime * 0.013)).b;
@@ -190,6 +190,7 @@ export function buildGround(scene, zone, opts = {}) {
   const weights = (x, y) => {
     const fx = x - 0.5, fy = y - 0.5, x0 = Math.floor(fx), y0 = Math.floor(fy), u = fx - x0, v = fy - y0, w = { g: 0, p: 0, c: 0, f: 0, w: 0, s: 0 };
     w[tile(x0, y0)] += (1 - u) * (1 - v); w[tile(x0 + 1, y0)] += u * (1 - v); w[tile(x0, y0 + 1)] += (1 - u) * v; w[tile(x0 + 1, y0 + 1)] += u * v;
+    if (vil) { w.g += w.f * 0.6; w.f *= 0.4; }   // деревня: подстилка в лесу по краям — травянистая, без чёрных провалов между деревьями
     return w;
   };
   const x0 = -MARGIN, nx = Math.round((W + 2 * MARGIN) / STEP), ny = Math.round((H + 2 * MARGIN) / STEP);
@@ -217,7 +218,7 @@ export function buildGround(scene, zone, opts = {}) {
   if (wt.length) {
     const x0w = Math.min(...wt.map(t => t[0])) - 1, x1w = Math.max(...wt.map(t => t[0])) + 2, y0w = Math.min(...wt.map(t => t[1])) - 1, y1w = Math.max(...wt.map(t => t[1])) + 2;
     water = new THREE.Mesh(new THREE.PlaneGeometry(x1w - x0w, y1w - y0w).rotateX(-Math.PI / 2).translate((x0w + x1w) / 2, -0.08, (y0w + y1w) / 2), waterMaterial(x0w, y0w, x1w, y1w, snow));
-    water.material.uniforms.uTime = U.uTime; water.material.uniforms.tNoise.value = noiseTex(); Object.assign(water.material.uniforms, { uHFog: U.uHFog, uHFogCol: U.uHFogCol, tHNoise: U.tHNoise, uHTime: U.uTime }); hfogTex();
+    water.material.uniforms.uTime = U.uTime; water.material.uniforms.tNoise.value = noiseTex(); Object.assign(water.material.uniforms, { uHFog: U.uHFog, uHFogCol: U.uHFogCol, tHNoise: U.tHNoise, uHTime: U.uTime, uHFogC: U.uHFogC }); hfogTex();
     if (zone.json.village) {   // ручей деревни: глубина — по расстоянию до берега (текстура W×H), а не по эллипсу вокруг центра
       const d = new Float32Array(W * H).fill(0), isW = (x, y) => x < 0 || y < 0 || x >= W || y >= H ? (m.rows[Math.max(0, Math.min(H - 1, y))][Math.max(0, Math.min(W - 1, x))] === '~') : m.rows[y][x] === '~' || m.rows[y][x] === 'b';
       for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (isW(x, y)) { let r = 9; for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) if (!isW(x + dx, y + dy)) r = Math.min(r, Math.hypot(dx, dy)); d[y * W + x] = Math.min(1, (r - 0.5) / 1.6); }
@@ -245,7 +246,7 @@ export function buildGround(scene, zone, opts = {}) {
     uTime: U.uTime, uWind: U.uWind, uWindStr: U.uWindStr,
     uBlobs: { value: Array.from({ length: 12 }, () => new THREE.Vector4(999, 999, 0.5, 0)) },
     uShadowMat: { value: new THREE.Matrix4() }, uShadowMap: { value: null }, uShadowOn: { value: 0 }, uShadowDark: { value: SHADOW.grassDark }, uShadowTexel: { value: new THREE.Vector2(1 / 1024, 1 / 1024) },
-    tNoise: { value: noiseTex() }, uHFog: U.uHFog, uHFogCol: U.uHFogCol, tHNoise: U.tHNoise, uHTime: U.uTime,
+    tNoise: { value: noiseTex() }, uHFog: U.uHFog, uHFogCol: U.uHFogCol, tHNoise: U.tHNoise, uHTime: U.uTime, uHFogC: U.uHFogC,
     uBase: { value: new THREE.Color(snow ? 0x8a9aa8 : opts.forest ? 0x6a7a1c : GRASS.base) }, uTip: { value: new THREE.Color(snow ? 0xe8f2f8 : opts.forest ? 0xd8e060 : GRASS.tip) }, uDry: { value: new THREE.Color(snow ? 0xc8c0a8 : opts.forest ? 0xe0c070 : GRASS.dry) }, uLight: { value: new THREE.Color(1, 1, 1) },
   };
   const gmat = new THREE.ShaderMaterial({ uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.fog, {}]), vertexShader: GRASS_VS, fragmentShader: GRASS_FS, side: THREE.DoubleSide, fog: true });

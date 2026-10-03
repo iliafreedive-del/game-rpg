@@ -422,10 +422,12 @@ export function update(dt) {
     if (t || inp.mag > 0.12) { if (t) C.playerAttack(pl); }
     else { const near = C.nearestEnemy(pl.x, pl.y, 7, e => G.zone.map.los(pl.x, pl.y, e.x, e.y)); if (near) { const dx = near.x - pl.x, dy = near.y - pl.y, l = Math.hypot(dx, dy); inp.wx = dx / l; inp.wy = dy / l; inp.mag = 0.7; } else C.playerAttack(pl); }
   }
-  // автоатака (как в Archero): стоим на месте и враг в зоне удара — герой бьёт сам; в движении не стреляет
-  if (!pl.busy() && !pl.dead && inp.mag < 0.12 && !G.modalOpen && !input.attackHeld && G.zoneId !== 'survival' && G.zoneId !== 'town' && G.zoneId !== 'castle') {
-    const W = G.stats, rng = W.ranged ? W.range * 0.9 : W.range * 0.8;
-    const t = C.pickTarget(pl, rng); if (t && (t.aggro || G.auto) && G.zone.map.los(pl.x, pl.y, t.x, t.y)) C.playerAttack(pl);
+  // автоатака: враг в зоне удара — герой бьёт сам, и стоя, и на ходу (ближний бой — на всю длину оружия, а не «впритык»;
+  // стрелок на ходу стреляет по тем, кто ближе 60 % дальности, начатый на ходу выстрел не сбрасывается движением)
+  if (!pl.busy() && !pl.dead && !G.modalOpen && !input.attackHeld && G.zoneId !== 'survival' && G.zoneId !== 'town' && G.zoneId !== 'castle') {
+    const W = G.stats, moving = inp.mag >= 0.12, rng = W.ranged ? W.range * (moving ? 0.6 : 0.9) : W.range + 0.2;
+    const t = moving && W.ranged && G.time < (pl.moveShotT || 0) ? null : C.pickTarget(pl, rng);   // стрелок на ходу — выстрел и ~0,8 с хода, чтобы мог отступать
+    if (t && (t.aggro || G.auto) && G.zone.map.los(pl.x, pl.y, t.x, t.y) && C.playerAttack(pl) && pl.act) { pl.act.auto = true; if (moving && W.ranged) pl.moveShotT = G.time + pl.act.dur + 0.8; }
   }
   if (pl.comboT > 0) { pl.comboT -= dt; if (pl.comboT <= 0) pl.combo = 0; }
   if (G.auto && !G.modalOpen) autoTick(inp);

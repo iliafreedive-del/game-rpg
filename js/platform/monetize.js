@@ -24,11 +24,13 @@ export async function watchRewarded(kind, token, apply) {
   const P = G.profile;
   if (busy) return false;
   if (P.ads.used[token]) { bus.emit('toast', { text: 'Эта награда уже получена', kind: 'warn' }); return false; }
-  if (inCombat() && kind !== 'revive' && kind !== 'boss_extra') { bus.emit('toast', { text: 'Реклама недоступна во время боя', kind: 'warn' }); return false; }
+  // в открытом окне на паузе (Летопись битв и т. п.) время мира стоит — «недавний бой» там не считается
+  const wasPaused = G.paused, frozen = wasPaused && G.modalOpen;
+  if (!frozen && inCombat() && kind !== 'revive' && kind !== 'boss_extra') { bus.emit('toast', { text: 'Реклама недоступна во время боя', kind: 'warn' }); return false; }
   busy = true; G.paused = true; bus.emit('audioPause', true); platform.p.gameplayStop();
   let ok = false;
   try { ok = await platform.p.showRewarded(); } catch { ok = false; }
-  busy = false; G.paused = false; bus.emit('audioPause', false); platform.p.gameplayStart();
+  busy = false; G.paused = wasPaused; bus.emit('audioPause', false); platform.p.gameplayStart();   // окно на паузе остаётся на паузе
   if (!ok) { bus.emit('toast', { text: 'Награда не получена: видео не досмотрено', kind: 'warn' }); return false; }
   if (P.ads.used[token]) return false;  // double-callback guard
   P.ads.used[token] = Date.now(); pruneTokens();

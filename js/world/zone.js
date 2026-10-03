@@ -64,7 +64,7 @@ export class Zone {
     const P = PROP[o.t]; if (!P) return null;
     const d = this.add({ x: o.x, y: o.y, spr: P.spr, tall: P.tall, flat: P.flat });
     if (P.model || o.rot !== undefined) { d.model = P.model || o.t; d.rot = o.rot || 0; }
-    if (o.s) d.s = o.s; if (o.len || o.opts) d.opts = { len: o.len, ...o.opts };
+    if (o.s) d.s = o.s; if (o.len || o.opts) d.opts = { len: o.len, ...o.opts };   // параметры модели (длина и ширина моста, размеры мельницы)
     if (o.boxes) for (const [x0, y0, x1, y1] of o.boxes) this.map.rects.push({ x0, y0, x1, y1 });
     else if (!o.nocol) {
       if (P.r) this.map.circles.push({ x: o.x, y: o.y, r: P.r });

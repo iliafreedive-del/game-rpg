@@ -76,7 +76,7 @@ export class PropLayer {
           const h2 = hash(x * 1.7, y * 2.3); if (h2 < 0.85) push(h2 < 0.45 ? 'bush' : h2 < 0.7 ? 'fern' : 'rocks', x + (hash(y, x) - 0.5) * 2, y + (hash(x, y) - 0.5) * 2, h2 * 40, 1.1 + h2 * 0.9);
           continue;
         }
-        const h = hash(x + 3, y - 7); if (h > (wild ? 0.5 : 0.7)) continue;
+        const h = hash(x + 3, y - 7); if (h > (wild ? 0.5 : 0.7)) { if (zone.json.village) push(h > 0.85 ? 'fern' : 'bush', x + (hash(x, y) - 0.5) * 2, y + (hash(y, x) - 0.5) * 2, h * 30, 1.3 + hash(x * 2, y) * 0.8); continue; }   // деревня: просвет в лесу за краем — кусты, а не пустота
         push((fj ? (hash(x * 2.3, y * 1.1 + 5) < 0.5 ? 'tree_fir_blue' : 'tree_pine_tall') : pickTree(h > 0.4 ? 'tree_1' : 'tree_0', hash(x * 2.3, y * 1.1 + 5))) + '_far', x + (hash(x, y) - 0.5) * 2, y + (hash(y, x) - 0.5) * 2, h * 6.28, 1 + hash(x * 2, y) * 0.6);
       }
     }

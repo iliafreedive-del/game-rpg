@@ -2,10 +2,10 @@
 // Длина — opts.len (вдоль X, задаёт генератор деревни по ширине ручья), ширина 2,8 м. Настил почти вровень с землёй.
 export default { id: 'bridge', kind: 'prop', outline: false,
   build(kit, opts = {}) {
-    const { THREE, part, merge, bbox, geo } = kit, L = [], R = geo.rng(5), len = opts.len || 5, BW = 2.8, T = 0x4a3220, TL = 0x9a7448;
+    const { THREE, part, merge, bbox, geo } = kit, L = [], R = geo.rng(5), len = opts.len || 5, BW = opts.w ? opts.w - 0.15 : 2.8, T = 0x4a3220, TL = 0x9a7448;
     const n = Math.round(len / 0.32);
     for (let i = 0; i < n; i++) { const x = -len / 2 + (i + 0.5) * len / n, t = (x + len / 2) / len, y = 0.1 + Math.sin(Math.PI * t) * 0.1; L.push(bbox(len / n - 0.03, 0.09, BW - (R() < 0.15 ? 0.25 : 0) + (R() - 0.5) * 0.12, 0.015, R() < 0.5 ? 0x5a3e26 : 0x6a4a2c, [x, y, (R() - 0.5) * 0.06], [0, (R() - 0.5) * 0.03, 0], { top: R() < 0.3 ? 0xa88458 : TL, tex: 'woodH' })); }
-    for (const z of [-1.0, 1.0]) L.push(bbox(len + 0.3, 0.24, 0.24, 0.03, 0x3a2614, [0, -0.08, z], 0, { top: 0x6a4a2c, tex: 'wood' }));
+    for (const z of [-BW * 0.36, BW * 0.36]) L.push(bbox(len + 0.3, 0.24, 0.24, 0.03, 0x3a2614, [0, -0.08, z], 0, { top: 0x6a4a2c, tex: 'wood' }));
     const posts = [-len / 2 + 0.15, -len / 6, len / 6, len / 2 - 0.15];
     for (const x of posts) for (const s of [-1, 1]) {
       L.push(bbox(0.2, 1.75, 0.2, 0.03, T, [x, 0.2, s * (BW / 2 + 0.05)], 0, { top: TL, tex: 'wood' }));

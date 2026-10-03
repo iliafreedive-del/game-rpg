@@ -130,6 +130,14 @@ export function generateVillage(plan0 = PLAN) {
       else if (c === '.' || (c === 'x' && x >= 2 && y >= 2 && x < W - 2 && y < H - 2)) { if (c !== '#') { set(x, y, ','); setU(x, y, 1); } }
     }
   }
+  // мост — ровная полоса: строки, общие для всех столбцов моста (дорога чуть изгибается — иначе край «гуляет» и за перила можно выйти)
+  if (bridges.length) {
+    const cols = {}; for (const b of bridges) (cols[b.x] ||= []).push(b.y);
+    const y0 = Math.max(...Object.values(cols).map(c => Math.min(...c))), y1 = Math.min(...Object.values(cols).map(c => Math.max(...c)));
+    for (const b of bridges) set(b.x, b.y, '~');
+    bridges.length = 0;
+    for (const x of Object.keys(cols).map(Number)) for (let y = y0; y <= y1; y++) { set(x, y, 'b'); setU(x, y, 1); bridges.push({ x, y }); }
+  }
   // 5. порталы: расчищенная опушка; резерв, чтобы рядом ничего не строилось
   for (const p of portals) for (let y = Math.floor(p.y - 3); y <= p.y + 3; y++) for (let x = Math.floor(p.x - 3); x <= p.x + 3; x++) {
     if ((x + 0.5 - p.x) ** 2 + (y + 0.5 - p.y) ** 2 < 6.5 && at(x, y) === 'x' && x > 0 && y > 0 && x < W - 1 && y < H - 1) set(x, y, '.');
@@ -326,7 +334,9 @@ export function generateVillage(plan0 = PLAN) {
   // ---- мост: настил над тайлами 'b', на том берегу — завал из брёвен и табличка: дальше дороги нет
   if (bridges.length) {
     const xs = bridges.map(b => b.x), ys = bridges.map(b => b.y), bx0 = Math.min(...xs), bx1 = Math.max(...xs) + 1, by = (Math.min(...ys) + Math.max(...ys) + 1) / 2;
-    put('bridge', (bx0 + bx1) / 2, by, { len: bx1 - bx0 + 1.2, nocol: 1 });
+    // ширина моста = проходимая полоса тайлов 'b': перила стоят ровно по её краю — за них не выйти
+    const bw = Math.max(...ys) - Math.min(...ys) + 1;
+    put('bridge', (bx0 + bx1) / 2, by, { len: bx1 - bx0 + 1.2, nocol: 1, opts: { w: bw } });
     put('barricade', bx1 + 0.35, by, { rot: Math.PI / 2 });
     for (let y = Math.floor(by - 2); y <= by + 2; y++) if (at(bx1, y) === ';' || at(bx1, y) === 'n' || at(bx1, y) === 'x') set(bx1, y, 'n');
     // лес у дальнего конца моста — реже (луг вместо чащи), иначе кроны на переднем плане закрывают завал
@@ -443,7 +453,7 @@ export function generateVillage(plan0 = PLAN) {
   const P = plan.portals;
   return {
     w: W, h: H, name: 'Деревня Ордена', floor: { w: 0, h: 0, scale: 1, ox: 0, chunks: [] }, village: true,
-    rows: g.map(r => r.join('')), objects, npcs, start: plan.start, critters, viewClear,
+    rows: g.map(r => r.join('')), objects, npcs, start: plan.start, critters, viewClear, center: [CX, CY],
     big: { castle: P.castle, survportal: P.survival, depths: P.depths, fjord: P.fjord, forest: P.forest, hwsign, catacombs: P.catacombs },
     gen: { buildings: buildings.map(b => ({ kind: b.kind, x: +b.x.toFixed(1), y: +b.y.toFixed(1), rot: +b.rot.toFixed(2) })), fields: fields.map(f => ({ ...f })), gapRemoved, warn },
   };
