@@ -9,6 +9,8 @@ import { makeKit } from './kit.js';
 import { Actor, setOutlinesVisible } from './actor.js';
 import { PropLayer } from './props.js';
 import { buildGround } from './ground.js';
+import { Atmo } from './atmo.js';
+import { Critters } from './critters.js';
 import { buildDungeonFloor } from './dungeon.js';
 import { glowSet } from './glow.js';
 import { HEROES, MOBS, NPCS, WEAPONS, WEAPON_MODEL, OFFHAND_MODEL } from './registry.js';
@@ -98,7 +100,7 @@ function applyQuality(force) {
   const Q = QUALITY[q];
   // потолок по числу пикселей (≈3,2 Мпикс): на больших мониторах с HiDPI цели постобработки с MSAA съедали видеопамять — после смены зоны кадр мог стать чёрным
   DPR = Math.max(0.6, Math.min(window.devicePixelRatio || 1, Q.pr, Math.sqrt(3.2e6 / Math.max(1, W * H)))); renderer.setPixelRatio(DPR);
-  setOutlinesVisible(q !== 'low'); if (world) { world.ground.setQuality(q); world.props.setQuality(q); }
+  setOutlinesVisible(q !== 'low'); if (world) { world.ground.setQuality(q); world.props.setQuality(q); if (world.atmo) world.atmo.setQuality(q); }
   const sm = Q.shadow;
   lights.hemi.intensity = LV.hemi.i * (Q.light ?? 1); lights.moon.intensity = LV.key.i * (Q.light ?? 1);
   setPointCount(zone && (zone.id === 'town' || zone.id === 'wild') ? 2 : Q.points);
@@ -117,7 +119,7 @@ function disposeWorld() {
   for (const a of actors.values()) a.dispose(); actors.clear();
   for (const l of swarmPool.values()) for (const a of l) a.dispose(); swarmPool.clear();
   if (!world) return;
-  world.ground.dispose(); world.props.dispose(); world.glow.removeFromParent(); world.pool.removeFromParent(); world = null;
+  world.ground.dispose(); world.props.dispose(); world.glow.removeFromParent(); world.pool.removeFromParent(); if (world.atmo) world.atmo.dispose(); if (world.critters) world.critters.dispose(); world = null;
 }
 const hex = c => (c[0] << 16) | (c[1] << 8) | c[2];
 // пресет света по зоне: деревня, подземелье (с биомом глубин), цитадель/арена
@@ -155,7 +157,9 @@ function setZone(z) {
   for (const s of slots) { s.L = null; s.k = 0; s.lt.intensity = 0; }
   const town = z.id === 'town', wild = z.id === 'wild', open = town || wild, fj = wild && z.json.wild.realm === 'fjord';
   const ground = wild ? buildGround(scene, z, { snow: fj, forest: !fj, kindOf: wildKind, stoneCh: '\u0000', grassK: 0.15, farColor: fj ? 0xb4c6d8 : 0x0f2418, margin: 6 }) : town ? buildGround(scene, z, { margin: z.json.big ? 14 : 3 }) : buildDungeonFloor(scene, z, LV.look), props = new PropLayer(scene, kit, z, open);
-  world = { ground, props, ...lightSets(z) };
+  // деревня: дым из труб, стелющийся туман, куры и собаки
+  const atmo = town && z.json.village ? new Atmo(scene, z, props.smoke) : null, critters = town && z.json.village ? new Critters(scene, kit, z) : null;
+  world = { ground, props, atmo, critters, ...lightSets(z) };
   props.cull(camera, true); applyQuality(true); ground.setQuality(quality); spawned = false;
 }
 
@@ -307,6 +311,8 @@ export function render() {
   updateCamera(); updateLights(tAll, dt);
   syncPlayer(dt); syncEnemies(dt); syncSwarm(dt); syncNpcs(dt); cullActors();
   world.props.cull(camera); world.props.update(tAll);
+  if (world.atmo) world.atmo.update(dt, tAll, G.cam.x, G.cam.y, G.player.x, G.player.y);
+  if (world.critters) world.critters.update(dt, tAll, G.player, G.cam.x, G.cam.y);
   world.ground.update([{ x: G.player.x, z: G.player.y, r: 0.7, w: 1 }, ...G.enemies.filter(e => !e.dead).slice(0, 10).map(e => ({ x: e.x, z: e.y, r: e.r * 1.6, w: 1 }))]);
   devSpawn();
   world.ground.shadow(lights.moon); world.ground.lod(camTarget.x + SQ * 2, camTarget.z + SQ * 2);

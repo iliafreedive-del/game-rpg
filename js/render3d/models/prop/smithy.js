@@ -7,7 +7,7 @@ const OPTS = { w: 4.8, d: 4.6, seed: 23, walls: 'stone', stone: 0x5a5448, stoneT
 export default { id: 'smithy', kind: 'prop', outline: false,
   shadowProxy(kit) { const { merge, part, THREE } = kit; return merge([cottageProxy(kit, OPTS, -1.5), part(new THREE.BoxGeometry(3.2, 0.3, 4.8), 0, [2.4, 3.1, 0])]); },
   build(kit) {
-    const { THREE, part, merge, bbox, geo } = kit, { L } = cottageParts(kit, OPTS);
+    const { THREE, part, merge, bbox, geo } = kit, { L, smoke } = cottageParts(kit, OPTS);
     for (const g of L) g.translate(-1.5, 0, 0);
     const T = 0x3a2416, TL = 0x74502e, x0 = 0.95, x1 = 3.9;
     for (const x of [x1 - 0.1]) for (const z of [-2.15, 2.15]) L.push(bbox(0.2, 2.75, 0.2, 0.03, T, [x, 1.375, z], 0, { top: TL, tex: 'wood' }));
@@ -23,5 +23,6 @@ export default { id: 'smithy', kind: 'prop', outline: false,
     L.push(part(new THREE.CylinderGeometry(0.34, 0.34, 0.12, 12), 0x7a7462, [x1 - 0.6, 0.62, -1.6], [Math.PI / 2, 0, 0], 1, { top: 0xb8ae96, tex: 'stone' }), bbox(0.5, 0.56, 0.3, 0.03, T, [x1 - 0.6, 0.28, -1.6], 0, { top: TL, tex: 'wood' }));   // точило
     const root = new THREE.Group(); root.add(new THREE.Mesh(merge(L), kit.propMat(this)));
     const s = sign(kit, this, ['КУЗНИЦА'], 1.5, 0.42); s.position.set(-0.45, 2.62, OPTS.d / 2 + 0.06); root.add(s);   // на стене мастерской над окном — не заслоняет горн
+    if (smoke) root.userData.smoke = [[smoke[0] - 1.5, smoke[1], smoke[2]], [1.92, 3.5, -0.05, 1]];   // труба мастерской и дымоход горна под навесом
     return { root };
   } };

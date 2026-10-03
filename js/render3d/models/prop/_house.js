@@ -190,6 +190,7 @@ export function house(kit, o) {
   L.push(bbox(0.18, 0.26, 0.18, 0.02, 0x24242a, [dx + DW / 2 + 0.55, y0 + 1.95, dz + 0.3], 0, { top: 0x5a5a64, tex: 'iron' }));
   L.push(part(new THREE.BoxGeometry(0.12, 0.17, 0.12), 0xffc070, [dx + DW / 2 + 0.55, y0 + 1.95, dz + 0.3], 0, 1, { emit: true }));
   const root = new THREE.Group(); const m = new THREE.Mesh(merge(L), kit.propMat(o)); if (w < d) m.rotation.y = -Math.PI / 2; root.add(m);
+  root.userData.smoke = [w < d ? [chz, cy0 + ch + 0.35, -chx] : [chx, cy0 + ch + 0.35, chz]];   // устье трубы — для дыма (js/render3d/atmo.js)
   return { root };
 }
 // тень дома — от коробки этажей, призмы крыши и трубы (десятки треугольников вместо ≈ 10 тыс.)

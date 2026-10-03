@@ -107,8 +107,9 @@ export function cottageParts(kit, o) {
   L.push(part(new THREE.CylinderGeometry(0.3, 0.3, len + 0.2, 10), c0.clone().lerp(c1, 0.5).getHex(), [0, ridgeY + 0.22, 0], [0, 0, Math.PI / 2], [1, 0.75, 1], { top: o.roofTop, tex: o.roofTex || 'thatch' }));
   for (let i = 0; i < Math.round(len / 0.7); i++) { const x = -len / 2 + 0.35 + i * 0.7; for (const s of [-1, 1]) L.push(bbox(0.05, 0.05, 0.42, 0.01, T, [x, ridgeY + 0.3, s * 0.12], [s * 0.6, 0, 0], { top: TL, tex: 'wood' })); }
   // труба у торца
+  let smoke = null;
   if (o.chimney !== 0) {
-    const cx = (o.chimney ?? 1) * (W / 2 - 0.55), cz = -D * 0.12, ch = ridgeY + 0.9 - y0;
+    const cx = (o.chimney ?? 1) * (W / 2 - 0.55), cz = -D * 0.12, ch = ridgeY + 0.9 - y0; smoke = [cx, y0 + ch + 0.35, cz];
     L.push(bbox(0.7, ch, 0.7, 0.07, ST, [cx, y0 + ch / 2, cz], 0, { top: STL, tex: 'stone' }));
     L.push(bbox(0.86, 0.14, 0.86, 0.04, 0x3a362e, [cx, y0 + ch, cz], 0, { top: 0x6a6252, tex: 'stone' }));
     L.push(bbox(0.36, 0.2, 0.36, 0.03, 0x24242a, [cx, y0 + ch + 0.14, cz], 0, { top: 0x4a4a52, tex: 'iron' }));
@@ -118,11 +119,12 @@ export function cottageParts(kit, o) {
   L.push(bbox(0.16, 0.24, 0.16, 0.02, 0x24242a, [doorU + DW / 2 + 0.38, y0 + 1.85, D / 2 + 0.22], 0, { top: 0x5a5a64, tex: 'iron' }));
   L.push(part(new THREE.BoxGeometry(0.1, 0.15, 0.1), 0xffc070, [doorU + DW / 2 + 0.38, y0 + 1.85, D / 2 + 0.22], 0, 1, { emit: true }));
   L.push(bbox(0.05, 0.05, 0.3, 0.01, 0x24242a, [doorU + DW / 2 + 0.38, y0 + 2.0, D / 2 + 0.1], 0, { top: 0x5a5a64, tex: 'iron' }));
-  return { L, ridgeY, yT };
+  return { L, ridgeY, yT, smoke };
 }
 export function cottage(kit, def, o) {
   const { THREE, merge } = kit, root = new THREE.Group();
-  root.add(new THREE.Mesh(merge(cottageParts(kit, o).L), kit.propMat(def)));
+  const c = cottageParts(kit, o); root.add(new THREE.Mesh(merge(c.L), kit.propMat(def)));
+  if (c.smoke) root.userData.smoke = [c.smoke];   // устье трубы — для дыма (js/render3d/atmo.js)
   return { root };
 }
 // тень — коробка стен и призма крыши

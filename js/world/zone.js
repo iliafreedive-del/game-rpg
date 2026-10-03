@@ -36,6 +36,7 @@ const PROP = {
   bridge: { spr: 'rug', flat: 1, model: 'bridge' }, barricade: { spr: 'crate', r: 0.4, model: 'barricade' },
   vine_row: { spr: 'bush', model: 'vine_row' }, garden_bed: { spr: 'rug', flat: 1, model: 'garden_bed' }, scarecrow: { spr: 'banner', model: 'scarecrow' },
   dummy: { spr: 'banner', r: 0.3, model: 'dummy' }, target: { spr: 'banner', r: 0.35, model: 'target' }, bench: { spr: 'crate', box: [0.75, 0.22], model: 'bench' }, table: { spr: 'crate', r: 0.6, model: 'table' },
+  mill_ruin: { spr: 'house_2', tall: 1, model: 'mill_ruin' }, deadfall: { spr: 'deadtree', model: 'deadfall' },
   fortune_tent: { spr: 'hay', box: [1.5, 1.3], model: 'fortune_tent', light: { r: 3.5, c: [200, 120, 255], flicker: 0.4, z: 1.2 } }, reeds: { spr: 'bush', model: 'reeds' }, sacks: { spr: 'sacks', r: 0.3 },
 };
 
@@ -59,7 +60,7 @@ export class Zone {
     const P = PROP[o.t]; if (!P) return null;
     const d = this.add({ x: o.x, y: o.y, spr: P.spr, tall: P.tall, flat: P.flat });
     if (P.model || o.rot !== undefined) { d.model = P.model || o.t; d.rot = o.rot || 0; }
-    if (o.s) d.s = o.s; if (o.len) d.opts = { len: o.len };
+    if (o.s) d.s = o.s; if (o.len || o.opts) d.opts = { len: o.len, ...o.opts };
     if (o.boxes) for (const [x0, y0, x1, y1] of o.boxes) this.map.rects.push({ x0, y0, x1, y1 });
     else if (!o.nocol) {
       if (P.r) this.map.circles.push({ x: o.x, y: o.y, r: P.r });

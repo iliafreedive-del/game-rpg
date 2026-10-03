@@ -22,7 +22,7 @@ const proxyMat = () => _proxyMat || (_proxyMat = new THREE.MeshBasicMaterial({ c
 
 export class PropLayer {
   constructor(scene, kit, zone, wantBackdrop = true) {
-    this.scene = scene; this.kit = kit; this.items = []; this.batches = []; this.dyn = [];
+    this.scene = scene; this.kit = kit; this.items = []; this.batches = []; this.dyn = []; this.smoke = [];   // smoke — устья труб в мире (дым рисует atmo.js)
     const lists = new Map();   // id → [{x,y,rot,s,q}]
     const wildForest = zone.id === 'wild' && zone.json.wild.realm !== 'fjord', WF_TINT = new THREE.Color(0.72, 0.9, 0.82);
     this._lists = lists; this.decorK = 1; this.zoneLights = zone.lights;
@@ -66,10 +66,12 @@ export class PropLayer {
       }
     }
     if (dungeon) for (const w of wallPieces(zone)) push(w.id === 'dwall_lo' ? 'dwall_lo' : w.v < 0.62 ? 'dwall_hi' : w.v < 0.86 ? 'dwall_buttress' : 'dwall_niche', w.x, w.y, w.rot, 1);
+    const VC = zone.json.viewClear || [], clearOf = (x, y) => VC.some(c => { const dx = x - c.x, dy = y - c.y, al = (dx + dy) / Math.SQRT2; return al > -2.5 && al < c.len + 4 && Math.abs(dx - dy) / Math.SQRT2 < c.lat + 1; });
     if (wantBackdrop && open) {  // лес за краем карты
       const m = zone.map, G = zone.json.big ? 3.8 : 3.4, ring = zone.json.big ? 17 : 11;
       for (let y = -ring; y < m.h + ring; y += G) for (let x = -ring; x < m.w + ring; x += G) {
         if (x > -1.5 && y > -1.5 && x < m.w + 1.5 && y < m.h + 1.5) continue;
+        if (clearOf(x, y)) continue;   // «конус взгляда» на мельницу за рекой: деревья за краем карты её бы закрыли
         const h = hash(x + 3, y - 7); if (h > (wild ? 0.5 : 0.7)) continue;
         push((fj ? (hash(x * 2.3, y * 1.1 + 5) < 0.5 ? 'tree_fir_blue' : 'tree_pine_tall') : pickTree(h > 0.4 ? 'tree_1' : 'tree_0', hash(x * 2.3, y * 1.1 + 5))) + '_far', x + (hash(x, y) - 0.5) * 2, y + (hash(y, x) - 0.5) * 2, h * 6.28, 1 + hash(x * 2, y) * 0.6);
       }
@@ -150,6 +152,7 @@ export class PropLayer {
     model.root.traverse(o => { if (o.isMesh && !o.userData.isOutline) { o.castShadow = def.shadow !== false && !def.shadowProxy; o.receiveShadow = true; } });
     if (def.shadowProxy) { const pm = new THREE.Mesh(def.shadowProxy(this.kit), proxyMat()); pm.castShadow = true; pm.layers.set(1); pm.userData.isOutline = true; model.root.add(pm); }
     this.items.push(g); if (model.update) this.dyn.push(model);
+    if (model.root.userData.smoke) { g.updateMatrixWorld(true); for (const p of model.root.userData.smoke) this.smoke.push({ p: model.root.localToWorld(new THREE.Vector3(p[0], p[1], p[2])), dark: !!p[3] }); }   // [x, y, z, тёмный дым горна]
     return g;
   }
   addBatch(def, list) {

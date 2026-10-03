@@ -147,6 +147,8 @@ import bench from './models/prop/bench.js';
 import table from './models/prop/table.js';
 import reeds from './models/prop/reeds.js';
 import fortune_tent from './models/prop/fortune_tent.js';
+import mill_ruin from './models/prop/mill_ruin.js';
+import deadfall from './models/prop/deadfall.js';
 
 const by = (...l) => Object.fromEntries(l.map(m => [m.id, m]));
 export const HEROES = by(warrior, archer, mage);                       // ключ — класс героя
@@ -155,7 +157,7 @@ export const NPCS = by(npc_fortune, npc_elder, npc_smith, npc_merchant, npc_trai
 export const WEAPONS = by(bow_hunter, staff_mage, axe_hand, club_giant, staff_ice, staff_root, sword_iron, shield_round, sword_rust, shield_bone, bow_bone, staff_bone, axe_great);
 export const PROPS = by(fort_door_i, fort_door_w, chronicle, fort_wall, palisade, fort_tower, watchtower, fort_gate_i, fort_gate_w, fort_hall_i, fort_hall_w, tent_i, tent_w, tree_0, tree_1, tree_birch, tree_autumn, tree_elm, tree_pine_tall, tree_fir_blue, deadtree, house_0, house_1, house_2, rocks, grave, fence_x, fence_y, barrel, crate, hay, lamp, runebed, forge, stall, board, altar, banner, statue, weapon_rack, crystals, portal,
   fern, flowers, pebbles, mushrooms, bush, sacks, logpile, stump, tree_poplar, tree_oakwide, tree_sapling, ...DEAD_VARIANTS, ...ROCK_VARIANTS, ...PORTAL_VARIANTS, market_tent,
-  church, tavern, shop, smithy, cottage_a, cottage_b, cottage_c, bridge, barricade, vine_row, garden_bed, scarecrow, dummy, target, bench, table, reeds, fortune_tent,
+  church, tavern, shop, smithy, cottage_a, cottage_b, cottage_c, bridge, barricade, vine_row, garden_bed, scarecrow, dummy, target, bench, table, reeds, fortune_tent, mill_ruin, deadfall,
   dwall_hi, dwall_lo, dwall_buttress, dwall_niche, wall_block, torch_sconce, pillar, brazier, bones, skulls, rubble, candles, chest, chest_open, chest_rich, chest_rich_open, sarcophagus, sarcophagus_open, door, door_open, gate_sealed, altar_medallion, stalagmite, lavarock, puddle, rug, bookshelf, throne, well);   // подземелье (стены dwall_* ставит dungeon.js по тайлам)   // последние восемь — декор земли и хлам у домов (js/render3d/props.js, scatterDecor), в картах не стоят
 
 // какая модель оружия соответствует типу оружия игры (wt); недостающие пока подменяются мечом
