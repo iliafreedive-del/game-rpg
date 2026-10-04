@@ -34,7 +34,7 @@ import { BOONS, BOON_IDS } from '../data/boons.js';
 import { stats as calcStats } from '../game/stats.js';
 import { maybeInterstitial } from '../platform/monetize.js';
 import { platform as PF } from '../platform/platform.js';
-import { wipeLocal } from '../game/save.js';
+import { wipeLocal, cloudBundle } from '../game/save.js';
 import { setVolumes } from '../core/audio.js';
 import { resize } from '../render/index.js';
 
@@ -393,7 +393,7 @@ W.settings = () => modal('Настройки', 'sm', b => {
   const row = el('div', 'row'); row.style.marginTop = '10px';
   const sv = el('button', 'btn', 'Сохранить'); sv.onclick = () => { saveNow(); bus.emit('toast', { text: 'Игра сохранена', kind: 'good' }); }; row.appendChild(sv);
   const rp = el('button', 'btn', 'Восстановить покупки'); rp.onclick = () => restorePurchases(); row.appendChild(rp);
-  const wp = el('button', 'btn', 'Начать заново'); wp.onclick = () => { if (confirm('Удалить сохранение и начать заново? Это нельзя отменить.')) { wipeLocal(); location.reload(); } }; row.appendChild(wp);
+  const wp = el('button', 'btn', 'Начать заново'); wp.onclick = () => { if (confirm('Удалить сохранение этого героя и начать заново? Это нельзя отменить. Сохранения других героев останутся.')) { wipeLocal(G.profile.cls); G.profile = null; const go = () => location.reload(); if (platform.name !== 'demo' && platform.p && platform.p.cloudSave) platform.p.cloudSave(cloudBundle(null)).finally(go); else go(); } }; row.appendChild(wp);
   b.appendChild(row);
   b.appendChild(el('p', 'muted', `<small>Версия 2.0 · платформа: ${platform.name}</small>`));
 });

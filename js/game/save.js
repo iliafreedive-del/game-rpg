@@ -124,19 +124,55 @@ export function migrate(p) {
   return p;
 }
 
-export function loadLocal() {
+// сборка 44: три сохранения — по одному на класс (ключ SAVE_KEY_<класс>); последний сыгранный класс — в LAST_KEY.
+// Старое единое сохранение (SAVE_KEY) при первом запуске переезжает в слот своего класса; сам ключ остаётся копией SAVE_KEY_old.
+export const CLASS_IDS = ['warrior', 'archer', 'mage'];
+export const slotKey = cls => SAVE_KEY + '_' + cls;
+const LAST_KEY = 'dark_ascent_last_cls';
+function moveOldSave() {
   try {
-    const raw = localStorage.getItem(SAVE_KEY);
-    if (raw) return migrate(JSON.parse(raw));
-    for (const k of LEGACY_KEYS) {
-      const r = localStorage.getItem(k);
-      if (r) { const p = migrate(JSON.parse(r)); if (p) { p.legacyKey = k; return p; } }
-    }
-  } catch (e) { console.warn('save load failed', e); }
-  return null;
+    const raw = localStorage.getItem(SAVE_KEY); let p = null, from = null;
+    if (raw) { p = migrate(JSON.parse(raw)); from = SAVE_KEY; }
+    else if (!CLASS_IDS.some(c => localStorage.getItem(slotKey(c)))) for (const k of LEGACY_KEYS) { const r = localStorage.getItem(k); if (r) { p = migrate(JSON.parse(r)); if (p) { p.legacyKey = k; from = k; break; } } }
+    if (!p) return;
+    const cls = CLASS_IDS.includes(p.cls) ? p.cls : 'warrior'; p.cls = cls;
+    if (!localStorage.getItem(slotKey(cls))) { localStorage.setItem(slotKey(cls), JSON.stringify(p)); if (!localStorage.getItem(LAST_KEY)) localStorage.setItem(LAST_KEY, cls); }
+    if (from === SAVE_KEY) { localStorage.setItem(SAVE_KEY + '_old', raw); localStorage.removeItem(SAVE_KEY); }
+  } catch (e) { console.warn('save move failed', e); }
 }
-export function saveLocal(p) {
-  try { p.saved = Date.now(); localStorage.setItem(SAVE_KEY, JSON.stringify(p)); return true; }
+// все слоты: { slots: { warrior: профиль, … }, last: 'mage' }
+export function loadSlots() {
+  moveOldSave();
+  const slots = {};
+  for (const c of CLASS_IDS) { try { const r = localStorage.getItem(slotKey(c)); if (r) { const p = migrate(JSON.parse(r)); if (p) { p.cls = c; slots[c] = p; } } } catch (e) { console.warn('save load failed', c, e); } }
+  let last = null; try { last = localStorage.getItem(LAST_KEY); } catch { }
+  if (!slots[last]) last = Object.values(slots).sort((a, b) => (b.saved || 0) - (a.saved || 0)).map(p => p.cls)[0] || null;
+  return { slots, last };
+}
+// облако (Яндекс): одна запись со всеми слотами; старое облачное сохранение (один профиль) — как слот своего класса
+export function cloudBundle(cur) {
+  const slots = {};
+  for (const c of CLASS_IDS) { try { const r = localStorage.getItem(slotKey(c)); if (r) slots[c] = JSON.parse(r); } catch { } }
+  if (cur) slots[cur.cls] = cur;
+  return { multi: 1, last: cur ? cur.cls : null, slots };
+}
+export function mergeCloud(local, cloud) {
+  if (!cloud) return local;
+  const list = cloud.multi ? Object.values(cloud.slots || {}) : [cloud];
+  for (const raw of list) {
+    const p = migrate(raw); if (!p) continue; const c = CLASS_IDS.includes(p.cls) ? p.cls : 'warrior'; p.cls = c;
+    if (!local.slots[c] || (p.saved || 0) > (local.slots[c].saved || 0)) { local.slots[c] = p; saveLocal(p, true); }
+  }
+  if (cloud.multi && cloud.last && local.slots[cloud.last]) {
+    const lp = local.slots[local.last]; if (!lp || (local.slots[cloud.last].saved || 0) > (lp.saved || 0)) local.last = cloud.last;
+  }
+  if (!local.slots[local.last]) local.last = Object.keys(local.slots)[0] || null;
+  return local;
+}
+export function loadLocal() { const { slots, last } = loadSlots(); return last ? slots[last] : null; }
+export function saveLocal(p, keepTime) {
+  try { if (!keepTime) p.saved = Date.now(); const c = CLASS_IDS.includes(p.cls) ? p.cls : 'warrior'; localStorage.setItem(slotKey(c), JSON.stringify(p)); if (!keepTime) localStorage.setItem(LAST_KEY, c); return true; }
   catch (e) { console.warn('save failed', e); return false; }
 }
-export function wipeLocal() { try { localStorage.removeItem(SAVE_KEY); } catch { } }
+// удалить сохранение одного героя (остальные два не трогаем)
+export function wipeLocal(cls) { try { localStorage.removeItem(slotKey(cls || 'warrior')); localStorage.removeItem(LAST_KEY); } catch { } }

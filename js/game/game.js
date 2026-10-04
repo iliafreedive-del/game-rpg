@@ -10,7 +10,7 @@ import * as C from './combat.js';
 import * as L from './loot.js';
 import * as Q from './quests.js';
 import { REPEATABLE } from '../data/quests.js';
-import { saveLocal } from './save.js';
+import { saveLocal, cloudBundle } from './save.js';
 import { loadJSON, loadGroup } from '../core/assets.js';
 import { loadFloor, buildFloorCanvas } from '../render/index.js';
 import { widen } from '../world/widen.js';
@@ -50,7 +50,7 @@ export function saveNow() {
   if (G.player && !G.player.dead) { P.hpFrac = G.player.hp / G.stats.maxHP; }
   P.world.lastZone = 'town'; if (G.dozorChecked) P.dozorAt = Date.now();   // always resume in the village (safe start, no mid-fight restore)
   saveLocal(P); saveQueued = false; saveTimer = 0;
-  if (platform.p && platform.p.cloudSave && platform.name !== 'demo') platform.p.cloudSave(P);
+  if (platform.p && platform.p.cloudSave && platform.name !== 'demo') platform.p.cloudSave(cloudBundle(P));   // сборка 44: в облаке все три героя
 }
 bus.on('save', requestSave);
 
