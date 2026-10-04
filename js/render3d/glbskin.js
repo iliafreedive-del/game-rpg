@@ -74,10 +74,36 @@ export function attachSkin(kit, model, name, o = {}) {
   const idleQ = new Map(), idleP = new Map(), restP = new Map();
   for (const [b, p] of map) { idleQ.set(b, worldQ(p, root, new THREE.Quaternion()).invert()); idleP.set(b, p.position.clone()); restP.set(b, b.position.clone()); }
   const legK = o.legK ?? 1, wq = new Map();
+  // анимации самой модели (glb_mixamo.py: meta.clips walk/run — кадры поворотов костей в пространстве корня относительно покоя):
+  // пока герой идёт, тело ведут они (ходьба ↔ бег по скорости, фаза — по длине шага модели), удары и касты — копия рига
+  const CL = meta.clips && meta.clips.walk ? meta.clips : null;
+  let clipW = 0, runW = 0, ph = 0, walkSp = 0;
+  if (CL) { const w0 = model.anims.walk; model.anims.walk = a => { walkSp = a.speed; return w0(a); }; }
+  const _ca = new THREE.Quaternion(), _cb = new THREE.Quaternion(), _ho = new THREE.Vector3(), _hb = new THREE.Vector3();
+  function frameQ(c, i, out) {
+    const n = c.frames.length, x = ph * n, f0 = Math.floor(x) % n, f1 = (f0 + 1) % n;
+    out.fromArray(c.frames[f0], i * 4); return out.slerp(_cb.fromArray(c.frames[f1], i * 4), x - Math.floor(x));
+  }
+  function frameHips(c, out) {
+    const n = c.hips.length, x = ph * n, f0 = Math.floor(x) % n, f1 = (f0 + 1) % n;
+    return out.fromArray(c.hips[f0]).lerp(_hb.fromArray(c.hips[f1]), x - Math.floor(x));
+  }
+  const clipQ = new Map();
   const bowHand = o.bowHand ? byName[o.bowHand] : null, armDir = new THREE.Vector3(...at.elL).sub(new THREE.Vector3(...at.armL)).normalize();
   // копирование движения: Wнов = Wтек · Wпокоя⁻¹ (в пространстве корня), локальный = Wнов(родитель)⁻¹ · Wнов
   function sync() {
     for (const [b, p] of map) wq.set(b, worldQ(p, root, new THREE.Quaternion()).multiply(idleQ.get(b)));
+    if (CL && clipW > 0.001) {
+      bones.forEach((b, i) => {
+        const q = frameQ(CL.walk, i, _ca); if (CL.run && runW > 0) { const qr = frameQ(CL.run, i, new THREE.Quaternion()); q.slerp(qr, runW); }
+        const w = wq.get(b); if (w) w.slerp(q, clipW); else wq.set(b, q.clone());
+      });
+      frameHips(CL.walk, _ho); if (CL.run && runW > 0) _ho.lerp(frameHips(CL.run, new THREE.Vector3()), runW);
+      // посох в кисти (o.staffHand): клипы файла сделаны без оружия — кисть крутится, и посох ложился горизонтально.
+      // На ходу древко держится почти вертикально (в покое модели оно вертикально), качается вместе с рукой
+      const sh = o.staffHand && wq.get(byName[o.staffHand]);
+      if (sh) { _u.set(0, 1, 0).applyQuaternion(sh); _qc.setFromUnitVectors(_u, _t.set(0, 1, 0)); _q.identity().slerp(_qc, clipW * 0.85); sh.premultiply(_q); }
+    }
     // лук в руке: в покое висит вдоль руки; когда рука поднята вперёд (прицел), кисть доворачивает лук вертикально
     // (поперёк руки, как у настоящего лучника), иначе он ложится горизонтально над головой. Вертикаль — в системе оси кувырка.
     if (bowHand) {
@@ -94,6 +120,7 @@ export function attachSkin(kit, model, name, o = {}) {
       // сдвиги: ось кувырка, покачивание таза и ног (ноги короче — сдвиг меньше)
       const n = b.name, k = n === 'spin' ? 1 : n === 'hips' || n === 'legL' || n === 'legR' ? legK : 0;
       if (k) b.position.copy(restP.get(b)).addScaledVector(_v.subVectors(p.position, idleP.get(b)), k);
+      if (CL && n === 'body') b.position.copy(restP.get(b)).addScaledVector(_ho, clipW);
     }
   }
   // ---- выстрел из лука: руки ставятся заново по длинам рук самой модели (копия позы старого рига уводила правую руку
@@ -210,7 +237,18 @@ export function attachSkin(kit, model, name, o = {}) {
     const dsp = model.dispose; model.dispose = () => { if (dsp) dsp(); m.removeFromParent(); g.dispose(); m.material.dispose(); };
   }
   const upd = model.update;
-  model.update = (dt, t, env, actor) => { if (upd) upd(dt, t, env, actor); root.updateMatrixWorld(true); sync(); bowShot(); if (trail) trail(dt, actor); };
+  model.update = (dt, t, env, actor) => {
+    if (upd) upd(dt, t, env, actor);
+    if (CL) {
+      const mv = !!actor && actor.clip === 'walk';
+      clipW += ((mv ? 1 : 0) - clipW) * Math.min(1, dt * 14);
+      if (clipW < 0.001) _ho.set(0, 0, 0);
+      if (mv) {
+        const sc = actor.root.scale.x || 1; runW = CL.run ? Math.min(1, Math.max(0, (walkSp / sc - 2.0) / 1.2)) : 0;
+        ph = (ph + dt * walkSp / (((CL.run ? CL.run.stride : CL.walk.stride) * runW + CL.walk.stride * (1 - runW)) * sc)) % 1;
+      }
+    }
+    root.updateMatrixWorld(true); sync(); bowShot(); if (trail) trail(dt, actor); };
   model.materials = [...(model.materials || []), mat];
   model.noEquip = o.noEquip || [];
   model.skin = name;

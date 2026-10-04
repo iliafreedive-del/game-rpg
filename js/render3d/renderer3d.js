@@ -192,7 +192,7 @@ function getActor(key, def, o = {}) {
 }
 function flashOf(e) { return e.flash > 0 ? Math.min(1, e.flash * 8) : 0; }
 
-const HERO_SKIN = { archer: 'archer_raven', warrior: 'warrior_vanguard', mage: 'mage_archmage' };   // класс → модель из assets/models (tools/art/glb_rig.py)
+const HERO_SKIN = { archer: 'archer_raven', warrior: 'warrior_vanguard', mage: 'mage_staff' };   // класс → модель из assets/models (tools/art/glb_rig.py)
 function syncPlayer(dt) {
   const P = G.player; if (!P) return;
   const cls = (G.profile && G.profile.cls) || 'warrior';

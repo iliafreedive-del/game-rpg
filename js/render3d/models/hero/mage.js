@@ -26,10 +26,11 @@ function head({ kit, STEEL, STEEL_L, STEEL_D, BR, BONE }) {
   L.push(part(new THREE.TorusGeometry(0.255, 0.025, 4, 16), BR, [0, 0.33, 0], [Math.PI / 2, 0, 0], 1, { top: 0xf0c868 }), part(new THREE.OctahedronGeometry(0.06, 0), 0xb48cff, [0, 0.43, 0.25], 0, [1, 1.3, 0.5], { emit: true }));
   return L;
 }
-// новая модель «Starlight Archmage» (Meshy → tools/art/glb_rig.py): посох — часть модели, мантия до пола (плащ на Verlet не нужен)
-const SKIN = 'mage_archmage';
+// новая модель — маг в маске с ригом Mixamo и своими ходьбой/бегом (art_meshy/in/mage_staff_rigged_fixed.glb → tools/art/glb_mixamo.py);
+// посох — отдельная сетка, поставлен в правую кисть (как у процедурного мага). Прежняя «Starlight Archmage» — assets/models/mage_archmage.*
+const SKIN = 'mage_staff';
 export default { id: 'mage', kind: 'hero', outline: 'hero', build(kit) {
   const skin = !!(kit.skin && kit.skin.SKINS.on && kit.skin.skinLoaded(SKIN));
   const m = heroModel(kit, { steel: 0x4a3a8a, steelL: 0x8a6ad8, steelD: 0x2a1c5c, dark: 0x1a1438, tex: 'cloth', rimColor: 0xcfa8ff, cape: 0x6a2ab0, capeHem: 0x2a1050, capeLen: 1.35, height: 2.6, torso, head, noCape: skin });
-  return skin ? kit.skin.attachSkin(kit, m, SKIN, { noEquip: ['handR'], legK: 0.68, rimColor: 0xcfa8ff, rim: 0.7 }) : m;
+  return skin ? kit.skin.attachSkin(kit, m, SKIN, { noEquip: ['handR'], staffHand: 'handR', legK: 0.85, rimColor: 0xcfa8ff, rim: 0.7 }) : m;
 } };
