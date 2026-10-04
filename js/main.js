@@ -4,7 +4,7 @@ import { loadGroup, getAtlas } from './core/assets.js';
 import { initInput, initMouse, input } from './core/input.js';
 import { initAudio, sfx, startMusic, setVolumes, setPaused } from './core/audio.js';
 import { initRenderer, render, resize } from './render/index.js';
-import { newProfile, loadLocal, migrate } from './game/save.js';
+import { newProfile, loadSlots, mergeCloud } from './game/save.js';
 import { stats } from './game/stats.js';
 import { initQuests } from './game/quests.js';
 import { initHunts } from './game/hunts.js';
@@ -42,8 +42,9 @@ async function boot() {
   // monsters stream in the background (needed only in the dungeon)
   const mons = loadGroup(MONSTERS).catch(e => console.warn(e));
   // save: local, or cloud if newer (Yandex)
-  let prof = loadLocal();
-  if (platform.name !== 'demo') { try { const c = migrate(await platform.p.cloudLoad()); if (c && (!prof || (c.saved || 0) > (prof.saved || 0))) prof = c; } catch { } }
+  // сборка 44: три сохранения — по одному на класс; облако (Яндекс) — если там новее
+  let saves = loadSlots();
+  if (platform.name !== 'demo') { try { saves = mergeCloud(saves, await platform.p.cloudLoad()); } catch { } }
   prog(1, 'Готово');
   platform.p.ready();
   $('loadbar').classList.add('hidden'); $('loadtxt').classList.add('hidden');
@@ -62,27 +63,33 @@ async function boot() {
     const dz = dozorPending(); if (dz) setTimeout(() => showDozor(dz), 900); else { initDozor(); G.dozorChecked = true; }
     if (p.simplified && p.simplified.upg) { bus.emit('toast', { text: 'Улучшения упрощены', sub: `Лишние усиления вернули ${p.simplified.gold} зол.`, kind: 'good' }); delete p.simplified; }
     if (p.simplified) { bus.emit('toast', { text: 'Снаряжение упрощено до 4 вещей', sub: `Лишние вещи (${p.simplified.n}) проданы за ${p.simplified.gold} зол.`, kind: 'good' }); delete p.simplified; }
-    if (p.legacyKey) bus.emit('toast', { text: 'Сохранение из версии 1.x перенесено', sub: 'Уровень, золото и характеристики сохранены', kind: 'good' });
+    if (p.legacyKey) { bus.emit('toast', { text: 'Сохранение из версии 1.x перенесено', sub: 'Уровень, золото и характеристики сохранены', kind: 'good' }); delete p.legacyKey; }
     requestAnimationFrame(loop);
     if (fresh && p.tutorial.on === undefined) setTimeout(async () => { if (await askTutorial()) intro(); }, 700);
   };
-  if (prof) {
-    const c = el('button', 'btn gold', `Продолжить (ур. ${prof.level})`); c.onclick = () => { sfx('click'); start(prof); };
-    const n = el('button', 'btn', 'Новая игра'); n.onclick = () => { if (confirm('Начать новую игру? Текущий прогресс будет перезаписан.')) pickClass(btns, cls => start(newProfile(cls))); };
-    btns.append(c, n);
+  const S = saves.slots, cname = c => CLASSES[c] ? CLASSES[c].name : c;
+  // новая игра: класс, у которого уже есть сохранение, — только после «Перезаписать?»
+  const newGame = () => { sfx('click'); pickClass(btns, cls => start(newProfile(cls)), S, cls => confirm(`Перезаписать сохранение героя «${cname(cls)}» (ур. ${S[cls].level})? Его прогресс пропадёт, остальные герои останутся.`)); };
+  if (saves.last) {
+    const lp = S[saves.last];
+    const c = el('button', 'btn gold', `Продолжить: ${esc(cname(saves.last))}, ур. ${lp.level}`); c.onclick = () => { sfx('click'); start(lp); };
+    btns.append(c);
+    for (const cls of Object.keys(S)) if (cls !== saves.last) { const o = el('button', 'btn', `${esc(cname(cls))}, ур. ${S[cls].level}`); o.onclick = () => { sfx('click'); start(S[cls]); }; btns.append(o); }
+    const n = el('button', 'btn', 'Новая игра'); n.onclick = newGame; btns.append(n);
   } else {
-    const n = el('button', 'btn gold', 'Начать игру'); n.onclick = () => { sfx('click'); pickClass(btns, cls => start(newProfile(cls))); }; btns.append(n);
+    const n = el('button', 'btn gold', 'Начать игру'); n.onclick = newGame; btns.append(n);
   }
   btns.appendChild(el('div', 'muted', `<small>Версия: ${BUILD}</small>`));
   btns.appendChild(el('div', 'muted', '<small>Телефон: джойстик слева, атака справа · ПК: WASD + Пробел</small>'));
 }
 
-function pickClass(box, cb) {
+function pickClass(box, cb, saved = {}, askOverwrite = () => true) {
   box.innerHTML = '<div class="goldc" style="font:600 18px Georgia">Выберите героя</div>';
   const row = el('div', 'classes');
   for (const [id, C] of Object.entries(CLASSES)) {
-    const c = el('button', 'class-card', `<img class="pt" src="assets/sprites/${id === 'warrior' ? 'portrait' : 'portrait_' + id}.png" alt="" onerror="this.src='${iconURL(C.icon)}'"><b>${esc(C.name)}</b><span>${esc(C.desc)}</span>`);
-    c.onclick = () => { if (box._picked) return; box._picked = true; sfx('click'); cb(id); }; row.appendChild(c);
+    const has = saved[id];
+    const c = el('button', 'class-card', `<img class="pt" src="assets/sprites/${id === 'warrior' ? 'portrait' : 'portrait_' + id}.png" alt="" onerror="this.src='${iconURL(C.icon)}'"><b>${esc(C.name)}</b><span>${esc(C.desc)}</span>${has ? `<em class="cc-save">есть сохранение · ур. ${has.level}</em>` : ''}`);
+    c.onclick = () => { if (box._picked) return; if (has && !askOverwrite(id)) return; box._picked = true; sfx('click'); cb(id); }; row.appendChild(c);
   }
   box.appendChild(row);
 }
