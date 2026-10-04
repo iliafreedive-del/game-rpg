@@ -1,0 +1,81 @@
+{
+  "status": "passed",
+  "objects": 49,
+  "packs": [
+    {
+      "file": "bones_pack_01_giant_landmarks_clean.glb",
+      "objects": 6,
+      "triangles": 15298,
+      "texture_identical": true,
+      "every_source_triangle_preserved": true,
+      "max_restoration_error": 7.192251153137964e-08
+    },
+    {
+      "file": "bones_pack_02_sandstone_clean.glb",
+      "objects": 7,
+      "triangles": 10730,
+      "texture_identical": true,
+      "every_source_triangle_preserved": true,
+      "max_restoration_error": 5.99049276625102e-08
+    },
+    {
+      "file": "bones_pack_03_trees_clean.glb",
+      "objects": 5,
+      "triangles": 13232,
+      "texture_identical": true,
+      "every_source_triangle_preserved": true,
+      "max_restoration_error": 5.122231354137012e-08
+    },
+    {
+      "file": "bones_pack_04_small_plants_clean.glb",
+      "objects": 10,
+      "triangles": 8830,
+      "texture_identical": true,
+      "every_source_triangle_preserved": true,
+      "max_restoration_error": 4.3130140156377775e-08
+    },
+    {
+      "file": "bones_pack_05_buildings_clean.glb",
+      "objects": 3,
+      "triangles": 8975,
+      "texture_identical": true,
+      "every_source_triangle_preserved": true,
+      "max_restoration_error": 5.747172637093992e-08
+    },
+    {
+      "file": "bones_pack_06_ritual_fences_clean.glb",
+      "objects": 5,
+      "triangles": 10168,
+      "texture_identical": true,
+      "every_source_triangle_preserved": true,
+      "max_restoration_error": 8.284141587468479e-08
+    },
+    {
+      "file": "bones_pack_07_camp_props_clean.glb",
+      "objects": 7,
+      "triangles": 14059,
+      "texture_identical": true,
+      "every_source_triangle_preserved": true,
+      "max_restoration_error": 4.06998093261627e-08
+    },
+    {
+      "file": "bones_pack_08_ancient_ruins_clean.glb",
+      "objects": 6,
+      "triangles": 14417,
+      "texture_identical": true,
+      "every_source_triangle_preserved": true,
+      "max_restoration_error": 4.470386977614748e-08
+    }
+  ],
+  "compatibility_repairs": [
+    {
+      "file": "bones_pack_03_trees_clean.glb",
+      "zero_normals_repaired": 2
+    },
+    {
+      "file": "bones_pack_07_camp_props_clean.glb",
+      "zero_normals_repaired": 2
+    }
+  ],
+  "gltf_validator": "All eight GLBs: zero errors and warnings after zero-normal repairs."
+}
