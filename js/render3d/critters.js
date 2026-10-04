@@ -26,8 +26,8 @@ function chicken(kit, v) {
 }
 const DOG_GLB = 'dog_town';
 const glbDog = kit => kit.mob && kit.skin.SKINS.on && kit.mob.mobLoaded(DOG_GLB);
-function dog(kit, coat) {
-  if (glbDog(kit)) {
+function dog(kit, coat, proc = false) {
+  if (!proc && glbDog(kit)) {
     const m = kit.mob.buildMob(kit, DOG_GLB, { height: 0.95, radius: 0.3, rimColor: 0xffe2b8, tint: coat ? 0xffffff : 0xfff0dc, speed0: 1.1 });
     if (m) return { root: m.root, body: m.bones.body, glb: m };
   }
@@ -51,7 +51,27 @@ function dog(kit, coat) {
   return { root, body, head, legs, tail };
 }
 
-const makeDog = dog;   // внутри update имя dog занято признаком «это собака»
+const makeDog = dog;
+
+// прежняя процедурная собака в формате моделей (для «Было» в просмотре lab/beasts.html): те же движения, что в деревне;
+// «смерть» — села, как собаки деревни
+export function dogModel(kit, coat = 1) {
+  const m = dog(kit, coat, true); let ph = 0, sit = 0;
+  const pose = (a, sp, s) => {
+    ph += a.dt * 9 * sp / 1.5; sit += (s - sit) * Math.min(1, a.dt * 5);
+    const v = sp ? 1 : 0, sw = Math.sin(ph) * v;
+    m.body.rotation.x = -0.42 * sit; m.body.position.y = -0.1 * sit; m.body.position.z = -0.12 * sit;
+    m.legs[0].rotation.x = sw * 0.6 + 0.4 * sit; m.legs[3].rotation.x = sw * 0.6 - 1.2 * sit; m.legs[1].rotation.x = -sw * 0.6 + 0.4 * sit; m.legs[2].rotation.x = -sw * 0.6 - 1.2 * sit;
+    m.tail.rotation.y = Math.sin(a.t * 5) * 0.3; m.tail.rotation.x = -0.3 + sit * 0.6;
+    m.head.rotation.x = 0.2 * sit + Math.sin(a.t * 1.3) * 0.06; m.head.rotation.y = sp ? 0 : Math.sin(a.t * 0.6) * 0.4;
+  };
+  return {
+    root: m.root, height: 0.95, radius: 0.3, shadow: 1.1, materials: [], sockets: {},
+    bones: { body: m.body, head: m.head, tail: m.tail, l0: m.legs[0], l1: m.legs[1], l2: m.legs[2], l3: m.legs[3] },
+    clips: { idle: { loop: true }, walk: { loop: true }, death: { dur: 1 } },
+    anims: { idle: a => pose(a, 0, 0), walk: a => pose(a, a.speed || 1.5, 0), death: a => pose(a, 0, 1) },
+  };
+}   // внутри update имя dog занято признаком «это собака»
 
 export class Critters {
   constructor(scene, kit, zone) {

@@ -26,12 +26,12 @@ function readGlb(p) {
   const view = i => { const bv = j.bufferViews[i]; return bin.subarray(bv.byteOffset || 0, (bv.byteOffset || 0) + bv.byteLength); };
   const acc = i => {
     const a = j.accessors[i], n = { SCALAR: 1, VEC2: 2, VEC3: 3, VEC4: 4, MAT4: 16 }[a.type];
-    const C = { 5126: Float32Array, 5121: Uint8Array, 5123: Uint16Array, 5125: Uint32Array }[a.componentType];
+    const C = { 5126: Float32Array, 5120: Int8Array, 5121: Uint8Array, 5122: Int16Array, 5123: Uint16Array, 5125: Uint32Array }[a.componentType];
     const bv = j.bufferViews[a.bufferView], stride = bv.byteStride, off = (bv.byteOffset || 0) + (a.byteOffset || 0);
     const out = new C(a.count * n);
     if (!stride || stride === n * C.BYTES_PER_ELEMENT) { const src = bin.subarray(off, off + a.count * n * C.BYTES_PER_ELEMENT); out.set(new C(src.buffer.slice(src.byteOffset, src.byteOffset + src.byteLength))); }
     else for (let k = 0; k < a.count; k++) { const s = bin.subarray(off + k * stride, off + k * stride + n * C.BYTES_PER_ELEMENT); out.set(new C(s.buffer.slice(s.byteOffset, s.byteOffset + s.byteLength)), k * n); }
-    if (a.normalized && C !== Float32Array) { const f = new Float32Array(out.length), mx = C === Uint8Array ? 255 : 65535; for (let k = 0; k < out.length; k++) f[k] = out[k] / mx; return f; }
+    if (a.normalized && C !== Float32Array) { const f = new Float32Array(out.length), mx = { 5120: 127, 5121: 255, 5122: 32767, 5123: 65535 }[a.componentType]; for (let k = 0; k < out.length; k++) f[k] = Math.max(-1, out[k] / mx); return f; }   // сжатые (glb_pack.py)
     return out;
   };
   const par = {}; (j.nodes || []).forEach((n, i) => (n.children || []).forEach(c => par[c] = i));
@@ -148,7 +148,7 @@ const IBM = new Float32Array(joints.length * 16); joints.forEach((i, q) => IBM.s
 
 // ---- собрать выход: JSON донора, буфер заново (как glb_pack.py)
 const views = dj.bufferViews.map((_, i) => D.view(i)), newViews = new Map();
-const setAcc = (ai, arr, extra = {}) => { const a = dj.accessors[ai]; newViews.set(a.bufferView, Buffer.from(arr.buffer, arr.byteOffset, arr.byteLength)); a.byteOffset = 0; a.count = extra.count ?? a.count; delete a.min; delete a.max; Object.assign(a, extra); delete dj.bufferViews[a.bufferView].byteStride; };
+const setAcc = (ai, arr, extra = {}) => { const a = dj.accessors[ai]; newViews.set(a.bufferView, Buffer.from(arr.buffer, arr.byteOffset, arr.byteLength)); a.byteOffset = 0; a.count = extra.count ?? a.count; delete a.min; delete a.max; delete a.normalized; a.componentType = arr instanceof Float32Array ? 5126 : a.componentType; Object.assign(a, extra); delete dj.bufferViews[a.bufferView].byteStride; };
 const bpos = new T.Box3(); for (let i = 0; i < sN; i++) bpos.expandByPoint(new T.Vector3(P[i * 3], P[i * 3 + 1], P[i * 3 + 2]));
 setAcc(dPrim.attributes.POSITION, new Float32Array(P), { count: sN, min: bpos.min.toArray(), max: bpos.max.toArray() });
 setAcc(dPrim.attributes.NORMAL, new Float32Array(N), { count: sN });

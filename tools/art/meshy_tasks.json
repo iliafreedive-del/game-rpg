@@ -3,11 +3,12 @@
   "task": "01a1059d-aeea-73a9-b4ee-5aaa36e10ef5",
   "image": "art_meshy/in/dog_town.webp",
   "model": "latest",
-  "polycount": 12000,
+  "polycount": 3000,
   "started": "2026-10-04 06:33",
-  "done": "2026-10-04 07:07",
+  "done": "2026-10-04 07:42",
   "raw": "art_meshy/raw/dog_town.glb",
   "glb": "assets/models/dog_town.glb",
-  "rig": "wolf_grey"
+  "rig": "wolf_grey",
+  "remesh": "01a105db-ffc1-716b-93c6-06ad63008153"
  }
 }

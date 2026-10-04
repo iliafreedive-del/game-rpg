@@ -58,8 +58,9 @@ const STAFF = (await import(BASE + 'js/render3d/models/weapon/staff_mage.js')).d
 const SWORD = (await import(BASE + 'js/render3d/models/weapon/sword_iron.js')).default, SHIELD = (await import(BASE + 'js/render3d/models/weapon/shield_round.js')).default;
 const BOW = (await import(BASE + 'js/render3d/models/weapon/bow_hunter.js')).default;
 for (const id of ['w_wolf', 'f_wolf', 'w_bear', 'w_boar', 'beast']) MOBS[id] = (await import(BASE + `js/render3d/models/mob/${id}.js`)).default;
-// собака деревни: GLB из Meshy (tools/art/meshy.py → assets/models/dog_town.glb); без рига — статичная модель с покачиванием
-MOBS.dog_town = { id: 'dog_town', kind: 'mob', outline: 'mob', build: kit => (kit.skin.SKINS.on && kit.mob.buildMob(kit, 'dog_town', { height: 0.95, radius: 0.3, speed0: 1.1 })) || MOBS.w_wolf.build(kit) };
+// собака деревни: «Стало» — GLB из Meshy с ригом серого волка (assets/models/dog_town.glb), «Было» — прежняя процедурная собака деревни
+const { dogModel } = await import(BASE + 'js/render3d/critters.js');
+MOBS.dog_town = { id: 'dog_town', kind: 'mob', outline: 'mob', build: kit => (kit.skin.SKINS.on && kit.mob.buildMob(kit, 'dog_town', { height: 0.95, radius: 0.3, speed0: 1.1 })) || dogModel(kit, 1) };
 const NAMES = { dog_town: 'Собака (Meshy)', archer: 'Лучник', warrior: 'Воин', mage: 'Маг', w_wolf: 'Волк', f_wolf: 'Ледяной волк', w_bear: 'Медведь', w_boar: 'Кабан', beast: 'Пещерный зверь' };
 
 const canvas = document.getElementById('c');
