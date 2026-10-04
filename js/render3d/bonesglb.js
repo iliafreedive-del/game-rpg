@@ -9,6 +9,9 @@ import { SKINS } from './glbskin.js';
 
 const BASE = new URL('../../assets/models/bones/', import.meta.url).href;
 const PACKS = ['01_giant_landmarks', '02_sandstone', '03_trees', '04_small_plants', '05_buildings', '06_ritual_fences', '07_camp_props', '08_ancient_ruins'];
+// опустить модель (м модели): купол хижины Meshy bone_hut_a стоит на тонких столбах на трети высоты — в игре «парил»
+// над землёй (сборка 44); опускаем до низа купола, столбы уходят в землю
+const SINK = { bone_hut_a: 1.12 };
 const OBJ = new Map();   // имя объекта → { geometry, mat }
 let wait = null, ready = false;
 
@@ -23,7 +26,8 @@ export function preloadBones() {
       // основание — по 1 % самых низких вершин: у хижины Meshy (bone_hut_a) внизу мелкий отдельный кусок на y = 0, а сама
       // хижина начинается на 0,23 — в игре (×2,4) она висела над землёй (сборка 43)
       const pa = o.geometry.attributes.position, ys = Float32Array.from({ length: pa.count }, (_, i) => pa.getY(i)).sort(), lo = ys[Math.floor(ys.length * 0.01)];
-      if (lo > ys[ys.length - 1] * 0.03) o.geometry.translate(0, -lo, 0);
+      if (SINK[o.name]) o.geometry.translate(0, -SINK[o.name], 0);
+      else if (lo > ys[ys.length - 1] * 0.03) o.geometry.translate(0, -lo, 0);
       OBJ.set(o.name, { geometry: o.geometry, mat });
     });
   }))).then(() => (ready = true)).catch(e => { console.warn('bones packs', e); return false; });
@@ -90,7 +94,7 @@ export function swap(lists, PROPS, kit) {
 // сундуки с добычей (сборка 42: «сундуки орков на них поменяй все сундуки с лутом») — предметы «на лету» (PropLayer.syncLive):
 // сундук из шкур Meshy; открытый — тот же (модель цельная: срезанная крышка выглядела дырой — «ломается текстура», сборка 43),
 // богатый — крупнее (у него и так свет). Только в пустошах и при «Новых моделях»
-const CHESTS = { chest: 1.1, chest_open: 1.1, chest_rich: 1.3, chest_rich_open: 1.3 };
+const CHESTS = { chest: 2.2, chest_open: 2.2, chest_rich: 2.6, chest_rich_open: 2.6 };   // сборка 44: в 2 раза больше
 const LIVE = new Map();
 export function liveDef(want) {
   const k = CHESTS[want]; if (!k || !bonesReady() || !OBJ.has('chest_hide')) return null;
