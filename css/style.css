@@ -464,3 +464,6 @@ canvas#game{filter:saturate(1.22) contrast(1.08) brightness(1.06)}
 .q-card .hunt-steps li{margin:2px 0}
 .hunt-timer{font:600 22px var(--serif);color:var(--gold);text-align:center;margin:10px 0 4px;font-variant-numeric:tabular-nums}
 @media(max-width:480px){.q-tab{font-size:11px;padding:8px 2px}}
+#huntBox.ready{border-color:#d8a83a;animation:huntReady 1.6s ease-in-out infinite}
+#huntBox .hb-t.ok{color:#ffd96a;text-shadow:0 0 8px #a07010}
+@keyframes huntReady{0%,100%{box-shadow:0 0 0 #fd00}50%{box-shadow:0 0 14px #ffd24aaa}}

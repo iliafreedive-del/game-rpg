@@ -1,6 +1,7 @@
 // «Охота»: раз в 15 минут — тревога о мини-боссе (данные — data/hunts.js).
-// Пока текущая охота не закрыта (убит или отменена), новая не появится: таймер ждёт.
-// Состояние в сохранении: profile.hunt = { nextAt, cur, done, last }.
+// Чудовище убито → охоту нужно сдать старосте Эдрику (награда у него).
+// Пока охота не сдана (или не отменена), новая не появится: таймер ждёт.
+// Состояние в сохранении: profile.hunt = { nextAt, cur: { …, slain }, done, last }.
 import { G, bus } from './ctx.js';
 import { Enemy } from './entities.js';
 import * as C from './combat.js';
@@ -16,6 +17,7 @@ export const unlocked = () => { const P = G.profile; return !!(P && P.tutorial &
 export const current = () => (G.profile && G.profile.hunt && G.profile.hunt.cur) || null;
 export const defOf = cur => HUNTS.find(h => h.id === cur.id);
 export const bossOf = cur => MINIBOSSES[defOf(cur).boss];
+export const readyToTurnIn = () => { const c = current(); return !!(c && c.slain); };
 export const msLeft = () => Math.max(0, state().nextAt - Date.now());
 
 const depthsOpen = P => !!P.story.flags.bossKilled || !!(P.depths && P.depths.best > 0);
@@ -41,7 +43,7 @@ export function whereText(cur) {
   return p.name;
 }
 export const steps = cur => PLACES[cur.place].steps.map(s => s.replace('{room}', ROOM_NAMES[cur.room] || '').replace('{floor}', cur.floor));
-export const huntFloor = () => { const c = current(); return c && c.place === 'depths' ? c.floor : 0; };
+export const huntFloor = () => { const c = current(); return c && !c.slain && c.place === 'depths' ? c.floor : 0; };
 
 export function start() {
   const P = G.profile, h = state(); if (h.cur) return null;
@@ -73,7 +75,7 @@ function spot(zone, cur) {
   return r ? [r[0] + r[2] / 2, r[1] + r[3] / 2] : null;
 }
 export function spawnFor(zone, live) {
-  const cur = current(); if (!cur || !zone) return null;
+  const cur = current(); if (!cur || cur.slain || !zone) return null;
   if (G.enemies.some(e => e.huntUid === cur.uid && !e.dead)) return null;
   const at = spot(zone, cur); if (!at) return null;
   const [x, y] = zone.map.nearestFree(at[0], at[1], 0.7);
@@ -85,13 +87,18 @@ export function spawnFor(zone, live) {
 // target for the red guide arrow
 export function guideTarget() {
   const cur = current(); if (!cur || !G.zone) return null;
+  if (cur.slain) {   // back to the elder: in the village — to him, elsewhere — to the way out
+    if (G.zoneId === 'town') return G.npcs.find(n => n.id === 'elder') || null;
+    if (G.zoneId === 'depths') { const ex = G.zone.inter.find(i => i.id === 'floor_exit'); return ex && !ex.hidden ? ex : null; }
+    return G.zone.inter.find(i => i.type === 'portal' && !i.hidden && i.to !== G.zoneId) || null;
+  }
   const e = G.enemies.find(o => o.huntUid === cur.uid && !o.dead); if (e) return e;
   const z = PLACES[cur.place].zone;
   if (G.zoneId === 'town' && z === 'catacombs') return G.zone.inter.find(i => i.id === 'portal_town') || null;
   if (G.zoneId === 'town' && z === 'depths') return G.zone.inter.find(i => i.type === 'depths') || null;
   return null;
 }
-export function canAbandon() { const cur = current(); return !!cur && !G.enemies.some(e => e.huntUid === cur.uid && !e.dead && e.aggro); }
+export function canAbandon() { const cur = current(); return !!cur && !cur.slain && !G.enemies.some(e => e.huntUid === cur.uid && !e.dead && e.aggro); }
 export function abandon() {
   const h = state(); if (!h.cur || !canAbandon()) return false;
   for (const e of G.enemies) if (!e.dead && (e.huntUid === h.cur.uid || (e.master && e.master.huntUid === h.cur.uid))) { e.remove = true; if (!e.summoned && G.run && G.run.floor > 0) G.run.total--; }
@@ -99,21 +106,30 @@ export function abandon() {
   bus.emit('toast', { text: 'Охота отменена', sub: 'Новая тревога — через 15 минут', kind: 'info' }); bus.emit('hud'); bus.emit('save'); return true;
 }
 
-function complete(e) {
-  const P = G.profile, h = state(), cur = h.cur, H = defOf(cur), B = MINIBOSSES[H.boss];
+// the beast is dead: the hunt now waits to be reported to the elder
+function slain(e) {
+  const cur = state().cur;
   for (const o of G.enemies) if (!o.dead && o.master === e) C.killEnemy(o, { quiet: true });   // the retinue crumbles
+  cur.slain = true;
+  bus.emit('float', { x: e.x, y: e.y, text: 'Трофей добыт!', color: '#ffd24a', big: 1, z: 3 });
+  bus.emit('toast', { text: `Чудовище повержено: ${bossOf(cur).name}`, sub: 'Вернитесь в деревню к старосте Эдрику за наградой', kind: 'quest' });
+  bus.emit('sfx', 'quest'); bus.emit('hud'); bus.emit('save');
+}
+// called from the elder's dialog: reward + the 15-minute timer starts only now
+export function turnIn() {
+  const P = G.profile, h = state(), cur = h.cur; if (!cur || !cur.slain) return false;
+  const H = defOf(cur), B = MINIBOSSES[H.boss];
   h.cur = null; h.done = (h.done || 0) + 1; h.nextAt = Date.now() + HUNT_EVERY;
   P.stats.hunts = (P.stats.hunts || 0) + 1;
   const r = huntReward(cur.lvl); P.shards = (P.shards || 0) + r.shards;
-  bus.emit('float', { x: e.x, y: e.y, text: `+${r.shards}◆`, color: '#d49bff', z: 2.6 });
   const t = H.trophy, names = typeof t.name === 'string' ? { warrior: t.name, archer: t.name, mage: t.name } : t.name;
-  Q.grant({ gold: r.gold, xp: r.xp, potions: r.potions, items: [{ slot: t.slot, tier: 2, rarity: 2, names }] }, `Охота: ${B.name}`, { sub: 'Чудовище повержено' });
-  bus.emit('toast', { text: 'Охота завершена!', sub: `+${r.shards}◆ осколков Бездны · следующая тревога через 15 минут`, kind: 'good' });
-  bus.emit('sfx', 'quest'); bus.emit('hud'); bus.emit('save');
+  Q.grant({ gold: r.gold, xp: r.xp, potions: r.potions, items: [{ slot: t.slot, tier: 2, rarity: 2, names }] }, `Охота: ${B.name}`, { sub: 'Охота сдана старосте' });
+  bus.emit('toast', { text: 'Охота сдана!', sub: `+${r.shards}◆ осколков Бездны · следующая тревога через 15 минут`, kind: 'good' });
+  bus.emit('sfx', 'quest'); bus.emit('hud'); bus.emit('save'); return true;
 }
 
 export function initHunts() {
-  bus.on('kill', e => { const cur = current(); if (e.story === 'hunt' && cur && e.huntUid === cur.uid) complete(e); });
+  bus.on('kill', e => { const cur = current(); if (e.story === 'hunt' && cur && e.huntUid === cur.uid && !cur.slain) slain(e); });
   bus.on('miniSummon', e => {
     const S = e.D.abil && e.D.abil.summon; if (!S || e.dead || !G.zone) return;
     if (G.enemies.filter(o => o.master === e && !o.dead).length >= S.n * 2) return;   // retinue cap

@@ -412,6 +412,7 @@ function updateMarkers() {
   if (G.zoneId === 'depths') { const ex = G.zone.inter.find(i => i.id === 'floor_exit'); t = ex && !ex.hidden ? ex : G.enemies.find(e => e.story === 'floorboss' && !e.dead) || null; }
   G.guide = t; G.huntGuide = HU.guideTarget();
   for (const n of G.npcs) n.marker = q && q.target === n.id ? (q.id === 'finish' ? '?' : '!') : null;
+  const eld = G.npcs.find(n => n.id === 'elder'); if (eld && HU.readyToTurnIn()) eld.marker = '?';   // hunt to hand in
   for (const it of G.zone.inter) { if (it.type === 'socket') { const open = it.room === 'hall' || (G.profile.castle && G.profile.castle[it.room]); it.hidden = !open; it.glow = open && !(G.profile.castle.decor && G.profile.castle.decor[it.sid]); } else if (it.type === 'roomgate') { it.plate = it.done ? null : ROOMS[it.room].name; it.reqLevel = it.done ? 0 : ROOMS[it.room].lvl; } else if (it.type === 'room') it.plate = ROOMS[it.room].name; }
   const wh = G.zone.inter.find(i => i.id === 'wheel'); if (wh) wh.marker = wheelReady() ? '!' : null;
   const bd = G.zone.inter.find(i => i.id === 'board'); if (bd) bd.marker = REPEATABLE.some(r => Q.repState(r).done) ? '?' : REPEATABLE.some(r => !Q.repState(r).accepted) ? '!' : null;

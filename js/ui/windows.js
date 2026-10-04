@@ -261,11 +261,16 @@ W.journal = (arg = {}) => {
     } else if (tab === 'hunt') {
       const cur = HU.current(), hs = HU.state();
       if (!HU.unlocked()) b.appendChild(el('div', 'q-card', '<div class="q-t">Охота ещё не началась</div><div class="muted">Спуститесь в катакомбы через портал Ордена — после этого раз в 15 минут будут приходить тревожные слухи о чудовищах.</div>'));
-      else if (cur) {
+      else if (cur && cur.slain) {
+        const H = HU.defOf(cur), B = HU.bossOf(cur), r = huntReward(cur.lvl);
+        const c = el('div', 'q-card hot', `<div class="q-t">✔ ${esc(H.title)}</div><div>Чудовище <span style="color:#ff9a84">${esc(B.name)}</span> повержено.</div><ol class="hunt-steps"><li>Вернитесь в деревню (портал или свиток возврата).</li><li>Сдайте охоту старосте Эдрику — он на площади у колодца, над ним горит «?».</li></ol>${chips({ gold: r.gold, xp: r.xp, shards: r.shards, potions: r.potions, item: 1 })}`);
+        const go = el('button', 'btn sm gold', 'Показать путь'); go.onclick = () => { closeModal(); bus.emit('toast', { text: 'Идите за красными стрелками к старосте', kind: 'quest' }); }; c.appendChild(go); b.appendChild(c);
+        b.appendChild(el('p', 'muted', '<small>Новая тревога придёт через 15 минут после того, как вы сдадите эту охоту.</small>'));
+      } else if (cur) {
         const H = HU.defOf(cur), B = HU.bossOf(cur), r = huntReward(cur.lvl);
         const c = el('div', 'q-card hunt', `<div class="q-t">⚠ ${esc(H.title)}</div><div class="muted"><i>«${esc(H.rumor)}»</i></div>
           <div style="margin-top:6px"><b>Чудовище:</b> <span style="color:#ff9a84">${esc(B.name)}</span> · ур. ${cur.lvl}</div><div class="muted"><small>${esc(B.desc)}</small></div>
-          <div style="margin-top:6px"><b>Где:</b> ${esc(HU.whereText(cur))}</div><ol class="hunt-steps">${HU.steps(cur).map(t => `<li>${esc(t)}</li>`).join('')}<li>Победите чудовище — награда выдаётся сразу.</li></ol>
+          <div style="margin-top:6px"><b>Где:</b> ${esc(HU.whereText(cur))}</div><ol class="hunt-steps">${HU.steps(cur).map(t => `<li>${esc(t)}</li>`).join('')}<li>Победите чудовище.</li><li>Вернитесь к старосте Эдрику и сдайте охоту — награда у него.</li></ol>
           ${chips({ gold: r.gold, xp: r.xp, shards: r.shards, potions: r.potions, item: 1 })}`);
         const go = el('button', 'btn sm gold', 'Показать путь'); go.onclick = () => { closeModal(); bus.emit('toast', { text: 'Идите за красными стрелками', sub: HU.whereText(cur), kind: 'quest' }); }; c.appendChild(go); b.appendChild(c);
         const ab = el('button', 'btn sm', 'Отказаться от охоты'); ab.disabled = !HU.canAbandon(); ab.title = ab.disabled ? 'Нельзя, пока чудовище сражается с вами' : 'Новая тревога придёт через 15 минут';
@@ -324,6 +329,7 @@ function dialog(b, id, name, lines, img) {
   show(); return { next: () => { if (i < lines.length - 1) { i++; show(); return true; } return false; }, last: () => i >= lines.length - 1 };
 }
 W.npc_elder = () => {
+  if (HU.readyToTurnIn()) return huntReport();
   const P = G.profile; const q = Q.current(); let lines, fin = false;
   if (q && q.id === 'talk_elder') lines = DIALOG.elder[0];
   else if (q && q.id === 'finish') { lines = DIALOG.elder.finish; fin = true; }
@@ -339,6 +345,17 @@ W.npc_elder = () => {
     row.appendChild(nx); b.appendChild(row);
   }, { sticky: true });
 };
+// hunt report: the slain beast's trophy is handed in to the elder → reward
+function huntReport() {
+  const cur = HU.current(), H = HU.defOf(cur), B = HU.bossOf(cur), r = huntReward(cur.lvl);
+  modal('Староста Эдрик', 'sm', b => {
+    dialog(b, 'elder', 'Староста Эдрик', [H.elder || `${B.name} повержен? Тихий Брод в долгу перед тобой. Вот твоя награда.`]);
+    b.appendChild(el('div', 'q-card hunt', `<div class="q-t">✔ Охота: ${esc(H.title)}</div><div class="muted">Чудовище: ${esc(B.name)}</div><div class="q-rw"><span class="chip g">💰 ${fmt(r.gold)}</span><span class="chip s">◆ ${r.shards}</span><span class="chip p">❤ ${r.potions}</span><span class="chip x">✦ ${r.xp} опыта</span><span class="chip i">★ ${esc(typeof H.trophy.name === 'string' ? H.trophy.name : H.trophy.name[G.profile.cls || 'warrior'])}</span></div>`));
+    const row = el('div', 'row'); row.style.marginTop = '12px';
+    const ok = el('button', 'btn gold', 'Сдать охоту и получить награду'); ok.onclick = () => { closeModal(); HU.turnIn(); };
+    row.appendChild(ok); b.appendChild(row);
+  }, { sticky: true });
+}
 W.npc_smith = () => {
   let sel = null;
   modal('Кузнец Горан', 'md', b => {

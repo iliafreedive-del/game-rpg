@@ -143,10 +143,11 @@ function huntBox() {
   let h = '', on = false;
   if (HU.unlocked() && !G.surv) {
     const cur = HU.current();
-    if (cur) { on = true; h = `<div class="hb-t">⚠ Охота: ${esc(HU.bossOf(cur).name)}</div><div class="hb-d">${esc(HU.whereText(cur))}</div>`; }
+    if (cur && cur.slain) { on = true; h = `<div class="hb-t ok">✔ Охота: ${esc(HU.bossOf(cur).name)}</div><div class="hb-d">Сдайте охоту старосте Эдрику</div>`; }
+    else if (cur) { on = true; h = `<div class="hb-t">⚠ Охота: ${esc(HU.bossOf(cur).name)}</div><div class="hb-d">${esc(HU.whereText(cur))}</div>`; }
     else h = `<span class="hb-ico">🎯</span> Охота через <b>${mmss(HU.msLeft())}</b>`;
   }
-  const b = $('huntBox'); b.classList.toggle('hidden', !h); b.classList.toggle('on', on);
+  const b = $('huntBox'); b.classList.toggle('hidden', !h); b.classList.toggle('on', on); b.classList.toggle('ready', HU.readyToTurnIn());
   if (h !== lastHunt) { b.innerHTML = h; lastHunt = h; }
 }
 const mmss = ms => { const s = Math.ceil(ms / 1000); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
