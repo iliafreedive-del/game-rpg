@@ -19,21 +19,15 @@ export function preloadBones() {
     let mat = null;
     g.scene.traverse(o => {
       if (!o.isMesh) return;
-      if (!mat) { const tree = p === '03_trees'; mat = toon(0xffffff, { rim: tree ? 0 : 0.25, rimColor: 0xffd8a8, side: THREE.DoubleSide, ao: 0.7, aoH: 1.2 }); if (tree) mat.gradientMap = matteRamp(); mat.map = o.material.map; if (mat.map) { mat.map.colorSpace = THREE.SRGBColorSpace; mat.map.anisotropy = 4; } }
+      if (!mat) { mat = toon(0xffffff, { rim: p === '03_trees' ? 0 : 0.25, rimColor: 0xffd8a8, side: THREE.DoubleSide, ao: 0.7, aoH: 1.2 }); mat.map = o.material.map; if (mat.map) { mat.map.colorSpace = THREE.SRGBColorSpace; mat.map.anisotropy = 4; } }
+      // основание — по 1 % самых низких вершин: у хижины Meshy (bone_hut_a) внизу мелкий отдельный кусок на y = 0, а сама
+      // хижина начинается на 0,23 — в игре (×2,4) она висела над землёй (сборка 43)
+      const pa = o.geometry.attributes.position, ys = Float32Array.from({ length: pa.count }, (_, i) => pa.getY(i)).sort(), lo = ys[Math.floor(ys.length * 0.01)];
+      if (lo > ys[ys.length - 1] * 0.03) o.geometry.translate(0, -lo, 0);
       OBJ.set(o.name, { geometry: o.geometry, mat });
     });
   }))).then(() => (ready = true)).catch(e => { console.warn('bones packs', e); return false; });
   return wait;
-}
-// деревья матовые (сборка 42: «блеск как у пластика»): без ободка и с мягкой лесенкой света — освещённые грани кроны
-// не выбеливаются, тень не проваливается
-let _matte = null;
-function matteRamp() {
-  if (_matte) return _matte;
-  const v = [135, 145, 172, 200, 214, 220], d = new Uint8Array(v.length * 4);
-  v.forEach((x, i) => d.set([x, x, x, 255], i * 4));
-  _matte = new THREE.DataTexture(d, v.length, 1, THREE.RGBAFormat); _matte.minFilter = _matte.magFilter = THREE.LinearFilter; _matte.needsUpdate = true;
-  return _matte;
 }
 export const bonesReady = () => ready && SKINS.on;
 
@@ -94,22 +88,15 @@ export function swap(lists, PROPS, kit) {
 }
 
 // сундуки с добычей (сборка 42: «сундуки орков на них поменяй все сундуки с лутом») — предметы «на лету» (PropLayer.syncLive):
-// закрытый — сундук из шкур Meshy, открытый — тот же без крышки (срезан верх, внутренность видна: материал двусторонний),
+// сундук из шкур Meshy; открытый — тот же (модель цельная: срезанная крышка выглядела дырой — «ломается текстура», сборка 43),
 // богатый — крупнее (у него и так свет). Только в пустошах и при «Новых моделях»
-const CHESTS = { chest: [1.1, 0], chest_open: [1.1, 1], chest_rich: [1.3, 0], chest_rich_open: [1.3, 1] };
+const CHESTS = { chest: 1.1, chest_open: 1.1, chest_rich: 1.3, chest_rich_open: 1.3 };
 const LIVE = new Map();
-let _open = null;
-function openGeo(g) {
-  if (_open) return _open;
-  g.computeBoundingBox(); const p = g.attributes.position, I = g.index.array, cut = g.boundingBox.min.y + (g.boundingBox.max.y - g.boundingBox.min.y) * 0.66, keep = [];
-  for (let t = 0; t < I.length; t += 3) if (Math.min(p.getY(I[t]), p.getY(I[t + 1]), p.getY(I[t + 2])) < cut) keep.push(I[t], I[t + 1], I[t + 2]);
-  _open = g.clone(); _open.setIndex(keep); return _open;
-}
 export function liveDef(want) {
-  const c = CHESTS[want]; if (!c || !bonesReady() || !OBJ.has('chest_hide')) return null;
+  const k = CHESTS[want]; if (!k || !bonesReady() || !OBJ.has('chest_hide')) return null;
   if (LIVE.has(want)) return LIVE.get(want);
   const O = OBJ.get('chest_hide');
   const def = { id: 'bn:' + want, kind: 'prop', outline: false,
-    build() { const root = new THREE.Group(), m = new THREE.Mesh(c[1] ? openGeo(O.geometry) : O.geometry, O.mat); m.scale.setScalar(c[0]); root.add(m); return { root }; } };
+    build() { const root = new THREE.Group(), m = new THREE.Mesh(O.geometry, O.mat); m.scale.setScalar(k); root.add(m); return { root }; } };
   LIVE.set(want, def); return def;
 }
