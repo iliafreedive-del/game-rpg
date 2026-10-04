@@ -1,11 +1,46 @@
 // Живность деревни (только вид, без игровой логики): куры и собаки бродят вокруг своего места (json.critters генератора),
 // обходят препятствия по карте зоны (map.free), куры клюют землю и разбегаются от героя, собаки садятся, виляют хвостом
 // и подходят к герою, если он рядом. Модели — процедурные, из частей kit, анимация — повороты групп (ноги, голова, хвост).
-// Собака из Meshy (assets/models/dog_town.glb, tools/art/meshy.py) — через glbmob.js: ходьба/покой — её анимации,
-// «села» — лечь на живот (поза смерти зверя); пока файл не загрузился или «Новые модели» выключены — процедурная.
+// Собака и куры из Meshy. Собака (assets/models/dog_brown.glb, риг серого волка, tools/art/meshy.py) — через glbmob.js: ходьба/покой — её анимации,
+// «села» — лечь на живот (поза смерти зверя). Куры (chicken_white/chicken_red.glb) без своего скелета остаются на ПРЕЖНЕМ процедурном риге:
+// те же группы body / head / ноги и та же анимация, сетка Meshy привязана к ним весами (chickenGlb). Пока файлы не загрузились или «Новые модели» выключены — процедурные.
 import * as THREE from '../vendor/three.module.min.js';
+import { toon, outline } from './toon.js';
+import { OUTLINE } from './style.js';
 
-function chicken(kit, v) {
+// Курица из Meshy на прежнем риге: кости = те же группы (тело в начале координат, голова (0; 0,4; 0,2), ноги (±0,07; 0,18; 0)), веса — по положению вершины
+const CH_GEO = new Map();
+function chickenGeo(kit, name) {
+  if (CH_GEO.has(name)) return CH_GEO.get(name);
+  const d = kit.mob.meshData(name); if (!d) return null;
+  const g = d.geometry.clone(); g.computeBoundingBox(); const bb = g.boundingBox, k = 0.6 / (bb.max.y - bb.min.y);   // рост как у процедурной (гребень ≈ 0,6 м до масштаба)
+  g.translate(0, -bb.min.y, 0); g.scale(k, k, k);
+  const pos = g.attributes.position, n = pos.count, si = new Uint16Array(n * 4), sw = new Float32Array(n * 4), ss = (a, b, x) => { x = Math.min(1, Math.max(0, (x - a) / (b - a))); return x * x * (3 - 2 * x); };
+  for (let i = 0; i < n; i++) {
+    const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
+    let wh = ss(0.34, 0.44, y) * ss(0.08, 0.18, z), wl = 1 - ss(0.09, 0.17, y); const t = wh + wl; if (t > 1) { wh /= t; wl /= t; }
+    const sr = ss(-0.02, 0.02, x);   // +x — вторая нога
+    si.set([0, 1, 2, 3], i * 4); sw.set([1 - wh - wl, wh, wl * (1 - sr), wl * sr], i * 4);
+  }
+  g.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(si, 4)); g.setAttribute('skinWeight', new THREE.Float32BufferAttribute(sw, 4));
+  g.computeBoundingSphere(); const r = { geometry: g, map: d.map }; CH_GEO.set(name, r); return r;
+}
+const glbChicken = (kit, v) => kit.mob && kit.skin.SKINS.on && kit.mob.mobLoaded(v ? 'chicken_red' : 'chicken_white');
+function chickenGlb(kit, v) {
+  const D = chickenGeo(kit, v ? 'chicken_red' : 'chicken_white'); if (!D) return null;
+  const root = new THREE.Group(), body = new THREE.Bone(), head = new THREE.Bone(), legs = [-1, 1].map(s => { const b = new THREE.Bone(); b.position.set(s * 0.07, 0.18, 0); body.add(b); return b; });
+  head.position.set(0, 0.4, 0.2); body.add(head);
+  const mat = toon(0xffffff, { rim: 0.35, rimColor: 0xffe2b8, side: THREE.DoubleSide, ao: 0.75, aoH: 0.5 });
+  mat.map = D.map; if (mat.map) mat.map.colorSpace = THREE.SRGBColorSpace;
+  const mesh = new THREE.SkinnedMesh(D.geometry, mat); mesh.add(body); mesh.bind(new THREE.Skeleton([body, head, ...legs]));
+  mesh.frustumCulled = false; mesh.castShadow = true; mesh.userData.noBake = true; mesh.userData.noOutline = true;
+  const ol = new THREE.SkinnedMesh(D.geometry, outline({ width: OUTLINE.small / 1.4, color: OUTLINE.heroColor })); ol.userData.isOutline = true; ol.userData.noBake = true; ol.frustumCulled = false;
+  mesh.add(ol); ol.bind(mesh.skeleton, mesh.bindMatrix);
+  root.add(mesh); root.scale.setScalar(1.35 + (v ? 0.08 : 0));
+  return { root, body, head, legs, glb: true };
+}
+function chicken(kit, v, proc = false) {
+  if (!proc && glbChicken(kit, v)) { const m = chickenGlb(kit, v); if (m) return m; }
   const { part, merge, ball } = kit, mat = kit.propMat({ rim: 0.35 }), root = new THREE.Group();
   const C = v ? [0xa8582a, 0xd88a4a] : [0xe8e0d0, 0xfffaf0], body = new THREE.Group(); root.add(body);
   body.add(new THREE.Mesh(merge([
@@ -24,7 +59,7 @@ function chicken(kit, v) {
   root.scale.setScalar(1.35 + (v ? 0.08 : 0));   // чуть крупнее жизни — иначе с высоты камеры кур не разглядеть
   return { root, body, head, legs };
 }
-const DOG_GLB = 'dog_town';
+const DOG_GLB = 'dog_brown';
 const glbDog = kit => kit.mob && kit.skin.SKINS.on && kit.mob.mobLoaded(DOG_GLB);
 function dog(kit, coat, proc = false) {
   if (!proc && glbDog(kit)) {
@@ -73,15 +108,31 @@ export function dogModel(kit, coat = 1) {
   };
 }   // внутри update имя dog занято признаком «это собака»
 
+// курица в формате моделей (для просмотра lab/beasts.html): proc — прежняя процедурная («Было»), иначе Meshy на том же риге; движения — как в деревне
+export function chickenModel(kit, v = 0, proc = false) {
+  const m = chicken(kit, !!v, proc); let ph = 0, peck = 0, lie = 0;
+  const pose = (a, sp, pk, dead) => {
+    ph += a.dt * 14 * sp / 0.8; peck += (pk - peck) * Math.min(1, a.dt * 12); lie += (dead - lie) * Math.min(1, a.dt * 6);
+    const sw = Math.sin(ph) * (sp ? 1 : 0);
+    m.legs[0].rotation.x = sw * 0.7; m.legs[1].rotation.x = -sw * 0.7; m.body.position.y = Math.abs(Math.sin(ph)) * 0.03 * (sp ? 1 : 0) - 0.12 * lie;
+    m.body.rotation.x = peck * 0.45; m.body.rotation.z = 1.45 * lie; m.head.rotation.x = peck * 0.6 + Math.sin(ph * 2) * 0.12 * (sp ? 1 : 0); m.head.rotation.y = sp || pk || dead ? 0 : Math.sin(a.t * 2.1) * 0.6;
+  };
+  return {
+    root: m.root, height: 0.8, radius: 0.25, shadow: 0.9, materials: [], sockets: {}, bones: { body: m.body, head: m.head, l0: m.legs[0], l1: m.legs[1] },
+    clips: { idle: { loop: true }, walk: { loop: true }, attack: { dur: 0.8, hit: 0.5 }, hit: { dur: 0.3 }, death: { dur: 1 } },
+    anims: { idle: a => pose(a, 0, 0, 0), walk: a => pose(a, a.speed || 0.8, 0, 0), attack: a => pose(a, 0, Math.max(0, Math.sin((a.k ?? 0) * 18)), 0), hit: a => pose(a, 0, 0, 0), death: a => pose(a, 0, 0, 1) },
+  };
+}
+
 export class Critters {
   constructor(scene, kit, zone) {
     this.scene = scene; this.kit = kit; this.map = zone.map; this.list = [];
     let k = 0;
     for (const c of zone.json.critters || []) {
-      const m = c.k === 'dog' ? dog(kit, c.coat) : chicken(kit, (k++) % 3 === 1);
+      const red = c.k === 'dog' ? false : (k++) % 3 === 1, m = c.k === 'dog' ? dog(kit, c.coat) : chicken(kit, red);
       if (!m.glb) m.root.traverse(o => { if (o.isMesh) { o.castShadow = o.parent === m.body; o.receiveShadow = false; o.userData.noOutline = true; } });
       const [x, y] = this.map.nearestFree ? this.map.nearestFree(c.x, c.y, 0.25) : [c.x, c.y];
-      const a = { ...c, m, x, y, hx: x, hy: y, yaw: Math.random() * 6.28, tx: x, ty: y, st: 'idle', t: Math.random() * 2, ph: Math.random() * 6, v: 0 };
+      const a = { ...c, m, red, x, y, hx: x, hy: y, yaw: Math.random() * 6.28, tx: x, ty: y, st: 'idle', t: Math.random() * 2, ph: Math.random() * 6, v: 0 };
       scene.add(m.root); this.list.push(a);
     }
   }
@@ -94,6 +145,7 @@ export class Critters {
       const dog = a.k === 'dog', dP = P ? Math.hypot(P.x - a.x, P.y - a.y) : 99;
       // GLB собаки догрузился после входа в деревню — заменить процедурную
       if (dog && !a.m.glb && glbDog(this.kit)) { const n = makeDog(this.kit, a.coat); if (n.glb) { a.m.root.removeFromParent(); this.scene.add(n.root); a.m = n; } }
+      else if (!dog && !a.m.glb && glbChicken(this.kit, a.red)) { const n = chicken(this.kit, a.red); if (n.glb) { a.m.root.removeFromParent(); this.scene.add(n.root); a.m = n; } }
       const m = a.m;
       m.root.visible = Math.hypot(a.x - cx, a.y - cz) < 34;
       a.t -= dt;

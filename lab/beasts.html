@@ -60,19 +60,22 @@ const BOW = (await import(BASE + 'js/render3d/models/weapon/bow_hunter.js')).def
 for (const id of ['w_wolf', 'f_wolf', 'w_bear', 'w_boar', 'beast']) MOBS[id] = (await import(BASE + `js/render3d/models/mob/${id}.js`)).default;
 // собака деревни: «Стало» — GLB из Meshy с ригом серого волка (assets/models/dog_town.glb), «Было» — прежняя процедурная собака деревни
 const NPC_TRAINER = (await import(BASE + 'js/render3d/models/npc/npc_trainer.js')).default;
-const { dogModel } = await import(BASE + 'js/render3d/critters.js');
-MOBS.dog_town = { id: 'dog_town', kind: 'mob', outline: 'mob', build: kit => (kit.skin.SKINS.on && kit.mob.buildMob(kit, 'dog_town', { height: 0.95, radius: 0.3, speed0: 1.1 })) || dogModel(kit, 1) };
+const { dogModel, chickenModel } = await import(BASE + 'js/render3d/critters.js');
+MOBS.dog_brown = { id: 'dog_brown', kind: 'mob', outline: 'mob', build: kit => (kit.skin.SKINS.on && kit.mob.buildMob(kit, 'dog_brown', { height: 0.95, radius: 0.3, speed0: 1.1 })) || dogModel(kit, 1) };
+// куры деревни: «Было» — процедурные, «Стало» — Meshy на прежнем риге куры (тело, голова, ноги те же группы)
+MOBS.chicken_white = { id: 'chicken_white', kind: 'mob', outline: 'mob', build: kit => chickenModel(kit, 0, !kit.skin.SKINS.on) };
+MOBS.chicken_red = { id: 'chicken_red', kind: 'mob', outline: 'mob', build: kit => chickenModel(kit, 1, !kit.skin.SKINS.on) };
 // Наставник Элвин: «Было» — процедурный житель деревни (смотрит в −Z, в деревне его разворачивает игра), «Стало» — Элвин из Meshy
 // на скелете героя (assets/models/npc_trainer.*): меч в кулаке, удар — «Атака»
 MOBS.npc_trainer = { id: 'npc_trainer', kind: 'npc', outline: 'mob', build: kit => { const m = NPC_TRAINER.build(kit); if (!m.skin) m.root.rotation.y = Math.PI; return m; } };
-const NAMES = { npc_trainer: 'Наставник Элвин', dog_town: 'Собака (Meshy)', archer: 'Лучник', warrior: 'Воин', mage: 'Маг', w_wolf: 'Волк', f_wolf: 'Ледяной волк', w_bear: 'Медведь', w_boar: 'Кабан', beast: 'Пещерный зверь' };
+const NAMES = { npc_trainer: 'Наставник Элвин', dog_brown: 'Собака', chicken_white: 'Курица белая', chicken_red: 'Курица рыжая', archer: 'Лучник', warrior: 'Воин', mage: 'Маг', w_wolf: 'Волк', f_wolf: 'Ледяной волк', w_bear: 'Медведь', w_boar: 'Кабан', beast: 'Пещерный зверь' };
 
 const canvas = document.getElementById('c');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
 renderer.setPixelRatio(Math.min(2, devicePixelRatio || 1));
 renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 const scene = new THREE.Scene(), kit = makeKit(scene);
-await kit.fur.ready; await kit.skin.preloadSkin('archer_raven'); await kit.skin.preloadSkin('warrior_vanguard'); await kit.skin.preloadSkin('mage_archmage'); await kit.mob.preloadMob('wolf_grey'); await kit.mob.preloadMob('dog_town'); await kit.skin.preloadSkin('npc_trainer');
+await kit.fur.ready; await kit.skin.preloadSkin('archer_raven'); await kit.skin.preloadSkin('warrior_vanguard'); await kit.skin.preloadSkin('mage_archmage'); await kit.mob.preloadMob('wolf_grey'); for (const n of ['dog_brown', 'wolf_ice', 'beast', 'chicken_white', 'chicken_red']) await kit.mob.preloadMob(n); await kit.skin.preloadSkin('npc_trainer');
 const camera = new THREE.PerspectiveCamera(CAMERA.fov, 1, 0.3, 200);
 const hemi = new THREE.HemisphereLight(), sun = new THREE.DirectionalLight();
 sun.castShadow = true; sun.shadow.mapSize.set(1024, 1024); Object.assign(sun.shadow.camera, { left: -8, right: 8, top: 8, bottom: -8, near: 1, far: 60 }); sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.03;
@@ -102,7 +105,7 @@ function build() {
     return { a, side, on, ph: 0 };
   });
   kit.fur.FUR.on = true; kit.skin.SKINS.on = true;
-  target.y = ['archer', 'warrior', 'mage', 'npc_trainer'].includes(S.mob) ? 1.15 : S.mob === 'dog_town' ? 0.5 : 0.8;   // камера смотрит в середину фигуры
+  target.y = ['archer', 'warrior', 'mage', 'npc_trainer'].includes(S.mob) ? 1.15 : ['dog_brown', 'chicken_white', 'chicken_red'].includes(S.mob) ? 0.45 : 0.8;   // камера смотрит в середину фигуры
   document.getElementById('tags').classList.toggle('show', S.mode === 'side');
   clipT = 0;
 }

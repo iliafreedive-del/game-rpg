@@ -30,6 +30,12 @@ export function preloadMob(name) {
   wait.set(name, p); return p;
 }
 export const mobLoaded = name => data.has(name);
+// сетка и текстура модели как есть (без своего скелета): для кур, которые остаются на прежнем процедурном риге (critters.js)
+export function meshData(name) {
+  const D = data.get(name); if (!D) return null;
+  let r = null; D.gltf.scene.traverse(n => { if (n.isMesh && !r) r = { geometry: n.geometry, map: n.material.map }; });
+  return r;
+}
 
 const _q = new THREE.Quaternion(), _q2 = new THREE.Quaternion(), _ax = new THREE.Vector3(), _m = new THREE.Matrix4(), _pq = new THREE.Quaternion();
 // повернуть кость вокруг оси, заданной в пространстве модели (кости Meshy повёрнуты как угодно — так не нужно знать их оси)
