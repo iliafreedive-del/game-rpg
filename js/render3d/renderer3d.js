@@ -217,6 +217,7 @@ function syncPlayer(dt) {
   else if (P.state === 'hit') { clip = 'hit'; k = an.prog; }
   else if (G.surv && G.surv.fireT > 0 && !c.moving) { clip = (wt === 'sword' || wt === 'axe' || wt === 'greatsword') ? 'attack' : 'cast'; k = 1 - G.surv.fireT / 0.4; if (wt === 'bow') k = 0.62 + 0.38 * k; }
   else if (c.moving) { clip = 'walk'; speed = c.v; }
+  a.turnRate = 34;   // герой разворачивается почти мгновенно (как в Archero)
   a.place(P.x, P.y); a.faceAngle(yawOfDir(P.dir));
   a.update(dt, { clip, k, impact, speed, combo: (P.combo - 1) & 1 }, env); a.flash(flashOf(P), 0xffffff);
 }

@@ -44,8 +44,8 @@ export class Player {
       this.mp = Math.min(S.maxMP, this.mp + S.mpRegen * dt + this.potMana * dt);
       if (this.potT > 0) { this.potT -= dt; if (this.potT <= 0) this.potHeal = this.potMana = 0; }
     }
-    // smooth turning through intermediate directions (no 180° snaps)
-    if (this.dir !== this.face) { this.turnT -= dt; if (this.turnT <= 0) { const d = ((this.face - this.dir + 8) % 8); this.dir = (this.dir + (d <= 4 ? 1 : 7)) % 8; this.turnT = 0.035; } }
+    // turning through intermediate directions (no 180° snaps), but fast
+    if (this.dir !== this.face) { this.turnT -= dt; if (this.turnT <= 0) { const d = ((this.face - this.dir + 8) % 8); this.dir = (this.dir + (d <= 4 ? 1 : 7)) % 8; this.turnT = 0.012; } }   // быстрый разворот (180° ≈ 0,05 с)
     if (this.dead) return;
     if (this.state === 'dodge') {
       this.trailT = (this.trailT || 0) + dt; if (this.trailT > 0.045) { this.trailT = 0; (this.trail = this.trail || []).push({ x: this.x, y: this.y, dir: this.dir, f: `${this.anim.clip}_${this.dir}_${this.anim.frame}`, t: 0 }); if (this.trail.length > 6) this.trail.shift(); }
@@ -55,24 +55,12 @@ export class Player {
       return;
     }
     if (this.state === 'hit') { if (this.anim.done) this.state = 'idle'; }
-    // подвижность (сборка 19): движение главнее удара — на ходу герой бьёт и стреляет, не останавливаясь;
-    // резкий разворот от цели до попадания отменяет замах; навыки (кроме обычных ударов) по-прежнему держат на месте
-    let acting = false;
+    // бой как в Archero: на ходу герой не бьёт и не стреляет — побежал, обычный удар/выстрел брошен, лицо по ходу движения;
+    // остановился — game.js сразу начинает атаку (разворот к цели). Навыки по-прежнему держат на месте
     if (this.state === 'attack' || this.state === 'cast') {
-      C.updatePlayerAction(this, dt);
-      if (this.state === 'attack' || this.state === 'cast') {
-        const a = this.act;
-        if (input.mag > 0.2 && a && a.kind !== 'skill') {
-          const tg = a.tgt && !a.tgt.dead ? a.tgt : null, away = tg && ((tg.x - this.x) * input.wx + (tg.y - this.y) * input.wy) < -0.3 * Math.hypot(tg.x - this.x, tg.y - this.y);
-          if ((away && !a.fired) || (a.cancelable && a.fired)) { this.state = 'idle'; this.act = null; }   // отбегаю — замах брошен
-          else acting = true;
-        } else return;
-      }
-    }
-    if (acting) {   // бег во время удара: скорость ×0,85, лицо — к цели (удар уходит туда), анимация удара не прерывается
-      const sp = 5.4 * 0.85 * (this.S.moveMul || 1) * (this.slowT > 0 ? 0.6 : 1) * (G.wild ? G.wild.slow : 1);
-      const ox = this.x, oy = this.y; [this.x, this.y] = G.zone.map.move(this.x, this.y, input.wx * sp * dt, input.wy * sp * dt, this.r); this.meters += Math.hypot(this.x - ox, this.y - oy);
-      if (this.slowT > 0) this.slowT -= dt; return;
+      const a = this.act;
+      if (input.mag > 0.12 && a && a.kind !== 'skill') { this.state = 'idle'; this.act = null; }
+      else { C.updatePlayerAction(this, dt); if (this.state === 'attack' || this.state === 'cast') return; }
     }
     // movement
     const mag = input.mag;
