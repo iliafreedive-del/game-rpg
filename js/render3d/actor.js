@@ -137,7 +137,7 @@ export class Actor {
     }
     // поворот: плавно к целевому углу по кратчайшей дуге
     let d = this.targetYaw - this.yaw; d = Math.atan2(Math.sin(d), Math.cos(d));
-    this.yaw += d * (1 - Math.exp(-14 * dt)); this.root.rotation.y = this.yaw;
+    this.yaw += d * (1 - Math.exp(-(this.turnRate || 14) * dt)); this.root.rotation.y = this.yaw;
     this.root.updateMatrixWorld(true);
     if (this.model.update) this.model.update(dt, this.t, env, this);
     for (const e of Object.values(this.weapons)) if (e.w.update) e.w.update(this);

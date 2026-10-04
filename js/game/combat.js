@@ -144,11 +144,12 @@ export function tickStatus(e, dt) {
 
 // ------------------------------------------------------------------ player: basic attack
 // aim: optional world point (mouse). Without it the attack auto-targets the best enemy in front.
-const nearAim = (aim, R) => { let b = null, bd = R * R; for (const e of G.enemies) { if (e.dead) continue; const d = (e.x - aim.x) ** 2 + (e.y - aim.y) ** 2; if (d < bd) { bd = d; b = e; } } return b; };
-export function playerAttack(P, aim) {
+export const nearAim = (aim, R) => { let b = null, bd = R * R; for (const e of G.enemies) { if (e.dead) continue; const d = (e.x - aim.x) ** 2 + (e.y - aim.y) ** 2; if (d < bd) { bd = d; b = e; } } return b; };
+// force: готовая цель (автоатака стоя выбирает её сама — ближайший или тот, в кого ткнули)
+export function playerAttack(P, aim, force) {
   if (P.dead || P.busy() || P.state === 'hit') return false;
   const S = G.stats, wt = P.weaponType(), W = WEAPONS[wt];
-  const tgt = aim ? nearAim(aim, 1.4) : pickTarget(P, W.projectile ? W.range : W.range + 0.4);
+  const tgt = force || (aim ? nearAim(aim, 1.4) : pickTarget(P, W.projectile ? W.range : W.range + 0.4));
   if (tgt) P.faceTo(tgt.x, tgt.y); else if (aim) P.faceTo(aim.x, aim.y);
   P.dir = P.face;
   const dur = 1 / S.aps;

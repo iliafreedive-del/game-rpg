@@ -435,22 +435,25 @@ export function update(dt) {
   G.time += dt; G.profile.stats.playTime += dt;
   respawnTick();
   const pl = G.player, inp = pollMove();
-  // mouse: LMB fires/strikes toward the cursor (the hero turns to it); keys/joystick still move
-  if (tapAim.held != null && !pl.busy() && !pl.dead && !G.modalOpen && G.zoneId !== 'survival') { const [wx, wy] = G.cam.toWorld(tapAim.x, tapAim.y + 20); C.playerAttack(pl, { x: wx, y: wy }); }
-  if (mouse.aim && !pl.busy() && !pl.dead && !G.modalOpen && G.zoneId !== 'survival') { const [wx, wy] = G.cam.toWorld(mouse.x, mouse.y + 20); C.playerAttack(pl, { x: wx, y: wy }); }
-  // hold-to-attack with auto-approach to the nearest target (mobile friendly)
-  if (input.attackHeld && !pl.busy() && !pl.dead && G.zoneId !== 'survival') {
-    const W = G.stats; const range = W.ranged ? W.range : W.range * 0.8;
-    const t = C.pickTarget(pl, range);
-    if (t || inp.mag > 0.12) { if (t) C.playerAttack(pl); }
+  // бой как в Archero: на ходу герой не атакует (лицо по ходу движения), остановился — сразу разворот и удар/выстрел.
+  // Цель: тот, в кого ткнули пальцем/мышкой (запоминается, пока жив), иначе ближайший враг
+  const moving = inp.mag >= 0.12, canAct = !pl.busy() && !pl.dead && !G.modalOpen && G.zoneId !== 'survival';
+  const aimAt = (sx, sy) => { const [wx, wy] = G.cam.toWorld(sx, sy + 20), e = C.nearAim({ x: wx, y: wy }, 1.6); if (e) pl.focus = e; if (canAct && !moving) C.playerAttack(pl, { x: wx, y: wy }, e); };
+  if (tapAim.held != null && !G.modalOpen) aimAt(tapAim.x, tapAim.y);
+  if (mouse.aim && !G.modalOpen) aimAt(mouse.x, mouse.y);
+  if (pl.focus && (pl.focus.dead || !G.enemies.includes(pl.focus))) pl.focus = null;
+  const W = G.stats, rng = W.ranged ? W.range : W.range + 0.2;
+  const inRange = e => e && !e.dead && Math.hypot(e.x - pl.x, e.y - pl.y) <= rng + e.r && G.zone.map.los(pl.x, pl.y, e.x, e.y);
+  // кнопка атаки: стоя — бьёт ближайшего, если никого рядом — подводит к врагу
+  if (input.attackHeld && !moving && canAct) {
+    const t = inRange(pl.focus) ? pl.focus : C.nearestEnemy(pl.x, pl.y, rng + 1, e => inRange(e));
+    if (t) C.playerAttack(pl, null, t);
     else { const near = C.nearestEnemy(pl.x, pl.y, 7, e => G.zone.map.los(pl.x, pl.y, e.x, e.y)); if (near) { const dx = near.x - pl.x, dy = near.y - pl.y, l = Math.hypot(dx, dy); inp.wx = dx / l; inp.wy = dy / l; inp.mag = 0.7; } else C.playerAttack(pl); }
   }
-  // автоатака: враг в зоне удара — герой бьёт сам, и стоя, и на ходу (ближний бой — на всю длину оружия, а не «впритык»;
-  // стрелок на ходу стреляет по тем, кто ближе 60 % дальности, начатый на ходу выстрел не сбрасывается движением)
-  if (!pl.busy() && !pl.dead && !G.modalOpen && !input.attackHeld && G.zoneId !== 'survival' && G.zoneId !== 'town' && G.zoneId !== 'castle') {
-    const W = G.stats, moving = inp.mag >= 0.12, rng = W.ranged ? W.range * (moving ? 0.8 : 0.9) : W.range + 0.2;
-    const t = C.pickTarget(pl, rng);   // сборка 19: удар и выстрел на ходу героя не останавливают (entities.js), поэтому стрелок бьёт без пауз
-    if (t && (t.aggro || G.auto) && G.zone.map.los(pl.x, pl.y, t.x, t.y) && C.playerAttack(pl) && pl.act) pl.act.auto = true;
+  // автоатака стоя: выбранная цель, иначе ближайший напавший (или любой при автобое); воин — в радиусе удара
+  if (canAct && !moving && !input.attackHeld && G.zoneId !== 'town' && G.zoneId !== 'castle') {
+    const t = inRange(pl.focus) ? pl.focus : C.nearestEnemy(pl.x, pl.y, rng + 1, e => (e.aggro || G.auto) && inRange(e));
+    if (t && C.playerAttack(pl, null, t) && pl.act) pl.act.auto = true;
   }
   if (pl.comboT > 0) { pl.comboT -= dt; if (pl.comboT <= 0) pl.combo = 0; }
   if (G.auto && !G.modalOpen) autoTick(inp);
