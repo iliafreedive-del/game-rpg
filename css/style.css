@@ -645,14 +645,13 @@ canvas#game{filter:saturate(1.22) contrast(1.08) brightness(1.06)}
 #carryBar .cb i{display:block;height:100%;width:0;background:linear-gradient(90deg,#d6a548,#e8622a)}
 #carryBar .g{font:400 11px/1.25 sans-serif;color:#cfe3c0;max-height:0;opacity:0;overflow:hidden;transition:opacity .4s,max-height .4s}
 #carryBar .g.show{max-height:60px;opacity:1;margin-top:3px}
-@media (orientation:portrait) and (max-width:760px){#carryBar{top:calc(66px + var(--safe-t));max-width:50vw}}
+@media (orientation:portrait) and (max-width:760px){#carryBar{top:calc(84px + var(--safe-t));max-width:50vw}}
 /* телефон горизонтально (низкий экран): правая колонка — меню и золото в одну строку, охота и задание коротко, кнопки боя чуть меньше */
 @media (orientation:landscape) and (max-height:520px){
   #hudR{gap:4px;max-width:44vw}
   #menu{gap:4px}
   .mbtn,.mbtn.big{width:34px;min-width:34px;height:34px}.mbtn .lbl{display:none}.mbtn svg{width:19px;height:19px}
   #btnAuto{font-size:9px}
-  #goldBox{position:absolute;right:116px;top:5px;font-size:13px;padding:2px 8px;height:24px;align-items:center}   /* слева от трёх кнопок меню (3×34 + 2×4) */
   #huntBox{font-size:11px;padding:2px 8px}
   #huntBox.on{font-size:11px;padding:3px 8px}
   #tracker{padding:3px 8px 4px 16px;max-width:38vw}
@@ -680,3 +679,16 @@ canvas#game{filter:saturate(1.22) contrast(1.08) brightness(1.06)}
 }
 #fsHint{position:absolute;left:50%;bottom:calc(10px + var(--safe-b));transform:translateX(-50%);width:min(92vw,420px);font-size:12px;line-height:1.35;color:#cbbfa8;background:#0008;border:1px solid #4a3b2a;border-radius:8px;padding:6px 10px}
 #fsHint b{color:var(--gold)}.fs-ic{color:#6aa8ff}
+
+/* сборка 44: портрет героя слева наверху — он же кнопка меню (вместо «Герой» и «Меню» справа) */
+#portrait{width:64px;height:64px;border:0;background-color:#120a1a;background-size:cover;background-position:center 30%;box-shadow:0 0 0 2px #e8c26a,0 0 0 4px #2a1a08,0 0 0 5px #8a6a2e,0 3px 12px #000c,0 0 16px #b48cff44;transition:transform .1s}
+#portrait:active{transform:scale(.94)}
+#portrait .pt-menu{position:absolute;left:-6px;bottom:-6px;width:22px;height:22px;border-radius:50%;background:linear-gradient(#3a2a12,#1a1208);border:1.5px solid var(--gold);display:grid;place-items:center}
+#portrait .pt-menu svg{width:13px;height:13px;fill:none;stroke:var(--gold);stroke-width:2.6;stroke-linecap:round}
+#portrait .dot{top:-4px;right:-4px}
+#menu{align-items:center}
+#menu #goldBox{height:30px;align-items:center}
+@media (max-height:500px){#portrait{width:50px;height:50px}#portrait .pt-menu{width:19px;height:19px}#portrait .pt-menu svg{width:11px;height:11px}}
+@media (orientation:landscape) and (max-height:520px){#menu #goldBox{height:26px;font-size:13px;padding:2px 8px}}
+#title .hero{border-radius:50%;background-size:cover;background-position:center 30%;box-shadow:0 0 0 3px #e8c26a,0 0 0 6px #2a1a08,0 0 0 7px #8a6a2e,0 0 30px #9a4af088;filter:none}
+.class-card img.pt{border:2px solid #e8c26a;box-shadow:0 0 0 3px #2a1a08,0 0 12px #9a4af066}

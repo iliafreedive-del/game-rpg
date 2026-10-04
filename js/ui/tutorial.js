@@ -63,7 +63,7 @@ export function initTutorial() {
     // 3) learn the first skill at the trainer
     if (G.zoneId === 'town' && P.skillPts > 0 && !Object.values(P.skills || {}).some(Boolean) && P.story.stage >= 1) { const tr = G.zone.inter.find(i => i.id === 'trainer'); if (tr) tip('trainer', () => [worldRect(tr.x, tr.y), '<b>Наставник Элвин.</b> У вас есть очко навыка! Подойдите к наставнику и изучите первое <b>активное умение</b> — без него драться тяжело.']); }
     // 4) hero / gear button after first reward
-    if (P.story.stage >= 1) tip('hero', () => [rectOf('btnHero'), '<b>Герой.</b> Здесь ваше снаряжение. Нажмите на вещь — увидите, что она даёт и что с ней сделать.']);
+    if (P.story.stage >= 1) tip('hero', () => [rectOf('portrait'), '<b>Ваш портрет.</b> Нажмите — откроется меню: «Герой» (снаряжение), навыки, задания и остальное.']);
     if (queue.length) { const [r, txt] = queue.shift(); if (r) await show(r, txt); }
   }, 600);
   // inside windows: trainer panel / skills list
