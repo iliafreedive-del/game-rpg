@@ -184,7 +184,7 @@ export class Critters {
         const sit = a.st === 'sit' ? 1 : 0; a.sit = (a.sit || 0) + (sit - (a.sit || 0)) * Math.min(1, dt * 5);
         m.body.rotation.x = -0.42 * a.sit; m.body.position.y = -0.1 * a.sit; m.body.position.z = -0.12 * a.sit;
         m.legs[0].rotation.x = sw * 0.6 + 0.4 * a.sit; m.legs[3].rotation.x = sw * 0.6 - 1.2 * a.sit; m.legs[1].rotation.x = -sw * 0.6 + 0.4 * a.sit; m.legs[2].rotation.x = -sw * 0.6 - 1.2 * a.sit;
-        m.tail.rotation.y = Math.sin(t * 16 + a.ph) * 0.7 * a.wag; m.tail.rotation.x = -0.3 + a.sit * 0.6;
+        m.tail.rotation.y = Math.sin(t * 6 + a.ph) * 0.45 * a.wag; m.tail.rotation.x = -0.3 + a.sit * 0.6;
         m.head.rotation.x = 0.2 * a.sit + Math.sin(t * 1.3 + a.ph) * 0.06; m.head.rotation.y = a.st === 'idle' ? Math.sin(t * 0.6 + a.ph) * 0.4 : 0;
       } else {
         m.legs[0].rotation.x = sw * 0.7; m.legs[1].rotation.x = -sw * 0.7; m.body.position.y = Math.abs(Math.sin(a.ph)) * 0.03 * a.v;

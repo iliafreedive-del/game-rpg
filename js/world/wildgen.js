@@ -149,7 +149,9 @@ function build(RL, mood, depth, boss, attempt, force) {
     // лагерная обстановка и сундук
     objects.push({ t: realm === 'fjord' ? 'brazier' : bn ? 'bonfire' : 'rocks', x: p[0] + 1.6, y: p[1] - 1.2 });
     if (bn) {   // стоянка дикарей: хижина из шкур на рёбрах, тотем или знамя, рама со шкурой
-      const hx = p[0] - 3.2 + R() * 1.2, hy = p[1] - 2.6 + R() * 0.8; if (free(hx, hy, 2) && !near(hx, hy, 2.5)) { objects.push({ t: 'bone_hut', x: hx, y: hy, rot: R() < 0.5 ? 0 : Math.PI / 2, s: 1.2 }); placed.push([hx, hy, 2.6]); }
+      // хижина в HUT раз больше прежней (сборка 42: «чтобы туда попадал человек»), поэтому стоит на краю стоянки, а не в ней
+      const HUT = 2.5, ha = R() * 6.283, hx = p[0] + Math.cos(ha) * (3 + 2.4 * HUT), hy = p[1] + Math.sin(ha) * (3 + 2.4 * HUT);
+      if (free(hx, hy, 2) && !near(hx, hy, 2.6 * HUT) && dist(hx, hy, start[0], start[1]) > 12) { objects.push({ t: 'bone_hut', x: hx, y: hy, rot: R() < 0.5 ? 0 : Math.PI / 2, s: 1.2 * HUT, r: 1.6 * HUT }); placed.push([hx, hy, 2.4 * HUT]); }
       objects.push({ t: R() < 0.55 ? 'bone_totem' : 'war_banner', x: p[0] + 2.6, y: p[1] + 0.4 });
       if (R() < 0.6) objects.push({ t: 'hide_rack', x: p[0] - 0.6, y: p[1] + 2.6, rot: R() < 0.5 ? 0 : Math.PI / 2 });
     }

@@ -19,15 +19,25 @@ export function preloadBones() {
     let mat = null;
     g.scene.traverse(o => {
       if (!o.isMesh) return;
-      if (!mat) { mat = toon(0xffffff, { rim: 0.25, rimColor: 0xffd8a8, side: THREE.DoubleSide, ao: 0.7, aoH: 1.2 }); mat.map = o.material.map; if (mat.map) { mat.map.colorSpace = THREE.SRGBColorSpace; mat.map.anisotropy = 4; } }
+      if (!mat) { const tree = p === '03_trees'; mat = toon(0xffffff, { rim: tree ? 0 : 0.25, rimColor: 0xffd8a8, side: THREE.DoubleSide, ao: 0.7, aoH: 1.2 }); if (tree) mat.gradientMap = matteRamp(); mat.map = o.material.map; if (mat.map) { mat.map.colorSpace = THREE.SRGBColorSpace; mat.map.anisotropy = 4; } }
       OBJ.set(o.name, { geometry: o.geometry, mat });
     });
   }))).then(() => (ready = true)).catch(e => { console.warn('bones packs', e); return false; });
   return wait;
 }
+// деревья матовые (сборка 42: «блеск как у пластика»): без ободка и с мягкой лесенкой света — освещённые грани кроны
+// не выбеливаются, тень не проваливается
+let _matte = null;
+function matteRamp() {
+  if (_matte) return _matte;
+  const v = [135, 145, 172, 200, 214, 220], d = new Uint8Array(v.length * 4);
+  v.forEach((x, i) => d.set([x, x, x, 255], i * 4));
+  _matte = new THREE.DataTexture(d, v.length, 1, THREE.RGBAFormat); _matte.minFilter = _matte.magFilter = THREE.LinearFilter; _matte.needsUpdate = true;
+  return _matte;
+}
 export const bonesReady = () => ready && SKINS.on;
 
-// предмет игры → объекты Meshy (варианты) и подгонка: k — масштаб (число или [x, y, z]), ry — доворот, extra — добавка (огонь костра)
+// предмет игры → объекты Meshy (варианты) и подгонка: k — масштаб (число или [x, y, z]), fire — пламя костра, spin — случайный поворот
 const MAP = {
   giant_skull: { o: ['giant_skull'], k: 1.1 }, giant_ribs: { o: ['giant_ribs'], k: 1.3 }, giant_spine: { o: ['giant_spine'], k: 1.4 },
   tusk_arch: { o: ['tusk_arch'], k: 1 }, giant_fallen: { o: ['giant_fallen'], k: 1.1 },
@@ -42,7 +52,7 @@ const MAP = {
   tumbleweed: { o: ['tumbleweed', 'grass_dry_a', 'grass_dry_b', 'grass_dry_a', 'flowers_desert_a', 'flowers_desert_b', 'flowers_desert_c'], k: 1.1, tint: 0.2 },
   bones: { o: ['bones_scatter_a', 'bones_scatter_b'], k: 0.75 }, skulls: { o: ['skull_pile'], k: 0.75 },
   bone_hut: { o: ['bone_hut_a', 'bone_hut_b'], k: [1, 0.75] }, bone_hall: { o: ['bone_hall'], k: 0.7 },
-  bone_totem: { o: ['bone_totem_a', 'bone_totem_b'], k: 1.2 }, hide_rack: { o: ['hide_rack'], k: 1 }, war_banner: { o: ['war_banner'], k: 1.08 },
+  bone_totem: { o: ['bone_totem_a', 'bone_totem_b'], k: 1.2 }, hide_rack: { o: ['hide_rack'], k: 1 }, war_banner: { o: ['war_banner'], k: 1.08, spin: true },   // знамёна: поворот случайный по месту (сборка 42: все смотрели в одну сторону)
   tusk_fence: { o: ['tusk_fence'], k: [[0.36, 0.95, 0.6]] },   // сегмент частокола на клетку 1 м: модель Meshy — пролёт 3,2 м, сжат по ширине
   bonfire: { o: ['campfire'], k: 1.9, fire: true }, crate: { o: ['chest_hide'], k: 0.85 }, barrel: { o: ['clay_pots'], k: 0.9 },
 };
@@ -73,6 +83,7 @@ export function swap(lists, PROPS, kit) {
     lists.delete(id);
     const ks = Array.isArray(M.k) ? M.k : [M.k];
     for (const it of list) {
+      if (M.spin) it.rot = hash(it.y + 3.7, it.x - 1.3) * 6.283;
       const v = Math.floor(hash(it.x, it.y) * M.o.length) % M.o.length, def = defOf(id, M.o[v], ks[v % ks.length], { ...PROPS[id], tint: M.tint ?? (PROPS[id] && PROPS[id].tint) }, kit, M.fire);
       extra[def.id] = def;
       if (!lists.has(def.id)) lists.set(def.id, []);

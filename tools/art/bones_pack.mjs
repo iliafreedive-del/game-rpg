@@ -18,7 +18,7 @@ const LIMIT = {
   agave_a: 160, agave_b: 220, bush_thorn_a: 200, bush_thorn_b: 200, tumbleweed: 150, grass_dry_a: 140, grass_dry_b: 140,
   flowers_desert_a: 160, flowers_desert_b: 160, flowers_desert_c: 160, sand_rock_a: 320, sand_rock_b: 320, sand_rock_c: 320,
   bones_scatter_a: 250, bones_scatter_b: 250, skull_pile: 1000, clay_pots: 600, chest_hide: 800, campfire: 400, war_drum: 900,
-  tree_acacia_a: 800, tree_acacia_b: 800, tree_acacia_c: 800, tree_dead_desert_a: 500, tree_dead_desert_b: 500,
+  tree_acacia_a: 1700, tree_acacia_b: 1600, tree_acacia_c: 2000, tree_dead_desert_a: 500, tree_dead_desert_b: 500,
   sand_spire_a: 800, sand_spire_b: 800, sand_spire_c: 700, sand_mesa: 900, tusk_fence: 700, hide_rack: 800, war_banner: 700,
   bone_totem_a: 1400, bone_totem_b: 1400, bone_hut_a: 2000, bone_hut_b: 1800, bone_hall: 3000,
   giant_skull: 2200, giant_ribs: 2700, giant_spine: 770, tusk_arch: 2000, giant_fallen: 3200, bone_portal: 2600,

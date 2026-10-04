@@ -75,7 +75,7 @@ export class Zone {
     if (o.s) d.s = o.s; if (o.len || o.opts) d.opts = { len: o.len, ...o.opts };   // параметры модели (длина и ширина моста, размеры мельницы)
     if (o.boxes) for (const [x0, y0, x1, y1] of o.boxes) this.map.rects.push({ x0, y0, x1, y1 });
     else if (!o.nocol) {
-      if (P.r) this.map.circles.push({ x: o.x, y: o.y, r: P.r });
+      if (P.r) this.map.circles.push({ x: o.x, y: o.y, r: o.r || P.r });   // o.r — свой радиус (большие хижины пустошей)
       const sw = o.rot && Math.abs(Math.sin(o.rot)) > 0.7;   // повёрнут на 90° — полуоси коробки меняются местами
       if (P.box) { const [bx, by] = sw ? [P.box[1], P.box[0]] : P.box; this.map.rects.push({ x0: o.x - bx, y0: o.y - by, x1: o.x + bx, y1: o.y + by }); }
     }

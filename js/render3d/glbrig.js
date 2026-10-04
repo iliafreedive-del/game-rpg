@@ -2,9 +2,9 @@
 //  • beastGlb — кабаны и медведь: тот же риг, что у прежних процедурных зверей (_beast.js): корпус, голова, хвост, четыре лапы
 //    с коленом; та же анимация (ходьба диагональными парами, рывок-укус, рёв на дыбах, удар, смерть на бок).
 //    Кости ставятся по самой сетке: столбы лап ищутся у земли, шея — перед передними лапами, хвост — за задними; веса плавные.
-//  • scorpGlb — скорпион: восемь ног качаются вперёд-назад целиком (без суставов, походка «через одну»), клешни бьют выпадом
-//    вперёд. Сетка скорпиона Meshy — из отдельных кусков-сегментов: куски раскладываются по лучам от середины корпуса
-//    (угол на виде сверху): на сторону 4 ноги и клешня (самый передний луч).
+//  • scorpGlb — скорпион: восемь ног веером качаются вперёд-назад целиком (без суставов, волной от задней к передней), клешни бьют выпадом
+//    вперёд. Сетка скорпиона Meshy — из отдельных кусков-сегментов: куски размечены по образцу (лишние длинные ноги
+//    убираются), на сторону остаются 4 опорные ноги и клешня.
 // Сетка и текстура — из GLB (glbmob.meshData), разметка костей считается один раз на модель. Обводка — копия со сглаженными
 // по положению нормалями (у Meshy на швах вершины раздвоены — обычная обводка там рвётся тёмными щелями).
 import * as THREE from '../vendor/three.module.min.js';
@@ -124,40 +124,54 @@ function scorpRig(kit, name, H) {
   const pcs = new Map(); for (let i = 0; i < n; i++) { const r = f(rid[i]); if (!pcs.has(r)) pcs.set(r, []); pcs.get(r).push(i); }
   const P = [...pcs.values()].map(v => { let x = 0, y = 0, z = 0, ax = 0; for (const i of v) { x += p.getX(i); y += p.getY(i); z += p.getZ(i); ax = Math.max(ax, Math.abs(p.getX(i))); } return { v, x: x / v.length, y: y / v.length, z: z / v.length, ax, lab: -1 }; });
   P.sort((a, b) => b.v.length - a.v.length);
-  // корпус: самый большой кусок и всё узкое по середине (хвост, жало, морда)
-  const bodyW = P[0].ax;
-  for (const c of P) if (c === P[0] || c.ax < bodyW * 0.85) c.lab = 0;
-  // конечности расходятся от корпуса лучами: кусок относим к лучу по углу (вид сверху) от середины корпуса.
-  // На каждой стороне 5 лучей — 4 ноги и клешня (у Meshy-скорпиона так и есть); центры уточняются k-средними по углу.
-  // (Сцепка кусков по касанию не годится: у корпуса сегменты соседних ног касаются, и нога делилась между двумя костями —
-  // в ходьбе куски разъезжались и ног казалось вдвое больше.)
-  let z0 = Infinity, z1 = -Infinity; for (const i of P[0].v) { z0 = Math.min(z0, p.getZ(i)); z1 = Math.max(z1, p.getZ(i)); }
-  const zc = (z0 + z1) / 2, bone = new Int32Array(n).fill(1), legs = [], claws = [null, null];
+  // У Meshy-скорпиона на каждой стороне по 7 ног: 3 длинные «горизонтальные» (концы висят в воздухе, сверху лежат поверх
+  // остальных) и 4 опорные до земли; сбоку это и было «6 лап, две друг на друге». Оставляем опорные 4, длинные убираем.
+  // Модель одна и та же, поэтому куски размечены по образцу: центр куска (сторона +x, рост 1,8 м) → класс:
+  // 'x' — убрать, 0…3 — нога спереди назад, 'c' — клешня, 'b' — корпус. Кусок берёт класс ближайшего образца (стороны
+  // модели не строго зеркальны); далёкие от всех образцов (хвост, спина) — корпус.
+  const TPL = [
+    ['x', .32, .67, .39], ['x', .48, .70, .24], ['x', .80, .73, .37], ['x', .99, .56, .44], ['x', .27, .61, .10], ['x', .49, .78, .09],
+    ['x', .77, .80, .09], ['x', 1.0, .60, .10], ['x', .34, .66, -.26], ['x', .51, .74, -.20], ['x', .81, .76, -.29], ['x', 1.01, .58, -.25],
+    [0, .41, .53, .20], [0, .55, .37, .26], [0, .62, .17, .30],
+    [1, .29, .62, -.04], [1, .42, .55, -.03], [1, .51, .41, -.05], [1, .63, .17, -.04],
+    [2, .42, .54, -.40], [2, .45, .35, -.53], [2, .45, .14, -.61],
+    [3, .45, .72, -.48], [3, .51, .65, -.68], [3, .53, .42, -.86], [3, .50, .20, -.98],
+    ['c', .36, .43, .89], ['c', .57, .56, .68], ['c', .48, .72, .44], ['c', .35, .57, .72], ['c', .24, .51, .81], ['b', .25, .61, .22],
+    ['x', -.65, .67, .36], ['x', -.86, .68, .47],   // x < 0 — только для стороны −x (там передняя длинная нога сдвинута)
+  ];
+  const u = H / 1.8, del = new Uint8Array(n);
+  for (const c of P) {
+    if (c === P[0]) { c.cls = 'b'; continue; }
+    let bd = Infinity; for (const [k, x, y, z] of TPL) { if (x < 0 && c.x > 0) continue; const d = Math.hypot((x < 0 ? c.x : Math.abs(c.x)) - x * u, c.y - y * u, c.z - z * u); if (d < bd) { bd = d; c.cls = k; } }
+    if (bd > 0.12 * u) c.cls = c.z > 0.4 * u && Math.abs(c.x) > 0.15 * u ? 'c' : 'b';   // крупные куски клешни у правой стороны смещены сильнее
+    if (c.cls === 'x') for (const i of c.v) del[i] = 1;
+  }
+  { const keep = []; for (let t = 0; t < I.length; t += 3) if (!del[I[t]] && !del[I[t + 1]] && !del[I[t + 2]]) keep.push(I[t], I[t + 1], I[t + 2]); g.setIndex(keep); }
+  const bone = new Int32Array(n).fill(1), legs = [], claws = [null, null];
+  const pivotOf = mem => { let pv = null; for (const c of mem) for (const i of c.v) if (pv == null || Math.abs(p.getX(i)) < Math.abs(p.getX(pv))) pv = i; return new THREE.Vector3(p.getX(pv), p.getY(pv), p.getZ(pv)); };
   for (const side of [0, 1]) {
-    const app = P.filter(c => c.lab < 0 && (c.x > 0 ? 0 : 1) === side);
-    if (!app.length) continue;
-    for (const c of app) c.ang = Math.atan2(c.z - zc, Math.abs(c.x)) * 180 / Math.PI;
-    const ctr = [-50, -12, 10, 33, 62];
-    for (let it = 0; it < 12; it++) {
-      const sum = ctr.map(() => [0, 0]);
-      for (const c of app) { let k = 0; for (let j = 1; j < ctr.length; j++) if (Math.abs(c.ang - ctr[j]) < Math.abs(c.ang - ctr[k])) k = j; c.cl = k; sum[k][0] += c.ang * c.v.length; sum[k][1] += c.v.length; }
-      sum.forEach(([a, w], j) => { if (w) ctr[j] = a / w; });
-    }
-    for (let j = 0; j < ctr.length; j++) {
-      const mem = app.filter(c => c.cl === j); if (!mem.length) continue;
-      // сустав — точка луча, ближайшая к оси тела
-      let pv = null; for (const c of mem) for (const i of c.v) if (pv == null || Math.abs(p.getX(i)) < Math.abs(p.getX(pv))) pv = i;
-      const ch = { pcs: mem, pivot: new THREE.Vector3(p.getX(pv), p.getY(pv), p.getZ(pv)) };
-      if (j === ctr.length - 1) { ch.bone = 2 + side; claws[side] = ch; } else legs.push({ ch, side, k: ctr.length - 2 - j });   // k: 0 — передняя нога
+    const mine = P.filter(c => (c.x > 0 ? 0 : 1) === side);
+    const cl = mine.filter(c => c.cls === 'c'); if (cl.length) claws[side] = { pcs: cl, pivot: pivotOf(cl), bone: 2 + side };
+    for (let k = 0; k < 4; k++) {
+      const mem = mine.filter(c => c.cls === k); if (!mem.length) continue;
+      const foot = mem.reduce((a, c) => (c.y < a.y ? c : a));
+      legs.push({ ch: { pcs: mem, pivot: pivotOf(mem) }, side, k, foot });
     }
   }
   legs.forEach((l, i) => (l.ch.bone = 4 + i));
+  // веер: две задние ноги у Meshy идут назад одна за другой (сверху сливаются), поэтому в покое нога доворачивается так,
+  // чтобы ступня смотрела на свой угол FAN от сустава (k = 0 — передняя; 0° — вбок, + вперёд)
+  const FAN = [40, 5, -30, -70];
+  for (const l of legs) {
+    const ta = Math.atan2(l.foot.z - l.ch.pivot.z, Math.abs(l.foot.x - l.ch.pivot.x));
+    l.fan = clamp(FAN[l.k] / 57.3 - ta, -0.6, 0.6);
+  }
   for (const ch of [...claws.filter(Boolean), ...legs.map(l => l.ch)]) for (const c of ch.pcs) for (const i of c.v) bone[i] = ch.bone;
   const si = new Uint16Array(n * 4), sw = new Float32Array(n * 4);
   for (let i = 0; i < n; i++) { si[i * 4] = bone[i]; sw[i * 4] = 1; }
   g.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(si, 4)); g.setAttribute('skinWeight', new THREE.Float32BufferAttribute(sw, 4));
   g.computeBoundingSphere(); D.og = outlineGeo(g);
-  D.rig = { claws: [0, 1].map(s => claws[s]?.pivot || new THREE.Vector3((s ? -1 : 1) * W * 0.15, H * 0.2, L * 0.2)), legs: legs.map(l => ({ side: l.side, k: l.k, pivot: l.ch.pivot })), L, W };
+  D.rig = { claws: [0, 1].map(s => claws[s]?.pivot || new THREE.Vector3((s ? -1 : 1) * W * 0.15, H * 0.2, L * 0.2)), legs: legs.map(l => ({ side: l.side, k: l.k, fan: l.fan, pivot: l.ch.pivot })), L, W };
   CACHE.set(ck, D); return D;
 }
 
@@ -179,7 +193,8 @@ export function scorpGlb(kit, name, o = {}) {
     if (sp > 0.2) ph = ((ph + (a.back ? -1 : 1) * a.dt * sp / (1.1 * s)) % 1 + 1) % 1;
     const th = ph * 6.283, br = Math.sin(a.t * 2.1);
     legs.forEach((l, i) => {
-      const { side, k } = R.legs[i], sg = side ? -1 : 1, o = th + ((k + side) % 2) * Math.PI, sw = Math.sin(o) * w * 0.22 + Math.sin(a.t * 1.3 + i) * 0.03 * (1 - w);
+      // волна от задней ноги к передней (сдвиг фазы 90°): соседние ноги не сходятся навстречу и не перекрещиваются
+      const { side, k, fan } = R.legs[i], sg = side ? -1 : 1, o = th - k * Math.PI / 2 + side * Math.PI, sw = fan + Math.sin(o) * w * 0.2 + Math.sin(a.t * 1.3 + i) * 0.03 * (1 - w);
       l.rotation.set(0, 0, 0);
       l.rotation.y = -sg * sw;                                      // вперёд-назад (для левой и правой стороны — в разные стороны)
       l.rotation.z = sg * (Math.max(0, Math.cos(o)) * 0.15 * w + dead * (0.35 + 0.05 * k));   // подъём на взмахе; смерть — поджать

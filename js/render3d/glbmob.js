@@ -138,9 +138,9 @@ export function buildMob(kit, name, o = {}) {
     turn(head, root, X, -roar * 0.55 + lunge * 0.25 - rear * 0.15 + Math.sin(a.t * 1.1) * 0.04 * (1 - mv));
     turn(head, root, Y, Math.sin(a.t * 0.7) * 0.12 * (1 - mv));
     turn(chest, root, X, br * 0.015 - roar * 0.1);
-    // a.wag (0..1) — собака деревни: хвостом виляет только рядом с героем (быстро и широко), вдали хвост спокоен
+    // a.wag (0..1) — собака деревни: хвостом виляет только рядом с героем (спокойно, ~1 взмах в секунду — сборка 42), вдали хвост спокоен
     if (a.wag !== undefined) { for (const t of tail) t.quaternion.copy(rest.get(t)); root.updateMatrixWorld(true); }   // и без качания хвоста из клипа ходьбы
-    for (const [i, t] of tail.entries()) turn(t, root, Y, a.wag !== undefined ? Math.sin(a.t * 14 - i * 0.7) * 0.5 * a.wag : Math.sin(a.t * 2.2 + i * 0.6) * (0.1 + 0.12 * mv) * (1 - rear));
+    for (const [i, t] of tail.entries()) turn(t, root, Y, a.wag !== undefined ? Math.sin(a.t * 6 - i * 0.7) * 0.35 * a.wag : Math.sin(a.t * 2.2 + i * 0.6) * (0.1 + 0.12 * mv) * (1 - rear));
     spin.rotation.set(0, 0, 0); spin.position.y = H * 0.45;
     lastSp = sp;
   }
