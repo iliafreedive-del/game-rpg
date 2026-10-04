@@ -6,6 +6,8 @@ import { Input } from '../input.js';
 import { ARENA, heightAt } from '../world.js';
 import { buildWorld, toWorld, ARCH } from './world.js';
 import { DarkHero } from './hero.js';
+import { ElvinHero } from './elvin.js';
+import { loadGLB } from '../glb.js';
 import { Mobs } from './mobs.js';
 import { LIGHT, CAMERA, QUALITY, WIND, lookName } from '../style.js';
 
@@ -30,7 +32,9 @@ const world = buildWorld(scene, LOOK);
 const gate = toWorld(0, 1.0); violet.position.set(gate.x, L.violet.y, gate.z);
 const fx = new FX(scene);
 fx.slashes.forEach(x => x.mesh.material.uniforms.uColor.value.set(LIGHT.slashColor));      // abyss-violet slash arcs
-const hero = new DarkHero(scene);
+// герой: процедурный рыцарь; ?hero=elvin — тестовая посадка модели NPC Элвина на риг (Элвин — NPC-наставник, не герой)
+const HERO_KIND = params.get('hero') || 'knight';
+const hero = HERO_KIND === 'elvin' ? new ElvinHero(scene, await loadGLB('assets/elvin.glb')) : new DarkHero(scene);
 const mobs = params.get('mobs') === '0' ? null : new Mobs(scene, fx);
 const input = new Input(document.getElementById('joyBase'), document.getElementById('joyKnob'), document.getElementById('atk'));
 
@@ -51,6 +55,11 @@ function applyQuality() {
 function applyWind() { U.uWindStr.value = WIND[state.wind].s; ui.wind.textContent = '≋ ' + WIND[state.wind].name; }
 ui.quality.onclick = () => { state.quality = { low: 'med', med: 'high', high: 'low' }[state.quality]; state.autoTuned = true; applyQuality(); };
 ui.outline.onclick = () => { state.outlines = !state.outlines; applyOutlines(); };
+const bHero = document.getElementById('bHero');
+if (bHero) {
+  bHero.textContent = HERO_KIND === 'elvin' ? '⚔ Герой: Элвин' : '⚔ Герой: Рыцарь';
+  bHero.onclick = () => { params.set('hero', HERO_KIND === 'elvin' ? 'knight' : 'elvin'); location.search = params; };
+}
 ui.wind.onclick = () => { state.wind = (state.wind + 1) % WIND.length; applyWind(); };
 
 // ---------- camera: hero sits in the lower third so the tall gate stays in frame ----------
@@ -71,7 +80,7 @@ function updateCamera(dt) {
   camera.position.copy(camTarget).add(off);
   if (shake > 0) { shake = Math.max(0, shake - dt * CAMERA.shake.decay); const m = shake * shake * CAMERA.shake.amp; camera.position.x += (Math.random() - .5) * m; camera.position.y += (Math.random() - .5) * m; }
   camera.lookAt(camTarget);
-  if (window.__dbgCam) { const y = hero.yaw; camera.position.set(hero.pos.x + Math.cos(y) * 5.6 * window.__dbgCam, hero.pos.y + 1.2, hero.pos.z - Math.sin(y) * 5.6 * window.__dbgCam); camera.lookAt(hero.pos.x, hero.pos.y + 0.9, hero.pos.z); }   // debug: side view for animation checks
+  if (window.__dbgCam) { const y = hero.yaw - (window.__dbgAz || 0); camera.position.set(hero.pos.x + Math.cos(y) * 5.6 * window.__dbgCam, hero.pos.y + 1.2, hero.pos.z - Math.sin(y) * 5.6 * window.__dbgCam); camera.lookAt(hero.pos.x, hero.pos.y + 0.9, hero.pos.z); }   // debug: side view for animation checks (__dbgAz turns it towards the front)
   U.uCam.value.copy(camera.position); U.uFocus.value.set(hero.pos.x, hero.pos.y + 1.0, hero.pos.z);
   moon.position.copy(camTarget).add(new THREE.Vector3(...L.key.offset)); moon.target.position.copy(camTarget);
 }

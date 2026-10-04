@@ -89,7 +89,7 @@ export class DarkHero {
     this.shield.rotation.y = -0.5;
 
     // legs: hip → thigh → knee → shin → ankle/boot, driven by 2-bone IK so the feet stay planted and the knees really bend
-    this.L1 = 0.44; this.L2 = 0.43; this.ANKLE = 0.115;
+    this.L1 = 0.44; this.L2 = 0.43; this.ANKLE = 0.115; this.HIP = 0.97; this.LEG_X = 0.15; this.legK = 1;   // legK scales gait for other leg lengths (see elvin.js)
     const leg = side => {
       const g = new THREE.Group(); g.position.set(side * 0.15, 0.97, 0); this.root.add(g);
       g.add(M(merge([part(new THREE.CapsuleGeometry(0.095, 0.26, 3, 8), DARK, [0, -0.2, 0]), part(new THREE.SphereGeometry(0.11, 8, 6), STEEL_D, [0, -0.02, 0.0])])));
@@ -144,7 +144,7 @@ export class DarkHero {
     // ---- gait: phase advances with ground speed so feet never skate ----
     this.run += ((sp > 0.4 ? 1 : 0) - this.run) * (1 - Math.exp(-10 * dt));
     const r = this.run, spN = clamp(sp / SPEED);
-    const stride = clamp(0.3 + 0.15 * sp, 0.3, 0.9);          // long strides, slow cadence: foot travel per stance = stride, so no skating
+    const lk = this.legK, stride = clamp(0.3 + 0.15 * sp, 0.3, 0.9) * lk;          // long strides, slow cadence: foot travel per stance = stride, so no skating
     if (sp > 0.25) this.phase = (this.phase + dt * sp * ST / stride) % 1;
     const th = this.phase * Math.PI * 2, breath = Math.sin(t * 2.0) * (1 - r);
     this.aw += ((attacking ? 1 : 0) - this.aw) * (1 - Math.exp(-16 * dt));
@@ -162,16 +162,16 @@ export class DarkHero {
     const wind = k1 * (1 - k2), hitK = k2 * (1 - k3), crouchA = 0.1 * (k1 * (1 - k2) + 0.7 * k2 * (1 - k3));
 
     // ---- pelvis + legs (IK) ----
-    const hipY = 0.97 - 0.14 * r + 0.03 * r * Math.abs(Math.cos(th - 1.885)) - crouchA * aw + breath * 0.008;
+    const hipY = this.HIP + lk * (-0.14 * r + 0.03 * r * Math.abs(Math.cos(th - 1.885)) - crouchA * aw) + breath * 0.008;
     const legs = [[this.legR, 0], [this.legL, 0.5]];
     legs.forEach(([lg, off], i) => {
-      const ft = footTarget(this.phase + off, stride, 0.08 + 0.16 * spN, ST);
+      const ft = footTarget(this.phase + off, stride, (0.08 + 0.16 * spN) * lk, ST);
       let dz = ft.z * r + (i ? -0.03 : 0.03) * (1 - r), lift = ft.y * r, toe = ft.pitch * r;
       // attack stance: sword-side foot steps forward, the other braces behind
       const front = (dir > 0) === (i === 0);
-      const stanceZ = front ? 0.08 + 0.26 * k1 + 0.06 * k2 : -0.3 + 0.06 * k2, stanceW = aw;
+      const stanceZ = (front ? 0.08 + 0.26 * k1 + 0.06 * k2 : -0.3 + 0.06 * k2) * lk, stanceW = aw;
       dz = lerp(dz, stanceZ, stanceW); lift = lerp(lift, 0, stanceW); toe = lerp(toe, 0, stanceW);
-      lg.position.x = (i ? 0.15 : -0.15) + Math.sin(th) * 0.02 * r; lg.position.y = hipY;
+      lg.position.x = (i ? this.LEG_X : -this.LEG_X) + Math.sin(th) * 0.02 * r; lg.position.y = hipY;
       legIK(lg, lg.knee, lg.foot, this.L1, this.L2, hipY - this.ANKLE, dz, lift, toe);
     });
     this.hips.position.set(Math.sin(th) * 0.025 * r, hipY, 0);
@@ -203,6 +203,6 @@ export class DarkHero {
 
     this.shadow.position.set(this.pos.x, this.pos.y + 0.03, this.pos.z);
     this.root.updateMatrixWorld(true);
-    this.cape.update(dt, this.capeAnchor.matrixWorld, this.root.matrixWorld, U.uWind.value.clone().multiplyScalar(U.uWindStr.value), t);
+    if (this.cape) this.cape.update(dt, this.capeAnchor.matrixWorld, this.root.matrixWorld, U.uWind.value.clone().multiplyScalar(U.uWindStr.value), t);
   }
 }
