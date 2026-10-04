@@ -1,5 +1,7 @@
 # Задача для новой сессии: собака из Meshy с ригом волка
 
+> **ВЫПОЛНЕНО** (4 октября): `assets/models/dog_town.glb` в `integration/all`, артефакт https://claude.ai/artifact/JhB81LPxwkNjPUL1DLiknL. Ниже — как это делалось (пригодится для следующих зверей).
+
 Продолжаем Dark Ascent, ветка `integration/all`. Прочитай `CLAUDE.md`, `docs/CHANGELOG.md` (сборка 31), `art_meshy/README.md`.
 
 ## Что уже есть (сборка 31, коммиты dbf6439, e681f3a, b1bcbdf)

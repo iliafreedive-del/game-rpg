@@ -97,7 +97,7 @@ function build() {
     return { a, side, on, ph: 0 };
   });
   kit.fur.FUR.on = true; kit.skin.SKINS.on = true;
-  target.y = ['archer', 'warrior', 'mage'].includes(S.mob) ? 1.15 : 0.8;   // камера смотрит в середину фигуры
+  target.y = ['archer', 'warrior', 'mage'].includes(S.mob) ? 1.15 : S.mob === 'dog_town' ? 0.5 : 0.8;   // камера смотрит в середину фигуры
   document.getElementById('tags').classList.toggle('show', S.mode === 'side');
   clipT = 0;
 }

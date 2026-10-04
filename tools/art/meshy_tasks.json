@@ -4,6 +4,10 @@
   "image": "art_meshy/in/dog_town.webp",
   "model": "latest",
   "polycount": 12000,
-  "started": "2026-10-04 06:33"
+  "started": "2026-10-04 06:33",
+  "done": "2026-10-04 07:07",
+  "raw": "art_meshy/raw/dog_town.glb",
+  "glb": "assets/models/dog_town.glb",
+  "rig": "wolf_grey"
  }
 }
