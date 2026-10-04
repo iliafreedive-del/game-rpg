@@ -321,6 +321,7 @@ async function fight(s) {
   function end(win) {
     cancelAnimationFrame(raf); raf = 0; speedB.remove(); over = win ? 'win' : 'lose';
     const h = HW(), P = G.profile; const first = win && s >= h.top;
+    if (!win) bus.emit('hwLost');   // сборка 43: задание «Испытать себя в Летописи битв»
     if (!win && s >= h.top) spendEn(h);   // новый этап: энергия уходит только за поражение
     const pct = hero.hp / hero.max; const stars = win ? (pct > 0.7 ? 3 : pct > 0.35 ? 2 : 1) : 0;
     let gold = 0, xp = 0, shards = 0;

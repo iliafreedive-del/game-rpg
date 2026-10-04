@@ -77,6 +77,7 @@ export function check() {
   const s = G.profile.story, o = q.obj;
   if (q.turnIn && s.ready === q.id) return;
   if (o.skill && hasSkill()) return complete();
+  if (o.hwTry && (s.flags.hwLost || ((G.profile.hw && G.profile.hw.top) || 1) > 5)) return complete();   // проиграл в Летописи или прошёл все открытые этапы
   if (o.flag && s.flags[o.flag]) return q.turnIn ? markReady(q) : complete();
   if (o.count && (s.counters[q.id] || 0) >= o.n) return q.turnIn ? markReady(q) : complete();
   if (o.enter && G.zoneId === o.enter && G.zoneReady) return complete();
@@ -111,6 +112,7 @@ export function initQuests() {
   bus.on('gold', n => { if (G.zoneId !== 'town') count('gold', n); repeatTick(); });
   bus.on('chest', () => { G.profile.stats.chests++; repeatTick(); });
   bus.on('zoneEntered', () => check());
+  bus.on('hwLost', () => { G.profile.story.flags.hwLost = true; });   // засчитается, когда окно Летописи закроется (игровой цикл зовёт check)
 }
 
 // ---- repeatables: progress = stat now − stat at acceptance

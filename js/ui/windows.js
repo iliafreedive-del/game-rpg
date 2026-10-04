@@ -411,6 +411,8 @@ W.npc_elder = () => {
   const P = G.profile; const q = Q.current(); let lines, fin = false;
   if (q && q.id === 'talk_elder') lines = DIALOG.elder[0];
   else if (q && q.id === 'elder_task') lines = DIALOG.elder.task;
+  else if (q && q.id === 'learn_skill') lines = DIALOG.elder.skill;
+  else if (q && q.id === 'hw_try') lines = DIALOG.elder.hw;
   else if (Q.isReady()) { lines = DIALOG.elder.turnin[q.id] || ['Ты справился. Вот твоя награда.']; fin = true; }
   else if (q && q.id === 'finish') { lines = DIALOG.elder.finish; fin = true; }
   else if (P.chapterDone) lines = DIALOG.elder.done;
