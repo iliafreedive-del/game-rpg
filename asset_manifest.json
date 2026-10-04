@@ -1,0 +1,857 @@
+{
+  "packs": [
+    {
+      "source_file": "bones_pack_01_giant_landmarks.glb",
+      "file": "bones_pack_01_giant_landmarks_clean.glb",
+      "objects": [
+        {
+          "name": "giant_skull",
+          "triangles": 2247,
+          "height_m": 3,
+          "size_xyz_m": [
+            3.67191743850708,
+            3.0,
+            4.298458099365234
+          ],
+          "original_origin_xyz": [
+            -0.3398585021495819,
+            0.10693400353193283,
+            0.0005825012922286987
+          ],
+          "uniform_scale": 11.464603424072266
+        },
+        {
+          "name": "giant_ribs",
+          "triangles": 2755,
+          "height_m": 3.5,
+          "size_xyz_m": [
+            5.290077209472656,
+            3.5,
+            6.219283580780029
+          ],
+          "original_origin_xyz": [
+            -0.013976998627185822,
+            0.08845700323581696,
+            -0.05673950910568237
+          ],
+          "uniform_scale": 14.003137588500977
+        },
+        {
+          "name": "giant_spine",
+          "triangles": 772,
+          "height_m": 1.6,
+          "size_xyz_m": [
+            2.094714879989624,
+            1.600000023841858,
+            1.9485501050949097
+          ],
+          "original_origin_xyz": [
+            0.31992849707603455,
+            0.08600900322198868,
+            0.014207497239112854
+          ],
+          "uniform_scale": 5.816341876983643
+        },
+        {
+          "name": "tusk_arch",
+          "triangles": 2045,
+          "height_m": 5,
+          "size_xyz_m": [
+            2.805600166320801,
+            4.999999523162842,
+            2.733438491821289
+          ],
+          "original_origin_xyz": [
+            -0.34216898679733276,
+            -0.3584260046482086,
+            0.03443549945950508
+          ],
+          "uniform_scale": 8.887988090515137
+        },
+        {
+          "name": "giant_fallen",
+          "triangles": 4809,
+          "height_m": 5,
+          "size_xyz_m": [
+            4.73570442199707,
+            5.0,
+            4.806116580963135
+          ],
+          "original_origin_xyz": [
+            0.07977049797773361,
+            -0.36880001425743103,
+            0.009580492973327637
+          ],
+          "uniform_scale": 8.940065383911133
+        },
+        {
+          "name": "bone_portal",
+          "triangles": 2670,
+          "height_m": 4.5,
+          "size_xyz_m": [
+            3.843632936477661,
+            4.5,
+            3.920963764190674
+          ],
+          "original_origin_xyz": [
+            0.325439989566803,
+            -0.3721269965171814,
+            0.07669450342655182
+          ],
+          "uniform_scale": 11.058331489562988
+        }
+      ],
+      "source_triangles": 15298,
+      "object_count": 6
+    },
+    {
+      "source_file": "bones_pack_02_sandstone.glb",
+      "file": "bones_pack_02_sandstone_clean.glb",
+      "objects": [
+        {
+          "name": "sand_spire_a",
+          "triangles": 2479,
+          "height_m": 4.5,
+          "size_xyz_m": [
+            2.63895845413208,
+            4.5,
+            2.85101056098938
+          ],
+          "original_origin_xyz": [
+            -0.33605149388313293,
+            -0.151869997382164,
+            -0.14012649655342102
+          ],
+          "uniform_scale": 8.048131942749023
+        },
+        {
+          "name": "sand_spire_b",
+          "triangles": 2145,
+          "height_m": 4.5,
+          "size_xyz_m": [
+            4.725414276123047,
+            4.5,
+            4.855459213256836
+          ],
+          "original_origin_xyz": [
+            0.0024800002574920654,
+            -0.1497029960155487,
+            -0.12939149141311646
+          ],
+          "uniform_scale": 11.229169845581055
+        },
+        {
+          "name": "sand_spire_c",
+          "triangles": 1873,
+          "height_m": 5,
+          "size_xyz_m": [
+            3.1435883045196533,
+            5.0,
+            3.4639971256256104
+          ],
+          "original_origin_xyz": [
+            0.343968003988266,
+            -0.15064500272274017,
+            -0.11995149403810501
+          ],
+          "uniform_scale": 10.07353687286377
+        },
+        {
+          "name": "sand_mesa",
+          "triangles": 1765,
+          "height_m": 2.2,
+          "size_xyz_m": [
+            4.627808570861816,
+            2.200000047683716,
+            5.711557865142822
+          ],
+          "original_origin_xyz": [
+            -0.304361492395401,
+            -0.40674498677253723,
+            0.10925349593162537
+          ],
+          "uniform_scale": 11.827448844909668
+        },
+        {
+          "name": "sand_rock_a",
+          "triangles": 828,
+          "height_m": 0.9,
+          "size_xyz_m": [
+            0.9939076900482178,
+            0.9000000357627869,
+            1.1618590354919434
+          ],
+          "original_origin_xyz": [
+            -0.0014569982886314392,
+            -0.40031400322914124,
+            0.1973395049571991
+          ],
+          "uniform_scale": 4.785350322723389
+        },
+        {
+          "name": "sand_rock_b",
+          "triangles": 764,
+          "height_m": 0.9,
+          "size_xyz_m": [
+            0.7043337821960449,
+            0.9000000357627869,
+            1.0849909782409668
+          ],
+          "original_origin_xyz": [
+            0.17760449647903442,
+            -0.4008049964904785,
+            0.18967750668525696
+          ],
+          "uniform_scale": 4.090184211730957
+        },
+        {
+          "name": "sand_rock_c",
+          "triangles": 876,
+          "height_m": 0.9,
+          "size_xyz_m": [
+            0.9030336141586304,
+            0.8999999761581421,
+            1.2420318126678467
+          ],
+          "original_origin_xyz": [
+            0.36472898721694946,
+            -0.4052790105342865,
+            0.20405900478363037
+          ],
+          "uniform_scale": 4.27876615524292
+        }
+      ],
+      "source_triangles": 10730,
+      "object_count": 7
+    },
+    {
+      "source_file": "bones_pack_03_trees.glb",
+      "file": "bones_pack_03_trees_clean.glb",
+      "objects": [
+        {
+          "name": "tree_acacia_a",
+          "triangles": 2824,
+          "height_m": 3.5,
+          "size_xyz_m": [
+            2.75445556640625,
+            3.5,
+            2.983719825744629
+          ],
+          "original_origin_xyz": [
+            -0.3169015049934387,
+            0.016832999885082245,
+            0.061832495033741
+          ],
+          "uniform_scale": 7.521786689758301
+        },
+        {
+          "name": "tree_acacia_b",
+          "triangles": 2502,
+          "height_m": 3.5,
+          "size_xyz_m": [
+            3.477268934249878,
+            3.5,
+            3.77224063873291
+          ],
+          "original_origin_xyz": [
+            0.010069496929645538,
+            0.011136000044643879,
+            -0.05009699612855911
+          ],
+          "uniform_scale": 8.633235931396484
+        },
+        {
+          "name": "tree_acacia_c",
+          "triangles": 3450,
+          "height_m": 3.5,
+          "size_xyz_m": [
+            5.788239479064941,
+            3.5,
+            6.1058030128479
+          ],
+          "original_origin_xyz": [
+            0.2605240046977997,
+            0.009816000238060951,
+            0.0036824941635131836
+          ],
+          "uniform_scale": 12.08521842956543
+        },
+        {
+          "name": "tree_dead_desert_a",
+          "triangles": 2424,
+          "height_m": 3,
+          "size_xyz_m": [
+            2.738809823989868,
+            3.0,
+            2.9458234310150146
+          ],
+          "original_origin_xyz": [
+            -0.23884700238704681,
+            -0.47978100180625916,
+            0.03398700803518295
+          ],
+          "uniform_scale": 6.806085586547852
+        },
+        {
+          "name": "tree_dead_desert_b",
+          "triangles": 2032,
+          "height_m": 3,
+          "size_xyz_m": [
+            3.572636604309082,
+            3.0,
+            2.2462141513824463
+          ],
+          "original_origin_xyz": [
+            0.22592249512672424,
+            -0.4725770056247711,
+            0.044186998158693314
+          ],
+          "uniform_scale": 7.53439474105835
+        }
+      ],
+      "source_triangles": 13232,
+      "object_count": 5
+    },
+    {
+      "source_file": "bones_pack_04_small_plants.glb",
+      "file": "bones_pack_04_small_plants_clean.glb",
+      "objects": [
+        {
+          "name": "bush_thorn_a",
+          "triangles": 980,
+          "height_m": 0.8,
+          "size_xyz_m": [
+            0.7461376190185547,
+            0.800000011920929,
+            0.6424045562744141
+          ],
+          "original_origin_xyz": [
+            -0.3998035192489624,
+            -0.02576499991118908,
+            -0.03525649756193161
+          ],
+          "uniform_scale": 3.723371982574463
+        },
+        {
+          "name": "bush_thorn_b",
+          "triangles": 1168,
+          "height_m": 0.8,
+          "size_xyz_m": [
+            0.5563468933105469,
+            0.8000000715255737,
+            0.5092650651931763
+          ],
+          "original_origin_xyz": [
+            -0.17414900660514832,
+            -0.022833000868558884,
+            -0.014965001493692398
+          ],
+          "uniform_scale": 2.5234127044677734
+        },
+        {
+          "name": "agave_a",
+          "triangles": 594,
+          "height_m": 0.7,
+          "size_xyz_m": [
+            0.7833818197250366,
+            0.699999988079071,
+            0.7449909448623657
+          ],
+          "original_origin_xyz": [
+            0.009161502122879028,
+            -0.024058999493718147,
+            -0.008077997714281082
+          ],
+          "uniform_scale": 3.225851058959961
+        },
+        {
+          "name": "agave_b",
+          "triangles": 1192,
+          "height_m": 1.5,
+          "size_xyz_m": [
+            0.8215294480323792,
+            1.5,
+            0.8963838815689087
+          ],
+          "original_origin_xyz": [
+            0.23369601368904114,
+            -0.024607999250292778,
+            -0.004562500864267349
+          ],
+          "uniform_scale": 3.8891541957855225
+        },
+        {
+          "name": "tumbleweed",
+          "triangles": 896,
+          "height_m": 0.6,
+          "size_xyz_m": [
+            0.6317894458770752,
+            0.6000000238418579,
+            0.6794500946998596
+          ],
+          "original_origin_xyz": [
+            0.4130604863166809,
+            -0.02112000063061714,
+            -0.013176001608371735
+          ],
+          "uniform_scale": 3.633500814437866
+        },
+        {
+          "name": "flowers_desert_a",
+          "triangles": 984,
+          "height_m": 0.4,
+          "size_xyz_m": [
+            0.36882448196411133,
+            0.4000000059604645,
+            0.43111467361450195
+          ],
+          "original_origin_xyz": [
+            -0.40293002128601074,
+            -0.35790300369262695,
+            0.017233997583389282
+          ],
+          "uniform_scale": 1.8997862339019775
+        },
+        {
+          "name": "flowers_desert_b",
+          "triangles": 850,
+          "height_m": 0.4,
+          "size_xyz_m": [
+            0.39912503957748413,
+            0.4000000059604645,
+            0.42306849360466003
+          ],
+          "original_origin_xyz": [
+            -0.19413699209690094,
+            -0.3552449941635132,
+            0.007570501416921616
+          ],
+          "uniform_scale": 2.025501251220703
+        },
+        {
+          "name": "flowers_desert_c",
+          "triangles": 970,
+          "height_m": 0.4,
+          "size_xyz_m": [
+            0.4429715573787689,
+            0.4000000059604645,
+            0.4503065049648285
+          ],
+          "original_origin_xyz": [
+            0.01298300176858902,
+            -0.3561759889125824,
+            0.010310500860214233
+          ],
+          "uniform_scale": 1.9851020574569702
+        },
+        {
+          "name": "grass_dry_a",
+          "triangles": 512,
+          "height_m": 0.5,
+          "size_xyz_m": [
+            0.7532756328582764,
+            0.5,
+            0.5833901166915894
+          ],
+          "original_origin_xyz": [
+            0.210332989692688,
+            -0.3579449951648712,
+            0.003925498574972153
+          ],
+          "uniform_scale": 3.2113864421844482
+        },
+        {
+          "name": "grass_dry_b",
+          "triangles": 684,
+          "height_m": 0.5,
+          "size_xyz_m": [
+            0.37272369861602783,
+            0.5,
+            0.41292354464530945
+          ],
+          "original_origin_xyz": [
+            0.3979269862174988,
+            -0.36270299553871155,
+            0.008365999907255173
+          ],
+          "uniform_scale": 1.825770378112793
+        }
+      ],
+      "source_triangles": 8830,
+      "object_count": 10
+    },
+    {
+      "source_file": "bones_pack_05_buildings.glb",
+      "file": "bones_pack_05_buildings_clean.glb",
+      "objects": [
+        {
+          "name": "bone_hut_a",
+          "triangles": 2489,
+          "height_m": 3.5,
+          "size_xyz_m": [
+            2.8022704124450684,
+            3.5,
+            3.670384407043457
+          ],
+          "original_origin_xyz": [
+            -0.25649750232696533,
+            -0.2015870064496994,
+            -0.14232200384140015
+          ],
+          "uniform_scale": 5.754089832305908
+        },
+        {
+          "name": "bone_hut_b",
+          "triangles": 1888,
+          "height_m": 3.5,
+          "size_xyz_m": [
+            4.9210591316223145,
+            3.5,
+            7.595785140991211
+          ],
+          "original_origin_xyz": [
+            0.24640800058841705,
+            0.012935999780893326,
+            -0.04724699258804321
+          ],
+          "uniform_scale": 9.702709197998047
+        },
+        {
+          "name": "bone_hall",
+          "triangles": 4598,
+          "height_m": 4.5,
+          "size_xyz_m": [
+            12.43939208984375,
+            4.5,
+            9.102860450744629
+          ],
+          "original_origin_xyz": [
+            0.0,
+            -0.40877801179885864,
+            0.1005765050649643
+          ],
+          "uniform_scale": 12.43939208984375
+        }
+      ],
+      "source_triangles": 8975,
+      "object_count": 3
+    },
+    {
+      "source_file": "bones_pack_06_ritual_fences.glb",
+      "file": "bones_pack_06_ritual_fences_clean.glb",
+      "objects": [
+        {
+          "name": "bone_totem_a",
+          "triangles": 2921,
+          "height_m": 3.5,
+          "size_xyz_m": [
+            1.8492143154144287,
+            3.5,
+            1.4378386735916138
+          ],
+          "original_origin_xyz": [
+            -0.325237512588501,
+            -0.15113799273967743,
+            -0.10538500547409058
+          ],
+          "uniform_scale": 5.526790142059326
+        },
+        {
+          "name": "bone_totem_b",
+          "triangles": 2691,
+          "height_m": 3.5,
+          "size_xyz_m": [
+            2.724795341491699,
+            3.5,
+            1.677266001701355
+          ],
+          "original_origin_xyz": [
+            0.04176050424575806,
+            -0.15476299822330475,
+            -0.08285099267959595
+          ],
+          "uniform_scale": 5.675911903381348
+        },
+        {
+          "name": "war_banner",
+          "triangles": 932,
+          "height_m": 3.5,
+          "size_xyz_m": [
+            0.46240562200546265,
+            3.5,
+            3.407991886138916
+          ],
+          "original_origin_xyz": [
+            0.4543464779853821,
+            -0.21395200490951538,
+            -0.07121250033378601
+          ],
+          "uniform_scale": 5.064294815063477
+        },
+        {
+          "name": "tusk_fence",
+          "triangles": 1458,
+          "height_m": 2,
+          "size_xyz_m": [
+            3.2356724739074707,
+            2.0,
+            2.8962857723236084
+          ],
+          "original_origin_xyz": [
+            -0.24350500106811523,
+            -0.4523090124130249,
+            0.03158249706029892
+          ],
+          "uniform_scale": 6.30747652053833
+        },
+        {
+          "name": "war_drum",
+          "triangles": 2166,
+          "height_m": 1.2,
+          "size_xyz_m": [
+            1.9775686264038086,
+            1.2000000476837158,
+            2.107095241546631
+          ],
+          "original_origin_xyz": [
+            0.2632899880409241,
+            -0.4843350052833557,
+            0.15755100548267365
+          ],
+          "uniform_scale": 4.177196979522705
+        }
+      ],
+      "source_triangles": 10168,
+      "object_count": 5
+    },
+    {
+      "source_file": "bones_pack_07_camp_props.glb",
+      "file": "bones_pack_07_camp_props_clean.glb",
+      "objects": [
+        {
+          "name": "hide_rack",
+          "triangles": 1515,
+          "height_m": 2,
+          "size_xyz_m": [
+            2.2698171138763428,
+            1.9999998807907104,
+            0.713123083114624
+          ],
+          "original_origin_xyz": [
+            -0.28768301010131836,
+            -0.05166200175881386,
+            0.034623000770807266
+          ],
+          "uniform_scale": 5.345349311828613
+        },
+        {
+          "name": "campfire",
+          "triangles": 923,
+          "height_m": 0.6,
+          "size_xyz_m": [
+            0.5535702109336853,
+            0.6000000238418579,
+            0.6605546474456787
+          ],
+          "original_origin_xyz": [
+            -0.004526503384113312,
+            -0.040164001286029816,
+            -0.11581550538539886
+          ],
+          "uniform_scale": 1.56350576877594
+        },
+        {
+          "name": "clay_pots",
+          "triangles": 1412,
+          "height_m": 0.8,
+          "size_xyz_m": [
+            0.7939193844795227,
+            0.800000011920929,
+            0.9960958957672119
+          ],
+          "original_origin_xyz": [
+            0.2684204876422882,
+            -0.02674899995326996,
+            -0.254907488822937
+          ],
+          "uniform_scale": 3.3875627517700195
+        },
+        {
+          "name": "skull_pile",
+          "triangles": 5229,
+          "height_m": 0.7,
+          "size_xyz_m": [
+            1.0128905773162842,
+            0.699999988079071,
+            1.8282766342163086
+          ],
+          "original_origin_xyz": [
+            -0.3122810125350952,
+            -0.33788201212882996,
+            0.05938050150871277
+          ],
+          "uniform_scale": 2.697890281677246
+        },
+        {
+          "name": "bones_scatter_a",
+          "triangles": 1188,
+          "height_m": 0.3,
+          "size_xyz_m": [
+            0.9215491414070129,
+            0.30000001192092896,
+            1.9819399118423462
+          ],
+          "original_origin_xyz": [
+            -0.06316450238227844,
+            -0.33698099851608276,
+            0.05298400670289993
+          ],
+          "uniform_scale": 3.5045087337493896
+        },
+        {
+          "name": "bones_scatter_b",
+          "triangles": 1284,
+          "height_m": 0.3,
+          "size_xyz_m": [
+            0.48495492339134216,
+            0.30000001192092896,
+            0.9740148186683655
+          ],
+          "original_origin_xyz": [
+            0.11074699461460114,
+            -0.34231698513031006,
+            -0.04995350539684296
+          ],
+          "uniform_scale": 1.7254867553710938
+        },
+        {
+          "name": "chest_hide",
+          "triangles": 2508,
+          "height_m": 0.7,
+          "size_xyz_m": [
+            1.0208470821380615,
+            0.699999988079071,
+            1.2547279596328735
+          ],
+          "original_origin_xyz": [
+            0.34217050671577454,
+            -0.33403098583221436,
+            0.007321000099182129
+          ],
+          "uniform_scale": 3.234018325805664
+        }
+      ],
+      "source_triangles": 14059,
+      "object_count": 7
+    },
+    {
+      "source_file": "bones_pack_08_ancient_ruins.glb",
+      "file": "bones_pack_08_ancient_ruins_clean.glb",
+      "objects": [
+        {
+          "name": "ruin_column_a",
+          "triangles": 752,
+          "height_m": 4,
+          "size_xyz_m": [
+            2.0718533992767334,
+            4.0,
+            2.654470682144165
+          ],
+          "original_origin_xyz": [
+            -0.39467501640319824,
+            -0.014789000153541565,
+            -0.2487040013074875
+          ],
+          "uniform_scale": 9.835525512695312
+        },
+        {
+          "name": "ruin_column_b",
+          "triangles": 1152,
+          "height_m": 2.2,
+          "size_xyz_m": [
+            2.032472610473633,
+            2.200000047683716,
+            2.438958168029785
+          ],
+          "original_origin_xyz": [
+            -0.2034900039434433,
+            -0.027008000761270523,
+            -0.10353550314903259
+          ],
+          "uniform_scale": 9.196709632873535
+        },
+        {
+          "name": "ruin_arch",
+          "triangles": 1488,
+          "height_m": 4.5,
+          "size_xyz_m": [
+            4.802255153656006,
+            4.5,
+            3.402190685272217
+          ],
+          "original_origin_xyz": [
+            0.0015989989042282104,
+            -0.017659999430179596,
+            -0.040931496769189835
+          ],
+          "uniform_scale": 12.688065528869629
+        },
+        {
+          "name": "ruin_wall_a",
+          "triangles": 1072,
+          "height_m": 2.5,
+          "size_xyz_m": [
+            3.641697406768799,
+            2.5,
+            1.361627221107483
+          ],
+          "original_origin_xyz": [
+            0.32582998275756836,
+            -0.02676999941468239,
+            0.013102002441883087
+          ],
+          "uniform_scale": 10.45443344116211
+        },
+        {
+          "name": "ruin_wall_stairs_altar_ensemble",
+          "triangles": 7077,
+          "height_m": 2.5,
+          "size_xyz_m": [
+            5.835233688354492,
+            2.5,
+            6.464541912078857
+          ],
+          "original_origin_xyz": [
+            -0.19355449080467224,
+            -0.3904229998588562,
+            -0.04444849491119385
+          ],
+          "uniform_scale": 9.520834922790527
+        },
+        {
+          "name": "ruin_statue",
+          "triangles": 2876,
+          "height_m": 1.8,
+          "size_xyz_m": [
+            1.5978888273239136,
+            1.8000000715255737,
+            2.073251724243164
+          ],
+          "original_origin_xyz": [
+            0.2082434892654419,
+            -0.3908889889717102,
+            0.22023749351501465
+          ],
+          "uniform_scale": 6.0380401611328125
+        }
+      ],
+      "source_triangles": 14417,
+      "object_count": 6
+    }
+  ],
+  "object_count": 49,
+  "ruins_note": "Wall B, stairs and altar remain one conservative ensemble; no speculative cuts were applied.",
+  "units": "meters",
+  "up_axis": "Y",
+  "organization_method": "Whole connected fragments grouped by spatial layout; ambiguous ruins preserved as an ensemble."
+}
