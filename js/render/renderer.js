@@ -219,11 +219,17 @@ function drawEnemy(e, x, y) {
   const A = getAtlas(e.D.atlas); if (!A) return;
   const [d, fl] = monDir(A, e.dir);
   const f = `${e.anim.clip}_${d}_${e.anim.frame}`;
-  const s = sc(A) * (e.champion ? 1.12 : 1);
+  const s = sc(A) * (e.champion ? 1.12 : 1) * (e.D.scale || 1);
   if (e.dead && e.corpseT > 5) ctx.globalAlpha = Math.max(0, 1 - (e.corpseT - 5) / 3);
+  if (e.D.mini && !e.dead) {   // hunt mini-boss: pulsing blood-red ring under its feet
+    const z = G.cam.zoom; ctx.save(); ctx.translate(x, y); ctx.scale(1, 0.5); ctx.strokeStyle = `rgba(255,40,30,${0.55 + Math.sin(G.time * 4) * 0.25})`; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(0, 0, e.r * 70 * z, 0, 7); ctx.stroke(); ctx.fillStyle = 'rgba(255,30,20,0.12)'; ctx.fill(); ctx.restore();
+    ctx.shadowColor = 'rgba(255,50,30,0.9)'; ctx.shadowBlur = 14;
+  }
   if (e.champion && !e.dead) { ctx.shadowColor = 'rgba(120,180,255,0.9)'; ctx.shadowBlur = 12; }
+  if (e.D.tint) ctx.filter = e.D.tint;
   drawFrame(ctx, A, f, x, y, s, !!fl);
-  ctx.shadowBlur = 0;
+  ctx.filter = 'none'; ctx.shadowBlur = 0;
   const st = e.st;
   if (!e.dead && (e.flash > 0 || st.frozen > 0 || st.burn > 0 || st.slowT > 0)) {
     ctx.globalCompositeOperation = 'lighter';
@@ -453,10 +459,10 @@ function drawBars() {
   for (const e of G.enemies) {
     if (e.dead || e.D.boss) continue;
     const show = e.hp < e.maxHP || e.D.elite || e.champion; if (!show) continue;
-    const [x, y] = cam.toScreen(e.x, e.y, e.D.elite ? 2.6 : 2.05); const w = (e.D.elite || e.champion ? 60 : 38) * Math.min(1.2, z);
+    const [x, y] = cam.toScreen(e.x, e.y, e.D.mini ? 1.9 * (e.D.scale || 1) + 0.3 : e.D.elite ? 2.6 : 2.05); const w = (e.D.elite || e.champion ? 60 : 38) * Math.min(1.2, z);
     ctx.fillStyle = 'rgba(0,0,0,0.7)'; ctx.fillRect(x - w / 2 - 1, y - 1, w + 2, 6);
-    ctx.fillStyle = e.D.elite ? '#e8a42a' : e.champion ? '#5aa0ff' : '#c8302a'; ctx.fillRect(x - w / 2, y, w * e.hp / e.maxHP, 4);
-    if (e.D.elite || e.champion) { ctx.font = `600 ${Math.round(11 * Math.min(1.2, z))}px Georgia, serif`; ctx.textAlign = 'center'; ctx.fillStyle = e.D.elite ? '#f0c060' : '#9cc4ff'; ctx.strokeStyle = '#000'; ctx.lineWidth = 3; ctx.strokeText(e.name, x, y - 5); ctx.fillText(e.name, x, y - 5); }
+    ctx.fillStyle = e.D.mini ? '#e0302a' : e.D.elite ? '#e8a42a' : e.champion ? '#5aa0ff' : '#c8302a'; ctx.fillRect(x - w / 2, y, w * e.hp / e.maxHP, 4);
+    if (e.D.elite || e.champion) { ctx.font = `600 ${Math.round(11 * Math.min(1.2, z))}px Georgia, serif`; ctx.textAlign = 'center'; ctx.fillStyle = e.D.mini ? '#ff8a70' : e.D.elite ? '#f0c060' : '#9cc4ff'; ctx.strokeStyle = '#000'; ctx.lineWidth = 3; ctx.strokeText(e.name, x, y - 5); ctx.fillText(e.name, x, y - 5); }
     let sx = x - w / 2; const st = e.st; ctx.font = `${Math.round(10 * z)}px sans-serif`; ctx.textAlign = 'left';
     for (const [on, c] of [[st.burn > 0, '#ff8a3c'], [st.frozen > 0 || st.slowT > 0, '#8fdcff'], [st.shock > 0, '#c8b4ff'], [st.bleed > 0, '#d02020'], [st.stun > 0, '#ffe070']]) if (on) { ctx.fillStyle = c; ctx.fillRect(sx, y + 6, 6, 3); sx += 8; }
   }
@@ -508,19 +514,20 @@ function drawInteractMarker() {
 }
 
 // quest guide: a golden arrow on the ground pointing toward the current objective
-function drawGuide() {
-  const t = G.guide, P = G.player; if (!t || P.dead) return;
+function drawGuide() { drawArrow(G.guide, 'gv', '255,210,90'); if (G.huntGuide && G.huntGuide !== G.guide) drawArrow(G.huntGuide, 'hgv', '255,70,50', 0.27); }
+function drawArrow(t, key, rgb, off = 0) {
+  const P = G.player; if (!t || P.dead) return;
   const dx = t.x - P.x, dy = t.y - P.y, d = Math.hypot(dx, dy); if (d < 4) return;
   let vx = dx / d, vy = dy / d;
   if (G.zone.dark) { const g = G.zone.map.guideDir(P.x, P.y, t.x, t.y); if (g) { vx = g[0]; vy = g[1]; } }
-  const gv = G.gv || (G.gv = [vx, vy]); gv[0] += (vx - gv[0]) * 0.12; gv[1] += (vy - gv[1]) * 0.12; const gl = Math.hypot(gv[0], gv[1]) || 1; vx = gv[0] / gl; vy = gv[1] / gl;
+  const gv = G[key] || (G[key] = [vx, vy]); gv[0] += (vx - gv[0]) * 0.12; gv[1] += (vy - gv[1]) * 0.12; const gl = Math.hypot(gv[0], gv[1]) || 1; vx = gv[0] / gl; vy = gv[1] / gl;
   const cam = G.cam, z = cam.zoom; const pulse = (G.time * 1.5) % 1;
   ctx.save();
   for (let i = 0; i < 3; i++) {
-    const k = 1.1 + i * 0.55 + pulse * 0.55;
+    const k = 1.1 + off + i * 0.55 + pulse * 0.55;
     const [x, y] = cam.toScreen(P.x + vx * k, P.y + vy * k); const [x2, y2] = cam.toScreen(P.x + vx * (k + 0.3), P.y + vy * (k + 0.3));
     const a = Math.atan2(y2 - y, x2 - x); const al = (i === 0 ? pulse : i === 2 ? 1 - pulse : 1) * 0.85;
-    ctx.translate(x, y); ctx.rotate(a); ctx.fillStyle = `rgba(255,210,90,${al})`;
+    ctx.translate(x, y); ctx.rotate(a); ctx.fillStyle = `rgba(${rgb},${al})`;
     ctx.beginPath(); ctx.moveTo(9 * z, 0); ctx.lineTo(-5 * z, -7 * z); ctx.lineTo(-2 * z, 0); ctx.lineTo(-5 * z, 7 * z); ctx.closePath(); ctx.fill();
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
   }

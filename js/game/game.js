@@ -32,6 +32,7 @@ import * as CS from './castle.js';
 import * as SV from './survival.js';
 import * as DQ from './daily.js';
 import { resize as rResize } from '../render/index.js';
+import * as HU from './hunts.js';
 import { SKILLS } from '../data/skills.js';
 import { rand, rrange, rint } from '../core/util.js';
 import { pollMove, input, mouse, tapAim } from '../core/input.js';
@@ -117,6 +118,7 @@ export async function loadZone(id, how = {}) {
     [pl.x, pl.y] = from ? [portal.x + 1.2, portal.y + 1.6] : zone.start; pl.face = pl.dir = 1;
     for (const n of zone.json.npcs) G.npcs.push(new NPC({ ...n }));
     await loadGroup(zone.json.npcs.filter(n => !G.render3d || n.id !== 'fortune').map(n => 'npc_' + (n.id === 'fortune' ? 'merchant' : n.id))).catch(() => { });
+    HU.spawnFor(zone);   // hunt beast at the forest edge / graveyard
   } else if (id === 'survival') {
     [pl.x, pl.y] = zone.start; pl.face = pl.dir = 1;
   } else if (id === 'castle') {
@@ -127,12 +129,12 @@ export async function loadZone(id, how = {}) {
     G.wild = { realm: how.realm, depth: how.depth, done: false, t0: G.time, carry: 0, greed: 0, slow: 1, noise: 1, refresh: refreshCarry }; refreshCarry();
   } else if (id === 'depths') {
     [pl.x, pl.y] = zone.start; pl.face = pl.dir = 1;
-    spawnFloor(zone); G.diedThisRun = false; G.dungeonCache = null;
+    spawnFloor(zone); HU.spawnFor(zone); G.diedThisRun = false; G.dungeonCache = null;
     G.run = { weekly: zone.json.weekly ? weeklyRule() : null, floor: zone.json.floorN, free: !!how.free, t0: G.time, kills: 0, total: G.enemies.length, gold0: P.stats.gold, deaths: 0, done: false, boons: how.keepBoons && G.lastBoons ? G.lastBoons.slice() : [] }; G.lastBoons = null;
     if (G.run.weekly) { const R = G.run.weekly; for (const e of G.enemies) { if (R.hp) { e.maxHP = Math.round(e.maxHP * R.hp); e.hp = e.maxHP; } if (R.dmg) e.dmgMul *= R.dmg; if (R.spd) e.spdBonus = (e.spdBonus || 1) * R.spd; } bus.emit('toast', { text: 'Испытание недели: ' + R.name, sub: R.txt, kind: 'quest' }); }
   } else {
     if (how.useCache && G.dungeonCache) { pl.x = G.dungeonCache.x; pl.y = G.dungeonCache.y; G.dungeonCache = null; }
-    else { [pl.x, pl.y] = zone.start; spawnDungeon(zone); G.diedThisRun = false; G.dungeonCache = null; }
+    else { [pl.x, pl.y] = zone.start; spawnDungeon(zone); HU.spawnFor(zone); G.diedThisRun = false; G.dungeonCache = null; }
     pl.face = pl.dir = 1;
   }
   [pl.x, pl.y] = zone.map.nearestFree(pl.x, pl.y, pl.r + 0.05);
@@ -484,7 +486,7 @@ export function update(dt) {
   if (best && best.type === 'door') best.label = G.profile.world.hasKey ? 'Отпереть дверь ключом' : 'Дверь заперта';
   if (best !== G.focus) { G.focus = best; bus.emit('focus', best); }
   // quest checks for proximity objectives
-  if ((questT += dt) > 0.3) { questT = 0; Q.check(); updateMarkers(); }
+  if ((questT += dt) > 0.3) { questT = 0; Q.check(); HU.tick(); updateMarkers(); }
   // autosave
   saveTimer += dt; if ((saveQueued && saveTimer > 1.5 && !inCombat()) || saveTimer > 15) saveNow();
 }
@@ -505,8 +507,9 @@ function updateMarkers() {
     const outside = fort && !fort.open ? G.enemies.filter(e => !e.dead && !e.summoned && !e.story).sort((a, b) => Math.hypot(a.x - G.player.x, a.y - G.player.y) - Math.hypot(b.x - G.player.x, b.y - G.player.y))[0] : null;
     t = outside || G.enemies.find(e => (e.story === 'wildkeep' || e.story === 'wildboss') && !e.dead) || (G.wild && G.wild.done ? next || home : fort ? null : next) || null;
   }
-  G.guide = t;
+  G.guide = t; G.huntGuide = HU.guideTarget();
   for (const n of G.npcs) n.marker = n.id === 'elder' && Q.isReady() ? '?' : q && q.target === n.id ? (q.id === 'finish' ? '?' : '!') : null;
+  const eld = G.npcs.find(n => n.id === 'elder'); if (eld && HU.readyToTurnIn()) eld.marker = '?';   // hunt to hand in
   for (const it of G.zone.inter) { if (it.type === 'socket') { const open = it.room === 'hall' || (G.profile.castle && G.profile.castle[it.room]); it.hidden = !open; it.glow = open && !(G.profile.castle.decor && G.profile.castle.decor[it.sid]); } else if (it.type === 'roomgate') { it.plate = it.done ? null : ROOMS[it.room].name; it.reqLevel = it.done ? 0 : ROOMS[it.room].lvl; } else if (it.type === 'room') it.plate = ROOMS[it.room].name; }
   const hp = G.zone.inter.find(i => i.id === 'herospath'); if (hp) { const noSkill = !!gate('hw', 1); hp.locked = noSkill; hp.lockNote = noSkill && G.profile.level >= 2 ? 'выберите навык' : ''; }
   const wh = G.zone.inter.find(i => i.id === 'wheel'); if (wh) wh.marker = wheelReady() ? '!' : null;

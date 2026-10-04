@@ -380,11 +380,15 @@ export function enemyTelegraph(e, kind, P) {
   let tg = null;
   const spec = e.D.tele && e.D.tele[kind];   // походы: телеграф задан данными моба (data/wild.js)
   if (spec) { tg = { ...spec, a: ang }; if (spec.shape === 'circle') { tg.x = spec.at === 'target' ? P.x : e.x; tg.y = spec.at === 'target' ? P.y : e.y; } }
+  else if (kind === 'lunge') tg = { shape: 'line', a: ang, r: 3.6, w: 0.7 };
+  else if (kind === 'nova') tg = { shape: 'circle', x: e.x, y: e.y, r: e.D.abil.nova.r };
+  else if (kind === 'volley') tg = { shape: 'cone', a: ang, r: 6, arc: e.D.abil.volley.spread * (e.D.abil.volley.n - 1) * 180 / Math.PI + 12 };
+  else if (e.D.proj) tg = null;   // ranged shots are never telegraphed
   else if (e.D.elite || e.D.boss) {
     if (kind === 'attack') tg = { shape: 'cone', a: ang, r: e.D.boss ? 3.2 : 2.6, arc: 70 };
     else if (kind === 'attack2') tg = { shape: 'circle', x: e.x, y: e.y, r: e.D.boss ? 3.1 : 2.5 };
     else if (kind === 'slam') tg = { shape: 'circle', x: P.x, y: P.y, r: 2.0, rift: true };
-  } else if (kind === 'lunge') tg = { shape: 'line', a: ang, r: 3.6, w: 0.7 };
+  }
   e.teleg = tg; if (tg) { tg.x = tg.x ?? e.x; tg.y = tg.y ?? e.y; tg.t = 0; }
 }
 export function updateEnemyAttack(e, dt, P) {
@@ -392,7 +396,16 @@ export function updateEnemyAttack(e, dt, P) {
   if (!a.hit && e.anim.prog >= a.impact) {
     a.hit = true; const D = e.D; const tg = e.teleg;
     if (a.kind === 'lunge') { const ang = tg.a; e.lunge = { vx: Math.cos(ang), vy: Math.sin(ang), t: 0, hit: false }; e.teleg = null; e.state = 'lunge'; return; }
-    if (a.kind === 'roar') { effect({ kind: 'ring', x: e.x, y: e.y, r: 4, dur: 0.6, c: [200, 100, 255] }); G.cam.shake = 0.5; bus.emit('sfx', 'roar'); }
+    if (a.kind === 'nova') {   // hunt mini-boss: ring blast around itself
+      const N = D.abil.nova, c = N.c || [255, 80, 40];
+      effect({ kind: 'ring', x: e.x, y: e.y, r: N.r, dur: 0.5, c }); particles(e.x, e.y, 26, { c, sp: 4.5, size: 4 });
+      G.cam.shake = Math.max(G.cam.shake, 0.35); bus.emit('sfx', N.elem === 'fire' ? 'fire' : 'heavy');
+      if (Math.hypot(P.x - e.x, P.y - e.y) < N.r + P.r) enemyHitsPlayer(e, N.mult || 1.3, N.elem || 'phys');
+    } else if (a.kind === 'volley') {   // hunt mini-boss: fan of projectiles
+      const V = D.abil.volley, ang = tg ? tg.a : Math.atan2(P.y - e.y, P.x - e.x), sp = D.proj === 'arrow' ? 11 : 7.5;
+      for (let i = 0; i < V.n; i++) { const a2 = ang + (i - (V.n - 1) / 2) * V.spread; spawnProj({ kind: D.proj, x: e.x, y: e.y, vx: Math.cos(a2) * sp, vy: Math.sin(a2) * sp, owner: 'e', dmg: rrange(D.dmg[0], D.dmg[1]) * e.dmgMul * 0.8, elem: D.elem || 'phys', range: 11, src: e }); }
+      bus.emit('sfx', D.proj === 'arrow' ? 'bow' : 'cast');
+    } else if (a.kind === 'roar') { effect({ kind: 'ring', x: e.x, y: e.y, r: 4, dur: 0.6, c: [200, 100, 255] }); G.cam.shake = 0.5; bus.emit('sfx', 'roar'); }
     else if (D.proj) {
       const ang = Math.atan2(P.y - e.y, P.x - e.x);
       const sp = D.proj === 'arrow' ? 11 : 7.5;

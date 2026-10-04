@@ -40,10 +40,10 @@ python -m http.server 8000
 index.html, css/style.css, manifest.webmanifest
 js/main.js               — запуск, титульный экран, главный цикл
 js/core/                 — util, iso (камера/проекция), assets (менеджер ресурсов), input, audio (процедурный звук)
-js/data/                 — items, skills, enemies, quests (все игровые числа — здесь)
+js/data/                 — items, skills, enemies, quests, hunts (все игровые числа — здесь)
 js/world/                — map (коллизии, линия видимости, поиск пути), zone (сборка уровня из JSON)
 js/game/                 — ctx (контекст+шина событий), entities (герой, враги+ИИ, NPC), combat, loot,
-                           quests, economy, character, stats, items, save (версии+миграции), game (оркестрация)
+                           quests, hunts (охоты раз в 15 мин, docs/HUNTS.md), economy, character, stats, items, save (версии+миграции), game (оркестрация)
 js/render/renderer.js    — 2D: пол, сортировка по глубине, прозрачность стен у героя, освещение, эффекты (index.js выбирает 2D или 3D)
 js/render3d/             — 3D: рендерер, актёры, слой окружения, земля, модели (docs/MODEL_SPEC.md)
 js/ui/                   — hud (панели, кнопки, мини-карта), windows (окна), icons

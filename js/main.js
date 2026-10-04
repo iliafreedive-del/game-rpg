@@ -7,6 +7,7 @@ import { initRenderer, render, resize } from './render/index.js';
 import { newProfile, loadLocal, migrate } from './game/save.js';
 import { stats } from './game/stats.js';
 import { initQuests } from './game/quests.js';
+import { initHunts } from './game/hunts.js';
 import { loadZone, update, saveNow } from './game/game.js';
 import { initHUD, updateHUD } from './ui/hud.js';
 import { initPanel } from './ui/panel.js';
@@ -49,7 +50,7 @@ async function boot() {
     await loadGroup(CLASS_ATLAS[p.cls || 'warrior']).catch(() => { });
     G.profile = p; G.stats = stats(p); setVolumes(p.settings.sfx, p.settings.music); resize();
     btns.innerHTML = '<div class="muted">Вход в мир…</div>';
-    initQuests(); initHUD(); initPanel(); CS.C(); initTutorial();
+    initQuests(); initHunts(); initHUD(); initPanel(); CS.C(); initTutorial();
     await mons;
     const fresh = !p.tutorial.prologue && p.story.stage === 0 && !p.xp && p.level === 1;
     if (fresh) await loadZone('depths', { floor: 0 }); else await loadZone('town');

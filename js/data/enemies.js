@@ -1,5 +1,6 @@
 import { WILD_MOBS } from './wild.js';
 // Enemy archetypes. Behaviour is selected by `ai`; numbers scale with monster level.
+import { MINIBOSSES } from './hunts.js';
 export const ENEMIES = {
   skel_warrior: { name: 'Скелет-воин', atlas: 'skel_warrior', skeleton: true, ai: 'melee', hp: 22, dmg: [3, 5], speed: 2.5, range: 1.15, cd: 1.7, impact: 0.55, xp: 12, gold: [2, 6], armor: 6, radius: 0.34, fps: { walk: 11, attack: 11 } },
   skel_archer: { name: 'Скелет-лучник', atlas: 'skel_archer', skeleton: true, ai: 'archer', hp: 18, dmg: [2, 5], speed: 2.3, range: 8, keep: 5, cd: 2.1, impact: 0.66, xp: 14, gold: [2, 6], armor: 3, radius: 0.32, proj: 'arrow', fps: { attack: 9 } },
@@ -10,6 +11,7 @@ export const ENEMIES = {
   boss: { name: 'Палач Бездны', atlas: 'boss', boss: true, ai: 'boss', hp: 800, dmg: [11, 16], speed: 2.5, range: 2.3, cd: 1.7, impact: 0.6, xp: 700, gold: [200, 260], armor: 16, radius: 0.75, fps: { walk: 9, attack: 10, attack2: 10, slam: 11, roar: 9 } },
 };
 for (const [k, m] of Object.entries(WILD_MOBS)) ENEMIES[k] = { ...m, atlas: 'w_' + k };   // походы: графика выводится из базовых спрайтов (world/wildfloor.js)
+Object.assign(ENEMIES, MINIBOSSES);   // мини-боссы охот (data/hunts.js)
 // Room -> base monster level (Chapter I progression: 1 → 6)
 export const ROOM_LEVEL = { entry: 1, ossuary: 2, gallery: 3, cave: 3, cross: 4, altar: 4, secret: 5, guard: 5, arena: 6 };
 // рост силы врагов (сборка 16): до 3 уровня как раньше, дальше — быстрее (квадратичная добавка), чтобы прокачанный герой

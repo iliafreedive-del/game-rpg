@@ -28,6 +28,8 @@ import { adButton } from './adbtn.js';
 import { openWheel, wheelReady } from './wheel.js';
 import * as SV from '../game/survival.js';
 import * as SE from '../game/season.js';
+import * as HU from '../game/hunts.js';
+import { huntReward } from '../data/hunts.js';
 import { BOONS, BOON_IDS } from '../data/boons.js';
 import { stats as calcStats } from '../game/stats.js';
 import { maybeInterstitial } from '../platform/monetize.js';
@@ -225,55 +227,89 @@ W.character = (arg = {}) => {
   m.live = true;
 };
 
+// Skills: talent tree like WoW — per branch a grid of icons joined by arrows. Top: an active skill;
+// its passives open below; points in them unlock the next active, and so on. Every rank needs a hero level.
+// Tap an icon → card with description, next rank, requirements and the «Изучить» button (at the trainer).
+const TC = 54, TGX = 26, TGY = 22;   // icon size and gaps in the tree grid (px)
 W.skills = (arg = {}) => {
   const edit = !!arg.npc; if (edit) setTimeout(() => bus.emit('skillsOpened'), 50); const P0 = G.profile; const myBr = CLASSES[P0.cls || 'warrior'].branches;
-  let tab = W._skillTab && myBr.includes(W._skillTab) ? W._skillTab : myBr[0];
-  const m = modal(edit ? 'Наставник: навыки' : 'Навыки', 'md', b => {
+  let sel = W._skillSel && SKILLS[W._skillSel] && myBr.includes(SKILLS[W._skillSel].b) ? W._skillSel : null;
+  if (!sel || edit) sel = Object.keys(SKILLS).find(id => myBr.includes(SKILLS[id].b) && CH.canLearn(id).ok) || sel || Object.keys(SKILLS).find(id => SKILLS[id].b === myBr[0] && SKILLS[id].row === 0);
+  const m = modal(edit ? 'Наставник: навыки' : 'Навыки', 'lg', b => {
     const P = G.profile;
-    b.appendChild(el('div', 'sp-row', `<b class="${P.skillPts ? 'good' : 'muted'}">Очки навыков: ${P.skillPts}</b><b class="c-gold">💰 ${fmt(P.gold)} зол.</b>${edit ? '' : '<span class="muted">Изучать — у наставника Элвина в деревне.</span>'}`));
-    const firstPick = edit && !Object.entries(P.skills || {}).some(([k, v]) => v && SKILLS[k] && SKILLS[k].kind === 'active');
-    if (firstPick) b.appendChild(el('div', 'first-pick', '⚔ <b>Выберите первое умение!</b> Это приём, который появится кнопкой в бою. Пассивные усиления откроются после него.'));
-    // branch tabs — one tap
-    const tabs = el('div', 'tabs big-tabs');
-    for (const br of BRANCHES.filter(x => myBr.includes(x.id))) {
-      const t = el('button', 'tab' + (tab === br.id ? ' on' : ''), `<span style="color:${br.color}">${br.name}</span> ${CH.branchPoints(br.id)}`);
-      t.onclick = () => { tab = W._skillTab = br.id; rerender(); }; tabs.appendChild(t);
-    }
-    b.appendChild(tabs);
-    const list = el('div'); list.style.marginTop = '8px';
-    const order = Object.entries(SKILLS).filter(([, s]) => s.b === tab && (!firstPick || s.kind === 'active')).sort((a, b) => (a[1].kind === 'active' ? 0 : 1) - (b[1].kind === 'active' ? 0 : 1) || (a[1].row || 0) - (b[1].row || 0));
-    for (const [id, sk] of order) {
-      const r = P.skills[id] || 0, er = effRank(P, id), can = firstPick && sk.kind === 'active' ? { ok: P.skillPts > 0, why: 'Нет очков навыков' } : CH.canLearn(id);
-      const n = el('div', 'node wide' + (r ? ' have' : '') + (!r && !can.ok ? ' locked' : ''));
-      n.appendChild(skillCanvas(id, 72, !r));
-      const t = el('div', 'nbody', `<div class="nn">${esc(sk.name)} <span class="nr">${r}/${sk.max}${er > r ? ` <span class="good">(+${er - r})</span>` : ''} · <span class="kind">${sk.kind === 'active' ? 'активный' : 'пассивный'}</span></span></div><div class="nd">${esc(sk.desc(Math.max(1, er)))}</div>${!can.ok && r < sk.max && edit ? `<div class="bad"><small>${esc(can.why)}</small></div>` : ''}`);
-      n.appendChild(t);
-      if (edit && r < sk.max) {   // one tap to learn / upgrade
-        const cost = CH.skillCost(id); const plus = el('button', 'learn' + (can.ok ? ' ok' : ''), `${r ? '+' : 'Изучить'}<small>${cost ? cost + ' з.' : 'бесплатно'}</small>`); plus.disabled = !can.ok;
-        plus.onclick = e => { e.stopPropagation(); if (CH.learn(id, true, firstPick && sk.kind === 'active')) rerender(); }; n.appendChild(plus);
-      }
-      if (r && sk.kind === 'active') {
-        const sr = el('div', 'slots4');
-        { const bb = el('button', 'btn sm' + (P.bigSkill === id ? ' gold' : ''), '★'); bb.title = 'На большую кнопку'; bb.onclick = e => { e.stopPropagation(); P.bigSkill = P.bigSkill === id ? null : id; bus.emit('toast', { text: P.bigSkill ? `«${sk.name}» — на большой кнопке` : 'Большая кнопка: обычная атака', kind: 'good' }); bus.emit('statsChanged'); rerender(); }; sr.appendChild(bb); }
-        for (let i = 0; i < 4; i++) { const sb = el('button', 'btn sm' + (P.slots[i] === id ? ' gold' : ''), String(i + 1)); sb.title = 'Кнопка ' + (i + 1); sb.onclick = e => { e.stopPropagation(); CH.setSlot(i, id); bus.emit('toast', { text: `«${sk.name}» — кнопка ${i + 1}`, kind: 'good' }); rerender(); }; sr.appendChild(sb); }
-        t.appendChild(sr);
-      }
-      list.appendChild(n);
-    }
-    b.appendChild(list);
+    b.appendChild(el('div', 'sp-row', `<b class="${P.skillPts ? 'good' : 'muted'}">Очки навыков: ${P.skillPts}</b><span class="muted">+1 очко за каждый уровень</span><b class="c-gold">💰 ${fmt(P.gold)} зол.</b>${edit ? '' : '<span class="muted">Изучать — у наставника Элвина в деревне.</span>'}`));
+    if (edit && !Object.entries(P.skills || {}).some(([k, v]) => v && SKILLS[k] && SKILLS[k].kind === 'active')) b.appendChild(el('div', 'first-pick', '⚔ <b>Начните с верхнего умения ветки</b> — это активный приём, он появится кнопкой в бою. От него стрелки ведут к пассивным усилениям, а за ними открывается следующий приём.'));
+    const trees = el('div', 'tal-trees');
+    for (const br of BRANCHES.filter(x => myBr.includes(x.id))) trees.appendChild(talentBranch(br, P, id => { sel = W._skillSel = id; rerender(); }, sel));
+    b.appendChild(trees);
+    if (sel) b.appendChild(talentInfo(sel, P, edit));
   });
   m.live = true;
 };
+function talentBranch(br, P, onPick, sel) {
+  const ids = Object.keys(SKILLS).filter(id => SKILLS[id].b === br.id);
+  const rows = Math.max(...ids.map(id => SKILLS[id].row)) + 1;
+  const W0 = 3 * TC + 2 * TGX, H0 = rows * TC + (rows - 1) * TGY;
+  const pos = id => [SKILLS[id].col * (TC + TGX), SKILLS[id].row * (TC + TGY)];
+  const panel = el('div', 'tal-branch tb-' + br.id, `<div class="tal-h"><span style="color:${br.color}">${esc(br.name)}</span> <b>${CH.branchPoints(br.id)}</b></div>`);
+  const grid = el('div', 'tal-grid'); grid.style.width = W0 + 'px'; grid.style.height = H0 + 'px';
+  // arrows: from a prerequisite (bottom centre) down to the skill it opens; gold when the requirement is met
+  let svg = `<svg class="tal-arrows" width="${W0}" height="${H0}" viewBox="0 0 ${W0} ${H0}">`;
+  for (const id of ids) for (const [k, n] of SKILLS[id].req) {
+    const [x1, y1] = pos(k), [x2, y2] = pos(id); const ok = (P.skills[k] || 0) >= n; const c = ok ? '#ffd24a' : '#6a6460';
+    const ax = x1 + TC / 2, ay = y1 + TC, bx = x2 + TC / 2, by = y2 - 4, my = ay + (by - ay) / 2;
+    const d = ax === bx ? `M${ax},${ay} L${bx},${by}` : `M${ax},${ay} L${ax},${my} L${bx},${my} L${bx},${by}`;
+    svg += `<path d="${d}" fill="none" stroke="${c}" stroke-width="${ok ? 5 : 4}" stroke-linejoin="round"${ok ? ' class="lit"' : ''}/><path d="M${bx - 7},${by - 7} L${bx},${by + 2} L${bx + 7},${by - 7}" fill="${c}"/>`;
+  }
+  grid.innerHTML = svg + '</svg>';
+  for (const id of ids) {
+    const sk = SKILLS[id], r = P.skills[id] || 0, can = CH.canLearn(id), open = CH.reqsMet(id);
+    const st = r >= sk.max ? 'max' : r ? 'have' : can.ok ? 'can' : open ? 'open' : 'locked';
+    const [x, y] = pos(id);
+    const n = el('button', `tal tal-${st}${sk.kind === 'active' ? ' act' : ''}${sel === id ? ' sel' : ''}`); n.style.left = x + 'px'; n.style.top = y + 'px';
+    n.title = sk.name; n.appendChild(skillCanvas(id, 96, !r && !can.ok));
+    n.appendChild(el('span', 'tal-r', `${r}/${sk.max}`));
+    if (sk.kind === 'active') n.appendChild(el('span', 'tal-a', '⚔'));
+    if (can.ok) n.appendChild(el('span', 'tal-plus', '+'));
+    n.onclick = () => { bus.emit('sfx', 'click'); onPick(id); };
+    grid.appendChild(n);
+  }
+  panel.appendChild(grid); return panel;
+}
+function talentInfo(id, P, edit) {
+  const sk = SKILLS[id], r = P.skills[id] || 0, er = effRank(P, id), can = CH.canLearn(id), br = BRANCHES.find(x => x.id === sk.b);
+  const box = el('div', 'tal-info node');
+  box.appendChild(skillCanvas(id, 96, !r && !can.ok));
+  const reqs = CH.skillReqs(id);
+  const t = el('div', 'ti-body', `<div class="ti-n">${esc(sk.name)} <span class="ti-k ${sk.kind}">${sk.kind === 'active' ? '⚔ активное умение' : 'пассивное'}</span></div>
+    <div class="ti-sub"><span style="color:${br.color}">${esc(br.name)}</span> · ранг ${r}/${sk.max}${er > r ? ` <span class="good">(+${er - r} от вещей)</span>` : ''}</div>
+    ${r ? `<div class="ti-d"><b>Сейчас:</b> ${esc(sk.desc(er))}</div>` : ''}
+    ${r < sk.max ? `<div class="ti-d ${r ? 'next' : ''}"><b>${r ? 'Следующий ранг:' : 'Ранг 1:'}</b> ${esc(sk.desc(Math.max(1, er + 1)))}</div>` : '<div class="ti-d good">Изучено полностью</div>'}
+    ${r < sk.max ? `<ul class="ti-req">${reqs.map(q => `<li class="${q.ok ? 'ok' : 'no'}">${q.ok ? '✔' : '✖'} ${esc(q.text)}</li>`).join('')}</ul>` : ''}`);
+  box.appendChild(t);
+  if (edit && r < sk.max) {
+    const cost = CH.skillCost(id); const bt = el('button', 'learn tal-learn' + (can.ok ? ' ok' : ''), `${r ? 'Повысить ранг' : 'Изучить'}<small>${cost ? fmt(cost) + ' зол.' : 'бесплатно'}</small>`); bt.disabled = !can.ok;
+    bt.onclick = e => { e.stopPropagation(); if (CH.learn(id, true)) rerender(); }; t.appendChild(bt);
+    if (!can.ok) t.appendChild(el('div', 'bad', `<small>${esc(can.why)}</small>`));
+  } else if (!edit && r < sk.max && can.ok) t.appendChild(el('div', 'muted', '<small>Можно изучить у наставника Элвина в деревне.</small>'));
+  if (r && sk.kind === 'active') {
+    const sr = el('div', 'slots4');
+    { const bb = el('button', 'btn sm' + (P.bigSkill === id ? ' gold' : ''), '★'); bb.title = 'На большую кнопку'; bb.onclick = e => { e.stopPropagation(); P.bigSkill = P.bigSkill === id ? null : id; bus.emit('toast', { text: P.bigSkill ? `«${sk.name}» — на большой кнопке` : 'Большая кнопка: обычная атака', kind: 'good' }); bus.emit('statsChanged'); rerender(); }; sr.appendChild(bb); }
+    for (let i = 0; i < 4; i++) { const sb = el('button', 'btn sm' + (P.slots[i] === id ? ' gold' : ''), String(i + 1)); sb.title = 'Кнопка ' + (i + 1); sb.onclick = e => { e.stopPropagation(); CH.setSlot(i, id); bus.emit('toast', { text: `«${sk.name}» — кнопка ${i + 1}`, kind: 'good' }); rerender(); }; sr.appendChild(sb); }
+    t.appendChild(el('div', 'muted', '<small>Кнопка в бою:</small>')); t.appendChild(sr);
+  }
+  return box;
+}
 
 // Quests: tabs like mobile hits — Story / Daily / Weekly / Contracts, with reward chips and clear buttons
 W.journal = (arg = {}) => {
-  let tab = W._qtab || 'story';
+  let tab = arg.tab || W._qtab || 'story'; W._qtab = tab;
   const m = modal('Задания', 'md', b => {
     const P = G.profile, st = P.story.stage;
     const dq = DQ.dailyQuests(), wq = DQ.weeklyQuests();
-    const cnt = { daily: dq.filter(q => q.done && !q.claimed).length, weekly: wq.filter(q => q.done && !q.claimed).length, contracts: REPEATABLE.filter(r => Q.repState(r).done).length };
+    const cnt = { hunt: HU.current() ? 1 : 0, daily: dq.filter(q => q.done && !q.claimed).length, weekly: wq.filter(q => q.done && !q.claimed).length, contracts: REPEATABLE.filter(r => Q.repState(r).done).length };
     const tabs = el('div', 'q-tabs');
-    for (const [id, name] of [['story', 'Сюжет'], ['daily', 'Ежедневные'], ['weekly', 'Недельные'], ['contracts', 'Контракты']]) {
+    for (const [id, name] of [['story', 'Сюжет'], ['hunt', 'Охота'], ['daily', 'Ежедневные'], ['weekly', 'Недельные'], ['contracts', 'Контракты']]) {
       const t = el('button', 'q-tab' + (tab === id ? ' on' : ''), `${name}${cnt[id] ? `<i>${cnt[id]}</i>` : ''}`); t.onclick = () => { tab = W._qtab = id; rerender(); }; tabs.appendChild(t);
     }
     b.appendChild(tabs);
@@ -290,6 +326,32 @@ W.journal = (arg = {}) => {
       if (q) { const pr = Q.progressOf(q); const it = el('div', 'q-card cur', `<div class="q-t">➤ ${esc(q.title)}</div><div class="muted">${esc(q.text)}</div>${pr ? `<div class="q-prog"><div class="pbar"><i style="width:${pr.cur / pr.max * 100}%"></i></div><span>${pr.cur}/${pr.max}</span></div>` : ''}${chips({ gold: q.reward && q.reward.gold, xp: q.reward && q.reward.xp, item: q.reward && q.reward.items && q.reward.items.length, skillPts: q.reward && q.reward.skillPts, potions: q.reward && q.reward.potions })}`);
         const go = el('button', 'btn sm gold', 'Показать путь'); go.onclick = () => { closeModal(); bus.emit('toast', { text: 'Идите за золотыми стрелками', kind: 'quest' }); }; it.appendChild(go); b.appendChild(it); }
       for (let i = st - 1; i >= Math.max(0, st - 3); i--) b.appendChild(el('div', 'q-card claimed', `<div class="q-t">✔ ${esc(STORY[i].title)}</div>`));
+    } else if (tab === 'hunt') {
+      const cur = HU.current(), hs = HU.state();
+      if (!HU.unlocked()) b.appendChild(el('div', 'q-card', '<div class="q-t">Охота ещё не началась</div><div class="muted">Спуститесь в катакомбы через портал Ордена — после этого раз в 15 минут будут приходить тревожные слухи о чудовищах.</div>'));
+      else if (cur && cur.slain) {
+        const H = HU.defOf(cur), B = HU.bossOf(cur), r = huntReward(cur.lvl);
+        const c = el('div', 'q-card hot', `<div class="q-t">✔ ${esc(H.title)}</div><div>Чудовище <span style="color:#ff9a84">${esc(B.name)}</span> повержено.</div><ol class="hunt-steps"><li>Вернитесь в деревню (портал или свиток возврата).</li><li>Сдайте охоту старосте Эдрику — он на площади у колодца, над ним горит «?».</li></ol>${chips({ gold: r.gold, xp: r.xp, shards: r.shards, potions: r.potions, item: 1 })}`);
+        const go = el('button', 'btn sm gold', 'Показать путь'); go.onclick = () => { closeModal(); bus.emit('toast', { text: 'Идите за красными стрелками к старосте', kind: 'quest' }); }; c.appendChild(go); b.appendChild(c);
+        b.appendChild(el('p', 'muted', '<small>Новая тревога придёт через 15 минут после того, как вы сдадите эту охоту.</small>'));
+      } else if (cur) {
+        const H = HU.defOf(cur), B = HU.bossOf(cur), r = huntReward(cur.lvl);
+        const c = el('div', 'q-card hunt', `<div class="q-t">⚠ ${esc(H.title)}</div><div class="muted"><i>«${esc(H.rumor)}»</i></div>
+          <div style="margin-top:6px"><b>Чудовище:</b> <span style="color:#ff9a84">${esc(B.name)}</span> · ур. ${cur.lvl}</div><div class="muted"><small>${esc(B.desc)}</small></div>
+          <div style="margin-top:6px"><b>Где:</b> ${esc(HU.whereText(cur))}</div><ol class="hunt-steps">${HU.steps(cur).map(t => `<li>${esc(t)}</li>`).join('')}<li>Победите чудовище.</li><li>Вернитесь к старосте Эдрику и сдайте охоту — награда у него.</li></ol>
+          ${chips({ gold: r.gold, xp: r.xp, shards: r.shards, potions: r.potions, item: 1 })}`);
+        const go = el('button', 'btn sm gold', 'Показать путь'); go.onclick = () => { closeModal(); bus.emit('toast', { text: 'Идите за красными стрелками', sub: HU.whereText(cur), kind: 'quest' }); }; c.appendChild(go); b.appendChild(c);
+        const ab = el('button', 'btn sm', 'Отказаться от охоты'); ab.disabled = !HU.canAbandon(); ab.title = ab.disabled ? 'Нельзя, пока чудовище сражается с вами' : 'Новая тревога придёт через 15 минут';
+        ab.onclick = () => { if (confirm('Отказаться? Новая охота появится только через 15 минут.')) { HU.abandon(); rerender(); } }; b.appendChild(ab);
+        b.appendChild(el('p', 'muted', '<small>Пока эта охота не завершена, новая тревога не придёт — таймер стоит.</small>'));
+      } else {
+        const t = el('div', 'hunt-timer', ''); const upd = () => { const ms = HU.msLeft(), s = Math.ceil(ms / 1000); t.textContent = `Следующая тревога через ${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
+        upd(); const iv = setInterval(() => { if (!t.isConnected) clearInterval(iv); else upd(); }, 1000);
+        b.appendChild(el('div', 'q-card', '<div class="q-t">Пока всё тихо…</div><div class="muted">Раз в 15 минут где-то объявляется чудовище: в лесу у деревни, на кладбище, в залах катакомб или на этаже Глубин. Такие мини-боссы встречаются <b>только</b> в охотах.</div>'));
+        b.appendChild(t);
+      }
+      if (hs.done) b.appendChild(el('p', 'muted', `<small>Завершено охот: ${hs.done}</small>`));
+      b.appendChild(el('p', 'muted', `<small>Таймер — справа вверху под золотом. Награда: золото, опыт, осколки Бездны ◆ и именной трофей.</small>`));
     } else if (tab === 'daily') {
       const r = DQ.dqReward(); for (const q of dq) b.appendChild(card(q.title, q.cur, q.n, { gold: r.gold, potions: r.potions }, q.claimed ? 'claimed' : q.done ? 'done' : 'go', () => DQ.claimDaily(q.id)));
       b.appendChild(el('p', 'muted', '<small>Все три — «Сундук дня» с редкой вещью. Новые задания каждый день.</small>'));
@@ -339,6 +401,7 @@ function dialog(b, id, name, lines, img) {
   show(); return { next: () => { if (i < lines.length - 1) { i++; show(); return true; } return false; }, last: () => i >= lines.length - 1 };
 }
 W.npc_elder = () => {
+  if (HU.readyToTurnIn()) return huntReport();
   const P = G.profile; const q = Q.current(); let lines, fin = false;
   if (q && q.id === 'talk_elder') lines = DIALOG.elder[0];
   else if (Q.isReady()) { lines = DIALOG.elder.turnin[q.id] || ['Ты справился. Вот твоя награда.']; fin = true; }
@@ -355,6 +418,17 @@ W.npc_elder = () => {
     row.appendChild(nx); b.appendChild(row);
   }, { sticky: true });
 };
+// hunt report: the slain beast's trophy is handed in to the elder → reward
+function huntReport() {
+  const cur = HU.current(), H = HU.defOf(cur), B = HU.bossOf(cur), r = huntReward(cur.lvl);
+  modal('Староста Эдрик', 'sm', b => {
+    dialog(b, 'elder', 'Староста Эдрик', [H.elder || `${B.name} повержен? Тихий Брод в долгу перед тобой. Вот твоя награда.`]);
+    b.appendChild(el('div', 'q-card hunt', `<div class="q-t">✔ Охота: ${esc(H.title)}</div><div class="muted">Чудовище: ${esc(B.name)}</div><div class="q-rw"><span class="chip g">💰 ${fmt(r.gold)}</span><span class="chip s">◆ ${r.shards}</span><span class="chip p">❤ ${r.potions}</span><span class="chip x">✦ ${r.xp} опыта</span><span class="chip i">★ ${esc(typeof H.trophy.name === 'string' ? H.trophy.name : H.trophy.name[G.profile.cls || 'warrior'])}</span></div>`));
+    const row = el('div', 'row'); row.style.marginTop = '12px';
+    const ok = el('button', 'btn gold', 'Сдать охоту и получить награду'); ok.onclick = () => { closeModal(); HU.turnIn(); };
+    row.appendChild(ok); b.appendChild(row);
+  }, { sticky: true });
+}
 W.npc_smith = (tab0) => {
   let sel = null, tab = tab0 || (EC.mergeGroups().some(g => g.can) ? 'merge' : 'upg');
   modal('Кузнец Горан', 'md', b => {
@@ -587,19 +661,20 @@ W.depths = () => modal('Глубины катакомб', 'sm', b => {
   // новый этаж (дальше рекорда) — без факела, факел уйдёт только за поражение; повтор пройденного — факел сразу
   const enter = f => { const free = f > (P.depths.best || 0); if (!free && !CS.spendTorch()) { bus.emit('toast', { text: 'Нет факелов', sub: 'Они восстанавливаются сами: 1 за 20 минут. Новые этажи — без факела', kind: 'warn' }); return; } closeModal(); loadZone('depths', { floor: f, free }); };
   b.appendChild(el('p', 'muted', 'Короткие забеги на 5–8 минут. Каждый 5-й этаж — страж. Звёзды: ★ пройти, ★★ убить 90% врагов, ★★★ быстро и без смертей.'));
+  if (HU.huntFloor()) b.appendChild(el('p', 'bad', `⚠ Охота: ${esc(HU.bossOf(HU.current()).name)} — этаж ${HU.huntFloor()}`));
   { const R = SE.weeklyRule(), WS = SE.weeklyState(), f = SE.weeklyFloor(P.level), days = 7 - ((Math.floor(Date.now() / 864e5) + 3) % 7);   // испытание недели (сборка 21)
     const c = el('div', 'weekly-card', `<b>⚔ Испытание недели: ${esc(R.name)}</b><div>${esc(R.txt)}</div><div class="muted">Этаж под ваш уровень · ${WS.done ? `ваш рекорд ${Math.floor(WS.best / 60)}:${String(Math.floor(WS.best % 60)).padStart(2, '0')} · улучшайте время` : 'первая победа недели — вещь (синяя/золотая) и двойная награда'} · до смены ${days} дн.</div><div class="lb muted"></div>`);
     const go = el('button', 'btn gold', WS.done ? 'Ещё раз (на время)' : 'Принять вызов'); go.onclick = () => { closeModal(); loadZone('depths', { floor: f, weekly: true }); }; c.appendChild(go); b.appendChild(c);
     platform.p.getLeaderboard && platform.p.getLeaderboard('weeklyDepths').then(L => { const d = c.querySelector('.lb'); if (d && L && L.length) d.innerHTML = 'Лучшие недели: ' + L.slice(0, 5).map(e => `${e.rank}. ${esc(e.name)} ${Math.floor(e.score / 60000)}:${String(Math.floor(e.score / 1000) % 60).padStart(2, '0')}`).join(' · '); }); }
   const next = P.depths.best + 1;
-  const go = el('button', 'btn gold', `▶ Этаж ${next}${isBossFloor(next) ? ' · страж' : ''} (ур. врагов ${floorLevel(next)})`);
+  const go = el('button', 'btn gold', `▶ Этаж ${next}${isBossFloor(next) ? ' · страж' : ''}${HU.huntFloor() === next ? ' · ⚠ охота' : ''} (ур. врагов ${floorLevel(next)})`);
   go.style.width = '100%'; go.disabled = P.level < floorLevel(next) - 1; if (go.disabled) go.textContent = `Этаж ${next}: нужен уровень ${floorLevel(next) - 1}`; go.onclick = () => enter(next);
   b.appendChild(go);
   if (P.depths.best) {
     b.appendChild(el('h3', '', 'Пройденные этажи'));
     const grid = el('div', 'row');
     for (let f = Math.max(1, P.depths.best - 11); f <= P.depths.best; f++) {
-      const s = P.depths.stars[f] || 0; const bt = el('button', 'btn sm', `${f}${isBossFloor(f) ? '♛' : ''} ${'★'.repeat(s)}${'☆'.repeat(3 - s)}`);
+      const s = P.depths.stars[f] || 0; const bt = el('button', 'btn sm' + (HU.huntFloor() === f ? ' gold' : ''), `${HU.huntFloor() === f ? '⚠' : ''}${f}${isBossFloor(f) ? '♛' : ''} ${'★'.repeat(s)}${'☆'.repeat(3 - s)}`);
       bt.onclick = () => enter(f); grid.appendChild(bt);
     }
     b.appendChild(grid);
