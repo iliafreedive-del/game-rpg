@@ -143,7 +143,7 @@ def main(src, name, *more):
         Q = P[sw]; lo, hi = Q.min(0), Q.max(0); ys = np.linspace(lo[1], lo[1] + (hi[1] - lo[1]) / 3, 24)
         wid = [np.ptp(Q[np.abs(Q[:, 1] - y) < 0.01, 0]) if (np.abs(Q[:, 1] - y) < 0.01).sum() > 2 else 0 for y in ys]
         gy = ys[int(np.argmax(wid))]; grip = np.array([Q[:, 0].mean(), (lo[1] + gy) / 2 + 0.01, Q[:, 2].mean()])
-        R = axis_rot([1, 0, 0], 160)    # остриё вниз и вперёд на 20°
+        R = axis_rot([1, 0, 0], 100)    # остриё вперёд, чуть ниже горизонта (было 160 — смотрело в землю; пользователь: поднять на 60°)
         P1[sw] = (P[sw] - grip) @ R.T + palm; N1[sw] = N[sw] @ R.T
         SW[sw] = 0; SW[sw, BI['handR']] = 1
         print('меч: длина %.2f, рукоять %.2f' % (hi[1] - lo[1], gy - lo[1]))
