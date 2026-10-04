@@ -3,8 +3,8 @@
 //    с коленом; та же анимация (ходьба диагональными парами, рывок-укус, рёв на дыбах, удар, смерть на бок).
 //    Кости ставятся по самой сетке: столбы лап ищутся у земли, шея — перед передними лапами, хвост — за задними; веса плавные.
 //  • scorpGlb — скорпион: восемь ног качаются вперёд-назад целиком (без суставов, походка «через одну»), клешни бьют выпадом
-//    вперёд. Сетка скорпиона Meshy — из отдельных кусков-сегментов: куски, касающиеся друг друга, собираются в цепочки от
-//    корпуса наружу; цепочка, дальше всех выходящая вперёд, — клешня, остальные — ноги (по порядку спереди назад).
+//    вперёд. Сетка скорпиона Meshy — из отдельных кусков-сегментов: куски раскладываются по лучам от середины корпуса
+//    (угол на виде сверху): на сторону 4 ноги и клешня (самый передний луч).
 // Сетка и текстура — из GLB (glbmob.meshData), разметка костей считается один раз на модель. Обводка — копия со сглаженными
 // по положению нормалями (у Meshy на швах вершины раздвоены — обычная обводка там рвётся тёмными щелями).
 import * as THREE from '../vendor/three.module.min.js';
@@ -127,43 +127,37 @@ function scorpRig(kit, name, H) {
   // корпус: самый большой кусок и всё узкое по середине (хвост, жало, морда)
   const bodyW = P[0].ax;
   for (const c of P) if (c === P[0] || c.ax < bodyW * 0.85) c.lab = 0;
-  // соседство: ближайшие вершины ближе 3 % ширины
-  const eps = W * 0.03, near = (A, B) => { for (const i of A.v) for (const j of B.v) if (Math.abs(p.getX(i) - p.getX(j)) < eps && Math.abs(p.getY(i) - p.getY(j)) < eps && Math.abs(p.getZ(i) - p.getZ(j)) < eps) return true; return false; };
-  const app = P.filter(c => c.lab < 0), chains = [];
-  // корни цепочек — куски, касающиеся корпуса; дальше волной наружу; кто не дотянулся — к ближайшему уже размеченному
-  for (const c of app) if (P.some(b => b.lab === 0 && near(c, b))) { c.lab = 100 + chains.length; chains.push({ root: c, pcs: [c] }); }
-  for (let changed = true; changed;) {
-    changed = false;
-    for (const c of app) if (c.lab < 0) { const b = app.find(b => b.lab >= 100 && near(c, b)); if (b) { c.lab = b.lab; chains[b.lab - 100].pcs.push(c); changed = true; } }
-  }
-  for (const c of app) if (c.lab < 0) {
-    let best = null, bd = Infinity; for (const b of app) if (b.lab >= 100) { const dd = (b.x - c.x) ** 2 + (b.y - c.y) ** 2 + (b.z - c.z) ** 2; if (dd < bd) { bd = dd; best = b; } }
-    if (best) { c.lab = best.lab; chains[best.lab - 100].pcs.push(c); } else c.lab = 0;
-  }
-  // цепочки одной стороны: вперёд дальше всех — клешня, остальные — ноги спереди назад; совсем мелкие цепочки — к корпусу
-  for (const ch of chains) { ch.side = ch.root.x > 0 ? 0 : 1; ch.zmax = -Infinity; ch.cnt = 0; for (const c of ch.pcs) for (const i of c.v) { ch.zmax = Math.max(ch.zmax, p.getZ(i)); ch.cnt++; } }
-  // мелкие цепочки (обломки у основания ноги или клешни) — к ближайшей крупной, если рядом; иначе к корпусу
-  const big = chains.filter(ch => ch.cnt >= 40), bone = new Int32Array(n).fill(1), legs = [];
-  const gap = (A, B) => { let m = Infinity; for (const a of A.pcs) for (const i of a.v) for (const b of B.pcs) for (const j of b.v) m = Math.min(m, (p.getX(i) - p.getX(j)) ** 2 + (p.getY(i) - p.getY(j)) ** 2 + (p.getZ(i) - p.getZ(j)) ** 2); return Math.sqrt(m); };
-  for (const ch of chains) if (!big.includes(ch)) {
-    let best = null, bd = W * 0.08; for (const b of big) { const d = gap(ch, b); if (d < bd) { bd = d; best = b; } }
-    if (best) best.pcs.push(...ch.pcs);
-  }
+  // конечности расходятся от корпуса лучами: кусок относим к лучу по углу (вид сверху) от середины корпуса.
+  // На каждой стороне 5 лучей — 4 ноги и клешня (у Meshy-скорпиона так и есть); центры уточняются k-средними по углу.
+  // (Сцепка кусков по касанию не годится: у корпуса сегменты соседних ног касаются, и нога делилась между двумя костями —
+  // в ходьбе куски разъезжались и ног казалось вдвое больше.)
+  let z0 = Infinity, z1 = -Infinity; for (const i of P[0].v) { z0 = Math.min(z0, p.getZ(i)); z1 = Math.max(z1, p.getZ(i)); }
+  const zc = (z0 + z1) / 2, bone = new Int32Array(n).fill(1), legs = [], claws = [null, null];
   for (const side of [0, 1]) {
-    const cs = big.filter(ch => ch.side === side).sort((a, b) => b.zmax - a.zmax);
-    if (!cs.length) continue;
-    cs[0].bone = 2 + side;
-    cs.slice(1).sort((a, b) => b.root.z - a.root.z).forEach((ch, k) => { ch.bone = -1; legs.push({ ch, side, k }); });
+    const app = P.filter(c => c.lab < 0 && (c.x > 0 ? 0 : 1) === side);
+    if (!app.length) continue;
+    for (const c of app) c.ang = Math.atan2(c.z - zc, Math.abs(c.x)) * 180 / Math.PI;
+    const ctr = [-50, -12, 10, 33, 62];
+    for (let it = 0; it < 12; it++) {
+      const sum = ctr.map(() => [0, 0]);
+      for (const c of app) { let k = 0; for (let j = 1; j < ctr.length; j++) if (Math.abs(c.ang - ctr[j]) < Math.abs(c.ang - ctr[k])) k = j; c.cl = k; sum[k][0] += c.ang * c.v.length; sum[k][1] += c.v.length; }
+      sum.forEach(([a, w], j) => { if (w) ctr[j] = a / w; });
+    }
+    for (let j = 0; j < ctr.length; j++) {
+      const mem = app.filter(c => c.cl === j); if (!mem.length) continue;
+      // сустав — точка луча, ближайшая к оси тела
+      let pv = null; for (const c of mem) for (const i of c.v) if (pv == null || Math.abs(p.getX(i)) < Math.abs(p.getX(pv))) pv = i;
+      const ch = { pcs: mem, pivot: new THREE.Vector3(p.getX(pv), p.getY(pv), p.getZ(pv)) };
+      if (j === ctr.length - 1) { ch.bone = 2 + side; claws[side] = ch; } else legs.push({ ch, side, k: ctr.length - 2 - j });   // k: 0 — передняя нога
+    }
   }
   legs.forEach((l, i) => (l.ch.bone = 4 + i));
-  // сустав цепочки — точка корня, ближайшая к оси тела
-  const pivot = ch => { let b = null; for (const i of ch.root.v) if (!b || Math.abs(p.getX(i)) < Math.abs(p.getX(b))) b = i; return new THREE.Vector3(p.getX(b), p.getY(b), p.getZ(b)); };
-  for (const ch of big) { const b = ch.bone; for (const c of ch.pcs) for (const i of c.v) bone[i] = b; ch.pivot = pivot(ch); }
+  for (const ch of [...claws.filter(Boolean), ...legs.map(l => l.ch)]) for (const c of ch.pcs) for (const i of c.v) bone[i] = ch.bone;
   const si = new Uint16Array(n * 4), sw = new Float32Array(n * 4);
   for (let i = 0; i < n; i++) { si[i * 4] = bone[i]; sw[i * 4] = 1; }
   g.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(si, 4)); g.setAttribute('skinWeight', new THREE.Float32BufferAttribute(sw, 4));
   g.computeBoundingSphere(); D.og = outlineGeo(g);
-  D.rig = { claws: [0, 1].map(s => big.find(ch => ch.bone === 2 + s)?.pivot || new THREE.Vector3((s ? -1 : 1) * W * 0.15, H * 0.2, L * 0.2)), legs: legs.map(l => ({ side: l.side, k: l.k, pivot: l.ch.pivot })), L, W };
+  D.rig = { claws: [0, 1].map(s => claws[s]?.pivot || new THREE.Vector3((s ? -1 : 1) * W * 0.15, H * 0.2, L * 0.2)), legs: legs.map(l => ({ side: l.side, k: l.k, pivot: l.ch.pivot })), L, W };
   CACHE.set(ck, D); return D;
 }
 
@@ -185,10 +179,10 @@ export function scorpGlb(kit, name, o = {}) {
     if (sp > 0.2) ph = ((ph + (a.back ? -1 : 1) * a.dt * sp / (1.1 * s)) % 1 + 1) % 1;
     const th = ph * 6.283, br = Math.sin(a.t * 2.1);
     legs.forEach((l, i) => {
-      const { side, k } = R.legs[i], sg = side ? -1 : 1, o = th + ((k + side) % 2) * Math.PI, sw = Math.sin(o) * w * 0.42 + Math.sin(a.t * 1.3 + i) * 0.03 * (1 - w);
+      const { side, k } = R.legs[i], sg = side ? -1 : 1, o = th + ((k + side) % 2) * Math.PI, sw = Math.sin(o) * w * 0.22 + Math.sin(a.t * 1.3 + i) * 0.03 * (1 - w);
       l.rotation.set(0, 0, 0);
       l.rotation.y = -sg * sw;                                      // вперёд-назад (для левой и правой стороны — в разные стороны)
-      l.rotation.z = sg * (Math.max(0, Math.cos(o)) * 0.22 * w + dead * (0.35 + 0.05 * k));   // подъём на взмахе; смерть — поджать
+      l.rotation.z = sg * (Math.max(0, Math.cos(o)) * 0.15 * w + dead * (0.35 + 0.05 * k));   // подъём на взмахе; смерть — поджать
     });
     claws.forEach((c, i) => {
       const st = smooth(strike * 1.15 - i * 0.15), sg = i ? -1 : 1;
