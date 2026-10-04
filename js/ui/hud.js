@@ -28,8 +28,7 @@ export function initHUD() {
   $('ui').classList.remove('hidden'); requestAnimationFrame(resetBase);
   // menu
   for (const b of document.querySelectorAll('[data-open]')) b.onclick = () => { bus.emit('sfx', 'click'); openWindow(b.dataset.open); };
-  $('btnMenu').onclick = () => { bus.emit('sfx', 'click'); openWindow('menu'); };
-  $('portrait').onclick = () => openWindow('character');
+  $('portrait').onclick = () => openWindow('menu');   // сборка 44: «Герой», «Меню» и остальное — по нажатию на портрет
   $('huntBox').onclick = () => { bus.emit('sfx', 'click'); openWindow('journal', { tab: 'hunt' }); };
   bus.on('huntNew', () => { const b = $('huntBox'); b.classList.remove('flash'); void b.offsetWidth; b.classList.add('flash'); });
   $('tracker').onclick = () => { trackOpenUntil = $('tracker').classList.contains('open') ? 0 : G.time + 8; lastHud = 0; };
@@ -158,7 +157,7 @@ function huntBox() {
 }
 const mmss = ms => { const s = Math.ceil(ms / 1000); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
 export const BADGES = {};
-function dot(id, n) { BADGES[id] = n || 0; const d = $(id); if (!d) { const m = $('dotMenu'); const tot = ['dotChar', 'dotSkill', 'dotGift', 'dotHW', 'dotSeason'].reduce((a, k) => a + (BADGES[k] || 0), 0); if (m) { m.classList.toggle('hidden', !tot); m.textContent = tot > 9 ? '9+' : tot; } return; } d.classList.toggle('hidden', !n); d.textContent = n > 9 ? '9+' : n; }
+function dot(id, n) { BADGES[id] = n || 0; const d = $(id); if (!d) { const m = $('dotMenu'); const tot = ['dotInv', 'dotChar', 'dotSkill', 'dotGift', 'dotHW', 'dotSeason'].reduce((a, k) => a + (BADGES[k] || 0), 0); if (m) { m.classList.toggle('hidden', !tot); m.textContent = tot > 9 ? '9+' : tot; } return; } d.classList.toggle('hidden', !n); d.textContent = n > 9 ? '9+' : n; }
 function setBar(id, f, txt) { const b = $(id); b.firstElementChild.style.width = Math.max(0, Math.min(1, f)) * 100 + '%'; if (txt != null) b.querySelector('b').textContent = txt; }
 let lastTrack = '';
 function tracker() {

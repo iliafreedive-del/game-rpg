@@ -8,6 +8,7 @@ import { U, setSmoothFade } from './toon.js';
 import { makeKit } from './kit.js';
 import { Actor, setOutlinesVisible } from './actor.js';
 import { preloadBones, bonesReady } from './bonesglb.js';
+import { preloadPortals, portalsReady } from './portalglb.js';
 import { PropLayer } from './props.js';
 import { buildGround } from './ground.js';
 import { Atmo } from './atmo.js';
@@ -174,6 +175,11 @@ function setZone(z) {
   world = { ground, props, atmo, critters, ...lightSets(z) };
   props.cull(camera, true); applyQuality(true); ground.setQuality(quality); spawned = false;
   // Костяные пустоши: паки окружения Meshy грузятся при первом входе; пока грузятся — прежние предметы, потом слой пересобирается
+  // порталы деревни из Meshy (сборка 44): пак грузится при первом входе в деревню, до загрузки — прежние арки
+  if (town && z.json.village && kit.skin.SKINS.on && !portalsReady()) preloadPortals().then(ok => {
+    if (!ok || !world || zone !== z) return;
+    world.props.dispose(); world.props = new PropLayer(scene, kit, z, open); world.props.cull(camera, true); applyQuality(true);
+  });
   if (bn && kit.skin.SKINS.on && !bonesReady()) preloadBones().then(ok => {
     if (!ok || !world || zone !== z) return;
     world.props.dispose(); world.props = new PropLayer(scene, kit, z, open); world.props.cull(camera, true); applyQuality(true);

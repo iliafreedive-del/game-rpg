@@ -10,7 +10,7 @@ import * as C from './combat.js';
 import * as L from './loot.js';
 import * as Q from './quests.js';
 import { REPEATABLE } from '../data/quests.js';
-import { saveLocal } from './save.js';
+import { saveLocal, cloudBundle } from './save.js';
 import { loadJSON, loadGroup } from '../core/assets.js';
 import { loadFloor, buildFloorCanvas } from '../render/index.js';
 import { widen } from '../world/widen.js';
@@ -50,7 +50,7 @@ export function saveNow() {
   if (G.player && !G.player.dead) { P.hpFrac = G.player.hp / G.stats.maxHP; }
   P.world.lastZone = 'town'; if (G.dozorChecked) P.dozorAt = Date.now();   // always resume in the village (safe start, no mid-fight restore)
   saveLocal(P); saveQueued = false; saveTimer = 0;
-  if (platform.p && platform.p.cloudSave && platform.name !== 'demo') platform.p.cloudSave(P);
+  if (platform.p && platform.p.cloudSave && platform.name !== 'demo') platform.p.cloudSave(cloudBundle(P));   // сборка 44: в облаке все три героя
 }
 bus.on('save', requestSave);
 
@@ -94,6 +94,7 @@ export async function loadZone(id, how = {}) {
     if (id === 'town' && !B) json.objects.push({ t: 'hwsign', x: 31.2, y: 25.2 }, { t: 'banner', x: 20.0, y: 15.6 }, { t: 'banner', x: 17.6, y: 22.2 }, { t: 'statue', x: 23.6, y: 11.6 }, { t: 'weapon_rack', x: 31.0, y: 16.2 }, { t: 'crystals', x: 33.6, y: 29.6 });
     if (id === 'town' && B) json.objects.push({ t: 'hwsign', x: B.hwsign[0], y: B.hwsign[1] });
     if (id === 'town' && B) json.objects.push({ t: 'wildportal', realm: 'bones', x: B.bones[0], y: B.bones[1] });   // Костяные пустоши: пока открыты всегда (вход со 2 ур., для проверки)
+    if (id === 'town' && B) json.objects.push({ t: 'swordportal', x: 12.2, y: 14.0 });   // портал с мечами справа от пустошей (сборка 44): пока никуда не ведёт
     if (id === 'catacombs') json.objects.push({ t: 'crystals', x: 47.5, y: 42 }, { t: 'crystals', x: 55, y: 51 }, { t: 'mushrooms', x: 7, y: 25 }, { t: 'mushrooms', x: 13, y: 31 }, { t: 'stalagmite', x: 5.5, y: 32 }, { t: 'puddle', x: 10, y: 28 }, { t: 'banner', x: 43, y: 23 });
     const roomy = id === 'catacombs' && G.render3d;
     zone = new Zone(id, roomy ? widen(json, ROOMY) : json, P);
@@ -116,6 +117,8 @@ export async function loadZone(id, how = {}) {
     const from = !!PORTAL_OF[how.from];
     const portal = zone.inter.find(i => i.id === PORTAL_OF[how.from]) || zone.inter.find(i => i.id === 'portal_town');
     [pl.x, pl.y] = from ? [portal.x + 1.2, portal.y + 1.6] : zone.start; pl.face = pl.dir = 1;
+    const well = how.from === 'catacombs' && zone.json.objects.find(o => o.t === 'well');   // из первых катакомб — на площадь к колодцу, не к порталу (сборка 44)
+    if (well) [pl.x, pl.y] = [well.x + 0.6, well.y + 1.8];
     for (const n of zone.json.npcs) G.npcs.push(new NPC({ ...n }));
     await loadGroup(zone.json.npcs.filter(n => !G.render3d || n.id !== 'fortune').map(n => 'npc_' + (n.id === 'fortune' ? 'merchant' : n.id))).catch(() => { });
     HU.spawnFor(zone);   // hunt beast at the forest edge / graveyard
@@ -141,7 +144,7 @@ export async function loadZone(id, how = {}) {
   G.cam.x = pl.x; G.cam.y = pl.y;
   G.stats = stats(P);
   if (fresh || pl.hp <= 0 || how.fullHeal || id === 'town') { pl.hp = G.stats.maxHP; pl.mp = G.stats.maxMP; }
-  G.zoomMul = id === 'wild' ? 0.85 : id === 'survival' ? 0.6 : (id === 'catacombs' || id === 'depths') ? 0.8 : 1; rResize();
+  G.zoomMul = id === 'survival' ? 0.6 : id === 'town' ? 1 : 1.05; rResize();   // катакомбы, Глубины, походы, Цитадель — как в деревне и ещё на 5 % ближе (сборка 44; было 0,8–0,85)
   if (id === 'survival') SV.startRun(); else G.surv = null;
   G.zoneReady = true;
   bus.emit('zoneEntered', id); bus.emit('hud'); requestSave();
