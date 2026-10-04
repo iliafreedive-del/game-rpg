@@ -61,6 +61,7 @@ export function initHUD() {
   bus.on('skillSlotted', ({ id, i }) => { toast({ text: `Новый навык: ${SKILLS[id].name}`, sub: `Кнопка ${i + 1} справа внизу`, kind: 'good' }); const b = $('sk' + i); b.classList.add('flash'); setTimeout(() => b.classList.remove('flash'), 4000); }); bus.on('equipChanged', refreshWeapon); bus.on('statsChanged', refreshSkills);
   bus.on('focus', it => { const b = $('btnAct'); if (it) { b.textContent = it.label; b.classList.remove('hidden'); } else b.classList.add('hidden'); });
   bus.on('toast', toast);
+  bus.on('bagFull', () => toast({ text: 'Сумка полна!', sub: 'Продайте лишнее или купите расширение сумки — нажмите, чтобы открыть сумку', kind: 'bad', onClick: () => openWindow('inventory') }));   // сборка 38
   bus.on('itemPicked', it => toast({ text: 'Найдено: ' + it.name, sub: RARITY[it.rarity].name + ' · нажмите, чтобы сравнить', kind: 'item', color: RARITY[it.rarity].color, onClick: () => openWindow('inventory', { select: it.id }) }));
   bus.on('questNew', q => { toast({ text: 'Новое задание', sub: q.title, kind: 'quest' }); trackOpenUntil = G.time + 7; });
   bus.on('zoneEntered', () => { trackOpenUntil = G.time + 6; });

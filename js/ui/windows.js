@@ -408,6 +408,7 @@ W.npc_elder = () => {
   if (HU.readyToTurnIn()) return huntReport();
   const P = G.profile; const q = Q.current(); let lines, fin = false;
   if (q && q.id === 'talk_elder') lines = DIALOG.elder[0];
+  else if (q && q.id === 'elder_task') lines = DIALOG.elder.task;
   else if (Q.isReady()) { lines = DIALOG.elder.turnin[q.id] || ['Ты справился. Вот твоя награда.']; fin = true; }
   else if (q && q.id === 'finish') { lines = DIALOG.elder.finish; fin = true; }
   else if (P.chapterDone) lines = DIALOG.elder.done;
@@ -434,7 +435,7 @@ function huntReport() {
   }, { sticky: true });
 }
 W.npc_smith = (tab0) => {
-  let sel = null, tab = tab0 || (EC.mergeGroups().some(g => g.can) ? 'merge' : 'upg');
+  let sel = null, tab = tab0 || 'merge';   // сборка 38: окно кузнеца всегда открывается на слиянии
   modal('Кузнец Горан', 'md', b => {
     const P = G.profile;
     const tabs = el('div', 'tabs big-tabs'); for (const [k, n] of [['merge', 'Слияние 3→1'], ['upg', 'Закалка']]) { const t = el('button', 'tab' + (tab === k ? ' on' : ''), n); t.onclick = () => { tab = k; sel = null; rerender(); }; tabs.appendChild(t); } b.appendChild(tabs);
@@ -457,22 +458,38 @@ W.npc_smith = (tab0) => {
   }).live = true;
   Q.talked('smith');
 };
-// Слияние (сборка 20): сетка «слот × редкость», в каждой клетке — сколько есть из трёх; кнопка «Слить всё»
-let lastMerged = null;
+// Слияние (сборка 38, как в референсе): сверху — три вещи «+» и что получится, кнопка «Слияние»; ниже — вещи сумки.
+// Нажатие на вещь выбирает её группу (слот + редкость); в слияние идут три самые сильные из группы (они с галочкой).
+let lastMerged = null, mergeSel = null;
 function mergeTab(b) {
-  const P = G.profile, groups = EC.mergeGroups();
-  b.appendChild(el('p', 'muted', 'Три вещи одного слота и одной редкости → одна вещь следующей редкости. Серое → зелёное → синее → золотое → мифическое. С синего у вещи появляется свойство вида, с золотого — особый эффект. Надетые и 🔒 не трогаются.'));
-  const all = el('button', 'btn gold', 'Слить всё'); all.disabled = !groups.some(g => g.can); all.onclick = () => { const m = EC.mergeAll(); lastMerged = m.length ? m[m.length - 1] : null; rerender(); };
-  b.appendChild(all);
-  const grid = el('div', 'merge-grid'); grid.appendChild(el('div', 'mg-h', ''));
-  for (let r = 0; r < 4; r++) grid.appendChild(el('div', 'mg-h', `<span style="color:${RARITY[r].color}">${RARITY_SHORT[r]}</span>`));
-  for (const slot of ['weapon', 'head', 'chest', 'amulet']) {
-    grid.appendChild(el('div', 'mg-s', SLOT_NAMES[slot]));
-    for (let r = 0; r < 4; r++) { const g = groups.find(x => x.slot === slot && x.rarity === r), c = el('button', 'mg-c' + (g.can ? ' ok' : ''), `<b>${g.can ? 3 : g.n}/3</b>${g.can > 1 ? `<i>×${g.can}</i>` : ''}<small>${g.can ? EC.mergeCost(r) + ' з.' : g.n ? 'ещё ' + (3 - g.n % 3) : '—'}</small>`);
-      c.style.borderColor = RARITY[r + 1].color; c.disabled = !g.can; c.onclick = () => { lastMerged = EC.mergeOnce(slot, r); rerender(); }; grid.appendChild(c); }
-  }
-  b.appendChild(grid);
+  const P = G.profile, groups = EC.mergeGroups(), key = g => g.slot + ':' + g.rarity;
+  if (mergeSel && !groups.some(g => key(g) === mergeSel && g.can)) mergeSel = null;
+  if (!mergeSel) { const g0 = groups.find(g => g.can); if (g0) mergeSel = key(g0); }
+  const G3 = mergeSel && groups.find(g => key(g) === mergeSel), three = G3 ? G3.list.slice(0, 3) : [];
+  const top = el('div', 'mrg-top');
+  if (G3) {
+    const res = el('div', 'mrg-res'); const r1 = slotEl({ ...three[0], rarity: G3.rarity + 1, upg: 0, isNew: false }, '', 'big'); res.append(r1, el('div', 'mrg-up', '▲'));
+    const inp = el('div', 'mrg-in'); inp.append(slotEl(three[0]), el('span', 'mrg-plus', '+'), slotEl(three[1]), slotEl(three[2]));
+    top.append(el('div', 'mrg-t', `<b style="color:${RARITY[G3.rarity + 1].color}">${RARITY[G3.rarity + 1].name}</b> ${SLOT_NAMES[G3.slot].toLowerCase()}`), res, inp);
+    const cost = EC.mergeCost(G3.rarity), go = el('button', 'btn gold mrg-go', `Слияние · ${fmt(cost)} зол.`); go.disabled = P.gold < cost;
+    go.onclick = () => { lastMerged = EC.mergeOnce(G3.slot, G3.rarity); mergeSel = null; rerender(); }; top.appendChild(go);
+  } else top.appendChild(el('div', 'mrg-empty', 'Нужны <b>три вещи</b> одного слота и одной редкости. Серое → зелёное → синее → золотое → мифическое.<br><small class="muted">Надетые и 🔒 не участвуют.</small>'));
+  b.appendChild(top);
   if (lastMerged) { const det = el('div', 'detail'); det.innerHTML = '<div class="muted">Получено:</div>' + itemHTML(lastMerged, G.stats); const eq = el('button', 'btn', 'Надеть'); eq.onclick = () => { CH.equip(lastMerged.id); lastMerged = null; rerender(); }; det.appendChild(eq); b.appendChild(det); }
+  const ready = groups.filter(g => g.can).reduce((a, g) => a + g.can, 0);
+  const row = el('div', 'row'); row.appendChild(el('span', 'muted', ready ? `Готово к слиянию: <b class="goldc">${ready}</b>` : 'Пока нечего сливать'));
+  const all = el('button', 'btn sm', 'Слить всё'); all.disabled = !ready; all.onclick = () => { const m = EC.mergeAll(); lastMerged = m.length ? m[m.length - 1] : null; mergeSel = null; rerender(); }; row.appendChild(all); b.appendChild(row);
+  // вещи: сначала те, что можно слить, потом остальные (с замком)
+  const order = [...groups].sort((a, b) => (b.can ? 1 : 0) - (a.can ? 1 : 0) || a.rarity - b.rarity);
+  const bag = el('div', 'bag mrg-bag');
+  for (const g of order) for (const it of g.list) {
+    const on = key(g) === mergeSel && three.includes(it), d = slotEl(it, '', (on ? 'mrg-on' : '') + (g.can ? '' : ' mrg-lock'));
+    if (on) d.appendChild(el('span', 'mrg-ck', '✔')); else if (!g.can) d.appendChild(el('span', 'mrg-lk', `${g.n}/3`));
+    d.onclick = () => { if (g.can) { mergeSel = key(g); rerender(); } else bus.emit('toast', { text: `Нужно ещё ${3 - g.n % 3}: ${RARITY_SHORT[g.rarity]} ${SLOT_NAMES[g.slot].toLowerCase()}`, kind: 'info' }); };
+    bag.appendChild(d);
+  }
+  if (!bag.children.length) bag.appendChild(el('p', 'muted', 'В сумке нет вещей для слияния.'));
+  b.appendChild(bag);
 }
 // ---------------------------------------------------------------- путь сезона и коллекция (сборка 21)
 W.season = () => modal('Путь сезона · ' + SE.seasonName(), 'md', b => {

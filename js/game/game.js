@@ -345,10 +345,10 @@ function autoTick(inp) {
   }
   if (G.zoneId === 'depths' || G.zoneId === 'catacombs' || G.zoneId === 'wild') {   // hunt the nearest living enemy anywhere on the floor
     let far = null, fd = 1e9; for (const e of G.enemies) { if (e.dead) continue; const pd = map.dist(e.x, e.y); if (pd < 0) continue; /* недостижим (за закрытой дверью/стеной) — не цель */ const d = Math.hypot(e.x - pl.x, e.y - pl.y); if (pd < fd) { fd = pd; far = e; fd = pd; } }
-    const pkNear = G.pickups.some(p => Math.hypot(p.x - pl.x, p.y - pl.y) < 4);
+    const pkNear = G.pickups.some(p => !p.wait && Math.hypot(p.x - pl.x, p.y - pl.y) < 4);
     if (far && !pkNear) { const d = map.guideDir(pl.x, pl.y, far.x, far.y) || [(far.x - pl.x) / Math.max(1, Math.hypot(far.x - pl.x, far.y - pl.y)), (far.y - pl.y) / Math.max(1, Math.hypot(far.x - pl.x, far.y - pl.y))]; { const [sx, sy] = steer(pl, map, d[0], d[1]); inp.wx = sx; inp.wy = sy; } inp.mag = 0.8; A.wanted = true; A.wx = d[0]; A.wy = d[1]; return; }
   }
-  const pk = G.pickups.filter(p => Math.hypot(p.x - pl.x, p.y - pl.y) < 7).sort((a, b) => Math.hypot(a.x - pl.x, a.y - pl.y) - Math.hypot(b.x - pl.x, b.y - pl.y))[0];
+  const pk = G.pickups.filter(p => !p.wait && Math.hypot(p.x - pl.x, p.y - pl.y) < 7).sort((a, b) => Math.hypot(a.x - pl.x, a.y - pl.y) - Math.hypot(b.x - pl.x, b.y - pl.y))[0];
   const goal = pk || (G.zoneId === 'catacombs' || G.zoneId === 'depths' || G.zoneId === 'wild' ? G.guide : null);
   if (goal) {
     const d = Math.hypot(goal.x - pl.x, goal.y - pl.y);

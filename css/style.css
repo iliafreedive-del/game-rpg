@@ -53,6 +53,7 @@ button{font:inherit;color:inherit;cursor:pointer}
 .toast .a{font:600 14px var(--serif)} .toast .b{font-size:12px;color:var(--dim)}
 .toast.quest{border-color:#b8903e}.toast.quest .a{color:var(--gold)}
 .toast.good .a{color:#9fe38e}.toast.warn .a{color:#ffb08a}.toast.item{cursor:pointer;pointer-events:auto}
+.toast.bad{background:linear-gradient(#5a1414f2,#360b0bf2);border-color:#e04a3a;cursor:pointer;pointer-events:auto}.toast.bad .a{color:#ff6b5a}.toast.bad .b{color:#f3c2bb}
 .toast.out{opacity:0;transition:opacity .4s}
 @keyframes tin{from{transform:translateY(-8px);opacity:0}}
 #levelUp{position:absolute;top:32%;left:50%;transform:translate(-50%,-50%);font:bold clamp(26px,6vw,46px) var(--serif);color:#ffd96a;text-shadow:0 0 18px #c88a10,0 2px 3px #000;pointer-events:none;opacity:0;white-space:nowrap}
@@ -628,3 +629,18 @@ canvas#game{filter:saturate(1.22) contrast(1.08) brightness(1.06)}
 .tal-learn{display:inline-block;margin-top:6px;padding:4px 14px;height:auto!important}
 @media(max-width:480px){.tal-branch{padding:6px 10px 14px}.tal-info>canvas{width:48px;height:48px}.ti-d{font-size:12px}}
 .tal-lv{position:absolute;left:-8px;bottom:-8px;font:700 10px/14px sans-serif;padding:0 4px;border-radius:5px;background:#000;border:1px solid #555;color:#c9b99a;white-space:nowrap}
+/* ------- слияние у кузнеца (сборка 38) */
+.mrg-top{display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px;border-radius:10px;background:#0007;border:1px solid #3d3226;margin:6px 0 8px}
+.mrg-t{font:600 14px var(--serif)}
+.mrg-res{display:flex;flex-direction:column;align-items:center}.mrg-res .slot{width:68px}
+.mrg-up{color:#9fe38e;font-size:18px;line-height:1}
+.mrg-in{display:flex;align-items:center;gap:6px}.mrg-in .slot{width:54px}
+.mrg-plus{font:bold 26px sans-serif;color:#fff}
+.mrg-go{min-width:200px;font-size:17px;padding:10px 18px}
+.mrg-empty{text-align:center;font-size:13px}
+.mrg-bag{margin-top:8px}
+.slot.mrg-on{outline:3px solid #ffd24a;box-shadow:0 0 12px #ffd24a88}
+.slot.mrg-lock{opacity:.45;filter:grayscale(.6)}
+.slot .mrg-ck{position:absolute;inset:0;display:grid;place-items:center;font:900 28px sans-serif;color:#ffd24a;text-shadow:0 2px 3px #000;pointer-events:none}
+.slot .mrg-lk{position:absolute;right:3px;bottom:1px;font:bold 11px sans-serif;color:#ddd;text-shadow:0 1px 2px #000}
+.pn-merge{width:100%;margin:4px 0 8px;font-size:16px}

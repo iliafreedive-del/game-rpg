@@ -6,6 +6,7 @@ import { makeItem, makeSetItem } from './items.js';
 import { SETS } from '../data/sets.js';
 import { autoEquip } from './character.js';
 import { rint } from '../core/util.js';
+import { hasSkill } from './progress.js';
 
 export const current = () => STORY[G.profile.story.stage] || null;
 export const storyDone = () => G.profile.story.stage >= STORY.length;
@@ -75,6 +76,7 @@ export function check() {
   const q = current(); if (!q) return;
   const s = G.profile.story, o = q.obj;
   if (q.turnIn && s.ready === q.id) return;
+  if (o.skill && hasSkill()) return complete();
   if (o.flag && s.flags[o.flag]) return q.turnIn ? markReady(q) : complete();
   if (o.count && (s.counters[q.id] || 0) >= o.n) return q.turnIn ? markReady(q) : complete();
   if (o.enter && G.zoneId === o.enter && G.zoneReady) return complete();

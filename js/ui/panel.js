@@ -57,12 +57,15 @@ function render(force) {
       box.appendChild(row(U.icon, `${U.name} <span class="lv">ур. ${l}</span>`, max ? U.fmt(l) + ' · максимум' : `${U.fmt(l)} → <span class="good">${U.fmt(l + 1)}</span>`, max ? '—' : `${fmt(cost)}`, !max && P.gold >= cost, () => buyUpg(id)));
     }
   } else if (T.id === 'smith') {
-    head('Кузнец Горан', 'Закалка: +10% к урону или защите за уровень.'); bal();
+    head('Кузнец Горан', 'Слияние: три вещи → одна лучше. Закалка: +10% за уровень.'); bal();
+    { const ready = EC.mergeGroups().reduce((a, g) => a + g.can, 0);   // сборка 38: слияние на виду, первой кнопкой
+      const m = el('button', 'btn pn-merge ' + (ready ? 'gold' : ''), `⚒ Слияние 3 → 1${ready ? ` · готово ${ready}` : ''}`); m.onclick = () => W.npc_smith('merge'); box.appendChild(m); }
+    box.appendChild(el('div', 'pn-sub', 'Закалка надетого'));
     for (const slot of ['weapon', 'head', 'chest', 'amulet']) {
       const it = P.gear[slot]; if (!it) continue; const u = it.upg || 0, c = upgradeCost(it);
       box.appendChild(row(`<img src="${iconURL(iconOf(it))}">`, `${esc(it.name)} <span class="lv">+${u}</span>`, it.dmg ? 'урон' : 'защита', u >= MAX_UPG ? 'макс.' : `+${u + 1} · ${fmt(c)}`, u < MAX_UPG && P.gold >= c, () => EC.upgrade(it.id)));
     }
-    const b = el('button', 'btn sm', 'Все вещи в сумке'); b.onclick = () => W.npc_smith(); box.appendChild(b);
+    const b = el('button', 'btn sm', 'Закалка вещей из сумки'); b.onclick = () => W.npc_smith('upg'); box.appendChild(b);
   } else if (T.id === 'merchant') {
     head('Торговка Мира'); bal();
     for (const [k, n, ic] of [['hp', 'Зелье здоровья', 'potion_hp'], ['mp', 'Зелье маны', 'potion_mp'], ['scroll', 'Свиток возврата', 'scroll']]) {

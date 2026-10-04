@@ -17,7 +17,7 @@ export function newProfile(cls = 'warrior') {
     skills: {}, slots: [null, null, null, null],
     gear: {}, bag: [], bagSize: 40,
     potions: { hp: 3, mp: 1 }, scrolls: 1,
-    story: { stage: 0, counters: {}, flags: {}, done: [] },
+    story: { stage: 0, counters: {}, flags: {}, done: [], flow38: true },
     repeat: {},            // id -> {accepted, base, completions}
     stats: { kills: 0, skeletons: 0, elites: 0, chests: 0, meters: 0, gold: 0, bossKills: 0, deaths: 0, bossNoDeath: 0, playTime: 0 },
     world: { opened: {}, lastZone: 'town' },   // persistent story objects (key sarcophagus, secret wall, gate…)
@@ -96,6 +96,12 @@ export function migrate(p) {
   if (!p || typeof p !== 'object') return null;
   if (!p.v || p.v < 2) return migrateV1(p);
   while (p.v < SAVE_VERSION) { const m = MIGRATIONS[p.v]; if (!m) break; p = m(p); }
+  // сборка 38: в начало сюжета вставлены «Выбрать навык у наставника» и «Вернуться к старосте» — у старых сохранений они уже позади
+  if (p.story && !p.story.flow38) {
+    const done = new Set(p.story.done || []);
+    if (done.has('talk_elder')) { for (const id of ['learn_skill', 'elder_task']) if (!done.has(id)) p.story.done.push(id); done.add('learn_skill'); done.add('elder_task'); let st = 0; while (st < STORY.length && done.has(STORY[st].id)) st++; p.story.stage = st; }
+    p.story.flow38 = true;
+  }
   // fill any fields added later with defaults (forward-compatible)
   const d = newProfile();
   for (const k in d) if (!(k in p)) p[k] = d[k];

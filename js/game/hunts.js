@@ -13,7 +13,7 @@ import { rand, rrange, pick } from '../core/util.js';
 
 export function state() { const P = G.profile; return P.hunt || (P.hunt = { nextAt: 0, cur: null, done: 0, last: null }); }
 // opens once the hero has gone down into the catacombs for the first time (story step 3)
-export const unlocked = () => { const P = G.profile; return !!(P && P.tutorial && P.tutorial.prologue && P.story.stage >= 3); };
+export const unlocked = () => { const P = G.profile; return !!(P && P.tutorial && P.tutorial.prologue && (P.story.done || []).includes('enter')); };   // сборка 38: по id, а не по номеру — в начало сюжета вставлены задания
 export const current = () => (G.profile && G.profile.hunt && G.profile.hunt.cur) || null;
 export const defOf = cur => HUNTS.find(h => h.id === cur.id);
 export const bossOf = cur => MINIBOSSES[defOf(cur).boss];

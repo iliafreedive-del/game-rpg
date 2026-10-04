@@ -14,16 +14,16 @@ export const xpMul = () => rm('xp') * (G.profile.boosts.xpUntil > Date.now() || 
 export function dropGold(x, y, amount) {
   amount = Math.max(1, Math.round(amount * goldMul()));
   const a = rand() * Math.PI * 2, r = 0.3 + rand() * 0.7;
-  G.pickups.push({ id: uid('g'), kind: 'gold', amount, x: x + Math.cos(a) * r, y: y + Math.sin(a) * r, t: 0, taken: false });
+  G.pickups.push({ id: uid('g'), kind: 'gold', amount, x: x + Math.cos(a) * r, y: y + Math.sin(a) * r, t: 0, taken: false, fly: true });
 }
 export function dropItem(x, y, item) {
   const a = rand() * Math.PI * 2, r = 0.4 + rand() * 0.8;
   let px = x + Math.cos(a) * r, py = y + Math.sin(a) * r;
   if (!G.zone.map.free(px, py, 0.1)) { px = x; py = y; }
-  G.pickups.push({ id: uid('d'), kind: 'item', item, x: px, y: py, t: 0, taken: false });
+  G.pickups.push({ id: uid('d'), kind: 'item', item, x: px, y: py, t: 0, taken: false, fly: true });
   if (item.rarity >= 2) bus.emit('sfx', item.rarity === 3 ? 'epicDrop' : 'rareDrop');
 }
-export function dropPotion(x, y, kind = 'hp') { G.pickups.push({ id: uid('p'), kind: 'potion', potion: kind, x: x + rand() - 0.5, y: y + rand() - 0.5, t: 0, taken: false }); }
+export function dropPotion(x, y, kind = 'hp') { G.pickups.push({ id: uid('p'), kind: 'potion', potion: kind, x: x + rand() - 0.5, y: y + rand() - 0.5, t: 0, taken: false, fly: true }); }
 
 const rollRarity = table => weighted(table.map((w, i) => [i, w]));
 export function enemyLoot(e) {
@@ -62,17 +62,17 @@ function chestLoot0(x, y, rich, lvl, id) {
   if (rich && G.profile.level >= 6 && rand() < 0.2) dropItem(x + 0.3, y + 0.4, makeSetItem(pickSet(G.profile.cls), null, lvl, G.profile.cls));   // сундук Ордена — шанс части сета
 }
 
-// pickups: gold automatically, items/potions automatically when room in bag
+// pickups (сборка 38): всё, что выпало с мобов и из сундуков, само летит в сумку; сумка полна — вещь лежит на земле и красное уведомление
 export function updatePickups(dt) {
   const P = G.player; if (!P || P.dead) return;
-  const prof = G.profile;
+  const prof = G.profile, room = prof.bag.length < prof.bagSize;
   for (const p of G.pickups) {
     if (p.taken) continue; p.t += dt;
     if (p.t < 0.35) continue;  // let the drop settle
+    if (p.kind === 'item' && p.wait) { if (!room) continue; p.wait = false; p.fly = true; }   // место освободилось — вещь снова летит к герою
     const d = Math.hypot(p.x - P.x, p.y - P.y);
     const reach = p.kind === 'gold' ? 1.6 : 1.1;
-    // магнит: золото и зелья подлетают сами; всё, что выпало из сундука (p.fly), — тоже, чтобы не бегать вокруг
-    if (p.fly || (p.kind !== 'item' && d < 3.2)) { const k = Math.min(1, dt * (p.fly ? 9 : 8) / Math.max(0.3, d)); p.x += (P.x - p.x) * k; p.y += (P.y - p.y) * k; }
+    if (p.fly || d < 3.2) { const k = Math.min(1, dt * 9 / Math.max(0.3, d)); p.x += (P.x - p.x) * k; p.y += (P.y - p.y) * k; }
     if (d > reach) continue;
     if (p.kind === 'gold' && G.zoneId === 'wild' && G.wild && !G.wild.done) {   // поход: золото идёт в ношу (см. nemesis.js)
       p.taken = true; G.wild.carry = (G.wild.carry || 0) + p.amount; G.wild.refresh && G.wild.refresh();
@@ -83,14 +83,10 @@ export function updatePickups(dt) {
     } else if (p.kind === 'potion') {
       p.taken = true; prof.potions[p.potion]++; float(P.x, P.y, p.potion === 'hp' ? '+ Зелье здоровья' : '+ Зелье маны', '#ff8f8f', { z: 2.3 }); bus.emit('sfx', 'potionPick'); bus.emit('hud');
     } else if (p.kind === 'item') {
-      if (prof.bag.length >= prof.bagSize) {   // сумка полна: серое продаётся само (с пола или самое дешёвое из сумки), иначе — напоминание
-        if (p.item.rarity === 0) { const g = sellValue(p.item); prof.gold += g; p.taken = true; bus.emit('sfx', 'gold'); float(P.x, P.y, '+' + g + ' зол.', '#ffd76a'); bus.emit('toast', { text: `Сумка полна — серая вещь продана: +${g} зол.`, kind: 'info' }); bus.emit('hud'); continue; }
-        const gi = prof.bag.reduce((bi, it, i) => it.rarity === 0 && !it.locked && (bi < 0 || sellValue(it) < sellValue(prof.bag[bi])) ? i : bi, -1);
-        if (gi >= 0) { const [old] = prof.bag.splice(gi, 1); const g = sellValue(old); prof.gold += g; bus.emit('toast', { text: `Сумка полна — продано «${old.name}»: +${g} зол.`, sub: 'Совет: у кузнеца три одинаковые по редкости вещи сливаются в одну лучше', kind: 'info' }); }
-        else {   // каждый раз, когда вещь не подбирается (не чаще раза в 2,5 с, чтобы не мигало каждый кадр)
-          if (!G.bagWarnT || G.time - G.bagWarnT > 2.5) { G.bagWarnT = G.time; bus.emit('toast', { text: 'Сумка полна — вещь осталась на земле', sub: 'Продайте лишнее у торговки в деревне (или в окне «Герой»), слейте три в одну у кузнеца — или купите «Большую сумку» (+20 мест) у алтаря богини за 300 ₽', kind: 'warn' }); bus.emit('sfx', 'deny'); }
-          continue;
-        }
+      if (prof.bag.length >= prof.bagSize) {   // сумка полна: вещь остаётся на земле, пока не освободится место
+        p.fly = false; p.wait = true;
+        if (!G.bagWarnT || G.time - G.bagWarnT > 4) { G.bagWarnT = G.time; bus.emit('bagFull'); bus.emit('sfx', 'deny'); }
+        continue;
       }
       p.taken = true; p.item.isNew = true; prof.bag.push(p.item); bus.emit('itemPicked', p.item); bus.emit('sfx', 'pickup');
     }
