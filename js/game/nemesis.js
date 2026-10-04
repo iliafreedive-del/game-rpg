@@ -96,11 +96,12 @@ export const trophyBonus = P => (P.nemesis ? P.nemesis.trophies.reduce((a, t) =>
 export const hunted = realm => nemState().list.filter(n => n.alive && n.realm === realm && n.rank > 0);
 
 // ---- полоса «Ноша»
-let bar = null;
+let bar = null, goalTimer = 0;
 function ensureBar() {
   if (bar) return bar; bar = document.createElement('div'); bar.id = 'carryBar';
-  bar.style.cssText = 'position:fixed;left:50%;top:142px;transform:translateX(-50%);z-index:5;pointer-events:none;font:600 13px Georgia,serif;color:#f0dca8;text-shadow:0 1px 2px #000;text-align:center;display:none;min-width:220px;max-width:92vw';
-  bar.innerHTML = '<div class="t"></div><div style="height:6px;background:#0009;border-radius:3px;margin-top:3px;overflow:hidden"><i style="display:block;height:100%;width:0;background:linear-gradient(90deg,#d6a548,#e8622a)"></i></div><div class="g" style="font-weight:400;font-size:12px;margin-top:3px;color:#cfe3c0"></div>';
+  // сборка 38: вид — в css (#carryBar): маленькая плашка слева под полосами здоровья, не посередине экрана
+  bar.style.display = 'none';
+  bar.innerHTML = '<div class="t"></div><div class="cb"><i></i></div><div class="g"></div>';
   document.body.appendChild(bar); return bar;
 }
 // кнопка справа: форт отбит — «Итог / выход» (не выскакивает окном сама)
@@ -122,8 +123,10 @@ function drawBar() {
   const b = ensureBar(), W = G.wild;
   if (G.zoneId !== 'wild' || !W) { b.style.display = 'none'; return; }
   b.style.display = 'block'; const pct = Math.round((W.greed || 0) * 100);
-  b.querySelector('.t').textContent = `🎒 Ноша: ${W.carry || 0} зол.${pct > 8 ? ` · жадность ${pct}% (медленнее, мобы чуют)` : ''}`;
+  b.querySelector('.t').textContent = `🎒 Ноша: ${W.carry || 0} зол.${pct > 8 ? ` · жадность ${pct}%` : ''}`;
   b.querySelector('i').style.width = pct + '%';
-  b.querySelector('.g').textContent = goalText();
+  // цель похода — только несколько секунд после того, как сменилась, потом прячется (не висит на экране постоянно)
+  const g = b.querySelector('.g'), gt = goalText();
+  if (g.textContent !== gt) { g.textContent = gt; g.classList.add('show'); clearTimeout(goalTimer); goalTimer = setTimeout(() => g.classList.remove('show'), 7000); }
 }
 bus.on('wildCarry', drawBar); bus.on('zoneEntered', drawBar); bus.on('hud', drawBar);

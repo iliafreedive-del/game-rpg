@@ -236,12 +236,14 @@ W.skills = (arg = {}) => {
   if (!sel || edit) sel = ids.find(id => CH.canLearn(id).ok) || sel || ids[0];
   const m = modal(edit ? 'Наставник: навыки' : 'Навыки', 'lg', b => {
     const P = G.profile;
-    b.appendChild(el('div', 'sp-row', `<b class="${P.skillPts ? 'good' : 'muted'}">Очки навыков: ${P.skillPts}</b><span class="muted">+1 очко за каждый уровень</span><b class="c-gold">💰 ${fmt(P.gold)} зол.</b>${edit ? '' : '<span class="muted">Изучать — у наставника Элвина в деревне.</span>'}`));
-    if (edit && !Object.entries(P.skills || {}).some(([k, v]) => v && SKILLS[k] && SKILLS[k].kind === 'active')) b.appendChild(el('div', 'first-pick', '⚔ <b>Начните с верхнего умения</b> — это активный приём, он появится кнопкой в бою. За ним идут два пассивных усиления, потом следующий приём. Всего 4 приёма — по одному на кнопку.'));
-    const trees = el('div', 'tal-trees');
+    b.appendChild(el('div', 'sp-row', `<b class="${P.skillPts ? 'good' : 'muted'}">Очки навыков: ${P.skillPts}</b><span class="muted sp-hint">+1 очко за каждый уровень</span><b class="c-gold">💰 ${fmt(P.gold)} зол.</b>${edit ? '' : '<span class="muted">Изучать — у наставника Элвина в деревне.</span>'}`));
+    // сборка 38: без большой подсказки «Начните с верхнего умения» — на доступном узле и так «+»; дерево и карточка — в обёртке
+    // (на телефоне горизонтально они встают рядом: дерево слева, карточка справа)
+    const wrap = el('div', 'tal-wrap'), trees = el('div', 'tal-trees');
     trees.appendChild(talentBranch(cls, ids, P, id => { sel = W._skillSel = id; rerender(); }, sel));
-    b.appendChild(trees);
-    if (sel) b.appendChild(talentInfo(sel, P, edit));
+    wrap.appendChild(trees);
+    if (sel) wrap.appendChild(talentInfo(sel, P, edit));
+    b.appendChild(wrap);
   });
   m.live = true;
 };

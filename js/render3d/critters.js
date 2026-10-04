@@ -1,5 +1,5 @@
 // Живность деревни (только вид, без игровой логики): куры и собаки бродят вокруг своего места (json.critters генератора),
-// обходят препятствия по карте зоны (map.free), куры клюют землю и разбегаются от героя, собаки садятся, виляют хвостом
+// обходят препятствия по карте зоны (map.free), куры клюют землю и разбегаются от героя, собаки садятся, виляют хвостом (только рядом с героем)
 // и подходят к герою, если он рядом. Модели — процедурные, из частей kit, анимация — повороты групп (ноги, голова, хвост).
 // Собака и куры из Meshy. Собака (assets/models/dog_brown.glb, риг серого волка, tools/art/meshy.py) — через glbmob.js: ходьба/покой — её анимации,
 // «села» — лечь на живот (поза смерти зверя). Куры (chicken_white/chicken_red.glb) без своего скелета остаются на ПРЕЖНЕМ процедурном риге:
@@ -173,16 +173,18 @@ export class Critters {
       m.root.position.set(a.x, 0, a.y); m.root.rotation.y = a.yaw;
       // анимация
       const sw = Math.sin(a.ph) * a.v;
+      // хвост: виляет, только когда герой рядом (плавно включается и затихает)
+      if (dog) a.wag = (a.wag || 0) + ((dP < 3.5 ? 1 : 0) - (a.wag || 0)) * Math.min(1, dt * 4);
       if (dog && m.glb) {
         // ходьба и покой — анимации модели; «села» — легла на живот, голова к герою — поворотом всего зверя (уже выше)
         const sit = a.st === 'sit' ? 1 : 0; a.sit = (a.sit || 0) + (sit - (a.sit || 0)) * Math.min(1, dt * 3);
-        const A = { t: t + a.ph, dt, speed: sp, k: a.sit * 0.75 };
+        const A = { t: t + a.ph, dt, speed: sp, k: a.sit * 0.75, wag: a.wag };
         if (a.sit > 0.02) m.glb.anims.death(A); else if (sp) m.glb.anims.walk(A); else m.glb.anims.idle(A);
       } else if (dog) {
         const sit = a.st === 'sit' ? 1 : 0; a.sit = (a.sit || 0) + (sit - (a.sit || 0)) * Math.min(1, dt * 5);
         m.body.rotation.x = -0.42 * a.sit; m.body.position.y = -0.1 * a.sit; m.body.position.z = -0.12 * a.sit;
         m.legs[0].rotation.x = sw * 0.6 + 0.4 * a.sit; m.legs[3].rotation.x = sw * 0.6 - 1.2 * a.sit; m.legs[1].rotation.x = -sw * 0.6 + 0.4 * a.sit; m.legs[2].rotation.x = -sw * 0.6 - 1.2 * a.sit;
-        const wag = a.st === 'greet' || (dP < 5) ? 16 : 5; m.tail.rotation.y = Math.sin(t * wag + a.ph) * (dP < 5 ? 0.7 : 0.3); m.tail.rotation.x = -0.3 + a.sit * 0.6;
+        m.tail.rotation.y = Math.sin(t * 16 + a.ph) * 0.7 * a.wag; m.tail.rotation.x = -0.3 + a.sit * 0.6;
         m.head.rotation.x = 0.2 * a.sit + Math.sin(t * 1.3 + a.ph) * 0.06; m.head.rotation.y = a.st === 'idle' ? Math.sin(t * 0.6 + a.ph) * 0.4 : 0;
       } else {
         m.legs[0].rotation.x = sw * 0.7; m.legs[1].rotation.x = -sw * 0.7; m.body.position.y = Math.abs(Math.sin(a.ph)) * 0.03 * a.v;

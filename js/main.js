@@ -20,6 +20,7 @@ import { showDozor } from './ui/windows.js';
 import { $, el, esc } from './core/util.js';
 import { CLASSES } from './data/items.js';
 import { iconURL } from './ui/icons.js';
+import { initFullscreen } from './ui/fullscreen.js';
 
 export const BUILD = '2026-10-04 · сборка 37';   // видно на титульном экране и в настройках: так проверяют, что загрузилась свежая версия
 const CORE = ['props', 'icons'];
@@ -28,6 +29,7 @@ export const CLASS_ATLAS = { warrior: ['hero_body', 'hero_sword', 'hero_axe', 'h
 const MONSTERS = ['skel_warrior', 'skel_archer', 'skel_mage', 'ghoul', 'beast', 'elite', 'boss'];
 
 async function boot() {
+  initFullscreen();
   await initRenderer($('game'));
   initAudio(); bus.on('sfx', sfx); bus.on('audioPause', p => setPaused(p));
   const bar = $('loadbar').firstElementChild, txt = $('loadtxt');
