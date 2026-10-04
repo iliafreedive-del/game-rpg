@@ -19,7 +19,7 @@ export function gate(name, extra) {
     case 'bossgate': return P.level >= BOSS_LEVEL ? null : { text: `Печать не поддаётся: нужен ${BOSS_LEVEL} уровень`, sub: `У вас ${P.level}. Наберите силу в катакомбах и Старом Лесу, улучшите вещи у кузнеца` };
     case 'hw': { const s = extra | 0;
       if (!hasSkill()) return { text: 'Сначала выберите навык у наставника' };
-      if (s > 5 && !F().bossKilled) return { text: 'Этап закрыт', sub: 'Победите Палача Бездны в катакомбах' };
+      if (s > 10 && !F().bossKilled) return { text: 'Этап закрыт', sub: 'Этапы с 11-го — после победы над Палачом Бездны в катакомбах' };   // сборка 44: 6–10 открыты сразу (было — с 6-го)
       if (s > 30 && forts('forest') < 1) return { text: 'Глава «Старый Лес» закрыта', sub: 'Отбейте острог в Старом Лесу' };
       if (s > 60 && forts('fjord') < 1) return { text: 'Глава «Фьорды» закрыта', sub: 'Отбейте форт во Фьордах' };
       if (s > 90 && !(P.depths && P.depths.best >= 5)) return { text: 'Глава «Пепельные скалы» закрыта', sub: 'Дойдите до 5 этажа Глубин' };

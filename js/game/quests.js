@@ -77,7 +77,7 @@ export function check() {
   const s = G.profile.story, o = q.obj;
   if (q.turnIn && s.ready === q.id) return;
   if (o.skill && hasSkill()) return complete();
-  if (o.hwTry && (s.flags.hwLost || ((G.profile.hw && G.profile.hw.top) || 1) > 5)) return complete();   // проиграл в Летописи или прошёл все открытые этапы
+  if (o.hwTry && (s.flags.hwLost || ((G.profile.hw && G.profile.hw.top) || 1) > 10)) return complete();   // проиграл в Летописи или прошёл все открытые этапы (1–10)
   if (o.flag && s.flags[o.flag]) return q.turnIn ? markReady(q) : complete();
   if (o.count && (s.counters[q.id] || 0) >= o.n) return q.turnIn ? markReady(q) : complete();
   if (o.enter && G.zoneId === o.enter && G.zoneReady) return complete();

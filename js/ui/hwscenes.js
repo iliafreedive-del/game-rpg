@@ -6,10 +6,10 @@ export const SCENES = [
 const mk = (W, H) => { const c = document.createElement('canvas'); c.width = W; c.height = H; return [c, c.getContext('2d')]; };
 const grad = (c, y0, y1, stops) => { const g = c.createLinearGradient(0, y0, 0, y1); stops.forEach(([o, col]) => g.addColorStop(o, col)); return g; };
 
-export function paintScene(ci, W, H) {
+export function paintScene(ci, W, H, hz = 0.64) {
   let seed = 7919 * (ci + 3); const r = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
   const [far, f] = mk(W, H), [near, n] = mk(W, H);
-  const horizon = H * 0.64;
+  const horizon = H * hz;
   const glow = (c, x, y, R, col, a) => { const g = c.createRadialGradient(x, y, 0, x, y, R); g.addColorStop(0, col.replace('A', a)); g.addColorStop(1, col.replace('A', 0)); c.fillStyle = g; c.fillRect(x - R, y - R, R * 2, R * 2); };
   let parts, clouds = [];
 
