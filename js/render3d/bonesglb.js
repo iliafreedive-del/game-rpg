@@ -92,3 +92,24 @@ export function swap(lists, PROPS, kit) {
   }
   return extra;
 }
+
+// сундуки с добычей (сборка 42: «сундуки орков на них поменяй все сундуки с лутом») — предметы «на лету» (PropLayer.syncLive):
+// закрытый — сундук из шкур Meshy, открытый — тот же без крышки (срезан верх, внутренность видна: материал двусторонний),
+// богатый — крупнее (у него и так свет). Только в пустошах и при «Новых моделях»
+const CHESTS = { chest: [1.1, 0], chest_open: [1.1, 1], chest_rich: [1.3, 0], chest_rich_open: [1.3, 1] };
+const LIVE = new Map();
+let _open = null;
+function openGeo(g) {
+  if (_open) return _open;
+  g.computeBoundingBox(); const p = g.attributes.position, I = g.index.array, cut = g.boundingBox.min.y + (g.boundingBox.max.y - g.boundingBox.min.y) * 0.66, keep = [];
+  for (let t = 0; t < I.length; t += 3) if (Math.min(p.getY(I[t]), p.getY(I[t + 1]), p.getY(I[t + 2])) < cut) keep.push(I[t], I[t + 1], I[t + 2]);
+  _open = g.clone(); _open.setIndex(keep); return _open;
+}
+export function liveDef(want) {
+  const c = CHESTS[want]; if (!c || !bonesReady() || !OBJ.has('chest_hide')) return null;
+  if (LIVE.has(want)) return LIVE.get(want);
+  const O = OBJ.get('chest_hide');
+  const def = { id: 'bn:' + want, kind: 'prop', outline: false,
+    build() { const root = new THREE.Group(), m = new THREE.Mesh(c[1] ? openGeo(O.geometry) : O.geometry, O.mat); m.scale.setScalar(c[0]); root.add(m); return { root }; } };
+  LIVE.set(want, def); return def;
+}

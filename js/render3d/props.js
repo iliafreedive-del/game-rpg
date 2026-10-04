@@ -7,7 +7,7 @@ import { OUTLINE, QUALITY } from './style.js';
 import { fbm } from './geo.js';
 import { wallPieces } from './dungeon.js';
 import { STEPPE_ROCKS, STEPPE_SPIRES, STEPPE_TREES } from './models/prop/_steppe.js';
-import { swap as bonesSwap } from './bonesglb.js';
+import { swap as bonesSwap, liveDef as bonesLive } from './bonesglb.js';
 
 const hash = (x, y) => { let h = (Math.round(x * 31) * 374761393 + Math.round(y * 31) * 668265263) >>> 0; h = (h ^ (h >>> 13)) * 1274126177 >>> 0; return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
 const warned = new Set();
@@ -152,7 +152,7 @@ export class PropLayer {
       if (want !== r.cur) {
         if (r.g) { r.g.removeFromParent(); this.items = this.items.filter(o => o !== r.g); this.dyn = this.dyn.filter(o => o !== r.mdl); }
         r.cur = want; r.g = null;
-        const def = PROPS[want];
+        const def = (this.bn && bonesLive(want)) || PROPS[want];   // пустоши: сундуки — из шкур Meshy (bonesglb.js)
         if (!def) { if (!warned.has(want)) { warned.add(want); console.warn('[3D] нет модели предмета «' + want + '» — не показан'); } continue; }
         const light = this.zoneLights && this.zoneLights.find(L => Math.hypot(L.x - r.d.x, L.y - r.d.y) < 0.3);
         r.g = this.addSingle(def, { x: r.d.x, y: r.d.y, rot: r.rot, s: 1, opts: light ? { color: new THREE.Color(light.c[0] / 255, light.c[1] / 255, light.c[2] / 255) } : {} });
