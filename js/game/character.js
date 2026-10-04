@@ -1,7 +1,7 @@
 // Character management: equipment, attribute points, skill tree learning & slots.
 import { G, bus } from './ctx.js';
 import { WEAPONS, CLASSES, SLOTS } from '../data/items.js';
-import { SKILLS, BRANCHES, unlockLevel, rankLevel } from '../data/skills.js';
+import { SKILLS, BRANCHES, rankLevel, prevNode, inClassTree } from '../data/skills.js';
 import { stats, meetsReq, usefulness, compare } from './stats.js';
 import { sellValue } from './items.js';
 
@@ -50,17 +50,18 @@ export function addAttr(k, n = 1, pay = false) {
 }
 // ---- skills
 export const branchPoints = b => Object.entries(G.profile.skills).filter(([k]) => SKILLS[k].b === b).reduce((a, [, v]) => a + v, 0);
-// talent-tree rules: class branch, free point, prerequisites (arrows in the tree), hero level per rank
+// talent-tree rules: one branch per class, previous node learned, hero level per rank, free point
+const cls = () => G.profile.cls || 'warrior';
 export function skillReqs(id) {
-  const P = G.profile, s = SKILLS[id], r = P.skills[id] || 0, out = [];
-  for (const [k, n] of s.req || []) out.push({ ok: (P.skills[k] || 0) >= n, text: `«${SKILLS[k].name}» — ранг ${n}` });
-  if (r < s.max) out.push({ ok: P.level >= rankLevel(id, r), text: `Уровень героя ${rankLevel(id, r)}`, lvl: true });
+  const P = G.profile, s = SKILLS[id], r = P.skills[id] || 0, out = [], pv = prevNode(cls(), id);
+  if (pv) out.push({ ok: (P.skills[pv] || 0) >= 1, text: `«${SKILLS[pv].name}»` });
+  if (r < s.max) out.push({ ok: P.level >= rankLevel(cls(), id, r), text: `Уровень героя ${rankLevel(cls(), id, r)}`, lvl: true });
   return out;
 }
-export const reqsMet = id => (SKILLS[id].req || []).every(([k, n]) => (G.profile.skills[k] || 0) >= n);
+export const reqsMet = id => { const pv = prevNode(cls(), id); return !pv || (G.profile.skills[pv] || 0) >= 1; };
 export function canLearn(id) {
   const P = G.profile, s = SKILLS[id], r = P.skills[id] || 0;
-  if (!CLASSES[P.cls || 'warrior'].branches.includes(s.b)) return { ok: false, why: 'Недоступно вашему классу' };
+  if (!inClassTree(cls(), id)) return { ok: false, why: 'Недоступно вашему классу' };
   if (r >= s.max) return { ok: false, why: 'Максимальный ранг' };
   const miss = skillReqs(id).find(q => !q.ok); if (miss) return { ok: false, why: miss.lvl ? `Нужен ${miss.text.toLowerCase()}` : `Сначала изучите ${miss.text}` };
   if (P.skillPts <= 0) return { ok: false, why: 'Нет очков навыков — получите новый уровень' };

@@ -2,6 +2,7 @@
 import { makeItem, makeStarterGear, sellValue, applyKindPerk } from './items.js';
 import { CLASSES, SLOTS, GROWTH } from '../data/items.js';
 import { STORY } from '../data/quests.js';
+import { inClassTree } from '../data/skills.js';
 
 export const SAVE_KEY = 'dark_ascent_save_v2';
 export const LEGACY_KEYS = ['dark_ascent_chapter1_save', 'dark_ascent_v03_save'];
@@ -103,6 +104,11 @@ export function migrate(p) {
   p.bagSize = Math.max(p.bagSize || 30, 40 + (p.iap && p.iap.bagBig ? 20 : 0));   // сборка 20: сумка 40 (больше серого — сырьё для слияния)
   // сборка 20: «свойство вида» у синих и выше — для вещей из старых сохранений
   for (const it of [...Object.values(p.gear || {}), ...(p.bag || [])]) if (it && it.affixes && it.rarity >= 2 && !it.affixes.some(a => a.kp)) applyKindPerk(it);
+  // сборка 36: у класса одна ветка навыков — навыки вне неё возвращаются очками и уходят с кнопок
+  if (p.skills) for (const k of Object.keys(p.skills)) if (!inClassTree(p.cls || 'warrior', k)) {
+    p.skillPts = (p.skillPts | 0) + (p.skills[k] | 0); delete p.skills[k];
+    if (p.slots) p.slots = p.slots.map(x => x === k ? null : x); if (p.bigSkill === k) p.bigSkill = null;
+  }
   return p;
 }
 

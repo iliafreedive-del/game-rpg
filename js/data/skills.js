@@ -1,4 +1,4 @@
-// Skill tree: 5 branches, talent grid like WoW. Node kinds: passive | active.
+// Skills of 5 elements (branches give set bonuses); each class learns them along its own tree below. Node kinds: passive | active.
 // Every value here is read by the combat code (see game/combat.js, game/stats.js).
 export const BRANCHES = [
   { id: 'sword', name: 'Меч', color: '#d9b77a', icon: 'sword' },
@@ -77,43 +77,22 @@ export const SKILLS = {
   thunder: { b: 'light', name: 'Грозовой разряд', max: 1, kind: 'active', mana: 25, cd: 8, weapon: 'any', elem: 'light',
     desc: () => `Через 0,4 с молнии бьют всех врагов в радиусе 5 м: 200% урона цепной молнии. Мана 25, перезарядка 8 с.` },
 };
-// ---- Talent grid (как в WoW). В каждой ветке сверху — активное умение; от него открываются пассивные;
-// вложив в них очки, открываешь следующее активное умение, и так до самого низа ветки.
-//   [ряд, колонка (0–2), уровень героя для 1-го ранга, требования [[навык, ранг], …]]
-// Каждый следующий ранг требует на 1 уровень героя больше: 1-й ранг — lvl, 2-й — lvl+1 …
-const TREE = {
-  // Меч: Вихрь → Мастерство клинка + Рассекающий удар → Сокрушающий прыжок → Кровопускание → Боевой клич → Сокрушение
-  whirlwind: [0, 1, 1], blade_mastery: [1, 0, 2, [['whirlwind', 1]]], cleave: [1, 2, 3, [['whirlwind', 1]]],
-  leap: [2, 1, 5, [['blade_mastery', 2], ['cleave', 1]]], bloodletting: [3, 1, 7, [['leap', 1]]],
-  warcry: [4, 1, 9, [['bloodletting', 1]]], crush: [5, 1, 12, [['warcry', 1]]],
-  // Лук: Залп → Меткость + Быстрая тетива → Пронзающий выстрел → Пронзающие стрелы → Дождь стрел → Разрывная стрела
-  volley: [0, 1, 1], marksman: [1, 0, 2, [['volley', 1]]], quickstring: [1, 2, 3, [['volley', 1]]],
-  pierce_shot: [2, 1, 5, [['marksman', 2], ['quickstring', 1]]], pierce: [3, 1, 7, [['pierce_shot', 1]]],
-  arrow_rain: [4, 1, 9, [['pierce', 1]]], explosive: [5, 1, 12, [['arrow_rain', 1]]],
-  // Огонь: Огненный шар → Жар + Усиленный поджог → Метеор → Распространение огня + Взрыв горящих
-  fireball: [0, 1, 1], heat: [1, 0, 2, [['fireball', 1]]], ignite_plus: [1, 2, 3, [['fireball', 1]]],
-  meteor: [2, 1, 5, [['heat', 2], ['ignite_plus', 1]]], fire_spread: [3, 0, 7, [['meteor', 1]]], burn_explode: [3, 2, 9, [['meteor', 1]]],
-  // Лёд: Ледяной снаряд → Холод + Глубокий холод → Ледяная нова → Ледяная броня + Раскалывание
-  ice_shard: [0, 1, 1], cold: [1, 0, 2, [['ice_shard', 1]]], deep_cold: [1, 2, 3, [['ice_shard', 1]]],
-  frost_nova: [2, 1, 5, [['cold', 2], ['deep_cold', 1]]], ice_armor: [3, 0, 7, [['frost_nova', 1]]], shatter: [3, 2, 9, [['frost_nova', 1]]],
-  // Молния: Цепная молния → Статика + Проводимость → Грозовой разряд → Перегрузка
-  chain: [0, 1, 1], static: [1, 0, 2, [['chain', 1]]], conduct: [1, 2, 3, [['chain', 1]]],
-  thunder: [2, 1, 6, [['static', 2], ['conduct', 1]]], overload: [3, 1, 8, [['thunder', 1]]],
+// ---- Дерево навыков (сборка 36): у каждого класса одна ветка, как столбик талантов в WoW.
+// Активное → два пассивных → активное → … → 4 активных под 4 кнопки боя и завершающий пассивный.
+// Каждый узел открывается, когда изучен предыдущий (ранг 1) и герой дорос до уровня узла;
+// каждый следующий ранг требует на 1 уровень больше. Навыки вне ветки класса недоступны.
+const CLASS_TREE = {
+  warrior: [['whirlwind', 1], ['blade_mastery', 2], ['cleave', 3], ['leap', 5], ['bloodletting', 6], ['crush', 8], ['warcry', 10], ['heat', 12], ['ignite_plus', 14], ['meteor', 16], ['burn_explode', 20]],
+  archer: [['volley', 1], ['marksman', 2], ['quickstring', 3], ['pierce_shot', 5], ['pierce', 6], ['explosive', 8], ['arrow_rain', 10], ['cold', 12], ['deep_cold', 14], ['frost_nova', 16], ['shatter', 20]],
+  mage: [['fireball', 1], ['heat', 2], ['ignite_plus', 3], ['ice_shard', 5], ['cold', 6], ['deep_cold', 8], ['chain', 10], ['static', 12], ['conduct', 14], ['meteor', 16], ['fire_spread', 20]],
 };
-for (const [id, [row, col, lvl, req]] of Object.entries(TREE)) Object.assign(SKILLS[id], { row, col, lvl, req: req || [] });
-export const TREE_ROWS = 6;
+export const classTree = cls => CLASS_TREE[cls] || CLASS_TREE.warrior;
+export const classSkillOrder = cls => classTree(cls).map(([k]) => k);
+export const inClassTree = (cls, id) => classTree(cls).some(([k]) => k === id);
+export const unlockLevel = (cls, id) => { const e = classTree(cls).find(([k]) => k === id); return e ? e[1] : 99; };
+export const prevNode = (cls, id) => { const t = classTree(cls), i = t.findIndex(([k]) => k === id); return i > 0 ? t[i - 1][0] : null; };
 // hero level needed for the next rank (rank — current rank, 0 = not learned)
-export const rankLevel = (id, rank) => SKILLS[id].lvl + rank;
+export const rankLevel = (cls, id, rank) => unlockLevel(cls, id) + rank;
 export const SKILL_IDS = Object.keys(SKILLS);
 export const ACTIVE_IDS = SKILL_IDS.filter(k => SKILLS[k].kind === 'active');
 export const branchOf = id => SKILLS[id].b;
-
-// Навыки открываются по уровню (сборка 20): у каждого класса — свой порядок. До нужного уровня навык виден, но закрыт.
-// Каждый следующий ранг навыка требует ещё +1 уровень. Цена урока у наставника удваивается с каждым новым навыком (character.js skillCost).
-const ORDER = {
-  warrior: [['blade_mastery', 1], ['whirlwind', 2], ['heat', 3], ['fireball', 4], ['leap', 6], ['warcry', 8], ['cleave', 10], ['ignite_plus', 12], ['bloodletting', 14], ['fire_spread', 16], ['meteor', 18], ['crush', 20], ['burn_explode', 24]],
-  archer: [['marksman', 1], ['volley', 2], ['cold', 3], ['ice_shard', 4], ['pierce_shot', 6], ['arrow_rain', 8], ['pierce', 10], ['deep_cold', 12], ['quickstring', 14], ['ice_armor', 16], ['frost_nova', 18], ['explosive', 20], ['shatter', 24]],
-  mage: [['heat', 1], ['fireball', 2], ['cold', 3], ['ice_shard', 4], ['static', 5], ['chain', 6], ['meteor', 8], ['frost_nova', 9], ['ignite_plus', 10], ['deep_cold', 12], ['conduct', 13], ['fire_spread', 14], ['ice_armor', 16], ['overload', 17], ['burn_explode', 20], ['shatter', 22], ['thunder', 24]],
-};
-export const unlockLevel = (cls, id) => { const e = (ORDER[cls] || ORDER.warrior).find(([k]) => k === id); return e ? e[1] : 99; };
-export const classSkillOrder = cls => (ORDER[cls] || ORDER.warrior).map(([k]) => k);

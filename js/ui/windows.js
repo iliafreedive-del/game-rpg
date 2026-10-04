@@ -4,7 +4,7 @@ import { setCounts } from '../game/stats.js';
 import { G, bus, inCombat } from '../game/ctx.js';
 import { $, el, esc, fmt } from '../core/util.js';
 import { SLOTS, SLOT_NAMES, RARITY, WEAPONS, BASE, CLASSES, RARITY_SHORT } from '../data/items.js';
-import { SKILLS, BRANCHES } from '../data/skills.js';
+import { SKILLS, BRANCHES, classSkillOrder, unlockLevel } from '../data/skills.js';
 import { STORY, REPEATABLE, DIALOG, CHAPTER, chapterOf } from '../data/quests.js';
 import { stats, compare, usefulness, meetsReq, xpToNext, effRank } from '../game/stats.js';
 import { iconOf, affixText, epicOf, sellValue, upgradeCost, reforgeCost, MAX_UPG, itemPower, kindPerkText, upgMult, heroPower } from '../game/items.js';
@@ -227,43 +227,46 @@ W.character = (arg = {}) => {
   m.live = true;
 };
 
-// Skills: talent tree like WoW — per branch a grid of icons joined by arrows. Top: an active skill;
-// its passives open below; points in them unlock the next active, and so on. Every rank needs a hero level.
-// Tap an icon → card with description, next rank, requirements and the «Изучить» button (at the trainer).
+// Skills: talent tree like WoW — one branch per class: active skill → two passives → next active … (4 actives for 4 buttons).
+// Every node needs the previous one and a hero level. Tap an icon → card with description, requirements and «Изучить» (at the trainer).
 const TC = 54, TGX = 26, TGY = 22;   // icon size and gaps in the tree grid (px)
 W.skills = (arg = {}) => {
-  const edit = !!arg.npc; if (edit) setTimeout(() => bus.emit('skillsOpened'), 50); const P0 = G.profile; const myBr = CLASSES[P0.cls || 'warrior'].branches;
-  let sel = W._skillSel && SKILLS[W._skillSel] && myBr.includes(SKILLS[W._skillSel].b) ? W._skillSel : null;
-  if (!sel || edit) sel = Object.keys(SKILLS).find(id => myBr.includes(SKILLS[id].b) && CH.canLearn(id).ok) || sel || Object.keys(SKILLS).find(id => SKILLS[id].b === myBr[0] && SKILLS[id].row === 0);
+  const edit = !!arg.npc; if (edit) setTimeout(() => bus.emit('skillsOpened'), 50); const cls = G.profile.cls || 'warrior'; const ids = classSkillOrder(cls);
+  let sel = ids.includes(W._skillSel) ? W._skillSel : null;
+  if (!sel || edit) sel = ids.find(id => CH.canLearn(id).ok) || sel || ids[0];
   const m = modal(edit ? 'Наставник: навыки' : 'Навыки', 'lg', b => {
     const P = G.profile;
     b.appendChild(el('div', 'sp-row', `<b class="${P.skillPts ? 'good' : 'muted'}">Очки навыков: ${P.skillPts}</b><span class="muted">+1 очко за каждый уровень</span><b class="c-gold">💰 ${fmt(P.gold)} зол.</b>${edit ? '' : '<span class="muted">Изучать — у наставника Элвина в деревне.</span>'}`));
-    if (edit && !Object.entries(P.skills || {}).some(([k, v]) => v && SKILLS[k] && SKILLS[k].kind === 'active')) b.appendChild(el('div', 'first-pick', '⚔ <b>Начните с верхнего умения ветки</b> — это активный приём, он появится кнопкой в бою. От него стрелки ведут к пассивным усилениям, а за ними открывается следующий приём.'));
+    if (edit && !Object.entries(P.skills || {}).some(([k, v]) => v && SKILLS[k] && SKILLS[k].kind === 'active')) b.appendChild(el('div', 'first-pick', '⚔ <b>Начните с верхнего умения</b> — это активный приём, он появится кнопкой в бою. За ним идут два пассивных усиления, потом следующий приём. Всего 4 приёма — по одному на кнопку.'));
     const trees = el('div', 'tal-trees');
-    for (const br of BRANCHES.filter(x => myBr.includes(x.id))) trees.appendChild(talentBranch(br, P, id => { sel = W._skillSel = id; rerender(); }, sel));
+    trees.appendChild(talentBranch(cls, ids, P, id => { sel = W._skillSel = id; rerender(); }, sel));
     b.appendChild(trees);
     if (sel) b.appendChild(talentInfo(sel, P, edit));
   });
   m.live = true;
 };
-function talentBranch(br, P, onPick, sel) {
-  const ids = Object.keys(SKILLS).filter(id => SKILLS[id].b === br.id);
-  const rows = Math.max(...ids.map(id => SKILLS[id].row)) + 1;
+// snake layout: active in the middle column, the two passives after it side by side in the next row
+const talPos = (i, n) => { if (!i) return [1, 0]; const k = Math.floor((i - 1) / 3), g = (i - 1) % 3; return g === 2 ? [1, 2 * k + 2] : i === n - 1 ? [1, 2 * k + 1] : [g * 2, 2 * k + 1]; };
+function talentBranch(cls, ids, P, onPick, sel) {
+  const cell = {}; ids.forEach((id, i) => cell[id] = talPos(i, ids.length));
+  const rows = Math.max(...ids.map(id => cell[id][1])) + 1;
   const W0 = 3 * TC + 2 * TGX, H0 = rows * TC + (rows - 1) * TGY;
-  const pos = id => [SKILLS[id].col * (TC + TGX), SKILLS[id].row * (TC + TGY)];
-  const panel = el('div', 'tal-branch tb-' + br.id, `<div class="tal-h"><span style="color:${br.color}">${esc(br.name)}</span> <b>${CH.branchPoints(br.id)}</b></div>`);
+  const pos = id => [cell[id][0] * (TC + TGX), cell[id][1] * (TC + TGY)];
+  const pts = ids.reduce((a, id) => a + (P.skills[id] || 0), 0);
+  const panel = el('div', 'tal-branch tb-' + cls, `<div class="tal-h"><span>${esc(CLASSES[cls].name)}</span> <b>${pts}</b></div>`);
   const grid = el('div', 'tal-grid'); grid.style.width = W0 + 'px'; grid.style.height = H0 + 'px';
-  // arrows: from a prerequisite (bottom centre) down to the skill it opens; gold when the requirement is met
+  // arrows: from the previous node to the one it opens; gold when the previous node is learned
   let svg = `<svg class="tal-arrows" width="${W0}" height="${H0}" viewBox="0 0 ${W0} ${H0}">`;
-  for (const id of ids) for (const [k, n] of SKILLS[id].req) {
-    const [x1, y1] = pos(k), [x2, y2] = pos(id); const ok = (P.skills[k] || 0) >= n; const c = ok ? '#ffd24a' : '#6a6460';
-    const ax = x1 + TC / 2, ay = y1 + TC, bx = x2 + TC / 2, by = y2 - 4, my = ay + (by - ay) / 2;
-    const d = ax === bx ? `M${ax},${ay} L${bx},${by}` : `M${ax},${ay} L${ax},${my} L${bx},${my} L${bx},${by}`;
-    svg += `<path d="${d}" fill="none" stroke="${c}" stroke-width="${ok ? 5 : 4}" stroke-linejoin="round"${ok ? ' class="lit"' : ''}/><path d="M${bx - 7},${by - 7} L${bx},${by + 2} L${bx + 7},${by - 7}" fill="${c}"/>`;
+  for (let i = 1; i < ids.length; i++) {
+    const k = ids[i - 1], [x1, y1] = pos(k), [x2, y2] = pos(ids[i]); const ok = (P.skills[k] || 0) >= 1; const c = ok ? '#ffd24a' : '#6a6460';
+    let d, head;
+    if (y1 === y2) { const ax = x1 + TC, ay = y1 + TC / 2, bx = x2 - 4; d = `M${ax},${ay} L${bx},${ay}`; head = `M${bx - 7},${ay - 7} L${bx + 2},${ay} L${bx - 7},${ay + 7}`; }
+    else { const ax = x1 + TC / 2, ay = y1 + TC, bx = x2 + TC / 2, by = y2 - 4, my = ay + (by - ay) / 2; d = ax === bx ? `M${ax},${ay} L${bx},${by}` : `M${ax},${ay} L${ax},${my} L${bx},${my} L${bx},${by}`; head = `M${bx - 7},${by - 7} L${bx},${by + 2} L${bx + 7},${by - 7}`; }
+    svg += `<path d="${d}" fill="none" stroke="${c}" stroke-width="${ok ? 5 : 4}" stroke-linejoin="round"${ok ? ' class="lit"' : ''}/><path d="${head}" fill="${c}"/>`;
   }
   grid.innerHTML = svg + '</svg>';
   for (const id of ids) {
-    const sk = SKILLS[id], r = P.skills[id] || 0, can = CH.canLearn(id), open = CH.reqsMet(id);
+    const sk = SKILLS[id], r = P.skills[id] || 0, can = CH.canLearn(id), open = CH.reqsMet(id), lv = unlockLevel(cls, id);
     const st = r >= sk.max ? 'max' : r ? 'have' : can.ok ? 'can' : open ? 'open' : 'locked';
     const [x, y] = pos(id);
     const n = el('button', `tal tal-${st}${sk.kind === 'active' ? ' act' : ''}${sel === id ? ' sel' : ''}`); n.style.left = x + 'px'; n.style.top = y + 'px';
@@ -271,6 +274,7 @@ function talentBranch(br, P, onPick, sel) {
     n.appendChild(el('span', 'tal-r', `${r}/${sk.max}`));
     if (sk.kind === 'active') n.appendChild(el('span', 'tal-a', '⚔'));
     if (can.ok) n.appendChild(el('span', 'tal-plus', '+'));
+    else if (!r && P.level < lv) n.appendChild(el('span', 'tal-lv', `ур. ${lv}`));
     n.onclick = () => { bus.emit('sfx', 'click'); onPick(id); };
     grid.appendChild(n);
   }
@@ -533,7 +537,7 @@ W.npc_trainer = () => {
     b.appendChild(el('p', '', `<i>«${esc(DIALOG.trainer.hello[P.tutorial.trainerGift ? 1 : 0])}»</i>`));
     if (!P.tutorial.trainerGift) {
       const C = CLASSES[P.cls || 'warrior'];
-      const opts = P.cls === 'mage' ? [['fireball', 'Огненный шар'], ['ice_shard', 'Ледяной снаряд'], ['chain', 'Цепная молния']] : P.cls === 'archer' ? [['volley', 'Залп'], ['ice_shard', 'Ледяной снаряд']] : [['whirlwind', 'Вихрь'], ['fireball', 'Огненный шар']];
+      const first = classSkillOrder(P.cls || 'warrior')[0], opts = [[first, SKILLS[first].name]];
       b.appendChild(el('p', 'good', 'Первый урок бесплатно: выберите приём — наставник обучит ему сразу.'));
       const row = el('div', 'row');
       for (const [id, n] of opts) { const bt = el('button', 'btn gold', n); bt.onclick = () => { P.tutorial.trainerGift = id; CH.grantSkill(id); bus.emit('toast', { text: 'Изучено: ' + n, kind: 'good' }); rerender(); }; row.appendChild(bt); }
