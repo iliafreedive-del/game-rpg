@@ -434,7 +434,7 @@ canvas#game{filter:saturate(1.22) contrast(1.08) brightness(1.06)}
 .wh-pointer{position:absolute;top:-14px;left:50%;transform:translateX(-50%);color:#ffd24a;font-size:34px;text-shadow:0 2px 4px #000}
 .wh-res{text-align:center;min-height:24px;margin:6px 0;font:600 15px var(--serif)}
 /* quests window */
-.q-tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:10px}
+.q-tabs{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:10px}
 .q-tab{position:relative;padding:10px 4px;border-radius:10px;border:2px solid #5a4520;background:linear-gradient(#2a2016,#16100a);color:#e8d7b0;font:600 13px var(--serif)}
 .q-tab.on{border-color:#ffd24a;color:#ffd96a;box-shadow:0 0 12px #ffd24a55}
 .q-tab i{position:absolute;top:-7px;right:-5px;font:800 11px/18px sans-serif;font-style:normal;min-width:18px;height:18px;border-radius:9px;background:#d33;color:#fff}
@@ -448,3 +448,19 @@ canvas#game{filter:saturate(1.22) contrast(1.08) brightness(1.06)}
 .q-card .btn{position:absolute;right:10px;top:10px}
 .q-ch{font:600 14px var(--serif);color:var(--gold);margin-bottom:8px}
 .q-card{padding-right:118px}@media(max-width:420px){.q-card{padding-right:12px}.q-card .btn{position:static;margin-top:6px}}
+/* «Охота»: таймер до следующей тревоги / активное чудовище */
+#huntBox{pointer-events:auto;cursor:pointer;font:600 13px var(--serif);color:#e8d9b0;background:#000b;padding:3px 10px;border-radius:12px;border:1px solid #5a4520;white-space:nowrap;text-align:right}
+#huntBox b{color:var(--gold);font-variant-numeric:tabular-nums}
+#huntBox.on{border-color:#c0302a;border-radius:8px;padding:4px 10px 5px;white-space:normal;max-width:100%;animation:huntPulse 1.6s ease-in-out infinite}
+#huntBox .hb-t{color:#ff9a84;font:600 14px var(--serif);text-shadow:0 0 8px #a01010}
+#huntBox .hb-d{color:#ddd;font-size:12px}
+#huntBox.flash{animation:huntFlash .5s 4,huntPulse 1.6s ease-in-out 2s infinite}
+@keyframes huntPulse{0%,100%{box-shadow:0 0 0 #f000}50%{box-shadow:0 0 14px #ff3020aa}}
+@keyframes huntFlash{50%{transform:scale(1.08);background:#5a0e0acc}}
+#ui.fight #huntBox:not(.on){opacity:.5}
+.q-card.hunt{border-color:#8a2a20}
+.q-card.hunt .q-t{color:#ff9a84}
+.q-card .hunt-steps{margin:6px 0 4px 18px;padding:0;font-size:13px}
+.q-card .hunt-steps li{margin:2px 0}
+.hunt-timer{font:600 22px var(--serif);color:var(--gold);text-align:center;margin:10px 0 4px;font-variant-numeric:tabular-nums}
+@media(max-width:480px){.q-tab{font-size:11px;padding:8px 2px}}

@@ -194,6 +194,19 @@ const AI = {
     }
     if (d > e.D.range + P.r) e.moveToward(P.x, P.y, dt, ph === 3 ? 1.3 : 1); else e.setAnim('idle', 5, true, e.anim.clip !== 'idle');
   },
+  // hunt mini-bosses: a base behaviour + special abilities from data/hunts.js (enrage / summon / nova / volley)
+  mini(e, dt, P, d, dx, dy) {
+    const A = e.D.abil || {};
+    if (A.enrage && !e.enraged && e.hp < e.maxHP * 0.5) { e.enraged = true; bus.emit('float', { x: e.x, y: e.y, text: 'ЯРОСТЬ!', color: '#ff5040', big: 1 }); bus.emit('sfx', 'roar'); if (A.summon) bus.emit('miniSummon', e); }
+    if (A.summon) { e.sumT = (e.sumT ?? A.summon.cd * 0.5) - dt; if (e.sumT <= 0) { e.sumT = A.summon.cd * (e.enraged ? 0.7 : 1); bus.emit('miniSummon', e); } }
+    if (A.nova) e.novaT = (e.novaT ?? A.nova.cd * 0.5) - dt;
+    if (A.volley) e.volT = (e.volT ?? A.volley.cd * 0.5) - dt;
+    if (e.cd <= 0) {
+      if (A.nova && e.novaT <= 0 && d < A.nova.r + 0.8) { e.novaT = A.nova.cd * (e.enraged ? 0.75 : 1); e.startAttack('nova', P); e.setAnim('attack', 5); e.atk.impact = 0.8; e.cd = 1; return; }
+      if (A.volley && e.volT <= 0 && d < e.D.range && G.zone.map.los(e.x, e.y, P.x, P.y)) { e.volT = A.volley.cd * (e.enraged ? 0.75 : 1); e.startAttack('volley', P); e.setAnim('attack', 6); e.cd = e.D.cd; return; }
+    }
+    AI[e.D.base](e, dt, P, d, dx, dy);
+  },
 };
 function ranged(e, dt, P, d) {
   const los = G.zone.map.los(e.x, e.y, P.x, P.y);

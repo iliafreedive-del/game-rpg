@@ -21,6 +21,8 @@ import { openHeroPath } from './herospath.js';
 import { adButton } from './adbtn.js';
 import { openWheel, wheelReady } from './wheel.js';
 import * as SV from '../game/survival.js';
+import * as HU from '../game/hunts.js';
+import { huntReward } from '../data/hunts.js';
 import { BOONS, BOON_IDS } from '../data/boons.js';
 import { stats as calcStats } from '../game/stats.js';
 import { maybeInterstitial } from '../platform/monetize.js';
@@ -233,13 +235,13 @@ W.skills = (arg = {}) => {
 
 // Quests: tabs like mobile hits — Story / Daily / Weekly / Contracts, with reward chips and clear buttons
 W.journal = (arg = {}) => {
-  let tab = W._qtab || 'story';
+  let tab = arg.tab || W._qtab || 'story'; W._qtab = tab;
   const m = modal('Задания', 'md', b => {
     const P = G.profile, st = P.story.stage;
     const dq = DQ.dailyQuests(), wq = DQ.weeklyQuests();
-    const cnt = { daily: dq.filter(q => q.done && !q.claimed).length, weekly: wq.filter(q => q.done && !q.claimed).length, contracts: REPEATABLE.filter(r => Q.repState(r).done).length };
+    const cnt = { hunt: HU.current() ? 1 : 0, daily: dq.filter(q => q.done && !q.claimed).length, weekly: wq.filter(q => q.done && !q.claimed).length, contracts: REPEATABLE.filter(r => Q.repState(r).done).length };
     const tabs = el('div', 'q-tabs');
-    for (const [id, name] of [['story', 'Сюжет'], ['daily', 'Ежедневные'], ['weekly', 'Недельные'], ['contracts', 'Контракты']]) {
+    for (const [id, name] of [['story', 'Сюжет'], ['hunt', 'Охота'], ['daily', 'Ежедневные'], ['weekly', 'Недельные'], ['contracts', 'Контракты']]) {
       const t = el('button', 'q-tab' + (tab === id ? ' on' : ''), `${name}${cnt[id] ? `<i>${cnt[id]}</i>` : ''}`); t.onclick = () => { tab = W._qtab = id; rerender(); }; tabs.appendChild(t);
     }
     b.appendChild(tabs);
@@ -256,6 +258,27 @@ W.journal = (arg = {}) => {
       if (q) { const pr = Q.progressOf(q); const it = el('div', 'q-card cur', `<div class="q-t">➤ ${esc(q.title)}</div><div class="muted">${esc(q.text)}</div>${pr ? `<div class="q-prog"><div class="pbar"><i style="width:${pr.cur / pr.max * 100}%"></i></div><span>${pr.cur}/${pr.max}</span></div>` : ''}${chips({ gold: q.reward && q.reward.gold, xp: q.reward && q.reward.xp, item: q.reward && q.reward.items && q.reward.items.length, skillPts: q.reward && q.reward.skillPts, potions: q.reward && q.reward.potions })}`);
         const go = el('button', 'btn sm gold', 'Показать путь'); go.onclick = () => { closeModal(); bus.emit('toast', { text: 'Идите за золотыми стрелками', kind: 'quest' }); }; it.appendChild(go); b.appendChild(it); }
       for (let i = st - 1; i >= Math.max(0, st - 3); i--) b.appendChild(el('div', 'q-card claimed', `<div class="q-t">✔ ${esc(STORY[i].title)}</div>`));
+    } else if (tab === 'hunt') {
+      const cur = HU.current(), hs = HU.state();
+      if (!HU.unlocked()) b.appendChild(el('div', 'q-card', '<div class="q-t">Охота ещё не началась</div><div class="muted">Спуститесь в катакомбы через портал Ордена — после этого раз в 15 минут будут приходить тревожные слухи о чудовищах.</div>'));
+      else if (cur) {
+        const H = HU.defOf(cur), B = HU.bossOf(cur), r = huntReward(cur.lvl);
+        const c = el('div', 'q-card hunt', `<div class="q-t">⚠ ${esc(H.title)}</div><div class="muted"><i>«${esc(H.rumor)}»</i></div>
+          <div style="margin-top:6px"><b>Чудовище:</b> <span style="color:#ff9a84">${esc(B.name)}</span> · ур. ${cur.lvl}</div><div class="muted"><small>${esc(B.desc)}</small></div>
+          <div style="margin-top:6px"><b>Где:</b> ${esc(HU.whereText(cur))}</div><ol class="hunt-steps">${HU.steps(cur).map(t => `<li>${esc(t)}</li>`).join('')}<li>Победите чудовище — награда выдаётся сразу.</li></ol>
+          ${chips({ gold: r.gold, xp: r.xp, shards: r.shards, potions: r.potions, item: 1 })}`);
+        const go = el('button', 'btn sm gold', 'Показать путь'); go.onclick = () => { closeModal(); bus.emit('toast', { text: 'Идите за красными стрелками', sub: HU.whereText(cur), kind: 'quest' }); }; c.appendChild(go); b.appendChild(c);
+        const ab = el('button', 'btn sm', 'Отказаться от охоты'); ab.disabled = !HU.canAbandon(); ab.title = ab.disabled ? 'Нельзя, пока чудовище сражается с вами' : 'Новая тревога придёт через 15 минут';
+        ab.onclick = () => { if (confirm('Отказаться? Новая охота появится только через 15 минут.')) { HU.abandon(); rerender(); } }; b.appendChild(ab);
+        b.appendChild(el('p', 'muted', '<small>Пока эта охота не завершена, новая тревога не придёт — таймер стоит.</small>'));
+      } else {
+        const t = el('div', 'hunt-timer', ''); const upd = () => { const ms = HU.msLeft(), s = Math.ceil(ms / 1000); t.textContent = `Следующая тревога через ${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
+        upd(); const iv = setInterval(() => { if (!t.isConnected) clearInterval(iv); else upd(); }, 1000);
+        b.appendChild(el('div', 'q-card', '<div class="q-t">Пока всё тихо…</div><div class="muted">Раз в 15 минут где-то объявляется чудовище: в лесу у деревни, на кладбище, в залах катакомб или на этаже Глубин. Такие мини-боссы встречаются <b>только</b> в охотах.</div>'));
+        b.appendChild(t);
+      }
+      if (hs.done) b.appendChild(el('p', 'muted', `<small>Завершено охот: ${hs.done}</small>`));
+      b.appendChild(el('p', 'muted', `<small>Таймер — справа вверху под золотом. Награда: золото, опыт, осколки Бездны ◆ и именной трофей.</small>`));
     } else if (tab === 'daily') {
       const r = DQ.dqReward(); for (const q of dq) b.appendChild(card(q.title, q.cur, q.n, { gold: r.gold, potions: r.potions }, q.claimed ? 'claimed' : q.done ? 'done' : 'go', () => DQ.claimDaily(q.id)));
       b.appendChild(el('p', 'muted', '<small>Все три — «Сундук дня» с редкой вещью. Новые задания каждый день.</small>'));
@@ -482,15 +505,16 @@ W.depths = () => modal('Глубины катакомб', 'sm', b => {
   trow.appendChild(adButton('+5 факелов', 'torch5', 30 * 60e3, () => CS.addTorches(5), rerender, 'btn ad sm')); b.appendChild(trow);
   const enter = f => { if (!CS.spendTorch()) { bus.emit('toast', { text: 'Нет факелов', sub: 'Они восстанавливаются сами: 1 за 20 минут', kind: 'warn' }); return; } closeModal(); loadZone('depths', { floor: f }); };
   b.appendChild(el('p', 'muted', 'Короткие забеги на 5–8 минут. Каждый 5-й этаж — страж. Звёзды: ★ пройти, ★★ убить 90% врагов, ★★★ быстро и без смертей.'));
+  if (HU.huntFloor()) b.appendChild(el('p', 'bad', `⚠ Охота: ${esc(HU.bossOf(HU.current()).name)} — этаж ${HU.huntFloor()}`));
   const next = P.depths.best + 1;
-  const go = el('button', 'btn gold', `▶ Этаж ${next}${isBossFloor(next) ? ' · страж' : ''} (ур. врагов ${floorLevel(next)})`);
+  const go = el('button', 'btn gold', `▶ Этаж ${next}${isBossFloor(next) ? ' · страж' : ''}${HU.huntFloor() === next ? ' · ⚠ охота' : ''} (ур. врагов ${floorLevel(next)})`);
   go.style.width = '100%'; go.disabled = P.level < floorLevel(next) - 1; if (go.disabled) go.textContent = `Этаж ${next}: нужен уровень ${floorLevel(next) - 1}`; go.onclick = () => enter(next);
   b.appendChild(go);
   if (P.depths.best) {
     b.appendChild(el('h3', '', 'Пройденные этажи'));
     const grid = el('div', 'row');
     for (let f = Math.max(1, P.depths.best - 11); f <= P.depths.best; f++) {
-      const s = P.depths.stars[f] || 0; const bt = el('button', 'btn sm', `${f}${isBossFloor(f) ? '♛' : ''} ${'★'.repeat(s)}${'☆'.repeat(3 - s)}`);
+      const s = P.depths.stars[f] || 0; const bt = el('button', 'btn sm' + (HU.huntFloor() === f ? ' gold' : ''), `${HU.huntFloor() === f ? '⚠' : ''}${f}${isBossFloor(f) ? '♛' : ''} ${'★'.repeat(s)}${'☆'.repeat(3 - s)}`);
       bt.onclick = () => enter(f); grid.appendChild(bt);
     }
     b.appendChild(grid);

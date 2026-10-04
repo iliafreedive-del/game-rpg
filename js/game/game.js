@@ -18,6 +18,7 @@ import { wheelReady } from '../ui/wheel.js';
 import { ROOMS, DECOR } from '../data/upgrades.js';
 import * as CS from './castle.js';
 import * as SV from './survival.js';
+import * as HU from './hunts.js';
 import { resize as rResize } from '../render/renderer.js';
 import { SKILLS } from '../data/skills.js';
 import { rand, rrange, rint } from '../core/util.js';
@@ -86,17 +87,18 @@ export async function loadZone(id, how = {}) {
     [pl.x, pl.y] = from ? [portal.x + 1.2, portal.y + 1.6] : zone.start; pl.face = pl.dir = 1;
     for (const n of zone.json.npcs) G.npcs.push(new NPC({ ...n }));
     await loadGroup(zone.json.npcs.map(n => 'npc_' + n.id)).catch(() => { });
+    HU.spawnFor(zone);   // hunt beast at the forest edge / graveyard
   } else if (id === 'survival') {
     [pl.x, pl.y] = zone.start; pl.face = pl.dir = 1;
   } else if (id === 'castle') {
     [pl.x, pl.y] = zone.start; pl.face = pl.dir = 5; G.trial = null;
   } else if (id === 'depths') {
     [pl.x, pl.y] = zone.start; pl.face = pl.dir = 1;
-    spawnFloor(zone); G.diedThisRun = false; G.dungeonCache = null;
+    spawnFloor(zone); HU.spawnFor(zone); G.diedThisRun = false; G.dungeonCache = null;
     G.run = { floor: zone.json.floorN, t0: G.time, kills: 0, total: G.enemies.length, gold0: P.stats.gold, deaths: 0, done: false, boons: how.keepBoons && G.lastBoons ? G.lastBoons.slice() : [] }; G.lastBoons = null;
   } else {
     if (how.useCache && G.dungeonCache) { pl.x = G.dungeonCache.x; pl.y = G.dungeonCache.y; G.dungeonCache = null; }
-    else { [pl.x, pl.y] = zone.start; spawnDungeon(zone); G.diedThisRun = false; G.dungeonCache = null; }
+    else { [pl.x, pl.y] = zone.start; spawnDungeon(zone); HU.spawnFor(zone); G.diedThisRun = false; G.dungeonCache = null; }
     pl.face = pl.dir = 1;
   }
   [pl.x, pl.y] = zone.map.nearestFree(pl.x, pl.y, pl.r + 0.05);
@@ -393,7 +395,7 @@ export function update(dt) {
   if (best && best.type === 'door') best.label = G.profile.world.hasKey ? 'Отпереть дверь ключом' : 'Дверь заперта';
   if (best !== G.focus) { G.focus = best; bus.emit('focus', best); }
   // quest checks for proximity objectives
-  if ((questT += dt) > 0.3) { questT = 0; Q.check(); updateMarkers(); }
+  if ((questT += dt) > 0.3) { questT = 0; Q.check(); HU.tick(); updateMarkers(); }
   // autosave
   saveTimer += dt; if ((saveQueued && saveTimer > 1.5 && !inCombat()) || saveTimer > 15) saveNow();
 }
@@ -408,7 +410,7 @@ function updateMarkers() {
     if (!t && q.id === 'medallion' && G.profile.world.hasKey) t = G.zone.inter.find(i => i.type === 'door' && !i.done) || G.zone.inter.find(i => i.id === 'medallion');
   }
   if (G.zoneId === 'depths') { const ex = G.zone.inter.find(i => i.id === 'floor_exit'); t = ex && !ex.hidden ? ex : G.enemies.find(e => e.story === 'floorboss' && !e.dead) || null; }
-  G.guide = t;
+  G.guide = t; G.huntGuide = HU.guideTarget();
   for (const n of G.npcs) n.marker = q && q.target === n.id ? (q.id === 'finish' ? '?' : '!') : null;
   for (const it of G.zone.inter) { if (it.type === 'socket') { const open = it.room === 'hall' || (G.profile.castle && G.profile.castle[it.room]); it.hidden = !open; it.glow = open && !(G.profile.castle.decor && G.profile.castle.decor[it.sid]); } else if (it.type === 'roomgate') { it.plate = it.done ? null : ROOMS[it.room].name; it.reqLevel = it.done ? 0 : ROOMS[it.room].lvl; } else if (it.type === 'room') it.plate = ROOMS[it.room].name; }
   const wh = G.zone.inter.find(i => i.id === 'wheel'); if (wh) wh.marker = wheelReady() ? '!' : null;

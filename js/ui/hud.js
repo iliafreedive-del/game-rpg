@@ -20,6 +20,7 @@ import { hwReady } from './herospath.js';
 import { skillCanvas } from './icons.js';
 const skillCanvasInto = (cv, id) => { const s = skillCanvas(id, cv.width, false); const x = cv.getContext('2d'); x.clearRect(0, 0, cv.width, cv.height); x.drawImage(s, 0, 0, cv.width, cv.height); };
 import * as SV from '../game/survival.js';
+import * as HU from '../game/hunts.js';
 
 let lastHud = 0, trackOpenUntil = 0;
 export function initHUD() {
@@ -28,6 +29,8 @@ export function initHUD() {
   for (const b of document.querySelectorAll('[data-open]')) b.onclick = () => { bus.emit('sfx', 'click'); openWindow(b.dataset.open); };
   $('btnMenu').onclick = () => { bus.emit('sfx', 'click'); openWindow('menu'); };
   $('portrait').onclick = () => openWindow('character');
+  $('huntBox').onclick = () => { bus.emit('sfx', 'click'); openWindow('journal', { tab: 'hunt' }); };
+  bus.on('huntNew', () => { const b = $('huntBox'); b.classList.remove('flash'); void b.offsetWidth; b.classList.add('flash'); });
   $('tracker').onclick = () => { trackOpenUntil = $('tracker').classList.contains('open') ? 0 : G.time + 8; lastHud = 0; };
   // combat buttons (pointer events → instant response, supports multi-touch with joystick)
   const hold = (id, on, off) => { const b = $(id); b.addEventListener('pointerdown', e => { e.preventDefault(); b.classList.add('on'); on(); }); const up = () => { b.classList.remove('on'); off && off(); }; b.addEventListener('pointerup', up); b.addEventListener('pointercancel', up); b.addEventListener('pointerleave', up); };
@@ -132,7 +135,19 @@ export function updateHUD(dt) {
   if (pl.shield > 1) bf.push(`Щит ${Math.round(pl.shield)}`);
   if (G.run && G.run.boons) for (const id of G.run.boons) bf.push(`${BOONS[id].glyph} ${BOONS[id].name}`);
   $('buffs').innerHTML = bf.map(b => `<span class="buff">${b}</span>`).join('');
-  tracker(); minimap();
+  tracker(); huntBox(); minimap();
+}
+// «Охота»: always-visible timer to the next alarm, or the active beast and where it lurks
+let lastHunt = '';
+function huntBox() {
+  let h = '', on = false;
+  if (HU.unlocked() && !G.surv) {
+    const cur = HU.current();
+    if (cur) { on = true; h = `<div class="hb-t">⚠ Охота: ${esc(HU.bossOf(cur).name)}</div><div class="hb-d">${esc(HU.whereText(cur))}</div>`; }
+    else h = `<span class="hb-ico">🎯</span> Охота через <b>${mmss(HU.msLeft())}</b>`;
+  }
+  const b = $('huntBox'); b.classList.toggle('hidden', !h); b.classList.toggle('on', on);
+  if (h !== lastHunt) { b.innerHTML = h; lastHunt = h; }
 }
 const mmss = ms => { const s = Math.ceil(ms / 1000); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
 export const BADGES = {};
@@ -181,6 +196,7 @@ export function drawMap(x, size, Z, S, P, span) {
   const dotAt = (wx, wy, col, r) => { x.fillStyle = col; x.beginPath(); x.arc((wx - cx) * cell, (wy - cy) * cell, r, 0, 7); x.fill(); };
   for (const it of Z.inter) if (!it.hidden) { if (Z.dark && S && !S[Math.floor(it.y) * m.w + Math.floor(it.x)]) continue; dotAt(it.x, it.y, it.type === 'portal' ? '#b48cff' : it.type === 'npc' ? '#ffd24a' : it.done ? '#666' : '#e8c26a', Math.max(2, cell * 0.6)); }
   const q = Q.current(); if (q && q.target) { const t = Z.inter.find(i => i.id === q.target) || (q.target === 'elite' || q.target === 'boss' ? G.enemies.find(e => e.story === q.target) : null); if (t) { x.strokeStyle = '#ffd24a'; x.lineWidth = 2; x.beginPath(); x.arc((t.x - cx) * cell, (t.y - cy) * cell, Math.max(4, cell * 1.2), 0, 7); x.stroke(); } }
+  const hg = G.huntGuide; if (hg && (!Z.dark || !S || S[Math.floor(hg.y) * m.w + Math.floor(hg.x)] || hg.D)) { x.strokeStyle = '#ff4030'; x.lineWidth = 2; x.beginPath(); x.arc((hg.x - cx) * cell, (hg.y - cy) * cell, Math.max(5, cell * 1.4), 0, 7); x.stroke(); }
   for (const e of G.enemies) if (!e.dead && e.aggro) dotAt(e.x, e.y, e.D.boss || e.D.elite ? '#ff8030' : '#d33', Math.max(1.5, cell * 0.4));
   dotAt(P.x, P.y, '#fff', Math.max(2.5, cell * 0.7));
   x.restore();
