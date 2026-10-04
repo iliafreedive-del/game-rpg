@@ -10,5 +10,14 @@
   "glb": "assets/models/dog_town.glb",
   "rig": "wolf_grey",
   "remesh": "01a105db-ffc1-716b-93c6-06ad63008153"
+ },
+ "dog_brown": {
+  "rig": "wolf_grey"
+ },
+ "wolf_ice": {
+  "rig": "wolf_grey"
+ },
+ "beast": {
+  "rig": "wolf_grey"
  }
 }
