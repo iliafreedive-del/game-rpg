@@ -8,8 +8,10 @@ import { toon, outline } from './toon.js';
 import { OUTLINE } from './style.js';
 import { fixZeroNormals } from './geo.js';
 
-export const SKINS = { on: true };
-const STRIDE_K = 1.7;   // замедление ходьбы и бега из клипов модели (маг, воин) при той же скорости героя     // переключатель (Настройки → «Новые модели»): false — процедурные модели
+export const SKINS = { on: true };     // переключатель (Настройки → «Новые модели»): false — процедурные модели
+// бег из клипов модели (маг, воин) спокойнее, «по-геройски»: STRIDE_K — ноги перебирают реже при той же скорости героя;
+// RUN_MAX — клип бега (спринт Mixamo) подмешивается к ходьбе не больше чем наполовину; CALM — размах рук, корпуса и головы из клипа
+const STRIDE_K = 2.1, RUN_MAX = 0.5, CALM = { armL: 0.45, elL: 0.45, handL: 0.45, armR: 0.45, elR: 0.45, handR: 0.45, torso: 0.6, head: 0.6 };
 const BASE = new URL('../../assets/models/', import.meta.url).href;
 const HAS_DOM = typeof document !== 'undefined';
 const data = new Map(), wait = new Map();
@@ -91,12 +93,29 @@ export function attachSkin(kit, model, name, o = {}) {
   }
   const clipQ = new Map();
   const bowHand = o.bowHand ? byName[o.bowHand] : null, armDir = new THREE.Vector3(...at.elL).sub(new THREE.Vector3(...at.armL)).normalize();
+  // o.armOut: правая рука (с мечом) не заходит в корпус. Удар наотмашь рига заводит кисть к середине тела — у процедурного
+  // воина узкая грудь, а у модели широкие наплечники и табард, и локоть с рукоятью уходили внутрь. Если локоть или кисть
+  // (в системе корпуса) ближе к оси тела, чем armOut, вся рука доворачивается наружу вокруг плеча
+  const armOut = o.armOut || 0, _pe = new THREE.Vector3(), _ph = new THREE.Vector3(), _qt = new THREE.Quaternion(), _ax = new THREE.Vector3();
+  function armOutward() {
+    const qa = wq.get(byName.armR), qe = wq.get(byName.elR), qh = wq.get(byName.handR), qt = wq.get(byName.torso); if (!qa || !qe || !qt) return;
+    _qt.copy(qt).invert();
+    _pe.fromArray(at.elR).sub(_v.fromArray(at.armR)).applyQuaternion(qa);
+    _ph.fromArray(at.handR).sub(_v.fromArray(at.elR)).applyQuaternion(qe).add(_pe);
+    _pe.applyQuaternion(_qt); _ph.applyQuaternion(_qt);   // в системе корпуса, от плеча
+    const sx = at.armR[0], need = Math.max(_pe.x + sx + armOut * 1.6, _ph.x + sx + armOut);   // > 0 — зашла внутрь
+    if (need <= 0) return;
+    const r = Math.max(0.25, Math.hypot(_ph.x, _ph.y)), ang = (_ph.y > 0 ? 1 : -1) * Math.min(1.2, need / r);   // поворот вокруг оси «вперёд» корпуса: кисть уходит наружу (вниз опущенная, вверх поднятая)
+    _q.setFromAxisAngle(_ax.set(0, 0, 1).applyQuaternion(qt), ang);
+    qa.premultiply(_q); qe.premultiply(_q); if (qh) qh.premultiply(_q);
+  }
   // копирование движения: Wнов = Wтек · Wпокоя⁻¹ (в пространстве корня), локальный = Wнов(родитель)⁻¹ · Wнов
   function sync() {
     for (const [b, p] of map) wq.set(b, worldQ(p, root, new THREE.Quaternion()).multiply(idleQ.get(b)));
     if (CL && clipW > 0.001) {
       bones.forEach((b, i) => {
         const q = frameQ(CL.walk, i, _ca); if (CL.run && runW > 0) { const qr = frameQ(CL.run, i, new THREE.Quaternion()); q.slerp(qr, runW); }
+        if (CALM[b.name]) q.slerp(_qi.identity(), 1 - CALM[b.name]);   // к позе покоя: руки и меч почти не машут
         const w = wq.get(b); if (w) w.slerp(q, clipW); else wq.set(b, q.clone());
       });
       frameHips(CL.walk, _ho); if (CL.run && runW > 0) _ho.lerp(frameHips(CL.run, new THREE.Vector3()), runW);
@@ -105,6 +124,7 @@ export function attachSkin(kit, model, name, o = {}) {
       const sh = o.staffHand && wq.get(byName[o.staffHand]);
       if (sh) { _u.set(0, 1, 0).applyQuaternion(sh); _qc.setFromUnitVectors(_u, _t.set(0, 1, 0)); _q.identity().slerp(_qc, clipW * 0.85); sh.premultiply(_q); }
     }
+    if (armOut) armOutward();
     // лук в руке: в покое висит вдоль руки; когда рука поднята вперёд (прицел), кисть доворачивает лук вертикально
     // (поперёк руки, как у настоящего лучника), иначе он ложится горизонтально над головой. Вертикаль — в системе оси кувырка.
     if (bowHand) {
@@ -245,7 +265,7 @@ export function attachSkin(kit, model, name, o = {}) {
       clipW += ((mv ? 1 : 0) - clipW) * Math.min(1, dt * 14);
       if (clipW < 0.001) _ho.set(0, 0, 0);
       if (mv) {
-        const sc = actor.root.scale.x || 1; runW = CL.run ? Math.min(1, Math.max(0, (walkSp / sc - 2.0) / 1.2)) : 0;
+        const sc = actor.root.scale.x || 1; runW = CL.run ? Math.min(RUN_MAX, Math.max(0, (walkSp / sc - 2.0) / 1.2)) : 0;
         // STRIDE_K: шаг в клипе длиннее измеренного — ноги перебирают реже (без него бег семенил: ≈2,8 цикла/с вместо родных 1,5)
         ph = (ph + dt * walkSp / (((CL.run ? CL.run.stride : CL.walk.stride) * runW + CL.walk.stride * (1 - runW)) * sc * STRIDE_K)) % 1;
       }

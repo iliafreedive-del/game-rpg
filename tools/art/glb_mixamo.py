@@ -151,8 +151,10 @@ def main(src, name, *more):
         Q = P[sh]; lo, hi = Q.min(0), Q.max(0); back = np.array([(lo[0] + hi[0]) / 2, (lo[1] + hi[1]) / 2, lo[2]])
         el, ha = Wp[id_['LeftForeArm']][:3, 3], Wp[id_['LeftHand']][:3, 3]
         R = axis_rot([0, 1, 0], 62)
-        P1[sh] = (P[sh] - back) @ R.T + (el + ha) / 2 + R @ np.array([0, 0, 0.07]); N1[sh] = N[sh] @ R.T
+        P1[sh] = (P[sh] - back) @ R.T + el + (ha - el) * 0.95 + R @ np.array([0, 0, 0.07]); N1[sh] = N[sh] @ R.T   # ближе к кисти: кулак за щитом
         SW[sh] = 0; SW[sh, BI['elL']] = 1
+        # левая кисть держит щит — одно целое с предплечьем (иначе на ходу и в ударе высовывается из-под щита)
+        SW[:, BI['elL']] += SW[:, BI['handL']]; SW[:, BI['handL']] = 0
     SP = np.zeros((0, 3)); SN = SP; SUV = np.zeros((0, 2)); SI_ = np.zeros((0, 3), np.int64)
     foot = min(P1[body, 1])
     if C.get('staff'):
