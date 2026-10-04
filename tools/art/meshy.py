@@ -3,6 +3,8 @@
 
   MESHY_API_KEY=… python3 tools/art/meshy.py <картинка.png|jpg|webp> <имя> [--polycount 12000] [--prompt "текст для текстуры"]
   python3 tools/art/meshy.py --resume <имя>        # дождаться/докачать уже запущенную задачу (id берётся из журнала)
+  … --rig wolf_grey                                 # сразу взять скелет и анимации готового зверя (tools/art/rig_transfer.mjs)
+  python3 tools/art/meshy.py --local art_meshy/raw/<имя>.glb <имя> --rig wolf_grey   # GLB скачан вручную из кабинета Meshy
 
 Что делает:
   1. картинка → PNG (webp Meshy может не принять) → data URI → POST /openapi/v1/image-to-3d;
@@ -51,7 +53,18 @@ def start(img, name, a):
     print('задача', tid); return tid
 
 
-def finish(name, tid):
+def rig(name, donor):
+    dst = os.path.join(ROOT, 'assets/models', name + '.glb')
+    subprocess.run(['node', os.path.join(ROOT, 'tools/art/rig_transfer.mjs'), os.path.join(ROOT, 'assets/models', donor + '.glb'), dst, dst], check=True)
+    log_put(name, {'rig': donor})
+
+
+def local(src, name, donor):
+    dst = os.path.join(ROOT, 'assets/models', name + '.glb'); pack(src, dst)
+    if donor: rig(name, donor)
+
+
+def finish(name, tid, donor=None):
     while True:
         t = req(f'{API}/{tid}'); st = t.get('status')
         print(f'  {st} {t.get("progress", 0)}%', flush=True)
@@ -63,16 +76,18 @@ def finish(name, tid):
     if t.get('thumbnail_url'): urllib.request.urlretrieve(t['thumbnail_url'], os.path.join(ROOT, 'art_meshy/raw', name + '_thumb.png'))
     dst = os.path.join(ROOT, 'assets/models', name + '.glb'); pack(raw, dst)
     log_put(name, {'done': time.strftime('%Y-%m-%d %H:%M'), 'raw': os.path.relpath(raw, ROOT), 'glb': os.path.relpath(dst, ROOT)})
+    if donor: rig(name, donor)
 
 
 if __name__ == '__main__':
     p = argparse.ArgumentParser()
     p.add_argument('image', nargs='?'); p.add_argument('name', nargs='?')
-    p.add_argument('--resume'); p.add_argument('--polycount', type=int, default=12000)
+    p.add_argument('--resume'); p.add_argument('--local'); p.add_argument('--rig', help='имя ригнутого донора в assets/models (wolf_grey)'); p.add_argument('--polycount', type=int, default=12000)
     p.add_argument('--model', default='latest'); p.add_argument('--symmetry', default='auto')
     p.add_argument('--prompt'); p.add_argument('--pose', help='a-pose / t-pose — для двуногих')
     a = p.parse_args()
-    if a.resume: finish(a.resume, log_get()[a.resume]['task'])
+    if a.resume: finish(a.resume, log_get()[a.resume]['task'], a.rig)
+    elif a.local: local(a.local, a.image or a.name, a.rig)
     else:
         if not (a.image and a.name): p.error('нужны картинка и имя')
-        finish(a.name, start(a.image, a.name, a))
+        finish(a.name, start(a.image, a.name, a), a.rig)
