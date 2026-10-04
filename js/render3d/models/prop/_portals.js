@@ -4,6 +4,8 @@
 //  portal_crown — золотые колонны с фронтоном (Цитадель)        portal_maw   — железный обруч с шипами и черепом (Жатва Бездны, красный)
 //  portal_bone  — арка из рёбер великана, череп с огнём в глазницах, груды черепов (Костяные пустоши, оранжевый)
 import { skull, rib, tusk, vertebra, BONE_COL } from './_bones.js';
+import { portalMesh, PORTAL_GLB } from '../../portalglb.js';
+import portal from './portal.js';
 // Вихрь внутри — общий шейдер (цвет берётся из света у портала), форма диска меняется масштабом.
 function vortex(kit, col, sx, sy, y) {
   const { THREE } = kit;
@@ -98,4 +100,16 @@ export function portalDef(id, kind) {
       return { root, update(t) { v.mat.uniforms.uTime.value = t; } };
     } };
 }
-export const PORTAL_VARIANTS = [portalDef('portal_ring', 'ring'), portalDef('portal_spire', 'spire'), portalDef('portal_gate', 'gate'), portalDef('portal_crown', 'crown'), portalDef('portal_maw', 'maw'), portalDef('portal_bone', 'bone')];
+// Порталы деревни из Meshy (сборка 44, js/render3d/portalglb.js); пока пак не загружен — прежняя процедурная арка (fb)
+export function glbPortalDef(id, fb) {
+  return { id, kind: 'prop', outline: false,
+    build(kit, opts = {}) {
+      const m = portalMesh(id); if (!m) return fb.build(kit, opts);
+      const { THREE, PAL } = kit, S = PORTAL_GLB[id], root = new THREE.Group(); root.add(m);
+      const v = vortex(kit, new THREE.Color(opts.color ?? PAL.abyss), S.sx * S.h, S.sy * S.h, S.y * S.h); root.add(v.disc); root.rotation.y = Math.PI / 4;
+      return { root, update(t) { v.mat.uniforms.uTime.value = t; } };
+    } };
+}
+const PV = { ring: portalDef('portal_ring', 'ring'), spire: portalDef('portal_spire', 'spire'), gate: portalDef('portal_gate', 'gate'), crown: portalDef('portal_crown', 'crown'), maw: portalDef('portal_maw', 'maw'), bone: portalDef('portal_bone', 'bone') };
+export const PORTAL_VARIANTS = [...Object.values(PV),
+  glbPortalDef('portal_skulls', portal), glbPortalDef('portal_white', PV.spire), glbPortalDef('portal_bones', PV.bone), glbPortalDef('portal_sun', PV.gate), glbPortalDef('portal_swords', PV.crown)];

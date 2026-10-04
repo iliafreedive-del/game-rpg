@@ -4,6 +4,8 @@ import { DECOR } from '../data/upgrades.js';
 import { rand } from '../core/util.js';
 import { REALMS } from '../data/wild.js';
 
+// порталы деревни из Meshy (сборка 44): в 3D-деревне арки миров заменены (js/render3d/portalglb.js)
+const VILLAGE_PORTAL = { fjord: 'portal_white', bones: 'portal_bones', forest: 'portal_sun' };
 const hash = (x, y) => { let h = (x * 374761393 + y * 668265263) >>> 0; h = (h ^ (h >>> 13)) * 1274126177 >>> 0; return h; };
 
 // sprite, collider radius (or box half extents), light
@@ -211,7 +213,7 @@ export class Zone {
 
   buildTown(J, W) {
     const m = this.map;
-    const PORTALS = J.objects.filter(o => o.t === 'portal' || o.t === 'survportal' || o.t === 'castle' || o.t === 'depths' || o.t === 'wildportal');   // у порталов — расчищенная опушка
+    const PORTALS = J.objects.filter(o => o.t === 'portal' || o.t === 'swordportal' || o.t === 'survportal' || o.t === 'castle' || o.t === 'depths' || o.t === 'wildportal');   // у порталов — расчищенная опушка
     const nearPortal = (x, y) => PORTALS.some(o => (o.x - x) ** 2 + (o.y - y) ** 2 < 6.2 * 6.2);
     // border forest (collision comes from 'x' tiles)
     for (let y = 0; y < m.h; y += 1) for (let x = 0; x < m.w; x += 1) {
@@ -224,7 +226,7 @@ export class Zone {
     }
     for (const o of J.objects) {
       if (o.t === 'portal') {
-        const d = this.add({ x: o.x, y: o.y, spr: 'portal', anim: 'portal' });
+        const d = this.add({ x: o.x, y: o.y, spr: J.village ? 'portal_skulls' : 'portal', anim: 'portal' });
         this.addLight(o.x, o.y, { r: 5, c: [150, 110, 255], flicker: 0.3, z: 1.2 });
         this.inter.push({ id: 'portal_town', type: 'portal', to: 'catacombs', x: o.x, y: o.y, r: 1.8, label: 'Спуститься в катакомбы', draw: d, reqLevel: 1, plate: 'Катакомбы' });
         this.map.circles.push({ x: o.x, y: o.y - 0.1, r: 0.2 });
@@ -237,6 +239,10 @@ export class Zone {
         const d = this.add({ x: o.x, y: o.y, spr: 'portal_crown', anim: 'portal' });
         this.addLight(o.x, o.y, { r: 5, c: [255, 200, 110], flicker: 0.3, z: 1.2 });
         this.inter.push({ id: 'portal_castle', type: 'portal', to: 'castle', x: o.x, y: o.y, r: 1.8, label: 'Цитадель Ордена', draw: d, reqLevel: 3, plate: 'Цитадель' });
+        this.map.circles.push({ x: o.x, y: o.y - 0.1, r: 0.2 });
+      } else if (o.t === 'swordportal') {   // портал с мечами (сборка 44): пока только стоит, никуда не ведёт
+        this.add({ x: o.x, y: o.y, spr: 'portal_swords', anim: 'portal' });
+        this.addLight(o.x, o.y, { r: 5, c: [255, 190, 120], flicker: 0.3, z: 1.2 });
         this.map.circles.push({ x: o.x, y: o.y - 0.1, r: 0.2 });
       } else if (o.t === 'wheel') {
         this.prop({ ...o, t: 'runebed' }); this.addLight(o.x, o.y, { r: 4, c: [255, 210, 90], flicker: 0.3, z: 1 });
@@ -251,7 +257,7 @@ export class Zone {
         this.inter.push({ id: 'portal_depths', type: 'depths', x: o.x, y: o.y, r: 1.8, label: 'Глубины катакомб', draw: d, reqLevel: 6, plate: 'Глубины' });
         this.map.circles.push({ x: o.x, y: o.y - 0.1, r: 0.2 });
       } else if (o.t === 'wildportal') {
-        const RL = REALMS[o.realm]; const d = this.add({ x: o.x, y: o.y, spr: RL.portal, anim: 'portal' });
+        const RL = REALMS[o.realm]; const d = this.add({ x: o.x, y: o.y, spr: (J.village && VILLAGE_PORTAL[o.realm]) || RL.portal, anim: 'portal' });
         this.addLight(o.x, o.y, { r: 5, c: RL.portalColor, flicker: 0.3, z: 1.2 });
         this.inter.push({ id: 'portal_' + o.realm, type: 'wildportal', realm: o.realm, x: o.x, y: o.y, r: 1.8, label: RL.name, draw: d, reqLevel: RL.reqLevel, plate: RL.name });
         this.map.circles.push({ x: o.x, y: o.y - 0.1, r: 0.2 });
