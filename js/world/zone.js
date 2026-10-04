@@ -296,9 +296,10 @@ export class Zone {
           this.inter.push({ id: 'wild_next', type: 'wildnext', x: o.x, y: o.y, r: 1.7, label: 'Вглубь', draw: d, light: L, hidden: !!o.hidden, plate: 'Вглубь' }); break;
         }
         case 'wchest': {
-          const d = this.add({ x: o.x, y: o.y, spr: o.rich ? 'chest_rich' : 'chest' }); this.map.circles.push({ x: o.x, y: o.y, r: 0.35 });
+          const big = J.wild && J.wild.realm === 'bones' ? 2 : 1;   // в пустошах сундук из шкур в 2 раза больше (сборка 44) — и упор, и дотянуться
+          const d = this.add({ x: o.x, y: o.y, spr: o.rich ? 'chest_rich' : 'chest' }); this.map.circles.push({ x: o.x, y: o.y, r: 0.35 * big });
           if (o.rich) this.addLight(o.x, o.y, { r: 3, c: [255, 210, 110], flicker: 0.3, z: 0.8 });
-          this.inter.push({ id: o.id, type: 'chest', rich: !!o.rich, x: o.x, y: o.y, r: 1.4, label: 'Открыть сундук', draw: d }); break;
+          this.inter.push({ id: o.id, type: 'chest', rich: !!o.rich, x: o.x, y: o.y, r: 1.4 + 0.5 * (big - 1), label: 'Открыть сундук', draw: d }); break;
         }
         case 'fort_door': {   // ворота форта заперты, пока не перебиты лагеря вокруг (game/wild.js openGate)
           const g = J.wild.gate; const d = this.add({ x: o.x, y: o.y, spr: 'banner', model: 'fort_door', rot: 0, hidden: false }); const tiles = [[g.x - 1, g.y], [g.x, g.y], [g.x + 1, g.y]];
