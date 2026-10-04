@@ -153,10 +153,19 @@ export class Enemy {
   }
   moveToward(tx, ty, dt, spMul = 1, useFlow = true) {
     const map = G.zone.map; let vx = tx - this.x, vy = ty - this.y; const l = Math.hypot(vx, vy) || 1; vx /= l; vy /= l;
-    if (useFlow && !map.los(this.x, this.y, tx, ty)) { const f = map.flowDir(this.x, this.y); if (f) { vx = f[0]; vy = f[1]; } }
+    // путь: прямо, если не мешают ни стены, ни пропсы; иначе по полю в обход пропсов (раньше поле видело только стены,
+    // и мобы упирались в сундуки, саркофаги, деревья и камни). Проверка прямого пути — раз в 0,25 с
+    if (useFlow) {
+      if (!(this.pathT > G.time) || this.pathTx == null || Math.abs(this.pathTx - tx) + Math.abs(this.pathTy - ty) > 1) { this.pathT = G.time + 0.25; this.pathTx = tx; this.pathTy = ty; this.pathClear = map.clearPath(this.x, this.y, tx, ty, this.r * 0.9); }
+      if (!this.pathClear) { const f = map.chaseDir(this.x, this.y, tx, ty) || (!map.los(this.x, this.y, tx, ty) && map.flowDir(this.x, this.y)); if (f) { vx = f[0]; vy = f[1]; } }
+    }
     // separation from other enemies
     for (const o of G.enemies) { if (o === this || o.dead) continue; const ox = this.x - o.x, oy = this.y - o.y, dd = ox * ox + oy * oy, rr = (this.r + o.r) * 1.1; if (dd < rr * rr && dd > 1e-4) { const k = (rr - Math.sqrt(dd)) * 2; vx += ox * k; vy += oy * k; } }
     const sp = this.D.speed * 0.8 * spMul * this.speedMul();   // мобы заметно медленнее героя (бег героя 4.6 м/с)
+    // упёрся (шаг вперёд занят) — пробуем отклониться на 30…110° в ту сторону, что в прошлый раз помогла
+    { const l2 = Math.hypot(vx, vy) || 1; vx /= l2; vy /= l2; const pr = this.r * 0.9, ahead = Math.max(0.25, sp * 0.12);
+      if (!map.free(this.x + vx * ahead, this.y + vy * ahead, pr)) { const a0 = Math.atan2(vy, vx), sd = this.sideSign || 1;
+        for (const da of [0.5, 0.9, 1.3, 1.9]) { let hit = false; for (const sg of [sd, -sd]) { const a = a0 + da * sg; if (map.free(this.x + Math.cos(a) * ahead, this.y + Math.sin(a) * ahead, pr)) { vx = Math.cos(a); vy = Math.sin(a); this.sideSign = sg; hit = true; break; } } if (hit) break; } } }
     [this.x, this.y] = map.move(this.x, this.y, vx * sp * dt, vy * sp * dt, this.r * 0.9);
     this.dir = dirOf(vx, vy);
     const wf = (this.D.fps && this.D.fps.walk) || 10; this.setAnim('walk', wf * Math.max(0.5, spMul * this.speedMul()), true, this.anim.clip !== 'walk');

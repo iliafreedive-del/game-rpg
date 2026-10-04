@@ -98,18 +98,21 @@ export class GridMap {
   }
   gblocked(x, y) { return this.blocked(x, y) || this.obstacle(x, y); }
   // Separate BFS field from a guide target (quest arrow follows corridors, not straight lines)
-  guideDir(x, y, gx, gy) {
+  guideDir(x, y, gx, gy) { return this.fieldDir(this.gS || (this.gS = {}), x, y, gx, gy); }
+  // поле для мобов: обходит пропсы (сундуки, саркофаги, деревья, камни), а не только стены; своё, чтобы не мешать стрелке квеста
+  chaseDir(x, y, gx, gy) { return this.fieldDir(this.cS || (this.cS = {}), x, y, gx, gy); }
+  fieldDir(S, x, y, gx, gy) {
     const tx = Math.floor(gx), ty = Math.floor(gy), key = tx + ty * this.w;
-    if (!this.gf) this.gf = new Int16Array(this.w * this.h);
-    if (this.gKey !== key || this.gVer !== this.ver) {
-      this.gKey = key; this.gVer = this.ver; const f = this.gf; f.fill(-1);
+    if (!S.f) S.f = new Int16Array(this.w * this.h);
+    if (S.key !== key || S.ver !== this.ver || S.obsVer !== this.obsVer) {
+      this.obstacle(0, 0); S.key = key; S.ver = this.ver; S.obsVer = this.obsVer; const f = S.f; f.fill(-1);
       const q = new Int32Array(this.w * this.h); let h = 0, t = 0;
       // seed: target tile and its free neighbours (targets often stand on blocked tiles like doors)
       for (let k = -1; k < 8; k++) { const nx = k < 0 ? tx : tx + DX[k], ny = k < 0 ? ty : ty + DY[k]; if (!this.gblocked(nx, ny) && f[ny * this.w + nx] < 0) { f[ny * this.w + nx] = 0; q[t++] = ny * this.w + nx; } }
       while (h < t) { const i = q[h++]; const X = i % this.w, Y = (i / this.w) | 0, d = f[i];
         for (let k = 0; k < 8; k++) { const nx = X + DX[k], ny = Y + DY[k]; if (this.gblocked(nx, ny)) continue; if (k >= 4 && (this.gblocked(X + DX[k], Y) || this.gblocked(X, Y + DY[k]))) continue; const j = ny * this.w + nx; if (f[j] !== -1) continue; f[j] = d + 1; q[t++] = j; } }
     }
-    const f = this.gf, cx = Math.floor(x), cy = Math.floor(y); let d0 = f[cy * this.w + cx];
+    const f = S.f, cx = Math.floor(x), cy = Math.floor(y); if (cx < 0 || cy < 0 || cx >= this.w || cy >= this.h) return null; let d0 = f[cy * this.w + cx];
     if (d0 === 0) return null;
     if (d0 < 0) {   // standing next to a prop (tile marked as obstacle): step toward the nearest reachable tile
       let bd = 1e9, bx = 0, by = 0;
@@ -119,6 +122,12 @@ export class GridMap {
     let best = d0, bx = 0, by = 0;
     for (let k = 0; k < 8; k++) { const nx = cx + DX[k], ny = cy + DY[k]; if (this.gblocked(nx, ny)) continue; if (k >= 4 && (this.gblocked(cx + DX[k], cy) || this.gblocked(cx, cy + DY[k]))) continue; const d = f[ny * this.w + nx]; if (d >= 0 && d < best) { best = d; bx = nx + 0.5; by = ny + 0.5; } }
     if (best === d0) return null; const vx = bx - x, vy = by - y, l = Math.hypot(vx, vy) || 1; return [vx / l, vy / l];
+  }
+  // свободен ли прямой путь для круга радиуса r (стены и пропсы), шаг 0,3
+  clearPath(ax, ay, bx, by, r) {
+    const d = Math.hypot(bx - ax, by - ay), n = Math.ceil(d / 0.3);
+    for (let i = 1; i < n; i++) { const t = i / n; if (!this.free(ax + (bx - ax) * t, ay + (by - ay) * t, r)) return false; }
+    return true;
   }
   nearestFree(x, y, r) {
     if (this.free(x, y, r)) return [x, y];
