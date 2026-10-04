@@ -131,7 +131,7 @@ export function updateHUD(dt) {
   const ds = dailyStatus(), cs = chestStatus(), gifts = (ds.claimable ? 1 : 0) + (cs.ready ? 1 : 0) + (dailyReady() ? 1 : 0); dot('dotGift', gifts);
   const sh = G.zone && G.zone.inter.find(i => i.id === 'shrine'); if (sh) { sh.plate = 'Алтарь богини' + (gifts ? ` 🎁${gifts}` : blessLeft() > 0 ? '' : ' ✦'); sh.marker = gifts ? '!' : null; }   // значок над алтарём
   blessTick(); dot('dotSeason', seasonClaimable());
-  { let gl = $('goalLine'); if (!gl) { gl = el('div', '', ''); gl.id = 'goalLine'; $('buffs').after(gl); } const t = G.zoneId === 'town' || !inCombat() ? nextGoalLine() : ''; if (gl.textContent !== t) gl.textContent = t; }   // «до цели» (сборка 21)
+  { let gl = $('goalLine'); if (!gl) { gl = el('div', '', ''); gl.id = 'goalLine'; $('buffs').after(gl); } const t = G.zoneId === 'wild' ? '' : G.zoneId === 'town' || !inCombat() ? nextGoalLine() : ''; if (gl.textContent !== t) gl.textContent = t; }   // «до цели» (сборка 21); в походе на этом месте плашка ноши
   // buffs
   const now = Date.now(); const bf = [];
   if (blessLeft() > 0) bf.push(`<b class="bless">✦ Благословение ${mmss(blessLeft())}</b>`);

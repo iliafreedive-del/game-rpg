@@ -80,7 +80,11 @@ export function resize(w, h) {
   // вертикально: дистанция растёт, чтобы ширина обзора не падала. Телефон горизонтально (низкий экран): тот же масштаб,
   // что у этого же телефона вертикально (пикселей на метр поровну) — персонаж и подписи не мельчают, обзор растёт только по бокам
   const portraitDist = (w, h) => CAMERA.village.dist * Math.min(CAMERA.portrait.maxScale, 1 / (w / h) * CAMERA.portrait.refAspect);
-  camDist = W / H < 1 ? portraitDist(W, H) : H < 600 ? portraitDist(H, W) * H / W : CAMERA.village.dist;
+  // телефон (сборка 38): пикселей на метр — от короткой стороны самого экрана (не окна), поэтому герой одного размера
+  // и вертикально, и горизонтально, и когда браузер прячет/показывает свои панели; меняется только обзор
+  const S = Math.min(screen.width || 0, screen.height || 0), phone = S > 0 && S < 600 && matchMedia('(pointer: coarse)').matches;
+  camDist = phone ? CAMERA.village.dist * CAMERA.portrait.refAspect * H / S
+    : W / H < 1 ? portraitDist(W, H) : H < 600 ? portraitDist(H, W) * H / W : CAMERA.village.dist;
   camDist /= CAMERA.zoomIn;   // приближение (сборка 24: +5 %)
   camera.updateProjectionMatrix();
 }
