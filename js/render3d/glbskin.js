@@ -8,7 +8,8 @@ import { toon, outline } from './toon.js';
 import { OUTLINE } from './style.js';
 import { fixZeroNormals } from './geo.js';
 
-export const SKINS = { on: true };     // переключатель (Настройки → «Новые модели»): false — процедурные модели
+export const SKINS = { on: true };
+const STRIDE_K = 1.7;   // замедление ходьбы и бега из клипов модели (маг, воин) при той же скорости героя     // переключатель (Настройки → «Новые модели»): false — процедурные модели
 const BASE = new URL('../../assets/models/', import.meta.url).href;
 const HAS_DOM = typeof document !== 'undefined';
 const data = new Map(), wait = new Map();
@@ -245,7 +246,8 @@ export function attachSkin(kit, model, name, o = {}) {
       if (clipW < 0.001) _ho.set(0, 0, 0);
       if (mv) {
         const sc = actor.root.scale.x || 1; runW = CL.run ? Math.min(1, Math.max(0, (walkSp / sc - 2.0) / 1.2)) : 0;
-        ph = (ph + dt * walkSp / (((CL.run ? CL.run.stride : CL.walk.stride) * runW + CL.walk.stride * (1 - runW)) * sc)) % 1;
+        // STRIDE_K: шаг в клипе длиннее измеренного — ноги перебирают реже (без него бег семенил: ≈2,8 цикла/с вместо родных 1,5)
+        ph = (ph + dt * walkSp / (((CL.run ? CL.run.stride : CL.walk.stride) * runW + CL.walk.stride * (1 - runW)) * sc * STRIDE_K)) % 1;
       }
     }
     root.updateMatrixWorld(true); sync(); bowShot(); if (trail) trail(dt, actor); };
