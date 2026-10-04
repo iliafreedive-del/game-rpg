@@ -193,45 +193,79 @@ W.character = (arg = {}) => {
   m.live = true;
 };
 
+// Skills: talent tree like WoW — per branch a grid of icons joined by arrows. Top: an active skill;
+// its passives open below; points in them unlock the next active, and so on. Every rank needs a hero level.
+// Tap an icon → card with description, next rank, requirements and the «Изучить» button (at the trainer).
+const TC = 54, TGX = 26, TGY = 22;   // icon size and gaps in the tree grid (px)
 W.skills = (arg = {}) => {
   const edit = !!arg.npc; if (edit) setTimeout(() => bus.emit('skillsOpened'), 50); const P0 = G.profile; const myBr = CLASSES[P0.cls || 'warrior'].branches;
-  let tab = W._skillTab && myBr.includes(W._skillTab) ? W._skillTab : myBr[0];
-  const m = modal(edit ? 'Наставник: навыки' : 'Навыки', 'md', b => {
+  let sel = W._skillSel && SKILLS[W._skillSel] && myBr.includes(SKILLS[W._skillSel].b) ? W._skillSel : null;
+  if (!sel || edit) sel = Object.keys(SKILLS).find(id => myBr.includes(SKILLS[id].b) && CH.canLearn(id).ok) || sel || Object.keys(SKILLS).find(id => SKILLS[id].b === myBr[0] && SKILLS[id].row === 0);
+  const m = modal(edit ? 'Наставник: навыки' : 'Навыки', 'lg', b => {
     const P = G.profile;
-    b.appendChild(el('div', 'sp-row', `<b class="${P.skillPts ? 'good' : 'muted'}">Очки навыков: ${P.skillPts}</b><b class="c-gold">💰 ${fmt(P.gold)} зол.</b>${edit ? '' : '<span class="muted">Изучать — у наставника Элвина в деревне.</span>'}`));
-    const firstPick = edit && !Object.entries(P.skills || {}).some(([k, v]) => v && SKILLS[k] && SKILLS[k].kind === 'active');
-    if (firstPick) b.appendChild(el('div', 'first-pick', '⚔ <b>Выберите первое умение!</b> Это приём, который появится кнопкой в бою. Пассивные усиления откроются после него.'));
-    // branch tabs — one tap
-    const tabs = el('div', 'tabs big-tabs');
-    for (const br of BRANCHES.filter(x => myBr.includes(x.id))) {
-      const t = el('button', 'tab' + (tab === br.id ? ' on' : ''), `<span style="color:${br.color}">${br.name}</span> ${CH.branchPoints(br.id)}`);
-      t.onclick = () => { tab = W._skillTab = br.id; rerender(); }; tabs.appendChild(t);
-    }
-    b.appendChild(tabs);
-    const list = el('div'); list.style.marginTop = '8px';
-    const order = Object.entries(SKILLS).filter(([, s]) => s.b === tab && (!firstPick || s.kind === 'active')).sort((a, b) => (a[1].kind === 'active' ? 0 : 1) - (b[1].kind === 'active' ? 0 : 1) || (a[1].row || 0) - (b[1].row || 0));
-    for (const [id, sk] of order) {
-      const r = P.skills[id] || 0, er = effRank(P, id), can = firstPick && sk.kind === 'active' ? { ok: P.skillPts > 0, why: 'Нет очков навыков' } : CH.canLearn(id);
-      const n = el('div', 'node wide' + (r ? ' have' : '') + (!r && !can.ok ? ' locked' : ''));
-      n.appendChild(skillCanvas(id, 72, !r));
-      const t = el('div', 'nbody', `<div class="nn">${esc(sk.name)} <span class="nr">${r}/${sk.max}${er > r ? ` <span class="good">(+${er - r})</span>` : ''} · <span class="kind">${sk.kind === 'active' ? 'активный' : 'пассивный'}</span></span></div><div class="nd">${esc(sk.desc(Math.max(1, er)))}</div>${!can.ok && r < sk.max && edit ? `<div class="bad"><small>${esc(can.why)}</small></div>` : ''}`);
-      n.appendChild(t);
-      if (edit && r < sk.max) {   // one tap to learn / upgrade
-        const cost = CH.skillCost(id); const plus = el('button', 'learn' + (can.ok ? ' ok' : ''), `${r ? '+' : 'Изучить'}<small>${cost} з.</small>`); plus.disabled = !can.ok;
-        plus.onclick = e => { e.stopPropagation(); if (CH.learn(id, true, firstPick && sk.kind === 'active')) rerender(); }; n.appendChild(plus);
-      }
-      if (r && sk.kind === 'active') {
-        const sr = el('div', 'slots4');
-        { const bb = el('button', 'btn sm' + (P.bigSkill === id ? ' gold' : ''), '★'); bb.title = 'На большую кнопку'; bb.onclick = e => { e.stopPropagation(); P.bigSkill = P.bigSkill === id ? null : id; bus.emit('toast', { text: P.bigSkill ? `«${sk.name}» — на большой кнопке` : 'Большая кнопка: обычная атака', kind: 'good' }); bus.emit('statsChanged'); rerender(); }; sr.appendChild(bb); }
-        for (let i = 0; i < 4; i++) { const sb = el('button', 'btn sm' + (P.slots[i] === id ? ' gold' : ''), String(i + 1)); sb.title = 'Кнопка ' + (i + 1); sb.onclick = e => { e.stopPropagation(); CH.setSlot(i, id); bus.emit('toast', { text: `«${sk.name}» — кнопка ${i + 1}`, kind: 'good' }); rerender(); }; sr.appendChild(sb); }
-        t.appendChild(sr);
-      }
-      list.appendChild(n);
-    }
-    b.appendChild(list);
+    b.appendChild(el('div', 'sp-row', `<b class="${P.skillPts ? 'good' : 'muted'}">Очки навыков: ${P.skillPts}</b><span class="muted">+1 очко за каждый уровень</span><b class="c-gold">💰 ${fmt(P.gold)} зол.</b>${edit ? '' : '<span class="muted">Изучать — у наставника Элвина в деревне.</span>'}`));
+    if (edit && !Object.entries(P.skills || {}).some(([k, v]) => v && SKILLS[k] && SKILLS[k].kind === 'active')) b.appendChild(el('div', 'first-pick', '⚔ <b>Начните с верхнего умения ветки</b> — это активный приём, он появится кнопкой в бою. От него стрелки ведут к пассивным усилениям, а за ними открывается следующий приём.'));
+    const trees = el('div', 'tal-trees');
+    for (const br of BRANCHES.filter(x => myBr.includes(x.id))) trees.appendChild(talentBranch(br, P, id => { sel = W._skillSel = id; rerender(); }, sel));
+    b.appendChild(trees);
+    if (sel) b.appendChild(talentInfo(sel, P, edit));
   });
   m.live = true;
 };
+function talentBranch(br, P, onPick, sel) {
+  const ids = Object.keys(SKILLS).filter(id => SKILLS[id].b === br.id);
+  const rows = Math.max(...ids.map(id => SKILLS[id].row)) + 1;
+  const W0 = 3 * TC + 2 * TGX, H0 = rows * TC + (rows - 1) * TGY;
+  const pos = id => [SKILLS[id].col * (TC + TGX), SKILLS[id].row * (TC + TGY)];
+  const panel = el('div', 'tal-branch tb-' + br.id, `<div class="tal-h"><span style="color:${br.color}">${esc(br.name)}</span> <b>${CH.branchPoints(br.id)}</b></div>`);
+  const grid = el('div', 'tal-grid'); grid.style.width = W0 + 'px'; grid.style.height = H0 + 'px';
+  // arrows: from a prerequisite (bottom centre) down to the skill it opens; gold when the requirement is met
+  let svg = `<svg class="tal-arrows" width="${W0}" height="${H0}" viewBox="0 0 ${W0} ${H0}">`;
+  for (const id of ids) for (const [k, n] of SKILLS[id].req) {
+    const [x1, y1] = pos(k), [x2, y2] = pos(id); const ok = (P.skills[k] || 0) >= n; const c = ok ? '#ffd24a' : '#6a6460';
+    const ax = x1 + TC / 2, ay = y1 + TC, bx = x2 + TC / 2, by = y2 - 4, my = ay + (by - ay) / 2;
+    const d = ax === bx ? `M${ax},${ay} L${bx},${by}` : `M${ax},${ay} L${ax},${my} L${bx},${my} L${bx},${by}`;
+    svg += `<path d="${d}" fill="none" stroke="${c}" stroke-width="${ok ? 5 : 4}" stroke-linejoin="round"${ok ? ' class="lit"' : ''}/><path d="M${bx - 7},${by - 7} L${bx},${by + 2} L${bx + 7},${by - 7}" fill="${c}"/>`;
+  }
+  grid.innerHTML = svg + '</svg>';
+  for (const id of ids) {
+    const sk = SKILLS[id], r = P.skills[id] || 0, can = CH.canLearn(id), open = CH.reqsMet(id);
+    const st = r >= sk.max ? 'max' : r ? 'have' : can.ok ? 'can' : open ? 'open' : 'locked';
+    const [x, y] = pos(id);
+    const n = el('button', `tal tal-${st}${sk.kind === 'active' ? ' act' : ''}${sel === id ? ' sel' : ''}`); n.style.left = x + 'px'; n.style.top = y + 'px';
+    n.title = sk.name; n.appendChild(skillCanvas(id, 96, !r && !can.ok));
+    n.appendChild(el('span', 'tal-r', `${r}/${sk.max}`));
+    if (sk.kind === 'active') n.appendChild(el('span', 'tal-a', '⚔'));
+    if (can.ok) n.appendChild(el('span', 'tal-plus', '+'));
+    n.onclick = () => { bus.emit('sfx', 'click'); onPick(id); };
+    grid.appendChild(n);
+  }
+  panel.appendChild(grid); return panel;
+}
+function talentInfo(id, P, edit) {
+  const sk = SKILLS[id], r = P.skills[id] || 0, er = effRank(P, id), can = CH.canLearn(id), br = BRANCHES.find(x => x.id === sk.b);
+  const box = el('div', 'tal-info node');
+  box.appendChild(skillCanvas(id, 96, !r && !can.ok));
+  const reqs = CH.skillReqs(id);
+  const t = el('div', 'ti-body', `<div class="ti-n">${esc(sk.name)} <span class="ti-k ${sk.kind}">${sk.kind === 'active' ? '⚔ активное умение' : 'пассивное'}</span></div>
+    <div class="ti-sub"><span style="color:${br.color}">${esc(br.name)}</span> · ранг ${r}/${sk.max}${er > r ? ` <span class="good">(+${er - r} от вещей)</span>` : ''}</div>
+    ${r ? `<div class="ti-d"><b>Сейчас:</b> ${esc(sk.desc(er))}</div>` : ''}
+    ${r < sk.max ? `<div class="ti-d ${r ? 'next' : ''}"><b>${r ? 'Следующий ранг:' : 'Ранг 1:'}</b> ${esc(sk.desc(Math.max(1, er + 1)))}</div>` : '<div class="ti-d good">Изучено полностью</div>'}
+    ${r < sk.max ? `<ul class="ti-req">${reqs.map(q => `<li class="${q.ok ? 'ok' : 'no'}">${q.ok ? '✔' : '✖'} ${esc(q.text)}</li>`).join('')}</ul>` : ''}`);
+  box.appendChild(t);
+  if (edit && r < sk.max) {
+    const cost = CH.skillCost(id); const bt = el('button', 'learn tal-learn' + (can.ok ? ' ok' : ''), `${r ? 'Повысить ранг' : 'Изучить'}<small>${cost} зол.</small>`); bt.disabled = !can.ok;
+    bt.onclick = e => { e.stopPropagation(); if (CH.learn(id, true)) rerender(); }; t.appendChild(bt);
+    if (!can.ok) t.appendChild(el('div', 'bad', `<small>${esc(can.why)}</small>`));
+  } else if (!edit && r < sk.max && can.ok) t.appendChild(el('div', 'muted', '<small>Можно изучить у наставника Элвина в деревне.</small>'));
+  if (r && sk.kind === 'active') {
+    const sr = el('div', 'slots4');
+    { const bb = el('button', 'btn sm' + (P.bigSkill === id ? ' gold' : ''), '★'); bb.title = 'На большую кнопку'; bb.onclick = e => { e.stopPropagation(); P.bigSkill = P.bigSkill === id ? null : id; bus.emit('toast', { text: P.bigSkill ? `«${sk.name}» — на большой кнопке` : 'Большая кнопка: обычная атака', kind: 'good' }); bus.emit('statsChanged'); rerender(); }; sr.appendChild(bb); }
+    for (let i = 0; i < 4; i++) { const sb = el('button', 'btn sm' + (P.slots[i] === id ? ' gold' : ''), String(i + 1)); sb.title = 'Кнопка ' + (i + 1); sb.onclick = e => { e.stopPropagation(); CH.setSlot(i, id); bus.emit('toast', { text: `«${sk.name}» — кнопка ${i + 1}`, kind: 'good' }); rerender(); }; sr.appendChild(sb); }
+    t.appendChild(el('div', 'muted', '<small>Кнопка в бою:</small>')); t.appendChild(sr);
+  }
+  return box;
+}
 
 // Quests: tabs like mobile hits — Story / Daily / Weekly / Contracts, with reward chips and clear buttons
 W.journal = (arg = {}) => {

@@ -68,7 +68,7 @@ export function initTutorial() {
   }, 600);
   // inside windows: trainer panel / skills list
   bus.on('panel', it => { if (!it || it.id !== 'trainer') return; setTimeout(() => { const P = G.profile; if (P.skillPts > 0) { const t = T(); if (t.on && !t.off && !t.tips.tbtn) { const r = rectOf('tBtnSkills'); if (r) { t.tips.tbtn = 1; show(r, 'Нажмите <b>«Навыки»</b> — там изучаются умения. Очки навыков дают за каждый новый уровень.'); } } } }, 400); });
-  bus.on('skillsOpened', () => setTimeout(() => { const t = T(); if (!t.on || t.off || t.tips.learn) return; const b = document.querySelector('.node .learn.ok'); if (!b) return; t.tips.learn = 1; show(b.getBoundingClientRect(), 'Нажмите <b>«Изучить»</b>. Умения с пометкой <b>«активный»</b> сами встают в кнопку справа внизу.'); }, 350));
+  bus.on('skillsOpened', () => setTimeout(() => { const t = T(); if (!t.on || t.off || t.tips.learn) return; const b = document.querySelector('.tal-learn.ok'); if (!b) return; t.tips.learn = 1; show(b.getBoundingClientRect(), 'Нажмите <b>«Изучить»</b>. Умения с пометкой <b>«активный»</b> сами встают в кнопку справа внизу.'); }, 350));
 }
 // first launch: ask whether to show the tutorial
 export function askTutorial() {
