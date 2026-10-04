@@ -12,7 +12,7 @@ import * as mob from './glbmob.js';
 import { PAL, HERO, MOB, OUTLINE, RIM, FOLIAGE, LOOKS, SHADOW } from './style.js';
 
 export function makeKit(scene) {
-  skin.preloadSkin('archer_raven'); skin.preloadSkin('warrior_vanguard'); skin.preloadSkin('mage_archmage'); skin.preloadSkin('npc_trainer'); mob.preloadMob('wolf_grey'); for (const n of ['dog_brown', 'wolf_ice', 'beast', 'chicken_white', 'chicken_red']) mob.preloadMob(n);
+  skin.preloadSkin('archer_raven'); skin.preloadSkin('warrior_vanguard'); skin.preloadSkin('mage_archmage'); skin.preloadSkin('npc_trainer'); mob.preloadMob('wolf_grey'); for (const n of ['dog_brown', 'wolf_ice', 'beast', 'chicken_white', 'chicken_red', 'hyena', 'w_boar', 'b_boar', 'w_bear', 'b_scorpid']) mob.preloadMob(n);
   const { part, merge } = geo;
   return {
     THREE, scene, geo, rig, PAL, HERO, MOB, OUTLINE, RIM, FOLIAGE, Cape, blobShadow,
