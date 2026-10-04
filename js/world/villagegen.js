@@ -223,8 +223,10 @@ export function generateVillage(plan0 = PLAN) {
   // наставник: тренировочный двор на ближней стороне восточной улицы (низкий: чучела, стойка, плетень)
   {
     const ty0 = CY + SQ.hh + 0.4, tx0 = CX + SQ.hw + 2.6;
-    npc('trainer', 'Наставник Элвин', tx0 + 1.5, ty0 + 1.8);
-    put('dummy', tx0 + 3.6, ty0 + 1.8, { rot: 0.5 }); put('dummy', tx0 + 6.0, ty0 + 3.6, { rot: -0.3 }); put('weapon_rack', tx0 + 2.8, ty0 + 4.9, { rot: 0 });
+    // Элвин отрабатывает удары по ближнему чучелу (train — куда бить; renderer3d.js), пока герой не подошёл
+    // чучело ближе обычного прохода — keep: проверка зазоров его не убирает
+    npc('trainer', 'Наставник Элвин', tx0 + 1.5, ty0 + 1.8, { train: [+(tx0 + 3.0).toFixed(2), +(ty0 + 1.8).toFixed(2)] });
+    put('dummy', tx0 + 3.0, ty0 + 1.8, { rot: 0.5, keep: 1 }); put('dummy', tx0 + 6.0, ty0 + 3.6, { rot: -0.3 }); put('weapon_rack', tx0 + 2.8, ty0 + 4.9, { rot: 0 });
     put('target', tx0 + 7.4, ty0 + 0.9, { rot: -0.9 });
     for (let i = 0; i < 8; i++) put('fence_x', tx0 + 0.5 + i, ty0 + 6.2, { nocol: 1 });
     for (let i = 0; i < 5; i++) put('fence_y', tx0 + 8.6, ty0 + 1.2 + i, { nocol: 1 });
@@ -398,7 +400,7 @@ export function generateVillage(plan0 = PLAN) {
   {
     const shapeOf = o => { if (o.nocol) return null; if (o.boxes) return o.boxes.map(b => ({ b })); const c = COL[o.t]; if (c === undefined) return null; if (typeof c === 'number') return [{ c: [o.x, o.y, c] }]; const sw2 = o.rot && Math.abs(Math.sin(o.rot)) > 0.7, [hx, hy] = sw2 ? [c[1], c[0]] : c; return [{ b: [o.x - hx, o.y - hy, o.x + hx, o.y + hy] }]; };
     const prio = I => ({ pumpkins: 0, plank_pile: 0, tool_stand: 1, cart: 1, cart_load: 2, barrel_stack: 1, log_stack: 1, signpost: 2, barrel: 0, crate: 0, sacks: 0, logpile: 0, hay: 0, rocks: 0, crystals: 1, tree_0: 1, tree_1: 1, grave: 1, deadtree: 1, bench: 2, table: 2, dummy: 3, target: 3, weapon_rack: 3 })[I.o.t] ?? 2;
-    const items = objects.map(o => ({ o, sh: shapeOf(o), keep: KEEP.has(o.t) || !!o.boxes })).filter(i => i.sh);
+    const items = objects.map(o => ({ o, sh: shapeOf(o), keep: KEEP.has(o.t) || !!o.boxes || !!o.keep })).filter(i => i.sh);
     for (const n of npcs) items.push({ o: n, sh: [{ c: [n.x, n.y, 0.35] }], keep: true });
     for (const dx of [-1.7, 1.7]) items.push({ o: { t: 'hwsign' }, sh: [{ c: [hwsign[0] + dx, hwsign[1], 0.45] }], keep: true });
     for (const p of portals) items.push({ o: p, sh: [{ c: [p.x, p.y, 0.3] }], keep: true });
@@ -431,7 +433,7 @@ export function generateVillage(plan0 = PLAN) {
     const dead = new Set(items.filter(i => i.dead).map(i => i.o));
     for (let i = objects.length - 1; i >= 0; i--) if (dead.has(objects[i])) objects.splice(i, 1);
     // остаток: пары «ключевых» предметов (NPC у своих построек, порталы), между которыми не пройти (< 1,3 м), — в предупреждения
-    for (let i = 0; i < items.length; i++) for (let j = i + 1; j < items.length; j++) { const A = items[i], B = items[j]; if (A.dead || B.dead || !near(A, B)) continue; const gg = gapI(A, B); if (gg > 0.12 && gg < 1.3 && A.o !== B.o) warn.push(`тесно: ${A.o.t || A.o.id}–${B.o.t || B.o.id} ${gg.toFixed(2)} м`); }
+    for (let i = 0; i < items.length; i++) for (let j = i + 1; j < items.length; j++) { const A = items[i], B = items[j]; if (A.dead || B.dead || !near(A, B)) continue; const gg = gapI(A, B); if (gg > 0.12 && gg < 1.3 && A.o !== B.o && !A.o.keep && !B.o.keep) warn.push(`тесно: ${A.o.t || A.o.id}–${B.o.t || B.o.id} ${gg.toFixed(2)} м`); }
     var gapRemoved = removed;
   }
   // ---- куры и собаки: стайки у домов ближе к площади и у таверны, собака у кузницы и собака на площади

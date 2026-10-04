@@ -182,8 +182,34 @@ export function attachSkin(kit, model, name, o = {}) {
     }
   }
   sync(); bowShot();
+  // след клинка (o.trail = { bone, from, to, color }): лента по точкам от гарды до острия за последние доли секунды удара —
+  // точки берутся с кости кисти каждый кадр, поэтому след повторяет путь самого меча
+  let trail = null;
+  if (o.trail && byName[o.trail.bone] && kit.scene) {
+    const tb = byName[o.trail.bone], inv = new THREE.Matrix4().copy(tb.matrixWorld).invert().multiply(root.matrixWorld);
+    const lf = new THREE.Vector3(...o.trail.from).applyMatrix4(inv), lt = new THREE.Vector3(...o.trail.to).applyMatrix4(inv);
+    const N = 16, LIFE = 0.22, pos = new Float32Array(N * 2 * 3), col = new Float32Array(N * 2 * 4), idx = [];
+    for (let i = 0; i < N - 1; i++) { const a = i * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.BufferAttribute(col, 4)); g.setIndex(idx);
+    const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, depthWrite: false, side: THREE.DoubleSide }));
+    m.frustumCulled = false; m.renderOrder = 5; m.userData.noOutline = true; m.visible = false; kit.scene.add(m);
+    const c = new THREE.Color(o.trail.color ?? 0xffffff), S = [], _a = new THREE.Vector3(), _b = new THREE.Vector3();
+    trail = (dt, actor) => {
+      for (const p of S) p.age += dt;
+      while (S.length && S[0].age > LIFE) S.shift();
+      if (actor && actor.clip === 'attack') { tb.updateMatrixWorld(true); S.push({ a: _a.copy(lf).applyMatrix4(tb.matrixWorld).clone(), b: _b.copy(lt).applyMatrix4(tb.matrixWorld).clone(), age: 0 }); if (S.length > N) S.shift(); }
+      m.visible = S.length > 1; if (!m.visible) return;
+      for (let i = 0; i < N; i++) {
+        const p = S[Math.min(i, S.length - 1)], w = i < S.length ? Math.max(0, 1 - p.age / LIFE) * (i / (S.length - 1 || 1)) : 0;
+        pos.set([p.a.x, p.a.y, p.a.z, p.b.x, p.b.y, p.b.z], i * 6);
+        col.set([c.r, c.g, c.b, w * 0.1, c.r, c.g, c.b, w * 0.7], i * 8);
+      }
+      g.attributes.position.needsUpdate = true; g.attributes.color.needsUpdate = true;
+    };
+    const dsp = model.dispose; model.dispose = () => { if (dsp) dsp(); m.removeFromParent(); g.dispose(); m.material.dispose(); };
+  }
   const upd = model.update;
-  model.update = (dt, t, env, actor) => { if (upd) upd(dt, t, env, actor); root.updateMatrixWorld(true); sync(); bowShot(); };
+  model.update = (dt, t, env, actor) => { if (upd) upd(dt, t, env, actor); root.updateMatrixWorld(true); sync(); bowShot(); if (trail) trail(dt, actor); };
   model.materials = [...(model.materials || []), mat];
   model.noEquip = o.noEquip || [];
   model.skin = name;

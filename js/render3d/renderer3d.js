@@ -241,7 +241,16 @@ function syncNpcs(dt) {
       a.place(n.x, n.y); a.faceAngle(yawOfDir(n.dir)); a.update(dt, { clip: 'idle' }, env); continue;
     }
     const def = NPCS[n.model] || NPCS.npc_elder, a = getActor(n, def);
-    a.place(n.x, n.y); a.faceAngle(yawOfDir(n.dir));
+    a.place(n.x, n.y);
+    // наставник с мечом (новая модель) бьёт чучело: удар 0.7 с, пауза 0.9 с; герой рядом или разговор — поворачивается к нему
+    const P = G.player, near = P && Math.hypot(P.x - n.x, P.y - n.y) < 3.5;
+    if (n.train && a.model.skin && !near && !(n.talkT > 0)) {
+      const ph = (tAll + n.x) % 1.6, k = ph / 0.7;
+      a.faceAngle(Math.atan2(n.train[0] - n.x, n.train[1] - n.y));
+      a.update(dt, k < 1 ? { clip: 'attack', k, combo: Math.floor((tAll + n.x) / 1.6) % 3 } : { clip: 'idle' }, env);
+      continue;
+    }
+    a.faceAngle(yawOfDir(n.dir));
     a.update(dt, { clip: n.talkT > 0 ? 'talk' : 'idle' }, env);
   }
 }
