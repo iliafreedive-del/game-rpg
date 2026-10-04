@@ -9,6 +9,7 @@ import { GLTFLoader } from '../vendor/GLTFLoader.js';
 import { clone as cloneSkinned } from '../vendor/SkeletonUtils.js';
 import { toon, outline } from './toon.js';
 import { OUTLINE } from './style.js';
+import { fixZeroNormals } from './geo.js';
 import { clamp, smooth, lerp } from './rig.js';
 
 const BASE = new URL('../../assets/models/', import.meta.url).href;
@@ -22,7 +23,7 @@ export function preloadMob(name) {
   const p = fetch(BASE + name + '.glb').then(r => r.ok ? r.arrayBuffer() : fetch(BASE + name + '.glb.json').then(r2 => r2.json()).then(j => Uint8Array.from(atob(j.b64), c => c.charCodeAt(0)).buffer))
     .then(buf => new GLTFLoader().parseAsync(buf, BASE)).then(g => {
     g.scene.updateMatrixWorld(true);
-    let geoH = 0, skinned = false; g.scene.traverse(o => { if (o.isSkinnedMesh) skinned = true; if (o.isMesh) { o.geometry.computeBoundingBox(); geoH = Math.max(geoH, o.geometry.boundingBox.max.y - o.geometry.boundingBox.min.y); } });
+    let geoH = 0, skinned = false; g.scene.traverse(o => { if (o.isSkinnedMesh) skinned = true; if (o.isMesh) { fixZeroNormals(o.geometry); o.geometry.computeBoundingBox(); geoH = Math.max(geoH, o.geometry.boundingBox.max.y - o.geometry.boundingBox.min.y); } });
     const box = new THREE.Box3().setFromObject(g.scene);
     const d = { gltf: g, box, geoH, skinned, walk: g.animations.find(c => /walk/i.test(c.name)) || g.animations.find(c => !/run|idle|attack|death/i.test(c.name)) || g.animations[0], run: g.animations.find(c => /run|gallop/i.test(c.name)) || null };
     data.set(name, d); return d;
@@ -137,7 +138,9 @@ export function buildMob(kit, name, o = {}) {
     turn(head, root, X, -roar * 0.55 + lunge * 0.25 - rear * 0.15 + Math.sin(a.t * 1.1) * 0.04 * (1 - mv));
     turn(head, root, Y, Math.sin(a.t * 0.7) * 0.12 * (1 - mv));
     turn(chest, root, X, br * 0.015 - roar * 0.1);
-    for (const [i, t] of tail.entries()) turn(t, root, Y, Math.sin(a.t * 2.2 + i * 0.6) * (0.1 + 0.12 * mv) * (1 - rear));
+    // a.wag (0..1) — собака деревни: хвостом виляет только рядом с героем (быстро и широко), вдали хвост спокоен
+    if (a.wag !== undefined) { for (const t of tail) t.quaternion.copy(rest.get(t)); root.updateMatrixWorld(true); }   // и без качания хвоста из клипа ходьбы
+    for (const [i, t] of tail.entries()) turn(t, root, Y, a.wag !== undefined ? Math.sin(a.t * 14 - i * 0.7) * 0.5 * a.wag : Math.sin(a.t * 2.2 + i * 0.6) * (0.1 + 0.12 * mv) * (1 - rear));
     spin.rotation.set(0, 0, 0); spin.position.y = H * 0.45;
     lastSp = sp;
   }

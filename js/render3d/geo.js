@@ -171,3 +171,22 @@ export function taperTube(pts, r0, r1, radial = 6) {
 // Тело вращения по профилю [[r, y], …] (нагрудники, поножи, наручи, черепа): segs граней по кругу
 // профиль, заданный сверху вниз, разворачивается — иначе грани смотрят внутрь (чёрные капюшоны и мантии)
 export const lathe = (prof, segs = 12) => { const p = prof[prof.length - 1][1] < prof[0][1] ? prof.slice().reverse() : prof; return new THREE.LatheGeometry(p.map(([r, y]) => new THREE.Vector2(r, y)), segs); };
+
+// Нормали нулевой длины (бывают в сетках Meshy на вырожденных треугольниках) дают в шейдере NaN, а bloom раздувает его
+// в светящуюся белую точку. Такие нормали берём из соседних треугольников (или «вверх», если и они вырожденные).
+export function fixZeroNormals(g) {
+  const N = g.attributes.normal, P = g.attributes.position; if (!N || !P) return 0;
+  const bad = []; for (let i = 0; i < N.count; i++) if (N.getX(i) ** 2 + N.getY(i) ** 2 + N.getZ(i) ** 2 < 1e-4) bad.push(i);
+  if (!bad.length) return 0;
+  const acc = new Map(bad.map(i => [i, new THREE.Vector3()])), idx = g.index, a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3();
+  const tri = idx ? idx.count : P.count;
+  for (let t = 0; t < tri; t += 3) {
+    const v = [0, 1, 2].map(k => idx ? idx.getX(t + k) : t + k); if (!v.some(i => acc.has(i))) continue;
+    a.fromBufferAttribute(P, v[0]); b.fromBufferAttribute(P, v[1]); c.fromBufferAttribute(P, v[2]);
+    c.sub(b); b.sub(a); b.cross(c);   // нормаль грани с весом площади
+    for (const i of v) if (acc.has(i)) acc.get(i).add(b);
+  }
+  for (const [i, n] of acc) { if (n.lengthSq() < 1e-12) n.set(0, 1, 0); n.normalize(); N.setXYZ(i, n.x, n.y, n.z); }
+  if (N.isInterleavedBufferAttribute) N.data.needsUpdate = true; else N.needsUpdate = true;
+  return bad.length;
+}

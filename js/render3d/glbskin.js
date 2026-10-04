@@ -6,6 +6,7 @@
 import * as THREE from '../vendor/three.module.min.js';
 import { toon, outline } from './toon.js';
 import { OUTLINE } from './style.js';
+import { fixZeroNormals } from './geo.js';
 
 export const SKINS = { on: true };     // переключатель (Настройки → «Новые модели»): false — процедурные модели
 const BASE = new URL('../../assets/models/', import.meta.url).href;
@@ -28,7 +29,7 @@ export function preloadSkin(name) {
     g.setAttribute('skinIndex', new THREE.BufferAttribute(V(Uint8Array, 'si'), 4));
     g.setAttribute('skinWeight', new THREE.BufferAttribute(V(Uint8Array, 'sw'), 4, true));
     g.setIndex(new THREE.BufferAttribute(V(Uint16Array, 'idx'), 1));
-    g.computeBoundingSphere();
+    fixZeroNormals(g); g.computeBoundingSphere();
     const tex = await new THREE.TextureLoader().loadAsync(BASE + name + '.webp');
     tex.colorSpace = THREE.SRGBColorSpace; tex.flipY = false; tex.anisotropy = 4;   // UV из GLB — без переворота
     const d = { meta, geo: g, tex, n }; data.set(name, d); return d;
