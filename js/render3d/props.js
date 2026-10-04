@@ -7,6 +7,7 @@ import { OUTLINE, QUALITY } from './style.js';
 import { fbm } from './geo.js';
 import { wallPieces } from './dungeon.js';
 import { STEPPE_ROCKS, STEPPE_SPIRES, STEPPE_TREES } from './models/prop/_steppe.js';
+import { swap as bonesSwap } from './bonesglb.js';
 
 const hash = (x, y) => { let h = (Math.round(x * 31) * 374761393 + Math.round(y * 31) * 668265263) >>> 0; h = (h ^ (h >>> 13)) * 1274126177 >>> 0; return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
 const warned = new Set();
@@ -89,8 +90,9 @@ export class PropLayer {
       }
     }
     if (wantBackdrop && open) this.scatterDecor(zone, push, fj);
+    const extra = bn ? bonesSwap(lists, PROPS, kit) : {};   // Костяные пустоши: предметы из паков Meshy (только там, bonesglb.js)
     for (const [id, list] of lists) {
-      const def = PROPS[id];
+      const def = PROPS[id] || extra[id];
       if (def.batch) this.addBatch(def, list); else for (const it of list) this.addSingle(def, it);
     }
     this.syncLive();

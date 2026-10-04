@@ -7,6 +7,7 @@ import { PX_PER_M } from '../core/iso.js';
 import { U, setSmoothFade } from './toon.js';
 import { makeKit } from './kit.js';
 import { Actor, setOutlinesVisible } from './actor.js';
+import { preloadBones, bonesReady } from './bonesglb.js';
 import { PropLayer } from './props.js';
 import { buildGround } from './ground.js';
 import { Atmo } from './atmo.js';
@@ -172,6 +173,11 @@ function setZone(z) {
   const atmo = town && z.json.village ? new Atmo(scene, z, props.smoke) : null, critters = town && z.json.village ? new Critters(scene, kit, z) : null;
   world = { ground, props, atmo, critters, ...lightSets(z) };
   props.cull(camera, true); applyQuality(true); ground.setQuality(quality); spawned = false;
+  // Костяные пустоши: паки окружения Meshy грузятся при первом входе; пока грузятся — прежние предметы, потом слой пересобирается
+  if (bn && kit.skin.SKINS.on && !bonesReady()) preloadBones().then(ok => {
+    if (!ok || !world || zone !== z) return;
+    world.props.dispose(); world.props = new PropLayer(scene, kit, z, open); world.props.cull(camera, true); applyQuality(true);
+  });
 }
 
 // ---------------------------------------------------------------- персонажи
