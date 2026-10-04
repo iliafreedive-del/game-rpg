@@ -2,6 +2,8 @@
 // (docs/MODEL_SPEC.md): клипы idle/walk/attack/hit/cast/death. Ходьба и бег — из анимаций файла (клип /run/ — если есть; иначе бег
 // собирается из ходьбы: быстрее, шире шаг, корпус подпрыгивает); атака, рёв, удар и смерть — движения корпуса и головы поверх клипа.
 // Скелет у каждого экземпляра свой (SkeletonUtils.clone), материал — тон игры с текстурой модели, обводка — своя (тоже со скинингом).
+// GLB без скелета (Meshy Image to 3D до рига — tools/art/meshy.py) тоже показывается: статичная модель, движение — покачиванием
+// корпуса (staticMob). Когда ригнутая GLB с тем же именем заменит файл, этот же вызов возьмёт скелет и ходьбу из неё.
 import * as THREE from '../vendor/three.module.min.js';
 import { GLTFLoader } from '../vendor/GLTFLoader.js';
 import { clone as cloneSkinned } from '../vendor/SkeletonUtils.js';
@@ -20,9 +22,9 @@ export function preloadMob(name) {
   const p = fetch(BASE + name + '.glb').then(r => r.ok ? r.arrayBuffer() : fetch(BASE + name + '.glb.json').then(r2 => r2.json()).then(j => Uint8Array.from(atob(j.b64), c => c.charCodeAt(0)).buffer))
     .then(buf => new GLTFLoader().parseAsync(buf, BASE)).then(g => {
     g.scene.updateMatrixWorld(true);
-    let geoH = 0; g.scene.traverse(o => { if (o.isSkinnedMesh) { o.geometry.computeBoundingBox(); geoH = Math.max(geoH, o.geometry.boundingBox.max.y - o.geometry.boundingBox.min.y); } });
+    let geoH = 0, skinned = false; g.scene.traverse(o => { if (o.isSkinnedMesh) skinned = true; if (o.isMesh) { o.geometry.computeBoundingBox(); geoH = Math.max(geoH, o.geometry.boundingBox.max.y - o.geometry.boundingBox.min.y); } });
     const box = new THREE.Box3().setFromObject(g.scene);
-    const d = { gltf: g, box, geoH, walk: g.animations.find(c => /walk/i.test(c.name)) || g.animations.find(c => !/run|idle|attack|death/i.test(c.name)) || g.animations[0], run: g.animations.find(c => /run|gallop/i.test(c.name)) || null };
+    const d = { gltf: g, box, geoH, skinned, walk: g.animations.find(c => /walk/i.test(c.name)) || g.animations.find(c => !/run|idle|attack|death/i.test(c.name)) || g.animations[0], run: g.animations.find(c => /run|gallop/i.test(c.name)) || null };
     data.set(name, d); return d;
   }).catch(e => { console.warn('mob', name, e); return null; });
   wait.set(name, p); return p;
@@ -63,6 +65,7 @@ const X = new THREE.Vector3(1, 0, 0), Y = new THREE.Vector3(0, 1, 0), Z = new TH
  */
 export function buildMob(kit, name, o = {}) {
   const D = data.get(name); if (!D) return null;
+  if (!D.skinned || !D.walk) return staticMob(D, name, o);
   const H = o.height ?? 1.2, k = H / (D.box.max.y - D.box.min.y);
   const root = new THREE.Group(), spin = new THREE.Group(), body = new THREE.Group();
   root.add(spin); spin.position.y = H * 0.45; spin.add(body); body.position.y = -H * 0.45;
@@ -153,5 +156,47 @@ export function buildMob(kit, name, o = {}) {
     sockets: {}, bones: { spin, body, ...B },
     clips: { idle: { loop: true }, walk: { loop: true }, attack: { dur: 0.8, hit: 0.5 }, hit: { dur: 0.3 }, death: { dur: 1.0 }, cast: { dur: 1.0, fire: 0.4 } },
     anims, glb: name,
+  };
+}
+
+// Модель без скелета: одна жёсткая сетка, «походка» — покачивание корпуса с боку на бок и подскок в такт шагу, атака — рывок,
+// удар — отдача, рёв — корпус вверх, смерть — опускается и заваливается чуть набок. Временная замена до рига
+function staticMob(D, name, o) {
+  const H = o.height ?? 1.2, k = H / (D.box.max.y - D.box.min.y);
+  const root = new THREE.Group(), spin = new THREE.Group(), body = new THREE.Group();
+  root.add(spin); spin.position.y = H * 0.45; spin.add(body); body.position.y = -H * 0.45;
+  const norm = new THREE.Group(); norm.scale.setScalar(k); norm.position.set(-(D.box.min.x + D.box.max.x) / 2 * k, -D.box.min.y * k, -(D.box.min.z + D.box.max.z) / 2 * k); body.add(norm);
+  const sc = D.gltf.scene.clone(); norm.add(sc);
+  const mat = toon(o.tint ?? 0xffffff, { rim: o.rim ?? 0.55, rimColor: o.rimColor ?? 0xffe2b8, side: THREE.DoubleSide, ao: 0.75, aoH: 0.5 });
+  const eff = H / (D.geoH || 1), ols = [];
+  sc.traverse(n => {
+    if (!n.isMesh) return;
+    if (!mat.map && n.material.map) { mat.map = n.material.map; mat.map.colorSpace = THREE.SRGBColorSpace; mat.needsUpdate = true; }
+    n.material = mat; n.castShadow = true; n.userData.noBake = true; n.userData.noOutline = true;
+    const ol = new THREE.Mesh(n.geometry, outline({ width: (o.outline ?? OUTLINE.mob) / eff, color: OUTLINE.heroColor }));
+    ol.userData.isOutline = true; ol.userData.noBake = true; ols.push([n, ol]);
+  });
+  for (const [n, ol] of ols) n.add(ol);
+  const speed0 = o.speed0 ?? H * 1.1;
+  let ph = Math.random();
+  function pose(a, sp, lunge = 0, rear = 0, hurt = 0, down = 0) {
+    if (sp > 0.2) ph = (ph + a.dt * sp / speed0 * 1.6) % 1;
+    const mv = clamp(sp / (speed0 * 0.5)), s = Math.sin(ph * Math.PI * 2), br = Math.sin(a.t * 1.7);
+    body.position.set(0, -H * 0.45 + br * 0.004 * (1 - mv) + Math.abs(s) * 0.035 * H * mv - down * 0.12 * H, lunge * 0.42 * H - hurt * 0.12 * H);
+    body.rotation.set(-rear * 0.35 + lunge * 0.14 - hurt * 0.18 + Math.cos(ph * Math.PI * 4) * 0.03 * mv, Math.sin(a.t * 0.6) * 0.05 * (1 - mv), s * 0.07 * mv + down * 0.18);
+  }
+  const anims = {
+    idle: a => pose(a, 0),
+    walk: a => pose(a, a.speed),
+    attack: a => { const q = a.k ?? 0, w = smooth(q / 0.4) * (1 - smooth((q - 0.42) / 0.08)), l = smooth((q - 0.42) / 0.12) * (1 - smooth((q - 0.6) / 0.4)); pose(a, 0, l - w * 0.35); },
+    hit: a => pose(a, 0, 0, 0, 1 - (a.k ?? 1)),
+    cast: a => { const q = a.k ?? 0; pose(a, 0, 0, smooth(q / 0.35) * (1 - smooth((q - 0.8) / 0.2))); },
+    death: a => pose(a, 0, 0, 0, 0, smooth(Math.min(1, (a.k ?? 1) / 0.75))),
+  };
+  return {
+    root, height: H, radius: o.radius ?? 0.34, shadow: o.shadow ?? H * 1.4, materials: [mat],
+    sockets: {}, bones: { spin, body },
+    clips: { idle: { loop: true }, walk: { loop: true }, attack: { dur: 0.8, hit: 0.5 }, hit: { dur: 0.3 }, death: { dur: 1.0 }, cast: { dur: 1.0, fire: 0.4 } },
+    anims, glb: name, rigged: false,
   };
 }

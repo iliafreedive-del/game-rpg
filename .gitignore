@@ -2,3 +2,4 @@ __pycache__/
 *.pyc
 shots/
 lab/tmp/
+art_meshy/raw/

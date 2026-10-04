@@ -1,6 +1,8 @@
 // Живность деревни (только вид, без игровой логики): куры и собаки бродят вокруг своего места (json.critters генератора),
 // обходят препятствия по карте зоны (map.free), куры клюют землю и разбегаются от героя, собаки садятся, виляют хвостом
 // и подходят к герою, если он рядом. Модели — процедурные, из частей kit, анимация — повороты групп (ноги, голова, хвост).
+// Собака из Meshy (assets/models/dog_town.glb, tools/art/meshy.py) — через glbmob.js: ходьба/покой — её анимации,
+// «села» — лечь на живот (поза смерти зверя); пока файл не загрузился или «Новые модели» выключены — процедурная.
 import * as THREE from '../vendor/three.module.min.js';
 
 function chicken(kit, v) {
@@ -22,7 +24,13 @@ function chicken(kit, v) {
   root.scale.setScalar(1.35 + (v ? 0.08 : 0));   // чуть крупнее жизни — иначе с высоты камеры кур не разглядеть
   return { root, body, head, legs };
 }
+const DOG_GLB = 'dog_town';
+const glbDog = kit => kit.mob && kit.skin.SKINS.on && kit.mob.mobLoaded(DOG_GLB);
 function dog(kit, coat) {
+  if (glbDog(kit)) {
+    const m = kit.mob.buildMob(kit, DOG_GLB, { height: 0.95, radius: 0.3, rimColor: 0xffe2b8, tint: coat ? 0xffffff : 0xfff0dc, speed0: 1.1 });
+    if (m) return { root: m.root, body: m.bones.body, glb: m };
+  }
   const { part, merge, ball } = kit, mat = kit.propMat({ rim: 0.35 }), root = new THREE.Group();
   const C = coat ? [0x2a241e, 0x5a4a3a, 0xd8cdb8] : [0x8a5a2a, 0xc8925a, 0xf0e6d0], body = new THREE.Group(); root.add(body);
   body.add(new THREE.Mesh(merge([
@@ -43,13 +51,15 @@ function dog(kit, coat) {
   return { root, body, head, legs, tail };
 }
 
+const makeDog = dog;   // внутри update имя dog занято признаком «это собака»
+
 export class Critters {
   constructor(scene, kit, zone) {
-    this.scene = scene; this.map = zone.map; this.list = [];
+    this.scene = scene; this.kit = kit; this.map = zone.map; this.list = [];
     let k = 0;
     for (const c of zone.json.critters || []) {
       const m = c.k === 'dog' ? dog(kit, c.coat) : chicken(kit, (k++) % 3 === 1);
-      m.root.traverse(o => { if (o.isMesh) { o.castShadow = o.parent === m.body; o.receiveShadow = false; o.userData.noOutline = true; } });
+      if (!m.glb) m.root.traverse(o => { if (o.isMesh) { o.castShadow = o.parent === m.body; o.receiveShadow = false; o.userData.noOutline = true; } });
       const [x, y] = this.map.nearestFree ? this.map.nearestFree(c.x, c.y, 0.25) : [c.x, c.y];
       const a = { ...c, m, x, y, hx: x, hy: y, yaw: Math.random() * 6.28, tx: x, ty: y, st: 'idle', t: Math.random() * 2, ph: Math.random() * 6, v: 0 };
       scene.add(m.root); this.list.push(a);
@@ -61,7 +71,10 @@ export class Critters {
   }
   update(dt, t, P, cx, cz) {
     for (const a of this.list) {
-      const dog = a.k === 'dog', dP = P ? Math.hypot(P.x - a.x, P.y - a.y) : 99, m = a.m;
+      const dog = a.k === 'dog', dP = P ? Math.hypot(P.x - a.x, P.y - a.y) : 99;
+      // GLB собаки догрузился после входа в деревню — заменить процедурную
+      if (dog && !a.m.glb && glbDog(this.kit)) { const n = makeDog(this.kit, a.coat); if (n.glb) { a.m.root.removeFromParent(); this.scene.add(n.root); a.m = n; } }
+      const m = a.m;
       m.root.visible = Math.hypot(a.x - cx, a.y - cz) < 34;
       a.t -= dt;
       // решение
@@ -88,7 +101,12 @@ export class Critters {
       m.root.position.set(a.x, 0, a.y); m.root.rotation.y = a.yaw;
       // анимация
       const sw = Math.sin(a.ph) * a.v;
-      if (dog) {
+      if (dog && m.glb) {
+        // ходьба и покой — анимации модели; «села» — легла на живот, голова к герою — поворотом всего зверя (уже выше)
+        const sit = a.st === 'sit' ? 1 : 0; a.sit = (a.sit || 0) + (sit - (a.sit || 0)) * Math.min(1, dt * 3);
+        const A = { t: t + a.ph, dt, speed: sp, k: a.sit * 0.75 };
+        if (a.sit > 0.02) m.glb.anims.death(A); else if (sp) m.glb.anims.walk(A); else m.glb.anims.idle(A);
+      } else if (dog) {
         const sit = a.st === 'sit' ? 1 : 0; a.sit = (a.sit || 0) + (sit - (a.sit || 0)) * Math.min(1, dt * 5);
         m.body.rotation.x = -0.42 * a.sit; m.body.position.y = -0.1 * a.sit; m.body.position.z = -0.12 * a.sit;
         m.legs[0].rotation.x = sw * 0.6 + 0.4 * a.sit; m.legs[3].rotation.x = sw * 0.6 - 1.2 * a.sit; m.legs[1].rotation.x = -sw * 0.6 + 0.4 * a.sit; m.legs[2].rotation.x = -sw * 0.6 - 1.2 * a.sit;

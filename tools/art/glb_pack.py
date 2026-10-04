@@ -2,8 +2,15 @@
 """Сжатие ригнутой GLB из Meshy для игры: python3 tools/art/glb_pack.py <in.glb> <assets/models/имя.glb> [размер=1024]
 Текстуры → JPEG <размер> px (PNG 2048 весит 5 МБ), убираются расширения материалов (specular/ior) и эмиссия (игра красит своим
 тон-шейдером), скелет, веса и анимации остаются как есть. Буфер собирается заново без выброшенных картинок."""
-import sys, struct, json, io
-from PIL import Image
+import sys, struct, json, io, subprocess
+try: from PIL import Image
+except ImportError: Image = None   # нет Pillow — сжимаем ImageMagick (convert)
+
+def to_jpeg(raw, size):
+    if Image:
+        pic = Image.open(io.BytesIO(raw)).convert('RGB'); pic = pic.resize((size, size), Image.LANCZOS) if max(pic.size) > size else pic
+        out = io.BytesIO(); pic.save(out, 'JPEG', quality=88); return out.getvalue()
+    return subprocess.run(['convert', '-', '-resize', f'{size}x{size}>', '-quality', '88', 'jpeg:-'], input=raw, capture_output=True, check=True).stdout
 
 def main(src, dst, size=1024):
     d = open(src, 'rb').read(); L = struct.unpack('<I', d[12:16])[0]; j = json.loads(d[20:20 + L]); b0 = 20 + L
@@ -11,8 +18,7 @@ def main(src, dst, size=1024):
     img_views = {}
     for im in j.get('images', []):
         bv = j['bufferViews'][im['bufferView']]; raw = B[bv.get('byteOffset', 0):bv.get('byteOffset', 0) + bv['byteLength']]
-        pic = Image.open(io.BytesIO(raw)).convert('RGB'); pic = pic.resize((size, size), Image.LANCZOS) if max(pic.size) > size else pic
-        out = io.BytesIO(); pic.save(out, 'JPEG', quality=88); img_views[im['bufferView']] = out.getvalue(); im['mimeType'] = 'image/jpeg'
+        img_views[im['bufferView']] = to_jpeg(raw, size); im['mimeType'] = 'image/jpeg'
     for m in j.get('materials', []):
         m.pop('extensions', None); m.pop('emissiveTexture', None); m.pop('emissiveFactor', None)
     j.pop('extensionsUsed', None); j.pop('extensionsRequired', None)

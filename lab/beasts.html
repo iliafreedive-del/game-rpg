@@ -58,14 +58,16 @@ const STAFF = (await import(BASE + 'js/render3d/models/weapon/staff_mage.js')).d
 const SWORD = (await import(BASE + 'js/render3d/models/weapon/sword_iron.js')).default, SHIELD = (await import(BASE + 'js/render3d/models/weapon/shield_round.js')).default;
 const BOW = (await import(BASE + 'js/render3d/models/weapon/bow_hunter.js')).default;
 for (const id of ['w_wolf', 'f_wolf', 'w_bear', 'w_boar', 'beast']) MOBS[id] = (await import(BASE + `js/render3d/models/mob/${id}.js`)).default;
-const NAMES = { archer: 'Лучник', warrior: 'Воин', mage: 'Маг', w_wolf: 'Волк', f_wolf: 'Ледяной волк', w_bear: 'Медведь', w_boar: 'Кабан', beast: 'Пещерный зверь' };
+// собака деревни: GLB из Meshy (tools/art/meshy.py → assets/models/dog_town.glb); без рига — статичная модель с покачиванием
+MOBS.dog_town = { id: 'dog_town', kind: 'mob', outline: 'mob', build: kit => (kit.skin.SKINS.on && kit.mob.buildMob(kit, 'dog_town', { height: 0.95, radius: 0.3, speed0: 1.1 })) || MOBS.w_wolf.build(kit) };
+const NAMES = { dog_town: 'Собака (Meshy)', archer: 'Лучник', warrior: 'Воин', mage: 'Маг', w_wolf: 'Волк', f_wolf: 'Ледяной волк', w_bear: 'Медведь', w_boar: 'Кабан', beast: 'Пещерный зверь' };
 
 const canvas = document.getElementById('c');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
 renderer.setPixelRatio(Math.min(2, devicePixelRatio || 1));
 renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 const scene = new THREE.Scene(), kit = makeKit(scene);
-await kit.fur.ready; await kit.skin.preloadSkin('archer_raven'); await kit.skin.preloadSkin('warrior_vanguard'); await kit.skin.preloadSkin('mage_archmage'); await kit.mob.preloadMob('wolf_grey');
+await kit.fur.ready; await kit.skin.preloadSkin('archer_raven'); await kit.skin.preloadSkin('warrior_vanguard'); await kit.skin.preloadSkin('mage_archmage'); await kit.mob.preloadMob('wolf_grey'); await kit.mob.preloadMob('dog_town');
 const camera = new THREE.PerspectiveCamera(CAMERA.fov, 1, 0.3, 200);
 const hemi = new THREE.HemisphereLight(), sun = new THREE.DirectionalLight();
 sun.castShadow = true; sun.shadow.mapSize.set(1024, 1024); Object.assign(sun.shadow.camera, { left: -8, right: 8, top: 8, bottom: -8, near: 1, far: 60 }); sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.03;

@@ -1,0 +1,9 @@
+{
+ "dog_town": {
+  "task": "01a1059d-aeea-73a9-b4ee-5aaa36e10ef5",
+  "image": "art_meshy/in/dog_town.webp",
+  "model": "latest",
+  "polycount": 12000,
+  "started": "2026-10-04 06:33"
+ }
+}
