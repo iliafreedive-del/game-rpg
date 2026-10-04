@@ -32,8 +32,8 @@ const world = buildWorld(scene, LOOK);
 const gate = toWorld(0, 1.0); violet.position.set(gate.x, L.violet.y, gate.z);
 const fx = new FX(scene);
 fx.slashes.forEach(x => x.mesh.material.uniforms.uColor.value.set(LIGHT.slashColor));      // abyss-violet slash arcs
-// герой: Элвин (текстурная модель на процедурном риге) в torch-виде, процедурный рыцарь в тёмном; ?hero=knight|elvin переключает
-const HERO_KIND = params.get('hero') || (TORCH ? 'elvin' : 'knight');
+// герой: процедурный рыцарь; ?hero=elvin — тестовая посадка модели NPC Элвина на риг (Элвин — NPC-наставник, не герой)
+const HERO_KIND = params.get('hero') || 'knight';
 const hero = HERO_KIND === 'elvin' ? new ElvinHero(scene, await loadGLB('assets/elvin.glb')) : new DarkHero(scene);
 const mobs = params.get('mobs') === '0' ? null : new Mobs(scene, fx);
 const input = new Input(document.getElementById('joyBase'), document.getElementById('joyKnob'), document.getElementById('atk'));
