@@ -171,7 +171,12 @@ export function playerAttack(P, aim, force) {
 export function updatePlayerAction(P, dt) {
   const a = P.act; if (!a) { P.state = 'idle'; return; }
   a.t += dt;
-  if (a.tgt && !a.tgt.dead && a.t < 0.15) P.faceTo(a.tgt.x, a.tgt.y);
+  if (a.tgt && !a.tgt.dead && (a.t < 0.15 || (a.kind === 'melee' && !a.fired))) P.faceTo(a.tgt.x, a.tgt.y);
+  // замах воина: цель отходит — герой подшагивает за ней до удара (иначе отбегающего моба он постоянно не доставал)
+  if (a.kind === 'melee' && !a.fired && a.tgt && !a.tgt.dead) {
+    const dx = a.tgt.x - P.x, dy = a.tgt.y - P.y, d = Math.hypot(dx, dy), want = a.W.range * 0.75 + a.tgt.r;
+    if (d > want && d < a.W.range + a.tgt.r + 2.5) { const st = Math.min(d - want, 6.5 * dt); [P.x, P.y] = G.zone.map.move(P.x, P.y, dx / d * st, dy / d * st, P.r); }
+  }
   const S = G.stats;
   if (a.kind === 'bow') {
     if (a.phase === 'draw' && P.anim.done) {
@@ -203,12 +208,12 @@ function meleeImpact(P, a) {
   const cl = R('cleave'); let hitAny = false;
   const opts = { src: 'melee', pierce: W.pierce || 0, axeBleed: !!W.bleed };
   // primary target
-  const prim = a.tgt && !a.tgt.dead && Math.hypot(a.tgt.x - P.x, a.tgt.y - P.y) <= W.range + a.tgt.r + 0.35 ? a.tgt : null;
+  const prim = a.tgt && !a.tgt.dead && Math.hypot(a.tgt.x - P.x, a.tgt.y - P.y) <= W.range + a.tgt.r + 0.6 ? a.tgt : null;   // по своей цели — с запасом
   for (const e of G.enemies) {
     if (e.dead) continue; const dx = e.x - P.x, dy = e.y - P.y, d = Math.hypot(dx, dy);
-    if (d > W.range + e.r + 0.2) continue;
+    if (e !== prim && d > W.range + e.r + 0.2) continue;
     const inArc = Math.abs(angDiff(ang0, Math.atan2(dy, dx))) <= (W.arc / 2) * Math.PI / 180;
-    if (!inArc && d > e.r + 0.5) continue;
+    if (e !== prim && !inArc && d > e.r + 0.5) continue;
     let m;
     if (e === prim || (!prim && !hitAny)) m = 1;
     else if (W.cleave) m = 0.85; else if (hasBoon('split')) m = 0.6; else if (cl) m = 0.3 + cl * 0.2; else if (crush) m = 0.6; else continue;
