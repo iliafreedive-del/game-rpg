@@ -222,7 +222,9 @@ export function buildGround(scene, zone, opts = {}) {
   geo.setIndex(idx); geo.computeVertexNormals();
   const ground = new THREE.Mesh(geo, groundMaterial(snow, !!opts.forest, zone.json.village ? 0 : 1, steppe)); ground.userData.noOutline = true; ground.receiveShadow = true; scene.add(ground);
   // подложка до горизонта: тёмный мох, чтобы за краем карты не было пустоты
-  const far = new THREE.Mesh(new THREE.PlaneGeometry(400, 400).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: opts.farColor ?? 0x0f2418 })); far.position.set(W / 2, -0.4, H / 2); scene.add(far);
+  // походы (сборка 45): вместо плоской подложки — остров над звёздной бездной (см. abyss ниже)
+  const far = opts.abyss ? abyss(W, H, MARGIN, opts.abyss) : new THREE.Mesh(new THREE.PlaneGeometry(400, 400).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: opts.farColor ?? 0x0f2418 }));
+  if (!opts.abyss) far.position.set(W / 2, -0.4, H / 2); scene.add(far);
 
   // вода: плоскость над впадиной; видна только там, где земля провалилась ниже -0.08, поэтому берег получается плавным
   let water = null; const wt = [];
@@ -310,6 +312,65 @@ export function buildGround(scene, zone, opts = {}) {
       if (on) { grassU.uShadowMap.value = sm.map.texture; grassU.uShadowMat.value.copy(sm.matrix); grassU.uShadowTexel.value.set(1 / sm.mapSize.x, 1 / sm.mapSize.y); }
     },
     update(blobs) { for (let i = 0; i < 12; i++) { const b = blobs[i], v = grassU.uBlobs.value[i]; if (b) v.set(b.x, b.z, b.r, b.w ?? 1); else v.set(999, 999, 0.5, 0); } },
-    dispose() { for (const o of [ground, far, water, cob, ...grass]) if (o) { o.removeFromParent(); o.geometry.dispose(); } },
+    dispose() { if (far.userData.parts) for (const o of far.userData.parts) { o.geometry.dispose(); o.material.dispose(); } for (const o of [ground, far, water, cob, ...grass]) if (o) { o.removeFromParent(); o.geometry.dispose(); } },
   };
+}
+
+// ---------------------------------------------------------------- бездна за краем похода (сборка 45)
+// Карта — парящий остров: от края земли вниз уходит скальный обрыв, под ним — тёмное небо со звёздами и туманностью.
+// Дёшево: две плоские сетки (дно бездны 400×400 и лента обрыва по периметру), шейдеры без текстур, кроме общего noiseTex.
+// Туман на них не действует — иначе бездна стала бы цветом тумана, а не космосом.
+const ABYSS = {
+  forest: { sky: 0x050c14, neb: 0x1d5a58, neb2: 0x3a2a6a, rock: 0x3b2c20, rim: 0x5a4a2a },
+  fjord: { sky: 0x060c22, neb: 0x3a6ac0, neb2: 0x2aa088, rock: 0x7a8ca4, rim: 0xc8d8e8 },
+  bones: { sky: 0x12060c, neb: 0x8a3020, neb2: 0x5a2a6a, rock: 0x7a3a22, rim: 0xb0703a },
+};
+function abyss(W, H, M, realm) {
+  const P = ABYSS[realm] || ABYSS.forest, col = c => new THREE.Color(c), grp = new THREE.Group();
+  const tn = noiseTex(); tn.wrapS = tn.wrapT = THREE.RepeatWrapping;
+  // дно: звёзды по сетке 2,5 м (одна на клетку, если повезёт) + туманность из двух выборок шума
+  const sky = new THREE.Mesh(new THREE.PlaneGeometry(420, 420).rotateX(-Math.PI / 2).translate(W / 2, -38, H / 2), new THREE.ShaderMaterial({
+    uniforms: { uTime: U.uTime, tNoise: { value: tn }, uSky: { value: col(P.sky) }, uNeb: { value: col(P.neb) }, uNeb2: { value: col(P.neb2) } },
+    vertexShader: `varying vec2 vP; void main(){ vP = position.xz; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+    fragmentShader: `uniform float uTime; uniform sampler2D tNoise; uniform vec3 uSky, uNeb, uNeb2; varying vec2 vP;
+      float h(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+      void main(){
+        float n1 = texture2D(tNoise, vP * 0.006 + vec2(uTime * 0.0015, 0.0)).r, n2 = texture2D(tNoise, vP * 0.011 + 0.37).g;
+        vec3 c = uSky + uNeb * smoothstep(0.45, 0.85, n1) * 0.55 + uNeb2 * smoothstep(0.55, 0.9, n2) * 0.45;
+        vec2 cell = floor(vP / 2.5), f = fract(vP / 2.5); float r = h(cell);
+        if (r > 0.82) { vec2 sp = vec2(h(cell + 7.1), h(cell + 3.3)) * 0.7 + 0.15; float d = length(f - sp) * 2.5;
+          float tw = 0.65 + 0.35 * sin(uTime * (1.5 + r * 3.0) + r * 40.0);
+          c += mix(vec3(0.75, 0.85, 1.0), vec3(1.0, 0.85, 0.6), h(cell + 1.7)) * smoothstep(0.22 + (r - 0.82) * 1.2, 0.0, d) * tw * 1.3; }
+        gl_FragColor = vec4(c, 1.0);
+      }`,
+    depthWrite: false,
+  }));
+  sky.renderOrder = -10; sky.frustumCulled = false;
+  // обрыв: лента по периметру земли, низ рваный и чуть уходит под остров; цвет — от породы к бездне, с полосами пластов
+  const x0 = -M, z0 = -M, x1 = W + M, z1 = H + M, pts = [], STEP = 1;
+  const edge = (ax, az, bx, bz) => { const L = Math.hypot(bx - ax, bz - az), n = Math.round(L / STEP); for (let i = 0; i < n; i++) pts.push([ax + (bx - ax) * i / n, az + (bz - az) * i / n]); };
+  edge(x0, z0, x1, z0); edge(x1, z0, x1, z1); edge(x1, z1, x0, z1); edge(x0, z1, x0, z0); pts.push(pts[0]);
+  const cx = W / 2, cz = H / 2, pos = [], uv = [], idx = [];
+  pts.forEach(([x, z], i) => {
+    const d = 7 + fbm(x * 0.21, z * 0.21) * 9 + (i % 3 === 0 ? 2.5 : 0), dx = cx - x, dz = cz - z, l = Math.hypot(dx, dz) || 1, t = 0.08 * d;   // почти отвесно: камера смотрит круто сверху, при сильном сужении обрыв прятался под островом
+    pos.push(x, 0.02, z, x + dx / l * t, -d, z + dz / l * t); uv.push(i * STEP, 0, i * STEP, 1);
+    if (i) { const a = (i - 1) * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
+  });
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx);
+  const cliff = new THREE.Mesh(g, new THREE.ShaderMaterial({
+    uniforms: { tNoise: { value: tn }, uRock: { value: col(P.rock) }, uRim: { value: col(P.rim) }, uSky: { value: col(P.sky) } },
+    vertexShader: `varying vec2 vUv; varying float vY; void main(){ vUv = uv; vY = position.y; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+    fragmentShader: `uniform sampler2D tNoise; uniform vec3 uRock, uRim, uSky; varying vec2 vUv; varying float vY;
+      void main(){
+        float n = texture2D(tNoise, vec2(vUv.x * 0.05, vY * 0.06)).b, m = texture2D(tNoise, vec2(vUv.x * 0.013, 0.5)).r, s = 0.7 + 0.3 * sin(vY * 2.2 + n * 10.0 + m * 6.0);
+        vec3 c = uRock * s * (0.9 + 0.9 * n) * (1.0 + 0.6 * smoothstep(-3.0, 0.0, vY));   // пласты породы; ближе к кромке светлее
+        c = mix(uRim, c, smoothstep(0.0, -0.5, vY));          // светлая кромка у самой земли
+        c = mix(c, uSky, smoothstep(0.15, 1.0, vUv.y));        // книзу растворяется в бездне
+        gl_FragColor = vec4(c, 1.0);
+      }`,
+    side: THREE.DoubleSide,
+  }));
+  grp.add(sky, cliff); grp.userData.parts = [sky, cliff]; grp.userData.noOutline = true; sky.userData.noOutline = cliff.userData.noOutline = true;
+  grp.geometry = { dispose() { } };   // общий dispose() земли ждёт у каждого объекта geometry
+  return grp;
 }

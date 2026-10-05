@@ -5,9 +5,9 @@ import { G, bus } from '../game/ctx.js';
 import { clamp } from './util.js';
 import { tapAim } from './input.js';
 
-// 0,8 — на 20 % ближе (ближе нельзя: снизу экрана останется меньше 6 м, и враг выйдет на героя почти вплотную);
+// 0,7 — на 30 % ближе (сборка 45: было 0,8 — пользователь попросил ещё на 10 %; снизу экрана телефона остаётся ≈5,3 м);
 // 1,3 — на 30 % дальше
-export const ZOOM = { min: 0.8, max: 1.3 };
+export const ZOOM = { min: 0.7, max: 1.3 };
 export const zoomNow = () => { const s = G.profile && G.profile.settings; const z = s ? +s.camZoom : 1; return z ? clamp(z, ZOOM.min, ZOOM.max) : 1; };
 
 let saveT = 0;
