@@ -59,6 +59,9 @@ export function init() {
   canvas.addEventListener('webglcontextlost', e => { e.preventDefault(); try { import('../game/game.js').then(m => m.saveNow()); } catch { } setTimeout(() => location.reload(), 900); });
   scene = new THREE.Scene(); camera = new THREE.PerspectiveCamera(CAMERA.fov, 1, CAMERA.near, CAMERA.far);
   kit = makeKit(scene);
+  setTimeout(preloadPortals, 1500);   // сборка 46: арки деревни качаются заранее, пока герой в склепе — выход в деревню без догрузки
+  // сборка 46: без проверки ошибок шейдеров браузер компилирует их параллельно, а не ждёт каждый (на Android переход стоял до 20 с); ?debug — проверка включена
+  renderer.debug.checkShaderErrors = params.has('debug');
   renderer.info.autoReset = false;                      // считаем все проходы кадра (тень, сцена, постобработка) вместе
   renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   post = new Post(renderer);
@@ -92,7 +95,7 @@ export function resize(w, h) {
   camera.updateProjectionMatrix();
 }
 // «Авто»: стартуем по типу устройства, а регулятор ниже сам опускает качество, если кадры затягиваются
-let postKey = '', govLevel = null, govSlow = 0, govAcc = 0, govN = 0;
+let postKey = '', govLevel = null, govSlow = 0, govAcc = 0, govN = 0, govScale = 1;   // govScale — доля разрешения (сборка 46)
 function qualityNow() {
   const q = G.profile && G.profile.settings ? G.profile.settings.quality : 'auto';
   if (q === 'low' || q === 'high' || q === 'med') return q;
@@ -104,24 +107,29 @@ function governor(dt) {
   govAcc += Math.min(dt, 0.2); govN++;
   if (govAcc < 3) return;
   const ms = govAcc / govN * 1000; govAcc = 0; govN = 0;
-  govSlow = ms > 26 ? govSlow + 1 : 0;      // медленнее ~38 к/с три окна подряд → ступенькой ниже
-  if (govSlow >= 2) { govSlow = 0; govLevel = quality === 'high' ? 'med' : 'low'; applyQuality(); }
+  // сборка 46: медленнее ~52 к/с два окна подряд — сначала чуть ниже разрешение (на глаз почти незаметно, нагрузка на видеокарту −28…−48 %),
+  // и только если и это не помогло — ступенька качества ниже (раньше ждали падения ниже 38 к/с — в деревне рывки успевали стать заметны)
+  govSlow = ms > 19 ? govSlow + 1 : 0;
+  if (govSlow >= 2) { govSlow = 0;
+    if (govScale > 0.75 && DPR * 0.85 >= 1) { govScale = govScale > 0.9 ? 0.85 : 0.72; applyQuality(true); }
+    else { govLevel = quality === 'high' ? 'med' : 'low'; govScale = 1; applyQuality(); } }
 }
 function applyQuality(force) {
   const q = qualityNow(); if (q === quality && !force) return; quality = q;
   const Q = QUALITY[q];
   // потолок по числу пикселей (≈3,2 Мпикс): на больших мониторах с HiDPI цели постобработки с MSAA съедали видеопамять — после смены зоны кадр мог стать чёрным
-  DPR = Math.max(0.6, Math.min(window.devicePixelRatio || 1, Q.pr, Math.sqrt(3.2e6 / Math.max(1, W * H)))); renderer.setPixelRatio(DPR);
+  const base = Math.max(0.6, Math.min(window.devicePixelRatio || 1, Q.pr, Math.sqrt(3.2e6 / Math.max(1, W * H))));
+  DPR = Math.max(Math.min(1, base), base * govScale); renderer.setPixelRatio(DPR);
   setOutlinesVisible(q !== 'low'); if (world) { world.ground.setQuality(q); world.props.setQuality(q); if (world.atmo) world.atmo.setQuality(q); }
   const sm = Q.shadow;
   lights.hemi.intensity = LV.hemi.i * (Q.light ?? 1); lights.moon.intensity = LV.key.i * (Q.light ?? 1);
-  setPointCount(zone && (zone.id === 'town' || zone.id === 'wild') ? 2 : Q.points);
+  setPointCount(Q.points);   // сборка 46: число огней одно во всех зонах — иначе при каждом переходе пересобирались все шейдеры (в деревне и походах горят только 2 ближних)
   if (lights.moon.castShadow !== !!sm || lights.moon.shadow.mapSize.x !== sm) {
     lights.moon.castShadow = !!sm;
     if (sm) { lights.moon.shadow.mapSize.set(sm, sm); if (lights.moon.shadow.map) { lights.moon.shadow.map.dispose(); lights.moon.shadow.map = null; } }
     scene.traverse(o => { if (o.material && o.material.isMaterial) o.material.needsUpdate = true; });
   }
-  const msaa = DPR < 1.5 ? Q.msaa : 0, pk = [Math.round(W * DPR), Math.round(H * DPR), Q.post, msaa, Q.bloom].join();
+  const msaa = base < 1.5 ? Q.msaa : 0, pk = [Math.round(W * DPR), Math.round(H * DPR), Q.post, msaa, Q.bloom].join();
   if (pk !== postKey) { postKey = pk; post.setup(Math.round(W * DPR), Math.round(H * DPR), { enabled: Q.post, samples: msaa, levels: Q.bloom }); }   // цели постобработки пересоздаём только при смене размера/качества
   setSmoothFade(Q.post && msaa > 0);
 }
@@ -324,7 +332,8 @@ function updateLights(t, dt) {
   const P = G.player, f = 0.82 + Math.sin(t * 13) * 0.08 + Math.sin(t * 23.7) * 0.06 + Math.sin(t * 5.1) * 0.06;
   const on = zone.lights.filter(l => l.on);
   if (on.length !== world.onKey) { world.glow.removeFromParent(); world.pool.removeFromParent(); Object.assign(world, lightSets(zone)); }   // портал проявился, алтарь погас
-  const want = on.map(l => ({ l, d: Math.hypot(l.x - P.x, l.y - P.y) })).sort((a, b) => a.d - b.d).slice(0, slots.length).map(n => n.l);
+  const open = zone.id === 'town' || zone.id === 'wild';
+  const want = on.map(l => ({ l, d: Math.hypot(l.x - P.x, l.y - P.y) })).sort((a, b) => a.d - b.d).slice(0, open ? Math.min(2, slots.length) : slots.length).map(n => n.l);
   // огонь, выпавший из ближних, плавно гаснет; освободившийся слот плавно зажигает новый — без «прыжков» света
   for (const s of slots) if (s.L && !want.includes(s.L)) { s.k -= dt * 3; if (s.k <= 0) { s.L = null; s.k = 0; } }
   for (const L of want) if (!slots.some(s => s.L === L)) { const s = slots.find(s => !s.L); if (s) { s.L = L; s.k = 0; } }
@@ -351,8 +360,29 @@ function cullActors() {
 }
 
 // ---------------------------------------------------------------- кадр
+// сборка 46: новая зона собирается и её шейдеры компилируются, пока ещё не показана (loadZone ждёт), — без замершего кадра
+let warming = null;
+const settle = (p, ms) => Promise.race([p.catch(() => false), new Promise(r => setTimeout(r, ms))]);
+export function prepare() {
+  const Z = G.zone; if (!Z || !G.player || !renderer) return Promise.resolve();
+  const t0 = performance.now();
+  warming = (async () => {
+    // паки Meshy (порталы деревни, пустоши) — до сборки мира, чтобы слой предметов не пересобирался уже на глазах
+    SKINS.on = !(G.profile && G.profile.settings && G.profile.settings.skins === false);
+    const packs = [];
+    if (SKINS.on && Z.id === 'town' && Z.json.village && !portalsReady()) packs.push(preloadPortals());
+    if (SKINS.on && Z.id === 'wild' && Z.json.wild.realm === 'bones' && !bonesReady()) packs.push(preloadBones());
+    if (packs.length) await settle(Promise.all(packs), 8000);
+    if (G.zone !== Z) return;
+    if (Z !== zone) setZone(Z);
+    applyQuality(); updateCamera(0); syncPlayer(0); syncEnemies(0); syncNpcs(0);   // герой, враги и жители — сразу, чтобы их шейдеры тоже собрались заранее
+    await settle(renderer.compileAsync(scene, camera), 6000);
+  })().finally(() => { warming = null; if (params.has('debug')) console.info('[3d] зона готова', Z.id, Math.round(performance.now() - t0) + ' мс'); });
+  return warming;
+}
 export function render() {
-  const Z = G.zone; if (!Z || !G.player) return;
+  const Z = G.zone; if (!Z || !G.player || warming) return;
+  if (Z !== zone && !G.zoneReady) return;   // новая зона ещё грузится: её мир соберёт prepare(), до этого — прежний кадр под шторкой
   const now = performance.now(), dt = Math.min(0.05, (now - last) / 1000), rawDt = (now - last) / 1000; last = now; tAll += dt; U.uTime.value = tAll; governor(rawDt);
   if (Z !== zone) setZone(Z);
   applyQuality();

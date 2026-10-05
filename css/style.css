@@ -742,3 +742,7 @@ body.cine-on #ui{opacity:0;transition:opacity .4s}
 .circle-card .btn{width:auto;margin-top:0}
 .circle-card .btn.sm{min-width:40px}
 .circle-n{font:700 15px var(--serif);color:#d9b8ff;min-width:54px;text-align:center}
+/* сборка 46: шторка на время смены зоны */
+#zoneVeil{position:fixed;inset:0;z-index:20;display:grid;place-items:center;background:#07050acc;opacity:0;pointer-events:none;transition:opacity .2s}
+#zoneVeil.on{opacity:1;transition:none;pointer-events:auto}
+#zoneVeil span{font:600 18px Georgia,serif;color:#e9c46a;letter-spacing:.06em;text-shadow:0 2px 8px #000}

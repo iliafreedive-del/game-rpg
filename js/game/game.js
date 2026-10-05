@@ -31,7 +31,7 @@ import { ROOMS, DECOR } from '../data/upgrades.js';
 import * as CS from './castle.js';
 import * as SV from './survival.js';
 import * as DQ from './daily.js';
-import { resize as rResize } from '../render/index.js';
+import { resize as rResize, prepareRender } from '../render/index.js';
 import * as HU from './hunts.js';
 import { SKILLS } from '../data/skills.js';
 import { rand, rrange, rint } from '../core/util.js';
@@ -59,6 +59,7 @@ bus.on('save', requestSave);
 
 export async function loadZone(id, how = {}) {
   G.zoneReady = false; bus.emit('zoneLoading', id);
+  if (G.zone && typeof requestAnimationFrame !== 'undefined') await new Promise(r => requestAnimationFrame(() => setTimeout(r, 0)));   // сборка 46: дать браузеру нарисовать шторку до тяжёлой сборки зоны
   const P = G.profile;
   if (G.zoneId === 'wild' && id !== 'wild') onLeaveWild();
   if (id !== 'wild') setPropsPalette(false);   // «снежные» пропсы Фьордов только внутри Фьордов
@@ -152,6 +153,7 @@ export async function loadZone(id, how = {}) {
   G.stats = stats(P);
   if (fresh || pl.hp <= 0 || how.fullHeal || id === 'town') { pl.hp = G.stats.maxHP; pl.mp = G.stats.maxMP; }
   G.zoomMul = id === 'survival' ? 0.6 : id === 'town' ? 1 : 1.05; rResize();   // катакомбы, Глубины, походы, Цитадель — как в деревне и ещё на 5 % ближе (сборка 44; было 0,8–0,85)
+  await prepareRender().catch(() => { });   // сборка 46: шейдеры новой зоны компилируются до её показа
   if (id === 'survival') SV.startRun(); else G.surv = null;
   G.zoneReady = true;
   bus.emit('zoneEntered', id); bus.emit('hud'); requestSave();

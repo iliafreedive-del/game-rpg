@@ -8,9 +8,15 @@ import { fbm } from './geo.js';
 import { wallPieces } from './dungeon.js';
 import { STEPPE_ROCKS, STEPPE_SPIRES, STEPPE_TREES } from './models/prop/_steppe.js';
 import { swap as bonesSwap, liveDef as bonesLive } from './bonesglb.js';
+import { SKINS } from './glbskin.js';
+import { portalsReady } from './portalglb.js';
 
 const hash = (x, y) => { let h = (Math.round(x * 31) * 374761393 + Math.round(y * 31) * 668265263) >>> 0; h = (h ^ (h >>> 13)) * 1274126177 >>> 0; return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
 const warned = new Set();
+// сборка 46: готовые модели предметов храним между заходами в зону (раньше деревня строилась заново при каждом возвращении —
+// секунды на слабом телефоне — и прежние геометрии оставались в видеопамяти). Ключ — модель + опции + переключатели моделей Meshy
+const BUILT = new Map(), BATCHED = new Map();
+const cacheVer = () => (SKINS.on ? 's' : '-') + (portalsReady() ? 'p' : '-');
 // предметы, которые игра меняет на лету: открытие дверей, сундуков, саркофагов, проявление порталов, секретная стена
 const DYN = new Set(['door', 'door_open', 'gate_sealed', 'chest', 'chest_open', 'chest_rich', 'chest_rich_open', 'sarcophagus', 'sarcophagus_open', 'altar', 'altar_medallion', 'portal', 'portal_ring', 'portal_spire', 'portal_gate', 'portal_crown', 'portal_maw', 'portal_bone', 'portal_skulls', 'portal_white', 'portal_bones', 'portal_sun', 'portal_swords']);
 // порода дерева по позиции: взвешенный выбор из TREE_KINDS (tree_0 — лиственные, tree_1 — хвойные)
@@ -162,19 +168,32 @@ export class PropLayer {
     }
   }
   addSingle(def, it) {
+    const key = this.bn || !def.id ? null : def.id + '|' + JSON.stringify(it.opts || {}) + '|' + cacheVer(), hit = key && BUILT.get(key);
+    if (hit) {   // та же модель уже собиралась: копия делит геометрию и материалы, обводка и тени уже настроены
+      const root = hit.clone(), g = new THREE.Group(); g.add(root);
+      g.position.set(it.x, 0, it.y); g.rotation.y = it.rot; g.scale.setScalar(it.s); this.scene.add(g); this.items.push(g);
+      if (root.userData.smoke) { g.updateMatrixWorld(true); for (const p of root.userData.smoke) this.smoke.push({ p: root.localToWorld(new THREE.Vector3(p[0], p[1], p[2])), dark: !!p[3] }); }
+      return g;
+    }
     const model = def.build(this.kit, it.opts || {}), g = new THREE.Group(); g.add(model.root);
     g.position.set(it.x, 0, it.y); g.rotation.y = it.rot; g.scale.setScalar(it.s); this.scene.add(g);
     const ol = this.outlineFor(def); if (ol) addOutlines(model.root, ol);
     model.root.traverse(o => { if (o.isMesh && !o.userData.isOutline) { o.castShadow = def.shadow !== false && !def.shadowProxy; o.receiveShadow = true; } });
     if (def.shadowProxy) { const pm = new THREE.Mesh(def.shadowProxy(this.kit), proxyMat()); pm.castShadow = true; pm.layers.set(1); pm.userData.isOutline = true; model.root.add(pm); }
-    this.items.push(g); if (model.update) this.dyn.push(model);
+    this.items.push(g); if (model.update) this.dyn.push(model); else if (key) BUILT.set(key, model.root);
     if (model.root.userData.smoke) { g.updateMatrixWorld(true); for (const p of model.root.userData.smoke) this.smoke.push({ p: model.root.localToWorld(new THREE.Vector3(p[0], p[1], p[2])), dark: !!p[3] }); }   // [x, y, z, тёмный дым горна]
     return g;
   }
   addBatch(def, list) {
-    const model = def.build(this.kit), root = model.root; root.updateMatrixWorld(true);
-    const ol = this.outlineFor(def), meshes = [];
-    root.traverse(o => { if (o.isMesh) { const g = o.geometry.clone(); g.applyMatrix4(o.matrixWorld); meshes.push({ geo: g, mat: o.material }); } });
+    const key = this.bn || !def.id ? null : def.id + '|' + cacheVer();
+    let B = key && BATCHED.get(key);
+    if (!B) {
+      const root = def.build(this.kit).root; root.updateMatrixWorld(true);
+      const meshes = []; root.traverse(o => { if (o.isMesh) { const g = o.geometry.clone(); g.applyMatrix4(o.matrixWorld); meshes.push({ geo: g, mat: o.material }); } });
+      const bs = new THREE.Box3().setFromObject(root).getBoundingSphere(new THREE.Sphere());
+      B = { meshes, r: bs.radius, proxy: def.shadowProxy ? def.shadowProxy(this.kit) : null }; if (key) BATCHED.set(key, B);
+    }
+    const ol = this.outlineFor(def), meshes = B.meshes;
     const parts = meshes.map(({ geo, mat }) => {
       const im = new THREE.InstancedMesh(geo, mat, list.length); im.name = def.id;
       if (def.tint) im.setColorAt(0, new THREE.Color(1, 1, 1)); im.frustumCulled = false; im.castShadow = def.shadow !== false; im.receiveShadow = def.receive !== false;
@@ -185,12 +204,11 @@ export class PropLayer {
     });
     if (def.shadowProxy) {   // тень от заменителя: только слой 1 (его видит камера тени, но не основная)
       for (const { im } of parts) im.castShadow = false;
-      const pg = def.shadowProxy(this.kit), pm = new THREE.InstancedMesh(pg, proxyMat(), list.length);
+      const pg = B.proxy, pm = new THREE.InstancedMesh(pg, proxyMat(), list.length);
       pm.instanceMatrix = parts[0].im.instanceMatrix; pm.frustumCulled = false; pm.castShadow = true; pm.layers.set(1); pm.userData.isOutline = true;
       this.scene.add(pm); this.items.push(pm); parts.push({ im: pm, oim: null, proxy: true });
     }
-    root.updateMatrixWorld(true); const bb = new THREE.Box3().setFromObject(root), bs = bb.getBoundingSphere(new THREE.Sphere());
-    this.batches.push({ list, parts, r: bs.radius * 1.1 + 0.3 });
+    this.batches.push({ list, parts, r: B.r * 1.1 + 0.3 });
   }
   // оставляем в instanced-мешах только то, что рядом с камерой
   // оставляем в instanced-мешах только то, что попадает в кадр (пирамида видимости камеры + запас на высоту кроны)

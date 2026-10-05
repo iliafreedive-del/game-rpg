@@ -255,7 +255,7 @@ export function attachSkin(kit, model, name, o = {}) {
       }
       g.attributes.position.needsUpdate = true; g.attributes.color.needsUpdate = true;
     };
-    const dsp = model.dispose; model.dispose = () => { if (dsp) dsp(); m.removeFromParent(); g.dispose(); m.material.dispose(); };
+    const dsp = model.dispose; model.dispose = () => { if (dsp) dsp(); m.removeFromParent(); g.dispose(); };   // материал не освобождаем — шейдер остаётся готовым (сборка 46)
   }
   const upd = model.update;
   model.update = (dt, t, env, actor) => {

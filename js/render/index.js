@@ -23,10 +23,20 @@ export async function initRenderer(canvas) {
   if (window.visualViewport) visualViewport.addEventListener('resize', again);
   addEventListener('orientationchange', () => { for (const t of [80, 300, 700, 1300]) setTimeout(again, t); });
 }
+// сборка 46: шторка «Загрузка…» на время смены зоны (появляется с задержкой — быстрые переходы её не показывают)
+let veil = null;
+bus.on('zoneLoading', () => { if (!G.zone) return; if (!veil) { veil = document.createElement('div'); veil.id = 'zoneVeil'; veil.innerHTML = '<span>Загрузка…</span>'; document.body.appendChild(veil); } veil.classList.add('on'); });
+bus.on('zoneEntered', () => { if (veil) veil.classList.remove('on'); });
 bus.on('camZoom', () => { if (!on3) R2.resize(); });   // 2D: масштаб пересчитывается при зуме игрока (3D сам плавно следует)
 export function resize() {
   R2.resize();
   if (R3) R3.resize(G.cam.w, G.cam.h);
+}
+// сборка 46: собрать 3D-мир новой зоны и скомпилировать его шейдеры до показа (loadZone ждёт этого перед стартом зоны)
+export function prepareRender() {
+  const z = G.zone; if (!(R3 && z && G.player && R3.supports(z, G.profile))) return Promise.resolve();
+  if (!on3) { on3 = true; R3.show(true); R2.clearOverlay(); R2.resize(); R3.resize(G.cam.w, G.cam.h); }
+  return R3.prepare();
 }
 export function render() {
   const z = G.zone, use3 = !!(R3 && z && G.player && R3.supports(z, G.profile));

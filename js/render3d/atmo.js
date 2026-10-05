@@ -80,5 +80,5 @@ export class Atmo {
       for (const n of ['iPos', 'iSize', 'iAlpha', 'iSeed', 'iCol']) g.attributes[n].needsUpdate = true;
     }
   }
-  dispose() { for (const L of [this.smoke]) if (L) { L.mesh.removeFromParent(); L.g.dispose(); L.mesh.material.dispose(); } }
+  dispose() { for (const L of [this.smoke]) if (L) { L.mesh.removeFromParent(); L.g.dispose(); } }   // материал не освобождаем: иначе его шейдер компилируется заново при каждом возвращении в деревню (сборка 46)
 }

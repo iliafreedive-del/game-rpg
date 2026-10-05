@@ -194,6 +194,7 @@ function waterMaterial(x0, y0, x1, y1, ice = false) {
 // ';' — дорога за ручьём, 'b' — мост (под ним вода), 'F'/'V'/'K' — пашня полей деревни, 'n' — луг за ручьём
 const kindOf = ch => ch === ',' || ch === ';' ? 'p' : ch === '#' ? 'c' : ch === 'x' ? 'f' : ch === '~' || ch === 'b' ? 'w' : ch === 'F' || ch === 'V' || ch === 'K' ? 's' : 'g';
 
+const GROUND_CACHE = new Map(), GRASS_CACHE = { sig: null, list: null };   // сетка земли и трава деревни (сборка 46)
 export function buildGround(scene, zone, opts = {}) {
   hfogTex(); const m = zone.map, W = m.w, H = m.h, MARGIN = opts.margin ?? 3, STEP = 0.5, kOf = opts.kindOf || kindOf, snow = !!opts.snow, steppe = !!opts.steppe;
   // за краем карты: обычно лесная подстилка; в деревне — продолжение крайнего тайла (луг за рекой не обрывается тёмной полосой)
@@ -205,21 +206,28 @@ export function buildGround(scene, zone, opts = {}) {
     if (vil) { w.g += w.f * 0.6; w.f *= 0.4; }   // деревня: подстилка в лесу по краям — травянистая, без чёрных провалов между деревьями
     return w;
   };
-  const x0 = -MARGIN, nx = Math.round((W + 2 * MARGIN) / STEP), ny = Math.round((H + 2 * MARGIN) / STEP);
-  const nv = (nx + 1) * (ny + 1), pos = new Float32Array(nv * 3), col = new Float32Array(nv * 4), kind = new Float32Array(nv * 4), pathF = new Float32Array(nv), idx = [];
-  const bank = new THREE.Color(0x3a4a3a);
-  for (let j = 0; j <= ny; j++) for (let i = 0; i <= nx; i++) {
-    const x = x0 + i * STEP, z = x0 + j * STEP, k = j * (nx + 1) + i, w = weights(x, z), n = fbm(x * 0.5, z * 0.5);
-    pos[k * 3] = x; pos[k * 3 + 1] = -0.2 * w.w + (n - 0.5) * 0.08 * (1 - w.c) - 0.04 * w.p; pos[k * 3 + 2] = z;
-    const ww = Math.min(1, w.w * 1.6);   // берег темнеет к воде
-    col.set([1 + (bank.r - 1) * ww, 1 + (bank.g - 1) * ww, 1 + (bank.b - 1) * ww, 1], k * 4);
-    kind.set([w.g, w.p + w.s * 0.85, w.c, w.f], k * 4);
-    let pf = 0; for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) pf += weights(x + a * 0.8, z + b * 0.8).p; pathF[k] = pf / 9 - w.s * 2;   // размытое поле тропы: контуры дают колеи; пашня — отрицательная (борозды)
+  // сборка 46: сетка земли для той же карты считается один раз за запуск (деревня — ≈34 тыс. вершин, секунды на слабом телефоне)
+  const gkey = m.rows.join('\n') + '|' + MARGIN + '|' + vil + '|' + (opts.kindOf ? 'k' : '-');
+  let GC = vil ? GROUND_CACHE.get(gkey) : null;   // походы каждый раз новые — их не храним
+  if (!GC) {
+    const x0 = -MARGIN, nx = Math.round((W + 2 * MARGIN) / STEP), ny = Math.round((H + 2 * MARGIN) / STEP);
+    const nv = (nx + 1) * (ny + 1), pos = new Float32Array(nv * 3), col = new Float32Array(nv * 4), kind = new Float32Array(nv * 4), pathF = new Float32Array(nv), idx = [];
+    const bank = new THREE.Color(0x3a4a3a);
+    for (let j = 0; j <= ny; j++) for (let i = 0; i <= nx; i++) {
+      const x = x0 + i * STEP, z = x0 + j * STEP, k = j * (nx + 1) + i, w = weights(x, z), n = fbm(x * 0.5, z * 0.5);
+      pos[k * 3] = x; pos[k * 3 + 1] = -0.2 * w.w + (n - 0.5) * 0.08 * (1 - w.c) - 0.04 * w.p; pos[k * 3 + 2] = z;
+      const ww = Math.min(1, w.w * 1.6);   // берег темнеет к воде
+      col.set([1 + (bank.r - 1) * ww, 1 + (bank.g - 1) * ww, 1 + (bank.b - 1) * ww, 1], k * 4);
+      kind.set([w.g, w.p + w.s * 0.85, w.c, w.f], k * 4);
+      let pf = 0; for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) pf += weights(x + a * 0.8, z + b * 0.8).p; pathF[k] = pf / 9 - w.s * 2;   // размытое поле тропы: контуры дают колеи; пашня — отрицательная (борозды)
+    }
+    for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) { const a = j * (nx + 1) + i, b2 = a + 1, c2 = a + nx + 1, d2 = c2 + 1; idx.push(a, c2, b2, b2, c2, d2); }
+    const g0 = new THREE.BufferGeometry();
+    g0.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g0.setAttribute('color', new THREE.BufferAttribute(col, 4)); g0.setAttribute('aKind', new THREE.BufferAttribute(kind, 4)); g0.setAttribute('aPath', new THREE.BufferAttribute(pathF, 1));
+    g0.setIndex(idx); g0.computeVertexNormals();
+    GC = g0; if (vil) { GROUND_CACHE.clear(); GROUND_CACHE.set(gkey, GC); }
   }
-  for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) { const a = j * (nx + 1) + i, b2 = a + 1, c2 = a + nx + 1, d2 = c2 + 1; idx.push(a, c2, b2, b2, c2, d2); }
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('color', new THREE.BufferAttribute(col, 4)); geo.setAttribute('aKind', new THREE.BufferAttribute(kind, 4)); geo.setAttribute('aPath', new THREE.BufferAttribute(pathF, 1));
-  geo.setIndex(idx); geo.computeVertexNormals();
+  const geo = GC;
   const ground = new THREE.Mesh(geo, groundMaterial(snow, !!opts.forest, zone.json.village ? 0 : 1, steppe)); ground.userData.noOutline = true; ground.receiveShadow = true; scene.add(ground);
   // подложка до горизонта: тёмный мох, чтобы за краем карты не было пустоты
   // походы (сборка 45): вместо плоской подложки — остров над звёздной бездной (см. abyss ниже)
@@ -267,7 +275,13 @@ export function buildGround(scene, zone, opts = {}) {
   const gmat = new THREE.ShaderMaterial({ uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.fog, {}]), vertexShader: GRASS_VS, fragmentShader: GRASS_FS, side: THREE.DoubleSide, fog: true });
   Object.assign(gmat.uniforms, grassU);
   const blade = clumpGeometry(), CS = 8, grass = [], MAXP = 270, RG = rng(23), mm = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), s = new THREE.Vector3(), p = new THREE.Vector3();
-  for (let cx = -1; cx * CS < W + CS; cx++) for (let cz = -1; cz * CS < H + CS; cz++) {
+  // сборка 46: расстановка травы и пшеницы деревни тоже хранится между заходами (ключ — карта и препятствия)
+  const sig = vil ? gkey + '|' + (m.circles || []).map(c => c.x.toFixed(1) + ',' + c.y.toFixed(1)).join(';') + '|' + (m.rects || []).map(b => b.x0.toFixed(1) + ',' + b.y0.toFixed(1)).join(';') : null;
+  const GR = sig && GRASS_CACHE.sig === sig ? GRASS_CACHE.list : null, rec = sig && !GR ? [] : null;
+  const fromRec = (r, geo0, mat) => { const im = new THREE.InstancedMesh(geo0.clone(), mat, r.n); im.instanceMatrix.array.set(r.m); im.geometry.setAttribute('aRand', new THREE.InstancedBufferAttribute(r.rnd, 1));
+    im.userData.max = r.n; im.count = r.n; im.userData.c = r.c; im.computeBoundingSphere(); im.boundingSphere.radius += r.pad; scene.add(im); grass.push(im); };
+  if (GR) { for (const r of GR) if (r.wheat) { if (!fromRec.wmat) { fromRec.wmat = new THREE.ShaderMaterial({ uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.fog, {}]), vertexShader: GRASS_VS, fragmentShader: GRASS_FS, side: THREE.DoubleSide, fog: true }); Object.assign(fromRec.wmat.uniforms, grassU, { uBase: { value: new THREE.Color(0x6a5a1c) }, uTip: { value: new THREE.Color(0xf2d27a) }, uDry: { value: new THREE.Color(0xd89a3a) } }); fromRec.ear = clumpGeometry(6, 0.055); } fromRec(r, fromRec.ear, fromRec.wmat); } else fromRec(r, blade, gmat); }
+  else for (let cx = -1; cx * CS < W + CS; cx++) for (let cz = -1; cz * CS < H + CS; cz++) {
     const im = new THREE.InstancedMesh(blade.clone(), gmat, MAXP), rnd = new Float32Array(MAXP);
     let n = 0, guard = 0;
     while (n < MAXP && guard++ < MAXP * 6) {
@@ -283,10 +297,11 @@ export function buildGround(scene, zone, opts = {}) {
     im.geometry.setAttribute('aRand', new THREE.InstancedBufferAttribute(rnd, 1));
     im.userData.max = n; im.count = n; im.userData.c = [(cx + 0.5) * CS, (cz + 0.5) * CS]; im.computeBoundingSphere(); im.boundingSphere.radius += 1;
     scene.add(im); grass.push(im);
+    if (rec) rec.push({ n, m: im.instanceMatrix.array.slice(0, n * 16), rnd: rnd.slice(0, n), c: im.userData.c, pad: 1 });
   }
   // пшеница деревни: та же трава (ветер, тени), но золотые колосья по пояс на тайлах 'F', своими чанками
   const wheatTiles = []; for (let ty = 0; ty < H; ty++) for (let tx = 0; tx < W; tx++) if (m.rows[ty][tx] === 'F') wheatTiles.push([tx, ty]);
-  if (wheatTiles.length) {
+  if (wheatTiles.length && !GR) {
     const wmat = new THREE.ShaderMaterial({ uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.fog, {}]), vertexShader: GRASS_VS, fragmentShader: GRASS_FS, side: THREE.DoubleSide, fog: true });
     Object.assign(wmat.uniforms, grassU, { uBase: { value: new THREE.Color(0x6a5a1c) }, uTip: { value: new THREE.Color(0xf2d27a) }, uDry: { value: new THREE.Color(0xd89a3a) } });
     const ear = clumpGeometry(6, 0.055), byChunk = new Map(), RW = rng(41);
@@ -297,8 +312,10 @@ export function buildGround(scene, zone, opts = {}) {
       im.geometry.setAttribute('aRand', new THREE.InstancedBufferAttribute(rnd, 1));
       im.userData.max = pts.length; im.count = pts.length; im.userData.c = [(cx + 0.5) * CS, (cz + 0.5) * CS]; im.computeBoundingSphere(); im.boundingSphere.radius += 1.5;
       scene.add(im); grass.push(im);
+      if (rec) rec.push({ wheat: true, n: pts.length, m: im.instanceMatrix.array.slice(), rnd: rnd.slice(), c: im.userData.c, pad: 1.5 });
     }
   }
+  if (rec) { GRASS_CACHE.sig = sig; GRASS_CACHE.list = rec; }
   let gk = 1;
   return {
     grassU,
@@ -312,7 +329,7 @@ export function buildGround(scene, zone, opts = {}) {
       if (on) { grassU.uShadowMap.value = sm.map.texture; grassU.uShadowMat.value.copy(sm.matrix); grassU.uShadowTexel.value.set(1 / sm.mapSize.x, 1 / sm.mapSize.y); }
     },
     update(blobs) { for (let i = 0; i < 12; i++) { const b = blobs[i], v = grassU.uBlobs.value[i]; if (b) v.set(b.x, b.z, b.r, b.w ?? 1); else v.set(999, 999, 0.5, 0); } },
-    dispose() { if (far.userData.parts) for (const o of far.userData.parts) { o.geometry.dispose(); o.material.dispose(); } for (const o of [ground, far, water, cob, ...grass]) if (o) { o.removeFromParent(); o.geometry.dispose(); } },
+    dispose() { if (far.userData.parts) for (const o of far.userData.parts) o.geometry.dispose(); for (const o of [ground, far, water, cob, ...grass]) if (o) { o.removeFromParent(); o.geometry.dispose(); } },
   };
 }
 
