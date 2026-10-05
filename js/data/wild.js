@@ -60,7 +60,7 @@ export const REALMS = {
     ],
   },
   bones: {
-    id: 'bones', name: 'Костяные пустоши', short: 'Пустоши', portalColor: [255, 150, 70], portal: 'portal_bone', reqLevel: 2, baseLevel: 3,   // reqLevel 2 и baseLevel 3 — временно, для проверки разработчиком (сборка 17)
+    id: 'bones', name: 'Костяные пустоши', short: 'Пустоши', portalColor: [255, 150, 70], portal: 'portal_bone', reqLevel: 12, baseLevel: 12,   // сборка 45: пустоши — Глава III, после форта Фьордов (уровни подняты с временных 2/3)
     blurb: 'Красная полупустыня среди костей древних великанов. Клыкастые дикари живут в хижинах из шкур и рёбер, в балках — гиены, кабаны и скорпионы. За полями — руины древних.',
     pool: [['b_raider', 1], ['b_hyena', 1], ['b_boar', 1], ['b_thrower', 1], ['b_shaman', 2], ['b_scorpid', 3]],
     commander: 'b_chief', boss: 'b_boss', fortName: 'Древние руины',

@@ -61,7 +61,8 @@ export function stats(p, gearOverride) {
   const um = w ? upgMult(w) : 1;
   const attr = W.scale === 'str' ? s.str : W.scale === 'dex' ? s.dex : s.int;
   const attrMult = 1 + attr * (W.scale === 'int' ? 0.025 : 0.02);
-  const mult = attrMult * (1 + s.dmgPct / 100) * (1 + mastery * 0.08 + marks * 0.08);
+  const help = (p.boosts && p.boosts.helpUntil > Date.now()) ? 1.15 : 1;   // подмога Ордена после трёх поражений подряд (js/platform/offers.js)
+  const mult = attrMult * (1 + s.dmgPct / 100) * (1 + mastery * 0.08 + marks * 0.08) * help;
   s.dmgMin = Math.max(1, Math.round((base[0] * um + s.dmgFlat) * mult));
   s.dmgMax = Math.max(s.dmgMin, Math.round((base[1] * um + s.dmgFlat) * mult));
   s.aps = +(W.aps * (1 + s.ias / 100 + mastery * 0.03 + (s.weaponType === 'bow' ? sr('quickstring') * 0.10 : 0))).toFixed(2);

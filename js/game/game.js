@@ -15,7 +15,7 @@ import { loadJSON, loadGroup } from '../core/assets.js';
 import { loadFloor, buildFloorCanvas } from '../render/index.js';
 import { widen } from '../world/widen.js';
 import { respawnTick } from './respawn.js';
-import { weeklyRule, finishWeekly, codexScan } from './season.js';
+import { weeklyRule, finishWeekly, codexScan, circle, circleHP, circleDmg, circleRew } from './season.js';
 const ROOMY = 1.5;   // «простор» (сборка 18): подземелья в 3D растянуты в 1,5 раза — шире комнаты и коридоры
 import { generateFloor, isBossFloor, parTime } from '../world/floorgen.js';
 import { generateWild } from '../world/wildgen.js';
@@ -136,7 +136,11 @@ export async function loadZone(id, how = {}) {
   } else if (id === 'depths') {
     [pl.x, pl.y] = zone.start; pl.face = pl.dir = 1;
     spawnFloor(zone); HU.spawnFor(zone); G.diedThisRun = false; G.dungeonCache = null;
-    G.run = { weekly: zone.json.weekly ? weeklyRule() : null, floor: zone.json.floorN, free: !!how.free, t0: G.time, kills: 0, total: G.enemies.length, gold0: P.stats.gold, deaths: 0, done: false, boons: how.keepBoons && G.lastBoons ? G.lastBoons.slice() : [] }; G.lastBoons = null;
+    G.run = { circle: zone.json.weekly ? 0 : circle(), weekly: zone.json.weekly ? weeklyRule() : null, floor: zone.json.floorN, free: !!how.free, t0: G.time, kills: 0, total: G.enemies.length, gold0: P.stats.gold, deaths: 0, done: false, boons: how.keepBoons && G.lastBoons ? G.lastBoons.slice() : [] }; G.lastBoons = null;
+    // Круг Бездны: тот же этаж, но враги крепче и злее (js/game/season.js)
+    if (G.run.circle) { const k = G.run.circle, h = circleHP(k), d = circleDmg(k);
+      for (const e of G.enemies) { e.maxHP = Math.round(e.maxHP * h); e.hp = e.maxHP; e.dmgMul = (e.dmgMul || 1) * d; }
+      bus.emit('toast', { text: `Круг Бездны ${k}`, sub: `Враги крепче ×${h.toFixed(1)}, награда ×${circleRew(k).toFixed(1)}`, kind: 'quest' }); }
     if (G.run.weekly) { const R = G.run.weekly; for (const e of G.enemies) { if (R.hp) { e.maxHP = Math.round(e.maxHP * R.hp); e.hp = e.maxHP; } if (R.dmg) e.dmgMul *= R.dmg; if (R.spd) e.spdBonus = (e.spdBonus || 1) * R.spd; } bus.emit('toast', { text: 'Испытание недели: ' + R.name, sub: R.txt, kind: 'quest' }); }
   } else {
     if (how.useCache && G.dungeonCache) { pl.x = G.dungeonCache.x; pl.y = G.dungeonCache.y; G.dungeonCache = null; }
@@ -153,7 +157,8 @@ export async function loadZone(id, how = {}) {
   bus.emit('zoneEntered', id); bus.emit('hud'); requestSave();
   if (id === 'town' && G.profile.tutorial.prologue) setTimeout(() => { const d = dailyStatus(); if (d.claimable) bus.emit('toast', { text: 'Дары источника ждут!', sub: `День ${d.day} из 28 — алтарь на площади`, kind: 'quest' }); else if (!blessed()) bus.emit('toast', { text: 'Источник силы на площади', sub: 'Сила источника: +50% золота и опыта на 10 минут', kind: 'info' }); }, 2500);   // сборка 19
   if (id === 'town' && P.tutorial.prologue) setTimeout(() => { if (G.zoneId === 'town') bus.emit('toast', { text: 'Дальше: ' + nextStep(), kind: 'info' }); }, 2200);
-  if (id === 'town' && how.from && how.from !== 'death') setTimeout(() => maybeInterstitial('return'), 1200);   // реклама только на спокойном переходе (не чаще раза в 4 минуты)
+  if (id === 'town' && how.from && how.from !== 'death') setTimeout(() => maybeInterstitial('return'), 1200);
+  if (id === 'town' && P.tutorial.prologue) setTimeout(() => { if (G.zoneId === 'town') bus.emit('wallOffer'); }, 4200);   // лестница покупок: один раз у очередной «стены» (js/platform/offers.js)   // реклама только на спокойном переходе (не чаще раза в 4 минуты)
 }
 
 function roomLevel(zone, x, y) {
@@ -198,7 +203,7 @@ function spawnElite(zone) {
 
 // ------------------------------------------------------------------ events
 bus.on('kill', e => {
-  if (e.story === 'trial') { const t = G.trial; G.trial = null; if (t) setTimeout(() => CS.trialReward(t), 1200); }
+  if (e.story === 'trial') { const t = G.trial; G.trial = null; if (t) { if (t.id === 't4') Q.setFlag('morven'); setTimeout(() => CS.trialReward(t), 1200); } }
   L.gainXP(L.killXP(e), e.x, e.y); if (e.story !== 'trial') L.enemyLoot(e);
   if (G.run && !e.summoned && !e.respawned) {
     G.run.kills++;
@@ -239,6 +244,7 @@ bus.on('summon', ({ x, y, n, lvl }) => {
 bus.on('playerDeath', () => {
   if (G.zoneId === 'survival') { SV.endRun(false); return; }
   G.profile.stats.deaths++; G.diedThisRun = true; if (G.run) G.run.deaths++; requestSave();
+  bus.emit('deathAt', G.zoneId === 'depths' && G.run ? 'floor' + G.run.floor : G.zoneId === 'wild' && G.wild ? G.wild.realm + G.wild.depth : G.zoneId);
   setTimeout(() => bus.emit('showDeath'), 1300);
 });
 export const MAX_REVIVES = 2;
@@ -396,7 +402,7 @@ export function finishFloor() {
   if (r.done) { if (G.lastFloorResult) bus.emit('floorResult', G.lastFloorResult); return; }
   r.done = true; G.lastCombat = -99;
   if (r.floor === 0) {   // prologue → village
-    P.tutorial.prologue = true; G.tut = null; L.gainXP(45);
+    P.tutorial.prologue = true; G.tut = null; L.gainXP(45); bus.emit('memory', 'wake');
     bus.emit('toast', { text: 'Вы выбрались из склепа!', sub: 'Староста Эдрик ждёт на площади', kind: 'quest' });
     loadZone('town', { from: 'catacombs' }).then(() => cinema(portalShots()));   // показать, сколько всего впереди
     return;
@@ -411,8 +417,9 @@ export function finishFloor() {
   const time = G.time - r.t0, first = r.floor > P.depths.best;
   const stars = 1 + (r.kills >= Math.ceil(r.total * 0.9) ? 1 : 0) + (time <= parTime(r.floor, r.total) && r.deaths === 0 ? 1 : 0);
   const prevStars = P.depths.stars[r.floor] || 0;
-  const gold = Math.round((25 + r.floor * 15) * (first ? 2 : 1) * (1 + (stars - 1) * 0.25));
-  const xp = Math.round((20 + r.floor * 14) * (first ? 1.5 : 1));
+  const cmul = circleRew(r.circle || 0);
+  const gold = Math.round((25 + r.floor * 15) * (first ? 2 : 1) * (1 + (stars - 1) * 0.25) * cmul);
+  const xp = Math.round((20 + r.floor * 14) * (first ? 1.5 : 1) * cmul);
   P.gold += gold; P.stats.gold += 0; P.stats.floors = (P.stats.floors || 0) + 1; if (stars === 3) P.stats.stars3 = (P.stats.stars3 || 0) + 1;
   if (first) { P.depths.best = r.floor; P.potions.hp += 1; }
   P.depths.stars[r.floor] = Math.max(prevStars, stars);

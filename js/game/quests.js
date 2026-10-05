@@ -7,6 +7,7 @@ import { SETS } from '../data/sets.js';
 import { autoEquip } from './character.js';
 import { rint } from '../core/util.js';
 import { hasSkill } from './progress.js';
+import { SEALS } from '../data/story.js';
 
 export const current = () => STORY[G.profile.story.stage] || null;
 export const storyDone = () => G.profile.story.stage >= STORY.length;
@@ -18,8 +19,11 @@ export function progressOf(q) {
   if (q.obj.depths) return { cur: Math.min(q.obj.depths, (P.depths && P.depths.best) || 0), max: q.obj.depths };
   if (q.obj.wild) { const d = (P.wild && P.wild[q.obj.wild.realm] && P.wild[q.obj.wild.realm].depth) || 0; return { cur: Math.min(q.obj.wild.n - 1, Math.max(0, d - 1)), max: q.obj.wild.n - 1 }; }
   if (q.obj.hw) return { cur: Math.min(q.obj.hw, ((P.hw && P.hw.top) || 1) - 1), max: q.obj.hw };
+  if (q.obj.wildStat) { const o = q.obj.wildStat; return { cur: Math.min(o.n, wildStat(o)), max: o.n }; }
   return null;
 }
+// счётчик побед по конкретному мобу похода (profile.wild[realm].stat, см. game/wild.js)
+const wildStat = o => { const S = G.profile.wild && G.profile.wild[o.realm]; return (S && S.stat && S.stat[o.key]) || 0; };
 export const isReady = () => { const q = current(); return !!(q && q.turnIn && G.profile.story.ready === q.id); }
 // кому сдавать готовое задание: по умолчанию староста; «100 золота» — кузнецу Горану (он и просил деньги)
 export const turnNpc = q => (q && q.turnTo) || 'elder';
@@ -36,10 +40,9 @@ function complete() {
   bus.emit('questComplete', q); bus.emit('sfx', 'quest');
   grant(q.reward, q.title, { sub: 'Задание выполнено' });
   bus.emit('save');
-  const n = current();
-  if (q.id === 'finish') bus.emit('chapterDone', 1);   // конец Главы I — дальше сразу Глава II
+  const n = current(), ch = q.chapter || 1;
+  if (!n || (n.chapter || 1) !== ch) bus.emit('chapterDone', ch);   // глава закончилась — окно и переход к следующей
   if (n) { bus.emit('questNew', n); check(); }
-  else bus.emit('chapterDone', 2);
 }
 export function grant(r, title, opts = {}) {
   const P = G.profile; const got = { title, sub: opts.sub || '', gold: 0, xp: 0, potions: 0, scrolls: 0, skillPts: 0, items: [] };
@@ -88,12 +91,20 @@ export function check() {
   if (o.depths && ((P.depths && P.depths.best) || 0) >= o.depths) return complete();
   if (o.wild && ((P.wild && P.wild[o.wild.realm] && P.wild[o.wild.realm].depth) || 0) >= o.wild.n) return complete();
   if (o.hw && ((P.hw && P.hw.top) || 1) > o.hw) return complete();
+  if (o.wildStat && wildStat(o.wildStat) >= o.wildStat.n) return q.turnIn ? markReady(q) : complete();
   if (o.near && G.player && G.zone) {
     const t = G.zone.inter.find(i => i.id === o.near);
     if (t && Math.hypot(t.x - G.player.x, t.y - G.player.y) < 3.2) return complete();
   }
 }
 export function setFlag(f) { G.profile.story.flags[f] = true; check(); }
+// страж печати повержен: флаг печати, осколок памяти, полная правда — на четвёртой
+export function sealDown(realm) {
+  const i = SEALS.findIndex(s => s.id === realm); if (i < 0) return;
+  const F = G.profile.story.flags; if (F['seal_' + realm]) { check(); return; }
+  setFlag('seal_' + realm);
+  bus.emit('memory', 'seal' + (i + 1));
+}
 export function talked(npcId) {
   const q = current(); if (!q) return;
   if (q.turnIn && isReady() && npcId === turnNpc(q)) complete(); else if (q.obj.talk === npcId) complete();
@@ -109,7 +120,8 @@ export function initQuests() {
     if (e.D.skeleton && !e.D.elite) { st.skeletons++; count('skeletons', 1); }
     if (e.D.elite || e.champion) st.elites++;
     if (e.story === 'elite') setFlag('eliteKilled');
-    if (e.story === 'boss') { st.bossKills++; if (!G.diedThisRun) st.bossNoDeath++; const first = !G.profile.story.flags.bossKilled; setFlag('bossKilled'); if (first) setTimeout(() => bus.emit('toast', { text: 'Открыты Глубины катакомб!', sub: 'Синий портал в деревне: бесконечные этажи, дары и рекорды', kind: 'quest' }), 5000); }
+    if (e.story === 'wildboss' && G.wild) sealDown(G.wild.realm);
+    if (e.story === 'boss') { st.bossKills++; if (!G.diedThisRun) st.bossNoDeath++; const first = !G.profile.story.flags.bossKilled; setFlag('bossKilled'); if (first) sealDown('catacombs'); if (first) setTimeout(() => bus.emit('toast', { text: 'Открыты Глубины катакомб!', sub: 'Синий портал в деревне: бесконечные этажи, дары и рекорды', kind: 'quest' }), 5000); }
     repeatTick();
   });
   bus.on('gold', n => { if (G.zoneId !== 'town') count('gold', n); repeatTick(); });

@@ -71,6 +71,13 @@ export const weekNo = () => Math.floor((Date.now() / 864e5 + 3) / 7);   // не�
 export const weeklyRule = () => WEEKLY_RULES[weekNo() % WEEKLY_RULES.length];
 export function weeklyState() { const P = G.profile, w = weekNo(); if (!P.weekly || P.weekly.week !== w) P.weekly = { week: w, best: 0, done: false }; return P.weekly; }
 export const weeklyFloor = lvl => Math.max(2, Math.round((lvl - 1) / 0.85));   // этаж, уровень врагов которого ≈ уровню героя
+// Круги Бездны (сборка 45, после Главы IV): выбранный круг делает Глубины злее и богаче.
+// Круг 0 — как раньше. Множители на круг k: HP ×1,45^k, урон ×1,28^k, золото и опыт ×(1 + 0,55k), +5k% к шансу вещи.
+export const CIRCLE_MAX = 10;
+export const circlesOpen = () => !!(G.profile && G.profile.storyDone);
+export const circle = () => (circlesOpen() && (G.profile.circle | 0)) || 0;
+export const circleHP = k => Math.pow(1.45, k), circleDmg = k => Math.pow(1.28, k), circleRew = k => 1 + 0.55 * k;
+export function setCircle(k) { const P = G.profile; P.circle = Math.max(0, Math.min(CIRCLE_MAX, k | 0)); bus.emit('save'); bus.emit('hud'); }
 export const rm = k => (G.run && G.run.weekly && G.run.weekly[k]) || 1;   // множитель правила недели в текущем забеге
 export function finishWeekly(time) {
   const P = G.profile, W = weeklyState(), first = !W.done, rec = !W.best || time < W.best;

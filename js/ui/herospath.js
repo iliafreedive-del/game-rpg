@@ -10,6 +10,7 @@ import { addShards } from '../game/castle.js';
 import { watchRewarded, offerToken, maybeInterstitial } from '../platform/monetize.js';
 import { rand, rrange, clamp } from '../core/util.js';
 import { adButton } from './adbtn.js';
+import { CODEX } from '../data/story.js';
 import { gate } from '../game/progress.js';
 import { paintScene } from './hwscenes.js';
 import { makeBattle, stageFoes, arenaView } from '../game/hwbattle.js';
@@ -30,6 +31,12 @@ const chOf = s => Math.min(CHAPTERS.length - 1, Math.floor((s - 1) / PER_CH));
 // враг-«лицо» этапа для карты: босс ряда или первый в отряде
 const stageEnemy = s => { const L = stageFoes(s), b = L.find(f => f.boss); return b ? { ...b, boss: true } : { ...L[0], boss: false }; };
 
+// Страницы летописи Ордена: каждые 10 пройденных этапов — кусочек истории (js/data/story.js CODEX)
+function codexPage(s) {
+  const P = G.profile; const page = CODEX.find(c => c.at === s); if (!page) return;
+  P.story.codex = P.story.codex || {}; if (P.story.codex[s]) return; P.story.codex[s] = 1;
+  setTimeout(() => bus.emit('toast', { text: page.title, sub: page.text, kind: 'quest' }), 2200);
+}
 function HW() { const P = G.profile; P.hw = P.hw || { top: 1, stars: {}, en: { n: EN_MAX, at: Date.now() } }; const e = P.hw.en; const now = Date.now(); if (e.n < EN_MAX) { const k = Math.floor((now - e.at) / EN_MS); if (k > 0) { e.n = Math.min(EN_MAX, e.n + k); e.at = e.n >= EN_MAX ? now : e.at + k * EN_MS; } } else e.at = now; return P.hw; }
 export const hwReady = () => { const h = HW(); return h.en.n >= 5; };
 
@@ -224,7 +231,7 @@ async function fight(s) {
       gold = Math.round((10 + s * 4) * (first ? 2 : 0.25) * (1 + (stars - 1) * 0.15)); xp = Math.round((5 + s * 2.5) * (first ? 1 : 0.25));
       if (foes.some(f => f.boss) && first) shards = foes.some(f => f.type === 'boss') ? 5 : 3; else if (rand() < 0.1) shards = 1;
       P.gold += gold; gainXP(xp); if (shards) addShards(shards);
-      h.stars[s] = Math.max(h.stars[s] || 0, stars); if (first) h.top = Math.min(STAGES, s + 1);
+      h.stars[s] = Math.max(h.stars[s] || 0, stars); if (first) { h.top = Math.min(STAGES, s + 1); codexPage(s); }
     }
     bus.emit('save');
     const ov = el('div', 'hw-result ' + (win ? 'win' : 'lose'), `<div class="hw-rt">${win ? 'ПОБЕДА' : 'ПОРАЖЕНИЕ'}</div>${win ? `<div class="stars">${[0, 1, 2].map(i => `<span class="${i < stars ? 'on' : ''}" style="animation-delay:${0.2 + i * 0.3}s">★</span>`).join('')}</div><div class="rw-loot"><span class="goldc">+${gold} золота</span> · <span style="color:#b8e3ff">+${xp} опыта</span>${shards ? ` · <span class="c-shard">+${shards}◆</span>` : ''}</div>` : '<p>Отряд оказался сильнее. Наберитесь опыта в катакомбах, улучшите вещи у кузнеца — и возвращайтесь.</p>'}`);

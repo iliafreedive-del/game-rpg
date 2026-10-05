@@ -94,6 +94,7 @@ export const TRIALS = [
   { id: 't1', name: 'Страж Медальона', type: 'elite_guard', lvl: 0, req: 5 },
   { id: 't2', name: 'Палач Бездны', type: 'boss', lvl: 1, req: 8 },
   { id: 't3', name: 'Палач Бездны · Кошмар', type: 'boss', lvl: 4, req: 12 },
+  { id: 't4', name: 'Магистр Морвен', type: 'boss', lvl: 8, req: 18 },   // финал Главы IV (js/data/story.js)
 ];
 export function trialReward(t) {
   const P = G.profile; const gold = Math.round(80 * P.level * (1 + t.lvl * 0.3)); P.gold += gold;

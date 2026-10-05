@@ -72,14 +72,22 @@ class YandexProvider {
   hasProduct(id) { return !!(this.catalog || []).find(x => x.id === id); }
 }
 
-// In-app products (IDs must match the Yandex console catalog).
+// Товары (id должны совпадать с каталогом в консоли Яндекс Игр; цены в игре берутся из каталога SDK, строка price — только для демо).
+// Лестница снаряжения (сборка 45): каждый следующий набор на одну редкость выше того, что игрок добывает сам,
+// и уровня «герой + 3». Показывается один раз у очередной «стены» (js/platform/offers.js), потом лежит в лавке.
 export const PRODUCTS = {
-  starter_pack: { title: 'Набор искателя', price: '29 ₽', desc: '1000 золота, 10 зелий здоровья, 5 зелий маны и магический предмет.', consumable: true, once: true },
-  potion_pack: { title: 'Сундук зелий', price: '49 ₽', desc: '15 зелий здоровья и 10 зелий маны.', consumable: true },
-  gold_perk: { title: 'Кошель Ордена', price: '79 ₽', desc: 'Навсегда +25% к находимому золоту.', consumable: false },
-  no_ads: { title: 'Без обязательной рекламы', price: '99 ₽', desc: 'Отключает межуровневую рекламу. Бонусы за просмотр остаются по желанию.', consumable: false },
-  gold_small: { title: 'Мешочек золота', price: '19 ₽', desc: '600 золота.', consumable: true },
-  bag_big: { title: 'Большая сумка', price: '300 ₽', desc: 'Навсегда +20 мест в сумке.', consumable: false },
+  starter_pack: { title: 'Набор искателя', price: '29 ₽', desc: '1000 золота, 10 зелий здоровья, 5 зелий маны и магический предмет.', consumable: true, once: true, icon: '★' },
+  guard_armor: { title: 'Доспех Стража', price: '99 ₽', desc: 'Синий сет: шлем, доспех и амулет вашего класса с бонусом сета. Уровень героя + 3.', consumable: true, once: true, icon: '🛡', gear: { kind: 'set', rarity: 2 } },
+  seal_blade: { title: 'Клинок печати', price: '199 ₽', desc: 'Золотое оружие вашего класса с особым эффектом. Уровень героя + 3.', consumable: true, once: true, icon: '⚔', gear: { kind: 'epic', slot: 'weapon' } },
+  magister_plate: { title: 'Латы Магистра', price: '349 ₽', desc: 'Золотой сет из трёх вещей: шлем, доспех, амулет. Уровень героя + 3.', consumable: true, once: true, icon: '✦', gear: { kind: 'set', rarity: 3 } },
+  order_weapon: { title: 'Оружие Ордена', price: '599 ₽', desc: 'Мифическое оружие — редкость, которую иначе получают только слиянием. Уровень героя + 3.', consumable: true, once: true, icon: '❖', gear: { kind: 'mythic', slot: 'weapon' } },
+  abyss_set: { title: 'Сет Бездны', price: '990 ₽', desc: 'Мифический сет из трёх вещей для Кругов Бездны. Уровень героя + 3.', consumable: true, once: true, icon: '◉', gear: { kind: 'set', rarity: 4 } },
+  season_pass: { title: 'Знамя сезона', price: '199 ₽', desc: 'Вторая дорожка пути сезона на этот месяц: по награде на каждой ступени.', consumable: true, icon: '⚑' },
+  potion_pack: { title: 'Сундук зелий', price: '49 ₽', desc: '15 зелий здоровья и 10 зелий маны.', consumable: true, icon: '✚' },
+  gold_perk: { title: 'Кошель Ордена', price: '79 ₽', desc: 'Навсегда +25% к находимому золоту.', consumable: false, icon: '⛁' },
+  no_ads: { title: 'Без обязательной рекламы', price: '99 ₽', desc: 'Отключает межуровневую рекламу. Бонусы за просмотр остаются по желанию.', consumable: false, icon: '⊘' },
+  gold_small: { title: 'Мешочек золота', price: '19 ₽', desc: '600 золота.', consumable: true, icon: '⛁' },
+  bag_big: { title: 'Большая сумка', price: '149 ₽', desc: 'Навсегда +20 мест в сумке.', consumable: false, icon: '▤' },
 };
 
 function onYandex() {

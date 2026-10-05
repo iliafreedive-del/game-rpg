@@ -174,7 +174,7 @@ function tracker() {
     h = `<div class="t">${r.floor === 0 ? 'Пролог · Склеп пробуждения' : esc(G.zone.name)}</div><div class="d" style="display:block">Враги ${r.kills}/${r.total} · ${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}${r.kills >= r.total ? ' · портал открыт' : ' · убейте всех — откроется портал'}</div>`;
     if (h !== lastTrack) { $('tracker').innerHTML = h; lastTrack = h; } return;
   }
-  if (!q) h = `<div class="ch">${chapterOf(STORY[STORY.length - 1])}</div><div class="t">Глава пройдена!</div><div class="d">Рекорды Глубин, Жатва Бездны, форты и контракты доски — Глава III в следующем обновлении</div>`;
+  if (!q) h = `<div class="ch">${chapterOf(STORY[STORY.length - 1])}</div><div class="t">История пройдена!</div><div class="d">Круги Бездны в окне Глубин, рекорды этажей, Жатва Бездны, форты походов и контракты доски</div>`;
   else {
     const pr = Q.progressOf(q), ch = q.chapter || 1, inCh = STORY.filter(x => (x.chapter || 1) === ch), done = inCh.indexOf(q);
     let txt = q.text; const Wd = G.profile.world;

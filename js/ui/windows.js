@@ -15,6 +15,7 @@ import { iconURL, skillCanvas } from './icons.js';
 import { drawMap, seen, seenKey } from './hud.js';
 import { offers, buy, restorePurchases, dailyStatus, claimDaily, chestStatus, chestSkip, openOrderChest, DAILY, LOGIN_DAYS, watchRewarded, offerToken, blessing, blessLeft, BLESS_MIN, BLESS_CAP } from '../platform/monetize.js';
 import { PRODUCTS, platform } from '../platform/platform.js';
+import { wallOffer, markShown, streakHelp, helpGiven } from '../platform/offers.js';
 import { revive, saveNow, loadZone, depthsUnlocked, MAX_REVIVES } from '../game/game.js';
 import { generateFloor, isBossFloor, floorLevel } from '../world/floorgen.js';
 import { REALMS, WILD_QUESTS, wildLevel, isWildBoss, isWildFort, locationName, wildReqLevel, FIELDS_PER_FORT } from '../data/wild.js';
@@ -30,6 +31,7 @@ import * as SV from '../game/survival.js';
 import * as SE from '../game/season.js';
 import * as HU from '../game/hunts.js';
 import { huntReward } from '../data/hunts.js';
+import { MEMORIES, SEALS } from '../data/story.js';
 import { BOONS, BOON_IDS } from '../data/boons.js';
 import { stats as calcStats } from '../game/stats.js';
 import { maybeInterstitial } from '../platform/monetize.js';
@@ -71,6 +73,9 @@ bus.on('openSurvival', () => W.survival()); bus.on('survLevel', () => survLevel(
 bus.on('showDeath', () => showDeath());
 bus.on('bossDefeated', k => bossReward(k));
 bus.on('chapterDone', n => chapterDone(n));
+bus.on('memory', id => showMemory(id));
+bus.on('wallOffer', () => showWallOffer());
+bus.on('deathAt', where => setTimeout(() => showStreakHelp(where), 300));
 const rewardQ = [];
 bus.on('reward', r => { rewardQ.push(r); });
 export function pumpRewards() {
@@ -559,6 +564,15 @@ W.npc_merchant = () => {
   G.atMerchant = true; Q.talked('merchant');
 };
 W.npc_trainer = () => {
+  // Глава III: герой вспомнил всё — Элвин объясняется (одной сценой, потом обычное окно наставника)
+  { const q = Q.current(); if (q && q.id === 'c3_elvin') { const lines = DIALOG.trainer.confess;
+    return modal('Наставник Элвин', 'sm', b => {
+      const dl = dialog(b, 'trainer', 'Наставник Элвин', lines);
+      const row = el('div', 'row'); row.style.marginTop = '12px';
+      const nx = el('button', 'btn gold', 'Далее');
+      nx.onclick = () => { if (dl.next()) { if (dl.last()) nx.textContent = 'Понятно'; return; } Q.talked('trainer'); closeModal(); };
+      row.appendChild(nx); b.appendChild(row);
+    }, { sticky: true }); } }
   modal('Наставник Элвин', 'sm', b => {
     const P = G.profile;
     b.appendChild(el('p', '', `<i>«${esc(DIALOG.trainer.hello[P.tutorial.trainerGift ? 1 : 0])}»</i>`));
@@ -639,12 +653,41 @@ W.shrine = () => modal('Источник силы', 'md', b => {
   for (const [id, p] of Object.entries(PRODUCTS)) {
     if (!platform.p.hasProduct(id)) continue;
     const owned = (p.once && P.iap.tx['once_' + id]) || (!p.consumable && P.iap[{ gold_perk: 'goldPerk', no_ads: 'noAds', bag_big: 'bagBig' }[id]]);
-    const o = el('div', 'offer', `<div class="ic">${id === 'starter_pack' ? '★' : id === 'potion_pack' ? '✚' : id === 'no_ads' ? '⊘' : id === 'bag_big' ? '▤' : '⛁'}</div><div class="tx"><b>${esc(p.title)}</b><div class="muted">${esc(p.desc)}</div></div>`);
+    const o = el('div', 'offer', `<div class="ic">${esc(p.icon || '⛁')}</div><div class="tx"><b>${esc(p.title)}</b><div class="muted">${esc(p.desc)}</div></div>`);
     const pr = platform.p.catalogPrice(id), price = typeof pr === 'string' ? esc(pr) : `${esc(pr.value)} ${pr.img ? `<img class="cur" src="${esc(pr.img)}" alt="${esc(pr.code)}">` : esc(pr.code)}`;
     const bt = el('button', 'btn gold', owned ? 'Куплено' : price); bt.disabled = !!owned; bt.onclick = () => buy(id).then(rerender); o.appendChild(bt); b.appendChild(o);
   }
   if (platform.name === 'demo') b.appendChild(el('p', 'muted', '<small>Демо-режим: реклама и покупки имитируются, деньги не списываются. На Яндекс Играх подключается SDK площадки.</small>'));
 });
+
+// Предложение у «стены» (js/platform/offers.js): один раз, в спокойный момент, с честными бесплатными путями рядом
+export function showWallOffer() {
+  const w = wallOffer(); if (!w || G.modalOpen || inCombat()) return false;
+  markShown(w.id);
+  const pr = platform.p.catalogPrice(w.id);
+  const price = !pr ? '' : typeof pr === 'string' ? esc(pr) : `${esc(pr.value)} ${pr.img ? `<img class="cur" src="${esc(pr.img)}" alt="${esc(pr.code)}">` : esc(pr.code)}`;
+  modal(w.product.title, 'sm', b => {
+    b.appendChild(el('div', 'offer', `<div class="ic">${esc(w.product.icon || '★')}</div><div class="tx"><b>${esc(w.product.desc)}</b><div class="muted">${esc(w.why)}</div></div>`));
+    b.appendChild(el('p', 'muted', 'Без покупки игра проходится полностью. Бесплатные пути: прокачаться в уже открытых местах, закалить и слить вещи у кузнеца Горана, пройти этапы Летописи битв.'));
+    const r = el('div', 'row');
+    const bt = el('button', 'btn gold', price || 'Купить'); bt.onclick = () => { closeModal(); buy(w.id); };
+    const no = el('button', 'btn', 'Справлюсь сам'); no.onclick = closeModal;
+    r.append(bt, no); b.appendChild(r);
+  });
+  return true;
+}
+// три поражения подряд в одном месте — бесплатная помощь, чтобы не бросили игру
+export function showStreakHelp(where) {
+  if (!streakHelp(where) || G.modalOpen) return false;
+  modal('Трудное место', 'sm', b => {
+    b.appendChild(el('p', '', 'Третья попытка подряд. Орден даёт подмогу: +15% ко всему урону на 10 минут.'));
+    const r = el('div', 'row');
+    const free = el('button', 'btn gold', 'Взять подмогу'); free.onclick = () => { const P = G.profile; P.boosts.helpUntil = Date.now() + 10 * 60e3; helpGiven(where); bus.emit('statsChanged'); bus.emit('toast', { text: 'Подмога Ордена: +15% урона на 10 минут', kind: 'good' }); closeModal(); };
+    const no = el('button', 'btn', 'Сам справлюсь'); no.onclick = () => { helpGiven(where); closeModal(); };
+    r.append(free, no); b.appendChild(r);
+  });
+  return true;
+}
 
 // ---------------------------------------------------------------- death / boss reward / chapter end
 function showDeath() {
@@ -670,16 +713,38 @@ function bossReward(k) {
     const ok = el('button', 'btn gold', 'Собрать добычу'); ok.onclick = closeModal; row.append(ad, ok); b.appendChild(row);
   });
 }
+// Осколок памяти: сюжетная сцена после победы над стражем печати. Один раз на осколок (profile.story.mem).
+export function showMemory(id) {
+  const M = MEMORIES[id]; if (!M) return;
+  const S = G.profile.story; S.mem = S.mem || {};
+  if (S.mem[id]) return; S.mem[id] = 1; bus.emit('save');
+  const seals = SEALS.filter(x => (S.flags || {})['seal_' + x.id]).length;
+  setTimeout(() => modal(M.title, 'sm', b => {
+    const box = el('div', 'mem-box', `<div class="mem-ic">${M.kind === 'turn' ? '✦' : '◈'}</div><div class="mem-sub">${esc(M.sub || '')}</div>`);
+    for (const l of M.lines) box.appendChild(el('p', '', esc(l)));
+    box.appendChild(el('div', 'mem-seals', SEALS.map((x, i) => `<i class="${i < seals ? 'on' : ''}" title="${esc(x.name)}"></i>`).join('')));
+    box.appendChild(el('div', 'muted', `Печати: ${seals} из ${SEALS.length}`));
+    b.appendChild(box);
+    const r = el('div', 'row'); r.style.justifyContent = 'center'; const ok = el('button', 'btn gold', 'Дальше'); ok.onclick = closeModal; r.appendChild(ok); b.appendChild(r);
+  }, { sticky: true }), 1400);
+  bus.emit('sfx', 'levelup');
+}
+const CH_DONE = {
+  1: ['Первая печать снова цела — Палач Бездны пал.', 'Начинается Глава II «Тени за порогом». Печатей четыре: вторая в Старом Лесу, третья во Фьордах. Первое задание — найти ледяной портал на северо-востоке деревни. Катакомбы растут вместе с вами, Палача можно побеждать снова.'],
+  2: ['Вторая и третья печати устояли: Хозяин Чащи и ётун Скъёльд повержены.', 'Начинается Глава III «Кости великанов». Умирающий ётун сказал, где четвёртая печать: Костяные пустоши, портал из черепов в левой части деревни. Там же — тот, кто ломает печати.'],
+  3: ['Четвёртая печать цела, и память вернулась целиком.', 'Начинается Глава IV «Цитадель Морвена» — финал. Цитадель открыта, Морвен ждёт в зале испытаний. Перед этим стоит окрепнуть: Глубины, Летопись битв, сеты у кузнеца.'],
+  4: ['Бездна закрыта, Морвен повержен. История Тихого Брода окончена.', 'Открыты Круги Бездны: в окне Глубин выберите круг — чем он выше, тем злее враги, больше золота и выше шанс золотых и мифических вещей. А ещё остаются рекорды Глубин, Жатва Бездны, форты походов, Летопись и контракты доски.'],
+};
 function chapterDone(n = 1) {
-  if (n === 1) G.profile.chapterDone = true; bus.emit('save');
-  setTimeout(() => modal(n === 1 ? 'Глава I пройдена!' : 'Глава II пройдена!', 'sm', b => {
-    if (n === 1) {
-      b.appendChild(el('p', '', 'Тихий Брод спасён. Но за порогом деревни ещё шевелится тьма.'));
-      b.appendChild(el('p', 'muted', 'Начинается Глава II «Тени за порогом». Первое задание — найти ледяной портал во Фьорды (северо-восток деревни, за виноградником). Дальше — Глубины, форты Старого Леса и Фьордов, Летопись битв. Катакомбы растут вместе с вами, Палача можно побеждать снова.'));
-    } else {
-      b.appendChild(el('p', '', 'Форты отбиты, Глубины пройдены на десять этажей. Эдрик гордится вами.'));
-      b.appendChild(el('p', 'muted', 'Глава III — в следующем обновлении. А пока: рекорды Глубин (дальше 10-го этажа — сильнее и щедрее), Жатва Бездны, следующие форты походов и контракты доски.'));
-    }
+  if (n === 1) G.profile.chapterDone = true;
+  if (n === 4) G.profile.storyDone = true;
+  bus.emit('save');
+  if (n === 3) bus.emit('memory', 'elvin');
+  if (n === 4) bus.emit('memory', 'final');
+  const roman = ['', 'I', 'II', 'III', 'IV'][n] || n;
+  setTimeout(() => modal(`Глава ${roman} пройдена!`, 'sm', b => {
+    const t = CH_DONE[n] || CH_DONE[4];
+    b.appendChild(el('p', '', t[0])); b.appendChild(el('p', 'muted', t[1]));
     const r = el('div', 'row'); const ok = el('button', 'btn gold', 'Продолжить'); ok.onclick = closeModal; r.appendChild(ok); b.appendChild(r);
   }), 1200);
 }
@@ -694,6 +759,15 @@ W.depths = () => modal('Глубины катакомб', 'sm', b => {
   // новый этаж (дальше рекорда) — без факела, факел уйдёт только за поражение; повтор пройденного — факел сразу
   const enter = f => { const free = f > (P.depths.best || 0); if (!free && !CS.spendTorch()) { bus.emit('toast', { text: 'Нет факелов', sub: 'Они восстанавливаются сами: 1 за 20 минут. Новые этажи — без факела', kind: 'warn' }); return; } closeModal(); loadZone('depths', { floor: f, free }); };
   b.appendChild(el('p', 'muted', 'Короткие забеги на 5–8 минут. Каждый 5-й этаж — страж. Звёзды: ★ пройти, ★★ убить 90% врагов, ★★★ быстро и без смертей.'));
+  // Круги Бездны (после Главы IV): сложность и награда растут от того, насколько глубоко игрок сам захочет
+  if (SE.circlesOpen()) { const k = SE.circle();
+    const c = el('div', 'weekly-card', `<b>◉ Круг Бездны: ${k || '—'}</b><div class="muted">Враги крепче ×${SE.circleHP(k).toFixed(1)}, бьют сильнее ×${SE.circleDmg(k).toFixed(1)}, золото и опыт ×${SE.circleRew(k).toFixed(1)}, вещи выпадают чаще. Круг действует на все этажи.</div>`);
+    const row = el('div', 'row');
+    const mk = (t, kk) => { const bt = el('button', 'btn' + (kk === k ? ' gold' : ''), t); bt.onclick = () => { SE.setCircle(kk); rerender(); }; return bt; };
+    row.appendChild(mk('Без круга', 0));
+    const dn = el('button', 'btn', '−'); dn.disabled = k <= 0; dn.onclick = () => { SE.setCircle(k - 1); rerender(); };
+    const up = el('button', 'btn', '+'); up.disabled = k >= SE.CIRCLE_MAX; up.onclick = () => { SE.setCircle(k + 1); rerender(); };
+    row.append(dn, el('span', 'hw-page', `${k} / ${SE.CIRCLE_MAX}`), up); c.appendChild(row); b.appendChild(c); }
   if (HU.huntFloor()) b.appendChild(el('p', 'bad', `⚠ Охота: ${esc(HU.bossOf(HU.current()).name)} — этаж ${HU.huntFloor()}`));
   { const R = SE.weeklyRule(), WS = SE.weeklyState(), f = SE.weeklyFloor(P.level), days = 7 - ((Math.floor(Date.now() / 864e5) + 3) % 7);   // испытание недели (сборка 21)
     const c = el('div', 'weekly-card', `<b>⚔ Испытание недели: ${esc(R.name)}</b><div>${esc(R.txt)}</div><div class="muted">Этаж под ваш уровень · ${WS.done ? `ваш рекорд ${Math.floor(WS.best / 60)}:${String(Math.floor(WS.best % 60)).padStart(2, '0')} · улучшайте время` : 'первая победа недели — вещь (синяя/золотая) и двойная награда'} · до смены ${days} дн.</div><div class="lb muted"></div>`);
