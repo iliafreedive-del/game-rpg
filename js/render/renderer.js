@@ -1,5 +1,6 @@
 // Renderer: baked floor chunks, depth-sorted sprites with wall cutaway, dynamic lighting, VFX, floating text.
 import { G } from '../game/ctx.js';
+import { zoomNow } from '../core/camzoom.js';
 import { getAtlas, drawFrame, loadImage, loadJSON } from '../core/assets.js';
 import { PX_PER_M, Z_PX } from '../core/iso.js';
 import { RARITY } from '../data/items.js';
@@ -28,7 +29,7 @@ export function resize() {
   const cam = G.cam; cam.w = W; cam.h = H; G.zoomMul = G.zoomMul || 1;
   // zoom: characters readable on phones, not huge on desktops
   const short = Math.min(W, H);
-  cam.zoom = Math.max(0.78, Math.min(1.7, short / 470)) * (G.zoomMul || 1);
+  cam.zoom = Math.max(0.78, Math.min(1.7, short / 470)) * (G.zoomMul || 1) / zoomNow();   // зум игрока (js/core/camzoom.js)
 }
 export async function loadFloor(zone) {
   const f = zone.floor; zone.floorImgs = [];

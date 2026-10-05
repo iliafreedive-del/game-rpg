@@ -9,6 +9,7 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 html,body{margin:0;height:100%;overflow:hidden;background:#000;color:var(--ink);font:14px/1.35 -apple-system,"Segoe UI",Roboto,Arial,sans-serif;overscroll-behavior:none;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
 canvas#game,canvas#game3d{position:fixed;inset:0;display:block}
 canvas#game3d{width:100%;height:100%}
+canvas#game,canvas#game3d{touch-action:none}   /* щипок двумя пальцами — зум камеры игры (js/core/camzoom.js), а не страницы */
 button{font:inherit;color:inherit;cursor:pointer}
 .hidden{display:none!important}
 #ui{position:fixed;inset:0;pointer-events:none;z-index:5}

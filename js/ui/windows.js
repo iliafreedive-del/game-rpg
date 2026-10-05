@@ -37,6 +37,7 @@ import { platform as PF } from '../platform/platform.js';
 import { wipeLocal, cloudBundle } from '../game/save.js';
 import { setVolumes } from '../core/audio.js';
 import { resize } from '../render/index.js';
+import { ZOOM, zoomNow, setZoom } from '../core/camzoom.js';
 
 let cur = null;   // {name, bg, render}
 export function closeModal() { if (!cur) return; cur.bg.remove(); cur = null; G.atMerchant = false; G.modalOpen = false; G.paused = false; bus.emit('sfx', 'click'); bus.emit('hud'); }
@@ -386,10 +387,13 @@ W.settings = () => modal('Настройки', 'sm', b => {
   { let cur = '3d'; try { cur = localStorage.getItem('da_render') || '3d'; } catch { } if (new URLSearchParams(location.search).get('render')) cur = new URLSearchParams(location.search).get('render');
     const g = el('div', 'attr', '<b>Графика</b>'); for (const [k, n] of [['3d', '3D (по умолчанию)'], ['2d', 'Классика 2D']]) { const bt = el('button', 'btn sm' + (cur === k ? ' gold' : ''), n); bt.onclick = () => { try { localStorage.setItem('da_render', k); } catch { } saveNow(); const u = new URL(location.href); u.searchParams.delete('render'); location.href = u.toString(); }; g.appendChild(bt); } b.appendChild(g); b.appendChild(el('p', 'muted', '<small>Смена графики перезапускает игру (прогресс сохраняется). Лучник и маг пока всегда в 2D.</small>')); }
   { const nm = el('div', 'attr', '<b>Новые модели</b> <small class="muted">(герои)</small>'); const bn = el('button', 'btn sm', s.skins !== false ? 'Вкл' : 'Выкл'); bn.onclick = () => { s.skins = s.skins === false; bus.emit('save'); rerender(); }; nm.appendChild(bn); b.appendChild(nm); }
+  { const zr = el('div', 'attr', '<b>Камера</b> <small class="muted">ближе — дальше</small>'); const i = document.createElement('input'); i.type = 'range'; i.min = ZOOM.min; i.max = ZOOM.max; i.step = 0.05; i.value = zoomNow(); i.oninput = () => setZoom(+i.value);
+    const rs = el('button', 'btn sm', 'Как было'); rs.onclick = () => { setZoom(1); i.value = 1; }; zr.append(i, rs); b.appendChild(zr);
+    b.appendChild(el('p', 'muted', `<small>${matchMedia('(pointer: coarse)').matches ? 'В игре: разведите или сведите два пальца на свободной части экрана.' : 'В игре: колесо мыши или щипок на тачпаде.'}</small>`)); }
   const sh = el('div', 'attr', '<b>Тряска камеры</b>'); const bs = el('button', 'btn sm', s.shake ? 'Вкл' : 'Выкл'); bs.onclick = () => { s.shake = !s.shake; rerender(); }; sh.appendChild(bs); b.appendChild(sh);
   b.appendChild(el('p', 'muted', `<small>Версия сборки: ${window.__BUILD || ''}</small>`));
   b.appendChild(el('h3', '', 'Управление'));
-  b.appendChild(el('p', 'muted', 'Телефон/планшет: джойстик слева, атака и навыки справа, удерживайте атаку — герой сам подойдёт к врагу. ПК: WASD/стрелки — движение, Пробел — атака, 1–4 — навыки, Shift — уклонение, Q/E — зелья, F — действие, I/C/K/J/M — окна, T — свиток.'));
+  b.appendChild(el('p', 'muted', 'Телефон/планшет: джойстик слева, атака и навыки справа, удерживайте атаку — герой сам подойдёт к врагу. Щипок двумя пальцами — камера ближе/дальше. ПК: WASD/стрелки — движение, колесо мыши — камера ближе/дальше, Пробел — атака, 1–4 — навыки, Shift — уклонение, Q/E — зелья, F — действие, I/C/K/J/M — окна, T — свиток.'));
   const row = el('div', 'row'); row.style.marginTop = '10px';
   const sv = el('button', 'btn', 'Сохранить'); sv.onclick = () => { saveNow(true); bus.emit('toast', { text: 'Игра сохранена', kind: 'good' }); }; row.appendChild(sv);
   const rp = el('button', 'btn', 'Восстановить покупки'); rp.onclick = () => restorePurchases(); row.appendChild(rp);
