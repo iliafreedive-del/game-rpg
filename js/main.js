@@ -2,6 +2,7 @@
 import { G, bus } from './game/ctx.js';
 import { loadGroup, getAtlas } from './core/assets.js';
 import { initInput, initMouse, input } from './core/input.js';
+import { initCamZoom } from './core/camzoom.js';
 import { initAudio, sfx, startMusic, setVolumes, setPaused } from './core/audio.js';
 import { initRenderer, render, resize } from './render/index.js';
 import { newProfile, loadSlots, mergeCloud } from './game/save.js';
@@ -122,7 +123,7 @@ function resetZoom() {
 }
 addEventListener('orientationchange', () => { resetZoom(); setTimeout(resetZoom, 400); });
 if (window.visualViewport) visualViewport.addEventListener('resize', () => { if (Math.abs(visualViewport.scale - 1) > 0.01) resetZoom(); });
-initInput($('joyZone'), $('joyBase'), $('joyKnob')); initMouse($('game'));
+initInput($('joyZone'), $('joyBase'), $('joyKnob')); initMouse($('game')); initCamZoom($('game'));
 input.anchor = () => G.player ? G.cam.toScreen(G.player.x, G.player.y) : [innerWidth / 2, innerHeight / 2];
 window.__G = G;   // for automated QA
 window.__BUILD = BUILD;

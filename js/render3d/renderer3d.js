@@ -17,6 +17,7 @@ import { buildDungeonFloor } from './dungeon.js';
 import { glowSet } from './glow.js';
 import { HEROES, MOBS, NPCS, WEAPONS, WEAPON_MODEL, OFFHAND_MODEL } from './registry.js';
 import { LIGHT, CAMERA, QUALITY, SHADOW, HERO } from './style.js';
+import { zoomNow } from '../core/camzoom.js';
 import { SKINS, skinLoaded } from './glbskin.js';
 import { Post } from './post.js';
 
@@ -29,7 +30,7 @@ const slots = [];                        // пул точечных огней: 
 const actors = new Map();            // сущность игры → Actor
 const swarmPool = new Map();         // «Жатва»: освободившиеся модели врагов по типам (чтобы не собирать геометрию заново для каждого)
 const camTarget = new THREE.Vector3();
-let camDist = CAMERA.village.dist, last = performance.now(), tAll = 0, spawned = false;
+let camDist = CAMERA.village.dist, userZoom = 1, shadowHalf = SHADOW.half, last = performance.now(), tAll = 0, spawned = false;
 
 // ---------------------------------------------------------------- проекция для G.cam (2D-эффекты поверх 3D)
 const _v = new THREE.Vector3();
@@ -291,8 +292,14 @@ function syncSwarm(dt) {
 const env = { wind: new THREE.Vector2() };
 
 // ---------------------------------------------------------------- камера и свет
-function updateCamera() {
-  const cam = G.cam, C = CAMERA.village, aim = C.aim, dist = camDist / (G.zoomMul || 1);
+function updateCamera(dt) {
+  // зум игрока (щипок / колесо, js/core/camzoom.js): плавно к выбранному; туман и тень отодвигаются вместе с камерой,
+  // чтобы вокруг героя картинка была та же, что и при стартовом масштабе
+  const zt = zoomNow(); userZoom = Math.abs(zt - userZoom) < 1e-3 ? zt : userZoom + (zt - userZoom) * Math.min(1, dt * 12);
+  const cam = G.cam, C = CAMERA.village, aim = C.aim, dist0 = camDist / (G.zoomMul || 1), dist = dist0 * userZoom;
+  scene.fog.near = LV.fog.near + dist - dist0; scene.fog.far = LV.fog.far + dist - dist0;
+  const sh = SHADOW.half * Math.max(1, userZoom);
+  if (sh !== shadowHalf) { shadowHalf = sh; const sc = lights.moon.shadow.camera; sc.left = sc.bottom = -sh; sc.right = sc.top = sh; sc.updateProjectionMatrix(); }
   camTarget.set(cam.x - SQ * aim, CAMERA.follow.targetY, cam.y - SQ * aim);
   camera.position.set(Math.sin(CAMERA.yaw) * Math.cos(C.pitch), Math.sin(C.pitch), Math.cos(CAMERA.yaw) * Math.cos(C.pitch)).multiplyScalar(dist).add(camTarget);
   camera.lookAt(camTarget);
@@ -304,7 +311,7 @@ function updateCamera() {
     const near = (G.enemies || []).filter(e => !e.dead && (e.x - P.x) ** 2 + (e.y - P.y) ** 2 < 144).sort((a, b) => ((a.x - P.x) ** 2 + (a.y - P.y) ** 2) - ((b.x - P.x) ** 2 + (b.y - P.y) ** 2));
     U.uFoc.value.forEach((v, i) => { const e = near[i]; if (e) v.set(e.x, 0.9, e.y, 1); else v.w = 0; }); }   // три ближайших врага в 12 м: деревья и скалы перед ними растворяются
   // тень: центр ортокамеры чуть вглубь кадра, привязка к текселю карты, чтобы края теней не дрожали при движении
-  const sm = lights.moon.shadow, tex = (2 * SHADOW.half) / (sm.mapSize.x || 1024);
+  const sm = lights.moon.shadow, tex = (2 * shadowHalf) / (sm.mapSize.x || 1024);
   _sc.set(camTarget.x - SQ * SHADOW.ahead, 0, camTarget.z - SQ * SHADOW.ahead);
   _ld.set(...LV.key.offset).normalize();
   _basis.lookAt(_ld, _zero, _up); _inv.copy(_basis).invert();
@@ -349,7 +356,7 @@ export function render() {
   const now = performance.now(), dt = Math.min(0.05, (now - last) / 1000), rawDt = (now - last) / 1000; last = now; tAll += dt; U.uTime.value = tAll; governor(rawDt);
   if (Z !== zone) setZone(Z);
   applyQuality();
-  updateCamera(); updateLights(tAll, dt);
+  updateCamera(dt); updateLights(tAll, dt);
   syncPlayer(dt); syncEnemies(dt); syncSwarm(dt); syncNpcs(dt); cullActors();
   world.props.cull(camera); world.props.update(tAll);
   if (world.atmo) world.atmo.update(dt, tAll, G.cam.x, G.cam.y, G.player.x, G.player.y);

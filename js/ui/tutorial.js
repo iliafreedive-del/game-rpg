@@ -4,7 +4,7 @@ import { G, bus } from '../game/ctx.js';
 import { $, el, esc } from '../core/util.js';
 
 const touch = () => matchMedia('(pointer:coarse)').matches;
-let busy = false, queue = [];
+let busy = false, queue = [], zoneTicks = 0;   // zoneTicks: сколько тиков (0,6 с) герой вне деревни
 const T = () => { const P = G.profile; P.tutorial = P.tutorial || {}; P.tutorial.tips = P.tutorial.tips || {}; return P.tutorial; };
 
 // rect: DOMRect-like {left, top, width, height}
@@ -51,10 +51,16 @@ export async function intro() {
 function tip(id, fn) { const t = T(); if (t.off || !t.on || t.tips[id] || busy || G.modalOpen) return false; const r = fn(); if (!r) return false; t.tips[id] = 1; bus.emit('save'); queue.push(r); return true; }
 
 export function initTutorial() {
+  bus.on('camZoom', () => { if (G.profile) T().zoomSeen = 1; });   // уже нашёл зум сам — подсказка не нужна
   bus.on('tutorialRestart', () => { const t = T(); t.on = true; t.off = false; t.introDone = false; t.tips = {}; intro(); });
   setInterval(async () => {
     if (!G.profile || !G.zoneReady || busy) return;
-    const t = T(); if (!t.on || t.off) return;
+    const t = T();
+    // зум камеры (сборка 45): кто играет без обучения — короткая подсказка один раз, при первом выходе из деревни, через ~6 с
+    zoneTicks = G.zoneId === 'town' ? 0 : zoneTicks + 1;
+    if ((!t.on || t.off) && !t.zoomSeen && zoneTicks > 10 && !G.modalOpen) { t.zoomSeen = 1; bus.emit('save');
+      bus.emit('toast', { text: 'Камеру можно приблизить или отдалить', sub: touch() ? 'Разведите или сведите два пальца на свободной части экрана' : 'Колесо мыши или щипок на тачпаде', kind: 'info' }); }
+    if (!t.on || t.off) return;
     const P = G.profile, pl = G.player;
     // 1) interact button first time
     if (!$('btnAct').classList.contains('hidden')) tip('act', () => [rectOf('btnAct'), G.focus && G.focus.type === 'portal' ? '<b>Портал.</b> Нажмите эту кнопку, чтобы войти. Порталы ведут в катакомбы, Глубины и обратно в деревню.' : '<b>Действие.</b> Рядом что-то интересное — нажмите, чтобы <b>поговорить, войти или открыть</b>.']);
@@ -64,6 +70,10 @@ export function initTutorial() {
     if (G.zoneId === 'town' && P.skillPts > 0 && !Object.values(P.skills || {}).some(Boolean) && P.story.stage >= 1) { const tr = G.zone.inter.find(i => i.id === 'trainer'); if (tr) tip('trainer', () => [worldRect(tr.x, tr.y), '<b>Наставник Элвин.</b> У вас есть очко навыка! Подойдите к наставнику и изучите первое <b>активное умение</b> — без него драться тяжело.']); }
     // 4) hero / gear button after first reward
     if (P.story.stage >= 1) tip('hero', () => [rectOf('portrait'), '<b>Ваш портрет.</b> Нажмите — откроется меню: «Герой» (снаряжение), навыки, задания и остальное.']);
+    // 5) зум камеры — при первом выходе из деревни (в катакомбах, Глубинах, походах)
+    if (G.zoneId !== 'town' && P.story.stage >= 1 && pl && !t.zoomSeen && tip('zoom', () => [worldRect(pl.x, pl.y, 160, 170), touch()
+      ? '<b>Камера.</b> Разведите два пальца на свободной части экрана — камера ближе, сведите — дальше. Джойстик и кнопки при этом не нажимаются. Поменять можно и в Настройках.'
+      : '<b>Камера.</b> Колесо мыши (на Mac — щипок на тачпаде) приближает и отдаляет камеру. Поменять можно и в Настройках.'])) t.zoomSeen = 1;
     if (queue.length) { const [r, txt] = queue.shift(); if (r) await show(r, txt); }
   }, 600);
   // inside windows: trainer panel / skills list

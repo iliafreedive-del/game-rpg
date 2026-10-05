@@ -2,7 +2,7 @@
 // Принудительно старая отрисовка: ?render=2d. Принудительно 3D с логом причин отката: ?render=3d.
 // Пока перенос не закончен, 3D покрывает деревню и героя-воина; катакомбы, цитадель, глубины, лучник и маг идут в 2D.
 import * as R2 from './renderer.js';
-import { G } from '../game/ctx.js';
+import { G, bus } from '../game/ctx.js';
 
 export const loadFloor = R2.loadFloor, buildFloorCanvas = R2.buildFloorCanvas;
 let saved = null; try { saved = localStorage.getItem('da_render'); } catch { }
@@ -23,6 +23,7 @@ export async function initRenderer(canvas) {
   if (window.visualViewport) visualViewport.addEventListener('resize', again);
   addEventListener('orientationchange', () => { for (const t of [80, 300, 700, 1300]) setTimeout(again, t); });
 }
+bus.on('camZoom', () => { if (!on3) R2.resize(); });   // 2D: масштаб пересчитывается при зуме игрока (3D сам плавно следует)
 export function resize() {
   R2.resize();
   if (R3) R3.resize(G.cam.w, G.cam.h);
