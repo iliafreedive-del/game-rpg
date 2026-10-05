@@ -1,7 +1,7 @@
 // Monetization & retention: rewarded offers (never in combat), IAP grants with de-duplication,
 // interstitial pacing, daily login streak and the "ripening chest" timer.
 import { G, bus, inCombat } from '../game/ctx.js';
-import { platform, PRODUCTS } from './platform.js';
+import { platform, PRODUCTS, gameplay } from './platform.js';
 import { makeItem } from '../game/items.js';
 import { stats } from '../game/stats.js';
 import { autoEquip } from '../game/character.js';
@@ -9,7 +9,7 @@ import { uid } from '../core/util.js';
 
 const MIN = 60 * 1000;
 export const OFFERS = {
-  bless: { title: 'Благословение богини: +50% золота и опыта на 10 минут', icon: '✦' },
+  bless: { title: 'Сила источника: +50% золота и опыта на 10 минут', icon: '✦' },
   xp_boost: { title: '+50% опыта на 15 минут', icon: '✦' },
   gold_boost: { title: '+50% золота на 15 минут', icon: '⛁' },
   revive: { title: 'Воскреснуть на месте', icon: '✚' },
@@ -28,10 +28,10 @@ export async function watchRewarded(kind, token, apply) {
   // в открытом окне на паузе (Летопись битв и т. п.) время мира стоит — «недавний бой» там не считается
   const wasPaused = G.paused, frozen = wasPaused && G.modalOpen;
   if (!frozen && inCombat() && kind !== 'revive' && kind !== 'boss_extra') { bus.emit('toast', { text: 'Реклама недоступна во время боя', kind: 'warn' }); return false; }
-  busy = true; G.paused = true; bus.emit('audioPause', true); platform.p.gameplayStop();
+  busy = true; G.paused = true; bus.emit('audioPause', true); gameplay(false);
   let ok = false;
   try { ok = await platform.p.showRewarded(); } catch { ok = false; }
-  busy = false; G.paused = wasPaused; bus.emit('audioPause', false); platform.p.gameplayStart();   // окно на паузе остаётся на паузе
+  busy = false; G.paused = wasPaused; bus.emit('audioPause', false);   // окно на паузе остаётся на паузе; GameplayAPI.start — из main.js, когда игра снова идёт
   if (!ok) { bus.emit('toast', { text: 'Награда не получена: видео не досмотрено', kind: 'warn' }); return false; }
   if (P.ads.used[token]) return false;  // double-callback guard
   P.ads.used[token] = Date.now(); pruneTokens();
@@ -40,8 +40,8 @@ export async function watchRewarded(kind, token, apply) {
 function pruneTokens() { const u = G.profile.ads.used; const ks = Object.keys(u); if (ks.length > 300) ks.sort((a, b) => u[a] - u[b]).slice(0, ks.length - 300).forEach(k => delete u[k]); }
 
 export const offers = {
-  xpBoost() { return watchRewarded('xp_boost', offerToken('xp_boost', 'w' + Math.floor(Date.now() / (15 * MIN))), () => { const P = G.profile; P.boosts.xpUntil = Math.max(Date.now(), P.boosts.xpUntil) + 15 * MIN; bus.emit('toast', { text: 'Благословение опыта', sub: '+50% опыта на 15 минут', kind: 'good' }); }); },
-  goldBoost() { return watchRewarded('gold_boost', offerToken('gold_boost', 'w' + Math.floor(Date.now() / (15 * MIN))), () => { const P = G.profile; P.boosts.goldUntil = Math.max(Date.now(), P.boosts.goldUntil) + 15 * MIN; bus.emit('toast', { text: 'Благословение золота', sub: '+50% золота на 15 минут', kind: 'good' }); }); },
+  xpBoost() { return watchRewarded('xp_boost', offerToken('xp_boost', 'w' + Math.floor(Date.now() / (15 * MIN))), () => { const P = G.profile; P.boosts.xpUntil = Math.max(Date.now(), P.boosts.xpUntil) + 15 * MIN; bus.emit('toast', { text: 'Сила опыта', sub: '+50% опыта на 15 минут', kind: 'good' }); }); },
+  goldBoost() { return watchRewarded('gold_boost', offerToken('gold_boost', 'w' + Math.floor(Date.now() / (15 * MIN))), () => { const P = G.profile; P.boosts.goldUntil = Math.max(Date.now(), P.boosts.goldUntil) + 15 * MIN; bus.emit('toast', { text: 'Сила золота', sub: '+50% золота на 15 минут', kind: 'good' }); }); },
   bossExtra(killId, x, y) { return watchRewarded('boss_extra', offerToken('boss_extra', killId), () => { const r = autoEquip(makeItem({ slot: 'weapon', cls: G.profile.cls, ilvl: G.profile.level + 1, rarity: 2 })); bus.emit('toast', { text: r.equipped ? 'Новое оружие надето: ' + r.item.name : 'Бонус: +' + r.sold + ' зол.', kind: 'good' }); }); },
   shopRefresh(onDone) { return watchRewarded('shop_refresh', offerToken('shop_refresh', 'lv' + G.profile.level + '_' + Math.floor(Date.now() / (30 * MIN))), onDone); },
 };
@@ -52,7 +52,7 @@ export async function maybeInterstitial(reason) {
   const P = G.profile;
   if (P.iap.noAds || platform.name === 'demo' && !P.settings.demoInter) return false;
   if (Date.now() - lastInter < 4 * MIN || P.stats.playTime < 180) return false;
-  lastInter = Date.now(); G.paused = true; bus.emit('audioPause', true);
+  lastInter = Date.now(); G.paused = true; bus.emit('audioPause', true); gameplay(false);
   try { await platform.p.showInterstitial(); } catch { }
   G.paused = false; bus.emit('audioPause', false); return true;
 }
@@ -62,7 +62,7 @@ export async function buy(productId) {
   const P = G.profile, def = PRODUCTS[productId];
   if (def.once && P.iap.tx['once_' + productId]) { bus.emit('toast', { text: 'Этот набор уже куплен', kind: 'warn' }); return false; }
   if (!def.consumable && P.iap[flagOf(productId)]) { bus.emit('toast', { text: 'Уже куплено', kind: 'warn' }); return false; }
-  G.paused = true; const r = await platform.p.purchase(productId); G.paused = false;
+  G.paused = true; gameplay(false); const r = await platform.p.purchase(productId); G.paused = false;
   if (!r.ok) return false;
   return grantPurchase(productId, r.token);
 }
@@ -114,7 +114,7 @@ export function claimDaily(double) {
   if (r.scrolls) P.scrolls += r.scrolls * m;
   if (r.item) for (let i = 0; i < m; i++) { const it = makeItem({ ilvl: P.level, rarity: r.item, cls: P.cls }); delete it.req; autoEquip(it); }
   P.daily.last = dayKey(Date.now()); P.daily.streak = s.streak + 1; bus.emit('loginClaimed');
-  bus.emit('toast', { text: `Дар богини — день ${s.day} из ${LOGIN_DAYS}`, sub: r.big ? 'Большая награда!' : r.mid ? 'Награда каждого 3-го дня' : '', kind: 'good' }); bus.emit('sfx', 'quest'); bus.emit('hud'); bus.emit('save'); return true;
+  bus.emit('toast', { text: `Дар источника — день ${s.day} из ${LOGIN_DAYS}`, sub: r.big ? 'Большая награда!' : r.mid ? 'Награда каждого 3-го дня' : '', kind: 'good' }); bus.emit('sfx', 'quest'); bus.emit('hud'); bus.emit('save'); return true;
 }
 
 // ---- благословение богини за рекламу: +50% золота и опыта, +25% к выпадению вещей; 10 минут за просмотр, не больше 30 подряд
@@ -122,16 +122,16 @@ export const BLESS_MIN = 10, BLESS_CAP = 30;
 export const blessLeft = () => Math.max(0, ((G.profile.boosts && G.profile.boosts.blessUntil) || 0) - Date.now());
 export const blessed = () => blessLeft() > 0;
 export function blessing() {
-  if (blessLeft() > (BLESS_CAP - BLESS_MIN) * MIN) { bus.emit('toast', { text: 'Благословение уже на пределе', sub: `Не больше ${BLESS_CAP} минут подряд`, kind: 'warn' }); return Promise.resolve(false); }
+  if (blessLeft() > (BLESS_CAP - BLESS_MIN) * MIN) { bus.emit('toast', { text: 'Сила источника уже на пределе', sub: `Не больше ${BLESS_CAP} минут подряд`, kind: 'warn' }); return Promise.resolve(false); }
   return watchRewarded('bless', offerToken('bless'), () => { const P = G.profile; P.boosts.blessUntil = Math.max(Date.now(), P.boosts.blessUntil || 0) + BLESS_MIN * MIN; P.boosts.blessWarned = false;
-    bus.emit('toast', { text: 'Благословение богини!', sub: '+50% золота и опыта, +25% вещей — 10 минут. Вперёд, в бой!', kind: 'good' }); bus.emit('sfx', 'levelup'); });
+    bus.emit('toast', { text: 'Сила источника!', sub: '+50% золота и опыта, +25% вещей — 10 минут. Вперёд, в бой!', kind: 'good' }); bus.emit('sfx', 'levelup'); });
 }
 // напоминание за минуту до конца и по окончании (вызывается раз в секунду из hud.js)
 export function blessTick() {
   const P = G.profile, B = P.boosts; if (!B || !B.blessUntil) return;
   const left = B.blessUntil - Date.now();
-  if (left > 0 && left < 60000 && !B.blessWarned) { B.blessWarned = true; bus.emit('toast', { text: 'Благословение угасает — минута!', sub: 'Вернитесь к алтарю богини на площади, чтобы продлить', kind: 'quest' }); }
-  if (left <= 0 && B.blessWarned !== 'done') { B.blessWarned = 'done'; bus.emit('toast', { text: 'Благословение угасло', sub: 'Алтарь богини на площади деревни даст новое', kind: 'info' }); bus.emit('save'); }
+  if (left > 0 && left < 60000 && !B.blessWarned) { B.blessWarned = true; bus.emit('toast', { text: 'Сила источника угасает — минута!', sub: 'Вернитесь к источнику силы на площади, чтобы продлить', kind: 'quest' }); }
+  if (left <= 0 && B.blessWarned !== 'done') { B.blessWarned = 'done'; bus.emit('toast', { text: 'Сила источника угасла', sub: 'Источник силы на площади деревни даст новое', kind: 'info' }); bus.emit('save'); }
 }
 export const CHEST_TIME = 4 * 60 * MIN;
 export function chestStatus() { const P = G.profile; P.orderChest = P.orderChest || { readyAt: Date.now() + 20 * MIN }; const left = P.orderChest.readyAt - Date.now(); return { ready: left <= 0, left }; }

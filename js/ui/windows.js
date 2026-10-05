@@ -391,7 +391,7 @@ W.settings = () => modal('Настройки', 'sm', b => {
   b.appendChild(el('h3', '', 'Управление'));
   b.appendChild(el('p', 'muted', 'Телефон/планшет: джойстик слева, атака и навыки справа, удерживайте атаку — герой сам подойдёт к врагу. ПК: WASD/стрелки — движение, Пробел — атака, 1–4 — навыки, Shift — уклонение, Q/E — зелья, F — действие, I/C/K/J/M — окна, T — свиток.'));
   const row = el('div', 'row'); row.style.marginTop = '10px';
-  const sv = el('button', 'btn', 'Сохранить'); sv.onclick = () => { saveNow(); bus.emit('toast', { text: 'Игра сохранена', kind: 'good' }); }; row.appendChild(sv);
+  const sv = el('button', 'btn', 'Сохранить'); sv.onclick = () => { saveNow(true); bus.emit('toast', { text: 'Игра сохранена', kind: 'good' }); }; row.appendChild(sv);
   const rp = el('button', 'btn', 'Восстановить покупки'); rp.onclick = () => restorePurchases(); row.appendChild(rp);
   const wp = el('button', 'btn', 'Начать заново'); wp.onclick = () => { if (confirm('Удалить сохранение этого героя и начать заново? Это нельзя отменить. Сохранения других героев останутся.')) { wipeLocal(G.profile.cls); G.profile = null; const go = () => location.reload(); if (platform.name !== 'demo' && platform.p && platform.p.cloudSave) platform.p.cloudSave(cloudBundle(null)).finally(go); else go(); } }; row.appendChild(wp);
   b.appendChild(row);
@@ -500,7 +500,7 @@ W.season = () => modal('Путь сезона · ' + SE.seasonName(), 'md', b =>
   const S = SE.season(), L = SE.seasonLevel(), P = G.profile;
   b.appendChild(el('div', 'row', `<b class="goldc" style="font:600 17px Georgia">Ступень ${L.lvl} из ${SE.SEASON_LEVELS}</b><span class="muted">${L.need ? `${L.into}/${L.need} очков до следующей` : 'Путь пройден!'}</span>`));
   b.appendChild(el('div', 'pb season-pb', `<i style="width:${L.need ? L.into / L.need * 100 : 100}%"></i>`));
-  b.appendChild(el('p', 'muted', 'Очки идут за любую игру: враги, этажи Глубин, поля походов, слияния, находки в коллекцию, дары богини и задания дня. Новый месяц — новый сезон.'));
+  b.appendChild(el('p', 'muted', 'Очки идут за любую игру: враги, этажи Глубин, поля походов, слияния, находки в коллекцию, дары источника и задания дня. Новый месяц — новый сезон.'));
   const list = el('div', 'season-list');
   for (let l = 1; l <= SE.SEASON_LEVELS; l++) { const r = SE.seasonReward(l), got = !!S.claimed[l], open = L.lvl >= l;
     const row = el('div', 'sl' + (r.big ? ' big' : r.mid ? ' mid' : '') + (got ? ' got' : open ? ' open' : ''), `<i>${l}</i><span>${r.label}${r.gold ? ` · ${r.gold * P.level} зол.` : ''}</span>`);
@@ -603,15 +603,15 @@ W.board = () => {
 };
 
 // ---------------------------------------------------------------- rewards / shop (monetization hub)
-W.shrine = () => modal('Алтарь богини', 'md', b => {
+W.shrine = () => modal('Источник силы', 'md', b => {
   const P = G.profile, now = Date.now();
   // 1) благословение — главное предложение алтаря
   { const left = blessLeft(), on = left > 0, full = left > (BLESS_CAP - BLESS_MIN) * 60000;
-    const c = el('div', 'bless-card' + (on ? ' on' : ''), `<div class="bl-ic">✦</div><div class="tx"><b>Благословение богини</b><div>+50% золота и опыта, +25% к выпадению вещей — ${BLESS_MIN} минут</div><div class="muted">${on ? `Действует ещё <b>${Math.floor(left / 60000)}:${String(Math.floor(left / 1000) % 60).padStart(2, '0')}</b>${full ? ' · предел ' + BLESS_CAP + ' мин' : ' · можно продлить'}` : 'Посмотрите рекламу — и 10 минут всё падает щедрее'}</div></div>`);
+    const c = el('div', 'bless-card' + (on ? ' on' : ''), `<div class="bl-ic">✦</div><div class="tx"><b>Сила источника</b><div>+50% золота и опыта, +25% к выпадению вещей — ${BLESS_MIN} минут</div><div class="muted">${on ? `Действует ещё <b>${Math.floor(left / 60000)}:${String(Math.floor(left / 1000) % 60).padStart(2, '0')}</b>${full ? ' · предел ' + BLESS_CAP + ' мин' : ' · можно продлить'}` : 'Посмотрите рекламу — и 10 минут всё падает щедрее'}</div></div>`);
     const bt = el('button', 'btn ad', on ? `+${BLESS_MIN} мин` : 'Получить'); bt.disabled = full || inCombat(); bt.onclick = () => blessing().then(rerender); c.appendChild(bt); b.appendChild(c); }
   // 2) календарь входа: 28 дней, пропуск не сбрасывает, каждый 3-й больше, 7/14/21/28 — вещь
   const ds = dailyStatus(), cur = ds.day, base = ds.streak - (ds.claimable ? 0 : 1) - (cur - 1);   // base — сколько дней было до этого круга
-  b.appendChild(el('h3', '', `Дары богини · день ${cur} из ${LOGIN_DAYS}${ds.streak >= LOGIN_DAYS ? ` · круг ${Math.floor(base / LOGIN_DAYS) + 1}` : ''}`));
+  b.appendChild(el('h3', '', `Дары источника · день ${cur} из ${LOGIN_DAYS}${ds.streak >= LOGIN_DAYS ? ` · круг ${Math.floor(base / LOGIN_DAYS) + 1}` : ''}`));
   const cal = el('div', 'login-cal');
   DAILY.forEach((r, i) => { const d = i + 1, got = d < cur || (d === cur && !ds.claimable), today = d === cur && ds.claimable, soon = !got && !today && d - cur <= 3;
     const what = r.item ? (r.item >= 3 ? '◆ золотая вещь' : '◆ синяя вещь') : r.mid ? '✉ свиток' : (r.gold * P.level) + ' зол.';
@@ -631,9 +631,11 @@ W.shrine = () => modal('Алтарь богини', 'md', b => {
   // IAP
   b.appendChild(el('h3', '', 'Лавка Ордена'));
   for (const [id, p] of Object.entries(PRODUCTS)) {
+    if (!platform.p.hasProduct(id)) continue;
     const owned = (p.once && P.iap.tx['once_' + id]) || (!p.consumable && P.iap[{ gold_perk: 'goldPerk', no_ads: 'noAds', bag_big: 'bagBig' }[id]]);
     const o = el('div', 'offer', `<div class="ic">${id === 'starter_pack' ? '★' : id === 'potion_pack' ? '✚' : id === 'no_ads' ? '⊘' : id === 'bag_big' ? '▤' : '⛁'}</div><div class="tx"><b>${esc(p.title)}</b><div class="muted">${esc(p.desc)}</div></div>`);
-    const bt = el('button', 'btn gold', owned ? 'Куплено' : (platform.p.catalogPrice(id) || p.price)); bt.disabled = !!owned; bt.onclick = () => buy(id).then(rerender); o.appendChild(bt); b.appendChild(o);
+    const pr = platform.p.catalogPrice(id), price = typeof pr === 'string' ? esc(pr) : `${esc(pr.value)} ${pr.img ? `<img class="cur" src="${esc(pr.img)}" alt="${esc(pr.code)}">` : esc(pr.code)}`;
+    const bt = el('button', 'btn gold', owned ? 'Куплено' : price); bt.disabled = !!owned; bt.onclick = () => buy(id).then(rerender); o.appendChild(bt); b.appendChild(o);
   }
   if (platform.name === 'demo') b.appendChild(el('p', 'muted', '<small>Демо-режим: реклама и покупки имитируются, деньги не списываются. На Яндекс Играх подключается SDK площадки.</small>'));
 });
@@ -887,7 +889,7 @@ W.menu = () => modal('Меню', 'md', b => {
   const tiles = [
     ['inventory', '🎒', 'Герой', 'снаряжение и сумка', 'dotInv'], ['character', '🛡', 'Персонаж', 'характеристики', 'dotChar'], ['skills', '✦', 'Навыки', 'умения и кнопки', 'dotSkill'],
     ['journal', '📜', 'Задания', 'сюжет и ежедневные'], ['map', '🗺', 'Карта', 'текущая локация'],
-    ['herospath', '⚔', 'Летопись битв', 'автобои', 'dotHW'], ['shrine', '🎁', 'Алтарь богини', 'дары, благословение', 'dotGift'], ['season', '🏆', 'Путь сезона', SE.seasonName() + ' · 30 ступеней', 'dotSeason'], ['codex', '📖', 'Коллекция', '+0,5% за каждую находку'],
+    ['herospath', '⚔', 'Летопись битв', 'автобои', 'dotHW'], ['shrine', '🎁', 'Источник силы', 'дары, сила источника', 'dotGift'], ['season', '🏆', 'Путь сезона', SE.seasonName() + ' · 30 ступеней', 'dotSeason'], ['codex', '📖', 'Коллекция', '+0,5% за каждую находку'],
     ['tutorial', '❓', 'Обучение', 'показать подсказки снова'], ['settings', '⚙', 'Настройки', 'звук, графика'],
   ];
   const g = el('div', 'menu-grid');

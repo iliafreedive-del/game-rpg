@@ -20,6 +20,7 @@ class DemoProvider {
   async cloudLoad() { return null; } async cloudSave() { return false; }
   async requestReview() { return false; }
   catalogPrice(id) { return PRODUCTS[id]?.price; }
+  hasProduct() { return true; }
   async setLeaderboardScore() { return false; } async getLeaderboard() { return null; }   // демо: таблиц рекордов нет
 }
 
@@ -61,7 +62,14 @@ class YandexProvider {
   async requestReview() {
     try { const { value } = await this.ysdk.feedback.canReview(); if (!value) return false; const r = await this.ysdk.feedback.requestReview(); return !!(r && r.feedbackSent); } catch { return false; }
   }
-  catalogPrice(id) { const c = (this.catalog || []).find(x => x.id === id); return c ? c.price : PRODUCTS[id]?.price; }
+  // требование 1.13.2: цена и валюта портала — только из каталога SDK (число + значок валюты), без зашитых рублей
+  catalogPrice(id) {
+    const c = (this.catalog || []).find(x => x.id === id); if (!c) return null;
+    let img = ''; try { img = c.getPriceCurrencyImage('small'); } catch { }
+    return { value: c.priceValue, code: c.priceCurrencyCode, img };
+  }
+  // 1.13.6: в игре — только товары, что есть в каталоге консоли
+  hasProduct(id) { return !!(this.catalog || []).find(x => x.id === id); }
 }
 
 // In-app products (IDs must match the Yandex console catalog).
@@ -78,6 +86,10 @@ function onYandex() {
   const h = location.hostname; return /yandex\.|playhop|games\.s3\.yandex/.test(h) || new URLSearchParams(location.search).has('yandex');
 }
 export const platform = { p: null, name: 'demo' };
+// GameplayAPI (требование 1.19.3): идёт ли игровой процесс. main.js сверяет каждый кадр (окна, пауза, смерть),
+// реклама и сворачивание выключают сразу; Яндексу уходит только смена состояния
+let gpOn = false;
+export function gameplay(on) { if (!platform.p || on === gpOn) return; gpOn = on; if (on) platform.p.gameplayStart(); else platform.p.gameplayStop(); }
 export async function initPlatform() {
   let prov = onYandex() ? new YandexProvider() : new DemoProvider();
   try { await prov.init(); } catch (e) { console.warn('platform init failed, fallback to demo', e); prov = new DemoProvider(); await prov.init(); }

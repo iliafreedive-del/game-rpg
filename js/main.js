@@ -13,7 +13,7 @@ import { initHUD, updateHUD } from './ui/hud.js';
 import { initPanel } from './ui/panel.js';
 import { initTutorial, askTutorial, intro } from './ui/tutorial.js';
 import * as CS from './game/castle.js';
-import { initPlatform, platform } from './platform/platform.js';
+import { initPlatform, platform, gameplay } from './platform/platform.js';
 import { restorePurchases } from './platform/monetize.js';
 import { dozorPending, initDozor } from './game/daily.js';
 import { showDozor } from './ui/windows.js';
@@ -57,7 +57,7 @@ async function boot() {
     await mons;
     const fresh = !p.tutorial.prologue && p.story.stage === 0 && !p.xp && p.level === 1;
     if (fresh) await loadZone('depths', { floor: 0 }); else await loadZone('town');
-    $('title').remove(); platform.p.gameplayStart(); startMusic('town');
+    $('title').remove(); startMusic('town');
     bus.on('zoneEntered', z => startMusic(z));
     restorePurchases().catch(() => { });
     const dz = dozorPending(); if (dz) setTimeout(() => showDozor(dz), 900); else { initDozor(); G.dozorChecked = true; }
@@ -98,15 +98,16 @@ function loop(now) {
   const dt = Math.min(0.05, (now - last) / 1000); last = now;
   fpsAcc += dt; fpsN++; if (fpsAcc > 1) { G.fps = Math.round(fpsN / fpsAcc); fpsAcc = 0; fpsN = 0; }
   try { update(dt); render(); updateHUD(dt); } catch (e) { console.error(e); }
+  gameplay(!G.paused && !document.hidden && !(G.player && G.player.dead));   // меню, окна, пауза, смерть — для Яндекса игра стоит
   requestAnimationFrame(loop);
 }
 // persist on tab hide / close (mobile browsers kill background tabs)
 // пауза и тишина при сворачивании вкладки / событиях платформы (требование модерации Яндекс Игр)
 let platPaused = false;
-const setPlatPause = on => { if (!G.profile) return; if (on === platPaused) return; platPaused = on; if (on) { G.hidePaused = !G.paused; if (G.hidePaused) G.paused = true; saveNow(); bus.emit('audioPause', true); platform.p && platform.p.gameplayStop(); } else { if (G.hidePaused) G.paused = false; G.hidePaused = false; bus.emit('audioPause', false); platform.p && platform.p.gameplayStart(); } };
+const setPlatPause = on => { if (!G.profile) return; if (on === platPaused) return; platPaused = on; if (on) { G.hidePaused = !G.paused; if (G.hidePaused) G.paused = true; saveNow(true); bus.emit('audioPause', true); gameplay(false); } else { if (G.hidePaused) G.paused = false; G.hidePaused = false; bus.emit('audioPause', false); } };   // GameplayAPI.start — из цикла (loop), когда игра снова идёт
 document.addEventListener('visibilitychange', () => setPlatPause(document.hidden));
 bus.on('platformPause', setPlatPause);
-addEventListener('pagehide', () => { if (G.profile) saveNow(); });
+addEventListener('pagehide', () => { if (G.profile) saveNow(true); });
 addEventListener('contextmenu', e => e.preventDefault());
 // iOS Safari: block pinch/double-tap zoom and reset any zoom left over after rotation
 // двойной тап / щипок на телефоне не должен приближать страницу (экран «уезжал», вернуть масштаб было нельзя)

@@ -45,12 +45,14 @@ let saveTimer = 0, saveQueued = false, meterAcc = 0, questT = 0;
 const ZONES = { town: 'maps/village.json', catacombs: 'maps/catacombs.json' };
 
 export function requestSave() { saveQueued = true; }
-export function saveNow() {
+let cloudAt = 0;
+export function saveNow(force) {
   const P = G.profile; if (!P) return;
   if (G.player && !G.player.dead) { P.hpFrac = G.player.hp / G.stats.maxHP; }
   P.world.lastZone = 'town'; if (G.dozorChecked) P.dozorAt = Date.now();   // always resume in the village (safe start, no mid-fight restore)
   saveLocal(P); saveQueued = false; saveTimer = 0;
-  if (platform.p && platform.p.cloudSave && platform.name !== 'demo') platform.p.cloudSave(cloudBundle(P));   // сборка 44: в облаке все три героя
+  // сборка 44: в облаке все три героя. Облако — не чаще раза в 15 с (лимит Яндекса: 100 записей за 5 мин), при сворачивании — сразу
+  if (platform.p && platform.p.cloudSave && platform.name !== 'demo' && (force || Date.now() - cloudAt > 15000)) { cloudAt = Date.now(); platform.p.cloudSave(cloudBundle(P)); }
 }
 bus.on('save', requestSave);
 
@@ -148,7 +150,7 @@ export async function loadZone(id, how = {}) {
   if (id === 'survival') SV.startRun(); else G.surv = null;
   G.zoneReady = true;
   bus.emit('zoneEntered', id); bus.emit('hud'); requestSave();
-  if (id === 'town' && G.profile.tutorial.prologue) setTimeout(() => { const d = dailyStatus(); if (d.claimable) bus.emit('toast', { text: 'Дары богини ждут!', sub: `День ${d.day} из 28 — алтарь на площади`, kind: 'quest' }); else if (!blessed()) bus.emit('toast', { text: 'Алтарь богини на площади', sub: 'Благословение: +50% золота и опыта на 10 минут', kind: 'info' }); }, 2500);   // сборка 19
+  if (id === 'town' && G.profile.tutorial.prologue) setTimeout(() => { const d = dailyStatus(); if (d.claimable) bus.emit('toast', { text: 'Дары источника ждут!', sub: `День ${d.day} из 28 — алтарь на площади`, kind: 'quest' }); else if (!blessed()) bus.emit('toast', { text: 'Источник силы на площади', sub: 'Сила источника: +50% золота и опыта на 10 минут', kind: 'info' }); }, 2500);   // сборка 19
   if (id === 'town' && P.tutorial.prologue) setTimeout(() => { if (G.zoneId === 'town') bus.emit('toast', { text: 'Дальше: ' + nextStep(), kind: 'info' }); }, 2200);
   if (id === 'town' && how.from && how.from !== 'death') setTimeout(() => maybeInterstitial('return'), 1200);   // реклама только на спокойном переходе (не чаще раза в 4 минуты)
 }
@@ -250,7 +252,7 @@ export function revive(inPlace) {
 // после пролога в деревне сначала — староста: пока задание «Поговорить со старостой» не сдано, остальное закрыто
 const elderFirst = () => G.zoneId === 'town' && Q.current() && Q.current().id === 'talk_elder';
 let nagT = -9;
-function nagElder() { if (G.time - nagT < 2.5) return; nagT = G.time; bus.emit('toast', { text: 'Сначала поговорите со старостой Эдриком', sub: 'Он ждёт на площади у церкви — идите по стрелке', kind: 'warn' }); bus.emit('sfx', 'deny'); }
+function nagElder() { if (G.time - nagT < 2.5) return; nagT = G.time; bus.emit('toast', { text: 'Сначала поговорите со старостой Эдриком', sub: 'Он ждёт на площади у Зала Ордена — идите по стрелке', kind: 'warn' }); bus.emit('sfx', 'deny'); }
 export function interact(it) {
   const P = G.profile, W = P.world.opened, pl = G.player;
   if (!it || pl.dead) return;

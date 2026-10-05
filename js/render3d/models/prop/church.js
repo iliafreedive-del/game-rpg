@@ -1,5 +1,5 @@
-// Церковь Святой Марии на площади: каменный неф с контрфорсами и стрельчатыми витражами, крутая шиферная крыша,
-// квадратная башня у фасада (портал с арочной дверью, розетка, часы, звонница с жалюзи) и восьмигранный шпиль с крестом.
+// Зал Ордена (бывшая церковь) на площади: каменный неф с контрфорсами и стрельчатыми витражами, крутая шиферная крыша,
+// квадратная башня у фасада (портал с арочной дверью, розетка, часы, звонница с жалюзи) и восьмигранный шпиль с флюгером-знаменем (крест убран, сборка 45).
 // Фасад с дверью — +z (к площади), неф уходит в −z. Фундамент 7,0 × 12,4 м, высота ≈ 18 м.
 export default { id: 'church', kind: 'prop', outline: false,
   shadowProxy(kit) {
@@ -57,7 +57,8 @@ export default { id: 'church', kind: 'prop', outline: false,
       }
     }
     L.push(bbox(0.3, 0.22, rl + 0.1, 0.05, 0x24242a, [0, ridgeY + 0.12, nzc - 0.05], 0, { top: 0x5a5a64, tex: 'iron' }));
-    L.push(part(new THREE.BoxGeometry(0.08, 1.1, 0.08), PAL.brassD, [0, ridgeY + 0.7, NZ0 - 0.2], 0, 1, { top: PAL.brass }), part(new THREE.BoxGeometry(0.5, 0.08, 0.08), PAL.brassD, [0, ridgeY + 0.95, NZ0 - 0.2], 0, 1, { top: PAL.brass }));
+    // без креста (Яндекс Игры 3.4.5: религиозные атрибуты нельзя) — шпилёк с шаром
+    L.push(part(new THREE.BoxGeometry(0.08, 0.9, 0.08), PAL.brassD, [0, ridgeY + 0.6, NZ0 - 0.2], 0, 1, { top: PAL.brass }), part(new THREE.SphereGeometry(0.11, 8, 6), PAL.brass, [0, ridgeY + 1.1, NZ0 - 0.2]));
     // ---- башня у фасада
     const TW = 3.6, TZ = 4.4, TH = 11.6;
     L.push(bbox(TW + 0.6, y0 + 0.1, TW + 0.6, 0.08, 0x4a463c, [0, (y0 + 0.1) / 2, TZ], 0, { top: STL, tex: 'stone' }));
@@ -105,7 +106,7 @@ export default { id: 'church', kind: 'prop', outline: false,
       L.push(bbox(0.42, 0.7, 0.42, 0.04, TR, [sx * (TW / 2 - 0.05), y0 + TH + 0.5, TZ + sz * (TW / 2 - 0.05)], 0, { top: TRL, tex: 'stone' }));
       L.push(part(new THREE.ConeGeometry(0.3, 0.9, 4), SL, [sx * (TW / 2 - 0.05), y0 + TH + 1.3, TZ + sz * (TW / 2 - 0.05)], [0, Math.PI / 4, 0], 1, { top: SLL, tex: 'tile' }));
     }
-    // шпиль: восьмигранник рядами шифера, слуховые окошки, крест и петушок
+    // шпиль: восьмигранник рядами шифера, слуховые окошки
     const sy = y0 + TH + 0.15, SH = 6.4, SR = 2.2;
     for (let i = 0; i < 6; i++) {
       const t0 = i / 6, r0 = SR * (1 - t0) + 0.05, r1 = SR * (1 - t0 - 1 / 6) + 0.02;
@@ -114,7 +115,8 @@ export default { id: 'church', kind: 'prop', outline: false,
     }
     for (const [nx, nz] of [[0, 1], [1, 0]]) { L.push(bbox(nx ? 0.6 : 0.5, 0.7, nx ? 0.5 : 0.6, 0.03, SL, [nx * 1.5, sy + 1.0, TZ + nz * 1.5], 0, { top: SLL, tex: 'tile' })); L.push(part(new THREE.BoxGeometry(nx ? 0.04 : 0.24, 0.32, nx ? 0.24 : 0.04), 0xffc070, [nx * 1.78, sy + 0.95, TZ + nz * 1.78], 0, 1, { emit: true })); }
     L.push(part(new THREE.SphereGeometry(0.14, 8, 6), PAL.brass, [0, sy + SH + 0.05, TZ]));
-    L.push(part(new THREE.BoxGeometry(0.1, 1.3, 0.1), PAL.brassD, [0, sy + SH + 0.7, TZ], 0, 1, { top: PAL.brass }), part(new THREE.BoxGeometry(0.7, 0.1, 0.1), PAL.brassD, [0, sy + SH + 0.95, TZ], 0, 1, { top: PAL.brass }));
+    // вместо креста — флюгер-знамя Ордена (Яндекс Игры 3.4.5, сборка 45)
+    L.push(part(new THREE.BoxGeometry(0.1, 1.5, 0.1), PAL.brassD, [0, sy + SH + 0.8, TZ], 0, 1, { top: PAL.brass }), part(new THREE.BoxGeometry(0.62, 0.34, 0.04), 0x7a1a1a, [0.36, sy + SH + 1.25, TZ], 0, 1, { top: 0xc83a3a, tex: 'cloth' }), part(new THREE.SphereGeometry(0.09, 8, 6), PAL.brass, [0, sy + SH + 1.6, TZ]));
     // у входа: два фонаря на кронштейнах
     for (const s of [-1, 1]) { const x = s * 1.35; L.push(bbox(0.2, 0.3, 0.2, 0.02, 0x24242a, [x, y0 + 2.4, fz + 0.32], 0, { top: 0x5a5a64, tex: 'iron' })); L.push(part(new THREE.BoxGeometry(0.13, 0.2, 0.13), 0xffc070, [x, y0 + 2.4, fz + 0.32], 0, 1, { emit: true })); }
     const root = new THREE.Group(); root.add(new THREE.Mesh(merge(L), kit.propMat(this)));

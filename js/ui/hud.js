@@ -129,12 +129,12 @@ export function updateHUD(dt) {
   const newItems = P.bag.filter(x => x.isNew).length; dot('dotInv', newItems);
   dot('dotChar', G.zoneId === 'town' ? P.attrPts : 0); dot('dotSkill', G.zoneId === 'town' ? P.skillPts : 0);
   const ds = dailyStatus(), cs = chestStatus(), gifts = (ds.claimable ? 1 : 0) + (cs.ready ? 1 : 0) + (dailyReady() ? 1 : 0); dot('dotGift', gifts);
-  const sh = G.zone && G.zone.inter.find(i => i.id === 'shrine'); if (sh) { sh.plate = 'Алтарь богини' + (gifts ? ` 🎁${gifts}` : blessLeft() > 0 ? '' : ' ✦'); sh.marker = gifts ? '!' : null; }   // значок над алтарём
+  const sh = G.zone && G.zone.inter.find(i => i.id === 'shrine'); if (sh) { sh.plate = 'Источник силы' + (gifts ? ` 🎁${gifts}` : blessLeft() > 0 ? '' : ' ✦'); sh.marker = gifts ? '!' : null; }   // значок над алтарём
   blessTick(); dot('dotSeason', seasonClaimable());
   { let gl = $('goalLine'); if (!gl) { gl = el('div', '', ''); gl.id = 'goalLine'; $('buffs').after(gl); } const t = G.zoneId === 'wild' ? '' : G.zoneId === 'town' || !inCombat() ? nextGoalLine() : ''; if (gl.textContent !== t) gl.textContent = t; }   // «до цели» (сборка 21); в походе на этом месте плашка ноши
   // buffs
   const now = Date.now(); const bf = [];
-  if (blessLeft() > 0) bf.push(`<b class="bless">✦ Благословение ${mmss(blessLeft())}</b>`);
+  if (blessLeft() > 0) bf.push(`<b class="bless">✦ Сила источника ${mmss(blessLeft())}</b>`);
   if (P.boosts.xpUntil > now) bf.push(`Опыт +50% ${mmss(P.boosts.xpUntil - now)}`);
   if (P.boosts.goldUntil > now) bf.push(`Золото +50% ${mmss(P.boosts.goldUntil - now)}`);
   if (pl.shield > 1) bf.push(`Щит ${Math.round(pl.shield)}`);

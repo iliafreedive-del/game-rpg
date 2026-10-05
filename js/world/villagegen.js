@@ -46,7 +46,7 @@ export const PLAN = {
     { id: 'eastlane', w: 1.9, pts: [[31.8, 46.5], [39, 47.6], [47, 46.6], [52.5, 47.4]] },
   ],
   start: [31.4, 44.5],
-  altar: [35.4, 32.4],   // алтарь богини (сборка 19): на площади, у выхода с южной дороги — видно сразу со старта
+  altar: [35.4, 32.4],   // источник силы (сборка 19): на площади, у выхода с южной дороги — видно сразу со старта
 };
 
 // ---- утилиты
@@ -216,7 +216,7 @@ export function generateVillage(plan0 = PLAN) {
   if (smithy) { const [sx, sy] = side(smithy, 2.4, smithy.d / 2 + 0.9); npc('smith', 'Кузнец Горан', sx, sy); const [fx, fy] = side(smithy, 1.72, 0.1); put('forge', fx, fy, { rot: smithy.rot }); }   // горн вплотную к стене мастерской
   // площадь: колодец, летопись, фонари по углам, лавки и бочки
   put('well', CX + 1.5, CY + 0.3);
-  put('shrine', plan.altar[0], plan.altar[1], { s: 1.35 });   // алтарь богини — на площади (сборка 19)
+  put('shrine', plan.altar[0], plan.altar[1], { s: 1.35 });   // источник силы — на площади (сборка 19)
   const hwsign = [CX - SQ.hw + 4.3, CY + SQ.hh - 1.0];
   for (const [sx, sy] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) put('lamp', CX + sx * (SQ.hw - 0.6), CY + sy * (SQ.hh - 0.5));
   put('bench', CX + 4.6, CY - 2.6, { rot: 0 }); put('bench', CX - 1.4, CY + 3.6, { rot: 0 });
@@ -235,7 +235,7 @@ export function generateVillage(plan0 = PLAN) {
   // гадалка: шатёр у южного края площади, на ближней стороне (низкий — ничего не заслоняет)
   {
     const fx = CX - 3.6, fy = CY + SQ.hh + 3.6;
-    npc('fortune', 'Гадалка Фортуна', fx + 3.2, fy - 0.6);
+    npc('fortune', 'Хозяйка Колеса', fx + 3.2, fy - 0.6);
     put('fortune_tent', fx, fy, { rot: 0 }); put('crystals', fx + 3.4, fy + 1.0); put('candles', fx + 3.0, fy - 0.4);
     markRect(fx - 3.4, fy - 3.2, fx + 4.4, fy + 3.4, 5);
   }
