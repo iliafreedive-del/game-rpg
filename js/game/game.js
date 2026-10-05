@@ -479,6 +479,17 @@ export function update(dt) {
   if (canAct && !moving && !input.attackHeld && G.zoneId !== 'town' && G.zoneId !== 'castle') {
     const t = inRange(pl.focus) ? pl.focus : C.nearestEnemy(pl.x, pl.y, rng + 1, e => (e.aggro || G.auto) && inRange(e));
     if (t && C.playerAttack(pl, null, t) && pl.act) pl.act.auto = true;
+    // воин: враг рядом (кружит в 2–4 м, как гиены), но не в радиусе удара — сам делает шаг к нему и бьёт
+    else if (!t && !W.ranged) {
+      const f = pl.focus && !pl.focus.dead && Math.hypot(pl.focus.x - pl.x, pl.focus.y - pl.y) < 4.6 && G.zone.map.los(pl.x, pl.y, pl.focus.x, pl.focus.y) ? pl.focus : null;
+      const n = f || C.nearestEnemy(pl.x, pl.y, 4.6, e => (e.aggro || G.auto) && G.zone.map.los(pl.x, pl.y, e.x, e.y));
+      if (n) { const dx = n.x - pl.x, dy = n.y - pl.y, l = Math.hypot(dx, dy) || 1; inp.wx = dx / l; inp.wy = dy / l; inp.mag = 0.75; }
+    }
+  }
+  // стоя без дела — лицом к ближайшему напавшему (разворот сразу, а не только в момент удара)
+  if (canAct && !moving && inp.mag < 0.12 && pl.state === 'idle' && G.zoneId !== 'town' && G.zoneId !== 'castle') {
+    const n = pl.focus && !pl.focus.dead ? pl.focus : C.nearestEnemy(pl.x, pl.y, 8, e => e.aggro || G.auto);
+    if (n) pl.faceTo(n.x, n.y);
   }
   if (pl.comboT > 0) { pl.comboT -= dt; if (pl.comboT <= 0) pl.combo = 0; }
   if (G.auto && !G.modalOpen) autoTick(inp);
