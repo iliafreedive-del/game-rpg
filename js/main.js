@@ -12,7 +12,8 @@ import { initHunts } from './game/hunts.js';
 import { loadZone, update, saveNow } from './game/game.js';
 import { initHUD, updateHUD } from './ui/hud.js';
 import { initPanel } from './ui/panel.js';
-import { initTutorial, askTutorial, intro } from './ui/tutorial.js';
+import { initTutorial, askTutorial, intro, unlockAll } from './ui/tutorial.js';
+import { cinema, introShots, portalShots } from './ui/cinema.js';
 import * as CS from './game/castle.js';
 import { initPlatform, platform, gameplay } from './platform/platform.js';
 import { restorePurchases } from './platform/monetize.js';
@@ -57,7 +58,8 @@ async function boot() {
     initQuests(); initHunts(); initHUD(); initPanel(); CS.C(); initTutorial();
     await mons;
     const fresh = !p.tutorial.prologue && p.story.stage === 0 && !p.xp && p.level === 1;
-    if (fresh) await loadZone('depths', { floor: 0 }); else await loadZone('town');
+    if (!fresh) unlockAll();   // старые сохранения: все кнопки боя уже открыты
+    await loadZone('town');
     $('title').remove(); startMusic('town');
     bus.on('zoneEntered', z => startMusic(z));
     restorePurchases().catch(() => { });
@@ -66,7 +68,12 @@ async function boot() {
     if (p.simplified) { bus.emit('toast', { text: 'Снаряжение упрощено до 4 вещей', sub: `Лишние вещи (${p.simplified.n}) проданы за ${p.simplified.gold} зол.`, kind: 'good' }); delete p.simplified; }
     if (p.legacyKey) { bus.emit('toast', { text: 'Сохранение из версии 1.x перенесено', sub: 'Уровень, золото и характеристики сохранены', kind: 'good' }); delete p.legacyKey; }
     requestAnimationFrame(loop);
-    if (fresh && p.tutorial.on === undefined) setTimeout(async () => { if (await askTutorial()) intro(); }, 700);
+    // новая игра: сначала облёт деревни («вау» и загадка), потом склеп пробуждения
+    if (fresh) {
+      await cinema(introShots());
+      await loadZone('depths', { floor: 0 });
+      if (p.tutorial.on === undefined) { if (await askTutorial()) intro(); else unlockAll(); } else intro();
+    }
   };
   const S = saves.slots, cname = c => CLASSES[c] ? CLASSES[c].name : c;
   // новая игра: класс, у которого уже есть сохранение, — только после «Перезаписать?»

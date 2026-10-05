@@ -29,7 +29,7 @@ export function resize() {
   const cam = G.cam; cam.w = W; cam.h = H; G.zoomMul = G.zoomMul || 1;
   // zoom: characters readable on phones, not huge on desktops
   const short = Math.min(W, H);
-  cam.zoom = Math.max(0.78, Math.min(1.7, short / 470)) * (G.zoomMul || 1) / zoomNow();   // зум игрока (js/core/camzoom.js)
+  cam.zoom = Math.max(0.78, Math.min(1.7, short / 470)) * (G.zoomMul || 1) / zoomNow() / (G.cineZoom || 1);   // зум игрока (js/core/camzoom.js) и облёт камеры (js/ui/cinema.js)
 }
 export async function loadFloor(zone) {
   const f = zone.floor; zone.floorImgs = [];

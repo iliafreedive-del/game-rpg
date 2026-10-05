@@ -417,6 +417,7 @@ W.npc_elder = () => {
   else if (q && q.id === 'elder_task') lines = DIALOG.elder.task;
   else if (q && q.id === 'learn_skill') lines = DIALOG.elder.skill;
   else if (q && q.id === 'hw_try') lines = DIALOG.elder.hw;
+  else if (Q.isReady() && Q.turnNpc(q) !== 'elder') lines = ['Золото собрано? Отнеси его кузнецу Горану — он ждёт у горна.'];
   else if (Q.isReady()) { lines = DIALOG.elder.turnin[q.id] || ['Ты справился. Вот твоя награда.']; fin = true; }
   else if (q && q.id === 'finish') { lines = DIALOG.elder.finish; fin = true; }
   else if (P.chapterDone) lines = DIALOG.elder.done;
@@ -443,6 +444,7 @@ function huntReport() {
   }, { sticky: true });
 }
 W.npc_smith = (tab0) => {
+  { const q = Q.current(); if (q && Q.isReady() && Q.turnNpc(q) === 'smith') bus.emit('toast', { text: 'Горан: «' + (DIALOG.smith.turnin[q.id] || 'Спасибо!') + '»', kind: 'quest' }); }
   let sel = null, tab = tab0 || 'merge';   // сборка 38: окно кузнеца всегда открывается на слиянии
   modal('Кузнец Горан', 'md', b => {
     const P = G.profile;

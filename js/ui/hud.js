@@ -22,6 +22,7 @@ import { skillCanvas } from './icons.js';
 const skillCanvasInto = (cv, id) => { const s = skillCanvas(id, cv.width, false); const x = cv.getContext('2d'); x.clearRect(0, 0, cv.width, cv.height); x.drawImage(s, 0, 0, cv.width, cv.height); };
 import * as SV from '../game/survival.js';
 import * as HU from '../game/hunts.js';
+import { unlocked as tutUn, hideHand } from './tutorial.js';
 
 let lastHud = 0, trackOpenUntil = 0;
 export function initHUD() {
@@ -31,6 +32,9 @@ export function initHUD() {
   $('portrait').onclick = () => openWindow('menu');   // сборка 44: «Герой», «Меню» и остальное — по нажатию на портрет
   $('huntBox').onclick = () => { bus.emit('sfx', 'click'); openWindow('journal', { tab: 'hunt' }); };
   bus.on('huntNew', () => { const b = $('huntBox'); b.classList.remove('flash'); void b.offsetWidth; b.classList.add('flash'); });
+  // «Веди меня»: герой сам бежит к цели задания (для тех, кто потерялся, и для самых маленьких)
+  $('btnLead').onclick = () => { bus.emit('sfx', 'click'); G.lead = !G.lead; $('btnLead').classList.toggle('on', G.lead); toast({ text: G.lead ? 'Веду к цели' : 'Веду: выключено', sub: G.lead ? 'Герой сам побежит по стрелкам' : '', kind: 'info' }); };
+  bus.on('zoneEntered', () => { G.lead = false; $('btnLead').classList.remove('on'); });
   $('tracker').onclick = () => { trackOpenUntil = $('tracker').classList.contains('open') ? 0 : G.time + 8; lastHud = 0; };
   // combat buttons (pointer events → instant response, supports multi-touch with joystick)
   const hold = (id, on, off) => { const b = $(id); b.addEventListener('pointerdown', e => { e.preventDefault(); b.classList.add('on'); on(); }); const up = () => { b.classList.remove('on'); off && off(); }; b.addEventListener('pointerup', up); b.addEventListener('pointercancel', up); b.addEventListener('pointerleave', up); };
@@ -109,9 +113,12 @@ export function updateHUD(dt) {
   if (G.surv) { const S = G.surv; let sh = $('survHud'); if (!sh) { sh = el('div', '', ''); sh.id = 'survHud'; ui.appendChild(sh); sh.innerHTML = '<div class="sv-time"></div><div class="sv-xp"><i></i></div><div class="sv-info"></div><button class="sv-quit">Сдаться</button>'; sh.querySelector('.sv-quit').onclick = () => { if (confirm('Завершить забег? Награда будет начислена.')) SV.endRun(false); }; }
     sh.querySelector('.sv-time').textContent = `${Math.floor(S.t / 60)}:${String(Math.floor(S.t % 60)).padStart(2, '0')} / 20:00`; sh.querySelector('.sv-xp i').style.width = (S.xp / S.next * 100) + '%'; sh.querySelector('.sv-info').textContent = `ур. ${S.lvl} · убито ${S.kills}`; }
   else { const sh = $('survHud'); if (sh) sh.remove(); }
+  // кнопки боя скрыты, пока не понадобились впервые (обучение)
+  for (const k of ['dodge', 'pot', 'potMP', 'sk', 'auto', 'scroll']) ui.classList.toggle('lk-' + k, !tutUn(k));
   ui.classList.toggle('fight', inCombat());
   ui.classList.toggle('dungeon', G.zoneId !== 'town');
   $('tracker').classList.toggle('open', G.time < trackOpenUntil && !inCombat());
+  edgeArrow(); const lb = $('btnLead'); lb.classList.toggle('hidden', !G.guide || inCombat() || !!G.surv); lb.classList.toggle('on', !!G.lead);
   const boss = G.enemies.find(e => (e.D.boss || e.D.elite) && e.aggro && !e.dead) || null;
   ui.classList.toggle('boss', !!boss);
   if (boss && !boss.dead && G.enemies.includes(boss)) {
@@ -172,12 +179,27 @@ function tracker() {
     const pr = Q.progressOf(q), ch = q.chapter || 1, inCh = STORY.filter(x => (x.chapter || 1) === ch), done = inCh.indexOf(q);
     let txt = q.text; const Wd = G.profile.world;
     if (q.id === 'medallion') txt = !Wd.hasKey ? 'Шаг 1/3: найдите ключ — светящийся саркофаг в оссуарии (север).' : !Wd.opened.door_altar ? 'Шаг 2/3: ключ у вас. Подойдите к запертой двери на востоке.' : 'Шаг 3/3: победите Хранителя в зале за дверью и возьмите амулет с алтаря.';
-    if (Q.isReady()) txt = G.zoneId === 'town' ? '✔ Выполнено! Подойдите к старосте Эдрику (над ним «?») — за наградой.' : '✔ Выполнено! Вернитесь в деревню к старосте Эдрику за наградой.';
+    if (Q.isReady()) { const who = Q.TURN_NAME[Q.turnNpc(q)]; txt = G.zoneId === 'town' ? `✔ Выполнено! Подойдите к ${who} (над ним «?») — за наградой.` : `✔ Выполнено! Вернитесь в деревню к ${who} за наградой.`; }
     else if (q.where && q.where !== G.zoneId) txt = (q.where === 'catacombs' ? 'Спуститесь в катакомбы через портал. ' : 'Вернитесь в деревню через портал. ') + txt;
     h = `<div class="ch">${chapterOf(q)} · ${done}/${inCh.length}</div><div class="t">${esc(q.title)}${pr ? ` <span class="muted">${pr.cur}/${pr.max}</span>` : ''}</div><div class="d">${esc(txt)}</div>` + (pr ? `<div class="pb"><i style="width:${pr.cur / pr.max * 100}%"></i></div>` : '');
   }
   if (h !== lastTrack) { $('tracker').innerHTML = h; lastTrack = h; }
 }
+// стрелка у края экрана: если цель задания за кадром, показываем, в какую сторону бежать и сколько метров
+function edgeArrow() {
+  const e = $('edgeArrow'), t = G.guide, P = G.player;
+  if (!t || !P || P.dead || G.surv) { e.classList.add('hidden'); return; }
+  const [sx, sy] = G.cam.toScreen(t.x, t.y);
+  const m = 46, W = innerWidth, H = innerHeight, inside = sx > m && sx < W - m && sy > m && sy < H - m;
+  if (inside) { e.classList.add('hidden'); return; }
+  const cx = W / 2, cy = H / 2; let dx = sx - cx, dy = sy - cy; const l = Math.hypot(dx, dy) || 1; dx /= l; dy /= l;
+  const k = Math.min((W / 2 - m) / Math.abs(dx || 1e-6), (H / 2 - m) / Math.abs(dy || 1e-6));
+  e.classList.remove('hidden');
+  e.style.left = (cx + dx * k) + 'px'; e.style.top = (cy + dy * k) + 'px';
+  e.querySelector('.ea-a').style.transform = `rotate(${Math.atan2(dy, dx)}rad)`;
+  e.querySelector('.ea-d').textContent = Math.round(Math.hypot(t.x - P.x, t.y - P.y)) + ' м';
+}
+
 // minimap: explored-radius reveal in dungeon, quest target marker
 const seen = new Map();
 function minimap() {

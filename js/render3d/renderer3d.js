@@ -296,7 +296,7 @@ function updateCamera(dt) {
   // зум игрока (щипок / колесо, js/core/camzoom.js): плавно к выбранному; туман и тень отодвигаются вместе с камерой,
   // чтобы вокруг героя картинка была та же, что и при стартовом масштабе
   const zt = zoomNow(); userZoom = Math.abs(zt - userZoom) < 1e-3 ? zt : userZoom + (zt - userZoom) * Math.min(1, dt * 12);
-  const cam = G.cam, C = CAMERA.village, aim = C.aim, dist0 = camDist / (G.zoomMul || 1), dist = dist0 * userZoom;
+  const cam = G.cam, C = CAMERA.village, aim = C.aim, dist0 = camDist / (G.zoomMul || 1), dist = dist0 * userZoom * (G.cineZoom || 1);   // облёт камеры (js/ui/cinema.js) отодвигает камеру
   scene.fog.near = LV.fog.near + dist - dist0; scene.fog.far = LV.fog.far + dist - dist0;
   const sh = SHADOW.half * Math.max(1, userZoom);
   if (sh !== shadowHalf) { shadowHalf = sh; const sc = lights.moon.shadow.camera; sc.left = sc.bottom = -sh; sc.right = sc.top = sh; sc.updateProjectionMatrix(); }

@@ -38,6 +38,7 @@ import { rand, rrange, rint } from '../core/util.js';
 import { pollMove, input, mouse, tapAim } from '../core/input.js';
 import { gate, BOSS_LEVEL, nextStep } from './progress.js';
 import { platform } from '../platform/platform.js';
+import { cineTick, inCinema, cinema, portalShots } from '../ui/cinema.js';
 import { maybeInterstitial, dailyStatus, blessed } from '../platform/monetize.js';
 
 G.npcs = [];
@@ -361,6 +362,15 @@ function autoTick(inp) {
     if (d > 0.9) { const g = map.guideDir(pl.x, pl.y, goal.x, goal.y) || [(goal.x - pl.x) / d, (goal.y - pl.y) / d]; { const [sx, sy] = steer(pl, map, g[0], g[1]); inp.wx = sx; inp.wy = sy; } inp.mag = 0.8; A.wanted = true; A.wx = g[0]; A.wy = g[1]; }
   }
 }
+// «Веди меня»: герой идёт к цели задания сам (бой остаётся за игроком; у цели — останавливается)
+function leadTick(inp) {
+  const pl = G.player, map = G.zone.map, t = G.guide;
+  if (!t || pl.dead || pl.busy()) return;
+  const d = Math.hypot(t.x - pl.x, t.y - pl.y);
+  if (d < (t.r ? Math.max(1.0, t.r - 0.4) : 1.4)) { G.lead = false; bus.emit('hud'); return; }
+  const g = map.guideDir(pl.x, pl.y, t.x, t.y) || [(t.x - pl.x) / d, (t.y - pl.y) / d];
+  const [sx, sy] = steer(pl, map, g[0], g[1]); inp.wx = sx; inp.wy = sy; inp.mag = 0.85;
+}
 function boonTick(dt) {
   const r = G.run, pl = G.player, S = G.stats; if (pl.dead) return;
   const avg = (S.dmgMin + S.dmgMax) / 2;
@@ -375,9 +385,10 @@ const touch = () => matchMedia('(pointer:coarse)').matches;
 function tutorialTick() {
   const T = G.tut || (G.tut = { step: 0, t: 0 }); T.t += G.dt || 0.016;
   const say = (text, sub) => bus.emit('toast', { text, sub, kind: 'quest' });
-  if (T.step === 0 && G.time - G.run.t0 > 0.8) { T.step = 1; say(touch() ? 'Коснитесь левой половины экрана и ведите палец' : 'Двигайтесь: WASD или зажмите мышь', 'Выберитесь из склепа'); }
-  else if (T.step === 1 && G.enemies.some(e => e.aggro)) { T.step = 2; say(touch() ? 'Держите большую кнопку справа — атака' : 'Пробел — атака, Shift — уклонение', 'Герой сам подойдёт к врагу'); }
-  else if (T.step === 2 && G.run.kills >= 1) { T.step = 3; say('Отлично! Добейте остальных', 'Кнопка со стрелкой — уклонение от удара'); }
+  const point = (sel, text) => bus.emit('tutHand', { sel, text, time: 10 });
+  if (T.step === 0 && G.time - G.run.t0 > 0.8) { T.step = 1; point('joyZone', touch() ? 'Ведите палец по левой половине экрана' : 'Идите: WASD или зажмите мышь'); }
+  else if (T.step === 1 && G.enemies.some(e => e.aggro)) { T.step = 2; point('btnAtk', touch() ? 'Держите большую кнопку — удар' : 'Пробел — удар'); }
+  else if (T.step === 2 && G.run.kills >= 1) { T.step = 3; say('Отлично! Добейте остальных'); }
   else if (T.step === 3 && G.enemies.every(e => e.dead)) { T.step = 4; const ex = G.zone.inter.find(i => i.id === 'floor_exit'); if (ex) { ex.hidden = false; ex.draw.hidden = false; ex.light.on = true; } say('Портал открыт — идите к свету', 'Золотые стрелки на земле укажут путь'); }
 }
 export function finishFloor() {
@@ -387,7 +398,8 @@ export function finishFloor() {
   if (r.floor === 0) {   // prologue → village
     P.tutorial.prologue = true; G.tut = null; L.gainXP(45);
     bus.emit('toast', { text: 'Вы выбрались из склепа!', sub: 'Староста Эдрик ждёт на площади', kind: 'quest' });
-    loadZone('town', { from: 'catacombs' }); return;
+    loadZone('town', { from: 'catacombs' }).then(() => cinema(portalShots()));   // показать, сколько всего впереди
+    return;
   }
   P.depths = P.depths || { best: 0, stars: {} };
   if (r.weekly) {   // испытание недели: свой рекорд, рекорд и звёзды обычных этажей не трогает
@@ -436,6 +448,7 @@ export function usePotion(k) {
 // ------------------------------------------------------------------ main update
 export function update(dt) {
   if (!G.zoneReady || G.paused) return;
+  if (inCinema()) { cineTick(dt); return; }   // идёт облёт камеры: мир стоит
   G.dt = dt;
   G.time += dt; G.profile.stats.playTime += dt;
   respawnTick();
@@ -462,6 +475,7 @@ export function update(dt) {
   }
   if (pl.comboT > 0) { pl.comboT -= dt; if (pl.comboT <= 0) pl.combo = 0; }
   if (G.auto && !G.modalOpen) autoTick(inp);
+  else if (G.lead && !G.modalOpen) leadTick(inp);
   const m0 = pl.meters; pl.update(dt, inp); meterAcc += pl.meters - m0; pl.meters = 0;
   if (meterAcc > 5) { Q.addMeters(meterAcc); meterAcc = 0; }
   if (G.zoneId !== 'town') G.zone.map.buildFlow(Math.floor(pl.x), Math.floor(pl.y), G.time);
@@ -503,7 +517,7 @@ function updateMarkers() {
   // guide target for the on-ground arrow
   let t = null;
   if (q) {
-    if (Q.isReady()) t = G.zoneId === 'town' ? G.zone.inter.find(i => i.id === 'elder') || null : G.zone.inter.find(i => i.type === 'portal' && !i.hidden && i.to === 'town') || null;
+    if (Q.isReady()) t = G.zoneId === 'town' ? G.zone.inter.find(i => i.id === Q.turnNpc(q)) || null : G.zone.inter.find(i => i.type === 'portal' && !i.hidden && i.to === 'town') || null;
     else if (q.where && q.where !== G.zoneId) t = G.zone.inter.find(i => i.type === 'portal' && !i.hidden) || null;
     else if (q.target) t = G.zone.inter.find(i => i.id === q.target && !i.hidden) || G.enemies.find(e => e.story === q.target && !e.dead) || null;
     if (!t && q.id === 'medallion' && !G.profile.world.hasKey) t = G.zone.inter.find(i => i.loot === 'key' && !i.done) || null;
@@ -516,7 +530,7 @@ function updateMarkers() {
     t = outside || G.enemies.find(e => (e.story === 'wildkeep' || e.story === 'wildboss') && !e.dead) || (G.wild && G.wild.done ? next || home : fort ? null : next) || null;
   }
   G.guide = t; G.huntGuide = HU.guideTarget();
-  for (const n of G.npcs) n.marker = n.id === 'elder' && Q.isReady() ? '?' : q && q.target === n.id ? (q.id === 'finish' ? '?' : '!') : null;
+  for (const n of G.npcs) n.marker = n.id === Q.turnNpc(q) && Q.isReady() ? '?' : q && q.target === n.id ? (q.id === 'finish' ? '?' : '!') : null;
   const eld = G.npcs.find(n => n.id === 'elder'); if (eld && HU.readyToTurnIn()) eld.marker = '?';   // hunt to hand in
   for (const it of G.zone.inter) { if (it.type === 'socket') { const open = it.room === 'hall' || (G.profile.castle && G.profile.castle[it.room]); it.hidden = !open; it.glow = open && !(G.profile.castle.decor && G.profile.castle.decor[it.sid]); } else if (it.type === 'roomgate') { it.plate = it.done ? null : ROOMS[it.room].name; it.reqLevel = it.done ? 0 : ROOMS[it.room].lvl; } else if (it.type === 'room') it.plate = ROOMS[it.room].name; }
   const hp = G.zone.inter.find(i => i.id === 'herospath'); if (hp) { const noSkill = !!gate('hw', 1); hp.locked = noSkill; hp.lockNote = noSkill && G.profile.level >= 2 ? 'выберите навык' : ''; }

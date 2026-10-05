@@ -21,11 +21,14 @@ export function progressOf(q) {
   return null;
 }
 export const isReady = () => { const q = current(); return !!(q && q.turnIn && G.profile.story.ready === q.id); }
+// кому сдавать готовое задание: по умолчанию староста; «100 золота» — кузнецу Горану (он и просил деньги)
+export const turnNpc = q => (q && q.turnTo) || 'elder';
+export const TURN_NAME = { elder: 'старосте Эдрику', smith: 'кузнецу Горану' };
 // цель выполнена, но награда — у старосты: ждём возвращения в деревню
 function markReady(q) {
   const s = G.profile.story; if (s.ready === q.id) return;
   s.ready = q.id; bus.emit('sfx', 'quest'); bus.emit('hud'); bus.emit('save');
-  bus.emit('toast', { text: 'Задание выполнено: ' + q.title, sub: G.zoneId === 'town' ? 'Подойдите к старосте Эдрику — у него «?»' : 'Вернитесь в деревню к старосте за наградой', kind: 'quest' });
+  bus.emit('toast', { text: 'Задание выполнено: ' + q.title, sub: G.zoneId === 'town' ? `Подойдите к ${TURN_NAME[turnNpc(q)]} — у него «?»` : `Вернитесь в деревню к ${TURN_NAME[turnNpc(q)]} за наградой`, kind: 'quest' });
 }
 function complete() {
   const P = G.profile, s = P.story, q = current(); if (!q) return;
@@ -93,7 +96,7 @@ export function check() {
 export function setFlag(f) { G.profile.story.flags[f] = true; check(); }
 export function talked(npcId) {
   const q = current(); if (!q) return;
-  if (q.turnIn && isReady() && npcId === 'elder') complete(); else if (q.obj.talk === npcId) complete();
+  if (q.turnIn && isReady() && npcId === turnNpc(q)) complete(); else if (q.obj.talk === npcId) complete();
 }
 function count(kind, n) {
   const q = current(); if (!q || !q.obj.count || q.obj.count !== kind || isReady()) return;
