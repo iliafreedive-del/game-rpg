@@ -735,3 +735,10 @@ body.cine-on #ui{opacity:0;transition:opacity .4s}
 .mem-seals{display:flex;gap:7px;justify-content:center;margin:10px 0 2px}
 .mem-seals i{width:16px;height:16px;border-radius:50%;border:2px solid #6a5a3a;background:#1a1410}
 .mem-seals i.on{border-color:#c9a6ff;background:radial-gradient(circle,#c9a6ff,#5a2a9a);box-shadow:0 0 12px #9a4af0}
+
+/* сборка 45: Круги Бездны — компактный выбор в окне Глубин */
+.circle-card{border-color:#7a3ad0;background:linear-gradient(135deg,#241438,#1a1426)}
+.circle-row{display:flex;gap:8px;align-items:center;margin-top:8px}
+.circle-card .btn{width:auto;margin-top:0}
+.circle-card .btn.sm{min-width:40px}
+.circle-n{font:700 15px var(--serif);color:#d9b8ff;min-width:54px;text-align:center}

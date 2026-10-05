@@ -16,6 +16,7 @@ import { drawMap, seen, seenKey } from './hud.js';
 import { offers, buy, restorePurchases, dailyStatus, claimDaily, chestStatus, chestSkip, openOrderChest, DAILY, LOGIN_DAYS, watchRewarded, offerToken, blessing, blessLeft, BLESS_MIN, BLESS_CAP } from '../platform/monetize.js';
 import { PRODUCTS, platform } from '../platform/platform.js';
 import { wallOffer, markShown, streakHelp, helpGiven } from '../platform/offers.js';
+import { inCinema } from './cinema.js';
 import { revive, saveNow, loadZone, depthsUnlocked, MAX_REVIVES } from '../game/game.js';
 import { generateFloor, isBossFloor, floorLevel } from '../world/floorgen.js';
 import { REALMS, WILD_QUESTS, wildLevel, isWildBoss, isWildFort, locationName, wildReqLevel, FIELDS_PER_FORT } from '../data/wild.js';
@@ -662,7 +663,7 @@ W.shrine = () => modal('Источник силы', 'md', b => {
 
 // Предложение у «стены» (js/platform/offers.js): один раз, в спокойный момент, с честными бесплатными путями рядом
 export function showWallOffer() {
-  const w = wallOffer(); if (!w || G.modalOpen || inCombat()) return false;
+  const w = wallOffer(); if (!w || G.modalOpen || inCombat() || inCinema()) return false;
   markShown(w.id);
   const pr = platform.p.catalogPrice(w.id);
   const price = !pr ? '' : typeof pr === 'string' ? esc(pr) : `${esc(pr.value)} ${pr.img ? `<img class="cur" src="${esc(pr.img)}" alt="${esc(pr.code)}">` : esc(pr.code)}`;
@@ -678,7 +679,7 @@ export function showWallOffer() {
 }
 // три поражения подряд в одном месте — бесплатная помощь, чтобы не бросили игру
 export function showStreakHelp(where) {
-  if (!streakHelp(where) || G.modalOpen) return false;
+  if (!streakHelp(where) || G.modalOpen || inCinema()) return false;
   modal('Трудное место', 'sm', b => {
     b.appendChild(el('p', '', 'Третья попытка подряд. Орден даёт подмогу: +15% ко всему урону на 10 минут.'));
     const r = el('div', 'row');
@@ -761,13 +762,12 @@ W.depths = () => modal('Глубины катакомб', 'sm', b => {
   b.appendChild(el('p', 'muted', 'Короткие забеги на 5–8 минут. Каждый 5-й этаж — страж. Звёзды: ★ пройти, ★★ убить 90% врагов, ★★★ быстро и без смертей.'));
   // Круги Бездны (после Главы IV): сложность и награда растут от того, насколько глубоко игрок сам захочет
   if (SE.circlesOpen()) { const k = SE.circle();
-    const c = el('div', 'weekly-card', `<b>◉ Круг Бездны: ${k || '—'}</b><div class="muted">Враги крепче ×${SE.circleHP(k).toFixed(1)}, бьют сильнее ×${SE.circleDmg(k).toFixed(1)}, золото и опыт ×${SE.circleRew(k).toFixed(1)}, вещи выпадают чаще. Круг действует на все этажи.</div>`);
-    const row = el('div', 'row');
-    const mk = (t, kk) => { const bt = el('button', 'btn' + (kk === k ? ' gold' : ''), t); bt.onclick = () => { SE.setCircle(kk); rerender(); }; return bt; };
-    row.appendChild(mk('Без круга', 0));
-    const dn = el('button', 'btn', '−'); dn.disabled = k <= 0; dn.onclick = () => { SE.setCircle(k - 1); rerender(); };
-    const up = el('button', 'btn', '+'); up.disabled = k >= SE.CIRCLE_MAX; up.onclick = () => { SE.setCircle(k + 1); rerender(); };
-    row.append(dn, el('span', 'hw-page', `${k} / ${SE.CIRCLE_MAX}`), up); c.appendChild(row); b.appendChild(c); }
+    const c = el('div', 'weekly-card circle-card', `<b>◉ Круг Бездны: ${k || '—'}</b><div class="muted">Враги крепче ×${SE.circleHP(k).toFixed(1)}, бьют сильнее ×${SE.circleDmg(k).toFixed(1)}, золото и опыт ×${SE.circleRew(k).toFixed(1)}, вещи выпадают чаще. Круг действует на все этажи.</div>`);
+    const row = el('div', 'row circle-row');
+    const dn = el('button', 'btn sm', '−'); dn.disabled = k <= 0; dn.onclick = () => { SE.setCircle(k - 1); rerender(); };
+    const up = el('button', 'btn sm', '+'); up.disabled = k >= SE.CIRCLE_MAX; up.onclick = () => { SE.setCircle(k + 1); rerender(); };
+    const off = el('button', 'btn sm' + (k ? '' : ' gold'), 'Без круга'); off.onclick = () => { SE.setCircle(0); rerender(); };
+    row.append(dn, el('b', 'circle-n', `${k} / ${SE.CIRCLE_MAX}`), up, off); c.appendChild(row); b.appendChild(c); }
   if (HU.huntFloor()) b.appendChild(el('p', 'bad', `⚠ Охота: ${esc(HU.bossOf(HU.current()).name)} — этаж ${HU.huntFloor()}`));
   { const R = SE.weeklyRule(), WS = SE.weeklyState(), f = SE.weeklyFloor(P.level), days = 7 - ((Math.floor(Date.now() / 864e5) + 3) % 7);   // испытание недели (сборка 21)
     const c = el('div', 'weekly-card', `<b>⚔ Испытание недели: ${esc(R.name)}</b><div>${esc(R.txt)}</div><div class="muted">Этаж под ваш уровень · ${WS.done ? `ваш рекорд ${Math.floor(WS.best / 60)}:${String(Math.floor(WS.best % 60)).padStart(2, '0')} · улучшайте время` : 'первая победа недели — вещь (синяя/золотая) и двойная награда'} · до смены ${days} дн.</div><div class="lb muted"></div>`);
