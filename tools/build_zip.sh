@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# Архив для Cloudflare (сборка 47+): копия игры во временную папку, текстуры внутри .glb — JPEG → WebP (качество 82),
+# атлас props_0.png — 256 цветов; в репозитории файлы не меняются. Итог — dist/dark-ascent-cloudflare.zip (~15 МБ вместо 18).
+# Нужен gltf-transform: GT=/путь/к/gltf-transform tools/build_zip.sh  (npm i @gltf-transform/cli). Без него — архив без сжатия.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+OUT=${OUT:-dist/dark-ascent-cloudflare.zip}; STAGE=$(mktemp -d)
+cp -r _headers index.html manifest.webmanifest css js assets "$STAGE"/
+if [ -n "${GT:-}" ] && [ -x "$GT" ]; then
+  find "$STAGE/assets/models" -name '*.glb' | while read -r f; do "$GT" webp "$f" "$f.tmp" --quality 82 >/dev/null 2>&1 && mv "$f.tmp" "$f" || rm -f "$f.tmp"; done
+fi
+python3 - "$STAGE/assets/sprites/props_0.png" <<'PY'
+import sys
+from PIL import Image
+p = sys.argv[1]; im = Image.open(p)
+if im.mode == 'RGBA': im.quantize(256, method=Image.Quantize.FASTOCTREE, dither=Image.Dither.NONE).save(p, optimize=True)
+PY
+rm -f "$OUT"; (cd "$STAGE" && zip -qr - _headers index.html manifest.webmanifest css js assets) > "$OUT"
+echo "$STAGE"; ls -l "$OUT"
