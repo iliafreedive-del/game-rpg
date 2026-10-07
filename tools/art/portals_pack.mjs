@@ -1,15 +1,16 @@
 // Пак порталов деревни из Meshy: один GLB с пятью арками (одна сетка, один атлас) → assets/models/portals.glb.
-//   node tools/art/portals_pack.mjs <Meshy_AI_Fantasy_Portal_Arches_*.glb> <assets/models/portals.glb> [текстура = 1024]
+//   node tools/art/portals_pack.mjs <Meshy_AI_Fantasy_Portal_Arches_*.glb> <assets/models/portals.glb> [текстура = 1024] [имена через запятую]
+// Сборка 46: второй пак (череп и руки) — node tools/art/portals_pack.mjs <Meshy_AI_Grimstone_Gateways_*.glb> assets/models/portals2.glb 1024 portal_skull,portal_hands
 // Сетка режется на связные куски (их ровно пять — по арке), каждый кусок: центр по X/Z, основание y = 0, высота = 1
 // (размер в игре задаёт js/render3d/portalglb.js). Арки в паке стоят лицом к +Z. Атлас → JPEG (ImageMagick convert).
 // Имя узла — по месту арки в исходнике (верхний ряд слева направо, потом нижний) → NAMES.
 import fs from 'fs';
 import { execFileSync } from 'child_process';
 
-const [src, dst, texSize = '1024'] = process.argv.slice(2);
+const [src, dst, texSize = '1024', names] = process.argv.slice(2);
 if (!dst) { console.log('node tools/art/portals_pack.mjs <вход.glb> <выход.glb> [текстура]'); process.exit(1); }
 // верх-лево (ледяная), верх-середина (кости), низ-лево (камень с черепами), низ-середина (мечи), низ-право (солнце)
-const NAMES = ['portal_white', 'portal_bones', 'portal_skulls', 'portal_swords', 'portal_sun'];
+const NAMES = names ? names.split(',') : ['portal_white', 'portal_bones', 'portal_skulls', 'portal_swords', 'portal_sun'];
 
 const d = fs.readFileSync(src), L = d.readUInt32LE(12), j = JSON.parse(d.subarray(20, 20 + L).toString()), bin = d.subarray(28 + L);
 const acc = i => {
@@ -32,7 +33,7 @@ const parts = [...groups.values()].filter(g => g.length > 300).map(g => {
   for (const v of g) for (let c = 0; c < 3; c++) { mn[c] = Math.min(mn[c], P[v * 3 + c]); mx[c] = Math.max(mx[c], P[v * 3 + c]); }
   return { g, mn, mx };
 });
-if (parts.length !== 5) throw new Error('ожидалось 5 арок, найдено ' + parts.length);
+if (parts.length !== NAMES.length) throw new Error(`ожидалось ${NAMES.length} арок, найдено ${parts.length}`);
 parts.sort((a, b) => (b.mn[1] > -0.1) - (a.mn[1] > -0.1) || a.mn[0] - b.mn[0]);   // верхний ряд, затем слева направо
 
 const objs = parts.map(({ g, mn, mx }, k) => {
@@ -49,7 +50,7 @@ const objs = parts.map(({ g, mn, mx }, k) => {
 });
 
 const base = j.materials[0].pbrMetallicRoughness.baseColorTexture.index, bvImg = j.bufferViews[j.images[j.textures[base].source].bufferView];
-const jpeg = execFileSync('convert', ['-', '-resize', `${texSize}x${texSize}>`, '-quality', '86', 'jpeg:-'], { input: bin.subarray(bvImg.byteOffset || 0, (bvImg.byteOffset || 0) + bvImg.byteLength), maxBuffer: 64 << 20 });
+const jpeg = execFileSync('convert', [(j.images[j.textures[base].source].mimeType === 'image/png' ? 'png:' : '') + '-', '-resize', `${texSize}x${texSize}>`, '-quality', '86', 'jpeg:-'], { input: bin.subarray(bvImg.byteOffset || 0, (bvImg.byteOffset || 0) + bvImg.byteLength), maxBuffer: 64 << 20 });
 
 // запись GLB: по узлу на арку, общий материал с атласом
 const chunks = [], bvs = [], accs = [], meshes = [], nodes = [];

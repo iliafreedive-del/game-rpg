@@ -19,7 +19,7 @@ const warned = new Set();
 const BUILT = new Map(), BATCHED = new Map();
 const cacheVer = () => (SKINS.on ? 's' : '-') + (portalsReady() ? 'p' : '-') + (altarReady() ? 'a' : '-');
 // предметы, которые игра меняет на лету: открытие дверей, сундуков, саркофагов, проявление порталов, секретная стена
-const DYN = new Set(['door', 'door_open', 'door_arch', 'door_arch_open', 'gate_sealed', 'chest', 'chest_open', 'chest_rich', 'chest_rich_open', 'sarcophagus', 'sarcophagus_open', 'altar', 'altar_medallion', 'portal', 'portal_ring', 'portal_spire', 'portal_gate', 'portal_crown', 'portal_maw', 'portal_bone', 'portal_skulls', 'portal_white', 'portal_bones', 'portal_sun', 'portal_swords']);
+const DYN = new Set(['door', 'door_open', 'door_arch', 'door_arch_open', 'gate_sealed', 'chest', 'chest_open', 'chest_rich', 'chest_rich_open', 'sarcophagus', 'sarcophagus_open', 'altar', 'altar_medallion', 'portal', 'portal_ring', 'portal_spire', 'portal_gate', 'portal_crown', 'portal_maw', 'portal_bone', 'portal_skulls', 'portal_white', 'portal_bones', 'portal_sun', 'portal_swords', 'portal_skull', 'portal_hands']);
 // порода дерева по позиции: взвешенный выбор из TREE_KINDS (tree_0 — лиственные, tree_1 — хвойные)
 // Фьорды: только ели и сосны (лиственных там нет)
 function pickFj(h) { return h < 0.5 ? 'tree_fir_blue' : h < 0.92 ? 'tree_pine_tall' : 'deadtree'; }

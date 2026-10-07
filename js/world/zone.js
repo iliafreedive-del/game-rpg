@@ -216,7 +216,7 @@ export class Zone {
 
   buildTown(J, W) {
     const m = this.map;
-    const PORTALS = J.objects.filter(o => o.t === 'portal' || o.t === 'swordportal' || o.t === 'survportal' || o.t === 'castle' || o.t === 'depths' || o.t === 'wildportal');   // у порталов — расчищенная опушка
+    const PORTALS = J.objects.filter(o => o.t === 'portal' || o.t === 'swordportal' || o.t === 'handsportal' || o.t === 'survportal' || o.t === 'castle' || o.t === 'depths' || o.t === 'wildportal');   // у порталов — расчищенная опушка
     const nearPortal = (x, y) => PORTALS.some(o => (o.x - x) ** 2 + (o.y - y) ** 2 < 6.2 * 6.2);
     // border forest (collision comes from 'x' tiles)
     for (let y = 0; y < m.h; y += 1) for (let x = 0; x < m.w; x += 1) {
@@ -234,7 +234,7 @@ export class Zone {
         this.inter.push({ id: 'portal_town', type: 'portal', to: 'catacombs', x: o.x, y: o.y, r: 1.8, label: 'Спуститься в катакомбы', draw: d, reqLevel: 1, plate: 'Катакомбы' });
         this.map.circles.push({ x: o.x, y: o.y - 0.1, r: 0.2 });
       } else if (o.t === 'survportal') {
-        const d = this.add({ x: o.x, y: o.y, spr: 'portal_maw', anim: 'portal' });
+        const d = this.add({ x: o.x, y: o.y, spr: J.village ? 'portal_skull' : 'portal_maw', anim: 'portal' });   // в 3D-деревне — череп Meshy (сборка 46)
         this.addLight(o.x, o.y, { r: 5, c: [255, 60, 60], flicker: 0.4, z: 1.2 });
         this.inter.push({ id: 'portal_survival', type: 'survival', x: o.x, y: o.y, r: 1.8, label: 'Жатва Бездны', draw: d, reqLevel: 2, plate: 'Жатва Бездны' });
         this.map.circles.push({ x: o.x, y: o.y - 0.1, r: 0.2 });
@@ -243,8 +243,8 @@ export class Zone {
         this.addLight(o.x, o.y, { r: 5, c: [255, 200, 110], flicker: 0.3, z: 1.2 });
         this.inter.push({ id: 'portal_castle', type: 'portal', to: 'castle', x: o.x, y: o.y, r: 1.8, label: 'Цитадель Ордена', draw: d, reqLevel: 3, plate: 'Цитадель' });
         this.map.circles.push({ x: o.x, y: o.y - 0.1, r: 0.2 });
-      } else if (o.t === 'swordportal') {   // портал с мечами (сборка 44): пока только стоит, никуда не ведёт
-        this.add({ x: o.x, y: o.y, spr: 'portal_swords', anim: 'portal' });
+      } else if (o.t === 'swordportal' || o.t === 'handsportal') {   // портал с мечами (сборка 44) и с руками (сборка 46): пока только стоят, никуда не ведут
+        this.add({ x: o.x, y: o.y, spr: o.t === 'handsportal' ? 'portal_hands' : 'portal_swords', anim: 'portal' });
         this.addLight(o.x, o.y, { r: 5, c: [255, 190, 120], flicker: 0.3, z: 1.2 });
         this.map.circles.push({ x: o.x, y: o.y - 0.1, r: 0.2 });
       } else if (o.t === 'wheel') {

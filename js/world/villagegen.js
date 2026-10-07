@@ -33,7 +33,7 @@ export const PLAN = {
   center: [31.5, 29.5],
   square: { hw: 6.5, hh: 4.6, r: 2.4 },
   stream: { pts: [[51.5, -3], [54.5, 9], [58.2, 20], [57.6, 31], [59.4, 43], [57.6, 67]], w: [4.0, 5.0], millY: 13.5, millW: 3.2 },   // millY — где у мельницы река разливается шире (на millW м)
-  portals: { catacombs: [34.5, 5.6], fjord: [46.5, 5.6], depths: [9.0, 7.5], castle: [5.4, 29.5], bones: [4.4, 17.6], forest: [7.2, 56.4], survival: [31.5, 59.6] },
+  portals: { catacombs: [34.5, 5.6], fjord: [46.5, 5.6], depths: [9.0, 7.5], castle: [5.4, 29.5], bones: [4.4, 17.6], forest: [7.2, 56.4], survival: [31.5, 59.6], swords: [4.4, 11.5], hands: [4.4, 5.4] },   // мечи и руки — на одной линии с пустошами вдоль западного края, руки — в верхнем углу (сборка 46)
   roads: [
     { id: 'west', w: 2.7, main: 1, pts: [[25.5, 29.5], [19, 30.1], [12, 29.3], [5.4, 29.5]] },
     { id: 'east', w: 2.7, main: 1, pts: [[37.5, 29.5], [44, 29.1], [50, 29.8], [56, 30.2], [64.5, 30.6]] },
@@ -41,6 +41,8 @@ export const PLAN = {
     { id: 'fjordway', w: 1.7, pts: [[36.6, 11.2], [41, 8.2], [46.5, 5.6]] },
     { id: 'depthway', w: 1.7, pts: [[11.6, 29.3], [10.6, 19], [9.0, 7.5]] },
     { id: 'boneway', w: 1.6, pts: [[10.7, 19.6], [7.6, 18.2], [4.4, 17.6]] },   // к костяному порталу (Костяные пустоши)
+    { id: 'swordway', w: 1.5, pts: [[10.2, 13.0], [7.3, 11.9], [4.4, 11.5]] },   // к порталу с мечами (сборка 46)
+    { id: 'handway', w: 1.5, pts: [[9.4, 10.2], [6.9, 6.6], [4.4, 5.4]] },      // к порталу с руками (сборка 46)
     { id: 'south', w: 2.5, main: 1, pts: [[31.5, 34.2], [31.0, 42], [32.0, 51], [31.5, 59.6]] },
     { id: 'swlane', w: 2.0, pts: [[26.2, 33.4], [20.5, 39.5], [13.5, 47.5], [7.2, 56.4]] },
     { id: 'eastlane', w: 1.9, pts: [[31.8, 46.5], [39, 47.6], [47, 46.6], [52.5, 47.4]] },
@@ -458,7 +460,7 @@ export function generateVillage(plan0 = PLAN) {
   return {
     w: W, h: H, name: 'Деревня Ордена', floor: { w: 0, h: 0, scale: 1, ox: 0, chunks: [] }, village: true,
     rows: g.map(r => r.join('')), objects, npcs, start: plan.start, critters, viewClear, center: [CX, CY],
-    big: { castle: P.castle, survportal: P.survival, depths: P.depths, fjord: P.fjord, bones: P.bones, forest: P.forest, hwsign, catacombs: P.catacombs },
+    big: { castle: P.castle, survportal: P.survival, depths: P.depths, fjord: P.fjord, bones: P.bones, forest: P.forest, swords: P.swords, hands: P.hands, hwsign, catacombs: P.catacombs },
     gen: { buildings: buildings.map(b => ({ kind: b.kind, x: +b.x.toFixed(1), y: +b.y.toFixed(1), rot: +b.rot.toFixed(2) })), fields: fields.map(f => ({ ...f })), gapRemoved, warn },
   };
 }
