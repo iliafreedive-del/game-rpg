@@ -255,7 +255,7 @@ export class Zone {
         this.addLight(o.x, o.y, { r: 5, c: [255, 200, 110], flicker: 0.3, z: 1.4 });
         this.inter.push({ id: 'herospath', type: 'herospath', x: o.x, y: o.y + 0.2, r: 2.2, label: 'Летопись битв', plate: 'Летопись битв', reqLevel: 2 });
       } else if (o.t === 'depths') {
-        const d = this.add({ x: o.x, y: o.y, spr: 'portal_ring', anim: 'portal' });
+        const d = this.add({ x: o.x, y: o.y, spr: 'portal_ring', anim: 'portal' }); if (o.rot !== undefined) { d.model = 'portal_ring'; d.rot = o.rot; }   // сборка 47: лицом к своей дороге
         this.addLight(o.x, o.y, { r: 5, c: [120, 200, 255], flicker: 0.3, z: 1.2 });
         this.inter.push({ id: 'portal_depths', type: 'depths', x: o.x, y: o.y, r: 1.8, label: 'Глубины катакомб', draw: d, reqLevel: 6, plate: 'Глубины' });
         this.map.circles.push({ x: o.x, y: o.y - 0.1, r: 0.2 });
