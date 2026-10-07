@@ -9,7 +9,7 @@ import { autoEquip } from '../game/character.js';
 const PRIZES = [
   { t: '💰 300', c: '#c8902a', w: 22, give: P => { P.gold += 150 + P.level * 30; return `+${150 + P.level * 30} золота`; } },
   { t: '◆ 2', c: '#7a3ad0', w: 14, give: P => { P.shards = (P.shards || 0) + 2; return '+2 осколка Бездны'; } },
-  { t: '🔥 5', c: '#c84a1a', w: 14, give: () => { CS.addTorches(5); return '+5 факелов'; } },
+  { t: '⚡ 5', c: '#c84a1a', w: 14, give: () => { CS.addTorches(5); return '+5 энергии'; } },
   { t: '❤ 3', c: '#b02a2a', w: 16, give: P => { P.potions.hp += 3; return '+3 зелья здоровья'; } },
   { t: '💰 1000', c: '#e8b030', w: 7, give: P => { P.gold += 600 + P.level * 80; return `+${600 + P.level * 80} золота`; } },
   { t: '◆ 6', c: '#9a4ae8', w: 5, give: P => { P.shards = (P.shards || 0) + 6; return '+6 осколков Бездны'; } },

@@ -13,11 +13,11 @@ export function basesFor(slot, ilvl, wt) {
 }
 
 const ELEM = { fire: 'fire', cold: 'ice', light: 'light' };
-const USELESS = { warrior: ['int'], archer: ['str', 'int'], mage: ['str', 'dex', 'ias'] };
+const USELESS = { warrior: [], archer: [], mage: ['ias'] };
 function rollAffixes(item, count, cls) {
   const g = AFFIX_GROUP(item.slot);
-  const C = cls && CLASSES[cls];
-  const pool = Object.entries(AFFIXES).filter(([k, a]) => a.g.includes(g) && !item.affixes.some(x => x.k === k)
+  const C = cls && CLASSES[cls], KP = item.rarity >= 2 && KIND_PERK[item.wt || item.slot];   // свойство вида не дублируется второй строкой (было: две строки «к здоровью»)
+  const pool = Object.entries(AFFIXES).filter(([k, a]) => a.g.includes(g) && !item.affixes.some(x => x.k === k) && !(KP && KP.k === k)
     && (!C || ((!ELEM[k] || C.branches.includes(ELEM[k])) && !USELESS[cls].includes(k))));
   for (let i = 0; i < count && pool.length; i++) {
     const k = weighted(pool.map(([k, a]) => [k, a.w]));
@@ -34,7 +34,11 @@ export function rollAffix(k, ilvl, cls) {
 
 // opts: {slot, ilvl, rarity, base, wt, epic}
 // Редкость растёт вместе с героем: серые и зелёные вещи в начале, синие с 6-го уровня, золотые (эпики) с 12-го — не в первые 10 минут
-export const maxRarityFor = lvl => lvl >= 12 ? 3 : lvl >= 6 ? 2 : 1;   // ограничение для выпадения; слияние у кузнеца его обходит
+// сборка 47: редкость реже и позже — зелёные с начала, синие с 10-го, золотые с 18-го уровня (раньше 6 и 12)
+export const maxRarityFor = lvl => lvl >= 18 ? 3 : lvl >= 10 ? 2 : 1;   // ограничение для выпадения
+// слияние у кузнеца тоже ограничено уровнем героя: синее — с 8-го, золотое — с 15-го, мифическое — с 22-го (было: золотой нагрудник к 8-му)
+export const mergeCapFor = lvl => lvl >= 22 ? 4 : lvl >= 15 ? 3 : lvl >= 8 ? 2 : 1;
+export const mergeCapLevel = r => [1, 1, 8, 15, 22][r] || 99;
 export function makeItem(opts = {}) {
   const lvlNow = G && G.profile && !opts.noClamp ? G.profile.level : 99;
   if (opts.epic && maxRarityFor(lvlNow) < 3) { opts = { ...opts }; delete opts.epic; opts.rarity = 2; }
@@ -107,7 +111,7 @@ export function itemPower(it) {
   return Math.round(core * upgMult(it) + it.affixes.length * (6 + it.ilvl * 1.5) + it.ilvl * 4);
 }
 
-const PREFIX = { dmgPct: 'Жестокий', ias: 'Быстрый', crit: 'Точный', armor: 'Крепкий', hp: 'Живучий', fire: 'Пылающий', cold: 'Ледяной', light: 'Грозовой', str: 'Могучий', dex: 'Ловкий', int: 'Мудрый', goldFind: 'Счастливый' };
+const PREFIX = { dmgPct: 'Жестокий', ias: 'Быстрый', armor: 'Крепкий', hp: 'Живучий', mp: 'Мудрый' };
 const RARE_A = ['Мрачный', 'Кровавый', 'Древний', 'Проклятый', 'Сумрачный', 'Костяной', 'Железный', 'Вечный'];
 const RARE_B = ['Страж', 'Клятва', 'Шёпот', 'Рок', 'Коготь', 'Приговор', 'Завет', 'Оплот'];
 function itemName(it, base) {
@@ -142,6 +146,7 @@ export function makeSetItem(setId, slot, ilvl, cls) {
   const S = SETS[setId]; slot = slot || SET_SLOTS[Math.floor(rand() * SET_SLOTS.length)];
   const it = makeItem({ base: SET_BASE[slot], ilvl, rarity: 1, cls });
   it.set = setId; it.name = S.parts[slot]; it.rarity = 2; delete it.req;
+  rollAffixes(it, 1, cls); applyKindPerk(it);   // сборка 47: часть сета — полноценная синяя вещь (2 свойства + свойство вида), а не зелёная с синим цветом
   if (it.armor) it.armor = Math.round(it.armor * 1.6);
   return it;
 }

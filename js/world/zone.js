@@ -233,7 +233,7 @@ export class Zone {
       } else if (o.t === 'survportal') {
         const d = this.add({ x: o.x, y: o.y, spr: 'portal_maw', anim: 'portal' });
         this.addLight(o.x, o.y, { r: 5, c: [255, 60, 60], flicker: 0.4, z: 1.2 });
-        this.inter.push({ id: 'portal_survival', type: 'survival', x: o.x, y: o.y, r: 1.8, label: 'Жатва Бездны', draw: d, reqLevel: 5, plate: 'Жатва Бездны' });
+        this.inter.push({ id: 'portal_survival', type: 'survival', x: o.x, y: o.y, r: 1.8, label: 'Жатва Бездны', draw: d, reqLevel: 2, plate: 'Жатва Бездны' });
         this.map.circles.push({ x: o.x, y: o.y - 0.1, r: 0.2 });
       } else if (o.t === 'castle') {
         const d = this.add({ x: o.x, y: o.y, spr: 'portal_crown', anim: 'portal' });

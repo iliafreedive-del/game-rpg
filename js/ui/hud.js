@@ -18,6 +18,7 @@ import { BOONS } from '../data/boons.js';
 import { openWindow, pumpRewards } from './windows.js';
 import * as CS from '../game/castle.js';
 import { hwReady } from './herospath.js';
+import './energy.js';
 import { skillCanvas } from './icons.js';
 const skillCanvasInto = (cv, id) => { const s = skillCanvas(id, cv.width, false); const x = cv.getContext('2d'); x.clearRect(0, 0, cv.width, cv.height); x.drawImage(s, 0, 0, cv.width, cv.height); };
 import * as SV from '../game/survival.js';
@@ -129,7 +130,7 @@ export function updateHUD(dt) {
   tick = 0; lastHud = 0.25;
   $('lvl').textContent = P.level; $('lvl').classList.toggle('up', P.attrPts > 0 || P.skillPts > 0);
   setBar('xpBar', P.xp / xpToNext(P.level));
-  $('gold').textContent = fmt(P.gold) + ' зол.'; $('shards').textContent = (P.shards || 0) + '◆'; $('torchN').textContent = '🔥' + (P.torch ? CS.torches().n : 10);
+  $('gold').textContent = fmt(P.gold) + ' зол.'; $('shards').textContent = (P.shards || 0) + '◆'; $('torchN').textContent = '⚡' + CS.torches().n;
   $('btnAuto').classList.toggle('on', !!G.auto); dot('dotHW', G.zoneId === 'town' && hwReady() ? 1 : 0);
   $('hpCount').textContent = P.potions.hp; $('mpCount').textContent = P.potions.mp; $('scrollCount').textContent = P.scrolls;
   $('btnScroll').classList.toggle('hidden', G.zoneId !== 'catacombs');
