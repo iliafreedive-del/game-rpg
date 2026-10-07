@@ -206,7 +206,7 @@ export function generateVillage(plan0 = PLAN) {
   // ---- NPC и их места
   const npc = (id, name, x, y, extra = {}) => { const n = { id, name, x: +x.toFixed(2), y: +y.toFixed(2), model: 'npc_' + id, ...extra }; npcs.push(n); targets.push({ x, y }); return n; };
   // староста — у ступеней церкви слева, доска заданий рядом
-  { const [fx, fy] = front(church, 3.4); npc('elder', 'Староста Эдрик', fx - 3.8, fy + 0.2); put('board', CX + SQ.hw - 2.2, CY - SQ.hh + 0.6); }   // доска — у правого края площади, вровень со ступенями церкви (сборка 46)
+  { const [fx, fy] = front(church, 3.4); npc('elder', 'Староста Эдрик', fx - 3.8, fy + 0.2); put('board', church.x + BUILDINGS.church.w / 2 + 1.0, fy - 3.4 + 0.9); }   // доска — между входом в церковь и северной дорогой, на стыке площади и травы (сборка 46)
   if (shop) {
     const [mx, my] = front(shop, 0.55); npc('merchant', 'Торговка Мира', mx, my, { reach: 3.2 });
     const cs = [[-1.75, 3.0], [1.75, 3.0], [-1.75, 3.7], [1.75, 3.7]].map(([u, v]) => side(shop, u, v)), xs = cs.map(c => c[0]), ys = cs.map(c => c[1]);
@@ -400,7 +400,7 @@ export function generateVillage(plan0 = PLAN) {
     const prio = I => ({ pumpkins: 0, plank_pile: 0, tool_stand: 1, cart: 1, cart_load: 2, barrel_stack: 1, log_stack: 1, signpost: 2, barrel: 0, crate: 0, sacks: 0, logpile: 0, hay: 0, rocks: 0, crystals: 1, tree_0: 1, tree_1: 1, grave: 1, deadtree: 1, bench: 2, table: 2, dummy: 3, target: 3, weapon_rack: 3 })[I.o.t] ?? 2;
     const items = objects.map(o => ({ o, sh: shapeOf(o), keep: KEEP.has(o.t) || !!o.boxes || !!o.keep })).filter(i => i.sh);
     for (const n of npcs) items.push({ o: n, sh: [{ c: [n.x, n.y, 0.35] }], keep: true });
-    for (const dx of [-1.7, 1.7]) items.push({ o: { t: 'hwsign' }, sh: [{ c: [hwsign[0] + dx, hwsign[1], 0.45] }], keep: true });
+    items.push({ o: { t: 'hwsign' }, sh: [{ c: [hwsign[0], hwsign[1], 1.3] }], keep: true });   // алтарь Летописи (сборка 46)
     for (const p of portals) items.push({ o: p, sh: [{ c: [p.x, p.y, 0.3] }], keep: true });
     for (const I of items) { const bb = I.sh.map(q => q.c ? [q.c[0] - q.c[2], q.c[1] - q.c[2], q.c[0] + q.c[2], q.c[1] + q.c[2]] : q.b); I.bb = [Math.min(...bb.map(b => b[0])), Math.min(...bb.map(b => b[1])), Math.max(...bb.map(b => b[2])), Math.max(...bb.map(b => b[3]))]; }
     const dPB = (c, b) => Math.hypot(Math.max(b[0] - c[0], 0, c[0] - b[2]), Math.max(b[1] - c[1], 0, c[1] - b[3]));

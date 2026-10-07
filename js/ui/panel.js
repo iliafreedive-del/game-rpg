@@ -2,7 +2,7 @@
 // The game keeps running (no pause). Everything shows the price and the effect up front.
 import { G, bus } from '../game/ctx.js';
 import { $, el, esc, fmt } from '../core/util.js';
-import { UPGRADES, upgCost, ROOMS, DECOR } from '../data/upgrades.js';
+import { UPGRADES, upgCost, upgHave, ROOMS, DECOR } from '../data/upgrades.js';
 import { REPEATABLE } from '../data/quests.js';
 import { REALMS } from '../data/wild.js';
 import * as CH from '../game/character.js';
@@ -17,6 +17,7 @@ import { watchRewarded, offerToken } from '../platform/monetize.js';
 import { startTrial } from '../game/game.js';
 import { adButton } from './adbtn.js';
 import { stats } from '../game/stats.js';
+import { earlyLock } from '../game/progress.js';
 
 let target = null, box = null, lastSig = '', dismissed = null;
 export function initPanel() {
@@ -46,15 +47,18 @@ function render(force) {
   const bal = () => box.appendChild(el('div', 'pn-bal', `${coin(P.gold)} зол. · ${shard(P.shards || 0)}`));
   const T = target;
   if (T.id === 'trainer') {
-    head('Наставник Элвин', 'Здесь изучают умения. Ниже — усиления за золото.'); bal();
+    head('Наставник Элвин', 'Здесь изучают умения. Ниже — усиления за золото (Меткость — за осколки Бездны ◆).'); bal();
     const b2 = el('div', 'pn-tabs');
     const sk = el('button', 'pn-tab' + (P.skillPts ? ' hot' : ''), `<span>✦</span><b>Навыки</b>${P.skillPts ? `<i>+${P.skillPts}</i>` : ''}`); sk.id = 'tBtnSkills'; sk.onclick = () => W.skills({ npc: true });
     b2.append(sk); box.appendChild(b2);
     if (P.skillPts && !Object.values(P.skills || {}).some(Boolean)) box.appendChild(el('div', 'pn-tip', '💡 Сначала изучите <b>активное умение</b> — оно появится кнопкой справа внизу и сильно упростит бои.'));
-    box.appendChild(el('div', 'pn-sub', 'Усиления за золото'));
+    box.appendChild(el('div', 'pn-sub', 'Усиления'));
+    const upLock = earlyLock('upg');   // сборка 47: усиления — после первой Летописи битв
+    if (upLock) box.appendChild(el('div', 'pn-tip', '🔒 Усиления откроются, когда испытаете себя в <b>Летописи битв</b> и вернётесь с золотом.'));
+    else if (Q.current() && (Q.current().id === 'hw_elvin' || Q.current().id === 'surv_elvin')) box.appendChild(el('div', 'pn-tip', '💡 Золото — сюда. Купите <b>Силу удара</b> или <b>Крепость</b>: герой станет сильнее.'));
     for (const [id, U] of Object.entries(UPGRADES)) {
       const l = (P.upg && P.upg[id]) || 0, max = l >= U.max, cost = upgCost(id, l);
-      box.appendChild(row(U.icon, `${U.name} <span class="lv">ур. ${l}</span>`, max ? U.fmt(l) + ' · максимум' : `${U.fmt(l)} → <span class="good">${U.fmt(l + 1)}</span>`, max ? '—' : `${fmt(cost)}`, !max && P.gold >= cost, () => buyUpg(id)));
+      box.appendChild(row(U.icon, `${U.name} <span class="lv">ур. ${l}</span>`, max ? U.fmt(l) + ' · максимум' : `${U.fmt(l)} → <span class="good">${U.fmt(l + 1)}</span>`, max ? '—' : upLock ? '🔒' : U.shards ? `${cost}◆` : `${fmt(cost)}`, !upLock && !max && upgHave(P, id) >= cost, () => buyUpg(id)));
     }
   } else if (T.id === 'smith') {
     head('Кузнец Горан', 'Слияние: три вещи → одна лучше. Закалка: +10% за уровень.'); bal();
@@ -68,6 +72,7 @@ function render(force) {
     const b = el('button', 'btn sm', 'Закалка вещей из сумки'); b.onclick = () => W.npc_smith('upg'); box.appendChild(b);
   } else if (T.id === 'merchant') {
     head('Торговка Мира'); bal();
+    if (Q.current() && Q.current().id === 'meet_merchant') box.appendChild(el('div', 'pn-tip', '💡 Купите <b>Зелье здоровья</b>. В бою нажмите красную кнопку зелья — оно лечит. Кнопка <b>Q</b> на ПК.'));
     for (const [k, n, ic] of [['hp', 'Зелье здоровья', 'potion_hp'], ['mp', 'Зелье маны', 'potion_mp'], ['scroll', 'Свиток возврата', 'scroll']]) {
       const pr = EC.potionPrice(k); box.appendChild(row(`<img src="${iconURL(ic)}">`, n, `есть: ${k === 'scroll' ? P.scrolls : P.potions[k]}`, fmt(pr), P.gold >= pr, () => EC.buyConsumable(k)));
     }
@@ -138,7 +143,9 @@ function render(force) {
 }
 function buyUpg(id) {
   const P = G.profile; P.upg = P.upg || {}; const l = P.upg[id] || 0, cost = upgCost(id, l);
-  if (l >= UPGRADES[id].max || P.gold < cost) { bus.emit('sfx', 'deny'); return; }
-  P.gold -= cost; P.upg[id] = l + 1; G.stats = stats(P); bus.emit('statsChanged'); bus.emit('sfx', 'anvil'); bus.emit('save');
+  if (earlyLock('upg')) { bus.emit('sfx', 'deny'); return; }
+  if (l >= UPGRADES[id].max || upgHave(P, id) < cost) { bus.emit('sfx', 'deny'); if (UPGRADES[id].shards && l < UPGRADES[id].max) bus.emit('toast', { text: `Нужно ${cost}◆ осколков Бездны`, sub: 'Осколки дают боссы Летописи, Жатва, недельные задания и Путь сезона', kind: 'warn' }); return; }
+  { const q = Q.current(); if (q && q.id === 'hw_elvin') P.story.flags.upgBought = true; if (q && q.id === 'surv_elvin') P.story.flags.upgBought2 = true; }   // шаги обучения «Усилить героя у Элвина»
+  if (UPGRADES[id].shards) P.shards -= cost; else P.gold -= cost; P.upg[id] = l + 1; G.stats = stats(P); bus.emit('statsChanged'); bus.emit('sfx', 'anvil'); bus.emit('save');
   bus.emit('float', { x: G.player.x, y: G.player.y, text: `${UPGRADES[id].name} ↑`, color: '#9fe38e', z: 2.4 });
 }

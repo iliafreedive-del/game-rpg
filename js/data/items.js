@@ -3,7 +3,7 @@
 export const SLOTS = ['weapon', 'head', 'chest', 'amulet'];
 // Hero classes: allowed weapons, skill branches, starting attributes.
 export const CLASSES = {
-  warrior: { name: 'Рыцарь Ордена', desc: 'Меч и щит. Крепкий, бьёт вблизи, поджигает врагов огнём.', weapons: ['sword', 'greatsword', 'axe'], main: 'sword', branches: ['sword', 'fire'], attrs: { str: 16, dex: 10, int: 7, vit: 14 }, block: 0.12, gift: 'whirlwind', icon: 'sword' },
+  warrior: { name: 'Рыцарь Ордена', desc: 'Меч и щит. Крепкий, бьёт вблизи, поджигает врагов огнём.', weapons: ['sword'], main: 'sword', branches: ['sword', 'fire'], attrs: { str: 16, dex: 10, int: 7, vit: 14 }, block: 0.12, gift: 'whirlwind', icon: 'sword' },
   archer: { name: 'Вороний страж', desc: 'Лучник в маске ворона. Бьёт издалека, замедляет льдом.', weapons: ['bow'], main: 'bow', branches: ['bow', 'ice'], attrs: { str: 9, dex: 17, int: 10, vit: 11 }, block: 0, gift: 'volley', icon: 'bow' },
   mage: { name: 'Звездочтец', desc: 'Маг Бездны в фарфоровой маске: огонь, лёд и молния.', weapons: ['staff'], main: 'staff', branches: ['fire', 'ice', 'light'], attrs: { str: 7, dex: 10, int: 18, vit: 11 }, block: 0, gift: null, icon: 'staff' },
 };
@@ -23,9 +23,10 @@ export const RMUL = [1, 1.1, 1.25, 1.45, 1.8];
 export const RARITY_SHORT = ['серое', 'зелёное', 'синее', 'золотое', 'мифическое'];
 // «Свойство вида»: у каждого вида вещи своё, открывается на синем и растёт с редкостью (×1 синее, ×2 золотое, ×3 мифическое)
 export const KIND_PERK = {
-  sword: { k: 'ias', v: 6, txt: 'Меч: быстрее удары' }, greatsword: { k: 'critDmg', v: 15, txt: 'Двуручник: тяжелее криты' }, axe: { k: 'leech', v: 2, txt: 'Топор: лечит за удар' },
-  bow: { k: 'crit', v: 3, txt: 'Лук: чаще криты' }, staff: { k: 'mp', v: 15, txt: 'Посох: больше маны' },
-  head: { k: 'hp', v: 20, txt: 'Шлем: больше здоровья' }, chest: { k: 'armorPct', v: 12, txt: 'Доспех: крепче защита' }, amulet: { k: 'goldFind', v: 10, txt: 'Амулет: больше золота' },
+  // сборка 47: только усиления, как у наставника Элвина (сила удара, здоровье, проворство, защита, мана); крита, ловкости и прочего на вещах нет
+  sword: { k: 'ias', v: 5, txt: 'Меч: быстрее удары' }, greatsword: { k: 'ias', v: 5, txt: 'Быстрее удары' }, axe: { k: 'ias', v: 5, txt: 'Быстрее удары' },
+  bow: { k: 'ias', v: 5, txt: 'Лук: быстрее выстрелы' }, staff: { k: 'mp', v: 15, txt: 'Посох: больше маны' },
+  head: { k: 'hp', v: 20, txt: 'Шлем: больше здоровья' }, chest: { k: 'armor', v: 8, txt: 'Доспех: больше защиты' }, amulet: { k: 'dmgPct', v: 4, txt: 'Амулет: сильнее удар' },
 };
 
 // Weapon profiles — differ in speed, range, animation and ability, not only damage.
@@ -77,38 +78,27 @@ export const BASE = Object.fromEntries(BASES.map(b => [b.k, b]));
 
 // Affixes. v(ilvl) → rolled value range. kinds: allowed slot groups.
 // groups: W weapon, A armor(any), O offhand, J jewellery
+// сборка 47: на вещах только те же усиления, что продаёт наставник Элвин — сила удара, здоровье, проворство, защита, мана.
+// Крит, ловкость, сила, стихии, вампиризм и т. п. с вещей убраны (крит качается только у Элвина за осколки Бездны).
 export const AFFIXES = {
-  dmgPct:   { name: v => `+${v}% к урону оружия`, g: 'W', r: l => [10 + l * 2, 25 + l * 4], w: 10 },
-  dmgFlat:  { name: v => `+${v} к урону`, g: 'WJ', r: l => [1 + (l >> 1), 3 + l], w: 8 },
-  ias:      { name: v => `+${v}% к скорости атаки`, g: 'WJ', r: l => [5, 10 + (l >> 1)], w: 6 },
-  crit:     { name: v => `+${v}% к шансу крит. удара`, g: 'WJA', r: l => [2, 4 + (l >> 2)], w: 6 },
-  critDmg:  { name: v => `+${v}% к крит. урону`, g: 'WJ', r: l => [10, 20 + l * 2], w: 5 },
-  armor:    { name: v => `+${v} к защите`, g: 'AO', r: l => [2 + l, 6 + l * 2], w: 10 },
-  armorPct: { name: v => `+${v}% к защите предмета`, g: 'AO', r: l => [15, 35 + l * 3], w: 6 },
-  hp:       { name: v => `+${v} к здоровью`, g: 'AOJ', r: l => [8 + l * 3, 18 + l * 6], w: 10 },
-  mp:       { name: v => `+${v} к мане`, g: 'AJW', r: l => [5 + l * 2, 12 + l * 4], w: 7 },
-  str:      { name: v => `+${v} к силе`, g: 'WAJO', r: l => [1 + (l >> 1), 3 + l], w: 7 },
-  dex:      { name: v => `+${v} к ловкости`, g: 'WAJ', r: l => [1 + (l >> 1), 3 + l], w: 7 },
-  int:      { name: v => `+${v} к интеллекту`, g: 'WAJ', r: l => [1 + (l >> 1), 3 + l], w: 7 },
-  vit:      { name: v => `+${v} к живучести`, g: 'AJO', r: l => [1 + (l >> 1), 3 + l], w: 7 },
-  fire:     { name: v => `+${v}% к урону огнём`, g: 'WJ', r: l => [8, 15 + l * 2], w: 5 },
-  cold:     { name: v => `+${v}% к урону льдом`, g: 'WJ', r: l => [8, 15 + l * 2], w: 5 },
-  light:    { name: v => `+${v}% к урону молнией`, g: 'WJ', r: l => [8, 15 + l * 2], w: 5 },
-  regen:    { name: v => `+${v} маны в секунду`, g: 'JAW', r: l => [1, 2 + (l >> 2)], w: 4 },
-  leech:    { name: v => `+${v} здоровья за удар`, g: 'WJ', r: l => [1, 2 + (l >> 1)], w: 4 },
-  goldFind: { name: v => `+${v}% к находимому золоту`, g: 'AJ', r: l => [10, 25 + l * 2], w: 4 },
-  skill:    { name: (v, b) => `+${v} к уровню ветки «${b}»`, g: 'WJ', r: () => [1, 1], w: 2, branch: true },
+  dmgPct:   { name: v => `+${v}% к силе удара`, g: 'WJ', r: l => [3 + (l >> 1), 6 + l], w: 10 },
+  hp:       { name: v => `+${v} к здоровью`, g: 'AOJ', r: l => [6 + l * 2, 12 + l * 4], w: 10 },
+  ias:      { name: v => `+${v}% к скорости атаки`, g: 'WJ', r: l => [3, 5 + (l >> 2)], w: 7 },
+  armor:    { name: v => `+${v} к защите`, g: 'AO', r: l => [2 + l, 5 + l * 2], w: 10 },
+  mp:       { name: v => `+${v} к мане`, g: 'AJW', r: l => [5 + l * 2, 12 + l * 4], w: 6 },
 };
+// ключи старых свойств — вычищаются из сохранений (save.js, v6→v7) и не учитываются в характеристиках
+export const OLD_AFFIXES = ['dmgFlat', 'crit', 'critDmg', 'armorPct', 'str', 'dex', 'int', 'vit', 'fire', 'cold', 'light', 'regen', 'leech', 'goldFind', 'skill'];
 export const AFFIX_GROUP = slot => slot === 'weapon' ? 'W' : slot === 'offhand' ? 'O' : (slot === 'amulet' || slot === 'ring') ? 'J' : 'A';
 
 // Epic (purple) items — boss only. Each has a unique mechanic that the combat code checks.
 export const EPICS = [
-  { id: 'e_bow', base: 'long_bow', name: 'Шёпот Бездны', effect: 'splitArrow', desc: 'Каждая стрела раскалывается на 3 в полёте.', fixed: { dex: 8, crit: 5 } },
-  { id: 'e_sword', base: 'knight_sword', name: 'Клятва Палача', effect: 'execute', desc: 'Удары по врагам ниже 30% здоровья наносят двойной урон.', fixed: { str: 8, dmgPct: 30 } },
-  { id: 'e_staff', base: 'rune_staff', name: 'Посох Угасшей Звезды', effect: 'echo', desc: '25% шанс повторить заклинание бесплатно.', fixed: { int: 10, mp: 30 } },
-  { id: 'e_axe', base: 'war_axe', name: 'Цепной Секач', effect: 'chainHit', desc: 'Удары перескакивают на ближайшего врага (50% урона).', fixed: { str: 6, ias: 10 } },
-  { id: 'e_amulet', base: 'amulet', name: 'Сердце Палача', effect: 'bloodShield', desc: 'Убийство врага даёт щит на 10% макс. здоровья.', fixed: { vit: 10, hp: 40 } },
-  { id: 'e_chest', base: 'plate', name: 'Доспех Бездны', effect: 'thorns', desc: 'Атакующие вблизи получают 30% отражённого урона.', fixed: { vit: 8, armorPct: 40 } },
+  { id: 'e_bow', base: 'long_bow', name: 'Шёпот Бездны', effect: 'splitArrow', desc: 'Каждая стрела раскалывается на 3 в полёте.', fixed: { dmgPct: 10, ias: 6 } },
+  { id: 'e_sword', base: 'knight_sword', name: 'Клятва Палача', effect: 'execute', desc: 'Удары по врагам ниже 30% здоровья наносят двойной урон.', fixed: { dmgPct: 12, hp: 30 } },
+  { id: 'e_staff', base: 'rune_staff', name: 'Посох Угасшей Звезды', effect: 'echo', desc: '25% шанс повторить заклинание бесплатно.', fixed: { dmgPct: 10, mp: 30 } },
+  { id: 'e_axe', base: 'war_axe', name: 'Цепной Секач', effect: 'chainHit', desc: 'Удары перескакивают на ближайшего врага (50% урона).', fixed: { dmgPct: 10, ias: 6 } },
+  { id: 'e_amulet', base: 'amulet', name: 'Сердце Палача', effect: 'bloodShield', desc: 'Убийство врага даёт щит на 10% макс. здоровья.', fixed: { hp: 40, mp: 20 } },
+  { id: 'e_chest', base: 'plate', name: 'Доспех Бездны', effect: 'thorns', desc: 'Атакующие вблизи получают 30% отражённого урона.', fixed: { armor: 20, hp: 30 } },
 ];
 
 export const CONSUMABLES = {

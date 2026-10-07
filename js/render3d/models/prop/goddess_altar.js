@@ -6,7 +6,7 @@ import { altarMesh } from '../../altarglb.js';
 export default {
   id: 'goddess_altar', kind: 'prop', outline: false, ao: 0.7, aoH: 1.2,
   build(kit) {
-    const glb = altarMesh(2.73);   // +5 % (сборка 46)
+    const glb = altarMesh(2.89);   // +5 %, потом ещё +6 % (сборка 46)
     if (glb) { const root = new kit.THREE.Group(); root.add(glb); return { root }; }
     const { THREE, part, bbox, tube, merge } = kit, L = [], MARBLE = 0xb8b4c8, MARBLE_L = 0xf4f0ff, GOLD = 0xd6a548, TURQ = 0x5ae8d8;
     // ступени: три круга мрамора, по краю — бирюзовые прожилки

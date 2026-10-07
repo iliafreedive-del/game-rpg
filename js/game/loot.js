@@ -8,7 +8,7 @@ import { xpToNext, stats } from './stats.js';
 import { rand, rint, weighted, pick, uid } from '../core/util.js';
 import { float, particles } from './combat.js';
 
-const goldMul = () => rm('gold') * (G.run && G.run.boons && G.run.boons.includes('greed') ? 1.6 : 1) * (1 + G.stats.goldFind / 100) * (G.profile.boosts.goldUntil > Date.now() || G.profile.boosts.blessUntil > Date.now() ? 1.5 : 1) * (G.profile.iap.goldPerk ? 1.25 : 1);
+const goldMul = () => rm('gold') * (G.run && G.run.boons && G.run.boons.includes('greed') ? 1.25 : 1) * (1 + G.stats.goldFind / 100) * (G.profile.boosts.goldUntil > Date.now() || G.profile.boosts.blessUntil > Date.now() ? 1.5 : 1) * (G.profile.iap.goldPerk ? 1.25 : 1);
 export const xpMul = () => rm('xp') * (G.profile.boosts.xpUntil > Date.now() || G.profile.boosts.blessUntil > Date.now() ? 1.5 : 1) * (1 + ((G.stats && G.stats.decor && G.stats.decor.xp) || 0) / 100);
 
 export function dropGold(x, y, amount) {
@@ -30,23 +30,23 @@ export function enemyLoot(e) {
   // Items come only from quests, contracts and the shop (design decision: fewer, meaningful rewards).
   const D = e.D, L = e.lvl;
   const piles = D.boss ? 6 : D.elite ? 4 : e.champion ? 2 : (rand() < 0.6 ? 1 : 0);
-  for (let i = 0; i < piles; i++) dropGold(e.x, e.y, rint(D.gold[0], D.gold[1]) * (1 + 0.12 * (L - 1)) / (D.boss || D.elite ? piles / 2 : 1));
-  if (rand() < (D.boss ? 1 : D.elite ? 0.7 : e.champion ? 0.5 : 0.06)) dropPotion(e.x, e.y, rand() < 0.7 ? 'hp' : 'mp');
+  for (let i = 0; i < piles; i++) dropGold(e.x, e.y, rint(D.gold[0], D.gold[1]) * (1 + 0.12 * (L - 1)) * 0.75 / (D.boss || D.elite ? piles / 2 : 1));   // сборка 47: золота −25%
+  if (rand() < (D.boss ? 1 : D.elite ? 0.35 : e.champion ? 0.2 : 0.015)) dropPotion(e.x, e.y, rand() < 0.7 ? 'hp' : 'mp');
   // вещи: редкие и заметные. Рядовой враг почти никогда, чемпион — иногда, страж и босс — всегда
-  const ch = (D.boss ? 1 : D.elite ? 0.8 : e.champion ? 0.25 : G.zoneId === 'wild' ? 0.08 : 0.06) / (e.respawned ? 3 : 1) * (G.profile.boosts.blessUntil > Date.now() ? 1.25 : 1) * rm('items') * (1 + 0.05 * ((G.run && G.run.circle) || 0));
+  const ch = (D.boss ? 1 : D.elite ? 0.5 : e.champion ? 0.12 : G.zoneId === 'wild' ? 0.03 : 0.025) / (e.respawned ? 3 : 1) * (G.profile.boosts.blessUntil > Date.now() ? 1.25 : 1) * rm('items') * (1 + 0.05 * ((G.run && G.run.circle) || 0));
   // сборка 20: серого больше — сырьё для слияния у кузнеца. Благословение — +25% вещей; «Орда» недели — ×2; возрождённые (respawn.js) — втрое реже; круг Бездны — +5% за круг
-  // таблицы: серый / зелёный / синий / золотой. Рядовые враги почти всегда дают серое
-  if (rand() < ch) dropItem(e.x, e.y, rollDrop(L + (D.boss || D.elite ? 1 : 0), D.boss ? [8, 47, 38, 7] : D.elite ? [30, 50, 19, 1] : e.champion ? [55, 38, 7, 0] : [93, 6, 1, 0]));
+  // таблицы: серый / зелёный / синий / золотой. Сборка 47: вещей втрое меньше, зелёные — редкость (жалоба «шмота как грязи»)
+  if (rand() < ch) dropItem(e.x, e.y, rollDrop(L + (D.boss || D.elite ? 1 : 0), D.boss ? [15, 55, 26, 4] : D.elite ? [45, 45, 9, 1] : e.champion ? [72, 26, 2, 0] : [97, 3, 0, 0]));
 }
 export function rollDrop(ilvl, table) {
   const P = G.profile, r = rollRarity(table);
   if (r >= 3) return makeItem({ epic: pickEpic(P.cls), ilvl, cls: P.cls });
-  if (r === 2 && P.level >= 6 && rand() < 0.3) return makeSetItem(pickSet(P.cls), null, ilvl, P.cls);   // часть синих — части сетов (с 6 уровня)
+  if (r === 2 && P.level >= 10 && rand() < 0.3) return makeSetItem(pickSet(P.cls), null, ilvl, P.cls);   // часть синих — части сетов (с 6 уровня)
   return makeItem({ ilvl, rarity: r, cls: P.cls });
 }
 export function pickEpic(cls) {
   cls = cls || G.profile.cls || 'warrior';
-  const bases = { warrior: ['knight_sword', 'war_axe'], archer: ['long_bow'], mage: ['rune_staff'] }[cls];
+  const bases = { warrior: ['knight_sword'], archer: ['long_bow'], mage: ['rune_staff'] }[cls];
   const pool = EPICS.filter(e => bases.includes(e.base));
   return pick(pool);
 }
@@ -57,10 +57,9 @@ export function chestLoot(x, y, rich, lvl, id) {
 }
 function chestLoot0(x, y, rich, lvl, id) {
   for (let i = 0; i < (rich ? 5 : 3); i++) dropGold(x, y, rint(3, 7) * (1 + 0.15 * (lvl - 1)));
-  if (rich || rand() < 0.5) dropPotion(x, y, rand() < 0.75 ? 'hp' : 'mp');
-  if (rich && rand() < 0.5) dropPotion(x, y, 'hp');
-  if (rand() < (rich ? 0.6 : 0.15)) dropItem(x, y + 0.2, rollDrop(lvl, rich ? [30, 50, 19, 1] : [85, 14, 1, 0]));
-  if (rich && G.profile.level >= 6 && rand() < 0.2) dropItem(x + 0.3, y + 0.4, makeSetItem(pickSet(G.profile.cls), null, lvl, G.profile.cls));   // сундук Ордена — шанс части сета
+  if (rand() < (rich ? 0.6 : 0.15)) dropPotion(x, y, rand() < 0.75 ? 'hp' : 'mp');
+  if (rand() < (rich ? 0.35 : 0.06)) dropItem(x, y + 0.2, rollDrop(lvl, rich ? [45, 45, 9, 1] : [92, 8, 0, 0]));
+  if (rich && G.profile.level >= 10 && rand() < 0.1) dropItem(x + 0.3, y + 0.4, makeSetItem(pickSet(G.profile.cls), null, lvl, G.profile.cls));   // сундук Ордена — шанс части сета
 }
 
 // pickups (сборка 38): всё, что выпало с мобов и из сундуков, само летит в сумку; сумка полна — вещь лежит на земле и красное уведомление

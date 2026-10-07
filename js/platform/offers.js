@@ -4,6 +4,7 @@
 // Никаких окон в бою: предложение ждёт спокойного момента (деревня, экран смерти закрыт, окон нет).
 import { G, bus } from '../game/ctx.js';
 import { PRODUCTS, platform } from './platform.js';
+import { earlyLock } from '../game/progress.js';
 
 // id товара → когда показывать. Первое условие, которое сработало, и показывается.
 const WALLS = [
@@ -18,7 +19,7 @@ const forts = (P, realm) => { const S = P.wild && P.wild[realm]; return (S && S.
 const owned = (P, id) => !!(P.iap.tx['once_' + id] || P.iap[id]);
 
 export function wallOffer() {
-  const P = G.profile; if (!P) return null;
+  const P = G.profile; if (!P || earlyLock('extra')) return null;
   P.iap.shown = P.iap.shown || {};
   for (const w of WALLS) {
     if (P.iap.shown[w.id] || owned(P, w.id)) continue;
@@ -26,9 +27,14 @@ export function wallOffer() {
     if (!w.when(P)) continue;
     return { ...w, product: PRODUCTS[w.id] };
   }
+  // сборка 47: акция каждые два уровня (с 4-го) — ближайший ещё не купленный товар лестницы, один раз на уровень
+  if (P.level >= 4 && P.level % 2 === 0 && P.iap.promoLvl !== P.level) {
+    const w = WALLS.find(x => x.id !== 'starter_pack' && !owned(P, x.id) && platform.p.hasProduct(x.id));
+    if (w) return { ...w, promo: P.level, why: `Акция ${P.level} уровня: вещь сильнее надетой — сразу на героя`, product: PRODUCTS[w.id] };
+  }
   return null;
 }
-export function markShown(id) { const P = G.profile; P.iap.shown = P.iap.shown || {}; P.iap.shown[id] = 1; bus.emit('save'); }
+export function markShown(id, promo) { const P = G.profile; P.iap.shown = P.iap.shown || {}; if (promo) P.iap.promoLvl = promo; else P.iap.shown[id] = 1; bus.emit('save'); }
 
 // Помощь после трёх поражений подряд в одном месте: временный бонус бесплатно или за рекламу,
 // чтобы новичок не бросил игру на стене (требование Яндекса 4.5: без рекламы игра проходится).

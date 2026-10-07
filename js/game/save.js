@@ -1,12 +1,12 @@
 // Save System: versioned profile in localStorage (+ optional cloud via platform), migrations from build 1.x.
 import { makeItem, makeStarterGear, sellValue, applyKindPerk } from './items.js';
-import { CLASSES, SLOTS, GROWTH } from '../data/items.js';
+import { CLASSES, SLOTS, GROWTH, OLD_AFFIXES } from '../data/items.js';
 import { STORY } from '../data/quests.js';
 import { inClassTree } from '../data/skills.js';
 
 export const SAVE_KEY = 'dark_ascent_save_v2';
 export const LEGACY_KEYS = ['dark_ascent_chapter1_save', 'dark_ascent_v03_save'];
-export const SAVE_VERSION = 6;
+export const SAVE_VERSION = 7;
 
 export function newProfile(cls = 'warrior') {
   const p = {
@@ -17,7 +17,7 @@ export function newProfile(cls = 'warrior') {
     skills: {}, slots: [null, null, null, null],
     gear: {}, bag: [], bagSize: 40,
     potions: { hp: 3, mp: 1 }, scrolls: 1,
-    story: { stage: 0, counters: {}, flags: {}, done: [], flow38: true, flow43: true },
+    story: { stage: 0, counters: {}, flags: {}, done: [], flow38: true, flow43: true, flow47: true },
     repeat: {},            // id -> {accepted, base, completions}
     stats: { kills: 0, skeletons: 0, elites: 0, chests: 0, meters: 0, gold: 0, bossKills: 0, deaths: 0, bossNoDeath: 0, playTime: 0 },
     world: { opened: {}, lastZone: 'town' },   // persistent story objects (key sarcophagus, secret wall, gate…)
@@ -56,7 +56,22 @@ function migrateV1(old) {
 }
 const OLD_UPG = { critDmg: [110, 1.18], move: [140, 1.22], mp: [35, 1.15], regen: [60, 1.17] };
 const RES_KEYS = ['resAll', 'resFire', 'resCold', 'resLight'];
+// сборка 47: топоры и двуручники → мечи (урон пересчитан по скорости удара), старые свойства (крит, ловкость, стихии…) убраны
+const TO_SWORD = { hand_axe: ['short_sword', 0.8], war_axe: ['long_sword', 0.8], claymore: ['long_sword', 0.6], zweihander: ['knight_sword', 0.6] };
+const OLD_CRIT = [90, 1.19];
 const MIGRATIONS = {
+  6: p => {
+    const fix = it => {
+      if (!it || !it.affixes) return;
+      it.affixes = it.affixes.filter(a => !OLD_AFFIXES.includes(a.k));
+      const t = TO_SWORD[it.base]; if (t) { it.base = t[0]; it.wt = 'sword'; if (it.dmg) it.dmg = it.dmg.map(v => Math.max(1, Math.round(v * t[1]))); if (it.epic === 'e_axe') { it.epic = 'e_sword'; it.effect = 'execute'; } delete it.req; }
+      if (it.affixes.some(a => a.kp) || it.rarity >= 2) applyKindPerk(it);
+    };
+    Object.values(p.gear || {}).forEach(fix); (p.bag || []).forEach(fix); if (p.shop && p.shop.stock) p.shop.stock.forEach(fix);
+    // Меткость теперь за осколки Бездны: уровни, купленные за золото, возвращаются золотом
+    const l = (p.upg && p.upg.crit) | 0; if (l) { let g = 0; for (let i = 0; i < l; i++) g += Math.round(OLD_CRIT[0] * Math.pow(OLD_CRIT[1], i)); p.gold = (p.gold | 0) + g; p.upg.crit = 0; }
+    p.v = 7; return p;
+  },
   // v5 → v6: цепочка сюжета изменилась (задание «Победить стража» слито с амулетом): стадия — по списку выполненных
   5: p => {
     if (p.story) { const done = new Set(p.story.done || []); let st = 0; while (st < STORY.length && done.has(STORY[st].id)) st++; p.story.stage = st; if (p.story.flags && p.story.flags.medallion) p.world.hasMedallion = true; }
@@ -107,6 +122,13 @@ export function migrate(p) {
     const done = new Set(p.story.done || []);
     if (done.has('elder_task') && !done.has('hw_try')) { p.story.done.push('hw_try'); done.add('hw_try'); let st = 0; while (st < STORY.length && done.has(STORY[st].id)) st++; p.story.stage = st; }
     p.story.flow43 = true;
+  }
+  // сборка 47: после Летописи вставлены Элвин, Мира и пробная Жатва; Глава II начинается со Старого Леса — номер шага пересчитываем по пройденным
+  if (p.story && !p.story.flow47) {
+    const done = new Set(p.story.done || []);
+    if (done.has('elder_task')) for (const id of ['hw_elvin', 'meet_merchant', 'surv_try', 'surv_elvin']) if (!done.has(id)) { p.story.done.push(id); done.add(id); }
+    let st = 0; while (st < STORY.length && done.has(STORY[st].id)) st++; p.story.stage = st;
+    p.story.flow47 = true;
   }
   // fill any fields added later with defaults (forward-compatible)
   const d = newProfile();

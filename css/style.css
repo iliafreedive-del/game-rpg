@@ -746,3 +746,9 @@ body.cine-on #ui{opacity:0;transition:opacity .4s}
 #zoneVeil{position:fixed;inset:0;z-index:20;display:grid;place-items:center;background:#07050acc;opacity:0;pointer-events:none;transition:opacity .2s}
 #zoneVeil.on{opacity:1;transition:none;pointer-events:auto}
 #zoneVeil span{font:600 18px Georgia,serif;color:#e9c46a;letter-spacing:.06em;text-shadow:0 2px 8px #000}
+/* сборка 47: «Сбежать» в Летописи, кнопка энергии сверху, окно энергии */
+.hw-flee{right:auto;left:calc(20px + var(--safe-l, 0px));width:auto;padding:0 16px;border-radius:28px;font-size:15px;color:#ffb0a0;border-color:#a85a4a}
+.hw-top .hw-en{margin-left:auto;animation:enPulse 2.2s ease-in-out infinite}
+@keyframes enPulse{50%{box-shadow:0 0 14px #ffd24a99}}
+#torchN{cursor:pointer;pointer-events:auto}
+.en-big{font:700 30px Georgia;color:#ffd24a;text-align:center;margin:6px 0}

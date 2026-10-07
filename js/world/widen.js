@@ -20,17 +20,25 @@ export function widen(J, k = 1.5) {
   const blockOf = (x, y) => { const out = []; for (let Y = Math.floor(y * k); Y < Math.min(H2, Math.ceil((y + 1) * k)); Y++) for (let X = Math.floor(x * k); X < Math.min(W2, Math.ceil((x + 1) * k)); X++) out.push([X, Y]); return out; };
   const center = (x, y) => [Math.min(W2 - 1, Math.floor((x + 0.5) * k)), Math.min(H2 - 1, Math.floor((y + 0.5) * k))];
   // двери и печати — одна клетка; клетки блока по оси прохода открыты (коридор не упирается в стену), поперёк — стена
-  const singles = new Map();
+  const singles = new Map(), wide = new Map();
+  // сборка 47: дверь к Хранителю — на всю ширину прохода (раньше 1 клетка двери + клетка стены рядом выглядели как два кубика)
+  const doorAt = new Set(J.objects.filter(o => o.t === 'door').map(o => Math.floor(o.x) + ',' + Math.floor(o.y)));
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
     const c = at(x, y); if (!SINGLE.has(c)) continue;
     const [cx, cy] = center(x, y), B = blockOf(x, y), horiz = at(x - 1, y) !== '#' && at(x + 1, y) !== '#';
     for (const [X, Y] of B) g[Y][X] = (horiz ? Y === cy : X === cx) ? '.' : '#';
     g[cy][cx] = c; singles.set(x + ',' + y, [cx, cy]);
+    if (doorAt.has(x + ',' + y)) {
+      const cells = B.filter(([X, Y]) => horiz ? X === cx : Y === cy); for (const [X, Y] of cells) g[Y][X] = c;
+      const m = cells.reduce((a, [X, Y]) => [a[0] + X + 0.5, a[1] + Y + 0.5], [0, 0]).map(v => v / cells.length);
+      wide.set(x + ',' + y, { x: m[0], y: m[1], tiles: cells.map(t => t.slice()), span: cells.length });
+    }
   }
   const S = v => v * k, P = ([x, y]) => [S(x), S(y)];
   const objects = J.objects.map(o => {
     const n = { ...o, x: S(o.x), y: S(o.y) };
     if (SNAP.has(o.t)) { const s = singles.get(Math.floor(o.x) + ',' + Math.floor(o.y)); if (s) { n.x = s[0] + 0.5; n.y = s[1] + 0.5; } }
+    const wd = o.t === 'door' && wide.get(Math.floor(o.x) + ',' + Math.floor(o.y)); if (wd) Object.assign(n, wd);
     return n;
   });
   const torches = (J.torches || []).map(([tx, ty]) => {

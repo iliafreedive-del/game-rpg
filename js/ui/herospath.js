@@ -6,7 +6,7 @@ import { $, el, esc, fmt } from '../core/util.js';
 import { getAtlas, drawFrame } from '../core/assets.js';
 import { ENEMIES } from '../data/enemies.js';
 import { gainXP } from '../game/loot.js';
-import { addShards } from '../game/castle.js';
+import { addShards, torches, spendEnergy, TORCH_MAX, TORCH_MS, nextIn } from '../game/castle.js';
 import { watchRewarded, offerToken, maybeInterstitial } from '../platform/monetize.js';
 import { rand, rrange, clamp } from '../core/util.js';
 import { adButton } from './adbtn.js';
@@ -15,10 +15,10 @@ import { gate } from '../game/progress.js';
 import { paintScene } from './hwscenes.js';
 import { makeBattle, stageFoes, arenaView } from '../game/hwbattle.js';
 
-export const EN_MAX = 20, EN_MS = 9 * 60e3;   // полный запас — 3 часа
-// сборка 44: каждый бой стоит 1 ⚡ — и победа, и поражение (раньше первая победа на этапе была бесплатной, и энергия почти не тратилась)
-const spendEn = h => { if (h.en.n >= EN_MAX) h.en.at = Date.now(); h.en.n = Math.max(0, h.en.n - 1); };
-function tryFight(s) { const h = HW(); if (h.en.n <= 0) { bus.emit('toast', { text: 'Нет энергии ⚡', sub: '+1 каждые 9 минут', kind: 'warn' }); return; } spendEn(h); fight(s); }
+// сборка 47: энергия общая с Глубинами и Жатвой (game/castle.js); каждый бой стоит 1 ⚡ — и победа, и поражение
+export const EN_MAX = TORCH_MAX;
+const enN = () => torches().n;
+function tryFight(s) { if (!spendEnergy(1)) { bus.emit('toast', { text: 'Нет энергии ⚡', sub: '+1 каждые 20 минут или «Получить энергию»', kind: 'warn' }); bus.emit('openEnergy'); return; } fight(s); }
 // 4 главы по 30 этапов, у каждой свой фон (hwscenes.js): подземелье → лес → снега → скалы
 const CHAPTERS = [
   { name: 'Подземелья Ордена', pool: ['skel_warrior', 'skel_archer', 'ghoul', 'skel_mage'] },
@@ -38,7 +38,7 @@ function codexPage(s) {
   setTimeout(() => bus.emit('toast', { text: page.title, sub: page.text, kind: 'quest' }), 2200);
 }
 function HW() { const P = G.profile; P.hw = P.hw || { top: 1, stars: {}, en: { n: EN_MAX, at: Date.now() } }; const e = P.hw.en; const now = Date.now(); if (e.n < EN_MAX) { const k = Math.floor((now - e.at) / EN_MS); if (k > 0) { e.n = Math.min(EN_MAX, e.n + k); e.at = e.n >= EN_MAX ? now : e.at + k * EN_MS; } } else e.at = now; return P.hw; }
-export const hwReady = () => { const h = HW(); return h.en.n >= 5; };
+export const hwReady = () => { HW(); return enN() >= 5; };
 
 let root = null, page = 0, raf = 0, curStage = null;
 const disposeStage = () => { if (curStage) { try { curStage.dispose(); } catch { } curStage = null; } };
@@ -51,9 +51,10 @@ export function openHeroPath() {
 function close() { cancelAnimationFrame(raf); raf = 0; disposeStage(); if (root) root.remove(); root = null; G.paused = false; G.modalOpen = false; bus.emit('hud'); bus.emit('save'); }
 
 function header(title) {
-  const h = HW(); const left = h.en.n >= EN_MAX ? 0 : Math.max(0, h.en.at + EN_MS - Date.now());
-  const bar = el('div', 'hw-top', `<span class="hw-cur">⚡ ${h.en.n}/${EN_MAX}${left ? ` <small>+1 через ${Math.ceil(left / 60000)} мин</small>` : ''}</span><span class="hw-cur c-gold">${fmt(G.profile.gold)} зол.</span><span class="hw-cur c-shard">${G.profile.shards || 0}◆</span>`);
+  const n = enN(), left = nextIn(torches(), TORCH_MS);
+  const bar = el('div', 'hw-top', `<span class="hw-cur">⚡ ${n}/${EN_MAX}${left ? ` <small>+1 через ${Math.ceil(left / 60000)} мин</small>` : ''}</span><span class="hw-cur c-gold">${fmt(G.profile.gold)} зол.</span><span class="hw-cur c-shard">${G.profile.shards || 0}◆</span>`);
   const x = el('button', 'hw-back', '← В деревню'); x.onclick = close; bar.prepend(x);
+  const en = el('button', 'btn gold sm hw-en', '⚡ Получить энергию'); en.onclick = () => bus.emit('openEnergy', () => { if (root) showMap(); }); bar.appendChild(en);   // сборка 47: на виду, сверху
   root.appendChild(bar);
   if (title) root.appendChild(el('div', 'hw-title', title));
 }
@@ -72,10 +73,8 @@ function showMap() {
   const nav = el('div', 'hw-nav');
   const pv = el('button', 'btn', '◀'); pv.disabled = page === 0; pv.onclick = () => { page--; showMap(); };
   const nx = el('button', 'btn', '▶'); nx.disabled = page === CHAPTERS.length - 1 || h.top <= (page + 1) * PER_CH; nx.onclick = () => { page++; showMap(); };
-  const ad = adButton('+10 ⚡', 'hw_en', 30 * 60e3, () => { h.en.n = Math.min(EN_MAX + 10, h.en.n + 10); }, showMap);
   nav.append(pv, el('span', 'hw-page', `Глава ${page + 1}/${CHAPTERS.length}`), nx); card.appendChild(nav);
   if (h.top >= page * PER_CH + 1 && h.top <= (page + 1) * PER_CH && !gate('hw', h.top)) { const go = el('button', 'btn gold hw-go', `⚔ В бой · этап ${h.top}`); go.onclick = () => showPrefight(h.top); card.appendChild(go); }
-  const adr = el('div', 'hw-nav'); adr.appendChild(ad); card.appendChild(adr);
   root.appendChild(card);
 }
 function heroSummary() {
@@ -94,9 +93,9 @@ function showPrefight(s) {
     <p class="${me >= foe ? 'good' : 'bad'}" style="text-align:center">${me >= foe * 1.3 ? 'Лёгкий бой' : me >= foe * 0.85 ? 'Равный бой' : 'Враг сильнее — прокачайтесь в катакомбах, улучшите вещи у кузнеца'}</p>`);
   const row = el('div', 'hw-nav');
   const back = el('button', 'btn', 'К карте'); back.onclick = showMap;
-  const go = el('button', 'btn gold', 'В бой · 1 ⚡'); go.disabled = h.en.n <= 0;
+  const go = el('button', 'btn gold', 'В бой · 1 ⚡');
   go.onclick = () => tryFight(s);
-  row.append(back, go); if (h.en.n <= 3) row.appendChild(adButton('+10 ⚡', 'hw_en', 30 * 60e3, () => { h.en.n = Math.min(EN_MAX + 10, h.en.n + 10); }, () => showPrefight(s))); card.appendChild(row); root.appendChild(card);
+  row.append(back, go); card.appendChild(row); root.appendChild(card);
 }
 
 // ------------------------------------------------------------------ battle
@@ -110,6 +109,8 @@ async function fight(s) {
   const resize = () => { cv.width = bgcv.width = Math.round(cv.clientWidth * dpr); cv.height = bgcv.height = Math.round(cv.clientHeight * dpr); view = arenaView(cv.clientWidth, cv.clientHeight); if (stage) stage.resize(cv.clientWidth, cv.clientHeight); };
   resize();
   let speed = G.profile.hwSpeed === 2 ? 2 : 1; const speedB = el('button', 'hw-speed', '×' + speed); speedB.onclick = () => { speed = speed === 1 ? 2 : 1; G.profile.hwSpeed = speed; speedB.textContent = '×' + speed; }; root.appendChild(speedB);
+  // сборка 47: «Сбежать» — прервать бой (энергия уже потрачена, награды нет)
+  const fleeB = el('button', 'hw-speed hw-flee', 'Сбежать'); fleeB.onclick = () => { ended = true; cancelAnimationFrame(raf); raf = 0; speedB.remove(); fleeB.remove(); bus.emit('save'); showMap(); }; root.appendChild(fleeB);
   const ci = chOf(s), cls = G.profile.cls || 'warrior', wt = G.profile.gear.weapon ? G.profile.gear.weapon.wt : 'sword';
   const B = makeBattle({ ...heroSummary(), cls }, stageFoes(s)), Hu = B.H, foes = B.foes; stack.battle = B;   // stack.battle — для автотестов
   const nums = [], fx = [], labels = []; let time = 0, last = performance.now(), ended = false;
@@ -221,7 +222,7 @@ async function fight(s) {
   raf = requestAnimationFrame(frame);
   function end(win) {
     if (!root || !root.contains(stack)) return;
-    cancelAnimationFrame(raf); raf = 0; speedB.remove();
+    cancelAnimationFrame(raf); raf = 0; speedB.remove(); fleeB.remove();
     const h = HW(), P = G.profile; const first = win && s >= h.top;
     if (!win) bus.emit('hwLost');   // сборка 43: задание «Испытать себя в Летописи битв»
     const pct = Hu.hp / Hu.max; const stars = win ? (pct > 0.6 ? 3 : pct > 0.3 ? 2 : 1) : 0;
@@ -230,7 +231,7 @@ async function fight(s) {
       // сборка 44: опыта меньше (было (8 + 4·этап)·1,6) — уровни идут из катакомб и походов, Летопись — проверка силы, а не прокачка
       gold = Math.round((10 + s * 4) * (first ? 2 : 0.25) * (1 + (stars - 1) * 0.15)); xp = Math.round((5 + s * 2.5) * (first ? 1 : 0.25));
       if (foes.some(f => f.boss) && first) shards = foes.some(f => f.type === 'boss') ? 5 : 3; else if (rand() < 0.1) shards = 1;
-      P.gold += gold; gainXP(xp); if (shards) addShards(shards);
+      P.gold += gold; gainXP(xp); if (shards) addShards(shards); bus.emit('hwWin');
       h.stars[s] = Math.max(h.stars[s] || 0, stars); if (first) { h.top = Math.min(STAGES, s + 1); codexPage(s); }
     }
     bus.emit('save');

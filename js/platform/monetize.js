@@ -2,12 +2,14 @@
 // interstitial pacing, daily login streak and the "ripening chest" timer.
 import { G, bus, inCombat } from '../game/ctx.js';
 import { platform, PRODUCTS, gameplay } from './platform.js';
-import { makeItem, makeSetItem, pickSet } from '../game/items.js';
+import { makeItem, makeSetItem, pickSet, itemPower, applyKindPerk, MAX_UPG } from '../game/items.js';
 import { stats } from '../game/stats.js';
 import { autoEquip } from '../game/character.js';
 import { uid } from '../core/util.js';
 import { pickEpic } from '../game/loot.js';
+import { earlyLock, lockToast } from '../game/progress.js';
 import { SETS } from '../data/sets.js';
+import * as CS from '../game/castle.js';
 
 const MIN = 60 * 1000;
 export const OFFERS = {
@@ -26,6 +28,7 @@ export function offerToken(kind, scope = '') { return `${kind}:${scope || uid('o
 export async function watchRewarded(kind, token, apply) {
   const P = G.profile;
   if (busy) return false;
+  if (kind !== 'revive' && earlyLock('extra')) { lockToast('extra'); return false; }   // сборка 47: награды за рекламу — после обучения
   if (P.ads.used[token]) { bus.emit('toast', { text: 'Эта награда уже получена', kind: 'warn' }); return false; }
   // в открытом окне на паузе (Летопись битв и т. п.) время мира стоит — «недавний бой» там не считается
   const wasPaused = G.paused, frozen = wasPaused && G.modalOpen;
@@ -62,6 +65,7 @@ export async function maybeInterstitial(reason) {
 // ---- IAP
 export async function buy(productId) {
   const P = G.profile, def = PRODUCTS[productId];
+  if (earlyLock('extra')) { lockToast('extra'); return false; }   // сборка 47: покупки — после обучения
   if (def.once && P.iap.tx['once_' + productId]) { bus.emit('toast', { text: 'Этот набор уже куплен', kind: 'warn' }); return false; }
   if (!def.consumable && P.iap[flagOf(productId)]) { bus.emit('toast', { text: 'Уже куплено', kind: 'warn' }); return false; }
   G.paused = true; gameplay(false); const r = await platform.p.purchase(productId); G.paused = false;
@@ -72,14 +76,17 @@ export async function buy(productId) {
 // Через 2–3 вечера враги дорастают, и вещь становится обычной — её можно закалять и сливать дальше.
 function grantGear(def) {
   const P = G.profile, cls = P.cls || 'warrior', ilvl = P.level + 3, g = def.gear, out = [];
-  const fix = it => { delete it.req; it.ilvl = ilvl; return it; };
+  // сборка 47: купленная вещь всегда заметно лучше надетой (жалоба: набор за 99 ₽ слабее своих зелёных) — редкость не ниже надетой +1, закалка до +20% силы
+  const fix = it => { delete it.req; it.ilvl = ilvl; const cur = P.gear[it.slot];
+    if (cur) { it.rarity = Math.max(it.rarity, Math.min(4, cur.rarity + 1)); applyKindPerk(it); let k = 0; while (itemPower(it) < itemPower(cur) * 1.2 && k++ < MAX_UPG) it.upg = (it.upg || 0) + 1; }
+    return it; };
   if (g.kind === 'set') {
     const setId = Object.keys(SETS).filter(k => SETS[k].branch && SETS[k].cls.includes(cls))[0] || pickSet(cls);
-    for (const slot of ['head', 'chest', 'amulet']) { const it = fix(makeSetItem(setId, slot, ilvl, cls)); it.rarity = g.rarity; out.push(autoEquip(it)); }
+    for (const slot of ['head', 'chest', 'amulet']) { const it = makeSetItem(setId, slot, ilvl, cls); it.rarity = g.rarity; out.push(autoEquip(fix(it), true)); }
   } else if (g.kind === 'epic' || g.kind === 'mythic') {
-    const it = fix(makeItem({ epic: pickEpic(cls), ilvl, cls, noClamp: true }));
+    const it = makeItem({ epic: pickEpic(cls), ilvl, cls, noClamp: true });
     if (g.kind === 'mythic') it.rarity = 4;
-    out.push(autoEquip(it));
+    out.push(autoEquip(fix(it), true));
   }
   return out;
 }
@@ -96,6 +103,7 @@ export async function grantPurchase(productId, token) {
       bus.emit('reward', { title: PRODUCTS[productId].title, sub: 'Покупка получена', gold: 0, xp: 0, potions: 0, scrolls: 0, skillPts: 0, items });
       break; }
     case 'season_pass': P.seasonPass = P.seasonPass || {}; P.seasonPass[new Date().getFullYear() + '-' + (new Date().getMonth() + 1)] = 1; break;
+    case 'energy_pack': { const t = CS.torches(); t.n += 50; break; }   // сборка 47: можно сверх запаса
     case 'potion_pack': P.potions.hp += 15; P.potions.mp += 10; break;
     case 'gold_perk': P.iap.goldPerk = true; break;
     case 'no_ads': P.iap.noAds = true; break;

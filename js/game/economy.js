@@ -1,6 +1,6 @@
 // Economy: merchant (consumables, rotating stock, buy-back by selling), smith (upgrade/reforge), trainer (respec, spell lesson).
 import { G, bus } from './ctx.js';
-import { makeItem, sellValue, upgradeCost, reforgeCost, MAX_UPG, rollAffix, mergeItems, itemPower } from './items.js';
+import { makeItem, sellValue, upgradeCost, reforgeCost, MAX_UPG, rollAffix, mergeItems, itemPower, mergeCapFor, mergeCapLevel } from './items.js';
 import { AFFIXES, AFFIX_GROUP, CLASSES } from '../data/items.js';
 import { stats } from './stats.js';
 import { autoEquip } from './character.js';
@@ -20,13 +20,13 @@ export function ensureStock(force) {
   if (!force && S.stock.length && S.refreshedAtLevel === P.level) return;
   S.stock = []; S.refreshedAtLevel = P.level;
   const slots = ['weapon', 'head', 'chest', 'amulet'];
-  for (const slot of slots) S.stock.push(makeItem({ slot, cls: P.cls || 'warrior', ilvl: P.level + rint(0, 1), rarity: weighted([[1, 65], [2, 35]]) }));
+  for (const slot of slots) S.stock.push(makeItem({ slot, cls: P.cls || 'warrior', ilvl: P.level + rint(0, 1), rarity: weighted([[0, 40], [1, 50], [2, 10]]) }));
   for (const it of S.stock) delete it.req;
 }
 export function refreshStock(free) { if (!free && !pay(stockRefreshPrice())) return false; ensureStock(true); bus.emit('save'); return true; }
 export function buyConsumable(k) {
   const P = G.profile; if (!pay(potionPrice(k))) return false;
-  if (k === 'scroll') P.scrolls++; else P.potions[k]++; bus.emit('save'); return true;
+  if (k === 'scroll') P.scrolls++; else P.potions[k]++; if (k === 'hp') P.story.flags.potBought = true; bus.emit('save'); return true;   // флаг — шаг обучения «Купить зелье у Миры»
 }
 export function buyItem(idx) {
   const P = G.profile, it = P.shop.stock[idx]; if (!it) return false;
@@ -81,17 +81,19 @@ export function respecAttrs() {
 // ---- слияние у кузнеца (сборка 20): три вещи одного слота и редкости из сумки → одна следующей редкости
 // Надетые и закреплённые (🔒) вещи не участвуют. Основа — самая сильная из трёх.
 const MERGE_SLOTS = ['weapon', 'head', 'chest', 'amulet'];
-export const mergeCost = r => Math.round([20, 60, 200, 800][r] * Math.pow(1.1, Math.max(0, G.profile.level - 1)));
+export const mergeCost = r => Math.round([40, 200, 900, 4000][r] * Math.pow(1.1, Math.max(0, G.profile.level - 1)));
 export function mergeGroups() {
   const P = G.profile, out = [];
   for (const slot of MERGE_SLOTS) for (let r = 0; r < 4; r++) {
     const list = P.bag.filter(it => it.slot === slot && it.rarity === r && !it.locked && (slot !== 'weapon' || !it.wt || CLASSES[P.cls || 'warrior'].weapons.includes(it.wt)));
-    out.push({ slot, rarity: r, n: list.length, can: Math.floor(list.length / 3), list: list.sort((a, b) => itemPower(b) - itemPower(a)) });
+    const capped = r + 1 > mergeCapFor(P.level);   // сборка 47: редкость слиянием — по уровню героя
+    out.push({ slot, rarity: r, n: list.length, can: capped ? 0 : Math.floor(list.length / 3), capLvl: capped ? mergeCapLevel(r + 1) : 0, list: list.sort((a, b) => itemPower(b) - itemPower(a)) });
   }
   return out;
 }
 export function mergeOnce(slot, rarity, quiet) {
   const P = G.profile, g = mergeGroups().find(x => x.slot === slot && x.rarity === rarity);
+  if (g && g.capLvl && g.n >= 3 && !quiet) { bus.emit('toast', { text: `Такое слияние — с ${g.capLvl} уровня`, kind: 'warn' }); bus.emit('sfx', 'deny'); }
   if (!g || g.can < 1) return null;
   const cost = mergeCost(rarity); if (P.gold < cost) { if (!quiet) { bus.emit('toast', { text: `Слияние стоит ${cost} зол.`, kind: 'warn' }); bus.emit('sfx', 'deny'); } return null; }
   const three = g.list.slice(0, 3), it = mergeItems(three, P.cls); if (!it) return null;

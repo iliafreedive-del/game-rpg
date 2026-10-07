@@ -184,9 +184,10 @@ export class Zone {
         case 'door': {
           const tx = Math.floor(o.x), ty = Math.floor(o.y), open = !!W[id];
           const flip = m.ch(tx - 1, ty) !== '#';   // corridor runs along x → rotate door
-          const d = this.add({ x: o.x, y: o.y, spr: open ? 'door_open' : 'door', flip, wall: true });
-          if (open) m.setSolid(tx, ty, 0);
-          this.inter.push({ id, type: 'door', key: o.key, x: o.x, y: o.y, r: 1.7, label: 'Отпереть дверь', draw: d, done: open, tile: [tx, ty] });
+          const arch = (o.span || 1) > 1, tiles = o.tiles || [[tx, ty]];   // сборка 47: широкая арочная дверь (js/world/widen.js)
+          const d = this.add({ x: o.x, y: o.y, spr: (arch ? 'door_arch' : 'door') + (open ? '_open' : ''), flip, wall: true });
+          if (open) for (const [x, y] of tiles) m.setSolid(x, y, 0);
+          this.inter.push({ id, type: 'door', key: o.key, x: o.x, y: o.y, r: 1.7 + (arch ? 0.5 : 0), label: 'Отпереть дверь', draw: d, done: open, tile: [tx, ty], tiles });
           break;
         }
         case 'secretwall': {
@@ -235,7 +236,7 @@ export class Zone {
       } else if (o.t === 'survportal') {
         const d = this.add({ x: o.x, y: o.y, spr: 'portal_maw', anim: 'portal' });
         this.addLight(o.x, o.y, { r: 5, c: [255, 60, 60], flicker: 0.4, z: 1.2 });
-        this.inter.push({ id: 'portal_survival', type: 'survival', x: o.x, y: o.y, r: 1.8, label: 'Жатва Бездны', draw: d, reqLevel: 5, plate: 'Жатва Бездны' });
+        this.inter.push({ id: 'portal_survival', type: 'survival', x: o.x, y: o.y, r: 1.8, label: 'Жатва Бездны', draw: d, reqLevel: 2, plate: 'Жатва Бездны' });
         this.map.circles.push({ x: o.x, y: o.y - 0.1, r: 0.2 });
       } else if (o.t === 'castle') {
         const d = this.add({ x: o.x, y: o.y, spr: 'portal_crown', anim: 'portal' });
@@ -250,7 +251,7 @@ export class Zone {
         this.prop({ ...o, t: 'runebed' }); this.addLight(o.x, o.y, { r: 4, c: [255, 210, 90], flicker: 0.3, z: 1 });
         this.inter.push({ id: 'wheel', type: 'wheel', x: o.x, y: o.y, r: 1.9, label: 'Колесо Фортуны', plate: 'Колесо Фортуны' });
       } else if (o.t === 'hwsign') {
-        const d = this.add({ x: o.x, y: o.y, spr: 'banner', model: 'chronicle', tall: 1 }); for (const sx of [-1.7, 1.7]) this.map.circles.push({ x: o.x + sx, y: o.y, r: 0.45 });
+        const d = this.add({ x: o.x, y: o.y, spr: 'banner', model: 'chronicle', tall: 1 }); this.map.circles.push({ x: o.x, y: o.y, r: 1.3 });   // сборка 46: алтарь Летописи — один круг (раньше две колонны врат)
         this.addLight(o.x, o.y, { r: 5, c: [255, 200, 110], flicker: 0.3, z: 1.4 });
         this.inter.push({ id: 'herospath', type: 'herospath', x: o.x, y: o.y + 0.2, r: 2.2, label: 'Летопись битв', plate: 'Летопись битв', reqLevel: 2 });
       } else if (o.t === 'depths') {
