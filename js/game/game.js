@@ -1,4 +1,5 @@
 // Game orchestration: zone loading, spawning, main update, interactions, death/revive, autosave.
+import { onZoneChange } from './streak.js';
 import { generateVillage } from '../world/villagegen.js';
 import { G, bus, inCombat } from './ctx.js';
 import { Zone } from '../world/zone.js';
@@ -63,6 +64,7 @@ export async function loadZone(id, how = {}) {
   G.zoneReady = false; bus.emit('zoneLoading', id);
   if (G.zone && typeof requestAnimationFrame !== 'undefined') await new Promise(r => requestAnimationFrame(() => setTimeout(r, 0)));   // сборка 46: дать браузеру нарисовать шторку до тяжёлой сборки зоны
   const P = G.profile;
+  onZoneChange(G.zoneId, how);   // серия побед (сборка 47)
   if (G.zoneId === 'wild' && id !== 'wild') onLeaveWild();
   if (id !== 'wild') setPropsPalette(false);   // «снежные» пропсы Фьордов только внутри Фьордов
   // keep dungeon state when leaving through a Scroll of Return

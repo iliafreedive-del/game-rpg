@@ -1,4 +1,5 @@
 // Modal windows. All fit the viewport with internal scrolling; the game pauses while one is open.
+import { runFpsTest } from './fpstest.js';
 import { SETS, bonusText } from '../data/sets.js';
 import { setCounts } from '../game/stats.js';
 import { G, bus, inCombat } from '../game/ctx.js';
@@ -408,6 +409,7 @@ W.settings = () => modal('Настройки', 'sm', b => {
   const range = (lab, key) => { const r = el('div', 'attr', `<b>${lab}</b>`); const i = document.createElement('input'); i.type = 'range'; i.min = 0; i.max = 1; i.step = 0.05; i.value = s[key]; i.oninput = () => { s[key] = +i.value; setVolumes(s.sfx, s.music); }; i.onchange = () => bus.emit('save'); r.appendChild(i); b.appendChild(r); };
   range('Звуки', 'sfx'); range('Музыка', 'music');
   const q = el('div', 'attr', '<b>Качество графики</b>'); for (const [k, n] of [['low', 'Низкое'], ['auto', 'Авто'], ['med', 'Среднее'], ['high', 'Высокое']]) { const bt = el('button', 'btn sm' + (s.quality === k ? ' gold' : ''), n); bt.onclick = () => { s.quality = k; resize(); bus.emit('save'); rerender(); }; q.appendChild(bt); } b.appendChild(q);
+  { const ft = el('button', 'btn sm', '⏱ Тест скорости (FPS)'); ft.onclick = () => { closeModal(); runFpsTest(html => modal('Тест скорости', 'sm', bb => { bb.appendChild(el('div', '', html)); })); }; b.appendChild(ft); }   // сборка 47
   { let cur = '3d'; try { cur = localStorage.getItem('da_render') || '3d'; } catch { } if (new URLSearchParams(location.search).get('render')) cur = new URLSearchParams(location.search).get('render');
     const g = el('div', 'attr', '<b>Графика</b>'); for (const [k, n] of [['3d', '3D (по умолчанию)'], ['2d', 'Классика 2D']]) { const bt = el('button', 'btn sm' + (cur === k ? ' gold' : ''), n); bt.onclick = () => { try { localStorage.setItem('da_render', k); } catch { } saveNow(); const u = new URL(location.href); u.searchParams.delete('render'); location.href = u.toString(); }; g.appendChild(bt); } b.appendChild(g); b.appendChild(el('p', 'muted', '<small>Смена графики перезапускает игру (прогресс сохраняется). Лучник и маг пока всегда в 2D.</small>')); }
   { const nm = el('div', 'attr', '<b>Новые модели</b> <small class="muted">(герои)</small>'); const bn = el('button', 'btn sm', s.skins !== false ? 'Вкл' : 'Выкл'); bn.onclick = () => { s.skins = s.skins === false; bus.emit('save'); rerender(); }; nm.appendChild(bn); b.appendChild(nm); }
@@ -899,6 +901,12 @@ export function showDozor(d) {
     const ad = el('button', 'btn ad', 'Забрать ×2'); ad.onclick = async () => { const ok = await watchRewarded('dozor_x2', offerToken('dozor_x2', String(G.profile.dozorAt)), () => DQ.claimDozor(2)); if (ok) { G.dozorChecked = true; closeModal(); } };
     const ok = el('button', 'btn gold', 'Забрать'); ok.onclick = () => { DQ.claimDozor(1); G.dozorChecked = true; closeModal(); };
     row.append(ad, ok); b.appendChild(row);
+    { const t = CS.torches(), ds = dailyStatus(), wait = [];   // сборка 47: что ещё накопилось, пока игрока не было
+      wait.push(`⚡ Энергия: ${t.n} из ${CS.TORCH_MAX}${t.n >= CS.TORCH_MAX ? ' — полная' : ''}`);
+      if (ds.claimable && !earlyLock('extra')) wait.push(`🎁 Награда дня ${ds.day} в календаре`);
+      try { if (wheelReady() && !earlyLock('extra')) wait.push('🎡 Колесо у Хозяйки Колеса крутится бесплатно'); } catch { }
+      if (ds.claimable) wait.push('📜 Новые задания дня — у доски на площади');
+      b.appendChild(el('div', 'rw-wait', '<b>Ещё ждёт:</b><br>' + wait.join('<br>'))); }
     b.appendChild(el('p', 'muted', '<small>Дозор копит награду до 8 часов. Чем глубже вы прошли — тем больше добыча.</small>'));
   }, { sticky: true });
 }

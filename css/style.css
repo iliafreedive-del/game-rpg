@@ -725,7 +725,7 @@ body.cine-on #ui{opacity:0;transition:opacity .4s}
 @keyframes handp{0%,100%{transform:scale(1)}50%{transform:scale(1.18)}}
 .hint-line{position:fixed;left:50%;transform:translateX(-50%);z-index:88;width:max-content;max-width:88vw;pointer-events:none;background:#0b0a12e0;border:1.5px solid #d8a84a;border-radius:10px;padding:7px 13px;font:600 15px/1.3 var(--serif);color:#ffe9b0;text-align:center;box-shadow:0 6px 22px #000a;animation:rwin .3s}
 .hint-line.bot{bottom:calc(150px + var(--safe-b))}
-.hint-line.mid{top:42%}
+.hint-line.mid{top:26%;font-size:14px}   /* сборка 47: не на герое (он в центре экрана) */
 
 /* сборка 45: стрелка у края экрана к цели задания + кнопка «Веди меня» */
 #edgeArrow{position:fixed;z-index:70;width:54px;height:54px;margin:-27px 0 0 -27px;pointer-events:none;display:grid;place-items:center;opacity:.95}
@@ -763,3 +763,7 @@ body.cine-on #ui{opacity:0;transition:opacity .4s}
 @keyframes enPulse{50%{box-shadow:0 0 14px #ffd24a99}}
 #torchN{cursor:pointer;pointer-events:auto}
 .en-big{font:700 30px Georgia;color:#ffd24a;text-align:center;margin:6px 0}
+
+#streakB{position:absolute;left:-8px;top:-6px;background:#2a1408e8;border:1px solid #ff9a3a;border-radius:10px;padding:0 5px;font:700 12px/18px sans-serif;color:#ffd08a;box-shadow:0 0 8px #ff7a2a88;pointer-events:none}   /* сборка 47: серия побед */
+.rw-wait{margin:8px 0 2px;padding:8px 10px;border:1px solid #5a4630;border-radius:8px;background:#0006;font:13px/1.55 var(--serif);color:#e8dcc0;text-align:left}
+.fps-t{width:100%;border-collapse:collapse;font-size:13px;margin:6px 0}.fps-t td,.fps-t th{border-bottom:1px solid #3a3030;padding:4px;text-align:center}.fps-t th{color:var(--gold);font-weight:600}

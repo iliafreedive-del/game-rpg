@@ -1,4 +1,5 @@
 // HUD: bars, tracker, gold, buffs, boss bar, toasts, touch controls, minimap.
+import { streak } from '../game/streak.js';
 import { G, bus, inCombat } from '../game/ctx.js';
 import { $, el, esc, fmt } from '../core/util.js';
 import { input, resetBase, mouse } from '../core/input.js';
@@ -141,6 +142,8 @@ export function updateHUD(dt) {
   const ds = dailyStatus(), cs = chestStatus(), gifts = (ds.claimable ? 1 : 0) + (cs.ready ? 1 : 0) + (dailyReady() ? 1 : 0); dot('dotGift', gifts);
   const sh = G.zone && G.zone.inter.find(i => i.id === 'shrine'); if (sh) { sh.plate = 'Источник силы' + (gifts ? ` 🎁${gifts}` : blessLeft() > 0 ? '' : ' ✦'); sh.marker = gifts ? '!' : null; }   // значок над алтарём
   blessTick(); dot('dotSeason', seasonClaimable());
+  { const n = streak(); let sb = $('streakB'); if (!sb) { sb = el('span', '', ''); sb.id = 'streakB'; $('portrait').appendChild(sb); }   // сборка 47: огонёк серии побед
+    const t = n ? `🔥${n}` : ''; if (sb.textContent !== t) { sb.textContent = t; sb.title = n ? `Серия побед: +${Math.min(10, n) * 5}% золота` : ''; } sb.style.display = n ? '' : 'none'; }
   { let gl = $('goalLine'); if (!gl) { gl = el('div', '', ''); gl.id = 'goalLine'; $('buffs').after(gl); } const t = G.zoneId === 'wild' ? '' : G.zoneId === 'town' || !inCombat() ? nextGoalLine() : ''; if (gl.textContent !== t) gl.textContent = t; }   // «до цели» (сборка 21); в походе на этом месте плашка ноши
   // buffs
   const now = Date.now(); const bf = [];

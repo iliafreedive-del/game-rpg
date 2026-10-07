@@ -166,11 +166,14 @@ function drawNpcPlates() {
   for (const n of G.npcs || []) {
     if (n.echoFor || !n.name) continue;
     const [x, y] = cam.toScreen(n.x, n.y, 2.5); if (x < -60 || y < -40 || x > W + 60 || y > H + 40) continue;
-    const near = Math.hypot(G.player.x - n.x, G.player.y - n.y) < 9;
-    ctx.font = `600 ${Math.round(13 * z)}px Georgia, serif`; ctx.textAlign = 'center';
-    const tw = ctx.measureText(n.name).width + 14, ty = y;
-    ctx.globalAlpha = near ? 1 : 0.85; ctx.fillStyle = 'rgba(30,20,8,0.82)'; ctx.fillRect(x - tw / 2, ty - 14, tw, 19); ctx.strokeStyle = '#c99a3c'; ctx.lineWidth = 1; ctx.strokeRect(x - tw / 2, ty - 14, tw, 19);
-    ctx.fillStyle = '#ffe9b0'; ctx.fillText(n.name, x, ty);
+    const d = Math.hypot(G.player.x - n.x, G.player.y - n.y), near = d < 9, ty = y;
+    ctx.textAlign = 'center';
+    if (d < 10) {   // сборка 47: имя — только когда герой ближе 10 м, издалека над жителем лишь «!»/«?» (не закрывают деревню)
+      ctx.font = `600 ${Math.round(13 * z)}px Georgia, serif`;
+      const tw = ctx.measureText(n.name).width + 14;
+      ctx.globalAlpha = near ? 1 : 0.85; ctx.fillStyle = 'rgba(30,20,8,0.82)'; ctx.fillRect(x - tw / 2, ty - 14, tw, 19); ctx.strokeStyle = '#c99a3c'; ctx.lineWidth = 1; ctx.strokeRect(x - tw / 2, ty - 14, tw, 19);
+      ctx.fillStyle = '#ffe9b0'; ctx.fillText(n.name, x, ty);
+    }
     if (n.marker) { const b = Math.sin(G.time * 4) * 4; ctx.font = `bold ${Math.round(30 * z)}px Georgia, serif`; ctx.strokeStyle = '#000'; ctx.lineWidth = 4; ctx.strokeText(n.marker, x, ty - 20 + b); ctx.fillStyle = n.marker === '?' ? '#ffe36a' : '#ffd24a'; ctx.fillText(n.marker, x, ty - 20 + b); }
     ctx.globalAlpha = 1;
   }
