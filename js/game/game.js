@@ -17,7 +17,7 @@ import { widen } from '../world/widen.js';
 import { declutter } from '../world/declutter.js';
 import { respawnTick } from './respawn.js';
 import { weeklyRule, finishWeekly, codexScan, circle, circleHP, circleDmg, circleRew } from './season.js';
-const clean = J => (declutter(J), J), WILD_DECOR = new Set(['rocks', 'bones', 'skulls']);   // сборка 47: предметы не входят друг в друга и в стены (world/declutter.js)
+const clean = J => (declutter(J), J), WILD_DECOR = new Set(['rocks']);   // сборка 47: предметы не входят друг в друга и в стены (world/declutter.js)
 const ROOMY = 1.5;   // «простор» (сборка 18): подземелья в 3D растянуты в 1,5 раза — шире комнаты и коридоры
 import { generateFloor, isBossFloor, parTime } from '../world/floorgen.js';
 import { generateWild } from '../world/wildgen.js';
