@@ -10,6 +10,7 @@ import { rand, rrange, rint } from '../core/util.js';
 import { REALMS, WILD_MOBS, WILD_QUESTS, isWildBoss, isWildFort } from '../data/wild.js';
 import { applyFieldMemory } from './wildmem.js';
 import { pickNemesis, applyNemesis, bankCarry, onNemesisKilled } from './nemesis.js';
+import { bandLevel } from './progress.js';
 
 export const wildState = (realm, P = G.profile) => {
   P.wild = P.wild || {};
@@ -25,7 +26,7 @@ export function spawnWild(zone) {
       let px = x, py = y;
       for (let k = 0; k < 12; k++) { const tx = x + rrange(-spread, spread), ty = y + rrange(-spread, spread); if (zone.map.free(tx, ty, 0.45)) { px = tx; py = ty; break; } }
       const rr = WILD_MOBS[type].radius + 0.15; [px, py] = zone.map.nearestFree(px, py, rr);
-      const e = new Enemy(type, px, py, lvl, { story: tag || null, champion: !tag && rand() < 0.04 + zone.json.wild.depth * 0.01 });
+      const e = new Enemy(type, px, py, bandLevel(lvl, lvl + 3), { story: tag || null, champion: !tag && rand() < 0.04 + zone.json.wild.depth * 0.01 });   // сборка 47: герой +1 в пределах поле..поле+3
       if (tag === 'wildkeep') applyNemesis(e, pickNemesis(zone.json.wild.realm));
       if (tag === 'wildboss') e.name = `${WILD_MOBS[type].name} · глубина ${zone.json.wild.depth}`;
       G.enemies.push(e);
@@ -65,7 +66,7 @@ function onKill(e) {
     // добыча командира: золото, зелья и редкая вещь
     for (let i = 0; i < (boss ? 12 : 7); i++) L.dropGold(e.x, e.y, rint(6, 12) * (1 + 0.15 * (lvl - 1)));
     L.dropPotion(e.x, e.y, 'hp'); L.dropPotion(e.x, e.y, 'mp'); if (boss) { L.dropPotion(e.x, e.y, 'hp'); L.dropPotion(e.x, e.y, 'hp'); }
-    L.dropItem(e.x, e.y, boss ? makeItem({ epic: L.pickEpic(cls), ilvl: P.level + 2, cls }) : makeItem({ rarity: 2, ilvl: P.level + 1, cls }));
+    L.dropItem(e.x, e.y, boss ? makeItem({ epic: L.pickEpic(cls), ilvl: P.level + 2, cls }) : makeItem({ rarity: rand() < 0.3 ? 2 : 1, ilvl: P.level + 1, cls }));   // сборка 47: командир — обычно зелёная
     for (const p of G.pickups) if (p.t < 0.1) p.fly = true;   // всё, что упало с командира, само подлетает к герою
     openNext(e); if (e.nem) onNemesisKilled(e);
     bankCarry(boss ? 'Босс повержен' : 'Форт отбит');
@@ -106,7 +107,7 @@ export function openStash(it) {
 export function wildChestExtra(it) {
   if (!it.rich || !G.wild) return;
   const P = G.profile, lvl = G.zone.json.level;
-  const n0 = G.pickups.length; L.dropItem(it.x, it.y + 0.8, makeItem({ rarity: 1, ilvl: Math.max(P.level, lvl) + 1, cls: P.cls || 'warrior' })); for (let i = n0; i < G.pickups.length; i++) G.pickups[i].fly = true;
+  const n0 = G.pickups.length; L.dropItem(it.x, it.y + 0.8, makeItem({ rarity: rand() < 0.3 ? 1 : 0, ilvl: Math.max(P.level, lvl) + 1, cls: P.cls || 'warrior' })); for (let i = n0; i < G.pickups.length; i++) G.pickups[i].fly = true;
 }
 
 // ---- задания

@@ -13,7 +13,7 @@ import * as EC from '../game/economy.js';
 import * as Q from '../game/quests.js';
 import { iconURL, skillCanvas } from './icons.js';
 import { drawMap, seen, seenKey } from './hud.js';
-import { offers, buy, restorePurchases, dailyStatus, claimDaily, chestStatus, chestSkip, openOrderChest, DAILY, LOGIN_DAYS, watchRewarded, offerToken, blessing, blessLeft, BLESS_MIN, BLESS_CAP } from '../platform/monetize.js';
+import { offers, buy, restorePurchases, dailyStatus, claimDaily, chestStatus, chestSkip, openOrderChest, DAILY, LOGIN_DAYS, watchRewarded, offerToken, blessing, blessLeft, BLESS_MIN, BLESS_CAP, BLESS_DAY, blessToday } from '../platform/monetize.js';
 import { PRODUCTS, platform } from '../platform/platform.js';
 import { wallOffer, markShown, streakHelp, helpGiven } from '../platform/offers.js';
 import { inCinema } from './cinema.js';
@@ -585,7 +585,7 @@ W.npc_merchant = () => {
 };
 W.npc_trainer = () => {
   // Глава III: герой вспомнил всё — Элвин объясняется (одной сценой, потом обычное окно наставника)
-  { const q = Q.current(); if (q && q.id === 'c3_elvin') { const lines = DIALOG.trainer.confess;
+  { const q = Q.current(), scene = q && { c3_elvin: DIALOG.trainer.confess, c2_stone: DIALOG.trainer.stone }[q.id]; if (scene) { const lines = scene;
     return modal('Наставник Элвин', 'sm', b => {
       const dl = dialog(b, 'trainer', 'Наставник Элвин', lines);
       const row = el('div', 'row'); row.style.marginTop = '12px';
@@ -648,7 +648,8 @@ W.shrine = () => modal('Источник силы', 'md', b => {
   // 1) благословение — главное предложение алтаря
   { const left = blessLeft(), on = left > 0, full = left > (BLESS_CAP - BLESS_MIN) * 60000;
     const c = el('div', 'bless-card' + (on ? ' on' : ''), `<div class="bl-ic">✦</div><div class="tx"><b>Сила источника</b><div>+50% золота и опыта, +25% к выпадению вещей — ${BLESS_MIN} минут</div><div class="muted">${on ? `Действует ещё <b>${Math.floor(left / 60000)}:${String(Math.floor(left / 1000) % 60).padStart(2, '0')}</b>${full ? ' · предел ' + BLESS_CAP + ' мин' : ' · можно продлить'}` : 'Посмотрите рекламу — и 10 минут всё падает щедрее'}</div></div>`);
-    const bt = el('button', 'btn ad', on ? `+${BLESS_MIN} мин` : 'Получить'); bt.disabled = full || inCombat(); bt.onclick = () => blessing().then(rerender); c.appendChild(bt); b.appendChild(c); }
+    const used = blessToday() >= BLESS_DAY; c.appendChild(el('div', 'muted', `<small>Сегодня: ${blessToday()} из ${BLESS_DAY}</small>`));
+    const bt = el('button', 'btn ad', used ? 'Завтра' : on ? `+${BLESS_MIN} мин` : 'Получить'); bt.disabled = full || used || inCombat(); bt.onclick = () => blessing().then(rerender); c.appendChild(bt); b.appendChild(c); }
   // 2) календарь входа: 28 дней, пропуск не сбрасывает, каждый 3-й больше, 7/14/21/28 — вещь
   const ds = dailyStatus(), cur = ds.day, base = ds.streak - (ds.claimable ? 0 : 1) - (cur - 1);   // base — сколько дней было до этого круга
   b.appendChild(el('h3', '', `Дары источника · день ${cur} из ${LOGIN_DAYS}${ds.streak >= LOGIN_DAYS ? ` · круг ${Math.floor(base / LOGIN_DAYS) + 1}` : ''}`));

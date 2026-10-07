@@ -149,11 +149,15 @@ export function claimDaily(double) {
 
 // ---- благословение богини за рекламу: +50% золота и опыта, +25% к выпадению вещей; 10 минут за просмотр, не больше 30 подряд
 export const BLESS_MIN = 10, BLESS_CAP = 30;
+// сборка 47: не больше 3 просмотров в день (30 минут), иначе реклама подряд качает героя быстрее игры
+export const BLESS_DAY = 3;
+export function blessToday() { const P = G.profile, d = dayKey(Date.now()); P.ads.bless = P.ads.bless && P.ads.bless.d === d ? P.ads.bless : { d, n: 0 }; return P.ads.bless.n; }
 export const blessLeft = () => Math.max(0, ((G.profile.boosts && G.profile.boosts.blessUntil) || 0) - Date.now());
 export const blessed = () => blessLeft() > 0;
 export function blessing() {
   if (blessLeft() > (BLESS_CAP - BLESS_MIN) * MIN) { bus.emit('toast', { text: 'Сила источника уже на пределе', sub: `Не больше ${BLESS_CAP} минут подряд`, kind: 'warn' }); return Promise.resolve(false); }
-  return watchRewarded('bless', offerToken('bless'), () => { const P = G.profile; P.boosts.blessUntil = Math.max(Date.now(), P.boosts.blessUntil || 0) + BLESS_MIN * MIN; P.boosts.blessWarned = false;
+  if (blessToday() >= BLESS_DAY) { bus.emit('toast', { text: 'Источник силы отдыхает до завтра', sub: `Не больше ${BLESS_DAY} раз в день`, kind: 'warn' }); return Promise.resolve(false); }
+  return watchRewarded('bless', offerToken('bless'), () => { const P = G.profile; blessToday(); P.ads.bless.n++; P.boosts.blessUntil = Math.max(Date.now(), P.boosts.blessUntil || 0) + BLESS_MIN * MIN; P.boosts.blessWarned = false;
     bus.emit('toast', { text: 'Сила источника!', sub: '+50% золота и опыта, +25% вещей — 10 минут. Вперёд, в бой!', kind: 'good' }); bus.emit('sfx', 'levelup'); });
 }
 // напоминание за минуту до конца и по окончании (вызывается раз в секунду из hud.js)
@@ -168,8 +172,8 @@ export function chestStatus() { const P = G.profile; P.orderChest = P.orderChest
 export function openOrderChest(viaAd) {
   const P = G.profile; const s = chestStatus();
   if (!s.ready && !viaAd) return false;
-  { const it = makeItem({ ilvl: P.level + 1, rarity: 2, cls: P.cls }); delete it.req; autoEquip(it); }
+  { const it = makeItem({ ilvl: P.level + 1, rarity: Math.random() < 0.25 ? 2 : 1, cls: P.cls }); delete it.req; autoEquip(it); }   // сборка 47: обычно зелёная, синяя — 1 из 4
   P.gold += 40 * P.level; P.orderChest.readyAt = Date.now() + CHEST_TIME;
-  bus.emit('toast', { text: 'Сундук Ордена открыт!', sub: 'Редкий предмет (надет, если лучше) + золото', kind: 'good' }); bus.emit('sfx', 'chest'); bus.emit('hud'); bus.emit('save'); return true;
+  bus.emit('toast', { text: 'Сундук Ордена открыт!', sub: 'Вещь (надета, если лучше) + золото', kind: 'good' }); bus.emit('sfx', 'chest'); bus.emit('hud'); bus.emit('save'); return true;
 }
 export function chestSkip() { const s = chestStatus(); if (s.ready) return openOrderChest(); return watchRewarded('chest_skip', offerToken('chest_skip', String(G.profile.orderChest.readyAt)), () => openOrderChest(true)); }

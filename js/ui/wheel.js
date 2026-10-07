@@ -14,7 +14,7 @@ const PRIZES = [
   { t: '💰 1000', c: '#e8b030', w: 7, give: P => { P.gold += 600 + P.level * 80; return `+${600 + P.level * 80} золота`; } },
   { t: '◆ 6', c: '#9a4ae8', w: 5, give: P => { P.shards = (P.shards || 0) + 6; return '+6 осколков Бездны'; } },
   { t: '📜 2', c: '#5a6a3a', w: 14, give: P => { P.scrolls += 2; return '+2 свитка возврата'; } },
-  { t: '★ вещь', c: '#3a6ec8', w: 8, give: P => { const it = makeItem({ slot: ['weapon', 'head', 'chest', 'amulet'][Math.floor(Math.random() * 4)], ilvl: P.level + 1, rarity: 2, cls: P.cls }); delete it.req; autoEquip(it); return 'Редкая вещь: ' + it.name; } },
+  { t: '★ вещь', c: '#3a6ec8', w: 8, give: P => { const it = makeItem({ slot: ['weapon', 'head', 'chest', 'amulet'][Math.floor(Math.random() * 4)], ilvl: P.level + 1, rarity: Math.random() < 0.25 ? 2 : 1, cls: P.cls }); delete it.req; autoEquip(it); return 'Вещь: ' + it.name; }   /* сборка 47: обычно зелёная */ },
 ];
 const FREE_MS = 8 * 3600e3;
 export const wheelReady = () => { const P = G.profile; return !P.wheelFree || Date.now() - P.wheelFree >= FREE_MS; };

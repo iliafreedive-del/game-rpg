@@ -17,7 +17,7 @@ export function newProfile(cls = 'warrior') {
     skills: {}, slots: [null, null, null, null],
     gear: {}, bag: [], bagSize: 40,
     potions: { hp: 3, mp: 1 }, scrolls: 1,
-    story: { stage: 0, counters: {}, flags: {}, done: [], flow38: true, flow43: true, flow47: true },
+    story: { stage: 0, counters: {}, flags: {}, done: [], flow38: true, flow43: true, flow47: true, flowDepths: true },
     repeat: {},            // id -> {accepted, base, completions}
     stats: { kills: 0, skeletons: 0, elites: 0, chests: 0, meters: 0, gold: 0, bossKills: 0, deaths: 0, bossNoDeath: 0, playTime: 0 },
     world: { opened: {}, lastZone: 'town' },   // persistent story objects (key sarcophagus, secret wall, gate…)
@@ -129,6 +129,13 @@ export function migrate(p) {
     if (done.has('elder_task')) for (const id of ['hw_elvin', 'meet_merchant', 'surv_try', 'surv_elvin']) if (!done.has(id)) { p.story.done.push(id); done.add(id); }
     let st = 0; while (st < STORY.length && done.has(STORY[st].id)) st++; p.story.stage = st;
     p.story.flow47 = true;
+  }
+  // сборка 47: в начало Главы II вставлена цепочка к Глубинам — у тех, кто уже в Главе II или спускался на 3+ этаж, она позади
+  if (p.story && !p.story.flowDepths) {
+    const done = new Set(p.story.done || []), deep = ((p.depths && p.depths.best) || 0) >= 3;
+    if (deep || [...done].some(id => id.startsWith('c2_') || id.startsWith('c3_') || id.startsWith('c4_'))) for (const id of ['c2_stone', 'c2_depths_portal', 'c2_depths3']) if (!done.has(id)) { p.story.done.push(id); done.add(id); }
+    let st = 0; while (st < STORY.length && done.has(STORY[st].id)) st++; p.story.stage = st;
+    p.story.flowDepths = true;
   }
   // fill any fields added later with defaults (forward-compatible)
   const d = newProfile();
