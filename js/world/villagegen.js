@@ -206,7 +206,7 @@ export function generateVillage(plan0 = PLAN) {
   // ---- NPC и их места
   const npc = (id, name, x, y, extra = {}) => { const n = { id, name, x: +x.toFixed(2), y: +y.toFixed(2), model: 'npc_' + id, ...extra }; npcs.push(n); targets.push({ x, y }); return n; };
   // староста — у ступеней церкви слева, доска заданий рядом
-  { const [fx, fy] = front(church, 3.4); npc('elder', 'Староста Эдрик', fx - 3.8, fy + 0.2); put('board', fx + 4.0, fy + 0.3); }
+  { const [fx, fy] = front(church, 3.4); npc('elder', 'Староста Эдрик', fx - 3.8, fy + 0.2); put('board', CX + SQ.hw - 2.2, CY - SQ.hh + 0.6); }   // доска — у правого края площади, вровень со ступенями церкви (сборка 46)
   if (shop) {
     const [mx, my] = front(shop, 0.55); npc('merchant', 'Торговка Мира', mx, my, { reach: 3.2 });
     const cs = [[-1.75, 3.0], [1.75, 3.0], [-1.75, 3.7], [1.75, 3.7]].map(([u, v]) => side(shop, u, v)), xs = cs.map(c => c[0]), ys = cs.map(c => c[1]);

@@ -15,8 +15,20 @@ export function preloadAltar() {
   wait = new GLTFLoader().loadAsync(URL_).then(g => {
     g.scene.traverse(o => {
       if (!o.isMesh || O) return;
-      const mat = toon(0xffffff, { rim: 0.3, rimColor: 0xffb070, side: THREE.DoubleSide, ao: 0.7, aoH: 1.2 });
+      const mat = toon(0xffffff, { vc: true, rim: 0.3, rimColor: 0xffb070, side: THREE.DoubleSide, ao: 0.7, aoH: 1.2 });
       mat.map = o.material.map; if (mat.map) { mat.map.colorSpace = THREE.SRGBColorSpace; mat.map.anisotropy = 4; }
+      // основание (ступени, нижние ~16 % высоты) — тёмно-красное, чтобы не сливалось с брусчаткой площади (сборка 46)
+      const P = o.geometry.attributes.position, C = new Float32Array(P.count * 3);
+      for (let i = 0; i < P.count; i++) { const k = 1 - THREE.MathUtils.smoothstep(P.getY(i), 0.13, 0.19); C.set([1 + 1.8 * k, 1 - 0.55 * k, 1 - 0.6 * k], i * 3); }
+      o.geometry.setAttribute('color', new THREE.BufferAttribute(C, 3));
+      // свечение оранжевых рун: из текстуры остаются только оранжевые точки — карта свечения
+      if (mat.map && mat.map.image) {
+        const img = mat.map.image, w = img.width, h = img.height, cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+        const cx = cv.getContext('2d'); cx.drawImage(img, 0, 0); const D = cx.getImageData(0, 0, w, h), d = D.data;
+        for (let i = 0; i < d.length; i += 4) { const r = d[i], g = d[i + 1], b = d[i + 2], on = r > 150 && r > g * 1.35 && b < r * 0.45; if (!on) d[i] = d[i + 1] = d[i + 2] = 0; }
+        cx.putImageData(D, 0, 0); mat.emissiveMap = new THREE.CanvasTexture(cv); mat.emissiveMap.colorSpace = THREE.SRGBColorSpace; mat.emissiveMap.flipY = mat.map.flipY;
+        mat.emissive.setRGB(1, 0.75, 0.5); mat.emissiveIntensity = 1.6;
+      }
       O = { geometry: o.geometry, mat };
     });
     return !!O;
