@@ -8,8 +8,10 @@ import { xpToNext, stats } from './stats.js';
 import { rand, rint, weighted, pick, uid } from '../core/util.js';
 import { float, particles } from './combat.js';
 
-const goldMul = () => rm('gold') * (G.run && G.run.boons && G.run.boons.includes('greed') ? 1.25 : 1) * (1 + G.stats.goldFind / 100) * (G.profile.boosts.goldUntil > Date.now() || G.profile.boosts.blessUntil > Date.now() ? 1.5 : 1) * (G.profile.iap.goldPerk ? 1.25 : 1);
-export const xpMul = () => rm('xp') * (G.profile.boosts.xpUntil > Date.now() || G.profile.boosts.blessUntil > Date.now() ? 1.5 : 1) * (1 + ((G.stats && G.stats.decor && G.stats.decor.xp) || 0) / 100);
+// Сила источника за рекламу (сборка 47 — урезано по просьбе пользователя): было +50% золота и опыта, +25% вещей
+const BLESS_MUL = 1.25, BLESS_ITEMS = 1.15;
+const goldMul = () => rm('gold') * (G.run && G.run.boons && G.run.boons.includes('greed') ? 1.25 : 1) * (1 + G.stats.goldFind / 100) * (G.profile.boosts.goldUntil > Date.now() ? 1.5 : G.profile.boosts.blessUntil > Date.now() ? BLESS_MUL : 1) * (G.profile.iap.goldPerk ? 1.25 : 1);
+export const xpMul = () => rm('xp') * (G.profile.boosts.xpUntil > Date.now() ? 1.5 : G.profile.boosts.blessUntil > Date.now() ? BLESS_MUL : 1) * (1 + ((G.stats && G.stats.decor && G.stats.decor.xp) || 0) / 100);
 
 export function dropGold(x, y, amount) {
   amount = Math.max(1, Math.round(amount * goldMul()));
@@ -33,10 +35,10 @@ export function enemyLoot(e) {
   for (let i = 0; i < piles; i++) dropGold(e.x, e.y, rint(D.gold[0], D.gold[1]) * (1 + 0.12 * (L - 1)) * 0.75 / (D.boss || D.elite ? piles / 2 : 1));   // сборка 47: золота −25%
   if (rand() < (D.boss ? 1 : D.elite ? 0.35 : e.champion ? 0.2 : 0.015)) dropPotion(e.x, e.y, rand() < 0.7 ? 'hp' : 'mp');
   // вещи: редкие и заметные. Рядовой враг почти никогда, чемпион — иногда, страж и босс — всегда
-  const ch = (D.boss ? 1 : D.elite ? 0.5 : e.champion ? 0.12 : G.zoneId === 'wild' ? 0.03 : 0.025) / (e.respawned ? 3 : 1) * (G.profile.boosts.blessUntil > Date.now() ? 1.25 : 1) * rm('items') * (1 + 0.05 * ((G.run && G.run.circle) || 0));
-  // сборка 20: серого больше — сырьё для слияния у кузнеца. Благословение — +25% вещей; «Орда» недели — ×2; возрождённые (respawn.js) — втрое реже; круг Бездны — +5% за круг
+  const ch = (D.boss ? 1 : D.elite ? 0.5 : e.champion ? 0.12 : G.zoneId === 'wild' ? 0.03 : 0.025) / (e.respawned ? 3 : 1) * (G.profile.boosts.blessUntil > Date.now() ? BLESS_ITEMS : 1) * rm('items') * (1 + 0.05 * ((G.run && G.run.circle) || 0));
+  // сборка 20: серого больше — сырьё для слияния у кузнеца. Благословение — +15% вещей; «Орда» недели — ×2; возрождённые (respawn.js) — втрое реже; круг Бездны — +5% за круг
   // таблицы: серый / зелёный / синий / золотой. Сборка 47: вещей втрое меньше, зелёные — редкость (жалоба «шмота как грязи»)
-  if (rand() < ch) dropItem(e.x, e.y, rollDrop(L + (D.boss || D.elite ? 1 : 0), D.boss ? [15, 55, 26, 4] : D.elite ? [45, 45, 9, 1] : e.champion ? [72, 26, 2, 0] : [97, 3, 0, 0]));
+  if (rand() < ch) dropItem(e.x, e.y, rollDrop(L + (D.boss || D.elite ? 1 : 0), D.boss ? [30, 55, 13, 2] : D.elite ? [60, 36, 4, 0] : e.champion ? [85, 15, 0, 0] : [97, 3, 0, 0]));   // сборка 47: зелёное и синее реже, цвет поднимается слиянием у кузнеца
 }
 export function rollDrop(ilvl, table) {
   const P = G.profile, r = rollRarity(table);
@@ -58,7 +60,7 @@ export function chestLoot(x, y, rich, lvl, id) {
 function chestLoot0(x, y, rich, lvl, id) {
   for (let i = 0; i < (rich ? 5 : 3); i++) dropGold(x, y, rint(3, 7) * (1 + 0.15 * (lvl - 1)));
   if (rand() < (rich ? 0.6 : 0.15)) dropPotion(x, y, rand() < 0.75 ? 'hp' : 'mp');
-  if (rand() < (rich ? 0.35 : 0.06)) dropItem(x, y + 0.2, rollDrop(lvl, rich ? [45, 45, 9, 1] : [92, 8, 0, 0]));
+  if (rand() < (rich ? 0.35 : 0.06)) dropItem(x, y + 0.2, rollDrop(lvl, rich ? [60, 36, 4, 0] : [95, 5, 0, 0]));
   if (rich && G.profile.level >= 10 && rand() < 0.1) dropItem(x + 0.3, y + 0.4, makeSetItem(pickSet(G.profile.cls), null, lvl, G.profile.cls));   // сундук Ордена — шанс части сета
 }
 
@@ -109,4 +111,8 @@ export function gainXP(n, x, y) {
   }
   bus.emit('hud');
 }
-export function killXP(e) { return Math.round(e.D.xp * scaleXP(e.lvl) * (e.champion ? 2.5 : 1) * Math.max(0.3, 1 - Math.max(0, G.profile.level - e.lvl - 2) * 0.15)); }
+// сборка 47 (как в Diablo II): герой выше врага — опыта меньше: на 1 ур. ×0,8, на 2 ×0,55, на 3 ×0,3, на 4 ×0,15, дальше ×0,05.
+// Враги идут на уровень выше героя, пока не упрутся в потолок зоны (progress.js bandLevel) — перекачавшись, герой здесь почти не растёт
+const OVER = [1, 0.8, 0.55, 0.3, 0.15, 0.05];
+export const overPenalty = (hero, mob) => OVER[Math.min(OVER.length - 1, Math.max(0, hero - mob))];
+export function killXP(e) { return Math.round(e.D.xp * scaleXP(e.lvl) * (e.champion ? 2.5 : 1) * overPenalty(G.profile.level, e.lvl)); }

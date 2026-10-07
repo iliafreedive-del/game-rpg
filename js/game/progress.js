@@ -6,6 +6,12 @@ import { G, bus } from './ctx.js';
 import { STORY } from '../data/quests.js';
 
 export const BOSS_LEVEL = 7;
+// сборка 47: уровни зон «как в Diablo». У каждой локации свой коридор уровней врагов [от, до]: внутри коридора враг
+// всегда на 1 уровень выше героя (≈ +20–30% к здоровью и урону), ниже «от» не опускается (слабым героем рано не пройти),
+// выше «до» не растёт — перекачанный герой получает всё меньше опыта (killXP в loot.js) и уходит дальше.
+// Катакомбы до первого прохождения — 1–7 (комната задаёт «от»), Хранитель 6–8, Палач 7–10; Глубины и походы — от уровня этажа/поля до него +3.
+export const CATA_MAX = 7;
+export const bandLevel = (min, max) => Math.max(min, Math.min(max, ((G.profile && G.profile.level) || 1) + 1));
 const F = () => G.profile.story.flags;
 export const hasSkill = () => G.profile.slots.some(Boolean) || Object.keys(G.profile.skills).length > 0;
 const forts = realm => { const S = G.profile.wild && G.profile.wild[realm]; return S && S.stat ? S.stat.forts || 0 : 0; };

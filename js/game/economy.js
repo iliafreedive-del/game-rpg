@@ -6,7 +6,8 @@ import { stats } from './stats.js';
 import { autoEquip } from './character.js';
 import { rint, weighted } from '../core/util.js';
 
-export const potionPrice = k => k === 'hp' ? 15 + 3 * G.profile.level : k === 'mp' ? 12 + 2 * G.profile.level : 45 + 5 * G.profile.level;
+// сборка 47: зелье здоровья — 300 зол. (+10 за уровень); первое, по шагу обучения у Миры, — за 30
+export const potionPrice = k => k === 'hp' ? (G.profile.story.flags.potBought ? 300 + 10 * (G.profile.level - 1) : 30) : k === 'mp' ? 12 + 2 * G.profile.level : 45 + 5 * G.profile.level;
 export const stockRefreshPrice = () => 40 * G.profile.level;
 export const respecSkillPrice = () => 100 * G.profile.level;
 export const respecAttrPrice = () => 80 * G.profile.level;
@@ -20,7 +21,7 @@ export function ensureStock(force) {
   if (!force && S.stock.length && S.refreshedAtLevel === P.level) return;
   S.stock = []; S.refreshedAtLevel = P.level;
   const slots = ['weapon', 'head', 'chest', 'amulet'];
-  for (const slot of slots) S.stock.push(makeItem({ slot, cls: P.cls || 'warrior', ilvl: P.level + rint(0, 1), rarity: weighted([[0, 40], [1, 50], [2, 10]]) }));
+  for (const slot of slots) S.stock.push(makeItem({ slot, cls: P.cls || 'warrior', ilvl: P.level + rint(0, 1), rarity: weighted([[0, 70], [1, 27], [2, 3]]) /* сборка 47: было 40/50/10 */ }));
   for (const it of S.stock) delete it.req;
 }
 export function refreshStock(free) { if (!free && !pay(stockRefreshPrice())) return false; ensureStock(true); bus.emit('save'); return true; }

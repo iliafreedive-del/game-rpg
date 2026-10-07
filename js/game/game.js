@@ -38,7 +38,7 @@ import * as HU from './hunts.js';
 import { SKILLS } from '../data/skills.js';
 import { rand, rrange, rint } from '../core/util.js';
 import { pollMove, input, mouse, tapAim } from '../core/input.js';
-import { gate, BOSS_LEVEL, nextStep, earlyLock, lockToast } from './progress.js';
+import { gate, BOSS_LEVEL, nextStep, earlyLock, lockToast, bandLevel, CATA_MAX } from './progress.js';
 import { platform } from '../platform/platform.js';
 import { cineTick, inCinema, cinema, portalShots } from '../ui/cinema.js';
 import { maybeInterstitial, dailyStatus, blessed } from '../platform/monetize.js';
@@ -159,7 +159,7 @@ export async function loadZone(id, how = {}) {
   if (id === 'survival') SV.startRun(); else G.surv = null;
   G.zoneReady = true;
   bus.emit('zoneEntered', id); bus.emit('hud'); requestSave();
-  if (id === 'town' && G.profile.tutorial.prologue) setTimeout(() => { const d = dailyStatus(); if (d.claimable) bus.emit('toast', { text: 'Дары источника ждут!', sub: `День ${d.day} из 28 — алтарь на площади`, kind: 'quest' }); else if (!blessed()) bus.emit('toast', { text: 'Источник силы на площади', sub: 'Сила источника: +50% золота и опыта на 10 минут', kind: 'info' }); }, 2500);   // сборка 19
+  if (id === 'town' && G.profile.tutorial.prologue) setTimeout(() => { const d = dailyStatus(); if (d.claimable) bus.emit('toast', { text: 'Дары источника ждут!', sub: `День ${d.day} из 28 — алтарь на площади`, kind: 'quest' }); else if (!blessed()) bus.emit('toast', { text: 'Источник силы на площади', sub: 'Сила источника: +25% золота и опыта на 10 минут', kind: 'info' }); }, 2500);   // сборка 19
   if (id === 'town' && P.tutorial.prologue) setTimeout(() => { if (G.zoneId === 'town') bus.emit('toast', { text: 'Дальше: ' + nextStep(), kind: 'info' }); }, 2200);
   if (id === 'town' && how.from && how.from !== 'death') setTimeout(() => maybeInterstitial('return'), 1200);
   if (id === 'town' && P.tutorial.prologue) setTimeout(() => { if (G.zoneId === 'town') bus.emit('wallOffer'); }, 4200);   // лестница покупок: один раз у очередной «стены» (js/platform/offers.js)   // реклама только на спокойном переходе (не чаще раза в 4 минуты)
@@ -168,7 +168,7 @@ export async function loadZone(id, how = {}) {
 function roomLevel(zone, x, y) {
   if (zone.id === 'depths' || zone.id === 'wild') return zone.json.level;
   const base = ROOM_LEVEL[zone.roomAt(x, y)] || 3;
-  return G.profile.chapterDone ? Math.max(base, G.profile.level - 1 + Math.floor(base / 3)) : base;
+  return G.profile.chapterDone ? Math.max(base, G.profile.level - 1 + Math.floor(base / 3)) : bandLevel(base, CATA_MAX);   // сборка 47: герой +1, но не выше 7
 }
 function spawnDungeon(zone) {
   const P = G.profile, W = P.world.opened;
@@ -185,7 +185,7 @@ function spawnDungeon(zone) {
   }
   const [el, bo] = zone.json.story;
   if (!P.story.flags.eliteKilled) spawnElite(zone);   // Хранитель амулета стоит в зале за дверью
-  if (P.story.flags.gateOpen || W.gateOpen) G.enemies.push(new Enemy('boss', bo[1], bo[2], P.chapterDone ? Math.max(6, P.level) : 6, { story: 'boss' }));
+  if (P.story.flags.gateOpen || W.gateOpen) G.enemies.push(new Enemy('boss', bo[1], bo[2], P.chapterDone ? Math.max(6, P.level) : bandLevel(BOSS_LEVEL, 10), { story: 'boss' }));
 }
 export const depthsUnlocked = () => !!G.profile.story.flags.bossKilled || (G.profile.depths && G.profile.depths.best > 0);
 function spawnFloor(zone) {
@@ -194,14 +194,14 @@ function spawnFloor(zone) {
       let px = x, py = y;
       for (let k = 0; k < 10; k++) { const tx = x + rrange(-spread, spread), ty = y + rrange(-spread, spread); if (zone.map.free(tx, ty, 0.4)) { px = tx; py = ty; break; } }
       const rr = ({ boss: 0.8, elite_guard: 0.55, beast: 0.5 })[type] || 0.35; [px, py] = zone.map.nearestFree(px, py, rr);
-      const e = new Enemy(type, px, py, lvl, { story: tag || null, champion: !tag && rand() < 0.05 + zone.json.floorN * 0.01 });
+      const e = new Enemy(type, px, py, bandLevel(lvl, lvl + 3), { story: tag || null, champion: !tag && rand() < 0.05 + zone.json.floorN * 0.01 });   // сборка 47: герой +1 в пределах этаж..этаж+3
       if (tag === 'floorboss') e.name = type === 'boss' ? `Палач Глубин · этаж ${zone.json.floorN}` : `Страж глубин · этаж ${zone.json.floorN}`;
       G.enemies.push(e);
     }
   }
 }
 function spawnElite(zone) {
-  const el = zone.json.story[0], e = new Enemy('elite_guard', el[1], el[2], G.profile.chapterDone ? Math.max(6, G.profile.level) : 6, { story: 'elite' });
+  const el = zone.json.story[0], e = new Enemy('elite_guard', el[1], el[2], G.profile.chapterDone ? Math.max(6, G.profile.level) : bandLevel(6, 8), { story: 'elite' });
   e.name = 'Хранитель амулета'; e.maxHP = Math.round(e.maxHP * 1.3); e.hp = e.maxHP; e.dmgMul *= 1.1; G.enemies.push(e);   // посложнее обычного стража
 }
 
@@ -324,7 +324,7 @@ export function interact(it) {
       it.done = true; W.gateOpen = true; it.draw.spr = it.draw.spr === 'door_arch' ? 'door_arch_open' : 'door_open'; it.light.on = false; for (const [x, y] of it.tiles || [it.tile]) G.zone.map.setSolid(x, y, 0);
       bus.emit('sfx', 'door'); G.cam.shake = 0.7; bus.emit('toast', { text: 'Печать сломлена', sub: 'Палач Бездны пробуждается…', kind: 'quest' });
       Q.setFlag('gateOpen');
-      if (!G.enemies.some(e => e.D.boss)) { const bo = G.zone.json.story[1]; G.enemies.push(new Enemy('boss', bo[1], bo[2], P.chapterDone ? Math.max(6, P.level) : 6, { story: 'boss' })); }
+      if (!G.enemies.some(e => e.D.boss)) { const bo = G.zone.json.story[1]; G.enemies.push(new Enemy('boss', bo[1], bo[2], P.chapterDone ? Math.max(6, P.level) : bandLevel(BOSS_LEVEL, 10), { story: 'boss' })); }
       requestSave(); return;
   }
 }
@@ -342,13 +342,16 @@ function steer(pl, map, dx, dy) {
   return [dx, dy];
 }
 function autoTick(inp) {
-  const pl = G.player, P = G.profile, S = G.stats, map = G.zone.map; if (pl.dead || pl.busy()) return;
+  const pl = G.player, P = G.profile, S = G.stats, map = G.zone.map; if (pl.dead) return;
+  // сборка 47: зелья — до проверки «занят»: лучник и маг почти всё время в выстреле/касте, и проверка до зелий не доходила
+  if (pl.hp < S.maxHP * 0.35 && P.potions.hp > 0 && !(pl.cds.pot_hp > 0)) usePotion('hp');
+  else if (pl.mp < S.maxMP * 0.2 && P.potions.mp > 0 && !(pl.cds.pot_mp > 0) && P.slots.some(Boolean)) usePotion('mp');
+  if (pl.busy()) return;
   // unstuck: if we tried to move but barely moved, side-step for a moment
   const A = G.autoS || (G.autoS = { t: 0, x: pl.x, y: pl.y, side: 0, sx: 0, sy: 0 });
   A.t += G.dt || 0.016;
   if (A.side > 0) { A.side -= G.dt || 0.016; inp.wx = A.sx; inp.wy = A.sy; inp.mag = 0.8; return; }
   if (A.t > 0.6) { const moved = Math.hypot(pl.x - A.x, pl.y - A.y); if (A.wanted && moved < 0.15) { const a = Math.random() < 0.5 ? 1.57 : -1.57; const ang = Math.atan2(A.wy, A.wx) + a; A.sx = Math.cos(ang); A.sy = Math.sin(ang); A.side = 0.45; } A.t = 0; A.x = pl.x; A.y = pl.y; A.wanted = false; }
-  if (pl.hp < S.maxHP * 0.35 && P.potions.hp > 0 && !(pl.cds.pot_hp > 0)) usePotion('hp');
   let tgt = null, td = 1e9;
   // цель — только тот, кто уже напал или виден (не через стену): иначе герой упирается в стену, за которой стоит неагрессивный моб
   for (const e of G.enemies) { if (e.dead) continue; const d = Math.hypot(e.x - pl.x, e.y - pl.y); if (d < 16 && d < td && (e.aggro || (d < 9 && map.los(pl.x, pl.y, e.x, e.y)))) { td = d; tgt = e; } }

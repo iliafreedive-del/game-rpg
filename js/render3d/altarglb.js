@@ -9,7 +9,8 @@ import { SKINS } from './glbskin.js';
 
 // red — высота (доля), ниже которой основание тёмно-красное, чтобы не сливалось с брусчаткой; glow — яркость оранжевых рун
 // wheel — колесо, которое крутится на опорах: оно отделяется по связным кускам сетки, целиком лежащим в box [x0,y0,z0, x1,y1,z1]; ось — X через axis [y, z]
-const ALTARS = { altar_power: { red: 0.16, glow: 3.2 }, altar_chronicle: { red: 0, glow: 3.2, wheel: { box: [-0.345, 0.3, -0.16, 0.345, 1.01, 0.0], axis: [0.655, -0.08] } } };
+const ALTARS = { altar_power: { red: 0.16, redBoxes: [[-0.43, 0.41, 0.0, -0.15, 0.63, 0.3], [0.15, 0.41, 0.0, 0.43, 0.63, 0.3]], glow: 3.2 },   // redBoxes — перчатки с наручами в цвет постамента (сборка 47)
+  altar_chronicle: { red: 0, glow: 3.2, wheel: { box: [-0.345, 0.3, -0.16, 0.345, 1.01, 0.0], axis: [0.655, -0.08] } } };
 
 // куски сетки (склейка по треугольникам и совпадающим вершинам) → номера треугольников колеса
 function wheelTris(geo, W) {
@@ -44,7 +45,7 @@ function load(name) {
       mat.map = o.material.map; if (mat.map) { mat.map.colorSpace = THREE.SRGBColorSpace; mat.map.anisotropy = 4; }
       if (A.red) {
         const P = o.geometry.attributes.position, C = new Float32Array(P.count * 3);
-        for (let i = 0; i < P.count; i++) { const k = 1 - THREE.MathUtils.smoothstep(P.getY(i), A.red - 0.03, A.red + 0.03); C.set([1 + 1.8 * k, 1 - 0.55 * k, 1 - 0.6 * k], i * 3); }
+        for (let i = 0; i < P.count; i++) { const x = P.getX(i), y = P.getY(i), z = P.getZ(i), inBox = (A.redBoxes || []).some(b => x >= b[0] && y >= b[1] && z >= b[2] && x <= b[3] && y <= b[4] && z <= b[5]); const k = inBox ? 1 : 1 - THREE.MathUtils.smoothstep(y, A.red - 0.03, A.red + 0.03); C.set([1 + 1.8 * k, 1 - 0.55 * k, 1 - 0.6 * k], i * 3); }
         o.geometry.setAttribute('color', new THREE.BufferAttribute(C, 3));
       }
       // свечение оранжевых рун: из текстуры остаются только оранжевые точки — карта свечения

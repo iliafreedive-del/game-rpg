@@ -102,6 +102,8 @@ export class Enemy {
     const diff = D.boss ? 1.7 : D.elite ? 1.5 : 1.2;   // сложность: враги прочнее и бьют больнее (было слишком легко)
     const hm = scaleHP(lvl) * (this.champion ? 2.2 : 1) * diff;
     this.maxHP = Math.round(D.hp * hm); this.hp = this.maxHP;
+    // сборка 47: «у мобов здоровья больше, чем у героя» — с 3-го уровня рядовой враг не слабее героя того же уровня без вещей (≈ 88 + 12·ур.)
+    if (lvl >= 3 && !D.boss && !D.elite) { this.maxHP = Math.max(this.maxHP, Math.round((88 + 12 * lvl) * (this.champion ? 2.2 : 1))); this.hp = this.maxHP; }
     this.dmgMul = scaleDmg(lvl) * (this.champion ? 1.3 : 1) * (D.boss || D.elite ? 1.15 : 1.08);
     this.armor = Math.round(D.armor * (1 + 0.15 * (lvl - 1)));
     this.anim = new Anim(); this.setAnim('idle', 5, true); this.anim.t = rand() * 2;
