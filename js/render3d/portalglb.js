@@ -11,7 +11,8 @@ const OBJ = new Map();   // имя арки → { geometry, mat }
 let wait = null, ready = false;
 
 // сборка 46: второй пак — череп (Жатва Бездны) и руки (новый портал в верхнем углу деревни), своя текстура
-const PACKS = [URL_, new URL('../../assets/models/portals2.glb', import.meta.url).href];
+// сборка 47: третий пак — древесная арка лесного биома
+const PACKS = [URL_, ...['portals2.glb', 'portals3.glb'].map(f => new URL('../../assets/models/' + f, import.meta.url).href)];
 export function preloadPortals() {
   if (wait) return wait;
   if (typeof document === 'undefined') return (wait = Promise.resolve(false));
@@ -32,9 +33,10 @@ export const PORTAL_GLB = {
   portal_skulls: { h: 4.0, y: 0.36, sx: 0.24, sy: 0.32 },   // каменная готика с черепами — катакомбы
   portal_white: { h: 3.9, y: 0.36, sx: 0.22, sy: 0.33 },    // ледяная с рунами — фьорды
   portal_bones: { h: 4.2, y: 0.38, sx: 0.25, sy: 0.34 },    // из костей с черепом — пустоши
-  portal_sun: { h: 4.0, y: 0.38, sx: 0.25, sy: 0.35 },      // каменная с солнцем — лес
+  portal_sun: { h: 4.0, y: 0.38, sx: 0.25, sy: 0.35 },      // каменная с солнцем — цитадель (до сборки 47 — лес)
   portal_swords: { h: 4.2, y: 0.36, sx: 0.24, sy: 0.33 },   // с мечами — новый, пока никуда не ведёт
   portal_skull: { h: 4.3, y: 0.3, sx: 0.13, sy: 0.23 },     // раскрытая пасть черепа — Жатва Бездны (сборка 46)
+  portal_verdant: { h: 4.3, y: 0.33, sx: 0.18, sy: 0.3 },   // древесная арка с листвой и спиралями — лес (сборка 47)
   portal_hands: { h: 4.2, y: 0.36, sx: 0.17, sy: 0.34 },    // каменные руки — верхний угол деревни, пока никуда не ведёт (сборка 46)
 };
 

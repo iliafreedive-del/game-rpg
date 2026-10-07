@@ -5,9 +5,9 @@ import { rand } from '../core/util.js';
 import { REALMS } from '../data/wild.js';
 
 // порталы деревни из Meshy (сборка 44): в 3D-деревне арки миров заменены (js/render3d/portalglb.js)
-const VILLAGE_PORTAL = { fjord: 'portal_white', bones: 'portal_bones', forest: 'portal_sun' };
+const VILLAGE_PORTAL = { fjord: 'portal_white', bones: 'portal_bones', forest: 'portal_verdant' };   // сборка 47: лес — древесная арка (portals3.glb), прежняя каменная с солнцем ушла на цитадель
 // сборка 47: портал-выход внутри локации — та же арка, что ведёт сюда из деревни (из катакомб — каменная с черепами и т. д.)
-const EXIT_PORTAL = { catacombs: 'portal_skulls', depths: 'portal_ring', castle: 'portal_crown' };
+const EXIT_PORTAL = { catacombs: 'portal_skulls', depths: 'portal_ring', castle: 'portal_sun' };
 const hash = (x, y) => { let h = (x * 374761393 + y * 668265263) >>> 0; h = (h ^ (h >>> 13)) * 1274126177 >>> 0; return h; };
 
 // sprite, collider radius (or box half extents), light
@@ -239,7 +239,7 @@ export class Zone {
         this.inter.push({ id: 'portal_survival', type: 'survival', x: o.x, y: o.y, r: 1.8, label: 'Жатва Бездны', draw: d, reqLevel: 2, plate: 'Жатва Бездны' });
         this.map.circles.push({ x: o.x, y: o.y - 0.1, r: 0.2 });
       } else if (o.t === 'castle') {
-        const d = this.add({ x: o.x, y: o.y, spr: 'portal_crown', anim: 'portal' });
+        const d = this.add({ x: o.x, y: o.y, spr: J.village ? 'portal_sun' : 'portal_crown', anim: 'portal' });   // сборка 47: в 3D-деревне — каменная арка с солнцем (бывший лесной)
         this.addLight(o.x, o.y, { r: 5, c: [255, 200, 110], flicker: 0.3, z: 1.2 });
         this.inter.push({ id: 'portal_castle', type: 'portal', to: 'castle', x: o.x, y: o.y, r: 1.8, label: 'Цитадель Ордена', draw: d, reqLevel: 3, plate: 'Цитадель' });
         this.map.circles.push({ x: o.x, y: o.y - 0.1, r: 0.2 });

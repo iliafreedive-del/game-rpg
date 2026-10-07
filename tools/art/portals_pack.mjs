@@ -1,6 +1,7 @@
 // Пак порталов деревни из Meshy: один GLB с пятью арками (одна сетка, один атлас) → assets/models/portals.glb.
 //   node tools/art/portals_pack.mjs <Meshy_AI_Fantasy_Portal_Arches_*.glb> <assets/models/portals.glb> [текстура = 1024] [имена через запятую]
 // Сборка 46: второй пак (череп и руки) — node tools/art/portals_pack.mjs <Meshy_AI_Grimstone_Gateways_*.glb> assets/models/portals2.glb 1024 portal_skull,portal_hands
+// Сборка 47: третий пак (древесная арка леса) — node tools/art/portals_pack.mjs <Meshy_AI_Verdant_Spiral_Arch_*.glb> assets/models/portals3.glb 1024 portal_verdant
 // Сетка режется на связные куски (их ровно пять — по арке), каждый кусок: центр по X/Z, основание y = 0, высота = 1
 // (размер в игре задаёт js/render3d/portalglb.js). Арки в паке стоят лицом к +Z. Атлас → JPEG (ImageMagick convert).
 // Имя узла — по месту арки в исходнике (верхний ряд слева направо, потом нижний) → NAMES.

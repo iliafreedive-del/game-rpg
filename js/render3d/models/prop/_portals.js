@@ -112,4 +112,4 @@ export function glbPortalDef(id, fb) {
 }
 const PV = { ring: portalDef('portal_ring', 'ring'), spire: portalDef('portal_spire', 'spire'), gate: portalDef('portal_gate', 'gate'), crown: portalDef('portal_crown', 'crown'), maw: portalDef('portal_maw', 'maw'), bone: portalDef('portal_bone', 'bone') };
 export const PORTAL_VARIANTS = [...Object.values(PV),
-  glbPortalDef('portal_skulls', portal), glbPortalDef('portal_white', PV.spire), glbPortalDef('portal_bones', PV.bone), glbPortalDef('portal_sun', PV.gate), glbPortalDef('portal_swords', PV.crown), glbPortalDef('portal_skull', PV.maw), glbPortalDef('portal_hands', PV.crown)];
+  glbPortalDef('portal_skulls', portal), glbPortalDef('portal_white', PV.spire), glbPortalDef('portal_bones', PV.bone), glbPortalDef('portal_sun', PV.gate), glbPortalDef('portal_swords', PV.crown), glbPortalDef('portal_skull', PV.maw), glbPortalDef('portal_hands', PV.crown), glbPortalDef('portal_verdant', PV.gate)];
