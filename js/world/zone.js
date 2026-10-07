@@ -121,9 +121,10 @@ export class Zone {
         case 'roomgate': {
           const open = !!(W.castle && W.castle[o.id]); const tx = Math.floor(o.x), ty = Math.floor(o.y);
           const flip = m.ch(tx - 1, ty) !== '#';
-          const d = this.add({ x: o.x, y: o.y, spr: open ? 'door_open' : 'gate_sealed', flip, wall: true });
-          if (open) m.setSolid(tx, ty, 0);
-          this.inter.push({ id: 'gate_' + o.id, room: o.id, type: 'roomgate', x: o.x, y: o.y, r: 2.0, draw: d, done: open, tile: [tx, ty], panel: true, plate: null });
+          const wideG = (o.span || 1) > 1 || J.castle, tiles = o.tiles || [[tx, ty]];   // сборка 47: в Цитадели — двустворчатая дверь с прямым верхом на весь проход
+          const d = this.add({ x: o.x, y: o.y, spr: wideG ? (open ? 'door_square_open' : 'door_square') : open ? 'door_open' : 'gate_sealed', flip, wall: true, opts: wideG ? { span: o.span || 3 } : undefined });
+          if (open) for (const [x, y] of tiles) m.setSolid(x, y, 0);
+          this.inter.push({ id: 'gate_' + o.id, room: o.id, type: 'roomgate', x: o.x, y: o.y, r: 2.0 + (wideG ? 0.4 : 0), draw: d, done: open, tile: [tx, ty], tiles, panel: true, plate: null });
           break;
         }
         case 'castle_altar': case 'castle_trial': case 'castle_treasury': case 'castle_trophy': {
@@ -185,7 +186,7 @@ export class Zone {
           const tx = Math.floor(o.x), ty = Math.floor(o.y), open = !!W[id];
           const flip = m.ch(tx - 1, ty) !== '#';   // corridor runs along x → rotate door
           const arch = (o.span || 1) > 1, tiles = o.tiles || [[tx, ty]];   // сборка 47: широкая арочная дверь (js/world/widen.js)
-          const d = this.add({ x: o.x, y: o.y, spr: (arch ? 'door_arch' : 'door') + (open ? '_open' : ''), flip, wall: true });
+          const d = this.add({ x: o.x, y: o.y, spr: (arch ? 'door_arch' : 'door') + (open ? '_open' : ''), flip, wall: true, opts: arch ? { span: o.span } : undefined });
           if (open) for (const [x, y] of tiles) m.setSolid(x, y, 0);
           this.inter.push({ id, type: 'door', key: o.key, x: o.x, y: o.y, r: 1.7 + (arch ? 0.5 : 0), label: 'Отпереть дверь', draw: d, done: open, tile: [tx, ty], tiles });
           break;
@@ -202,10 +203,11 @@ export class Zone {
         case 'gate': {
           const tx = Math.floor(o.x), ty = Math.floor(o.y), open = !!W.gateOpen;
           const flip = m.ch(tx - 1, ty) !== '#';
-          const d = this.add({ x: o.x, y: o.y, spr: open ? 'door_open' : 'gate_sealed', flip, wall: true });
+          const arch = (o.span || 1) > 1, tiles = o.tiles || [[tx, ty]];   // сборка 47: ко входу к боссу — такая же массивная арочная дверь, как к Хранителю, на весь проход
+          const d = this.add({ x: o.x, y: o.y, spr: arch ? (open ? 'door_arch_open' : 'door_arch') : open ? 'door_open' : 'gate_sealed', flip, wall: true, opts: arch ? { span: o.span } : undefined });
           const L = this.addLight(o.x, o.y, { r: 3.5, c: [170, 90, 255], flicker: 0.4 }); L.on = !open;
-          if (open) m.setSolid(tx, ty, 0);
-          this.inter.push({ id: 'gate', type: 'gate', x: o.x, y: o.y, r: 1.8, label: 'Сломать печать', draw: d, done: open, tile: [tx, ty], light: L });
+          if (open) for (const [x, y] of tiles) m.setSolid(x, y, 0);
+          this.inter.push({ id: 'gate', type: 'gate', x: o.x, y: o.y, r: 1.8 + (arch ? 0.5 : 0), label: 'Сломать печать', draw: d, done: open, tile: [tx, ty], tiles, light: L });
           break;
         }
         case 'board_dungeon': break;   // notice board lives only in the village
@@ -255,7 +257,7 @@ export class Zone {
         this.addLight(o.x, o.y, { r: 5, c: [255, 200, 110], flicker: 0.3, z: 1.4 });
         this.inter.push({ id: 'herospath', type: 'herospath', x: o.x, y: o.y + 0.2, r: 2.2, label: 'Летопись битв', plate: 'Летопись битв', reqLevel: 2 });
       } else if (o.t === 'depths') {
-        const d = this.add({ x: o.x, y: o.y, spr: 'portal_ring', anim: 'portal' });
+        const d = this.add({ x: o.x, y: o.y, spr: 'portal_ring', anim: 'portal' }); if (o.rot !== undefined) { d.model = 'portal_ring'; d.rot = o.rot; }   // сборка 47: лицом к своей дороге
         this.addLight(o.x, o.y, { r: 5, c: [120, 200, 255], flicker: 0.3, z: 1.2 });
         this.inter.push({ id: 'portal_depths', type: 'depths', x: o.x, y: o.y, r: 1.8, label: 'Глубины катакомб', draw: d, reqLevel: 6, plate: 'Глубины' });
         this.map.circles.push({ x: o.x, y: o.y - 0.1, r: 0.2 });
@@ -301,7 +303,7 @@ export class Zone {
           this.inter.push({ id: 'wild_home', type: 'portal', to: 'town', x: o.x, y: o.y, r: 1.6, label: 'Вернуться в деревню', draw: d, plate: 'В деревню' }); break;
         }
         case 'wild_next': {
-          const d = this.add({ x: o.x, y: o.y, spr: REALMS[realm].portal, anim: 'portal', hidden: !!o.hidden }); const L = this.addLight(o.x, o.y, { r: 5, c: col, flicker: 0.3, z: 1.2 }); L.on = !o.hidden;
+          const d = this.add({ x: o.x, y: o.y, spr: VILLAGE_PORTAL[realm] || REALMS[realm].portal, anim: 'portal', hidden: !!o.hidden }); const L = this.addLight(o.x, o.y, { r: 5, c: col, flicker: 0.3, z: 1.2 }); L.on = !o.hidden;   // сборка 47: «Вглубь» — та же арка, что вход в эту локацию из деревни
           this.inter.push({ id: 'wild_next', type: 'wildnext', x: o.x, y: o.y, r: 1.7, label: 'Вглубь', draw: d, light: L, hidden: !!o.hidden, plate: 'Вглубь' }); break;
         }
         case 'wchest': {

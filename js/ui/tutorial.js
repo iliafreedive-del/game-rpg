@@ -20,8 +20,9 @@ export function hideHand() { if (hand) { hand.remove(); hand = null; } if (line)
 // показать палец над элементом (или просто строку, если элемента нет)
 // кнопка только что открылась: подождать кадр, пока HUD её покажет, иначе «палец» не найдёт место
 export const pointSoon = (sel, text, o) => setTimeout(() => pointAt(sel, text, o), 150);
-export function pointAt(sel, text, { key = null, time = 9, mid = false } = {}) {
-  const t = T(); if (t.off) return false;
+export function pointAt(sel, text, { key = null, time = 9, mid = false, force = false } = {}) {
+  const t = T(); if (t.off && !force) return false;
+  if (force && (hand || line)) return false;   // напоминание не перебивает подсказку обучения
   if (key && t.tips[key]) return false;
   const r = sel ? rectOf(sel) : null;
   if (sel && !r) return false;

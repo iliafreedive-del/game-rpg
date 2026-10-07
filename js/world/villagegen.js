@@ -33,13 +33,13 @@ export const PLAN = {
   center: [31.5, 29.5],
   square: { hw: 6.5, hh: 4.6, r: 2.4 },
   stream: { pts: [[51.5, -3], [54.5, 9], [58.2, 20], [57.6, 31], [59.4, 43], [57.6, 67]], w: [4.0, 5.0], millY: 13.5, millW: 3.2 },   // millY — где у мельницы река разливается шире (на millW м)
-  portals: { catacombs: [34.5, 5.6], fjord: [46.5, 5.6], depths: [9.0, 7.5], castle: [5.4, 29.5], bones: [4.4, 17.6], forest: [7.2, 56.4], survival: [31.5, 59.6], swords: [4.4, 11.5], hands: [4.4, 5.4] },   // мечи и руки — на одной линии с пустошами вдоль западного края, руки — в верхнем углу (сборка 46)
+  portals: { catacombs: [34.5, 5.6], fjord: [46.5, 5.6], depths: [11.8, 4.4], castle: [5.4, 29.5], bones: [4.4, 17.6], forest: [7.2, 56.4], survival: [31.5, 59.6], swords: [4.4, 11.5], hands: [4.4, 5.4] },   // мечи и руки — на одной линии с пустошами вдоль западного края, руки — в верхнем углу (сборка 46)
   roads: [
     { id: 'west', w: 2.7, main: 1, pts: [[25.5, 29.5], [19, 30.1], [12, 29.3], [5.4, 29.5]] },
     { id: 'east', w: 2.7, main: 1, pts: [[37.5, 29.5], [44, 29.1], [50, 29.8], [56, 30.2], [64.5, 30.6]] },
     { id: 'north', w: 2.2, pts: [[36.4, 25.2], [37.2, 18], [36.4, 11.5], [34.5, 5.6]] },
     { id: 'fjordway', w: 1.7, pts: [[36.6, 11.2], [41, 8.2], [46.5, 5.6]] },
-    { id: 'depthway', w: 1.7, pts: [[11.6, 29.3], [10.6, 19], [9.0, 7.5]] },
+    { id: 'depthway', w: 1.7, pts: [[11.6, 29.3], [10.6, 19], [9.7, 10.4], [11.8, 4.4]] },   // сборка 47: Глубины дальше к лесу, не закрывают угловой портал с руками
     { id: 'boneway', w: 1.6, pts: [[10.7, 19.6], [7.6, 18.2], [4.4, 17.6]] },   // к костяному порталу (Костяные пустоши)
     { id: 'swordway', w: 1.5, pts: [[10.2, 13.0], [7.3, 11.9], [4.4, 11.5]] },   // к порталу с мечами (сборка 46)
     { id: 'handway', w: 1.5, pts: [[9.4, 10.2], [6.9, 6.6], [4.4, 5.4]] },      // к порталу с руками (сборка 46)
@@ -219,7 +219,7 @@ export function generateVillage(plan0 = PLAN) {
   put('shrine', CX + 1.5, CY + 0.3, { s: 1.35 });   // источник силы — посреди площади, на месте колодца (сборка 47; колодца больше нет)
   const hwsign = [CX - SQ.hw + 4.3, CY + SQ.hh - 1.0];
   for (const [sx, sy] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) put('lamp', CX + sx * (SQ.hw - 0.6), CY + sy * (SQ.hh - 0.5));
-  put('bench', CX + 4.6, CY - 2.6, { rot: 0 }); put('bench', CX - 1.4, CY + 3.6, { rot: 0 });
+  put('bench', CX + 4.6, CY - 2.6, { rot: 0 });   // сборка 47: лавочки у Летописи битв больше нет
   // наставник: тренировочный двор на ближней стороне восточной улицы (низкий: чучела, стойка, плетень)
   {
     const ty0 = CY + SQ.hh + 0.4, tx0 = CX + SQ.hw + 2.6;
@@ -244,7 +244,7 @@ export function generateVillage(plan0 = PLAN) {
   {
     const gx0 = church.x - 4.2, gy0 = church.y - church.d / 2 - 4.6;
     for (let r = 0; r < 2; r++) for (let k = 0; k < 4; k++) if (hh(k, r, 4) < 0.85) put('grave', gx0 + 0.8 + k * 1.75, gy0 + 0.9 + r * 1.8, { rot: (hh(k, r) - 0.5) * 0.3 });
-    put('deadtree', gx0 + 8.6, gy0 + 0.6);
+    { const [px, py] = plan.portals.catacombs, tx = px - 2.9, ty = py + 0.4, dx = church.x - tx, dy = church.y - ty, l = Math.hypot(dx, dy); put('deadtree', tx + dx / l * 2, ty + dy / l * 2, { s: 1.8, keep: 1 }); }   // и на 2 м ближе к церкви   // сборка 47: сухое дерево — за порталом катакомб и левее (было перед ним), ростом в два героя
     markRect(gx0 - 0.5, gy0, gx0 + 9, gy0 + 4, 5);
   }
 
@@ -457,10 +457,12 @@ export function generateVillage(plan0 = PLAN) {
   // портал катакомб есть всегда; остальные добавляет игра по прогрессу (здесь только координаты)
   put('portal', P0.catacombs[0], P0.catacombs[1]);
   const P = plan.portals;
+  // портал Глубин смотрит вдоль своей дороги, навстречу герою (сборка 47); модель уже повёрнута на 45° к камере — вычитаем
+  const dw = roads.find(r => r.id === 'depthway').line, de = dw[dw.length - 1], db = dw[Math.max(0, dw.length - 12)], depthsRot = +(Math.atan2(db.x - de.x, db.y - de.y) - Math.PI / 4 + 0.15 * Math.PI / 2).toFixed(3);   // +15 % четверти оборота к камере
   return {
     w: W, h: H, name: 'Деревня Ордена', floor: { w: 0, h: 0, scale: 1, ox: 0, chunks: [] }, village: true,
     rows: g.map(r => r.join('')), objects, npcs, start: plan.start, critters, viewClear, center: [CX, CY],
-    big: { castle: P.castle, survportal: P.survival, depths: P.depths, fjord: P.fjord, bones: P.bones, forest: P.forest, swords: P.swords, hands: P.hands, hwsign, catacombs: P.catacombs },
+    big: { depthsRot, castle: P.castle, survportal: P.survival, depths: P.depths, fjord: P.fjord, bones: P.bones, forest: P.forest, swords: P.swords, hands: P.hands, hwsign, catacombs: P.catacombs },
     gen: { buildings: buildings.map(b => ({ kind: b.kind, x: +b.x.toFixed(1), y: +b.y.toFixed(1), rot: +b.rot.toFixed(2) })), fields: fields.map(f => ({ ...f })), gapRemoved, warn },
   };
 }

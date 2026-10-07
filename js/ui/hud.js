@@ -1,4 +1,5 @@
 // HUD: bars, tracker, gold, buffs, boss bar, toasts, touch controls, minimap.
+import { streak } from '../game/streak.js';
 import { G, bus, inCombat } from '../game/ctx.js';
 import { $, el, esc, fmt } from '../core/util.js';
 import { input, resetBase, mouse } from '../core/input.js';
@@ -11,7 +12,7 @@ import * as C from '../game/combat.js';
 import { interact, usePotion, useScroll } from '../game/game.js';
 import { drawIcon, skillIcon, iconURL } from './icons.js';
 import { iconOf } from '../game/items.js';
-import { dailyStatus, chestStatus, blessLeft, blessTick } from '../platform/monetize.js';
+import { dailyStatus, chestStatus, blessLeft, blessTick, autoOK, autoFree, autoLeft, autoAd, AUTO_MIN } from '../platform/monetize.js';
 import { seasonClaimable, nextGoalLine } from '../game/season.js';
 import { dailyReady } from '../game/daily.js';
 import { BOONS } from '../data/boons.js';
@@ -23,7 +24,7 @@ import { skillCanvas } from './icons.js';
 const skillCanvasInto = (cv, id) => { const s = skillCanvas(id, cv.width, false); const x = cv.getContext('2d'); x.clearRect(0, 0, cv.width, cv.height); x.drawImage(s, 0, 0, cv.width, cv.height); };
 import * as SV from '../game/survival.js';
 import * as HU from '../game/hunts.js';
-import { unlocked as tutUn, hideHand } from './tutorial.js';
+import { unlocked as tutUn, hideHand, pointAt } from './tutorial.js';
 
 let lastHud = 0, trackOpenUntil = 0;
 export function initHUD() {
@@ -46,7 +47,9 @@ export function initHUD() {
   hold('potHP', () => usePotion('hp')); hold('potMP', () => usePotion('mp'));
   hold('btnAct', () => { if (G.focus) interact(G.focus); });
   $('btnScroll').onclick = () => useScroll();
-  const ab = $('btnAuto'); ab.removeAttribute('data-open'); ab.onclick = null; ab.onpointerdown = e => { e.preventDefault(); e.stopPropagation(); G.auto = !G.auto; ab.classList.toggle('on', G.auto); toast({ text: G.auto ? 'Автобой включён' : 'Автобой выключен', sub: G.auto ? 'Герой сам сражается, пьёт зелья и идёт к цели' : '', kind: 'info' }); };
+  const ab = $('btnAuto'); ab.removeAttribute('data-open'); ab.onclick = null; ab.onpointerdown = async e => { e.preventDefault(); e.stopPropagation();
+    if (!G.auto && !autoOK()) { if (!await autoAd()) return; toast({ text: `Автобой на ${AUTO_MIN} минут`, sub: 'Герой сам сражается, пьёт зелья и идёт к цели', kind: 'good' }); }   // сборка 47: автобой за рекламу
+    G.auto = !G.auto; ab.classList.toggle('on', G.auto); toast({ text: G.auto ? 'Автобой включён' : 'Автобой выключен', sub: G.auto ? (autoFree() ? 'Герой сам сражается, пьёт зелья и идёт к цели' : `Осталось ${Math.ceil(autoLeft() / 60000)} мин`) : '', kind: 'info' }); };
   // keyboard shortcuts
   input.onKey = (code) => {
     if (G.modalOpen) { if (code === 'Escape') bus.emit('closeModal'); return; }
@@ -131,7 +134,7 @@ export function updateHUD(dt) {
   $('lvl').textContent = P.level; $('lvl').classList.toggle('up', P.attrPts > 0 || P.skillPts > 0);
   setBar('xpBar', P.xp / xpToNext(P.level));
   $('gold').textContent = fmt(P.gold) + ' зол.'; $('shards').textContent = (P.shards || 0) + '◆'; $('torchN').textContent = '⚡' + CS.torches().n;
-  $('btnAuto').classList.toggle('on', !!G.auto); dot('dotHW', G.zoneId === 'town' && hwReady() ? 1 : 0);
+  autoTick(); $('btnAuto').classList.toggle('on', !!G.auto); dot('dotHW', G.zoneId === 'town' && hwReady() ? 1 : 0);
   $('hpCount').textContent = P.potions.hp; $('mpCount').textContent = P.potions.mp; $('scrollCount').textContent = P.scrolls;
   $('btnScroll').classList.toggle('hidden', G.zoneId !== 'catacombs');
   const newItems = P.bag.filter(x => x.isNew).length; dot('dotInv', newItems);
@@ -139,6 +142,8 @@ export function updateHUD(dt) {
   const ds = dailyStatus(), cs = chestStatus(), gifts = (ds.claimable ? 1 : 0) + (cs.ready ? 1 : 0) + (dailyReady() ? 1 : 0); dot('dotGift', gifts);
   const sh = G.zone && G.zone.inter.find(i => i.id === 'shrine'); if (sh) { sh.plate = 'Источник силы' + (gifts ? ` 🎁${gifts}` : blessLeft() > 0 ? '' : ' ✦'); sh.marker = gifts ? '!' : null; }   // значок над алтарём
   blessTick(); dot('dotSeason', seasonClaimable());
+  { const n = streak(); let sb = $('streakB'); if (!sb) { sb = el('span', '', ''); sb.id = 'streakB'; $('portrait').appendChild(sb); }   // сборка 47: огонёк серии побед
+    const t = n ? `🔥${n}` : ''; if (sb.textContent !== t) { sb.textContent = t; sb.title = n ? `Серия побед: +${Math.min(10, n) * 5}% золота` : ''; } sb.style.display = n ? '' : 'none'; }
   { let gl = $('goalLine'); if (!gl) { gl = el('div', '', ''); gl.id = 'goalLine'; $('buffs').after(gl); } const t = G.zoneId === 'wild' ? '' : G.zoneId === 'town' || !inCombat() ? nextGoalLine() : ''; if (gl.textContent !== t) gl.textContent = t; }   // «до цели» (сборка 21); в походе на этом месте плашка ноши
   // buffs
   const now = Date.now(); const bf = [];
@@ -233,3 +238,15 @@ export function drawMap(x, size, Z, S, P, span) {
 }
 export { seen };
 export const seenKey = Z => `${Z.id}:${Z.json.floorN ?? ''}:${Z.map.w}x${Z.map.h}`;
+
+// ---------------------------------------------------------------- автобой за рекламу (сборка 47)
+// время вышло — выключаем, но не посреди боя; иногда (не в бою) стрелка напоминает, что АВТО есть
+let remindAt = 0;
+function autoTick() {
+  const ab = $('btnAuto'), ok = autoOK(); ab.classList.toggle('ad', !ok);
+  if (G.auto && !ok && !inCombat()) { G.auto = false; toast({ text: 'Автобой закончился', sub: `Нажмите АВТО и посмотрите рекламу — ещё ${AUTO_MIN} минут`, kind: 'info' }); }
+  const now = Date.now(), wild = G.zoneId !== 'town' && G.zoneId !== 'castle' && G.zoneId !== 'survival';
+  if (!remindAt) remindAt = now + 3 * 60000;
+  if (G.auto || !wild || !tutUn('auto') || now < remindAt || inCombat() || G.modalOpen || !G.player || G.player.dead) return;
+  if (pointAt('btnAuto', ok ? 'АВТО: герой будет сражаться сам' : `АВТО за рекламу: ${AUTO_MIN} минут герой сражается сам`, { time: 6, force: true })) remindAt = now + 8 * 60000;
+}

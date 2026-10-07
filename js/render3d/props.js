@@ -19,7 +19,7 @@ const warned = new Set();
 const BUILT = new Map(), BATCHED = new Map();
 const cacheVer = () => (SKINS.on ? 's' : '-') + (portalsReady() ? 'p' : '-') + (altarReady() ? 'a' : '-');
 // предметы, которые игра меняет на лету: открытие дверей, сундуков, саркофагов, проявление порталов, секретная стена
-const DYN = new Set(['door', 'door_open', 'door_arch', 'door_arch_open', 'gate_sealed', 'chest', 'chest_open', 'chest_rich', 'chest_rich_open', 'sarcophagus', 'sarcophagus_open', 'altar', 'altar_medallion', 'portal', 'portal_ring', 'portal_spire', 'portal_gate', 'portal_crown', 'portal_maw', 'portal_bone', 'portal_skulls', 'portal_white', 'portal_bones', 'portal_sun', 'portal_swords', 'portal_skull', 'portal_hands', 'portal_verdant']);
+const DYN = new Set(['door', 'door_open', 'door_arch', 'door_arch_open', 'door_square', 'door_square_open', 'gate_sealed', 'chest', 'chest_open', 'chest_rich', 'chest_rich_open', 'sarcophagus', 'sarcophagus_open', 'altar', 'altar_medallion', 'portal', 'portal_ring', 'portal_spire', 'portal_gate', 'portal_crown', 'portal_maw', 'portal_bone', 'portal_skulls', 'portal_white', 'portal_bones', 'portal_sun', 'portal_swords', 'portal_skull', 'portal_hands', 'portal_verdant']);
 // порода дерева по позиции: взвешенный выбор из TREE_KINDS (tree_0 — лиственные, tree_1 — хвойные)
 // Фьорды: только ели и сосны (лиственных там нет)
 function pickFj(h) { return h < 0.5 ? 'tree_fir_blue' : h < 0.92 ? 'tree_pine_tall' : 'deadtree'; }
@@ -61,7 +61,7 @@ export class PropLayer {
       if (d.hidden || (d.flat && !PROPS[d.spr])) continue;
       if (d.model) { push(MODEL[d.model] || d.model, d.x, d.y, d.rot || 0, d.s || 1, d.opts); continue; }
       if (!PROPS[d.spr]) { if (!warned.has(d.spr)) { warned.add(d.spr); console.warn('[3D] нет модели предмета «' + d.spr + '» — не показан'); } continue; }
-      if (mode === 'town' && d.spr === 'deadtree') { const bt = boneDeadTree(PROPS, kit); if (bt) { extra0[bt.id] = bt; push(bt.id, d.x, d.y, hash(d.x, d.y) * 6.283, 1.15); continue; } }   // сухое дерево пустошей (Meshy)
+      if (mode === 'town' && d.spr === 'deadtree') { const bt = boneDeadTree(PROPS, kit); if (bt) { extra0[bt.id] = bt; push(bt.id, d.x, d.y, hash(d.x, d.y) * 6.283, d.s || 1.15); continue; } }   // сухое дерево пустошей (Meshy)
       const h = hash(d.x, d.y), isTree = d.spr === 'tree_0' || d.spr === 'tree_1' || (d.spr === 'deadtree' && !fj);
       const light = zone.lights.find(L => Math.hypot(L.x - d.x, L.y - d.y) < 0.3);
       const var3 = ((d.spr === 'rocks' || d.spr === 'deadtree') && open && !light) || STEPPE_FREE.has(d.spr);   // камни и сухие деревья поля — разные формы, повороты, размеры
@@ -116,6 +116,7 @@ export class PropLayer {
     const clear = (x, y, r) => {
       for (const c of m.circles) if ((x - c.x) ** 2 + (y - c.y) ** 2 < (r + c.r) ** 2) return false;
       for (const b of m.rects) if (x > b.x0 - r && x < b.x1 + r && y > b.y0 - r && y < b.y1 + r) return false;
+      for (const i of zone.inter) if ((x - i.x) ** 2 + (y - i.y) ** 2 < (r + 0.9) ** 2) return false;   // сборка 47: пни и кусты не растут из сундуков, тайников и порталов
       return true;
     };
     const trees = zone.statics.filter(d => d.spr === 'tree_0' || d.spr === 'tree_1'), camps = (zone.json.wild && zone.json.wild.camps) || [];   // в статике карты — исходные tree_0/tree_1
@@ -149,6 +150,7 @@ export class PropLayer {
       if (id && camps.some(([cx, cy]) => (px - cx) ** 2 + (py - cy) ** 2 < 25) && id !== 'pebbles' && id !== 'flowers') id = null;   // вокруг лагерей — пусто (сборка 18)
       if (this.bn && id) { id = ({ fern: h1 < 0.12 ? 'agave' : h1 < 0.22 ? 'bush_dry' : null, bush: 'bush_dry', flowers: h1 < 0.1 ? 'agave' : 'tumbleweed', mushrooms: 'bones', stump: 'sand_rock', pebbles: 'pebbles' })[id] || id; if (id === 'sand_rock') sc *= 0.5; }
       if (fj && (id === 'fern' || id === 'flowers' || id === 'bush' || id === 'mushrooms' || id === 'stump')) id = h1 < 0.4 ? 'pebbles' : null;
+      if (id === 'stump' && [...this._lists].some(([k, l]) => (k === 'stump' || k.startsWith('rock')) && l.some(t => (t.x - px) ** 2 + (t.y - py) ** 2 < 4.4))) id = null;   // сборка 47: пень не врастает в камень или другой пень
       if (id) { push(id, px, py, rot, sc); this.lastPushedQ(id, q); }
     }
   }
@@ -165,7 +167,7 @@ export class PropLayer {
         const def = (this.bn && bonesLive(want)) || PROPS[want];   // пустоши: сундуки — из шкур Meshy (bonesglb.js)
         if (!def) { if (!warned.has(want)) { warned.add(want); console.warn('[3D] нет модели предмета «' + want + '» — не показан'); } continue; }
         const light = this.zoneLights && this.zoneLights.find(L => Math.hypot(L.x - r.d.x, L.y - r.d.y) < 0.3);
-        r.g = this.addSingle(def, { x: r.d.x, y: r.d.y, rot: r.rot, s: 1, opts: light ? { color: new THREE.Color(light.c[0] / 255, light.c[1] / 255, light.c[2] / 255) } : {} });
+        r.g = this.addSingle(def, { x: r.d.x, y: r.d.y, rot: r.rot, s: 1, opts: { ...(r.d.opts || {}), ...(light ? { color: new THREE.Color(light.c[0] / 255, light.c[1] / 255, light.c[2] / 255) } : {}) } });
         r.mdl = this.dyn[this.dyn.length - 1];
       }
       if (r.g) r.g.visible = !r.d.hidden;

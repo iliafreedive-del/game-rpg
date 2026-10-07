@@ -1,4 +1,5 @@
 // Game orchestration: zone loading, spawning, main update, interactions, death/revive, autosave.
+import { onZoneChange } from './streak.js';
 import { generateVillage } from '../world/villagegen.js';
 import { G, bus, inCombat } from './ctx.js';
 import { Zone } from '../world/zone.js';
@@ -14,8 +15,10 @@ import { saveLocal, cloudBundle } from './save.js';
 import { loadJSON, loadGroup } from '../core/assets.js';
 import { loadFloor, buildFloorCanvas } from '../render/index.js';
 import { widen } from '../world/widen.js';
+import { declutter } from '../world/declutter.js';
 import { respawnTick } from './respawn.js';
 import { weeklyRule, finishWeekly, codexScan, circle, circleHP, circleDmg, circleRew } from './season.js';
+const clean = J => (declutter(J), J), WILD_DECOR = new Set(['rocks']);   // сборка 47: предметы не входят друг в друга и в стены (world/declutter.js)
 const ROOMY = 1.5;   // «простор» (сборка 18): подземелья в 3D растянуты в 1,5 раза — шире комнаты и коридоры
 import { generateFloor, isBossFloor, parTime } from '../world/floorgen.js';
 import { generateWild } from '../world/wildgen.js';
@@ -61,6 +64,7 @@ export async function loadZone(id, how = {}) {
   G.zoneReady = false; bus.emit('zoneLoading', id);
   if (G.zone && typeof requestAnimationFrame !== 'undefined') await new Promise(r => requestAnimationFrame(() => setTimeout(r, 0)));   // сборка 46: дать браузеру нарисовать шторку до тяжёлой сборки зоны
   const P = G.profile;
+  onZoneChange(G.zoneId, how);   // серия побед (сборка 47)
   if (G.zoneId === 'wild' && id !== 'wild') onLeaveWild();
   if (id !== 'wild') setPropsPalette(false);   // «снежные» пропсы Фьордов только внутри Фьордов
   // keep dungeon state when leaving through a Scroll of Return
@@ -78,21 +82,21 @@ export async function loadZone(id, how = {}) {
       json.objects.push({ t: 'nem_wall', x: 14.8, y: 19.2, plate: tr.length || lv ? `Стена врагов: ${tr.length} трофеев${lv ? ' · ☠ ' + lv : ''}` : 'Стена врагов' });
       const slots = [[22.8, 10.4], [24.6, 10.4], [26.4, 10.4], [28.2, 10.4], [23.8, 4.9], [26, 4.9], [28.2, 4.9]];
       tr.slice(0, slots.length).forEach((t, i) => json.objects.push({ t: t.rank >= 3 ? 'statue' : 'skulls', x: slots[i][0], y: slots[i][1] })); }
-    zone = new Zone('castle', G.render3d ? widen(json, ROOMY) : json, P); zone.dark = false;   // bright, readable citadel
+    zone = new Zone('castle', G.render3d ? clean(widen(json, ROOMY)) : json, P); zone.dark = false;   // bright, readable citadel
     await buildFloorCanvas(zone);
   } else if (id === 'wild') {
     const json = generateWild(how.realm, how.depth); addEchoes(json);
-    zone = new Zone('wild', json, P);
+    declutter(json, 'xD~', WILD_DECOR); zone = new Zone('wild', json, P);
     await prepareWildAtlases(how.realm); setPropsPalette(how.realm === 'fjord'); buildWildFloor(zone);
   } else if (id === 'depths') {
     const json = generateFloor(how.floor ?? 1);
     if (how.weekly) { const R = weeklyRule(); json.name = 'Испытание недели · ' + R.name; json.weekly = R.id; if (R.count) json.spawns = json.spawns.map(s => { const n = s.slice(); if (!n[6]) n[3] = n[3] * R.count; return n; }); }   // сборка 21
-    zone = new Zone('depths', G.render3d ? widen(json, ROOMY) : json, P);
+    zone = new Zone('depths', G.render3d ? clean(widen(json, ROOMY)) : json, P);
     await buildFloorCanvas(zone);
   } else {
     const big = id === 'town' && G.render3d;   // в 3D — деревня 64×64 по правилам (js/world/villagegen.js), в 2D-запасном режиме — прежняя 40×40
     const json = big ? generateVillage() : structuredClone(await loadJSON(ZONES[id])); const B = big ? json.big : null;
-    if (id === 'town' && depthsUnlocked()) json.objects.push({ t: 'depths', x: B ? B.depths[0] : 13.5, y: B ? B.depths[1] : 8.5 });
+    if (id === 'town' && depthsUnlocked()) json.objects.push({ t: 'depths', x: B ? B.depths[0] : 13.5, y: B ? B.depths[1] : 8.5, rot: B ? B.depthsRot : undefined });
     if (id === 'town' && P.tutorial.prologue) json.objects.push({ t: 'castle', x: B ? B.castle[0] : 18.5, y: B ? B.castle[1] : 7.5 }, { t: 'survportal', x: B ? B.survportal[0] : 16.5, y: B ? B.survportal[1] : 12.5 }, { t: 'wildportal', realm: 'fjord', x: B ? B.fjord[0] : 26.4, y: B ? B.fjord[1] : 19.6 }, { t: 'wildportal', realm: 'forest', x: B ? B.forest[0] : 25.5, y: B ? B.forest[1] : 34.6 });
     if (id === 'town' && !B) { const bd = json.objects.find(o => o.t === 'board'); if (bd) { bd.x = 28.4; bd.y = 22.4; } json.objects.push({ t: 'wheel', x: 22.6, y: 28.0 }); }
     if (id === 'town' && !B) json.objects.push({ t: 'hwsign', x: 31.2, y: 25.2 }, { t: 'banner', x: 20.0, y: 15.6 }, { t: 'banner', x: 17.6, y: 22.2 }, { t: 'statue', x: 23.6, y: 11.6 }, { t: 'weapon_rack', x: 31.0, y: 16.2 }, { t: 'crystals', x: 33.6, y: 29.6 });
@@ -101,7 +105,7 @@ export async function loadZone(id, how = {}) {
     if (id === 'town' && B) json.objects.push({ t: 'swordportal', x: B.swords[0], y: B.swords[1] }, { t: 'handsportal', x: B.hands[0], y: B.hands[1] });   // мечи и руки — на линии с пустошами, пока никуда не ведут (сборка 44, 46)
     if (id === 'catacombs') json.objects.push({ t: 'crystals', x: 47.5, y: 42 }, { t: 'crystals', x: 55, y: 51 }, { t: 'mushrooms', x: 7, y: 25 }, { t: 'mushrooms', x: 13, y: 31 }, { t: 'stalagmite', x: 5.5, y: 32 }, { t: 'puddle', x: 10, y: 28 }, { t: 'banner', x: 43, y: 23 });
     const roomy = id === 'catacombs' && G.render3d;
-    zone = new Zone(id, roomy ? widen(json, ROOMY) : json, P);
+    zone = new Zone(id, roomy ? clean(widen(json, ROOMY)) : json, P);
     if (roomy) await buildFloorCanvas(zone); else await loadFloor(zone);
   }
   if (G.run && G.run.boons) G.lastBoons = G.run.boons.slice();
@@ -319,7 +323,7 @@ export function interact(it) {
       G.cam.shake = 0.4; bus.emit('sfx', 'door'); bus.emit('toast', { text: 'Тайный проход!', sub: 'За стеной скрыта сокровищница', kind: 'good' }); requestSave(); return;
     case 'gate':
       { const g = gate('bossgate'); if (g) { bus.emit('toast', { ...g, kind: 'warn' }); bus.emit('sfx', 'deny'); return; } }
-      it.done = true; W.gateOpen = true; it.draw.spr = 'door_open'; it.light.on = false; G.zone.map.setSolid(it.tile[0], it.tile[1], 0);
+      it.done = true; W.gateOpen = true; it.draw.spr = it.draw.spr === 'door_arch' ? 'door_arch_open' : 'door_open'; it.light.on = false; for (const [x, y] of it.tiles || [it.tile]) G.zone.map.setSolid(x, y, 0);
       bus.emit('sfx', 'door'); G.cam.shake = 0.7; bus.emit('toast', { text: 'Печать сломлена', sub: 'Палач Бездны пробуждается…', kind: 'quest' });
       Q.setFlag('gateOpen');
       if (!G.enemies.some(e => e.D.boss)) { const bo = G.zone.json.story[1]; G.enemies.push(new Enemy('boss', bo[1], bo[2], P.chapterDone ? Math.max(6, P.level) : bandLevel(BOSS_LEVEL, 10), { story: 'boss' })); }
@@ -432,7 +436,7 @@ export function finishFloor() {
   const res = { floor: r.floor, time, kills: r.kills, total: r.total, stars, prevStars, gold, xp, first, runGold: P.stats.gold - r.gold0, boss: isBossFloor(r.floor), token: 'floor_' + r.floor + '_' + Math.round(r.t0 * 1000) };
   G.lastFloorResult = res; bus.emit('floorResult', res); bus.emit('hud'); saveNow();
 }
-bus.on('roomUnlocked', id => { const it = G.zone && G.zone.inter.find(i => i.type === 'roomgate' && i.room === id); if (it) { it.done = true; it.draw.spr = 'door_open'; G.zone.map.setSolid(it.tile[0], it.tile[1], 0); G.panelTarget = null; bus.emit('panel', null); C.particles(it.x, it.y, 20, { c: [255, 210, 120], sp: 2.5, size: 4 }); G.cam.shake = 0.3; } });
+bus.on('roomUnlocked', id => { const it = G.zone && G.zone.inter.find(i => i.type === 'roomgate' && i.room === id); if (it) { it.done = true; it.draw.spr = it.draw.spr === 'door_square' ? 'door_square_open' : 'door_open'; for (const [x, y] of it.tiles || [it.tile]) G.zone.map.setSolid(x, y, 0); G.panelTarget = null; bus.emit('panel', null); C.particles(it.x, it.y, 20, { c: [255, 210, 120], sp: 2.5, size: 4 }); G.cam.shake = 0.3; } });
 bus.on('decorPlaced', ({ sid, id }) => { const it = G.zone && G.zone.inter.find(i => i.sid === sid); if (!it) return; const D = DECOR[id]; it.draw.spr = D.spr; it.draw.hidden = false; it.draw.flat = D.spr === 'rug'; it.draw.tall = D.spr === 'statue' || D.spr === 'banner'; C.particles(it.x, it.y, 18, { c: [255, 220, 140], sp: 2, size: 3 }); });
 export function startTrial(t) {
   const s = CS.seals(); if (s.n <= 0 || G.trial) return;
