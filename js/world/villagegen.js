@@ -244,7 +244,7 @@ export function generateVillage(plan0 = PLAN) {
   {
     const gx0 = church.x - 4.2, gy0 = church.y - church.d / 2 - 4.6;
     for (let r = 0; r < 2; r++) for (let k = 0; k < 4; k++) if (hh(k, r, 4) < 0.85) put('grave', gx0 + 0.8 + k * 1.75, gy0 + 0.9 + r * 1.8, { rot: (hh(k, r) - 0.5) * 0.3 });
-    { const [px, py] = plan.portals.catacombs; put('deadtree', px - 2.9, py + 0.4, { s: 1.8, keep: 1 }); }   // сборка 47: сухое дерево — за порталом катакомб и левее (было перед ним), ростом в два героя
+    { const [px, py] = plan.portals.catacombs, tx = px - 2.9, ty = py + 0.4, dx = church.x - tx, dy = church.y - ty, l = Math.hypot(dx, dy); put('deadtree', tx + dx / l * 2, ty + dy / l * 2, { s: 1.8, keep: 1 }); }   // и на 2 м ближе к церкви   // сборка 47: сухое дерево — за порталом катакомб и левее (было перед ним), ростом в два героя
     markRect(gx0 - 0.5, gy0, gx0 + 9, gy0 + 4, 5);
   }
 
@@ -458,7 +458,7 @@ export function generateVillage(plan0 = PLAN) {
   put('portal', P0.catacombs[0], P0.catacombs[1]);
   const P = plan.portals;
   // портал Глубин смотрит вдоль своей дороги, навстречу герою (сборка 47); модель уже повёрнута на 45° к камере — вычитаем
-  const dw = roads.find(r => r.id === 'depthway').line, de = dw[dw.length - 1], db = dw[Math.max(0, dw.length - 12)], depthsRot = +(Math.atan2(db.x - de.x, db.y - de.y) - Math.PI / 4).toFixed(3);
+  const dw = roads.find(r => r.id === 'depthway').line, de = dw[dw.length - 1], db = dw[Math.max(0, dw.length - 12)], depthsRot = +(Math.atan2(db.x - de.x, db.y - de.y) - Math.PI / 4 + 0.15 * Math.PI / 2).toFixed(3);   // +15 % четверти оборота к камере
   return {
     w: W, h: H, name: 'Деревня Ордена', floor: { w: 0, h: 0, scale: 1, ox: 0, chunks: [] }, village: true,
     rows: g.map(r => r.join('')), objects, npcs, start: plan.start, critters, viewClear, center: [CX, CY],
