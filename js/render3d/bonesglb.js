@@ -15,10 +15,10 @@ const SINK = { bone_hut_a: 1.12 };
 const OBJ = new Map();   // имя объекта → { geometry, mat }
 let wait = null, ready = false;
 
-export function preloadBones() {
-  if (wait) return wait;
-  if (typeof document === 'undefined') return (wait = Promise.resolve(false));
-  wait = Promise.all(PACKS.map(p => new GLTFLoader().loadAsync(BASE + p + '.glb').then(g => {
+const PACK_WAIT = new Map();   // пак → загрузка (сборка 47: пак деревьев грузится и для деревни — сухое дерево у катакомб)
+function loadPack(p) {
+  if (PACK_WAIT.has(p)) return PACK_WAIT.get(p);
+  const w = new GLTFLoader().loadAsync(BASE + p + '.glb').then(g => {
     let mat = null;
     g.scene.traverse(o => {
       if (!o.isMesh) return;
@@ -30,8 +30,23 @@ export function preloadBones() {
       else if (lo > ys[ys.length - 1] * 0.03) o.geometry.translate(0, -lo, 0);
       OBJ.set(o.name, { geometry: o.geometry, mat });
     });
-  }))).then(() => (ready = true)).catch(e => { console.warn('bones packs', e); return false; });
+  });
+  PACK_WAIT.set(p, w); return w;
+}
+export function preloadBones() {
+  if (wait) return wait;
+  if (typeof document === 'undefined') return (wait = Promise.resolve(false));
+  wait = Promise.all(PACKS.map(loadPack)).then(() => (ready = true)).catch(e => { console.warn('bones packs', e); return false; });
   return wait;
+}
+export function preloadBoneTrees() {
+  if (typeof document === 'undefined') return Promise.resolve(false);
+  return loadPack('03_trees').then(() => true).catch(e => { console.warn('bones trees', e); return false; });
+}
+/** сухое дерево пустошей Meshy для деревни (сборка 47: вместо лысого процедурного у входа в катакомбы) или null */
+export function boneDeadTree(PROPS, kit) {
+  if (!SKINS.on || !OBJ.has('tree_dead_desert_a')) return null;
+  return defOf('deadtree', 'tree_dead_desert_a', 0.8, PROPS.deadtree, kit);
 }
 export const bonesReady = () => ready && SKINS.on;
 

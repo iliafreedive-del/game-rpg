@@ -82,14 +82,16 @@ function clumpGeometry(nb = 4, ear = 0) {
 
 // материал земли: toon (свет, тени, туман) + рисованные текстуры по маскам типов. aKind = веса (трава, тропа, брусчатка, лес);
 // край тропы рвёт шум, вдоль края — тёмная кромка (трава нависает над землёй), крупные пятна шума — солнечные и тенистые участки
-function groundMaterial(snow = false, forest = false, puddles = 1, steppe = false) {
+// spots — пятна земли чужого биома у порталов деревни (сборка 47): до 4 штук { x, y, r, k }, k: 1 снег, 2 песок пустошей, 3 луг леса, 4 камень катакомб
+function groundMaterial(snow = false, forest = false, puddles = 1, steppe = false, spots = []) {
   const m = toon(0xffffff, { vc: true, rim: 0.05 });
-  const T = { tNoise: { value: noiseTex() }, tGrass: { value: grassTex() }, tDirt: { value: dirtTex() }, tMoss: { value: mossTex() }, tFlag: { value: flagTex() }, uSnow: { value: snow ? 1 : 0 }, uForest: { value: forest ? 1 : 0 }, uSteppe: { value: steppe ? 1 : 0 }, uPud: { value: puddles } };
+  const SP = [0, 1, 2, 3].map(i => { const o = spots[i]; return o ? new THREE.Vector4(o.x, o.y, o.r, o.k) : new THREE.Vector4(0, 0, 0, 0); });
+  const T = { uSpots: { value: SP }, tNoise: { value: noiseTex() }, tGrass: { value: grassTex() }, tDirt: { value: dirtTex() }, tMoss: { value: mossTex() }, tFlag: { value: flagTex() }, uSnow: { value: snow ? 1 : 0 }, uForest: { value: forest ? 1 : 0 }, uSteppe: { value: steppe ? 1 : 0 }, uPud: { value: puddles } };
   const prev = m.onBeforeCompile;
   m.onBeforeCompile = sh => {
     prev(sh); Object.assign(sh.uniforms, T);
     sh.vertexShader = 'attribute vec4 aKind; attribute float aPath; varying vec4 vKind; varying float vPath; varying vec2 vGW;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvKind = aKind; vPath = aPath; vGW = (modelMatrix * vec4(position, 1.0)).xz;');
-    sh.fragmentShader = 'uniform sampler2D tNoise, tGrass, tDirt, tMoss, tFlag; uniform float uSnow, uForest, uSteppe, uPud; varying vec4 vKind; varying float vPath; varying vec2 vGW;\n' + sh.fragmentShader.replace('#include <color_fragment>', /* glsl */`
+    sh.fragmentShader = 'uniform sampler2D tNoise, tGrass, tDirt, tMoss, tFlag; uniform float uSnow, uForest, uSteppe, uPud; uniform vec4 uSpots[4]; varying vec4 vKind; varying float vPath; varying vec2 vGW;\n' + sh.fragmentShader.replace('#include <color_fragment>', /* glsl */`
 #include <color_fragment>
 {
   vec2 wp = vGW;
@@ -137,6 +139,16 @@ function groundMaterial(snow = false, forest = false, puddles = 1, steppe = fals
   vec3 fl = texture2D(tFlag, wp * 0.33).rgb * vec3(1.3, 1.24, 1.08) * (0.8 + nz.g * 0.4);
   col = mix(col, fl, cm * 0.8);
   col = mix(col, col * vec3(0.5, 0.48, 0.44), cm * 0.25);                                          // щели брусчатки
+  // у порталов деревни земля на ~40 % смешана с землёй того мира, куда ведёт портал (рваный край по шуму)
+  for (int i = 0; i < 4; i++) {
+    vec4 S = uSpots[i]; if (S.z <= 0.0) continue;
+    float w = (1.0 - smoothstep(S.z * 0.45, S.z, length(wp - S.xy) + (nz2.r - 0.5) * 1.6)) * 0.4;
+    vec3 bc = S.w < 1.5 ? mix(vec3(0.82, 0.88, 0.95), vec3(0.98, 1.0, 1.0), smoothstep(0.3, 0.75, nz.r))
+            : S.w < 2.5 ? mix(mix(vec3(0.46, 0.17, 0.08), vec3(0.68, 0.31, 0.15), nz.r), mix(vec3(0.76, 0.5, 0.3), vec3(0.88, 0.66, 0.42), nz2.g), 0.6)
+            : S.w < 3.5 ? mix(vec3(0.46, 0.6, 0.22), vec3(0.7, 0.76, 0.32), smoothstep(0.3, 0.75, nz.r))
+            : mix(vec3(0.34, 0.33, 0.36), vec3(0.52, 0.5, 0.5), nz2.g) * (0.85 + nz.r * 0.3);
+    col = mix(col, bc, w);
+  }
   // лужи на тропе: тёмная вода с бликом неба, мокрая кромка
   float pn = texture2D(tNoise, wp * 0.07 + 0.6).g * 0.6 + nz2.g * 0.4;
   float pud = smoothstep(0.64 + (1.0 - uPud) * 0.1, 0.7 + (1.0 - uPud) * 0.1, pn) * smoothstep(0.4, 0.8, pm) * (1.0 - cm) * (1.0 - max(max(uSnow, uForest), uSteppe));
@@ -195,6 +207,10 @@ function waterMaterial(x0, y0, x1, y1, ice = false) {
 const kindOf = ch => ch === ',' || ch === ';' ? 'p' : ch === '#' ? 'c' : ch === 'x' ? 'f' : ch === '~' || ch === 'b' ? 'w' : ch === 'F' || ch === 'V' || ch === 'K' ? 's' : 'g';
 
 const GROUND_CACHE = new Map(), GRASS_CACHE = { sig: null, list: null };   // сетка земли и трава деревни (сборка 46)
+const SPOT_K = { fjord: 1, bones: 2, forest: 3 };
+function portalSpots(zone) {
+  return zone.json.objects.filter(o => (o.t === 'wildportal' && SPOT_K[o.realm]) || o.t === 'portal').slice(0, 4).map(o => ({ x: o.x, y: o.y, r: 5.5, k: o.t === 'portal' ? 4 : SPOT_K[o.realm] }));
+}
 export function buildGround(scene, zone, opts = {}) {
   hfogTex(); const m = zone.map, W = m.w, H = m.h, MARGIN = opts.margin ?? 3, STEP = 0.5, kOf = opts.kindOf || kindOf, snow = !!opts.snow, steppe = !!opts.steppe;
   // за краем карты: обычно лесная подстилка; в деревне — продолжение крайнего тайла (луг за рекой не обрывается тёмной полосой)
@@ -228,7 +244,7 @@ export function buildGround(scene, zone, opts = {}) {
     GC = g0; if (vil) { GROUND_CACHE.clear(); GROUND_CACHE.set(gkey, GC); }
   }
   const geo = GC;
-  const ground = new THREE.Mesh(geo, groundMaterial(snow, !!opts.forest, zone.json.village ? 0 : 1, steppe)); ground.userData.noOutline = true; ground.receiveShadow = true; scene.add(ground);
+  const ground = new THREE.Mesh(geo, groundMaterial(snow, !!opts.forest, zone.json.village ? 0 : 1, steppe, vil ? portalSpots(zone) : [])); ground.userData.noOutline = true; ground.receiveShadow = true; scene.add(ground);
   // подложка до горизонта: тёмный мох, чтобы за краем карты не было пустоты
   // походы (сборка 45): вместо плоской подложки — остров над звёздной бездной (см. abyss ниже)
   const far = opts.abyss ? abyss(W, H, MARGIN, opts.abyss) : new THREE.Mesh(new THREE.PlaneGeometry(400, 400).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: opts.farColor ?? 0x0f2418 }));
@@ -321,7 +337,9 @@ export function buildGround(scene, zone, opts = {}) {
     grassU,
     setQuality(q) { gk = GRASS_K[q] ?? 1; for (const g of grass) g.count = Math.floor(g.userData.max * gk); },
     // LOD: дальние чанки (верх кадра) реже — экземпляры перемешаны, поэтому обрезка счётчика прореживает равномерно
-    lod(x, z) { for (const g of grass) { const [cx, cz] = g.userData.c, d = Math.hypot(cx - x, cz - z), f = 1 - 0.6 * Math.min(1, Math.max(0, (d - 10) / 16)); g.count = Math.floor(g.userData.max * gk * f); } },
+    // zoom — отдаление игрока (1 — обычный вид): сборка 47 — при отдалении травинки мельче на экране, а в кадре их кратно больше
+    // (FPS при максимальном отдалении падал даже на ПК), поэтому густота дальней травы снижается
+    lod(x, z, zoom = 1) { const zk = zoom > 1 ? 1 / (zoom * zoom) : 1; for (const g of grass) { const [cx, cz] = g.userData.c, d = Math.hypot(cx - x, cz - z), f = 1 - 0.6 * Math.min(1, Math.max(0, (d - 10) / 16)); g.count = Math.floor(g.userData.max * gk * f * (d < 8 ? 1 : zk)); } },
     // трава — свой шейдер, поэтому тень направленного света она читает из shadow map сама
     shadow(light) {
       const sm = light.shadow, on = light.castShadow && !!sm.map;

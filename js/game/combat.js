@@ -195,6 +195,7 @@ export function updatePlayerAction(P, dt) {
     bus.emit('sfx', 'cast');
   }
   if (a.kind === 'melee' && !a.fired && P.anim.prog >= a.impact) { a.fired = true; meleeImpact(P, a); }
+  if (a.dash) { const D = a.dash, k = Math.min(1, a.t / D.T); P.x = D.sx + (D.fx - D.sx) * k; P.y = D.sy + (D.fy - D.sy) * k; }
   if (a.kind === 'skill' && !a.fired && P.anim.prog >= a.impact) { a.fired = true; a.fire(); }
   if (P.anim.done) endAction(P);
 }
@@ -258,7 +259,7 @@ export function castSkill(id, aim) {
   const tgt = aim ? nearAim(aim, 1.6) : pickTarget(P, range); if (tgt) P.faceTo(tgt.x, tgt.y); else if (aim) P.faceTo(aim.x, aim.y); P.dir = P.face;
   const ang = tgt ? Math.atan2(tgt.y - P.y, tgt.x - P.x) : aim ? Math.atan2(aim.y - P.y, aim.x - P.x) : P.face * Math.PI / 4;
   const sp = S.spellPower;
-  let fire, clip = 'cast', dur = 0.5, impact = 0.5;
+  let fire, clip = 'cast', dur = 0.5, impact = 0.5, dash = null;
   switch (id) {
     case 'fireball': fire = () => { spawnProj({ kind: 'fireball', x: P.x, y: P.y, vx: Math.cos(ang) * 11, vy: Math.sin(ang) * 11, owner: 'p', dmg: (7 + r * 4) * sp * S.elem.fire, elem: 'fire', range: 9, aoe: 1.4, ignite: true }); bus.emit('sfx', 'fire'); }; break;
     case 'ice_shard': fire = () => { spawnProj({ kind: 'shard', x: P.x, y: P.y, vx: Math.cos(ang) * 15, vy: Math.sin(ang) * 15, owner: 'p', dmg: (6 + r * 3) * sp * S.elem.cold, elem: 'cold', range: 9, chill: true }); bus.emit('sfx', 'ice'); }; dur = 0.42; break;
@@ -274,7 +275,8 @@ export function castSkill(id, aim) {
       clip = 'dodge'; dur = 0.55; impact = 0.85;
       const sx = P.x, sy = P.y, [fx, fy] = G.zone.map.nearestFree(dest.x, dest.y, P.r);
       P.inv = 0.6; bus.emit('dust', { x: P.x, y: P.y });
-      for (let k = 1; k <= 8; k++) setTimeoutGame(dur * 0.8 * k / 8, () => { P.x = sx + (fx - sx) * k / 8; P.y = sy + (fy - sy) * k / 8; });
+      // сборка 47: рывок плавный, каждый кадр (было 8 скачков — герой «дёргался»); в 3D в это время играет бег (renderer3d syncPlayer)
+      dash = { sx, sy, fx, fy, T: dur * 0.8 };
       fire = () => { effect({ kind: 'ring', x: P.x, y: P.y, r: 2.6, dur: 0.45, c: [255, 210, 140] }); effect({ kind: 'scorch', x: P.x, y: P.y, r: 1.6, dur: 3 }); bus.emit('dust', { x: P.x, y: P.y }); particles(P.x, P.y, 26, { c: [170, 150, 120], z: 0.2, sp: 4, vz: 3, g: 6, size: 5, add: false }); G.cam.shake = 0.5; bus.emit('sfx', 'heavy');
         for (const e of G.enemies) if (!e.dead && Math.hypot(e.x - P.x, e.y - P.y) < 2.6 + e.r) { damageEnemy(e, rollWeapon(S) * (1.8 + r * 0.3), { src: 'melee', knock: 1, kx: P.x, ky: P.y }); if (!e.dead) e.st.stun = 1; } };
       break;
@@ -320,7 +322,7 @@ export function castSkill(id, aim) {
     }
   }
   const nf = { cast: 6, slash2: 7, sweep2: 8, bowrel: 3, dodge: 5 }[clip];
-  P.state = 'cast'; P.act = { kind: 'skill', t: 0, impact, fired: false, fire, cancelable: false, id };
+  P.state = 'cast'; P.act = { kind: 'skill', t: 0, impact, fired: false, fire, cancelable: false, id, dash };
   P.setAnim(clip, nf / dur); P.stateT = 0;
   return true;
 }

@@ -475,16 +475,18 @@ export function update(dt) {
   if (input.attackHeld && !moving && canAct) {
     const t = inRange(pl.focus) ? pl.focus : C.nearestEnemy(pl.x, pl.y, rng + 1, e => inRange(e));
     if (t) C.playerAttack(pl, null, t);
-    else { const near = C.nearestEnemy(pl.x, pl.y, 7, e => G.zone.map.los(pl.x, pl.y, e.x, e.y)); if (near) { const dx = near.x - pl.x, dy = near.y - pl.y, l = Math.hypot(dx, dy); inp.wx = dx / l; inp.wy = dy / l; inp.mag = 0.7; } else C.playerAttack(pl); }
+    else { const near = C.nearestEnemy(pl.x, pl.y, W.ranged ? 7 : 4.2, e => G.zone.map.los(pl.x, pl.y, e.x, e.y)); if (near) { const dx = near.x - pl.x, dy = near.y - pl.y, l = Math.hypot(dx, dy); inp.wx = dx / l; inp.wy = dy / l; inp.mag = 0.7; } else C.playerAttack(pl); }
   }
   // автоатака стоя: выбранная цель, иначе ближайший напавший (или любой при автобое); воин — в радиусе удара
   if (canAct && !moving && !input.attackHeld && G.zoneId !== 'town' && G.zoneId !== 'castle') {
     const t = inRange(pl.focus) ? pl.focus : C.nearestEnemy(pl.x, pl.y, rng + 1, e => (e.aggro || G.auto) && inRange(e));
     if (t && C.playerAttack(pl, null, t) && pl.act) pl.act.auto = true;
-    // воин: враг рядом (кружит в 2–4 м, как гиены), но не в радиусе удара — сам делает шаг к нему и бьёт
+    // воин: враг почти вплотную (на шаг за радиусом удара) — короткий шаг к нему и удар. Сборка 47: было до 4,6 м — воин сам бегал к мобам,
+    // пользователю это скучно: подходить игрок должен сам (или зажатой атакой — тогда до 4,2 м)
     else if (!t && !W.ranged) {
-      const f = pl.focus && !pl.focus.dead && Math.hypot(pl.focus.x - pl.x, pl.focus.y - pl.y) < 4.6 && G.zone.map.los(pl.x, pl.y, pl.focus.x, pl.focus.y) ? pl.focus : null;
-      const n = f || C.nearestEnemy(pl.x, pl.y, 4.6, e => (e.aggro || G.auto) && G.zone.map.los(pl.x, pl.y, e.x, e.y));
+      const AUTO_STEP = rng + 0.9;
+      const f = pl.focus && !pl.focus.dead && Math.hypot(pl.focus.x - pl.x, pl.focus.y - pl.y) < AUTO_STEP + pl.focus.r && G.zone.map.los(pl.x, pl.y, pl.focus.x, pl.focus.y) ? pl.focus : null;
+      const n = f || C.nearestEnemy(pl.x, pl.y, AUTO_STEP, e => (e.aggro || G.auto) && G.zone.map.los(pl.x, pl.y, e.x, e.y));
       if (n) { const dx = n.x - pl.x, dy = n.y - pl.y, l = Math.hypot(dx, dy) || 1; inp.wx = dx / l; inp.wy = dy / l; inp.mag = 0.75; }
     }
   }

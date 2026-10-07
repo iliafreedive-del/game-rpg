@@ -7,7 +7,7 @@ import { PX_PER_M } from '../core/iso.js';
 import { U, setSmoothFade } from './toon.js';
 import { makeKit } from './kit.js';
 import { Actor, setOutlinesVisible } from './actor.js';
-import { preloadBones, bonesReady } from './bonesglb.js';
+import { preloadBones, bonesReady, preloadBoneTrees } from './bonesglb.js';
 import { preloadPortals, portalsReady } from './portalglb.js';
 import { preloadAltar, altarReady } from './altarglb.js';
 import { PropLayer } from './props.js';
@@ -186,8 +186,8 @@ function setZone(z) {
   props.cull(camera, true); applyQuality(true); ground.setQuality(quality); spawned = false;
   // Костяные пустоши: паки окружения Meshy грузятся при первом входе; пока грузятся — прежние предметы, потом слой пересобирается
   // порталы деревни из Meshy (сборка 44): пак грузится при первом входе в деревню, до загрузки — прежние арки
-  if (town && z.json.village && kit.skin.SKINS.on && !(portalsReady() && altarReady())) Promise.all([preloadPortals(), preloadAltar()]).then(([ok, ok2]) => {
-    ok = ok || ok2;
+  if (town && z.json.village && kit.skin.SKINS.on && !(portalsReady() && altarReady())) Promise.all([preloadPortals(), preloadAltar(), preloadBoneTrees()]).then(([ok, ok2, ok3]) => {
+    ok = ok || ok2 || ok3;
     if (!ok || !world || zone !== z) return;
     world.props.dispose(); world.props = new PropLayer(scene, kit, z, open); world.props.cull(camera, true); applyQuality(true);
   });
@@ -229,6 +229,7 @@ function syncPlayer(dt) {
   const c = measure(a, P, dt), an = P.anim; let clip = 'idle', k, impact, speed = 0;
   if (P.dead) { clip = 'death'; k = an.prog; }
   else if (P.state === 'dodge') { clip = 'dodge'; k = an.prog; speed = 6; }
+  else if (P.state === 'cast' && P.act && P.act.dash && P.act.t < P.act.dash.T) { const D = P.act.dash; clip = 'walk'; speed = Math.hypot(D.fx - D.sx, D.fy - D.sy) / D.T; }   // Сокрушающий прыжок: быстрый бег к цели
   else if (P.state === 'attack' || P.state === 'cast') {
     clip = (P.state === 'cast' || wt === 'staff' || wt === 'bow') ? 'cast' : 'attack'; k = an.prog; impact = P.act ? P.act.impact : undefined;
     if (wt === 'bow' && P.act) {   // у лука игра ведёт два клипа подряд (натяжение, потом спуск): склеиваем в одну шкалу 0..1 для позы лучника
@@ -308,7 +309,7 @@ function updateCamera(dt) {
   const zt = zoomNow(); userZoom = Math.abs(zt - userZoom) < 1e-3 ? zt : userZoom + (zt - userZoom) * Math.min(1, dt * 12);
   const cam = G.cam, C = CAMERA.village, aim = C.aim, dist0 = camDist / (G.zoomMul || 1), dist = dist0 * userZoom * (G.cineZoom || 1);   // облёт камеры (js/ui/cinema.js) отодвигает камеру
   scene.fog.near = LV.fog.near + dist - dist0; scene.fog.far = LV.fog.far + dist - dist0;
-  const sh = SHADOW.half * Math.max(1, userZoom);
+  const sh = SHADOW.half * Math.sqrt(Math.max(1, userZoom));   // сборка 47: область тени растёт медленнее зума (при +30 % — +14 %): на краю кадра тени и так почти не видно, а проход тени дорогой
   if (sh !== shadowHalf) { shadowHalf = sh; const sc = lights.moon.shadow.camera; sc.left = sc.bottom = -sh; sc.right = sc.top = sh; sc.updateProjectionMatrix(); }
   camTarget.set(cam.x - SQ * aim, CAMERA.follow.targetY, cam.y - SQ * aim);
   camera.position.set(Math.sin(CAMERA.yaw) * Math.cos(C.pitch), Math.sin(C.pitch), Math.cos(CAMERA.yaw) * Math.cos(C.pitch)).multiplyScalar(dist).add(camTarget);
@@ -372,14 +373,20 @@ export function prepare() {
     // паки Meshy (порталы деревни, пустоши) — до сборки мира, чтобы слой предметов не пересобирался уже на глазах
     SKINS.on = !(G.profile && G.profile.settings && G.profile.settings.skins === false);
     const packs = [];
-    if (SKINS.on && Z.id === 'town' && Z.json.village && !portalsReady()) packs.push(preloadPortals());
-    if (SKINS.on && Z.id === 'town' && Z.json.village && !altarReady()) packs.push(preloadAltar());   // источник силы из Meshy
+    if (SKINS.on && !portalsReady()) packs.push(preloadPortals());   // сборка 47: арки Meshy стоят и выходами из катакомб, походов, Цитадели
+    if (SKINS.on && Z.id === 'town' && Z.json.village && !altarReady()) packs.push(preloadAltar());
+    if (SKINS.on && Z.id === 'town' && Z.json.village) packs.push(preloadBoneTrees());   // сухое дерево пустошей у входа в катакомбы   // источник силы из Meshy
     if (SKINS.on && Z.id === 'wild' && Z.json.wild.realm === 'bones' && !bonesReady()) packs.push(preloadBones());
     if (packs.length) await settle(Promise.all(packs), 8000);
     if (G.zone !== Z) return;
     if (Z !== zone) setZone(Z);
     applyQuality(); updateCamera(0); syncPlayer(0); syncEnemies(0); syncNpcs(0);   // герой, враги и жители — сразу, чтобы их шейдеры тоже собрались заранее
     await settle(renderer.compileAsync(scene, camera), 6000);
+    // сборка 47: текстуры и буферы зоны — в видеопамять тоже под шторкой (compileAsync собирает только шейдеры; лес на телефоне
+    // первые секунды стоял «лысым», пока деревья и земля догружались на глазах)
+    if (G.zone !== Z) return;
+    const seen = new Set(); scene.traverse(o => { const ms = o.material ? [].concat(o.material) : []; for (const m of ms) for (const k of ['map', 'normalMap', 'alphaMap', 'emissiveMap']) { const t = m[k]; if (t && t.isTexture && !seen.has(t)) { seen.add(t); try { renderer.initTexture(t); } catch { } } } });
+    world.props.cull(camera, true); renderer.render(scene, camera);
   })().finally(() => { warming = null; if (params.has('debug')) console.info('[3d] зона готова', Z.id, Math.round(performance.now() - t0) + ' мс'); });
   return warming;
 }
@@ -396,7 +403,7 @@ export function render() {
   if (world.critters) world.critters.update(dt, tAll, G.player, G.cam.x, G.cam.y);
   world.ground.update([{ x: G.player.x, z: G.player.y, r: 0.7, w: 1 }, ...G.enemies.filter(e => !e.dead).slice(0, 10).map(e => ({ x: e.x, z: e.y, r: e.r * 1.6, w: 1 }))]);
   devSpawn();
-  world.ground.shadow(lights.moon); world.ground.lod(camTarget.x + SQ * 2, camTarget.z + SQ * 2);
+  world.ground.shadow(lights.moon); world.ground.lod(camTarget.x + SQ * 2, camTarget.z + SQ * 2, userZoom);
   renderer.info.reset();
   post.render(scene, camera, tAll, LV.exposure ?? 1);
 }

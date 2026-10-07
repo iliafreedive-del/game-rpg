@@ -7,7 +7,7 @@ import { OUTLINE, QUALITY } from './style.js';
 import { fbm } from './geo.js';
 import { wallPieces } from './dungeon.js';
 import { STEPPE_ROCKS, STEPPE_SPIRES, STEPPE_TREES } from './models/prop/_steppe.js';
-import { swap as bonesSwap, liveDef as bonesLive } from './bonesglb.js';
+import { swap as bonesSwap, liveDef as bonesLive, boneDeadTree } from './bonesglb.js';
 import { SKINS } from './glbskin.js';
 import { portalsReady } from './portalglb.js';
 import { altarReady } from './altarglb.js';
@@ -44,6 +44,7 @@ export class PropLayer {
     const fj = wild && zone.json.wild.realm === 'fjord', bn = wild && zone.json.wild.realm === 'bones', open = !dungeon;   // open — открытая местность (деревня, поход); bn — Костяные пустоши
     const MODEL = { fort_hall: fj ? 'fort_hall_i' : bn ? 'bone_hall' : 'fort_hall_w', tent: fj ? 'tent_i' : bn ? 'bone_hut' : 'tent_w', fort_gate: fj ? 'fort_gate_i' : 'fort_gate_w', fort_door: fj ? 'fort_door_i' : 'fort_door_w', fort_tower: fj ? 'fort_tower' : 'watchtower' };
     this.fj = fj; this.bn = bn; this.wildForest = wildForest;
+    const extra0 = {};   // модели не из реестра (сборка 47: сухое дерево пустошей в деревне)
     this.live = [];   // предметы, которые игра меняет на лету: { d, rot, cur, g }
     for (const d of zone.statics) {
       if (dungeon && d.wall && /^wall_/.test(d.spr)) {   // стены подземелья строятся по тайлам (dungeon.js); тут — факелы и секретная стена
@@ -60,11 +61,13 @@ export class PropLayer {
       if (d.hidden || (d.flat && !PROPS[d.spr])) continue;
       if (d.model) { push(MODEL[d.model] || d.model, d.x, d.y, d.rot || 0, d.s || 1, d.opts); continue; }
       if (!PROPS[d.spr]) { if (!warned.has(d.spr)) { warned.add(d.spr); console.warn('[3D] нет модели предмета «' + d.spr + '» — не показан'); } continue; }
+      if (mode === 'town' && d.spr === 'deadtree') { const bt = boneDeadTree(PROPS, kit); if (bt) { extra0[bt.id] = bt; push(bt.id, d.x, d.y, hash(d.x, d.y) * 6.283, 1.15); continue; } }   // сухое дерево пустошей (Meshy)
       const h = hash(d.x, d.y), isTree = d.spr === 'tree_0' || d.spr === 'tree_1' || (d.spr === 'deadtree' && !fj);
       const light = zone.lights.find(L => Math.hypot(L.x - d.x, L.y - d.y) < 0.3);
       const var3 = ((d.spr === 'rocks' || d.spr === 'deadtree') && open && !light) || STEPPE_FREE.has(d.spr);   // камни и сухие деревья поля — разные формы, повороты, размеры
-      push(isTree ? (fj ? pickFj(hash(d.x * 3.1 + 1, d.y * 1.7 + 2)) : pickTree(d.spr, hash(d.x * 3.1 + 1, d.y * 1.7 + 2))) : var3 ? (STEPPE_FREE.has(d.spr) ? d.spr : bn && d.spr === 'rocks' ? pickW(STEPPE_ROCKS, hash(d.x * 2.3 + 5, d.y * 1.9 + 1)) : pickTree(d.spr, hash(d.x * 2.3 + 5, d.y * 1.9 + 1))) : d.spr, d.x, d.y, isTree || var3 ? h * 6.283 : 0, isTree ? 0.85 + h * 0.55 : var3 ? 0.7 + hash(d.y, d.x) * 0.9 : 1, light ? { color: new THREE.Color(light.c[0] / 255, light.c[1] / 255, light.c[2] / 255) } : null);
+      push(isTree ? (fj ? pickFj(hash(d.x * 3.1 + 1, d.y * 1.7 + 2)) : pickTree(d.spr, hash(d.x * 3.1 + 1, d.y * 1.7 + 2))) : var3 ? (STEPPE_FREE.has(d.spr) ? d.spr : bn && d.spr === 'rocks' ? pickW(STEPPE_ROCKS, hash(d.x * 2.3 + 5, d.y * 1.9 + 1)) : pickTree(d.spr, hash(d.x * 2.3 + 5, d.y * 1.9 + 1))) : d.spr, d.x, d.y, isTree || var3 ? h * 6.283 : 0, isTree ? 1.0 + hash(d.y * 1.3, d.x * 0.7) * 0.75 : var3 ? 0.7 + hash(d.y, d.x) * 0.9 : 1, light ? { color: new THREE.Color(light.c[0] / 255, light.c[1] / 255, light.c[2] / 255) } : null);
     }
+    // сборка 47: деревья выше — в среднем ≈6 м (три роста героя), от 4,5 до 8+ м: множитель 1,0–1,75 (был 0,85–1,4), чаща 1,15–1,95
     if (wild) {   // стены форта по тайлам 'D' (лицом наружу) и густая чаща по тайлам 'x'
       for (let ty = 0; ty < m.h; ty++) for (let tx = 0; tx < m.w; tx++) {
         const c = m.ch(tx, ty);
@@ -75,7 +78,7 @@ export class PropLayer {
           const h = hash(tx * 1.9 + 3, ty * 2.3 - 1), edge = tx < 3 || ty < 3 || tx >= m.w - 3 || ty >= m.h - 3;
           if (bn) { const back = tx < 3 || ty < 3; if (h < (edge ? (back ? 0.55 : 0.3) : 0.1)) { const big = back && h < 0.3, id = big ? pickW(STEPPE_SPIRES, hash(tx * 2.1, ty * 1.3 + 5)) : h < 0.08 ? pickW(STEPPE_TREES, hash(tx, ty * 3.3)) + '_far' : pickW(STEPPE_ROCKS, hash(tx * 1.3, ty)); push(id, tx + 0.2 + hash(tx, ty + 9) * 0.6, ty + 0.2 + hash(ty, tx + 4) * 0.6, h * 40, big ? 1.1 + hash(ty, tx) * 0.8 : 0.9 + hash(ty, tx) * 0.6); } continue; }   // пустоши: край — стена из красных столбов и останцев
           const frontE = tx >= m.w - 3 || ty >= m.h - 3;   // ближний к камере край — реже: деревья там закрывают героя и мобов (сборка 18)
-          if (h < (edge ? (frontE ? 0.22 : 0.6) : fj ? 0.09 : 0.06)) { const id = fj ? (h < 0.2 ? 'rocks' : hash(tx, ty) < 0.5 ? 'tree_fir_blue' : 'tree_pine_tall') : pickTree(h > 0.3 ? 'tree_1' : 'tree_0', hash(tx * 2.1, ty * 1.3 + 5)); push(id === 'rocks' ? id : id + '_far', tx + 0.2 + hash(tx, ty + 9) * 0.6, ty + 0.2 + hash(ty, tx + 4) * 0.6, h * 40, id === 'rocks' ? 1.2 + h : 1.0 + hash(ty, tx) * 0.65); }
+          if (h < (edge ? (frontE ? 0.22 : 0.6) : fj ? 0.09 : 0.06)) { const id = fj ? (h < 0.2 ? 'rocks' : hash(tx, ty) < 0.5 ? 'tree_fir_blue' : 'tree_pine_tall') : pickTree(h > 0.3 ? 'tree_1' : 'tree_0', hash(tx * 2.1, ty * 1.3 + 5)); push(id === 'rocks' ? id : id + '_far', tx + 0.2 + hash(tx, ty + 9) * 0.6, ty + 0.2 + hash(ty, tx + 4) * 0.6, h * 40, id === 'rocks' ? 1.2 + h : 1.15 + hash(ty, tx) * 0.8); }
         }
       }
     }
@@ -97,7 +100,7 @@ export class PropLayer {
       }
     }
     if (wantBackdrop && open) this.scatterDecor(zone, push, fj);
-    const extra = bn ? bonesSwap(lists, PROPS, kit) : {};   // Костяные пустоши: предметы из паков Meshy (только там, bonesglb.js)
+    const extra = { ...extra0, ...(bn ? bonesSwap(lists, PROPS, kit) : {}) };   // Костяные пустоши: предметы из паков Meshy (только там, bonesglb.js)
     for (const [id, list] of lists) {
       const def = PROPS[id] || extra[id];
       if (def.batch) this.addBatch(def, list); else for (const it of list) this.addSingle(def, it);

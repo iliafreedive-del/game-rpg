@@ -6,6 +6,8 @@ import { REALMS } from '../data/wild.js';
 
 // порталы деревни из Meshy (сборка 44): в 3D-деревне арки миров заменены (js/render3d/portalglb.js)
 const VILLAGE_PORTAL = { fjord: 'portal_white', bones: 'portal_bones', forest: 'portal_sun' };
+// сборка 47: портал-выход внутри локации — та же арка, что ведёт сюда из деревни (из катакомб — каменная с черепами и т. д.)
+const EXIT_PORTAL = { catacombs: 'portal_skulls', depths: 'portal_ring', castle: 'portal_crown' };
 const hash = (x, y) => { let h = (x * 374761393 + y * 668265263) >>> 0; h = (h ^ (h >>> 13)) * 1274126177 >>> 0; return h; };
 
 // sprite, collider radius (or box half extents), light
@@ -107,13 +109,13 @@ export class Zone {
       switch (o.t) {
         case 'portal': case 'portal_return': {
           const hidden = o.t === 'portal_return' && !W.bossPortal;
-          const d = this.add({ x: o.x, y: o.y, spr: 'portal', hidden, anim: 'portal' });
+          const d = this.add({ x: o.x, y: o.y, spr: EXIT_PORTAL[this.id] || 'portal', hidden, anim: 'portal' });
           const L = this.addLight(o.x, o.y, { r: 4.5, c: [150, 110, 255], flicker: 0.3, z: 1.2 }); L.on = !hidden;
           this.inter.push({ id: o.t === 'portal' ? 'portal_dungeon' : 'portal_return', type: 'portal', to: 'town', x: o.x, y: o.y, r: 1.6, label: 'Портал в деревню', draw: d, light: L, hidden });
           break;
         }
         case 'castle_portal': {
-          const d = this.add({ x: o.x, y: o.y, spr: 'portal', anim: 'portal' }); this.addLight(o.x, o.y, { r: 5, c: [255, 200, 110], flicker: 0.3, z: 1.2 });
+          const d = this.add({ x: o.x, y: o.y, spr: EXIT_PORTAL.castle, anim: 'portal' }); this.addLight(o.x, o.y, { r: 5, c: [255, 200, 110], flicker: 0.3, z: 1.2 });
           this.inter.push({ id: 'castle_exit', type: 'portal', to: 'town', x: o.x, y: o.y, r: 1.6, label: 'В деревню', draw: d, plate: 'В деревню' }); break;
         }
         case 'roomgate': {
@@ -294,7 +296,7 @@ export class Zone {
     for (const o of J.objects) {
       switch (o.t) {
         case 'wild_home': {
-          const d = this.add({ x: o.x, y: o.y, spr: 'portal', anim: 'portal' }); this.addLight(o.x, o.y, { r: 4.5, c: [150, 110, 255], flicker: 0.3, z: 1.2 });
+          const d = this.add({ x: o.x, y: o.y, spr: VILLAGE_PORTAL[realm] || REALMS[realm].portal, anim: 'portal' }); this.addLight(o.x, o.y, { r: 4.5, c: [150, 110, 255], flicker: 0.3, z: 1.2 });
           this.inter.push({ id: 'wild_home', type: 'portal', to: 'town', x: o.x, y: o.y, r: 1.6, label: 'Вернуться в деревню', draw: d, plate: 'В деревню' }); break;
         }
         case 'wild_next': {
