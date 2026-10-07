@@ -1,7 +1,7 @@
 // Derived character stats from attributes, gear and skills. Pure: stats(profile) → object.
 import { SETS } from '../data/sets.js';
 import { WEAPONS, CLASSES, AFFIXES } from '../data/items.js';
-import { SKILLS } from '../data/skills.js';
+import { SKILLS, PASSIVE_K as K } from '../data/skills.js';
 import { upgMult } from './items.js';
 import { G } from './ctx.js';
 import { DECOR } from '../data/upgrades.js';
@@ -50,7 +50,7 @@ export function stats(p, gearOverride) {
   const sr = id => effRank({ ...p, gear }, id);
   const mastery = s.melee ? sr('blade_mastery') : 0;
   const marks = s.weaponType === 'bow' ? sr('marksman') : 0;
-  s.armor = Math.round(armorItems + s.armor + s.dex * 0.5 + sr('ice_armor') * 12);
+  s.armor = Math.round(armorItems + s.armor + s.dex * 0.5 + sr('ice_armor') * 12 * K);
   s.level = p.level;
   s.maxHP = Math.round(40 + s.vit * 5 + p.level * 6 + s.hp);
   s.maxMP = Math.round(20 + s.int * 3 + p.level * 2 + s.mp);
@@ -62,15 +62,15 @@ export function stats(p, gearOverride) {
   const attr = W.scale === 'str' ? s.str : W.scale === 'dex' ? s.dex : s.int;
   const attrMult = 1 + attr * (W.scale === 'int' ? 0.018 : 0.02);   // сборка 47: маг 0,025 → 0,018
   const help = (p.boosts && p.boosts.helpUntil > Date.now()) ? 1.15 : 1;   // подмога Ордена после трёх поражений подряд (js/platform/offers.js)
-  const mult = attrMult * (1 + s.dmgPct / 100) * (1 + mastery * 0.08 + marks * 0.08) * help;
+  const mult = attrMult * (1 + s.dmgPct / 100) * (1 + (mastery * 0.08 + marks * 0.08) * K) * help;
   s.dmgMin = Math.max(1, Math.round((base[0] * um + s.dmgFlat) * mult));
   s.dmgMax = Math.max(s.dmgMin, Math.round((base[1] * um + s.dmgFlat) * mult));
-  s.aps = +(W.aps * (1 + s.ias / 100 + mastery * 0.03 + (s.weaponType === 'bow' ? sr('quickstring') * 0.10 : 0))).toFixed(2);
+  s.aps = +(W.aps * (1 + s.ias / 100 + (mastery * 0.03 + (s.weaponType === 'bow' ? sr('quickstring') * 0.10 : 0)) * K)).toFixed(2);
   s.range = W.range;
-  s.critChance = Math.min(0.6, 0.05 + s.dex * 0.0015 + s.crit / 100 + marks * 0.02);
+  s.critChance = Math.min(0.6, 0.05 + s.dex * 0.0015 + s.crit / 100 + marks * 0.02 * K);
   s.critMult = 1.5 + s.critDmg / 100;
   s.spellPower = (1 + s.int * 0.01) * (1 + (W.spell || 0));   // сборка 47: было 0,015
-  s.elem = { fire: 1 + s.fire / 100 + sr('heat') * 0.10, cold: 1 + s.cold / 100 + sr('cold') * 0.10, light: 1 + s.light / 100 + sr('static') * 0.10 };
+  s.elem = { fire: 1 + s.fire / 100 + sr('heat') * 0.10 * K, cold: 1 + s.cold / 100 + sr('cold') * 0.10 * K, light: 1 + s.light / 100 + sr('static') * 0.10 * K };
   s.res = { fire: Math.min(75, s.resFire), cold: Math.min(75, s.resCold), light: Math.min(75, s.resLight) };
   const C = CLASSES[p.cls || 'warrior']; if (C.block && w && WEAPONS[w.wt].hands === 1) s.block += C.block;
   // gold upgrades from NPCs + citadel trophies
