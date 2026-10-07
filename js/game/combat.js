@@ -1,7 +1,7 @@
 // Combat: player attacks & skills, damage formulas, status effects, enemy attacks, projectiles, VFX spawning.
 import { G, bus } from './ctx.js';
 import { WEAPONS } from '../data/items.js';
-import { SKILLS } from '../data/skills.js';
+import { SKILLS, PASSIVE_K as PK } from '../data/skills.js';
 import { effRank, damageReduction, hasBoon } from './stats.js';
 import { getAtlas } from '../core/assets.js';
 import { dirOf, dirVec } from '../core/iso.js';
@@ -54,7 +54,7 @@ export function damageEnemy(e, amount, o = {}) {
   if (!o.elem || o.elem === 'phys') { const red = damageReduction(e.armor * (1 - (o.pierce || 0)), G.profile.level) * 0.9; dmg *= 1 - red; }
   if (e.st.shock > 0) dmg *= 1 + e.st.shockAmp;
   if (G.player && G.player.warcry > G.time && o.src !== 'dot') dmg *= G.player.warcryMul || 1.25;
-  if (e.st.frozen > 0 && R('shatter')) dmg *= 1.5;
+  if (e.st.frozen > 0 && R('shatter')) dmg *= 1 + 0.5 * PK;
   if (S.effects.execute && e.hp < e.maxHP * 0.3 && o.src === 'melee') dmg *= 2;
   dmg = Math.max(1, Math.round(dmg));
   e.hp -= dmg; e.flash = 0.12; G.lastCombat = G.time; e.lastSrc = o.src;
@@ -66,12 +66,12 @@ export function damageEnemy(e, amount, o = {}) {
   // bleed from crits (sword branch) and axes
   if (o.src === 'melee') {
     const bl = R('bloodletting'); let b = 0;
-    if (crit && bl) b += dmg * bl * 0.3;
+    if (crit && bl) b += dmg * bl * 0.3 * PK;
     if (o.axeBleed && rand() < 0.25) b += dmg * 0.5;
     if (b > 0) { e.st.bleed = 3; e.st.bleedDps = Math.max(e.st.bleedDps, b / 3); }
   }
   // overload sparks
-  const ov = R('overload'); if (ov && o.src !== 'dot' && o.src !== 'spark' && rand() < ov * 0.10) {
+  const ov = R('overload'); if (ov && o.src !== 'dot' && o.src !== 'spark' && rand() < ov * 0.10 * PK) {
     const t = nearestEnemy(e.x, e.y, 5, x => x !== e); if (t) { lightningArc(e.x, e.y, t.x, t.y); damageEnemy(t, dmg * 0.5 * S.elem.light, { elem: 'light', src: 'spark', canCrit: false }); }
   }
   if (G.run && G.run.boons && (o.src === 'melee' || o.src === 'weapon') && !e.dead && e.hp > 0) {
@@ -87,21 +87,21 @@ export function damageEnemy(e, amount, o = {}) {
 }
 function applyIgnite(e, base) {
   const ip = R('ignite_plus');
-  const dur = 3 + ip; const total = base * 0.4 * (1 + ip * 0.5) * G.stats.elem.fire;
+  const dur = 3 + ip * PK; const total = base * 0.4 * (1 + ip * 0.5 * PK) * G.stats.elem.fire;
   e.st.burn = dur; e.st.burnDps = Math.max(e.st.burnDps || 0, total / dur);
 }
 function applyChill(e) {
   const dc = R('deep_cold');
-  e.st.slow = Math.max(e.st.slow, 0.3 + dc * 0.1); e.st.slowT = 2.5 + dc;
-  e.st.chill++; e.st.chillT = 3 + dc;
+  e.st.slow = Math.max(e.st.slow, 0.3 + dc * 0.1 * PK); e.st.slowT = 2.5 + dc * PK;
+  e.st.chill++; e.st.chillT = 3 + dc * PK;
   effect({ kind: 'shatter', x: e.x, y: e.y, r: 0.5, dur: 0.5, seed: rand() * 6 });
-  if (e.st.chill >= 3) { effect({ kind: 'shatter', x: e.x, y: e.y, r: 1.1, dur: 1.2, seed: rand() * 6 }); e.st.chill = 0; e.st.frozen = (e.D.boss ? 0.6 : e.D.elite ? 1 : 1.5) + dc * 0.3; float(e.x, e.y, 'Заморожен', '#aee8ff'); bus.emit('sfx', 'freeze'); }
+  if (e.st.chill >= 3) { effect({ kind: 'shatter', x: e.x, y: e.y, r: 1.1, dur: 1.2, seed: rand() * 6 }); e.st.chill = 0; e.st.frozen = (e.D.boss ? 0.6 : e.D.elite ? 1 : 1.5) + dc * 0.3 * PK; float(e.x, e.y, 'Заморожен', '#aee8ff'); bus.emit('sfx', 'freeze'); }
 }
 export function killEnemy(e, o = {}) {
   e.dead = true; e.hp = 0; e.state = 'dead'; e.setAnim('death', 9); e.teleg = null;
   const S = G.stats;
-  if (e.st.burn > 0 && R('burn_explode')) { const dmg = (10 + 6 * Math.max(1, R('fireball'))) * S.spellPower * S.elem.fire * 0.8; explosion(e.x, e.y, 2, dmg, 'fire', true, e); }
-  if (e.st.frozen > 0 && R('shatter')) { for (let k = 0; k < 4; k++) { const a = k * Math.PI / 2 + 0.4; spawnProj({ kind: 'shard', x: e.x, y: e.y, vx: Math.cos(a) * 12, vy: Math.sin(a) * 12, owner: 'p', dmg: (9 + 5 * Math.max(1, R('ice_shard'))) * S.spellPower * S.elem.cold * 0.6, elem: 'cold', range: 5 }); } }
+  if (e.st.burn > 0 && R('burn_explode')) { const dmg = (10 + 6 * Math.max(1, R('fireball'))) * S.spellPower * S.elem.fire * 0.8 * PK; explosion(e.x, e.y, 2, dmg, 'fire', true, e); }
+  if (e.st.frozen > 0 && R('shatter')) { for (let k = 0; k < 4; k++) { const a = k * Math.PI / 2 + 0.4; spawnProj({ kind: 'shard', x: e.x, y: e.y, vx: Math.cos(a) * 12, vy: Math.sin(a) * 12, owner: 'p', dmg: (9 + 5 * Math.max(1, R('ice_shard'))) * S.spellPower * S.elem.cold * 0.6 * PK, elem: 'cold', range: 5 }); } }
   if (S.effects.bloodShield) G.player.shield = Math.min(S.maxHP * 0.3, G.player.shield + S.maxHP * 0.1);
   if (hasBoon('vitality')) G.player.hp = Math.min(S.maxHP, G.player.hp + S.maxHP * 0.02);
   if (hasBoon('boom') && !o.fromBoom) { const d = (S.dmgMin + S.dmgMax) * 0.6; setTimeoutGame(0.08, () => { effect({ kind: 'burst', x: e.x, y: e.y, r: 2, dur: 0.4, c: [255, 170, 90] }); for (const t of G.enemies) if (!t.dead && t !== e && Math.hypot(t.x - e.x, t.y - e.y) < 2 + t.r) damageEnemy(t, d, { elem: 'fire', src: 'spell', fromBoom: true, canCrit: false }); G.cam.shake = Math.max(G.cam.shake, 0.2); bus.emit('sfx', 'boom'); }); }
@@ -130,7 +130,7 @@ export function tickStatus(e, dt) {
       s.burnTick = 0; const d = Math.round(s.burnAcc); s.burnAcc = 0;
       if (d > 0) damageEnemy(e, d, { elem: 'fire', src: 'dot', canCrit: false });
       const fs = R('fire_spread');
-      if (fs && !e.dead && (s.spreadT = (s.spreadT || 0) + 0.5) >= 1) { s.spreadT = 0; for (const o of G.enemies) if (o !== e && !o.dead && o.st.burn <= 0 && Math.hypot(o.x - e.x, o.y - e.y) < 2 && rand() < fs * 0.25) { o.st.burn = s.burn; o.st.burnDps = s.burnDps * 0.8; float(o.x, o.y, 'Поджог', '#ff9a4a'); } }
+      if (fs && !e.dead && (s.spreadT = (s.spreadT || 0) + 0.5) >= 1) { s.spreadT = 0; for (const o of G.enemies) if (o !== e && !o.dead && o.st.burn <= 0 && Math.hypot(o.x - e.x, o.y - e.y) < 2 && rand() < fs * 0.25 * PK) { o.st.burn = s.burn; o.st.burnDps = s.burnDps * 0.8; float(o.x, o.y, 'Поджог', '#ff9a4a'); } }
     }
     if (s.burn <= 0) s.burnDps = 0;
   }
@@ -219,9 +219,9 @@ function endAction(P) { P.act = null; P.state = 'idle'; P.setAnim('idle', 5, tru
 
 function meleeImpact(P, a) {
   const S = G.stats, W = a.W; P.hitCount++;
-  const crush = R('crush') && P.hitCount % 4 === 0;
+  const crush = R('crush') && P.hitCount % 4 === 0;   // сборка 47: пассивки −80% (PK) — урон ×1,3, оглушение 0,2 с
   const fa = a.aim ? Math.atan2(a.aim.y - P.y, a.aim.x - P.x) : P.face * Math.PI / 4; const ang0 = a.tgt && !a.tgt.dead ? Math.atan2(a.tgt.y - P.y, a.tgt.x - P.x) : fa;
-  const mult = (a.second ? 1.25 : 1) * (crush ? 2.5 : 1);
+  const mult = (a.second ? 1.25 : 1) * (crush ? 1 + 1.5 * PK : 1);
   const cl = R('cleave'); let hitAny = false;
   const opts = { src: 'melee', pierce: W.pierce || 0, axeBleed: !!W.bleed };
   // primary target
@@ -233,10 +233,10 @@ function meleeImpact(P, a) {
     if (e !== prim && !inArc && d > e.r + 0.5) continue;
     let m;
     if (e === prim || (!prim && !hitAny)) m = 1;
-    else if (W.cleave) m = 0.85; else if (hasBoon('split')) m = 0.6; else if (cl) m = 0.3 + cl * 0.2; else if (crush) m = 0.6; else continue;
+    else if (W.cleave) m = 0.85; else if (hasBoon('split')) m = 0.6; else if (cl) m = (0.3 + cl * 0.2) * PK; else if (crush) m = 0.6 * PK; else continue;
     hitAny = true;
     damageEnemy(e, rollWeapon(S) * mult * m, { ...opts, knock: a.second || crush ? 0.9 : 0, kx: P.x, ky: P.y });
-    if (crush && !e.dead) e.st.stun = 1;
+    if (crush && !e.dead) e.st.stun = PK;
     if (S.effects.chainHit) { const t = nearestEnemy(e.x, e.y, 3.5, x => x !== e); if (t) { lightningArc(e.x, e.y, t.x, t.y); damageEnemy(t, rollWeapon(S) * 0.5, { src: 'melee' }); } }
   }
   if (crush) { effect({ kind: 'ring', x: P.x, y: P.y, r: 2, dur: 0.4, c: [255, 220, 150] }); G.cam.shake = 0.35; bus.emit('sfx', 'boom'); }
@@ -244,7 +244,7 @@ function meleeImpact(P, a) {
   effect({ kind: 'slash', x: P.x, y: P.y, a: ang0, r: W.range, arc: W.arc, dur: 0.18, second: a.second });
 }
 function fireArrow(P, ang, dmgMul) {
-  const S = G.stats; const pierce = R('pierce');
+  const S = G.stats; const pierce = rand() < PK ? R('pierce') : 0;
   // стрела вылетает из лука: на 0,55 м впереди героя и на высоте плеча (z — только для рисования), а не из центра тела
   const mk = (a, split) => spawnProj({ kind: 'arrow', x: P.x + Math.cos(a) * 0.55, y: P.y + Math.sin(a) * 0.55, z: 1.35, vx: Math.cos(a) * 15, vy: Math.sin(a) * 15, owner: 'p', dmg: rollWeapon(S) * dmgMul, elem: 'phys', range: 9.5, pierce, explosive: R('explosive'), src: 'weapon', split });
   mk(ang, S.effects.splitArrow ? 0.25 : 0);
@@ -342,7 +342,7 @@ export function castSkill(id, aim) {
   P.setAnim(clip, nf / dur); P.stateT = 0;
   return true;
 }
-function shock(e) { const c = R('conduct'); if (c) { e.st.shock = 3; e.st.shockAmp = c * 0.08; } }
+function shock(e) { const c = R('conduct'); if (c) { e.st.shock = 3; e.st.shockAmp = c * 0.08 * PK; } }
 function chainLightning(P, first, dmg, jumps) {
   let cur = first || nearestEnemy(P.x, P.y, 8, e => G.zone.map.los(P.x, P.y, e.x, e.y));
   let px = P.x, py = P.y; const hit = new Set();
@@ -380,7 +380,7 @@ export function updateProjectiles(dt) {
           if (p.aoe) { explosion(p.x, p.y, p.aoe, p.dmg, p.elem, p.ignite); p.dead = true; break; }
           damageEnemy(e, p.dmg, { elem: p.elem === 'magic' ? 'phys' : p.elem, src: p.src || 'spell', pierce: p.elem === 'magic' ? 1 : 0 });
           if (p.chill && !e.dead) applyChill(e);
-          if (p.explosive && rand() < 0.25) explosion(p.x, p.y, 1.8, p.dmg * 0.7, 'fire', false);
+          if (p.explosive && rand() < 0.25 * PK) explosion(p.x, p.y, 1.8, p.dmg * 0.7, 'fire', false);
           if ((p.pierce || 0) > 0) { p.pierce--; continue; }
           projEnd(p, false); break;
         }
@@ -470,7 +470,7 @@ export function enemyHitsPlayer(e, mult, elem) {
   hurtPlayer(e, rrange(e.D.dmg[0], e.D.dmg[1]) * e.dmgMul * mult, elem);
   // ice armor / thorns react to melee attackers
   if (Math.hypot(P.x - e.x, P.y - e.y) < 3) {
-    if (R('ice_armor') && !e.dead) applyChill(e);
+    if (R('ice_armor') && !e.dead && rand() < PK) applyChill(e);
     if (G.stats.effects.thorns && !e.dead) damageEnemy(e, e.D.dmg[1] * e.dmgMul * 0.3, { canCrit: false, quiet: false, src: 'thorns' });
   }
 }
