@@ -29,7 +29,7 @@ const PROP = {
   house_0: { spr: 'house_0', box: [2.85, 2.2], tall: 1 }, house_1: { spr: 'house_1', box: [3.25, 2.4], tall: 1 }, house_2: { spr: 'house_2', box: [2.95, 2.2], tall: 1 },   // под крупные 3D-дома (ART_BIBLE, раздел 7)
   fort_hall: { spr: 'house_0', box: [3.7, 1.9], tall: 1, model: 'fort_hall' }, tent: { spr: 'hay', r: 1.6, model: 'tent' }, fort_gate: { spr: 'banner', model: 'fort_gate' }, fort_tower: { spr: 'pillar', tall: 1, model: 'fort_tower' },   // постройки лагерей походов: в 3D свои модели, в 2D — запасные спрайты
   logpile: { spr: 'crate', box: [0.7, 0.4], model: 'logpile' },
-  shrine: { spr: 'altar', r: 1.3, model: 'goddess_altar', light: { r: 6.5, c: [110, 235, 220], flicker: 0.25, z: 2.6 } },   // источник силы (сборка 19)
+  shrine: { spr: 'altar', r: 1.3, model: 'goddess_altar', light: { r: 6.5, c: [255, 150, 70], flicker: 0.25, z: 2.6 } },   // источник силы (сборка 19); свет под огненные руны алтаря (сборка 47)
   // деревня по правилам (js/world/villagegen.js): здания с поворотом и коллайдерами из генератора (o.boxes), сельские мелочи
   church: { spr: 'house_1', tall: 1, model: 'church' },   // без точечного света у двери: герой на ступенях «засвечивался»
   tavern: { spr: 'house_1', tall: 1, model: 'tavern', light: { r: 4.5, c: [255, 170, 90], flicker: 0.5, z: 2, dy: 3.4 } },

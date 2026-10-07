@@ -344,7 +344,7 @@ W.journal = (arg = {}) => {
       if (!HU.unlocked()) b.appendChild(el('div', 'q-card', '<div class="q-t">Охота ещё не началась</div><div class="muted">Спуститесь в катакомбы через портал Ордена — после этого раз в 15 минут будут приходить тревожные слухи о чудовищах.</div>'));
       else if (cur && cur.slain) {
         const H = HU.defOf(cur), B = HU.bossOf(cur), r = huntReward(cur.lvl);
-        const c = el('div', 'q-card hot', `<div class="q-t">✔ ${esc(H.title)}</div><div>Чудовище <span style="color:#ff9a84">${esc(B.name)}</span> повержено.</div><ol class="hunt-steps"><li>Вернитесь в деревню (портал или свиток возврата).</li><li>Сдайте охоту старосте Эдрику — он на площади у колодца, над ним горит «?».</li></ol>${chips({ gold: r.gold, xp: r.xp, shards: r.shards, potions: r.potions, item: 1 })}`);
+        const c = el('div', 'q-card hot', `<div class="q-t">✔ ${esc(H.title)}</div><div>Чудовище <span style="color:#ff9a84">${esc(B.name)}</span> повержено.</div><ol class="hunt-steps"><li>Вернитесь в деревню (портал или свиток возврата).</li><li>Сдайте охоту старосте Эдрику — он на площади у церкви, над ним горит «?».</li></ol>${chips({ gold: r.gold, xp: r.xp, shards: r.shards, potions: r.potions, item: 1 })}`);
         const go = el('button', 'btn sm gold', 'Показать путь'); go.onclick = () => { closeModal(); bus.emit('toast', { text: 'Идите за красными стрелками к старосте', kind: 'quest' }); }; c.appendChild(go); b.appendChild(c);
         b.appendChild(el('p', 'muted', '<small>Новая тревога придёт через 15 минут после того, как вы сдадите эту охоту.</small>'));
       } else if (cur) {

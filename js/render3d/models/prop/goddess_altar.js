@@ -1,9 +1,13 @@
 // Источник силы (сборка 19) — источник наград и благословений на площади. Должен притягивать взгляд и ни на что не походить:
 // из земли поднимается огромная каменная ладонь и держит кристалл-сердце; вокруг медленно кружат рунные плиты,
 // ступени с бирюзовыми прожилками, по бокам — чаши с бирюзовым огнём. Свет и ореол задаёт zone.js (PROP.shrine.light).
+// Сборка 47: в 3D вместо руки — каменный алтарь с огненными рунами из Meshy (js/render3d/altarglb.js); рука — пока он не загружен.
+import { altarMesh } from '../../altarglb.js';
 export default {
   id: 'goddess_altar', kind: 'prop', outline: false, ao: 0.7, aoH: 1.2,
   build(kit) {
+    const glb = altarMesh(2.6);
+    if (glb) { const root = new kit.THREE.Group(); root.add(glb); return { root }; }
     const { THREE, part, bbox, tube, merge } = kit, L = [], MARBLE = 0xb8b4c8, MARBLE_L = 0xf4f0ff, GOLD = 0xd6a548, TURQ = 0x5ae8d8;
     // ступени: три круга мрамора, по краю — бирюзовые прожилки
     for (let i = 0; i < 3; i++) { const r = 1.9 - i * 0.45, y = 0.09 + i * 0.18;
