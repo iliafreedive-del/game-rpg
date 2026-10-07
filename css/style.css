@@ -154,7 +154,7 @@ p{margin:6px 0}
 .dlg{display:flex;gap:12px;align-items:flex-start}
 .dlg .who{font:600 16px var(--serif);color:var(--gold)}
 .dlg .txt{font:15px/1.5 var(--serif);color:#eadfca;min-height:60px}
-.npcface{width:74px;height:94px;flex:none;border:1px solid var(--line);border-radius:6px;background:#0008 center/contain no-repeat}
+.npcface{width:74px;height:94px;flex:none;border:1px solid #8a6a2e;border-radius:8px;background:#2a2030 center/cover no-repeat;box-shadow:0 0 10px #d8a84a33}
 .shop{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
 .card{border:1px solid #3a2e30;border-radius:8px;padding:8px;background:#1a1418;display:flex;flex-direction:column;gap:6px}
 .card .top{display:flex;gap:8px;align-items:center}

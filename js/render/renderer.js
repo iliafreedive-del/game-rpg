@@ -560,12 +560,17 @@ function drawPlates() {
     ctx.strokeStyle = `rgba(255,205,90,${p})`; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(0, 0, 46 * z, 0, 7); ctx.stroke(); ctx.restore();
     ctx.globalCompositeOperation = 'source-over';
     const locked = (it.reqLevel && G.profile.level < it.reqLevel) || it.locked;
-    const label = it.plate + (it.reqLevel ? ` · ур. ${it.reqLevel}+` : '') + (it.lockNote ? ` · ${it.lockNote}` : '');
-    const ty = y - 105 * z; ctx.font = `600 ${Math.round(13 * Math.min(1.2, z))}px Georgia, serif`; ctx.textAlign = 'center';
-    const tw = ctx.measureText(label).width + 14;
-    ctx.fillStyle = locked ? 'rgba(50,10,10,0.88)' : 'rgba(40,26,8,0.85)'; ctx.fillRect(x - tw / 2, ty - 14, tw, 19); ctx.strokeStyle = locked ? '#c0463c' : '#c99a3c'; ctx.lineWidth = 1; ctx.strokeRect(x - tw / 2, ty - 14, tw, 19);
-    ctx.fillStyle = locked ? '#ff8a7a' : '#ffd98a'; ctx.fillText((locked ? '🔒 ' : '') + label, x, ty);
-    if (it.marker) { const b = Math.sin(G.time * 4) * 4; ctx.font = `bold ${Math.round(28 * z)}px Georgia, serif`; ctx.strokeStyle = '#000'; ctx.lineWidth = 3; ctx.strokeText(it.marker, x, ty - 20 + b); ctx.fillStyle = '#ffd24a'; ctx.fillText(it.marker, x, ty - 20 + b); }
+    // сборка 47: табличка не закрывает порталы и алтари — она лежит под светящимся кругом, у земли, мельче и полупрозрачная.
+    // Подробности (уровень, «выберите навык») — только когда герой рядом (до 5 м); издалека — одно название
+    const P = G.player, near = P && Math.hypot(P.x - it.x, P.y - it.y) < 5;
+    const label = it.plate + (near && it.reqLevel ? ` · ур. ${it.reqLevel}+` : '') + (near && it.lockNote ? ` · ${it.lockNote}` : '');
+    const fs = Math.round(12 * Math.min(1.15, z)), ty = y + 34 * z + fs; ctx.font = `600 ${fs}px Georgia, serif`; ctx.textAlign = 'center';
+    const tw = ctx.measureText(label).width + 16, th = fs + 7;
+    ctx.globalAlpha = near ? 0.95 : 0.7;
+    ctx.fillStyle = locked ? 'rgba(40,8,8,0.72)' : 'rgba(30,20,6,0.62)'; ctx.beginPath(); ctx.roundRect(x - tw / 2, ty - fs - 1, tw, th, th / 2); ctx.fill();
+    ctx.strokeStyle = locked ? '#c0463c99' : '#c99a3c99'; ctx.lineWidth = 1; ctx.stroke();
+    ctx.fillStyle = locked ? '#ff8a7a' : '#ffd98a'; ctx.fillText((locked ? '🔒 ' : '') + label, x, ty); ctx.globalAlpha = 1;
+    if (it.marker) { const b = Math.sin(G.time * 4) * 4; ctx.font = `bold ${Math.round(28 * z)}px Georgia, serif`; ctx.strokeStyle = '#000'; ctx.lineWidth = 3; const my = y - 125 * z + b; ctx.strokeText(it.marker, x, my); ctx.fillStyle = '#ffd24a'; ctx.fillText(it.marker, x, my); }
   }
 }
 

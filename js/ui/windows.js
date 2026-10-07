@@ -426,8 +426,10 @@ W.settings = () => modal('Настройки', 'sm', b => {
 });
 
 // ---------------------------------------------------------------- NPCs
+const FACES = ['elder', 'smith', 'merchant', 'trainer', 'fortune'];   // сборка 47: портреты из 3D-моделей NPC (tools/qa/scenarios/npc_faces.js)
 function dialog(b, id, name, lines, img) {
-  const d = el('div', 'dlg'); d.appendChild(el('div', 'npcface', ''));
+  const d = el('div', 'dlg');
+  if (img || FACES.includes(id)) { const f = el('div', 'npcface', ''); f.style.backgroundImage = `url(${img || `assets/sprites/face_${id}.jpg`})`; d.appendChild(f); }
   const t = el('div', ''); t.appendChild(el('div', 'who', esc(name)));
   const tx = el('div', 'txt'); t.appendChild(tx); d.appendChild(t); b.appendChild(d);
   let i = 0; const show = () => { tx.textContent = lines[i]; };

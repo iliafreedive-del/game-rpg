@@ -49,6 +49,8 @@ function place(idle) {
   knob.style.transform = `translate(${dx}px, ${dy}px)`;
   input.mx = dx / R; input.my = dy / R;
 }
+export const joyPointer = () => J.id;
+export function releaseJoy() { if (J.id === null) return; try { zone.releasePointerCapture(J.id); } catch (e) { } release(); }   // щипок двумя пальцами забирает палец у джойстика
 function release() { J.id = null; input.mx = input.my = 0; base.classList.remove('active'); resetBase(); }
 addEventListener('resize', () => { if (zone && J.id === null) resetBase(); });
 
