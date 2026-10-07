@@ -248,7 +248,7 @@ export class Zone {
         this.prop({ ...o, t: 'runebed' }); this.addLight(o.x, o.y, { r: 4, c: [255, 210, 90], flicker: 0.3, z: 1 });
         this.inter.push({ id: 'wheel', type: 'wheel', x: o.x, y: o.y, r: 1.9, label: 'Колесо Фортуны', plate: 'Колесо Фортуны' });
       } else if (o.t === 'hwsign') {
-        const d = this.add({ x: o.x, y: o.y, spr: 'banner', model: 'chronicle', tall: 1 }); for (const sx of [-1.7, 1.7]) this.map.circles.push({ x: o.x + sx, y: o.y, r: 0.45 });
+        const d = this.add({ x: o.x, y: o.y, spr: 'banner', model: 'chronicle', tall: 1 }); this.map.circles.push({ x: o.x, y: o.y, r: 1.3 });   // сборка 46: алтарь Летописи — один круг (раньше две колонны врат)
         this.addLight(o.x, o.y, { r: 5, c: [255, 200, 110], flicker: 0.3, z: 1.4 });
         this.inter.push({ id: 'herospath', type: 'herospath', x: o.x, y: o.y + 0.2, r: 2.2, label: 'Летопись битв', plate: 'Летопись битв', reqLevel: 2 });
       } else if (o.t === 'depths') {

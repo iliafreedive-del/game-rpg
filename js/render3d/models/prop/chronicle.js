@@ -1,8 +1,12 @@
 // Врата Летописи битв: круглая каменная площадка с золотыми рунами, две колонны с огнями, перемычка со знаменем, парящая раскрытая книга.
 // Стоит на открытом месте и светится: понятно, что к ней подходят. Условия открытия пишет табличка над ней (js/render/renderer.js).
+// Сборка 46: в 3D вместо врат — алтарь Летописи из Meshy (js/render3d/altarglb.js); врата — пока он не загружен.
+import { altarMesh } from '../../altarglb.js';
 export default {
   id: 'chronicle', kind: 'prop', outline: false,
   build(kit) {
+    const glb = altarMesh(2.9, 'altar_chronicle');
+    if (glb) { const root = new kit.THREE.Group(); root.add(glb); return { root }; }
     const { THREE, PAL, part, merge, bbox, lathe, tube } = kit, L = [];
     L.push(lathe([[2.1, 0], [2.0, 0.18], [1.2, 0.22], [0.0, 0.22]], 0x5a5a66, [0, 0, 0], 0, 1, { top: 0xa4a4b4, tex: 'stone' }, 24));
     L.push(part(new THREE.TorusGeometry(1.6, 0.04, 4, 40), 0xd8a020, [0, 0.24, 0], [Math.PI / 2, 0, 0], 1, { top: 0xffe070, emit: true }));
