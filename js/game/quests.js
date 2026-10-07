@@ -37,6 +37,7 @@ function markReady(q) {
 function complete() {
   const P = G.profile, s = P.story, q = current(); if (!q) return;
   delete s.ready; s.done.push(q.id); s.stage++;
+  while (STORY[s.stage] && s.done.includes(STORY[s.stage].id)) s.stage++;   // сборка 47: шаги переставлены — уже пройденные пропускаем
   bus.emit('questComplete', q); bus.emit('sfx', 'quest');
   grant(q.reward, q.title, { sub: 'Задание выполнено' });
   bus.emit('save');
@@ -83,7 +84,7 @@ export function check() {
   const s = G.profile.story, o = q.obj;
   if (q.turnIn && s.ready === q.id) return;
   if (o.skill && hasSkill()) return complete();
-  if (o.hwTry && (s.flags.hwLost || ((G.profile.hw && G.profile.hw.top) || 1) > 10)) return complete();   // проиграл в Летописи или прошёл все открытые этапы (1–10)
+  if (o.hwTry && (s.flags.hwLost || ((G.profile.hw && G.profile.hw.top) || 1) > 3)) { bus.emit('toast', { text: 'Сил пока маловато', sub: 'Развивайтесь: идите к наставнику Элвину за усилением', kind: 'quest' }); return complete(); }   // сборка 47: дальше 3-го этапа в начале не пускаем
   if (o.flag && s.flags[o.flag]) return q.turnIn ? markReady(q) : complete();
   if (o.count && (s.counters[q.id] || 0) >= o.n) return q.turnIn ? markReady(q) : complete();
   if (o.enter && G.zoneId === o.enter && G.zoneReady) return complete();

@@ -20,8 +20,11 @@ export function setZoom(z) {
 
 export function initCamZoom(canvas) {
   // колесо мыши; щипок на тачпаде Mac приходит как колесо с ctrlKey
-  canvas.addEventListener('wheel', e => {
-    if (G.modalOpen || !G.player) return;
+  // сборка 47: слушаем всё окно, а не только холст — левую нижнюю половину экрана закрывает зона джойстика (#joyZone),
+  // и над ней колесо раньше не работало («то работает, то нет»). Над окнами и панелями с прокруткой колесо их и прокручивает
+  addEventListener('wheel', e => {
+    if (G.modalOpen || !G.player || !G.zoneReady) return;
+    if (e.target.closest && e.target.closest('.npc-panel, .modal, .win, .tut, input, select, textarea')) return;
     e.preventDefault();
     const d = e.deltaMode === 1 ? e.deltaY * 33 : e.deltaMode === 2 ? e.deltaY * 400 : e.deltaY;
     setZoom(zoomNow() * Math.exp(clamp(d, -120, 120) * (e.ctrlKey ? 0.01 : 0.0006)));

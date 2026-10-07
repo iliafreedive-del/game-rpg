@@ -3,6 +3,7 @@
 // Окна на паузе остались только там, где без них нельзя (вопрос про обучение на первом запуске).
 import { G, bus } from '../game/ctx.js';
 import { $, el, esc } from '../core/util.js';
+import { STORY } from '../data/quests.js';
 
 const touch = () => matchMedia('(pointer:coarse)').matches;
 const T = () => { const P = G.profile; P.tutorial = P.tutorial || {}; P.tutorial.tips = P.tutorial.tips || {}; P.tutorial.un = P.tutorial.un || {}; return P.tutorial; };
@@ -58,14 +59,20 @@ function revealTick() {
   if (!t.un.scroll && dz && P.scrolls > 0) { unlock('scroll'); pointSoon('btnScroll', 'Свиток возврата — мгновенно домой'); return; }
 }
 // подсказки по месту: кнопка действия, староста, наставник, портрет, торговка, слияние
-let zoneTicks = 0;
+let zoneTicks = 0, zoomWait = 0;   // сборка 47: пока игрок не попробовал зум, следующая подсказка не идёт
 function placeTick() {
   const P = G.profile, t = T(); zoneTicks = G.zoneId === 'town' ? 0 : zoneTicks + 1;
   // зум камеры (поток «Зум камеры»): один раз при первом выходе из деревни — и тем, кто играет без подсказок
   if (G.zoneId !== 'town' && !t.zoomSeen && zoneTicks > 14 && !G.modalOpen) { t.zoomSeen = 1; bus.emit('save');
-    const txt = touch() ? 'Камеру можно приблизить: разведите два пальца на свободной части экрана' : 'Камера: колесо мыши приближает и отдаляет';
-    if (t.off || !t.on) bus.emit('toast', { text: 'Камеру можно приблизить или отдалить', sub: txt, kind: 'info' }); else { pointAt(null, txt, { time: 8 }); return; } }
+    const txt = touch() ? 'Попробуйте: разведите два пальца на свободной части экрана — камера приблизится' : 'Попробуйте: покрутите колесо мыши — камера приблизится и отдалится';
+    if (t.off || !t.on) bus.emit('toast', { text: 'Камеру можно приблизить или отдалить', sub: txt, kind: 'info' }); else { pointAt(null, txt, { time: 25 }); zoomWait = performance.now() + 25000; return; } }
   if (t.off || !t.on || G.modalOpen) return;
+  const q = G.profile.story && STORY[G.profile.story.stage];
+  // сборка 47: саркофаг с ключом — многие пробегали мимо
+  if (q && q.id === 'medallion' && !P.world.hasKey && G.focus && G.focus.loot === 'key' && once('sarc', 'btnAct', 'Светящийся саркофаг! Откройте его — внутри ключ от двери к амулету')) return;
+  if (q && q.id === 'medallion' && !P.world.hasKey && G.zoneId === 'catacombs' && once('sarc0', null, 'Ищите светящийся саркофаг — жёлтая стрелка ведёт к нему')) return;
+  if (!$('btnLead').classList.contains('hidden') && once('lead', 'btnLead', 'Не знаете, куда идти? Нажмите «Веди меня» — герой сам побежит к цели')) return;
+  if ((P.shards || 0) > 0 && once('shards', 'goldBox', 'Фиолетовые ◆ — осколки Бездны. Падают с сильных врагов и боссов, на них строят комнаты Цитадели')) return;
   const once = (key, sel, text) => !t.tips[key] && pointAt(sel, text, { key });
   if (!$('btnAct').classList.contains('hidden')) {
     const f = G.focus;
@@ -87,7 +94,19 @@ export function initTutorial() {
   bus.on('camZoom', () => { if (G.profile) { T().zoomSeen = 1; bus.emit('save'); } });   // уже нашёл зум сам — подсказка не нужна
   // нажал подсказанную кнопку — палец убираем сразу
   for (const id of ['btnDodge', 'potHP', 'potMP', 'btnAuto', 'btnScroll', 'btnAct', 'portrait', 'sk0']) { const e = $(id); if (e) e.addEventListener('pointerdown', hideHand); }
-  setInterval(() => { if (!G.profile || !G.zoneReady) return; handTick(); revealTick(); placeTick(); }, 400);
+  setInterval(() => { if (!G.profile || !G.zoneReady) return; handTick(); if (performance.now() < zoomWait) return; revealTick(); placeTick(); }, 400);
+  bus.on('camZoom', () => { if (!zoomWait) return; zoomWait = 0; pointAt(null, 'Отлично! Так камера и работает', { time: 2.5 }); });
+  // сборка 47: первая вещь из добычи — где её надеть и сравнить
+  bus.on('itemPicked', () => setTimeout(() => pointAt('portrait', 'Новая вещь в сумке! Нажмите портрет → «Сумка»: там вещь можно надеть и сравнить с надетой', { key: 'bag1', time: 10 }), 600));
+  // первое зелье в награду — откуда они берутся
+  bus.on('reward', r => { if (r.potions) setTimeout(() => pointAt(null, 'Зелья здоровья даются в награду за задания и продаются у торговки Миры', { key: 'potgot', time: 7 }), 1500); });
+  bus.on('questComplete', q => {
+    if (q.id !== 'meet_merchant') return;   // Мира: научить зелью и рывку
+    unlock0('pot'); unlock0('dodge');
+    pointSoon('potHP', touch() ? 'Красная кнопка — зелье здоровья. Нажмите в бою, когда мало жизни' : 'Зелье здоровья: кнопка Q или красная кнопка. Пейте в бою, когда мало жизни', { time: 7 });
+    setTimeout(() => pointAt('btnDodge', touch() ? 'Рывок! Нажмите, чтобы отпрыгнуть от удара врага (красный круг)' : 'Рывок: Shift — отпрыгнуть от удара врага (красный круг)', { key: 'dodge2', time: 8 }), 8000);
+  });
+  bus.on('questNew', q => { if (G.zoneId === 'town' && (q.chapter || 1) === 1) setTimeout(() => pointAt(null, 'Новое задание: ' + q.title + ' — идите по жёлтой стрелке', { time: 6 }), 1200); });
   bus.on('panel', it => { if (!it || it.id !== 'trainer') return; setTimeout(() => { if (G.profile.skillPts > 0) pointAt('tBtnSkills', 'Нажмите «Навыки» — там изучают умения', { key: 'tbtn' }); }, 400); });
   bus.on('skillsOpened', () => setTimeout(() => { const b = document.querySelector('.tal-learn.ok'); if (b) pointAt(b, 'Нажмите «Изучить»', { key: 'learn' }); }, 350));
   bus.on('mergeReady', () => pointAt(null, 'Три одинаковых вещи! Кузнец Горан сольёт их в одну лучшую', { key: 'merge', time: 8 }));

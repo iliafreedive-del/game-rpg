@@ -36,7 +36,7 @@ import * as HU from './hunts.js';
 import { SKILLS } from '../data/skills.js';
 import { rand, rrange, rint } from '../core/util.js';
 import { pollMove, input, mouse, tapAim } from '../core/input.js';
-import { gate, BOSS_LEVEL, nextStep } from './progress.js';
+import { gate, BOSS_LEVEL, nextStep, earlyLock, lockToast } from './progress.js';
 import { platform } from '../platform/platform.js';
 import { cineTick, inCinema, cinema, portalShots } from '../ui/cinema.js';
 import { maybeInterstitial, dailyStatus, blessed } from '../platform/monetize.js';
@@ -244,7 +244,7 @@ bus.on('summon', ({ x, y, n, lvl }) => {
   }
 });
 bus.on('playerDeath', () => {
-  if (G.zoneId === 'survival') { SV.endRun(false); return; }
+  if (G.zoneId === 'survival') { if (!SV.offerRevive()) SV.endRun(false); return; }   // сборка 47: один раз за забег — возрождение за рекламу или выход
   G.profile.stats.deaths++; G.diedThisRun = true; if (G.run) G.run.deaths++; requestSave();
   bus.emit('deathAt', G.zoneId === 'depths' && G.run ? 'floor' + G.run.floor : G.zoneId === 'wild' && G.wild ? G.wild.realm + G.wild.depth : G.zoneId);
   setTimeout(() => bus.emit('showDeath'), 1300);
@@ -276,14 +276,14 @@ export function interact(it) {
       if (it.to === 'catacombs') { maybeInterstitial('descend').then(() => loadZone('catacombs', { useCache: !!G.dungeonCache })); }
       else loadZone('town', { from: G.zoneId, realm: G.wild && G.wild.realm });
       return;
-    case 'npc': { const n = G.npcs.find(x => x.id === it.id); if (n) n.talkT = 4; bus.emit('openNPC', it.id); return; }
+    case 'npc': { if ((it.id === 'fortune' && earlyLock('extra')) || (it.id === 'merchant' && earlyLock('shop'))) { lockToast('extra'); return; } const n = G.npcs.find(x => x.id === it.id); if (n) n.talkT = 4; bus.emit('openNPC', it.id); return; }
     case 'board': bus.emit('openBoard'); return;
     case 'herospath': { if (P.level < 2 && !(Q.current() && Q.current().id === 'hw_try')) { bus.emit('toast', { text: 'Летопись битв — со 2 уровня', sub: 'Сначала пройдите пролог и немного прокачайтесь', kind: 'warn' }); bus.emit('sfx', 'deny'); return; } const g = gate('hw', 1); if (g) { bus.emit('toast', { ...g, kind: 'warn' }); bus.emit('sfx', 'deny'); return; } bus.emit('openHeroPath'); return; }
-    case 'wheel': bus.emit('openWheel'); return;
-    case 'survival': { const g = gate('survival'); if (g) { bus.emit('toast', { ...g, kind: 'warn' }); bus.emit('sfx', 'deny'); return; } } if (P.level < SV.REQ_LEVEL) { bus.emit('toast', { text: `Жатва Бездны открывается с ${SV.REQ_LEVEL} уровня`, kind: 'warn' }); bus.emit('sfx', 'deny'); return; } bus.emit('openSurvival'); return;
+    case 'wheel': if (earlyLock('extra')) { lockToast('extra'); return; } bus.emit('openWheel'); return;
+    case 'survival': if (Q.current() && Q.current().id === 'surv_try') { bus.emit('openSurvival'); return; } { const g = gate('survival'); if (g) { bus.emit('toast', { ...g, kind: 'warn' }); bus.emit('sfx', 'deny'); return; } } if (P.level < SV.REQ_LEVEL) { bus.emit('toast', { text: `Жатва Бездны открывается с ${SV.REQ_LEVEL} уровня`, kind: 'warn' }); bus.emit('sfx', 'deny'); return; } bus.emit('openSurvival'); return;
     case 'depths': { const g = gate('depths'); if (g) { bus.emit('toast', { ...g, kind: 'warn' }); bus.emit('sfx', 'deny'); return; } } if (it.reqLevel && P.level < it.reqLevel) { bus.emit('toast', { text: `Глубины открываются с ${it.reqLevel} уровня`, kind: 'warn' }); bus.emit('sfx', 'deny'); return; } bus.emit('openDepths'); return;
     case 'exit': if (!it.hidden) finishFloor(); else bus.emit('toast', { text: 'Портал запечатан', sub: 'Убейте всех врагов на этаже', kind: 'warn' }); return;
-    case 'shrine': bus.emit('openShrine'); return;
+    case 'shrine': if (earlyLock('extra')) { lockToast('extra'); return; } bus.emit('openShrine'); return;
     case 'wildportal': { const g = gate(it.realm); if (g) { bus.emit('toast', { ...g, kind: 'warn' }); bus.emit('sfx', 'deny'); return; } } if (it.reqLevel && P.level < it.reqLevel) { bus.emit('toast', { text: `${REALMS[it.realm].name} — с ${it.reqLevel} уровня`, sub: 'Набирайтесь сил в катакомбах', kind: 'warn' }); bus.emit('sfx', 'deny'); return; } bus.emit('openWild', it.realm); return;
     case 'wildnext': {
       if (it.hidden || !G.wild) { bus.emit('toast', { text: 'Портал запечатан', sub: 'Сначала отбейте форт', kind: 'warn' }); bus.emit('sfx', 'deny'); return; }
@@ -312,7 +312,7 @@ export function interact(it) {
     }
     case 'door':
       if (!P.world.hasKey) { bus.emit('toast', { text: 'Дверь заперта', sub: 'Нужен ключ — поищите в саркофагах оссуария', kind: 'warn' }); bus.emit('sfx', 'deny'); return; }
-      it.done = true; W[it.id] = true; it.draw.spr = 'door_open'; G.zone.map.setSolid(it.tile[0], it.tile[1], 0); bus.emit('sfx', 'door'); bus.emit('toast', { text: 'Дверь открыта', sub: 'Амулет на алтаре за дверью — но его охраняет Хранитель', kind: 'good' }); requestSave(); return;
+      it.done = true; W[it.id] = true; it.draw.spr = it.draw.spr === 'door_arch' ? 'door_arch_open' : 'door_open'; for (const [x, y] of it.tiles || [it.tile]) G.zone.map.setSolid(x, y, 0); bus.emit('sfx', 'door'); bus.emit('toast', { text: 'Дверь открыта', sub: 'Амулет на алтаре за дверью — но его охраняет Хранитель', kind: 'good' }); requestSave(); return;
     case 'secret':
       it.done = true; W[it.id] = true; for (const d of it.draws) d.hidden = true; for (const [x, y] of it.tiles) { G.zone.map.setSolid(x, y, 0); C.particles(x + 0.5, y + 0.5, 12, { c: [120, 110, 100], sp: 2.5, add: false, size: 4 }); }
       for (const d of G.zone.statics) if (d.tag === it.id) d.hidden = true;
@@ -521,7 +521,8 @@ export function update(dt) {
   for (const it of G.zone.inter) { if (!it.panel || it.hidden || (it.type === 'roomgate' && it.done)) continue; const d = Math.hypot(it.x - pl.x, it.y - pl.y); if (d < it.r + 0.3 && d < pd) { pd = d; pt = it; } }
   if (pt !== G.panelDismissed) G.panelDismissed = null;   // walked away → the panel may open again
   if (pt && pt === G.panelDismissed) pt = null;
-  if (pt && elderFirst() && pt.id !== 'elder') { nagElder(); pt = null; }   // лавка, кузнец, наставник — после старосты
+  if (pt && elderFirst() && pt.id !== 'elder') { nagElder(); pt = null; }
+  if (pt && pt.id === 'merchant' && earlyLock('shop')) { if (!G.lockNear) lockToast('shop'); G.lockNear = true; pt = null; } else if (!pt) G.lockNear = false;   // сборка 47: Мира — после Летописи и Элвина   // лавка, кузнец, наставник — после старосты
   if (pt !== G.panelTarget) { G.panelTarget = pt; bus.emit('panel', pt); }
   if (best && best.panel) best = null;
   if (best && best.type === 'door' && G.profile.world.hasKey && !best.done && bd < 1.6) interact(best);
@@ -539,7 +540,7 @@ function updateMarkers() {
   if (q) {
     if (Q.isReady()) t = G.zoneId === 'town' ? G.zone.inter.find(i => i.id === Q.turnNpc(q)) || null : G.zone.inter.find(i => i.type === 'portal' && !i.hidden && i.to === 'town') || null;
     else if (q.where && q.where !== G.zoneId) t = G.zone.inter.find(i => i.type === 'portal' && !i.hidden) || null;
-    else if (q.target) t = G.zone.inter.find(i => i.id === q.target && !i.hidden) || G.enemies.find(e => e.story === q.target && !e.dead) || null;
+    else if (q.target && q.id !== 'medallion') t = G.zone.inter.find(i => i.id === q.target && !i.hidden) || G.enemies.find(e => e.story === q.target && !e.dead) || null;   // амулет: сначала саркофаг с ключом, потом дверь (сборка 47 — стрелка вела мимо саркофага)
     if (!t && q.id === 'medallion' && !G.profile.world.hasKey) t = G.zone.inter.find(i => i.loot === 'key' && !i.done) || null;
     if (!t && q.id === 'medallion' && G.profile.world.hasKey) t = G.zone.inter.find(i => i.type === 'door' && !i.done) || G.enemies.find(e => e.story === 'elite' && !e.dead) || G.zone.inter.find(i => i.id === 'medallion');
   }

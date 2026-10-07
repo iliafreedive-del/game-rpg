@@ -43,16 +43,22 @@ import { resize } from '../render/index.js';
 import { ZOOM, zoomNow, setZoom } from '../core/camzoom.js';
 
 let cur = null;   // {name, bg, render}
-export function closeModal() { if (!cur) return; cur.bg.remove(); cur = null; G.atMerchant = false; G.modalOpen = false; G.paused = false; bus.emit('sfx', 'click'); bus.emit('hud'); }
-bus.on('closeModal', closeModal);
+// сборка 47: окно с lock (первый меч, смерть в Жатве) закрывается только своей кнопкой — closeModal(true).
+// Окна от событий (глава, осколок памяти, босс, итог похода) не вышибают открытое окно, а ждут в очереди.
+const winQ = [];
+export function closeModal(force) { if (!cur || (cur.lock && force !== true)) return; cur.bg.remove(); cur = null; G.atMerchant = false; G.modalOpen = false; G.paused = false; bus.emit('sfx', 'click'); bus.emit('hud'); if (winQ.length) setTimeout(pumpWin, 350); }
+function pumpWin() { if (cur || !winQ.length) return; winQ.shift()(); }
+const later = fn => (...a) => { if (cur) winQ.push(() => fn(...a)); else fn(...a); };
+bus.on('closeModal', () => closeModal());
 function modal(title, size, render, opts = {}) {
+  if (cur && cur.lock) { winQ.unshift(() => modal(title, size, render, opts)); return { bg: document.createElement('div'), body: null }; }
   if (cur) { cur.bg.remove(); } G.atMerchant = false;
   const bg = el('div', 'modal-bg'); const m = el('div', 'modal ' + (size || ''));
-  const h = el('div', 'mh', `<h2>${esc(title)}</h2>`); const x = el('button', 'mx', '✕'); x.onclick = closeModal; h.appendChild(x);
+  const h = el('div', 'mh', `<h2>${esc(title)}</h2>`); const x = el('button', 'mx', '✕'); x.onclick = () => closeModal(); if (!opts.lock) h.appendChild(x);
   const b = el('div', 'mb'); m.append(h, b); bg.appendChild(m);
-  bg.addEventListener('pointerdown', e => { if (e.target === bg && !opts.sticky) closeModal(); });
+  bg.addEventListener('pointerdown', e => { if (e.target === bg && !opts.sticky && !opts.lock) closeModal(); });
   document.body.appendChild(bg);
-  cur = { bg, body: b, render: () => { const st = b.scrollTop; b.innerHTML = ''; render(b); b.scrollTop = st; }, title: h.querySelector('h2') };
+  cur = { lock: !!opts.lock, bg, body: b, render: () => { const st = b.scrollTop; b.innerHTML = ''; render(b); b.scrollTop = st; }, title: h.querySelector('h2') };
   G.modalOpen = true; G.paused = true; cur.render(); return cur;
 }
 const rerender = () => cur && cur.render();
@@ -67,14 +73,21 @@ export function openWindow(name, arg) {
   const f = W[name]; if (f) f(arg);
 }
 bus.on('openNPC', id => { if (id === 'fortune') { openWheel(modal, closeModal); return; } W['npc_' + id](); });
-bus.on('openBoard', () => W.board()); bus.on('openWheel', () => openWheel(modal, closeModal)); bus.on('openHeroPath', () => openHeroPath()); bus.on('openDepths', () => W.depths()); bus.on('openWild', r => W.wild(r)); bus.on('wildCleared', r => W.wildResult(r));
+bus.on('openBoard', () => W.board()); bus.on('openWheel', () => openWheel(modal, closeModal)); bus.on('openHeroPath', () => openHeroPath()); bus.on('openDepths', () => W.depths()); bus.on('openWild', r => W.wild(r)); bus.on('wildCleared', later(r => W.wildResult(r)));
 bus.on('floorResult', r => floorResult(r));
 bus.on('boonChoice', () => boonChoice());
 bus.on('openSurvival', () => W.survival()); bus.on('survLevel', () => survLevel()); bus.on('survEnd', r => survEnd(r)); bus.on('openShrine', () => W.shrine());
 bus.on('showDeath', () => showDeath());
-bus.on('bossDefeated', k => bossReward(k));
-bus.on('chapterDone', n => chapterDone(n));
-bus.on('memory', id => showMemory(id));
+bus.on('survDeath', () => modal('Вы пали', 'sm', b => {
+  b.appendChild(el('p', '', 'Бездна вас одолела. Можно вернуться в бой один раз за забег — или выйти и забрать золото.'));
+  const row = el('div', 'row'); row.style.justifyContent = 'center';
+  const ad = adButton('▶ Возродиться за рекламу', 'revive', 0, () => { closeModal(true); SV.revive(true); });
+  const out = el('button', 'btn', 'Выйти с наградой'); out.onclick = () => { closeModal(true); SV.revive(false); };
+  row.append(ad, out); b.appendChild(row);
+}, { sticky: true, lock: true }));
+bus.on('bossDefeated', later(k => bossReward(k)));
+bus.on('chapterDone', later(n => chapterDone(n)));
+bus.on('memory', later(id => showMemory(id)));
 bus.on('wallOffer', () => showWallOffer());
 bus.on('deathAt', where => setTimeout(() => showStreakHelp(where), 300));
 const rewardQ = [];
@@ -85,6 +98,9 @@ export function pumpRewards() {
 }
 function showReward(r) {
   bus.emit('sfx', r.items.some(i => i.item.rarity >= 3) ? 'epicDrop' : 'levelup');
+  // сборка 47: первый меч от старосты — окно не закрыть, пока не нажато «Надеть»
+  const must = r.title === 'Поговорить со старостой' && r.items.some(en => en.bagged && en.item.slot === 'weapon');
+  let okBtn = null;
   const m = modal(r.sub || 'Награда', 'sm reward', b => {
     const top = r.items.reduce((a, i) => Math.max(a, i.item.rarity), 0);
     const head = el('div', 'rw-head', `<div class="rw-rays r${top}"></div><div class="rw-t">${esc(r.title)}</div>`);
@@ -98,9 +114,9 @@ function showReward(r) {
         const rows = (en.cmp || []).map(r => `<div class="cmp ${r.delta > 0 ? 'up' : r.delta < 0 ? 'dn' : ''}"><span>${esc(r.label)}</span><b>${r.before}${r.suf} → ${r.after}${r.suf} ${r.delta > 0 ? '▲' : r.delta < 0 ? '▼' : ''}</b></div>`).join('');
         c.appendChild(el('div', 'rw-eq', `<div class="muted" style="margin:4px 0">Сейчас надето: «${esc(en.old ? en.old.name : '—')}»</div>${rows}`));
         const br = el('div', 'row'); br.style.cssText = 'justify-content:center;margin-top:6px';
-        const wear = el('button', 'btn gold sm', 'Надеть'); wear.onclick = () => { if (CH.equipFromBag(it)) { br.replaceWith(el('div', 'rw-eq good', '✔ Надето · прежняя вещь в сумке')); } };
+        const wear = el('button', 'btn gold sm', 'Надеть'); wear.onclick = () => { if (CH.equipFromBag(it)) { br.replaceWith(el('div', 'rw-eq good', '✔ Надето · прежняя вещь в сумке')); if (must && okBtn) { okBtn.disabled = false; cur.lock = false; } } };
         const keep = el('button', 'btn sm', 'В сумку'); keep.onclick = () => br.replaceWith(el('div', 'rw-eq muted', 'Лежит в сумке — сравните и продайте, когда понадобится'));
-        br.append(wear, keep); c.appendChild(br);
+        if (must) { br.append(wear); c.appendChild(el('div', 'rw-eq goldc', '☝ Нажмите «Надеть» — новый меч сильнее')); } else br.append(wear, keep); c.appendChild(br);
       } else c.appendChild(el('div', 'rw-eq muted', `Сумка полна — вещь продана за ${en.sold} зол.`));
       box.appendChild(c);
     }
@@ -108,8 +124,8 @@ function showReward(r) {
     const loot = [r.gold && `<span class="goldc">+${fmt(r.gold)} золота</span>`, r.xp && `<span style="color:#b8e3ff">+${r.xp} опыта</span>`, r.potions && `<span style="color:#ff9a9a">+${r.potions} зелья</span>`, r.scrolls && `<span>+${r.scrolls} свитка возврата</span>`, r.skillPts && `<span class="good">+${r.skillPts} очко навыка</span>`, r.shards && `<span class="c-shard">+${r.shards}◆ осколков</span>`].filter(Boolean);
     if (loot.length) b.appendChild(el('div', 'rw-loot', loot.join(' · ')));
     const q = Q.current(); if (q) b.appendChild(el('p', 'muted', `Следующее задание: <b class="goldc">${esc(q.title)}</b>`));
-    const row = el('div', 'row'); row.style.justifyContent = 'center'; const ok = el('button', 'btn gold', 'Забрать'); ok.onclick = closeModal; row.appendChild(ok); b.appendChild(row);
-  });
+    const row = el('div', 'row'); row.style.justifyContent = 'center'; const ok = el('button', 'btn gold', 'Забрать'); ok.onclick = () => closeModal(); okBtn = ok; if (must) ok.disabled = true; row.appendChild(ok); b.appendChild(row);
+  }, { lock: must });
   m.bg.classList.add('rw-bg');
 }
 

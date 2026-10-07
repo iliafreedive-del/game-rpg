@@ -17,7 +17,7 @@ export function newProfile(cls = 'warrior') {
     skills: {}, slots: [null, null, null, null],
     gear: {}, bag: [], bagSize: 40,
     potions: { hp: 3, mp: 1 }, scrolls: 1,
-    story: { stage: 0, counters: {}, flags: {}, done: [], flow38: true, flow43: true },
+    story: { stage: 0, counters: {}, flags: {}, done: [], flow38: true, flow43: true, flow47: true },
     repeat: {},            // id -> {accepted, base, completions}
     stats: { kills: 0, skeletons: 0, elites: 0, chests: 0, meters: 0, gold: 0, bossKills: 0, deaths: 0, bossNoDeath: 0, playTime: 0 },
     world: { opened: {}, lastZone: 'town' },   // persistent story objects (key sarcophagus, secret wall, gate…)
@@ -107,6 +107,13 @@ export function migrate(p) {
     const done = new Set(p.story.done || []);
     if (done.has('elder_task') && !done.has('hw_try')) { p.story.done.push('hw_try'); done.add('hw_try'); let st = 0; while (st < STORY.length && done.has(STORY[st].id)) st++; p.story.stage = st; }
     p.story.flow43 = true;
+  }
+  // сборка 47: после Летописи вставлены Элвин, Мира и пробная Жатва; Глава II начинается со Старого Леса — номер шага пересчитываем по пройденным
+  if (p.story && !p.story.flow47) {
+    const done = new Set(p.story.done || []);
+    if (done.has('elder_task')) for (const id of ['hw_elvin', 'meet_merchant', 'surv_try', 'surv_elvin']) if (!done.has(id)) { p.story.done.push(id); done.add(id); }
+    let st = 0; while (st < STORY.length && done.has(STORY[st].id)) st++; p.story.stage = st;
+    p.story.flow47 = true;
   }
   // fill any fields added later with defaults (forward-compatible)
   const d = newProfile();

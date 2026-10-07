@@ -182,9 +182,10 @@ export class Zone {
         case 'door': {
           const tx = Math.floor(o.x), ty = Math.floor(o.y), open = !!W[id];
           const flip = m.ch(tx - 1, ty) !== '#';   // corridor runs along x → rotate door
-          const d = this.add({ x: o.x, y: o.y, spr: open ? 'door_open' : 'door', flip, wall: true });
-          if (open) m.setSolid(tx, ty, 0);
-          this.inter.push({ id, type: 'door', key: o.key, x: o.x, y: o.y, r: 1.7, label: 'Отпереть дверь', draw: d, done: open, tile: [tx, ty] });
+          const arch = (o.span || 1) > 1, tiles = o.tiles || [[tx, ty]];   // сборка 47: широкая арочная дверь (js/world/widen.js)
+          const d = this.add({ x: o.x, y: o.y, spr: (arch ? 'door_arch' : 'door') + (open ? '_open' : ''), flip, wall: true });
+          if (open) for (const [x, y] of tiles) m.setSolid(x, y, 0);
+          this.inter.push({ id, type: 'door', key: o.key, x: o.x, y: o.y, r: 1.7 + (arch ? 0.5 : 0), label: 'Отпереть дверь', draw: d, done: open, tile: [tx, ty], tiles });
           break;
         }
         case 'secretwall': {

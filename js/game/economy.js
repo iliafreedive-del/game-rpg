@@ -26,7 +26,7 @@ export function ensureStock(force) {
 export function refreshStock(free) { if (!free && !pay(stockRefreshPrice())) return false; ensureStock(true); bus.emit('save'); return true; }
 export function buyConsumable(k) {
   const P = G.profile; if (!pay(potionPrice(k))) return false;
-  if (k === 'scroll') P.scrolls++; else P.potions[k]++; bus.emit('save'); return true;
+  if (k === 'scroll') P.scrolls++; else P.potions[k]++; if (k === 'hp') P.story.flags.potBought = true; bus.emit('save'); return true;   // флаг — шаг обучения «Купить зелье у Миры»
 }
 export function buyItem(idx) {
   const P = G.profile, it = P.shop.stock[idx]; if (!it) return false;

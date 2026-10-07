@@ -2,13 +2,28 @@
 // 1) выбрать первый навык → 2) катакомбы → 3) Старый Лес (уровень 3) → 4) Палач Бездны (уровень 6) →
 // 5) Глубины / Выживание / Фьорды (после босса) → 6) Костяные пустоши (после форта Фьордов, Глава III) →
 // 7) Цитадель и Морвен (Глава IV). «Летопись битв» открывается по главам вместе с этим.
-import { G } from './ctx.js';
+import { G, bus } from './ctx.js';
+import { STORY } from '../data/quests.js';
 
 export const BOSS_LEVEL = 7;
 const F = () => G.profile.story.flags;
 export const hasSkill = () => G.profile.slots.some(Boolean) || Object.keys(G.profile.skills).length > 0;
 const forts = realm => { const S = G.profile.wild && G.profile.wild[realm]; return S && S.stat ? S.stat.forts || 0 : 0; };
 
+// сборка 47: первые шаги без «ускорителей». Пока герой не прошёл Летопись и не вернулся с золотом к Элвину,
+// усиления у Элвина закрыты ('upg'); пока не купил первое зелье у Миры — закрыты Источник силы, Хозяйка Колеса,
+// реклама за награды и покупки за рубли ('extra'), Мира — до своего шага ('shop'). Иначе игрок сразу всё вкачивает и ломает баланс.
+const stIdx = id => STORY.findIndex(q => q.id === id);
+export function earlyLock(kind) {
+  const s = G.profile && G.profile.story; if (!s) return false;
+  const need = kind === 'upg' ? 'hw_elvin' : kind === 'shop' ? 'meet_merchant' : 'elder_task';
+  return s.stage < stIdx(need);
+}
+let lockT = 0;
+export function lockToast(kind) {
+  if (Date.now() - lockT < 2000) return; lockT = Date.now();
+  bus.emit('toast', { text: kind === 'upg' ? 'Усиления откроются после Летописи битв' : 'Откроется чуть позже', sub: 'Сначала пройдите обучение — идите по стрелке', kind: 'warn' }); bus.emit('sfx', 'deny');
+}
 // null — можно, иначе { text, sub }
 export function gate(name, extra) {
   const P = G.profile;

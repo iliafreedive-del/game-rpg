@@ -20,7 +20,8 @@ export function generateCastle(opened) {
   for (const [id, [x, y]] of Object.entries(gates)) o.push({ t: 'roomgate', id, x: x + 0.5, y: y + 0.5 });
   // room furniture
   o.push({ t: 'castle_altar', x: 5.5, y: 22.5 }, { t: 'candles', x: 3.5, y: 19.5 }, { t: 'candles', x: 8, y: 25.5 }, { t: 'brazier', x: 3, y: 25 });
-  o.push({ t: 'castle_trial', x: 36.3, y: 22.5 }, { t: 'pillar', x: 25.5, y: 16.5 }, { t: 'pillar', x: 36.5, y: 16.5 }, { t: 'pillar', x: 25.5, y: 27.5 }, { t: 'pillar', x: 36.5, y: 27.5 }, { t: 'skulls', x: 34, y: 17.5 }, { t: 'brazier', x: 31, y: 16 }, { t: 'brazier', x: 31, y: 28 });
+  // сборка 47: зал испытаний — клетки x 24–31, y 18–26; алтарь и колонны стояли за восточной стеной (x 36), до алтаря было не дойти
+  o.push({ t: 'castle_trial', x: 30.2, y: 22.5 }, { t: 'pillar', x: 25.5, y: 19.5 }, { t: 'pillar', x: 30.5, y: 19.3 }, { t: 'pillar', x: 25.5, y: 25.5 }, { t: 'pillar', x: 30.5, y: 25.7 }, { t: 'skulls', x: 28, y: 18.8 }, { t: 'brazier', x: 27.5, y: 19 }, { t: 'brazier', x: 27.5, y: 26 });
   o.push({ t: 'castle_treasury', x: 8, y: 7.5 }, { t: 'chest_rich_d', x: 5, y: 5.5 }, { t: 'chest_rich_d', x: 11, y: 5.5 }, { t: 'barrel', x: 4.2, y: 11 }, { t: 'crate', x: 11.5, y: 11 });
   o.push({ t: 'castle_trophy', x: 26, y: 7.5 }, { t: 'sarcophagus_d', x: 23, y: 6 }, { t: 'sarcophagus_d', x: 29, y: 6 }, { t: 'brazier', x: 22.5, y: 11 }, { t: 'brazier', x: 29.5, y: 11 });
   // permanent decor of the hall + sockets for the player's own furnishing

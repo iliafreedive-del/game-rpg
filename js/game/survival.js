@@ -1,6 +1,7 @@
 // «Жатва Бездны» — survivors-like mode: an open arena, endless waves, the hero attacks automatically,
 // the player only moves. Enemies drop soul crystals → run level → pick 1 of 3 perks (weapons, passives, evolutions).
 import { G, bus } from './ctx.js';
+import { STORY } from '../data/quests.js';
 import { ENEMIES } from '../data/enemies.js';
 import * as C from './combat.js';
 import { getAtlas, drawFrame } from '../core/assets.js';
@@ -64,7 +65,7 @@ const TYPES = [
   { type: 'skel_archer', from: 320, hp: 26, spd: 2.4, dmg: 9, xp: 2 },
 ];
 export function startRun() {
-  const S = G.surv = { t: 0, kills: 0, lvl: 1, xp: 0, next: 12, swarm: [], gems: [], projs: [], pools: [], w: { main: 1 }, p: {}, evo: {}, cd: {}, spawnT: 0, eliteT: 150, bossT: 600, bossKills: 0, gold: 0, over: false, hp0: G.stats.maxHP, ach: {}, orbit: 0, pending: 0 };
+  const S = G.surv = { trial: G.profile.story.stage === STORY.findIndex(q => q.id === 'surv_try'), t: 0, kills: 0, lvl: 1, xp: 0, next: 12, swarm: [], gems: [], projs: [], pools: [], w: { main: 1 }, p: {}, evo: {}, cd: {}, spawnT: 0, eliteT: 150, bossT: 600, bossKills: 0, gold: 0, over: false, hp0: G.stats.maxHP, ach: {}, orbit: 0, pending: 0 };
   G.player.hp = G.stats.maxHP; G.auto = false;
   bus.emit('toast', { text: 'Жатва Бездны', sub: 'Только бегайте — герой бьёт сам. Собирайте кристаллы душ.', kind: 'quest' });
   return S;
@@ -78,7 +79,7 @@ const baseDmg = () => { const s = G.stats; return (s.dmgMin + s.dmgMax) / 2 * mi
 // ---------------------------------------------------------------- update
 export function updateSurvival(dt) {
   const S = G.surv; if (!S || S.over) return;
-  const pl = G.player; if (pl.dead) { endRun(false); return; }
+  const pl = G.player; if (pl.dead) { if (!S.asking) endRun(false); return; }
   S.t += dt;
   // spawns: density grows every minute
   S.spawnT -= dt;
@@ -138,6 +139,18 @@ export function updateSurvival(dt) {
   pl.hp = Math.min(G.stats.maxHP, pl.hp + (S.p.vigor || 0) * 0.6 * dt);
   for (const a of ACH) if (!S.ach[a.id] && a.test(S)) { S.ach[a.id] = 1; bus.emit('toast', { text: '🏆 ' + a.name, sub: `+${a.gold} зол. · +${a.shards}◆ после забега`, kind: 'quest' }); bus.emit('sfx', 'quest'); }
   if (S.t >= GOAL) endRun(true);
+  // сборка 47: пробная Жатва в обучении — портал держится 3 минуты
+  if (S.trial && S.t >= TRIAL_T) { bus.emit('toast', { text: 'Портал Жатвы закрывается!', sub: 'Староста не может держать его дольше', kind: 'warn' }); endRun(false); }
+}
+const TRIAL_T = 180;
+// сборка 47: первая смерть за забег — окно «Возродиться за рекламу / Выйти» (js/ui/windows.js survDeath)
+export function offerRevive() { const S = G.surv; if (!S || S.over || S.revived) return false; S.asking = S.revived = true; bus.emit('survDeath'); return true; }
+export function revive(ok) {
+  const S = G.surv, pl = G.player; if (!S || S.over) return; S.asking = false;
+  if (!ok) { endRun(false); return; }
+  pl.dead = false; pl.hp = G.stats.maxHP;
+  for (const e of S.swarm) { const dx = e.x - pl.x, dy = e.y - pl.y, d = Math.hypot(dx, dy) || 1; if (d < 6) { e.x = pl.x + dx / d * 6; e.y = pl.y + dy / d * 6; } }   // враги отброшены от героя
+  C.effect({ kind: 'ring', x: pl.x, y: pl.y, r: 6, dur: 0.6, c: [255, 220, 150] }); bus.emit('sfx', 'levelup');
 }
 const dirOf8 = (x, y) => ((Math.round(Math.atan2(y, x) / (Math.PI / 4)) + 8) % 8);
 // враги появляются ЗА краем экрана, а не из воздуха на глазах: ищем по случайному направлению ближайшую точку, которая на экран не попадает
@@ -218,6 +231,7 @@ export function endRun(win) {
   for (const a of ACH) if (S.ach[a.id] && !P.surv.ach[a.id]) { P.surv.ach[a.id] = 1; achGold += a.gold; shards += a.shards; newAch.push(a.name); }
   P.gold += gold + achGold; P.shards = (P.shards || 0) + shards; P.surv.runs++; const record = S.t > P.surv.best; if (record) P.surv.best = S.t;
   G.player.dead = false; G.player.hp = G.stats.maxHP;
+  if (S.trial) P.story.flags.survTried = true;   // шаг обучения засчитан при любом исходе (смерть, выход, 3 минуты)
   bus.emit('survEnd', { win, t: S.t, kills: S.kills, lvl: S.lvl, gold: gold + achGold, shards, newAch, record });
   bus.emit('save');
 }

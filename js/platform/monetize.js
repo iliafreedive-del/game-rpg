@@ -7,6 +7,7 @@ import { stats } from '../game/stats.js';
 import { autoEquip } from '../game/character.js';
 import { uid } from '../core/util.js';
 import { pickEpic } from '../game/loot.js';
+import { earlyLock, lockToast } from '../game/progress.js';
 import { SETS } from '../data/sets.js';
 
 const MIN = 60 * 1000;
@@ -26,6 +27,7 @@ export function offerToken(kind, scope = '') { return `${kind}:${scope || uid('o
 export async function watchRewarded(kind, token, apply) {
   const P = G.profile;
   if (busy) return false;
+  if (kind !== 'revive' && earlyLock('extra')) { lockToast('extra'); return false; }   // сборка 47: награды за рекламу — после обучения
   if (P.ads.used[token]) { bus.emit('toast', { text: 'Эта награда уже получена', kind: 'warn' }); return false; }
   // в открытом окне на паузе (Летопись битв и т. п.) время мира стоит — «недавний бой» там не считается
   const wasPaused = G.paused, frozen = wasPaused && G.modalOpen;
@@ -62,6 +64,7 @@ export async function maybeInterstitial(reason) {
 // ---- IAP
 export async function buy(productId) {
   const P = G.profile, def = PRODUCTS[productId];
+  if (earlyLock('extra')) { lockToast('extra'); return false; }   // сборка 47: покупки — после обучения
   if (def.once && P.iap.tx['once_' + productId]) { bus.emit('toast', { text: 'Этот набор уже куплен', kind: 'warn' }); return false; }
   if (!def.consumable && P.iap[flagOf(productId)]) { bus.emit('toast', { text: 'Уже куплено', kind: 'warn' }); return false; }
   G.paused = true; gameplay(false); const r = await platform.p.purchase(productId); G.paused = false;
