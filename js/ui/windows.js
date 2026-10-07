@@ -36,6 +36,7 @@ import { MEMORIES, SEALS } from '../data/story.js';
 import { BOONS, BOON_IDS } from '../data/boons.js';
 import { stats as calcStats } from '../game/stats.js';
 import { maybeInterstitial } from '../platform/monetize.js';
+import { earlyLock } from '../game/progress.js';
 import { platform as PF } from '../platform/platform.js';
 import { wipeLocal, cloudBundle } from '../game/save.js';
 import { setVolumes } from '../core/audio.js';
@@ -952,17 +953,23 @@ W.survival = () => modal('Жатва Бездны', 'md', b => {
 function survLevel() {
   const S = G.surv; if (!S || S.over) return;
   if (cur) { setTimeout(survLevel, 500); return; }
-  let cs = SV.choices(); bus.emit('sfx', 'levelup');
+  let cs = SV.choices(), extra = false; bus.emit('sfx', 'levelup');
   modal(`Уровень ${S.lvl}!`, 'md reward', b => {
     b.appendChild(el('p', 'muted', 'Выберите усиление:'));
     { const rr = el('button', 'btn ad sm', '↻ Перемешать за рекламу'); rr.onclick = async () => { const ok = await watchRewarded('surv_reroll', offerToken('surv_reroll', String(Date.now())), () => { S.rerolls++; }); if (ok) { cs = SV.choices(); rerender(); } }; b.appendChild(rr); }   // сборка 47
-    const row = el('div', 'boons');
-    for (const c of cs) {
+    const row = el('div', 'boons b4');   // сборка 47: карточки мельче, 4 в ряд; 3 бесплатно, 4-я случайная — за рекламу
+    cs.forEach((c, i) => {
+      if (i === 3 && !extra) {
+        const lock = earlyLock('extra'), card = el('button', 'boon locked', `<div class="bg">?</div><b>Ещё вариант</b><small class="lv">${lock ? 'после обучения' : '▶ за рекламу'}</small><span>Случайное усиление</span>`);
+        card.disabled = lock;
+        card.onclick = async () => { const ok = await watchRewarded('surv_extra', offerToken('surv_extra', String(Date.now())), () => {}); if (ok) { extra = true; rerender(); } };
+        row.appendChild(card); return;
+      }
       const title = c.evo ? '⚡ ' + c.evo.name : c.gold ? 'Золото' : c.P.name, desc = c.evo ? c.evo.desc : c.gold ? '+50 золота' : c.P.desc(c.lvl), lv = c.evo ? 'ПРОБУЖДЕНИЕ' : c.gold ? '' : c.lvl ? `ур. ${c.lvl} → ${c.lvl + 1}` : 'новое';
       const card = el('button', 'boon' + (c.evo ? ' evo' : ''), `<div class="bg">${c.evo ? '✹' : c.gold ? '⛁' : (c.P.icon || '⚔')}</div><b>${esc(title)}</b><small class="lv">${lv}</small><span>${esc(desc)}</span>`);
       card.onclick = () => { SV.take(c); closeModal(); };
       row.appendChild(card);
-    }
+    });
     b.appendChild(row);
   }, { sticky: true });
   cur.bg.querySelector('.mx').style.display = 'none';

@@ -300,6 +300,7 @@ button,.slot,.node,.tab{touch-action:manipulation}
 .pn-req{font-size:13px;margin:6px 0}
 .npc-panel .btn{margin-top:4px}
 #btnAuto{font:800 10px sans-serif;color:#e8d7b0;letter-spacing:.02em}
+#btnAuto.ad::after{content:'▶';position:absolute;right:-3px;top:-3px;width:15px;height:15px;border-radius:50%;background:#c07bff;color:#fff;font:700 8px/15px sans-serif;text-align:center;box-shadow:0 0 6px #c07bff}
 #btnAuto.on{background:radial-gradient(circle,#4a7a2a,#1d3a10);color:#fff;box-shadow:0 0 0 2px #9fe38e,0 0 14px #9fe38e}
 #goldBox{gap:8px}
 @media (orientation:portrait) and (max-width:760px){.npc-panel{top:calc(170px + var(--safe-t));width:calc(100vw - 16px);max-height:42vh}}
@@ -348,6 +349,16 @@ button,.slot,.node,.tab,.hw-stage,[data-open]{cursor:url("data:image/svg+xml,%3C
 #ui.surv #btnAtk,#ui.surv .sk,#ui.surv #btnScroll,#ui.surv #tracker,#ui.surv #btnAuto,#ui.surv #minimap{display:none}
 .boon.evo{border-color:#c07bff;box-shadow:0 0 22px #c07bff88}
 .boon .lv{color:#9cc0ff;font:600 11px sans-serif}
+.boons.b4{grid-template-columns:repeat(4,1fr);gap:8px}
+.boons.b4 .boon{gap:3px;padding:8px 6px;flex-direction:column;text-align:center}
+.boons.b4 .boon:nth-child(4){animation-delay:.3s}
+.boons.b4 .boon .bg{font-size:26px;width:auto}
+.boons.b4 .boon b{font-size:13px;line-height:1.15}
+.boons.b4 .boon span{font-size:11px;line-height:1.25;flex:none}
+.boon.locked{border-style:dashed;border-color:#c07bff;background:linear-gradient(#2a1d3a,#120c1a)}
+.boon.locked .bg{color:#c07bff;text-shadow:0 0 14px #c07bff}
+.boon.locked:disabled{opacity:.5}
+@media (max-width:560px){.boons.b4{grid-template-columns:repeat(2,1fr)}}
 @media (orientation:portrait) and (max-width:760px){#survHud{top:calc(120px + var(--safe-t));width:80vw}}
 /* colour grading: richer, punchier image */
 canvas#game{filter:saturate(1.22) contrast(1.08) brightness(1.06)}

@@ -21,6 +21,7 @@ export const OFFERS = {
   shop_refresh: { title: 'Бесплатно обновить товары', icon: '↻' },
   chest_skip: { title: 'Открыть сундук Ордена сейчас', icon: '⧗' },
   daily_double: { title: 'Ежедневная награда ×1,5', icon: '×1,5' },
+  auto: { title: 'Автобой на 30 минут', icon: '▶' },
 };
 let busy = false;
 // token-based single grant: each offer instance gets a token; the reward is applied at most once per token.
@@ -50,6 +51,13 @@ export const offers = {
   bossExtra(killId, x, y) { return watchRewarded('boss_extra', offerToken('boss_extra', killId), () => { const r = autoEquip(makeItem({ slot: 'weapon', cls: G.profile.cls, ilvl: G.profile.level + 1, rarity: 2 })); bus.emit('toast', { text: r.equipped ? 'Новое оружие надето: ' + r.item.name : 'Бонус: +' + r.sold + ' зол.', kind: 'good' }); }); },
   shopRefresh(onDone) { return watchRewarded('shop_refresh', offerToken('shop_refresh', 'lv' + G.profile.level + '_' + Math.floor(Date.now() / (30 * MIN))), onDone); },
 };
+
+// ---- автобой за рекламу (сборка 47): один ролик — 30 минут. Бесплатно в обучении и с покупкой «Без рекламы»
+export const AUTO_MIN = 30;
+export const autoFree = () => !!(G.profile.iap && G.profile.iap.noAds) || earlyLock('extra');
+export const autoLeft = () => Math.max(0, ((G.profile.boosts && G.profile.boosts.autoUntil) || 0) - Date.now());
+export const autoOK = () => autoFree() || autoLeft() > 0;
+export function autoAd() { return watchRewarded('auto', offerToken('auto', String(Date.now())), () => { const B = G.profile.boosts; B.autoUntil = Math.max(Date.now(), B.autoUntil || 0) + AUTO_MIN * MIN; }); }
 
 // ---- interstitial pacing (only at safe transitions, never in/near combat, disabled by purchase)
 let lastInter = Date.now();
