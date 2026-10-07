@@ -13,14 +13,14 @@ import * as CS from '../game/castle.js';
 
 const MIN = 60 * 1000;
 export const OFFERS = {
-  bless: { title: 'Сила источника: +50% золота и опыта на 10 минут', icon: '✦' },
+  bless: { title: 'Сила источника: +25% золота и опыта на 10 минут', icon: '✦' },
   xp_boost: { title: '+50% опыта на 15 минут', icon: '✦' },
   gold_boost: { title: '+50% золота на 15 минут', icon: '⛁' },
   revive: { title: 'Воскреснуть на месте', icon: '✚' },
   boss_extra: { title: 'Дополнительная добыча с босса', icon: '❖' },
   shop_refresh: { title: 'Бесплатно обновить товары', icon: '↻' },
   chest_skip: { title: 'Открыть сундук Ордена сейчас', icon: '⧗' },
-  daily_double: { title: 'Удвоить ежедневную награду', icon: '×2' },
+  daily_double: { title: 'Ежедневная награда ×1,5', icon: '×1,5' },
 };
 let busy = false;
 // token-based single grant: each offer instance gets a token; the reward is applied at most once per token.
@@ -138,16 +138,16 @@ export function dailyStatus() {
 }
 export function claimDaily(double) {
   const P = G.profile; const s = dailyStatus(); if (!s.claimable) return false;
-  const r = s.reward, m = double ? 2 : 1;
-  if (r.gold) P.gold += r.gold * m * P.level;
-  if (r.potions) P.potions.hp += r.potions * m;
-  if (r.scrolls) P.scrolls += r.scrolls * m;
-  if (r.item) for (let i = 0; i < m; i++) { const it = makeItem({ ilvl: P.level, rarity: r.item, cls: P.cls }); delete it.req; autoEquip(it); }
+  const r = s.reward, m = double ? 1.5 : 1;   // за рекламу — ×1,5 (сборка 47; было ×2), вещь — одна
+  if (r.gold) P.gold += Math.round(r.gold * m * P.level);
+  if (r.potions) P.potions.hp += Math.round(r.potions * m);
+  if (r.scrolls) P.scrolls += Math.round(r.scrolls * m);
+  if (r.item) for (let i = 0; i < 1; i++) { const it = makeItem({ ilvl: P.level, rarity: r.item, cls: P.cls }); delete it.req; autoEquip(it); }
   P.daily.last = dayKey(Date.now()); P.daily.streak = s.streak + 1; bus.emit('loginClaimed');
   bus.emit('toast', { text: `Дар источника — день ${s.day} из ${LOGIN_DAYS}`, sub: r.big ? 'Большая награда!' : r.mid ? 'Награда каждого 3-го дня' : '', kind: 'good' }); bus.emit('sfx', 'quest'); bus.emit('hud'); bus.emit('save'); return true;
 }
 
-// ---- благословение богини за рекламу: +50% золота и опыта, +25% к выпадению вещей; 10 минут за просмотр, не больше 30 подряд
+// ---- благословение богини за рекламу: +25% золота и опыта, +15% к выпадению вещей (сборка 47; было +50% / +25%); 10 минут за просмотр, не больше 30 подряд
 export const BLESS_MIN = 10, BLESS_CAP = 30;
 // сборка 47: не больше 3 просмотров в день (30 минут), иначе реклама подряд качает героя быстрее игры
 export const BLESS_DAY = 3;
@@ -158,7 +158,7 @@ export function blessing() {
   if (blessLeft() > (BLESS_CAP - BLESS_MIN) * MIN) { bus.emit('toast', { text: 'Сила источника уже на пределе', sub: `Не больше ${BLESS_CAP} минут подряд`, kind: 'warn' }); return Promise.resolve(false); }
   if (blessToday() >= BLESS_DAY) { bus.emit('toast', { text: 'Источник силы отдыхает до завтра', sub: `Не больше ${BLESS_DAY} раз в день`, kind: 'warn' }); return Promise.resolve(false); }
   return watchRewarded('bless', offerToken('bless'), () => { const P = G.profile; blessToday(); P.ads.bless.n++; P.boosts.blessUntil = Math.max(Date.now(), P.boosts.blessUntil || 0) + BLESS_MIN * MIN; P.boosts.blessWarned = false;
-    bus.emit('toast', { text: 'Сила источника!', sub: '+50% золота и опыта, +25% вещей — 10 минут. Вперёд, в бой!', kind: 'good' }); bus.emit('sfx', 'levelup'); });
+    bus.emit('toast', { text: 'Сила источника!', sub: '+25% золота и опыта, +15% вещей — 10 минут. Вперёд, в бой!', kind: 'good' }); bus.emit('sfx', 'levelup'); });
 }
 // напоминание за минуту до конца и по окончании (вызывается раз в секунду из hud.js)
 export function blessTick() {

@@ -8,8 +8,10 @@ import { xpToNext, stats } from './stats.js';
 import { rand, rint, weighted, pick, uid } from '../core/util.js';
 import { float, particles } from './combat.js';
 
-const goldMul = () => rm('gold') * (G.run && G.run.boons && G.run.boons.includes('greed') ? 1.25 : 1) * (1 + G.stats.goldFind / 100) * (G.profile.boosts.goldUntil > Date.now() || G.profile.boosts.blessUntil > Date.now() ? 1.5 : 1) * (G.profile.iap.goldPerk ? 1.25 : 1);
-export const xpMul = () => rm('xp') * (G.profile.boosts.xpUntil > Date.now() || G.profile.boosts.blessUntil > Date.now() ? 1.5 : 1) * (1 + ((G.stats && G.stats.decor && G.stats.decor.xp) || 0) / 100);
+// Сила источника за рекламу (сборка 47 — урезано по просьбе пользователя): было +50% золота и опыта, +25% вещей
+const BLESS_MUL = 1.25, BLESS_ITEMS = 1.15;
+const goldMul = () => rm('gold') * (G.run && G.run.boons && G.run.boons.includes('greed') ? 1.25 : 1) * (1 + G.stats.goldFind / 100) * (G.profile.boosts.goldUntil > Date.now() ? 1.5 : G.profile.boosts.blessUntil > Date.now() ? BLESS_MUL : 1) * (G.profile.iap.goldPerk ? 1.25 : 1);
+export const xpMul = () => rm('xp') * (G.profile.boosts.xpUntil > Date.now() ? 1.5 : G.profile.boosts.blessUntil > Date.now() ? BLESS_MUL : 1) * (1 + ((G.stats && G.stats.decor && G.stats.decor.xp) || 0) / 100);
 
 export function dropGold(x, y, amount) {
   amount = Math.max(1, Math.round(amount * goldMul()));
@@ -33,8 +35,8 @@ export function enemyLoot(e) {
   for (let i = 0; i < piles; i++) dropGold(e.x, e.y, rint(D.gold[0], D.gold[1]) * (1 + 0.12 * (L - 1)) * 0.75 / (D.boss || D.elite ? piles / 2 : 1));   // сборка 47: золота −25%
   if (rand() < (D.boss ? 1 : D.elite ? 0.35 : e.champion ? 0.2 : 0.015)) dropPotion(e.x, e.y, rand() < 0.7 ? 'hp' : 'mp');
   // вещи: редкие и заметные. Рядовой враг почти никогда, чемпион — иногда, страж и босс — всегда
-  const ch = (D.boss ? 1 : D.elite ? 0.5 : e.champion ? 0.12 : G.zoneId === 'wild' ? 0.03 : 0.025) / (e.respawned ? 3 : 1) * (G.profile.boosts.blessUntil > Date.now() ? 1.25 : 1) * rm('items') * (1 + 0.05 * ((G.run && G.run.circle) || 0));
-  // сборка 20: серого больше — сырьё для слияния у кузнеца. Благословение — +25% вещей; «Орда» недели — ×2; возрождённые (respawn.js) — втрое реже; круг Бездны — +5% за круг
+  const ch = (D.boss ? 1 : D.elite ? 0.5 : e.champion ? 0.12 : G.zoneId === 'wild' ? 0.03 : 0.025) / (e.respawned ? 3 : 1) * (G.profile.boosts.blessUntil > Date.now() ? BLESS_ITEMS : 1) * rm('items') * (1 + 0.05 * ((G.run && G.run.circle) || 0));
+  // сборка 20: серого больше — сырьё для слияния у кузнеца. Благословение — +15% вещей; «Орда» недели — ×2; возрождённые (respawn.js) — втрое реже; круг Бездны — +5% за круг
   // таблицы: серый / зелёный / синий / золотой. Сборка 47: вещей втрое меньше, зелёные — редкость (жалоба «шмота как грязи»)
   if (rand() < ch) dropItem(e.x, e.y, rollDrop(L + (D.boss || D.elite ? 1 : 0), D.boss ? [30, 55, 13, 2] : D.elite ? [60, 36, 4, 0] : e.champion ? [85, 15, 0, 0] : [97, 3, 0, 0]));   // сборка 47: зелёное и синее реже, цвет поднимается слиянием у кузнеца
 }
