@@ -9,7 +9,7 @@ import { OUTLINE } from './style.js';
 import { fixZeroNormals } from './geo.js';
 
 export const SKINS = { on: true };     // переключатель (Настройки → «Новые модели»): false — процедурные модели
-// бег из клипов модели (маг, воин) спокойнее, «по-геройски»: STRIDE_K — ноги перебирают реже при той же скорости героя;
+// бег из клипов модели (маг, воин; лучник — клипы мага, tools/art/clips_copy.py) спокойнее, «по-геройски»: STRIDE_K — ноги перебирают реже при той же скорости героя;
 // RUN_MAX — клип бега (спринт Mixamo) подмешивается к ходьбе не больше чем наполовину; CALM — размах рук, корпуса и головы из клипа
 const STRIDE_K = 2.1, RUN_MAX = 0.5, CALM = { armL: 0.45, elL: 0.45, handL: 0.45, armR: 0.45, elR: 0.45, handR: 0.45, torso: 0.6, head: 0.6 };
 const BASE = new URL('../../assets/models/', import.meta.url).href;
