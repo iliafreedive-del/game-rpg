@@ -9,7 +9,7 @@ export const SETS = {
   bow: { name: 'Вороново перо', branch: 'bow', cls: ['archer'], parts: { head: 'Маска пера', chest: 'Плащ пера', amulet: 'Коготь ворона' }, b2: { skills: 1 }, b3: { skills: 1, dmgPct: 15 } },
   ice: { name: 'Зимний предел', branch: 'ice', cls: ['archer', 'mage'], parts: { head: 'Венец предела', chest: 'Шуба предела', amulet: 'Льдинка предела' }, b2: { skills: 1 }, b3: { skills: 1, dmgPct: 15 } },
   light: { name: 'Глаз грозы', branch: 'light', cls: ['mage'], parts: { head: 'Обруч грозы', chest: 'Риза грозы', amulet: 'Глаз грозы' }, b2: { skills: 1 }, b3: { skills: 1, dmgPct: 15 } },
-  gold: { name: 'Удачливый искатель', cls: ['warrior', 'archer', 'mage'], parts: { head: 'Шляпа искателя', chest: 'Куртка искателя', amulet: 'Монета искателя' }, b2: { goldFind: 30 }, b3: { goldFind: 40, crit: 4 } },
+  gold: { name: 'Удачливый искатель', cls: ['warrior', 'archer', 'mage'], parts: { head: 'Шляпа искателя', chest: 'Куртка искателя', amulet: 'Монета искателя' }, b2: { goldFind: 30 }, b3: { goldFind: 40, hp: 40 } },
   guard: { name: 'Оплот Тихого Брода', cls: ['warrior', 'archer', 'mage'], parts: { head: 'Шлем оплота', chest: 'Доспех оплота', amulet: 'Печать оплота' }, b2: { hp: 90 }, b3: { armorPct: 30, hp: 60 } },
 };
 // текст бонуса для карточки

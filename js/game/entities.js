@@ -65,7 +65,7 @@ export class Player {
     // movement
     const mag = input.mag;
     if (mag > 0.12) {   // удар по герою не сбивает шаг (сборка 19)
-      const run = mag > 0.55; const sp = (run ? 5.4 : 3.2) * (this.S.moveMul || 1) * (G.surv ? 1 + (G.surv.p.swift || 0) * 0.08 : 1) * (this.slowT > 0 ? 0.6 : 1) * (G.wild ? G.wild.slow : 1) * (G.run && G.run.boons && G.run.boons.includes('haste') ? 1.25 : 1);
+      const run = mag > 0.55; const sp = (run ? 5.4 : 3.2) * (this.S.moveMul || 1) * (G.surv ? 1 + (G.surv.p.swift || 0) * 0.08 : 1) * (this.slowT > 0 ? 0.6 : 1) * (G.wild ? G.wild.slow : 1) * (G.run && G.run.boons && G.run.boons.includes('haste') ? 1.12 : 1);
       const ox = this.x, oy = this.y;
       [this.x, this.y] = G.zone.map.move(this.x, this.y, input.wx * sp * dt, input.wy * sp * dt, this.r);
       const moved = Math.hypot(this.x - ox, this.y - oy); this.meters += moved;
@@ -80,7 +80,7 @@ export class Player {
   dodge(wx, wy) {
     if (this.dead || this.state === 'dodge' || (this.cds.dodge > 0)) return false;
     const d = (Math.hypot(wx, wy) > 0.1) ? dirOf(wx, wy) : this.face;
-    this.dodgeDir = d; this.face = d; this.dir = d; this.state = 'dodge'; this.stateT = 0; this.inv = 0.32; this.cds.dodge = G.run && G.run.boons && G.run.boons.includes('haste') ? 0.45 : 0.9;
+    this.dodgeDir = d; this.face = d; this.dir = d; this.state = 'dodge'; this.stateT = 0; this.inv = 0.32; this.cds.dodge = G.run && G.run.boons && G.run.boons.includes('haste') ? 0.65 : 0.9;
     this.setAnim('dodge', 5 / 0.42); bus.emit('sfx', 'dodge'); this.trail = []; this.trailT = 0;
     bus.emit('dust', { x: this.x, y: this.y }); return true;
   }
@@ -134,6 +134,11 @@ export class Enemy {
     const dx = P.x - this.x, dy = P.y - this.y, d = Math.hypot(dx, dy);
     const map = G.zone.map;
     if (!this.aggro && this.wakeT !== undefined) { this.wakeT -= dt; this.dir = dirOf(dx, dy); if (this.anim.clip !== 'idle') this.setAnim('idle', 5, true); if (this.wakeT <= 0) { this.aggro = true; this.woken = true; bus.emit('aggro', this); } return; }
+    if (this.ret) {   // возвращается на место: героя не замечает, здоровье восстанавливается
+      this.hp = Math.min(this.maxHP, this.hp + this.maxHP * 0.3 * dt);
+      if (Math.hypot(this.hx - this.x, this.hy - this.y) > 0.7) { this.moveToward(this.hx, this.hy, dt, 1.3); return; }
+      this.ret = false; this.hp = this.maxHP; this.setAnim('idle', 5, true); return;
+    }
     if (!this.aggro) {
       const R = ((this.D.boss ? 9.5 : G.wild ? 5.2 : 6.2) + (G.stats && G.stats.ranged ? 3 : 0)) * (G.wild ? G.wild.noise : 1);   // стрелок и маг привлекают врагов издалека
       if (!P.dead && d < R && map.los(this.x, this.y, P.x, P.y)) {
@@ -145,8 +150,8 @@ export class Enemy {
       }
       else { if (this.alertT !== undefined && d > R + 1.5) this.alertT = undefined; if (this.anim.clip !== 'idle') this.setAnim('idle', 5, true); return; }
     }
-    // поводок: герой ушёл далеко и не виден — моб теряет интерес и возвращается на место (можно отбежать, подстрелить, отбежать)
-    if (this.aggro && !this.D.boss && !this.story && !this.summoned) { if (d > 15 || (d > 9 && !map.los(this.x, this.y, P.x, P.y))) { this.leashT = (this.leashT || 0) + dt; if (this.leashT > 3.5) { this.aggro = false; this.leashT = 0; this.alertT = undefined; this.wakeT = undefined; this.state = 'idle'; this.cd = 1.5; } } else this.leashT = 0; }
+    // поводок: герой ушёл далеко или моб утащился от своего места — теряет интерес и идёт обратно (сборка 47: паки за героем не собираются)
+    if (this.aggro && !this.D.boss && (!this.story || this.story === 'hunt') && !this.summoned) { const hd = Math.hypot(this.x - this.hx, this.y - this.hy); if (d > 12 || hd > 16 || (d > 8 && !map.los(this.x, this.y, P.x, P.y))) { this.leashT = (this.leashT || 0) + dt; if (this.leashT > (hd > 16 ? 0.5 : 2)) { this.aggro = false; this.leashT = 0; this.alertT = undefined; this.wakeT = undefined; this.state = 'idle'; this.cd = 1.5; this.ret = true; } } else this.leashT = 0; }
     if (P.dead) { if (this.state !== 'attack') { this.setAnim('idle', 5, true); this.state = 'idle'; } return; }
     if (this.state === 'attack') { C.updateEnemyAttack(this, dt, P); return; }
     AI[this.D.ai](this, dt, P, d, dx, dy);

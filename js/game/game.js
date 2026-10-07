@@ -121,8 +121,8 @@ export async function loadZone(id, how = {}) {
     const from = !!PORTAL_OF[how.from];
     const portal = zone.inter.find(i => i.id === PORTAL_OF[how.from]) || zone.inter.find(i => i.id === 'portal_town');
     [pl.x, pl.y] = from ? [portal.x + 1.2, portal.y + 1.6] : zone.start; pl.face = pl.dir = 1;
-    const well = how.from === 'catacombs' && zone.json.objects.find(o => o.t === 'well');   // из первых катакомб — на площадь к колодцу, не к порталу (сборка 44)
-    if (well) [pl.x, pl.y] = [well.x + 0.6, well.y + 1.8];
+    const altar = how.from === 'catacombs' && zone.json.objects.find(o => o.t === 'shrine' || o.t === 'well');   // из первых катакомб — на площадь к источнику силы (сборка 47; раньше к колодцу), не к порталу
+    if (altar) [pl.x, pl.y] = altar.t === 'shrine' ? [altar.x + 0.6, altar.y + 2.6] : [altar.x + 0.6, altar.y + 1.8];
     for (const n of zone.json.npcs) G.npcs.push(new NPC({ ...n }));
     await loadGroup(zone.json.npcs.filter(n => !G.render3d || n.id !== 'fortune').map(n => 'npc_' + (n.id === 'fortune' ? 'merchant' : n.id))).catch(() => { });
     HU.spawnFor(zone);   // hunt beast at the forest edge / graveyard

@@ -1,8 +1,9 @@
 // «Жатва Бездны» — survivors-like mode: an open arena, endless waves, the hero attacks automatically,
 // the player only moves. Enemies drop soul crystals → run level → pick 1 of 3 perks (weapons, passives, evolutions).
 import { G, bus } from './ctx.js';
-import { STORY } from '../data/quests.js';
-import { ENEMIES } from '../data/enemies.js';
+import { ENEMIES, scaleHP, scaleDmg } from '../data/enemies.js';
+import { xpToNext } from './stats.js';
+import { gainXP } from './loot.js';
 import * as C from './combat.js';
 import { getAtlas, drawFrame } from '../core/assets.js';
 import { PX_PER_M } from '../core/iso.js';
@@ -23,6 +24,12 @@ export const PERKS = {
   swift:  { name: 'Лёгкие сапоги', max: 5, passive: 1, icon: '»', desc: () => '+8% к скорости бега' },
   magnet: { name: 'Притяжение душ', max: 5, passive: 1, icon: '◆', desc: () => '+40% к радиусу сбора кристаллов' },
   vigor:  { name: 'Жизненная сила', max: 5, passive: 1, icon: '♥', desc: () => '+20% здоровья и восстановление' },
+  // сборка 47: больше пассивок — выбор разнообразнее (как в Vampire Survivors)
+  plate:  { name: 'Латы душ', max: 5, passive: 1, icon: '⛨', desc: () => '−8% получаемого урона' },
+  growth: { name: 'Жажда душ', max: 5, passive: 1, icon: '✧', desc: () => '+12% опыта забега с кристаллов' },
+  greed:  { name: 'Жадность', max: 5, passive: 1, icon: '⛁', desc: () => '+20% золота за забег' },
+  eye:    { name: 'Острый глаз', max: 5, passive: 1, icon: '◎', desc: () => '+4% шанса крита в забеге' },
+  fury:   { name: 'Ярость', max: 5, passive: 1, icon: '✹', desc: () => '+6% урона и +4% скорости оружия' },
 };
 export const EVOS = [
   { id: 'evo_blades', from: 'blades', need: 'haste', name: 'Вихрь стали', desc: 'Клинков вдвое больше, урон ×2' },
@@ -43,7 +50,12 @@ export const ACH = [
   { id: 'lv25', name: 'Достичь 25 уровня в забеге', test: S => S.lvl >= 25, gold: 800, shards: 5 },
   { id: 'boss', name: 'Победить Палача жатвы', test: S => S.bossKills > 0, gold: 1000, shards: 8 },
 ];
-export const REQ_LEVEL = 5, GOAL = 20 * 60;
+// сборка 47: Жатва — знакомство на 3 минуты с 2-го уровня (один раз, до Палача), потом — после Палача Бездны, забег стоит 3 ⚡
+export const REQ_LEVEL = 2, GOAL = 20 * 60, INTRO_T = 180, RUN_COST = 3;
+// враги растут от уровня героя (раньше у них было 10–60 HP при любом герое) и от времени забега; урон по герою — тоже
+const heroL = () => (G.profile && G.profile.level) || 1;
+const timeHP = m => 1 + m * 0.6 + Math.pow(Math.max(0, m - 4), 1.5) * 0.35;
+const timeDmg = m => 1 + m * 0.18 + Math.max(0, m - 8) * 0.12;
 
 // ---------------------------------------------------------------- arena
 export function generateArena() {
@@ -65,13 +77,14 @@ const TYPES = [
   { type: 'skel_archer', from: 320, hp: 26, spd: 2.4, dmg: 9, xp: 2 },
 ];
 export function startRun() {
-  const S = G.surv = { trial: G.profile.story.stage === STORY.findIndex(q => q.id === 'surv_try'), t: 0, kills: 0, lvl: 1, xp: 0, next: 12, swarm: [], gems: [], projs: [], pools: [], w: { main: 1 }, p: {}, evo: {}, cd: {}, spawnT: 0, eliteT: 150, bossT: 600, bossKills: 0, gold: 0, over: false, hp0: G.stats.maxHP, ach: {}, orbit: 0, pending: 0 };
+  const intro = !(G.profile.story && G.profile.story.flags && G.profile.story.flags.bossKilled);
+  const S = G.surv = { t: 0, kills: 0, lvl: 1, xp: 0, next: 12, swarm: [], gems: [], projs: [], pools: [], w: { main: 1 }, p: {}, evo: {}, cd: {}, spawnT: 0, eliteT: 150, bossT: 600, bossKills: 0, gold: 0, over: false, hp0: G.stats.maxHP, ach: {}, orbit: 0, pending: 0, intro, rerolls: 0 };
   G.player.hp = G.stats.maxHP; G.auto = false;
-  bus.emit('toast', { text: 'Жатва Бездны', sub: 'Только бегайте — герой бьёт сам. Собирайте кристаллы душ.', kind: 'quest' });
+  bus.emit('toast', { text: 'Жатва Бездны', sub: intro ? 'Староста держит портал 3 минуты: бегайте, герой бьёт сам. Каждый уровень забега — опыт герою' : 'Только бегайте — герой бьёт сам. Каждый уровень забега даёт опыт герою.', kind: 'quest' });
   return S;
 }
-const might = () => 1 + (G.surv.p.might || 0) * 0.12;
-const haste = () => 1 - (G.surv.p.haste || 0) * 0.08;
+const might = () => (1 + (G.surv.p.might || 0) * 0.12) * (1 + (G.surv.p.fury || 0) * 0.06);
+const haste = () => (1 - (G.surv.p.haste || 0) * 0.08) * (1 - (G.surv.p.fury || 0) * 0.04);
 const area = () => 1 + (G.surv.p.area || 0) * 0.12;
 export const moveMul = () => G.surv ? 1 + (G.surv.p.swift || 0) * 0.08 : 1;
 const baseDmg = () => { const s = G.stats; return (s.dmgMin + s.dmgMax) / 2 * might() * (1 + (G.surv.w.main - 1) * 0.25); };
@@ -92,7 +105,6 @@ export function updateSurvival(dt) {
   }
   S.eliteT -= dt; if (S.eliteT <= 0) { S.eliteT = 120; spawn({ type: 'elite_guard', hp: 420, spd: 2.1, dmg: 18, xp: 25 }, true); bus.emit('toast', { text: 'Страж жатвы!', kind: 'warn' }); }
   S.bossT -= dt; if (S.bossT <= 0) { S.bossT = 600; spawn({ type: 'boss', hp: 3000, spd: 2.2, dmg: 28, xp: 120 }, true, true); bus.emit('toast', { text: 'Палач жатвы пришёл за вами!', kind: 'warn' }); bus.emit('sfx', 'roar'); }
-  const hpMul = 1 + mins * 0.45 + Math.max(0, mins - 10) * 0.4;
   // enemies: chase + cheap separation via spatial hash
   const grid = new Map(); const key = (x, y) => (x | 0) * 1000 + (y | 0);
   for (const e of S.swarm) { const k = key(e.x, e.y); let a = grid.get(k); if (!a) grid.set(k, a = []); a.push(e); }
@@ -104,7 +116,7 @@ export function updateSurvival(dt) {
     const sp = e.spd * (e.slowT > 0 ? 0.5 : 1) * dt; const nx = e.x + vx * sp, ny = e.y + vy * sp;
     if (!map.blocked(nx | 0, ny | 0)) { e.x = nx; e.y = ny; }
     e.dir = dirOf8(vx, vy);
-    if (d < e.r + pl.r + 0.15 && e.hitCd <= 0 && pl.inv <= 0) { e.hitCd = 0.9; C.hurtPlayer({ lvl: 1 + mins | 0 }, e.dmg * (1 + mins * 0.12), 'phys'); }
+    if (d < e.r + pl.r + 0.15 && e.hitCd <= 0 && pl.inv <= 0) { e.hitCd = 0.9; C.hurtPlayer({ lvl: heroL() + (mins | 0) }, e.dmg * (1 - (S.p.plate || 0) * 0.08), 'phys'); }
   }
   weapons(dt);
   // projectiles
@@ -130,7 +142,7 @@ export function updateSurvival(dt) {
   for (const g of S.gems) {
     const dx = pl.x - g.x, dy = pl.y - g.y, d = Math.hypot(dx, dy);
     if (d < mag || g.pull) { g.pull = true; const k = Math.min(1, dt * 10 / Math.max(0.2, d)); g.x += dx * k; g.y += dy * k; }
-    if (d < 0.5) { g.taken = true; if (g.gold) { S.gold += g.gold; bus.emit('sfx', 'coin'); } else { S.xp += g.v; bus.emit('sfx', 'pickup'); } }
+    if (d < 0.5) { g.taken = true; if (g.gold) { S.gold += g.gold; bus.emit('sfx', 'coin'); } else { S.xp += g.v * (1 + (S.p.growth || 0) * 0.12); bus.emit('sfx', 'pickup'); } }
   }
   S.gems = S.gems.filter(g => !g.taken);
   if (S.gems.length > 400) S.gems.splice(0, S.gems.length - 400);
@@ -138,11 +150,9 @@ export function updateSurvival(dt) {
   if (S.pending > 0 && !G.modalOpen) { S.pending--; bus.emit('survLevel'); }
   pl.hp = Math.min(G.stats.maxHP, pl.hp + (S.p.vigor || 0) * 0.6 * dt);
   for (const a of ACH) if (!S.ach[a.id] && a.test(S)) { S.ach[a.id] = 1; bus.emit('toast', { text: '🏆 ' + a.name, sub: `+${a.gold} зол. · +${a.shards}◆ после забега`, kind: 'quest' }); bus.emit('sfx', 'quest'); }
+  if (S.intro && S.t >= INTRO_T) { endRun(true); return; }
   if (S.t >= GOAL) endRun(true);
-  // сборка 47: пробная Жатва в обучении — портал держится 3 минуты
-  if (S.trial && S.t >= TRIAL_T) { bus.emit('toast', { text: 'Портал Жатвы закрывается!', sub: 'Староста не может держать его дольше', kind: 'warn' }); endRun(false); }
 }
-const TRIAL_T = 180;
 // сборка 47: первая смерть за забег — окно «Возродиться за рекламу / Выйти» (js/ui/windows.js survDeath)
 export function offerRevive() { const S = G.surv; if (!S || S.over || S.revived) return false; S.asking = S.revived = true; bus.emit('survDeath'); return true; }
 export function revive(ok) {
@@ -166,12 +176,12 @@ function spawn(t, elite, boss) {
     }
   }
   if (!ok) return;
-  const mins = S.t / 60, hpMul = 1 + mins * 0.45 + Math.max(0, mins - 10) * 0.4;
+  const mins = S.t / 60, L = heroL(), hpMul = timeHP(mins) * scaleHP(L) * 0.8;
   const D = ENEMIES[t.type];
-  S.swarm.push({ type: t.type, atlas: D.atlas, x, y, hp: t.hp * hpMul, max: t.hp * hpMul, spd: t.spd * (1 + mins * 0.02), dmg: t.dmg, xp: t.xp, r: boss ? 0.8 : elite ? 0.55 : t.type === 'beast' ? 0.45 : 0.32, t: rand() * 2, flash: 0, hitCd: 0, dir: 0, elite, boss });
+  S.swarm.push({ type: t.type, atlas: D.atlas, x, y, hp: t.hp * hpMul, max: t.hp * hpMul, spd: t.spd * (1 + mins * 0.02), dmg: t.dmg * scaleDmg(L) * timeDmg(mins), xp: t.xp, r: boss ? 0.8 : elite ? 0.55 : t.type === 'beast' ? 0.45 : 0.32, t: rand() * 2, flash: 0, hitCd: 0, dir: 0, elite, boss });
 }
 function hitE(e, d, quiet) {
-  const S = G.surv; let crit = false; if (!quiet && rand() < G.stats.critChance) { d *= G.stats.critMult; crit = true; }
+  const S = G.surv; let crit = false; if (!quiet && rand() < G.stats.critChance + (S.p.eye || 0) * 0.04) { d *= G.stats.critMult; crit = true; }
   e.hp -= d; if (!quiet) e.flash = 0.1;
   if (!quiet && (crit || e.elite || e.boss)) C.float(e.x, e.y, Math.round(d) + (crit ? '!' : ''), crit ? '#ffd23a' : '#fff', { z: 1.6, big: crit ? 1 : 0, life: 0.6 });
 }
@@ -207,9 +217,9 @@ export function choices() {
   const S = G.surv, out = [];
   for (const E of EVOS) if (!S.evo[E.id] && (E.from === 'main' ? S.w.main : S.w[E.from]) >= 5 && (S.p[E.need] || 0) >= 1) out.push({ evo: E });
   const nW = Object.keys(S.w).length, nP = Object.keys(S.p).length;
-  const pool = Object.entries(PERKS).filter(([id, P]) => { const cur = P.passive ? S.p[id] || 0 : S.w[id] || 0; if (cur >= P.max) return false; if (!cur && (P.passive ? nP >= 5 : nW >= 6)) return false; return true; });
+  const pool = Object.entries(PERKS).filter(([id, P]) => { const cur = P.passive ? S.p[id] || 0 : S.w[id] || 0; if (cur >= P.max) return false; if (!cur && (P.passive ? nP >= 6 : nW >= 6)) return false; return true; });
   pool.sort(() => rand() - 0.5);
-  for (const [id, P] of pool) { if (out.length >= 3) break; out.push({ id, P, lvl: P.passive ? S.p[id] || 0 : S.w[id] || 0 }); }
+  for (const [id, P] of pool) { if (out.length >= 4) break; out.push({ id, P, lvl: P.passive ? S.p[id] || 0 : S.w[id] || 0 }); }
   if (!out.length) out.push({ gold: true });
   return out;
 }
@@ -226,13 +236,18 @@ export function take(c) {
 export function endRun(win) {
   const S = G.surv; if (!S || S.over) return; S.over = true;
   const P = G.profile; P.surv = P.surv || { best: 0, ach: {}, runs: 0 };
-  const mins = S.t / 60; const gold = Math.round(S.gold + S.kills * 0.6 + mins * 35); let shards = Math.floor(mins / 4);
+  const mins = S.t / 60; const gold = Math.round((S.gold + S.kills * 0.6 + mins * 35) * (1 + (S.p.greed || 0) * 0.2)); let shards = Math.floor(mins / 4);
+  // сборка 47: уровни забега качают героя — каждый уровень Жатвы = 2,5% опыта до следующего уровня героя (до 75% за забег)
+  const heroXP = Math.round(xpToNext(P.level) * Math.min(0.75, 0.025 * (S.lvl - 1)));
   let achGold = 0; const newAch = [];
   for (const a of ACH) if (S.ach[a.id] && !P.surv.ach[a.id]) { P.surv.ach[a.id] = 1; achGold += a.gold; shards += a.shards; newAch.push(a.name); }
   P.gold += gold + achGold; P.shards = (P.shards || 0) + shards; P.surv.runs++; const record = S.t > P.surv.best; if (record) P.surv.best = S.t;
+  P.stats.survSec = (P.stats.survSec || 0) + Math.round(S.t);   // для заданий дня «продержаться в Жатве»
   G.player.dead = false; G.player.hp = G.stats.maxHP;
-  if (S.trial) P.story.flags.survTried = true;   // шаг обучения засчитан при любом исходе (смерть, выход, 3 минуты)
-  bus.emit('survEnd', { win, t: S.t, kills: S.kills, lvl: S.lvl, gold: gold + achGold, shards, newAch, record });
+  if (S.intro) P.story.flags.survTried = true;   // шаг обучения «Продержаться в Жатве» (сборка 47) — при любом исходе
+  if (heroXP > 0) gainXP(heroXP);
+  if (S.intro) P.survIntro = 1;
+  bus.emit('survEnd', { win, t: S.t, kills: S.kills, lvl: S.lvl, gold: gold + achGold, shards, newAch, record, heroXP, intro: S.intro });
   bus.emit('save');
 }
 // ---------------------------------------------------------------- draw (called by renderer inside the depth-sorted world pass)

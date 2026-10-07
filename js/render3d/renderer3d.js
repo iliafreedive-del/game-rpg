@@ -9,6 +9,7 @@ import { makeKit } from './kit.js';
 import { Actor, setOutlinesVisible } from './actor.js';
 import { preloadBones, bonesReady } from './bonesglb.js';
 import { preloadPortals, portalsReady } from './portalglb.js';
+import { preloadAltar, altarReady } from './altarglb.js';
 import { PropLayer } from './props.js';
 import { buildGround } from './ground.js';
 import { Atmo } from './atmo.js';
@@ -59,7 +60,7 @@ export function init() {
   canvas.addEventListener('webglcontextlost', e => { e.preventDefault(); try { import('../game/game.js').then(m => m.saveNow()); } catch { } setTimeout(() => location.reload(), 900); });
   scene = new THREE.Scene(); camera = new THREE.PerspectiveCamera(CAMERA.fov, 1, CAMERA.near, CAMERA.far);
   kit = makeKit(scene);
-  setTimeout(preloadPortals, 1500);   // сборка 46: арки деревни качаются заранее, пока герой в склепе — выход в деревню без догрузки
+  setTimeout(() => { preloadPortals(); preloadAltar(); }, 1500);   // сборка 46: арки деревни качаются заранее, пока герой в склепе — выход в деревню без догрузки
   // сборка 46: без проверки ошибок шейдеров браузер компилирует их параллельно, а не ждёт каждый (на Android переход стоял до 20 с); ?debug — проверка включена
   renderer.debug.checkShaderErrors = params.has('debug');
   renderer.info.autoReset = false;                      // считаем все проходы кадра (тень, сцена, постобработка) вместе
@@ -185,7 +186,8 @@ function setZone(z) {
   props.cull(camera, true); applyQuality(true); ground.setQuality(quality); spawned = false;
   // Костяные пустоши: паки окружения Meshy грузятся при первом входе; пока грузятся — прежние предметы, потом слой пересобирается
   // порталы деревни из Meshy (сборка 44): пак грузится при первом входе в деревню, до загрузки — прежние арки
-  if (town && z.json.village && kit.skin.SKINS.on && !portalsReady()) preloadPortals().then(ok => {
+  if (town && z.json.village && kit.skin.SKINS.on && !(portalsReady() && altarReady())) Promise.all([preloadPortals(), preloadAltar()]).then(([ok, ok2]) => {
+    ok = ok || ok2;
     if (!ok || !world || zone !== z) return;
     world.props.dispose(); world.props = new PropLayer(scene, kit, z, open); world.props.cull(camera, true); applyQuality(true);
   });
@@ -371,6 +373,7 @@ export function prepare() {
     SKINS.on = !(G.profile && G.profile.settings && G.profile.settings.skins === false);
     const packs = [];
     if (SKINS.on && Z.id === 'town' && Z.json.village && !portalsReady()) packs.push(preloadPortals());
+    if (SKINS.on && Z.id === 'town' && Z.json.village && !altarReady()) packs.push(preloadAltar());   // источник силы из Meshy
     if (SKINS.on && Z.id === 'wild' && Z.json.wild.realm === 'bones' && !bonesReady()) packs.push(preloadBones());
     if (packs.length) await settle(Promise.all(packs), 8000);
     if (G.zone !== Z) return;

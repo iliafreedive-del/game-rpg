@@ -45,7 +45,7 @@ export const inCinema = () => !!G.cinema;
 // Вступление (новая игра): облёт Тихого Брода, потом камера «ныряет» к катакомбам — и герой просыпается в склепе.
 export function introShots() {
   const Z = G.zone, O = Z.json.objects || [], find = t => O.find(o => o.t === t);
-  const well = find('well') || { x: G.player.x, y: G.player.y }, cat = Z.inter.find(i => i.id === 'portal_town') || well;
+  const well = find('well') || find('shrine') || { x: G.player.x, y: G.player.y }, cat = Z.inter.find(i => i.id === 'portal_town') || well;
   const mid = { x: (well.x + cat.x) / 2, y: (well.y + cat.y) / 2 };
   return [
     { x: well.x + 6, y: well.y + 8, zoom: 2.6, move: 0.01, hold: 3.2, text: 'Тихий Брод', sub: 'Деревня у старых катакомб Ордена' },

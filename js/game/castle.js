@@ -26,12 +26,24 @@ function regen(obj, max, periodMs) {
   if (k > 0) { obj.n = Math.min(max, obj.n + k); obj.at = obj.n >= max ? now : obj.at + k * periodMs; }
   return obj;
 }
-export const TORCH_MAX = 10, TORCH_MS = 20 * 60e3, SEAL_MAX = 3, SEAL_MS = 3 * H;
-export function torches() { C(); return regen(G.profile.torch, TORCH_MAX, TORCH_MS); }
+// сборка 47: одна энергия ⚡ на Летопись битв, Глубины (бывшие факелы) и Жатву. Запас 20, ниже 20 — +1 каждые 20 минут.
+// Реклама: +10 за просмотр, до 9 раз подряд, потом окно обновляется через 10 часов (сверх запаса копится до 20+90). Докупка — за яны (energy_pack).
+export const TORCH_MAX = 20, TORCH_MS = 20 * 60e3, SEAL_MAX = 3, SEAL_MS = 3 * H;
+export const EN_AD = 10, EN_AD_MAX = 9, EN_AD_WIN = 10 * H, EN_CAP = TORCH_MAX + EN_AD * EN_AD_MAX;
+export function torches() {
+  C(); const P = G.profile;
+  if (P.hw && P.hw.en && !P.enMerged) { P.torch.n = Math.max(P.torch.n, P.hw.en.n | 0); P.enMerged = 1; }   // старые сохранения: энергия Летописи и факелы — в одну
+  return regen(P.torch, TORCH_MAX, TORCH_MS);
+}
+export function enAds() { const P = G.profile; P.enAds = P.enAds || { at: 0, n: 0 }; if (Date.now() - P.enAds.at >= EN_AD_WIN) { P.enAds.at = 0; P.enAds.n = 0; } return P.enAds; }
+export const enAdsLeft = () => EN_AD_MAX - enAds().n;
+export const enAdsReset = () => { const a = enAds(); return a.at ? Math.max(0, a.at + EN_AD_WIN - Date.now()) : 0; };
+export function enAdGrant() { const a = enAds(); if (!a.at) a.at = Date.now(); a.n++; addTorches(EN_AD); }
+export function spendEnergy(n = 1) { const t = torches(); if (t.n < n) return false; if (t.n >= TORCH_MAX) t.at = Date.now(); t.n -= n; bus.emit('hud'); bus.emit('save'); return true; }
 export function seals() { C(); return regen(G.profile.seals, SEAL_MAX, SEAL_MS); }
 export function nextIn(obj, ms) { return obj.n >= (ms === TORCH_MS ? TORCH_MAX : SEAL_MAX) ? 0 : Math.max(0, obj.at + ms - Date.now()); }
 export function spendTorch() { const t = torches(); if (t.n <= 0) return false; if (t.n >= TORCH_MAX) t.at = Date.now(); t.n--; bus.emit('hud'); bus.emit('save'); return true; }
-export function addTorches(n) { const t = torches(); t.n = Math.min(TORCH_MAX + 10, t.n + n); bus.emit('hud'); bus.emit('save'); }
+export function addTorches(n) { const t = torches(); t.n = Math.min(EN_CAP, t.n + n); bus.emit('hud'); bus.emit('save'); }
 
 // ---- shards: random drops (the «рандомчик» the citadel is built on)
 export function addShards(n, x, y) {

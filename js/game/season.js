@@ -10,7 +10,7 @@ import { platform } from '../platform/platform.js';
 
 // ---------------------------------------------------------------- путь сезона
 export const SEASON_LEVELS = 30;
-export const seasonNeed = l => 150 + 10 * l;   // очков на ступень l (1…30): весь путь ≈ 9 150 очков ≈ 10–12 часов игры за месяц
+export const seasonNeed = l => 150 + 5 * l;   // очков на ступень l (1…30): весь путь ≈ 6 800 очков ≈ 70% заданий дня за ~22 дня
 const MONTHS = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
 const seasonId = () => { const d = new Date(); return d.getFullYear() * 100 + d.getMonth() + 1; };
 export const seasonName = () => MONTHS[new Date().getMonth()];
@@ -38,13 +38,13 @@ export function claimSeason(l) {
   if (r.item) { const it = makeItem({ ilvl: P.level, rarity: Math.min(r.item, Math.max(2, maxRarityFor(P.level))), cls: P.cls }); delete it.req; autoEquip(it); }
   bus.emit('toast', { text: `Сезон: награда ступени ${l}`, sub: r.label, kind: 'good' }); bus.emit('sfx', 'quest'); bus.emit('hud'); bus.emit('save'); return true;
 }
-// очки: за всё, что игрок и так делает
-bus.on('kill', e => { if (!e.summoned) addSeason(e.D.boss ? 40 : e.D.elite ? 15 : e.story === 'wildkeep' ? 60 : 1); });
-bus.on('floorResult', r => addSeason(20 + r.stars * 5));
-bus.on('merged', () => addSeason(5));
-bus.on('loginClaimed', () => addSeason(25));
-bus.on('dailyClaimed', () => addSeason(30));
-bus.on('wildField', () => addSeason(20));
+// сборка 47: очки — только за задания (раньше за каждого врага: путь на месяц проходился за вечер).
+// Задание дня 100, все три за день +50, вход в игру 10, недельное задание 150. При 70% заданий путь (≈6800 очков) — около 22 дней
+export const SEASON_PTS = { daily: 100, dailyAll: 50, login: 10, weekly: 150 };
+bus.on('dailyClaimed', () => addSeason(SEASON_PTS.daily));
+bus.on('dailyAllDone', () => addSeason(SEASON_PTS.dailyAll));
+bus.on('weeklyClaimed', () => addSeason(SEASON_PTS.weekly));
+bus.on('loginClaimed', () => addSeason(SEASON_PTS.login));
 
 // ---------------------------------------------------------------- коллекция
 export const CODEX_PCT = 0.5;
@@ -54,7 +54,7 @@ export function codexScan() {
   const P = G.profile; if (!P) return 0; P.codex = P.codex || {}; let added = 0;
   for (const it of [...Object.values(P.gear), ...P.bag]) if (it && it.rarity >= 1 && !P.codex[codexKey(it)]) { P.codex[codexKey(it)] = Date.now(); added++;
     bus.emit('toast', { text: `Коллекция: ${it.name}`, sub: `Новая запись (${RARITY[it.rarity].name.toLowerCase()}) — +${CODEX_PCT}% к урону и здоровью навсегда`, kind: 'item', color: RARITY[it.rarity].color }); }
-  if (added) { addSeason(10 * added); bus.emit('codexChanged'); }
+  if (added) bus.emit('codexChanged');
   return added;
 }
 export const codexCount = P => Object.keys(P.codex || {}).length;
@@ -84,7 +84,6 @@ export function finishWeekly(time) {
   W.done = true; if (rec) W.best = time;
   if (first) { P.gold += 200 * P.level; const it = makeItem({ ilvl: P.level + 1, rarity: Math.max(2, Math.min(3, maxRarityFor(P.level))), cls: P.cls }); delete it.req; autoEquip(it); }
   try { platform.p.setLeaderboardScore && platform.p.setLeaderboardScore('weeklyDepths', Math.round(time * 1000)); } catch { }
-  addSeason(first ? 150 : 40);
   return { first, rec };
 }
 

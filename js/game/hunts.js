@@ -86,6 +86,8 @@ export function spawnFor(zone, live) {
   const at = spot(zone, cur); if (!at) return null;
   const [x, y] = zone.map.nearestFree(at[0], at[1], 0.7);
   const e = new Enemy(defOf(cur).boss, x, y, cur.lvl, { story: 'hunt' }); e.huntUid = cur.uid;
+  // сборка 47: первая охота — знакомство: чудовище вдвое слабее (магу было не победить, и оно мешало пройти катакомбы)
+  if (!((G.profile.hunt && G.profile.hunt.done) > 0)) { e.maxHP = Math.round(e.maxHP * 0.5); e.hp = e.maxHP; e.dmgMul *= 0.65; }
   G.enemies.push(e);
   if (live) { C.particles(x, y, 30, { c: [255, 60, 40], sp: 3, size: 4 }); if (G.run && G.run.floor > 0 && !G.run.done) G.run.total++; }
   return e;

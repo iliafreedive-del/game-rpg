@@ -54,11 +54,11 @@ export const branchPoints = b => Object.entries(G.profile.skills).filter(([k]) =
 const cls = () => G.profile.cls || 'warrior';
 export function skillReqs(id) {
   const P = G.profile, s = SKILLS[id], r = P.skills[id] || 0, out = [], pv = prevNode(cls(), id);
-  if (pv) out.push({ ok: (P.skills[pv] || 0) >= 1, text: `«${SKILLS[pv].name}»` });
+  if (pv) out.push({ ok: (P.skills[pv] || 0) >= SKILLS[pv].max, text: `«${SKILLS[pv].name}» до ${SKILLS[pv].max} ранга` });   // сборка 47: следующий навык — только после полной прокачки предыдущего
   if (r < s.max) out.push({ ok: P.level >= rankLevel(cls(), id, r), text: `Уровень героя ${rankLevel(cls(), id, r)}`, lvl: true });
   return out;
 }
-export const reqsMet = id => { const pv = prevNode(cls(), id); return !pv || (G.profile.skills[pv] || 0) >= 1; };
+export const reqsMet = id => { const pv = prevNode(cls(), id); return !pv || (G.profile.skills[pv] || 0) >= SKILLS[pv].max; };
 export function canLearn(id) {
   const P = G.profile, s = SKILLS[id], r = P.skills[id] || 0;
   if (!inClassTree(cls(), id)) return { ok: false, why: 'Недоступно вашему классу' };

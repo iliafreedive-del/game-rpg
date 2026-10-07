@@ -103,7 +103,7 @@ export function killEnemy(e, o = {}) {
   if (e.st.burn > 0 && R('burn_explode')) { const dmg = (10 + 6 * Math.max(1, R('fireball'))) * S.spellPower * S.elem.fire * 0.8; explosion(e.x, e.y, 2, dmg, 'fire', true, e); }
   if (e.st.frozen > 0 && R('shatter')) { for (let k = 0; k < 4; k++) { const a = k * Math.PI / 2 + 0.4; spawnProj({ kind: 'shard', x: e.x, y: e.y, vx: Math.cos(a) * 12, vy: Math.sin(a) * 12, owner: 'p', dmg: (9 + 5 * Math.max(1, R('ice_shard'))) * S.spellPower * S.elem.cold * 0.6, elem: 'cold', range: 5 }); } }
   if (S.effects.bloodShield) G.player.shield = Math.min(S.maxHP * 0.3, G.player.shield + S.maxHP * 0.1);
-  if (hasBoon('vitality')) G.player.hp = Math.min(S.maxHP, G.player.hp + S.maxHP * 0.04);
+  if (hasBoon('vitality')) G.player.hp = Math.min(S.maxHP, G.player.hp + S.maxHP * 0.02);
   if (hasBoon('boom') && !o.fromBoom) { const d = (S.dmgMin + S.dmgMax) * 0.6; setTimeoutGame(0.08, () => { effect({ kind: 'burst', x: e.x, y: e.y, r: 2, dur: 0.4, c: [255, 170, 90] }); for (const t of G.enemies) if (!t.dead && t !== e && Math.hypot(t.x - e.x, t.y - e.y) < 2 + t.r) damageEnemy(t, d, { elem: 'fire', src: 'spell', fromBoom: true, canCrit: false }); G.cam.shake = Math.max(G.cam.shake, 0.2); bus.emit('sfx', 'boom'); }); }
   particles(e.x, e.y, 12, { c: e.D.skeleton ? [220, 210, 190] : [120, 20, 20], z: 1, sp: 3, add: false, size: 3 });
   bus.emit('sfx', e.D.skeleton ? 'bones' : 'death');
@@ -166,7 +166,23 @@ export function playerAttack(P, aim, force) {
     P.combo++; P.comboT = 1.2;
     bus.emit('sfx', 'swing');
   }
-  P.stateT = 0; G.lastCombat = G.time; return true;
+  P.stateT = 0; G.lastCombat = G.time;
+  if (G.zoneId === 'town') dummyHit(P, wt, W, dur);
+  return true;
+}
+// сборка 47: манекены у наставника Элвина — по ним можно бить, над манекеном видно, сколько урона наносит герой (с критами)
+function dummyHit(P, wt, W, dur) {
+  const J = G.zone && G.zone.json; if (!J || !J.objects) return;
+  const reach = W.projectile ? W.range : W.range + 0.9;
+  const d = J.objects.filter(o => o.t === 'dummy').map(o => [o, Math.hypot(o.x - P.x, o.y - P.y)]).filter(([, r]) => r <= reach).sort((a, b) => a[1] - b[1])[0];
+  if (!d) return; const o = d[0]; P.faceTo(o.x, o.y); P.dir = P.face;
+  setTimeout(() => {
+    const S = G.stats; if (!S || G.zoneId !== 'town') return;
+    let v = S.dmgMin + Math.random() * (S.dmgMax - S.dmgMin); if (wt === 'staff') v *= S.spellPower;
+    const crit = Math.random() < S.critChance; if (crit) v *= S.critMult;
+    float(o.x, o.y, Math.round(v) + (crit ? '!' : ''), crit ? '#ffd23a' : '#fff', { z: 2.1, big: crit ? 1 : 0, life: 0.9 });
+    bus.emit('sfx', 'hit');
+  }, dur * 1000 * (W.impact || 0.5));
 }
 export function updatePlayerAction(P, dt) {
   const a = P.act; if (!a) { P.state = 'idle'; return; }

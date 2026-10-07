@@ -4,7 +4,7 @@ export const CHAPTER = 'Глава I. Последний страж печати
 export const CHAPTERS = { 1: CHAPTER, 2: 'Глава II. Тени за порогом', 3: 'Глава III. Кости великанов', 4: 'Глава IV. Цитадель Морвена' };
 export const chapterOf = q => CHAPTERS[(q && q.chapter) || 1];
 export const STORY = [
-  { id: 'talk_elder', title: 'Поговорить со старостой', text: 'Староста Эдрик ждёт на площади у колодца.', obj: { talk: 'elder' }, reward: { xp: 20, gold: 60, potions: 2, items: [{ slot: 'weapon', tier: 1, rarity: 1, names: { warrior: 'Клинок ополченца', archer: 'Лук егеря', mage: 'Посох травника' } }] }, where: 'town', target: 'elder' },
+  { id: 'talk_elder', title: 'Поговорить со старостой', text: 'Староста Эдрик ждёт на площади у церкви.', obj: { talk: 'elder' }, reward: { xp: 20, gold: 60, potions: 2, items: [{ slot: 'weapon', tier: 1, rarity: 1, names: { warrior: 'Клинок ополченца', archer: 'Лук егеря', mage: 'Посох травника' } }] }, where: 'town', target: 'elder' },
   // сборка 38: после старосты — к наставнику за первым навыком, потом обратно к старосте за заданием в катакомбы
   { id: 'learn_skill', title: 'Выбрать навык у наставника', text: 'Наставник Элвин стоит у тренировочного чучела. Изучите у него первое умение.', obj: { skill: true }, reward: { xp: 20 }, where: 'town', target: 'trainer' },
   // сборка 43: после навыка — «Летопись битв» (автобои), пока герой не проиграет; потом староста отправляет качаться в катакомбы

@@ -1,6 +1,6 @@
 // Derived character stats from attributes, gear and skills. Pure: stats(profile) → object.
 import { SETS } from '../data/sets.js';
-import { WEAPONS, CLASSES } from '../data/items.js';
+import { WEAPONS, CLASSES, AFFIXES } from '../data/items.js';
 import { SKILLS } from '../data/skills.js';
 import { upgMult } from './items.js';
 import { G } from './ctx.js';
@@ -34,7 +34,7 @@ export function stats(p, gearOverride) {
       if (a.k === 'armorPct') armPct += a.v;
       else if (a.k === 'resAll' || a.k === 'resFire' || a.k === 'resCold' || a.k === 'resLight') { }   // сопротивления убраны
       else if (a.k === 'skill') { }
-      else if (a.k in s) s[a.k] += a.v;
+      else if (a.k in s && AFFIXES[a.k]) s[a.k] += a.v;   // сборка 47: только нынешние свойства вещей
     }
     armorItems += arm * (1 + armPct / 100);
     if (it.block) s.block += it.block;
@@ -60,7 +60,7 @@ export function stats(p, gearOverride) {
   const base = w ? w.dmg : [1, 3];
   const um = w ? upgMult(w) : 1;
   const attr = W.scale === 'str' ? s.str : W.scale === 'dex' ? s.dex : s.int;
-  const attrMult = 1 + attr * (W.scale === 'int' ? 0.025 : 0.02);
+  const attrMult = 1 + attr * (W.scale === 'int' ? 0.018 : 0.02);   // сборка 47: маг 0,025 → 0,018
   const help = (p.boosts && p.boosts.helpUntil > Date.now()) ? 1.15 : 1;   // подмога Ордена после трёх поражений подряд (js/platform/offers.js)
   const mult = attrMult * (1 + s.dmgPct / 100) * (1 + mastery * 0.08 + marks * 0.08) * help;
   s.dmgMin = Math.max(1, Math.round((base[0] * um + s.dmgFlat) * mult));
@@ -69,7 +69,7 @@ export function stats(p, gearOverride) {
   s.range = W.range;
   s.critChance = Math.min(0.6, 0.05 + s.dex * 0.0015 + s.crit / 100 + marks * 0.02);
   s.critMult = 1.5 + s.critDmg / 100;
-  s.spellPower = (1 + s.int * 0.015) * (1 + (W.spell || 0));
+  s.spellPower = (1 + s.int * 0.01) * (1 + (W.spell || 0));   // сборка 47: было 0,015
   s.elem = { fire: 1 + s.fire / 100 + sr('heat') * 0.10, cold: 1 + s.cold / 100 + sr('cold') * 0.10, light: 1 + s.light / 100 + sr('static') * 0.10 };
   s.res = { fire: Math.min(75, s.resFire), cold: Math.min(75, s.resCold), light: Math.min(75, s.resLight) };
   const C = CLASSES[p.cls || 'warrior']; if (C.block && w && WEAPONS[w.wt].hands === 1) s.block += C.block;
@@ -85,10 +85,10 @@ export function stats(p, gearOverride) {
   s.critChance = Math.min(0.75, s.critChance + (U.crit || 0) * 0.006); s.critMult += (U.critDmg || 0) * 0.06;
   s.aps = +(s.aps * (1 + (U.aps || 0) * 0.02)).toFixed(2); s.moveMul = 1 + (U.move || 0) * 0.02; s.goldFind += tr * 5;
   if (G.run && G.run.boons) {   // run-only boons from «Дары Бездны»
-    if (hasBoon('giant')) { s.dmgMin = Math.round(s.dmgMin * 1.4); s.dmgMax = Math.round(s.dmgMax * 1.4); s.spellPower *= 1.4; }
-    if (hasBoon('frenzy')) s.aps = +(s.aps * 1.35).toFixed(2);
-    if (hasBoon('eagle')) { s.critChance = Math.min(0.75, s.critChance + 0.15); s.critMult += 0.5; }
-    if (hasBoon('vitality')) s.maxHP = Math.round(s.maxHP * 1.3);
+    if (hasBoon('giant')) { s.dmgMin = Math.round(s.dmgMin * 1.15); s.dmgMax = Math.round(s.dmgMax * 1.15); s.spellPower *= 1.15; }   // сборка 47: дары скромнее
+    if (hasBoon('frenzy')) s.aps = +(s.aps * 1.12).toFixed(2);
+    if (hasBoon('eagle')) { s.critChance = Math.min(0.75, s.critChance + 0.05); s.critMult += 0.2; }
+    if (hasBoon('vitality')) s.maxHP = Math.round(s.maxHP * 1.15);
   }
   s.block = Math.min(0.5, s.block);
   // "DPS" summary used by compare panel

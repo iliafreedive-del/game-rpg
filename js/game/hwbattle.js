@@ -156,11 +156,13 @@ const KIND = {   // множители к «обычному врагу» эта
   boss: { name: 'Палач Бездны', hp: 4.2, dmg: 2.8, aps: 0.7, big: true, boss: true },
 };
 const COUNT = [2, 2, 3, 3, 2, 3, 3, 4, 4, 3];
-export const HW_TUNE = { hp0: 20, hpK: 1.15, dmg0: 3.6, dmgK: 1.12 };
+// сборка 47: первые 10 этапов круче (новичок не проходит дальше 3–4-го без наставника), дальше — прежний темп
+export const HW_TUNE = { hp0: 20, hpK: 1.15, dmg0: 3.6, dmgK: 1.12, hpE: 1.45, dmgE: 1.32, hpM: 1.2, dmgM: 1.14 };
 export function stageFoes(s) {
   const ci = Math.min(CHAPTER_POOLS.length - 1, Math.floor((s - 1) / 30)), pool = CHAPTER_POOLS[ci], k = (s - 1) % 10;
   const a = Math.min(s, 30) - 1, b = Math.max(0, s - 30), T = HW_TUNE;
-  const hpM = T.hp0 * Math.pow(T.hpK, a) * Math.pow(1.095, b), dmgM = T.dmg0 * Math.pow(T.dmgK, a) * Math.pow(1.075, b);
+  const e = Math.min(s, 4) - 1, m = Math.max(0, Math.min(s, 10) - 4), a2 = Math.max(0, a - 9);   // 1–4: резкий рост, 5–10: средний, дальше — прежний
+  const hpM = T.hp0 * Math.pow(T.hpE, e) * Math.pow(T.hpM, m) * Math.pow(T.hpK, a2) * Math.pow(1.095, b), dmgM = T.dmg0 * Math.pow(T.dmgE, e) * Math.pow(T.dmgM, m) * Math.pow(T.dmgK, a2) * Math.pow(1.075, b);
   const kinds = [];
   if (k === 4) kinds.push('guard_boss'); if (k === 9) kinds.push('boss');
   for (let i = kinds.length; i < COUNT[k]; i++) kinds.push(pool[(s + i * 3) % pool.length]);

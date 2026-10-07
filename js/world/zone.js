@@ -29,7 +29,7 @@ const PROP = {
   house_0: { spr: 'house_0', box: [2.85, 2.2], tall: 1 }, house_1: { spr: 'house_1', box: [3.25, 2.4], tall: 1 }, house_2: { spr: 'house_2', box: [2.95, 2.2], tall: 1 },   // под крупные 3D-дома (ART_BIBLE, раздел 7)
   fort_hall: { spr: 'house_0', box: [3.7, 1.9], tall: 1, model: 'fort_hall' }, tent: { spr: 'hay', r: 1.6, model: 'tent' }, fort_gate: { spr: 'banner', model: 'fort_gate' }, fort_tower: { spr: 'pillar', tall: 1, model: 'fort_tower' },   // постройки лагерей походов: в 3D свои модели, в 2D — запасные спрайты
   logpile: { spr: 'crate', box: [0.7, 0.4], model: 'logpile' },
-  shrine: { spr: 'altar', r: 1.3, model: 'goddess_altar', light: { r: 6.5, c: [110, 235, 220], flicker: 0.25, z: 2.6 } },   // источник силы (сборка 19)
+  shrine: { spr: 'altar', r: 1.3, model: 'goddess_altar', light: { r: 6.5, c: [255, 150, 70], flicker: 0.25, z: 2.6 } },   // источник силы (сборка 19); свет под огненные руны алтаря (сборка 47)
   // деревня по правилам (js/world/villagegen.js): здания с поворотом и коллайдерами из генератора (o.boxes), сельские мелочи
   church: { spr: 'house_1', tall: 1, model: 'church' },   // без точечного света у двери: герой на ступенях «засвечивался»
   tavern: { spr: 'house_1', tall: 1, model: 'tavern', light: { r: 4.5, c: [255, 170, 90], flicker: 0.5, z: 2, dy: 3.4 } },
@@ -234,7 +234,7 @@ export class Zone {
       } else if (o.t === 'survportal') {
         const d = this.add({ x: o.x, y: o.y, spr: 'portal_maw', anim: 'portal' });
         this.addLight(o.x, o.y, { r: 5, c: [255, 60, 60], flicker: 0.4, z: 1.2 });
-        this.inter.push({ id: 'portal_survival', type: 'survival', x: o.x, y: o.y, r: 1.8, label: 'Жатва Бездны', draw: d, reqLevel: 5, plate: 'Жатва Бездны' });
+        this.inter.push({ id: 'portal_survival', type: 'survival', x: o.x, y: o.y, r: 1.8, label: 'Жатва Бездны', draw: d, reqLevel: 2, plate: 'Жатва Бездны' });
         this.map.circles.push({ x: o.x, y: o.y - 0.1, r: 0.2 });
       } else if (o.t === 'castle') {
         const d = this.add({ x: o.x, y: o.y, spr: 'portal_crown', anim: 'portal' });
@@ -249,7 +249,7 @@ export class Zone {
         this.prop({ ...o, t: 'runebed' }); this.addLight(o.x, o.y, { r: 4, c: [255, 210, 90], flicker: 0.3, z: 1 });
         this.inter.push({ id: 'wheel', type: 'wheel', x: o.x, y: o.y, r: 1.9, label: 'Колесо Фортуны', plate: 'Колесо Фортуны' });
       } else if (o.t === 'hwsign') {
-        const d = this.add({ x: o.x, y: o.y, spr: 'banner', model: 'chronicle', tall: 1 }); for (const sx of [-1.7, 1.7]) this.map.circles.push({ x: o.x + sx, y: o.y, r: 0.45 });
+        const d = this.add({ x: o.x, y: o.y, spr: 'banner', model: 'chronicle', tall: 1 }); this.map.circles.push({ x: o.x, y: o.y, r: 1.3 });   // сборка 46: алтарь Летописи — один круг (раньше две колонны врат)
         this.addLight(o.x, o.y, { r: 5, c: [255, 200, 110], flicker: 0.3, z: 1.4 });
         this.inter.push({ id: 'herospath', type: 'herospath', x: o.x, y: o.y + 0.2, r: 2.2, label: 'Летопись битв', plate: 'Летопись битв', reqLevel: 2 });
       } else if (o.t === 'depths') {
