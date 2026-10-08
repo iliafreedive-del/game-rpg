@@ -1,10 +1,10 @@
 // Аналитика первых минут (сборка 51): цели Яндекс Метрики, чтобы после релиза видеть, где игроки бросают игру.
 // Счётчик: создать на metrika.yandex.ru (сайт — адрес игры в Яндекс Играх), номер вписать в METRIKA_ID
-// или проверить без правки кода: ?ym=12345678. Пока номер 0 — Метрика не грузится, события пишутся только в window.__AN.
+// другой номер без правки кода: ?ym=12345678; METRIKA_ID = 0 — Метрика выключена. События дублируются в window.__AN.
 // Все цели — в отчёте «Конверсии»; воронка «старт → склеп → задание → катакомбы → босс» строится из целей ms_*.
 import { G, bus } from '../game/ctx.js';
 
-export const METRIKA_ID = 0;
+export const METRIKA_ID = 113563701;   // счётчик пользователя (8 октября)
 const T0 = performance.now();
 const qs = new URLSearchParams(location.search);
 const ID = +(qs.get('ym') || METRIKA_ID) || 0;
@@ -38,10 +38,10 @@ export function initAnalytics() {
   track('game_ready', { sec: Math.round((performance.now() - T0) / 100) / 10 });
   if (!ID) return;
   window.ym = window.ym || function () { (window.ym.a = window.ym.a || []).push(arguments); }; window.ym.l = +new Date();
-  const s = document.createElement('script'); s.async = true; s.src = 'https://mc.yandex.ru/metrika/tag.js';
+  const s = document.createElement('script'); s.async = true; s.src = 'https://mc.yandex.ru/metrika/tag.js?id=' + ID;
   s.onload = () => { ready = true; for (const [g, p] of queue.splice(0)) send(g, p); };
   document.head.appendChild(s);
-  window.ym(ID, 'init', { clickmap: false, trackLinks: false, accurateTrackBounce: true, webvisor: false });
+  window.ym(ID, 'init', { ssr: true, clickmap: false, trackLinks: false, accurateTrackBounce: true, webvisor: false, referrer: document.referrer, url: location.href });   // вебвизор выключен: на телефоне он записывает страницу и тормозит игру
 }
 
 // подписки на события игры (вызывается один раз, когда профиль загружен)
