@@ -51,7 +51,7 @@ export function introShots() {
   return [{ x: (well.x + cat.x) / 2, y: (well.y + cat.y) / 2, zoom: 2.1, move: 1.4, hold: 3.6, text: 'Сто лет назад Орден запер под Тихим Бродом Бездну', sub: 'Этой ночью первая печать треснула…' }];
 }
 // порталы деревни: открыт ли сейчас (те же замки, что при входе)
-const PORTALS = ['portal_town', 'portal_forest', 'portal_fjord', 'portal_bones', 'portal_depths', 'portal_castle', 'portal_survival'];
+const PORTALS = ['portal_town', 'portal_temple', 'portal_forest', 'portal_fjord', 'portal_bones', 'portal_depths', 'portal_castle', 'portal_survival'];
 function portalOpen(it) {
   const P = G.profile; if (it.reqLevel && P.level < it.reqLevel) return false;
   const g = it.id === 'portal_town' ? 'catacombs' : it.id === 'portal_survival' ? 'survival' : it.id === 'portal_depths' ? 'depths' : it.type === 'wildportal' ? it.realm : '';

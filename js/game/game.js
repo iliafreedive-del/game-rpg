@@ -104,7 +104,7 @@ export async function loadZone(id, how = {}) {
     if (id === 'town' && !B) json.objects.push({ t: 'hwsign', x: 31.2, y: 25.2 }, { t: 'banner', x: 20.0, y: 15.6 }, { t: 'banner', x: 17.6, y: 22.2 }, { t: 'statue', x: 23.6, y: 11.6 }, { t: 'weapon_rack', x: 31.0, y: 16.2 }, { t: 'crystals', x: 33.6, y: 29.6 });
     if (id === 'town' && B) json.objects.push({ t: 'hwsign', x: B.hwsign[0], y: B.hwsign[1] });
     if (id === 'town' && B) json.objects.push({ t: 'wildportal', realm: 'bones', x: B.bones[0], y: B.bones[1] });   // Костяные пустоши: пока открыты всегда (вход со 2 ур., для проверки)
-    if (id === 'town' && B) json.objects.push({ t: 'swordportal', x: B.swords[0], y: B.swords[1] }, { t: 'handsportal', x: B.hands[0], y: B.hands[1] });   // мечи и руки — на линии с пустошами, пока никуда не ведут (сборка 44, 46)
+    if (id === 'town' && B) json.objects.push({ t: 'swordportal', x: B.swords[0], y: B.swords[1] }, { t: 'wildportal', realm: 'temple', x: B.hands[0], y: B.hands[1] });   // мечи — пока никуда не ведут (сборка 44); руки — в Разрушенный храм, со 2 уровня (сборка 59)
     if (id === 'catacombs') json.objects.push({ t: 'crystals', x: 47.5, y: 42 }, { t: 'crystals', x: 55, y: 51 }, { t: 'mushrooms', x: 7, y: 25 }, { t: 'mushrooms', x: 13, y: 31 }, { t: 'stalagmite', x: 5.5, y: 32 }, { t: 'puddle', x: 10, y: 28 }, { t: 'banner', x: 43, y: 23 });
     const roomy = id === 'catacombs' && G.render3d;
     zone = new Zone(id, roomy ? clean(widen(json, ROOMY)) : json, P);

@@ -58,6 +58,14 @@ function onKill(e) {
   if (G.zone.wildGate) setTimeout(checkGate, 0);
   const realm = G.wild.realm, W = wildState(realm), lvl = e.lvl;
   if (!e.summoned && e.D.realm === realm) { bump(realm, 'kills'); bump(realm, 'k_' + e.type); }
+  if (e.story === 'minib') {   // мини-босс святилища храма: золото, зелье, вещь — и подлетает к герою
+    const P = G.profile; bump(realm, 'minis');
+    for (let i = 0; i < 5; i++) L.dropGold(e.x, e.y, rint(5, 10) * (1 + 0.15 * (lvl - 1)));
+    L.dropPotion(e.x, e.y, 'hp'); if (rand() < 0.6) L.dropItem(e.x, e.y, makeItem({ rarity: rand() < 0.25 ? 2 : 1, ilvl: P.level + 1, cls: P.cls || 'warrior' }));
+    for (const p of G.pickups) if (p.t < 0.1) p.fly = true;
+    for (const o of G.enemies) if (!o.dead && o.summoned) C.killEnemy(o, { quiet: true });
+    bus.emit('toast', { text: `${e.D.name} повержен!`, sub: 'Святилище свободно: заберите сундук у алтаря', kind: 'good' }); bus.emit('sfx', 'levelup'); bus.emit('save');
+  }
   if (e.story === 'wildkeep' || e.story === 'wildboss') {
     const boss = e.story === 'wildboss', depth = G.wild.depth, P = G.profile, cls = P.cls || 'warrior';
     G.wild.done = true; W.best = Math.max(W.best, depth);

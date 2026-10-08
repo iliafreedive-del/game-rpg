@@ -5,7 +5,7 @@ import { rand } from '../core/util.js';
 import { REALMS } from '../data/wild.js';
 
 // порталы деревни из Meshy (сборка 44): в 3D-деревне арки миров заменены (js/render3d/portalglb.js)
-const VILLAGE_PORTAL = { fjord: 'portal_white', bones: 'portal_bones', forest: 'portal_verdant' };   // сборка 47: лес — древесная арка (portals3.glb), прежняя каменная с солнцем ушла на цитадель
+const VILLAGE_PORTAL = { fjord: 'portal_white', bones: 'portal_bones', forest: 'portal_verdant', temple: 'portal_hands' };   // храм — каменные руки (сборка 46, ведут в Разрушенный храм)   // сборка 47: лес — древесная арка (portals3.glb), прежняя каменная с солнцем ушла на цитадель
 // сборка 47: портал-выход внутри локации — та же арка, что ведёт сюда из деревни (из катакомб — каменная с черепами и т. д.)
 const EXIT_PORTAL = { catacombs: 'portal_skulls', depths: 'portal_ring', castle: 'portal_sun' };
 const hash = (x, y) => { let h = (x * 374761393 + y * 668265263) >>> 0; h = (h ^ (h >>> 13)) * 1274126177 >>> 0; return h; };
@@ -54,6 +54,9 @@ const PROP = {
   bone_hut: { spr: 'bone_hut', r: 1.75, tall: 1 }, bone_totem: { spr: 'bone_totem', r: 0.25, tall: 1 }, hide_rack: { spr: 'hide_rack', box: [0.95, 0.15] }, war_banner: { spr: 'war_banner', r: 0.12, tall: 1 }, tusk_fence: { spr: 'tusk_fence', box: [0.5, 0.15] },
   bonfire: { spr: 'bonfire', r: 0.55, light: { r: 5.5, c: [255, 140, 60], flicker: 1, z: 0.7 } },
   caravan_wagon: { spr: 'crate', model: 'caravan_wagon', light: { r: 3.6, c: [255, 190, 110], flicker: 0.5, z: 1.6, dx: 1.6, dy: 0.6 } },   // повозка Кофи (сборка 58): коллайдер — o.boxes из генератора
+  // Разрушенный храм (world/templegen.js): колонны, арки над проёмами (опоры арки стоят на тайлах стены — своего коллайдера нет), обломки; кусты — декор без коллайдера
+  tw_column: { spr: 'pillar', r: 0.42, tall: 1, model: 'tw_column' }, tw_column_b: { spr: 'pillar', r: 0.42, model: 'tw_column_b' }, tw_drum: { spr: 'rubble', r: 0.4, model: 'tw_drum' },
+  tw_basin: { spr: 'well', r: 0.8, model: 'tw_basin' }, tw_arch: { spr: 'banner', tall: 1, model: 'tw_arch' }, bush: { spr: 'bush' }, fern: { spr: 'fern' },
   fortune_tent: { spr: 'hay', box: [1.5, 1.3], model: 'fortune_tent', light: { r: 3.5, c: [200, 120, 255], flicker: 0.4, z: 1.2 } }, reeds: { spr: 'bush', model: 'reeds' }, sacks: { spr: 'sacks', r: 0.3 },
 };
 
@@ -289,6 +292,10 @@ export class Zone {
       const c = m.ch(x, y), h = hash(x, y);
       if (c === 'D') { this.add({ x: x + 0.5, y: y + 0.5, spr: 'wall_' + (h % 4), wall: true }); continue; }
       if (c !== 'x') continue;
+      if (realm === 'temple') {   // храм: в углах залов и за стенами — кусты, не деревья (за стеной реже, в залах — каждый тайл)
+        const out = x < 5 || y < 5 || x > 59 || y > 59; if (out && h % 3) continue;
+        this.add({ x: x + 0.3 + (h % 5) / 10, y: y + 0.3 + ((h >> 3) % 5) / 10, spr: h % 4 === 0 ? 'fern' : 'bush', s: (out ? 1.4 : 1.1) + (h % 7) / 10 }); continue;
+      }
       const inner = [[1, 0], [-1, 0], [0, 1], [0, -1], [2, 0], [-2, 0], [0, 2], [0, -2]].some(([dx, dy]) => { const X = x + dx, Y = y + dy; return X >= 0 && Y >= 0 && X < m.w && Y < m.h && m.ch(X, Y) !== 'x'; });
       if (!inner || h % 3 !== 1 || (bn && h % 5 < 2) || ((x >= m.w - 5 || y >= m.h - 5) && h % 2)) continue;   // сборка 18: на опушке каждое третье дерево, у ближнего края — ещё реже   // в пустошах камни внутри скоплений реже: поле не загромождено
       { const px = x + 0.3 + (h % 5) / 10, py = y + 0.3 + ((h >> 3) % 5) / 10; if (put.some(q => (q[0] - px) ** 2 + (q[1] - py) ** 2 < 5.8)) continue; put.push([px, py]); }

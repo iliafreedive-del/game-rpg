@@ -95,6 +95,14 @@ export const LIGHT = {
     warm: { color: 0xff9a4a, i: 8, dist: 12, decay: 1.9 },
     violet: { color: 0x9a62ff, i: 10, dist: 10, decay: 1.6, y: 2.0 },
   },
+  // Разрушенный храм: тёплое предвечернее солнце на светлом камне, зеленоватая дымка зарослей
+  wildTemple: {
+    clear: 0x4a5a48, fog: { color: 0x6a7a62, near: 34, far: 96 },
+    hemi: { sky: 0xd0dcc8, ground: 0x7a6a50, i: 1.55 },
+    key: { color: 0xffe2b0, i: 3.0, offset: [-11, 24, 20] },
+    warm: { color: 0xff9a4a, i: 9, dist: 12, decay: 1.9 },
+    violet: { color: 0x9a62ff, i: 10, dist: 10, decay: 1.6, y: 2.0 },
+  },
   // Костяные пустоши: жаркое пыльное солнце над красной землёй, охристая дымка; «Кладбище великанов» — закат
   wildSteppe: {
     clear: 0xd8a070, fog: { color: 0xd8a476, near: 34, far: 98 },

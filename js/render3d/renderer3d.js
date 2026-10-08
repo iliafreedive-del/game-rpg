@@ -154,7 +154,7 @@ const hex = c => (c[0] << 16) | (c[1] << 8) | c[2];
 function presetFor(z) {
   U.uBiome.value = ({ flooded: 1, ash: 2, abyss: 3 })[z.json && z.json.biome] || 0;
   if (z.id === 'town') return { ...LIGHT.village3, look: null };
-  if (z.id === 'wild') { const fj = z.json.wild.realm === 'fjord', d = z.json.wild.mood && z.json.wild.mood.dark, B = fj ? LIGHT.wildFjord : z.json.wild.realm === 'bones' ? (d ? LIGHT.wildSteppeDusk : LIGHT.wildSteppe) : LIGHT.wildForest;
+  if (z.id === 'wild') { const fj = z.json.wild.realm === 'fjord', d = z.json.wild.mood && z.json.wild.mood.dark, B = fj ? LIGHT.wildFjord : z.json.wild.realm === 'temple' ? LIGHT.wildTemple : z.json.wild.realm === 'bones' ? (d ? LIGHT.wildSteppeDusk : LIGHT.wildSteppe) : LIGHT.wildForest;
     return { ...B, hemi: d ? { ...B.hemi, i: B.hemi.i * 0.8 } : B.hemi, key: d ? { ...B.key, i: B.key.i * 0.85 } : B.key, look: null }; }
   if (z.id === 'survival') { const L = LIGHT.castle; return { ...L, hemi: { ...L.hemi, sky: 0xc8c0e8, i: 2.3 }, key: { ...L.key, i: 2.8 }, fog: { color: 0x3a3352, near: 48, far: 130 }, clear: 0x2a2440, look: { floor: 0x9a90b8, grime: 0x4a4064, moss: 0x7a5aaa } }; }   // арена Бездны: сборка 50 — заметно светлее (было темно, врагов не разглядеть), туман дальше
   if (z.id === 'castle') return { ...LIGHT.castle, look: { floor: 0x9a8e7a, grime: 0x4a4034, moss: 0x5a6a3a } };
@@ -256,9 +256,9 @@ function syncEnemies(dt) {
   const live = new Set(G.enemies);
   for (const [k, a] of actors) if (a.isEnemy && !live.has(k)) { a.dispose(); actors.delete(k); }
   for (const e of G.enemies) {
-    let def = MOBS[e.model || e.type];   // e.model — свой вид при том же типе (Страж глубин, сборка 57)
+    let def = MOBS[e.model || e.type] || MOBS[e.D && e.D.model3d];   // e.model — свой вид при том же типе (Страж глубин, сборка 57); model3d — чужая модель на время (мобы храма)
     if (!def) { if (!warned.has(e.type)) { warned.add(e.type); console.warn('[3D] нет модели моба «' + e.type + '» — показан скелет-воин'); } def = MOBS.skel_warrior; }
-    const a = getActor(e, def, { scale: (e.champion ? 1.25 : 1) * (def === MOBS[e.model || e.type] ? 1 : e.r / 0.34) }); a.isEnemy = true;
+    const a = getActor(e, def, { scale: (e.champion ? 1.25 : 1) * (def === MOBS[e.model || e.type] || (e.D && def === MOBS[e.D.model3d]) ? 1 : e.r / 0.34) }); a.isEnemy = true;
     const c = measure(a, e, dt), an = e.anim; let clip = 'idle', k, impact, speed = 0;
     if (e.dead) { clip = 'death'; k = an.prog; }
     else if (e.state === 'attack') { clip = e.D.proj ? 'cast' : (e.atk && e.atk.kind) || 'attack';   /* у босса: attack2, slam, roar */ k = an.prog; impact = e.atk ? e.atk.impact : undefined; }

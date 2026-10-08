@@ -1,6 +1,7 @@
 // Генератор «похода»: открытое поле 52×52 с лагерями мобов, сундуками, захваченным фортом и порталом вглубь.
 // Детерминирован по (мир, глубина): одно и то же поле при повторном заходе.
 // Символы: '.' земля · ',' двор форта · 'x' чаща/скалы · '~' вода · 'D' стена форта.
+import { generateTemple } from './templegen.js';
 import { REALMS, WILD_MOBS, moodOf, wildLevel, isWildBoss, isWildFort, fieldVariant, locationName } from '../data/wild.js';
 // старт и выход по вариантам поля (0–4 — открытые поля, 5 — форт): каждое поле идёт в другую сторону
 const ROUTES = [{ s: [7.5, 54.5], e: [54.5, 9.5] }, { s: [32.5, 56.5], e: [32.5, 8.0] }, { s: [7.5, 33.0], e: [56.0, 31.0] }, { s: [8.5, 8.5], e: [55.0, 55.0] }, { s: [56.0, 30.0], e: [8.0, 33.0] }, { s: [7.5, 54.5], e: [54.5, 8.5] }];
@@ -20,6 +21,7 @@ const GIANT_FOOT = {
 const GIANTS_BY_VARIANT = [['giant_skull', 'tusk_arch', 'giant_ribs'], ['giant_skull', 'giant_skull', 'giant_fallen'], ['tusk_arch', 'giant_spine', 'giant_skull'], ['giant_ribs', 'giant_spine', 'giant_fallen'], ['giant_fallen', 'giant_skull', 'giant_ribs'], ['giant_ribs', 'giant_skull']];   // масштабный лагерь: стены, башни, ворота, длинный дом, шатры
 
 export function generateWild(realm, depth) {
+  if (realm === 'temple') return generateTemple(depth);   // Разрушенный храм — свой генератор-лабиринт (world/templegen.js)
   const RL = REALMS[realm], mood = moodOf(realm, depth), boss = isWildBoss(depth);   // boss: форт с боссом поля
   for (let attempt = 0; attempt < 6; attempt++) {
     const J = build(RL, mood, depth, boss, attempt);

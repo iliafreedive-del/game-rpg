@@ -65,13 +65,22 @@ export class PropLayer {
       const h = hash(d.x, d.y), isTree = d.spr === 'tree_0' || d.spr === 'tree_1' || (d.spr === 'deadtree' && !fj);
       const light = zone.lights.find(L => Math.hypot(L.x - d.x, L.y - d.y) < 0.3);
       const var3 = ((d.spr === 'rocks' || d.spr === 'deadtree') && open && !light) || STEPPE_FREE.has(d.spr);   // камни и сухие деревья поля — разные формы, повороты, размеры
-      push(isTree ? (fj ? pickFj(hash(d.x * 3.1 + 1, d.y * 1.7 + 2)) : pickTree(d.spr, hash(d.x * 3.1 + 1, d.y * 1.7 + 2))) : var3 ? (STEPPE_FREE.has(d.spr) ? d.spr : bn && d.spr === 'rocks' ? pickW(STEPPE_ROCKS, hash(d.x * 2.3 + 5, d.y * 1.9 + 1)) : pickTree(d.spr, hash(d.x * 2.3 + 5, d.y * 1.9 + 1))) : d.spr, d.x, d.y, isTree || var3 ? h * 6.283 : 0, isTree ? 1.0 + hash(d.y * 1.3, d.x * 0.7) * 0.75 : var3 ? 0.7 + hash(d.y, d.x) * 0.9 : 1, light ? { color: new THREE.Color(light.c[0] / 255, light.c[1] / 255, light.c[2] / 255) } : null);
+      push(isTree ? (fj ? pickFj(hash(d.x * 3.1 + 1, d.y * 1.7 + 2)) : pickTree(d.spr, hash(d.x * 3.1 + 1, d.y * 1.7 + 2))) : var3 ? (STEPPE_FREE.has(d.spr) ? d.spr : bn && d.spr === 'rocks' ? pickW(STEPPE_ROCKS, hash(d.x * 2.3 + 5, d.y * 1.9 + 1)) : pickTree(d.spr, hash(d.x * 2.3 + 5, d.y * 1.9 + 1))) : d.spr, d.x, d.y, isTree || var3 || d.s ? h * 6.283 : 0, isTree ? 1.0 + hash(d.y * 1.3, d.x * 0.7) * 0.75 : var3 ? 0.7 + hash(d.y, d.x) * 0.9 : d.s || 1, light ? { color: new THREE.Color(light.c[0] / 255, light.c[1] / 255, light.c[2] / 255) } : null);
     }
     // сборка 47: деревья выше — в среднем ≈6 м (три роста героя), от 4,5 до 8+ м: множитель 1,0–1,75 (был 0,85–1,4), чаща 1,15–1,95
     if (wild) {   // стены форта по тайлам 'D' (лицом наружу) и густая чаща по тайлам 'x'
+      const tp = zone.json.wild.realm === 'temple', archAt = new Set(zone.json.wild.archPiers || []);
       for (let ty = 0; ty < m.h; ty++) for (let tx = 0; tx < m.w; tx++) {
         const c = m.ch(tx, ty);
-        if (c === 'D') {
+        if (c === 'D' && tp) {   // Разрушенный храм: глыбы стены на тайл, опоры на стыках сетки залов; у ближнего к камере края — низкие, у дальнего — высокие
+          if (archAt.has(tx + ',' + ty)) continue;   // здесь стоит опора арки (модель tw_arch)
+          const h = hash(tx * 1.3 + 2, ty * 0.7 - 1), hz = (ty - 5) % 9 === 0, vt = (tx - 5) % 9 === 0;
+          if (hz && vt) { push(h < 0.3 ? 'tw_pier_b' : 'tw_pier', tx + 0.5, ty + 0.5, 0, 1); continue; }
+          const far = ty === 5 || tx === 5, near = ty === 59 || tx === 59;
+          const id = far ? (h < 0.75 ? 'tw_wall_b' : 'tw_wall_a') : near ? (h < 0.6 ? 'tw_wall_lo' : 'tw_wall_c') : h < 0.5 ? 'tw_wall_a' : h < 0.78 ? 'tw_wall_c' : h < 0.9 ? 'tw_wall_b' : 'tw_wall_lo';
+          push(id, tx + 0.5, ty + 0.5, hz ? (h < 0.5 ? 0 : Math.PI) : (h < 0.5 ? Math.PI / 2 : -Math.PI / 2), 1);
+        } else if (tp) continue;   // кусты храма поставил Zone (statics), деревьев по 'x' нет
+        else if (c === 'D') {
           const ext = [[1, 0], [0, 1], [-1, 0], [0, -1]].find(([dx, dy]) => { const n = m.ch(tx + dx, ty + dy); return n === '.' || n === 'x' || n === '~'; }) || [0, 1];
           push(fj ? 'fort_wall' : bn ? 'tusk_fence' : 'palisade', tx + 0.5, ty + 0.5, Math.atan2(ext[0], ext[1]), 1);
         } else if (c === 'x') {

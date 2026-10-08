@@ -33,6 +33,23 @@ export const WILD_MOBS = {
   b_scorpid: { realm: 'bones', name: 'Скорпион-панцирник', from: 'beast', filter: 'sepia(1) saturate(1.5) hue-rotate(-30deg) brightness(.7)', size: 1.45, ai: 'giant', hp: 125, dmg: [9, 14], speed: 2.2, range: 1.9, cd: 2.2, impact: 0.55, xp: 62, gold: [10, 26], armor: 18, radius: 0.62, onHit: 'slow', fps: { walk: 10, attack: 9 }, tele: { attack: T('cone', { r: 2.4, arc: 90, mult: 1.0 }), attack2: T('circle', { at: 'self', r: 2.6, mult: 1.3 }) } },
   b_chief: { realm: 'bones', name: 'Вождь Кровавый Клык', from: 'elite', filter: 'sepia(1) saturate(2.6) hue-rotate(-25deg) brightness(.95)', size: 1.15, elite: true, ai: 'jarl', hp: 290, dmg: [9, 14], speed: 2.6, range: 1.8, cd: 1.7, impact: 0.6, xp: 210, gold: [85, 135], armor: 20, radius: 0.52, minion: ['b_raider', 'b_hyena', 'b_hyena'], fps: { walk: 10, attack: 10, attack2: 10 }, tele: { attack: T('cone', { r: 2.2, arc: 110, mult: 1.0 }), attack2: T('circle', { at: 'self', r: 2.8, mult: 1.4 }) } },
   b_boss: { realm: 'bones', name: 'Пробуждённый Костяной исполин', from: 'boss', filter: 'sepia(1) saturate(1.2) brightness(1.1)', size: 1.3, boss: true, ai: 'wildboss', hp: 760, dmg: [12, 18], speed: 2.4, range: 2.5, cd: 1.7, impact: 0.6, xp: 680, gold: [250, 330], armor: 26, radius: 0.85, minion: ['b_hyena', 'b_hyena', 'b_raider'], novaElem: 'phys', fps: { walk: 9, attack: 10, attack2: 10, slam: 11, roar: 9 }, tele: { attack: T('cone', { r: 3.4, arc: 75 }), attack2: T('circle', { at: 'self', r: 3.2, mult: 0.9 }), slam: T('circle', { at: 'target', r: 2.2, mult: 1.3, rift: true, slow: 2.5 }) } },
+  // ------------------------------------------------------------- Разрушенный храм (портал с руками, со 2 уровня). model3d — чья 3D-модель
+  // показывается, пока нет своих моделей из пака храма (мелкие мобы, 5 мини-боссов, большие боссы — заменятся по паку)
+  t_warden: { realm: 'temple', name: 'Страж руин', from: 'skel_warrior', model3d: 'skel_warrior', filter: 'saturate(.3) brightness(1.15)', size: 1.05, ai: 'melee', hp: 26, dmg: [3, 5], speed: 2.4, range: 1.2, cd: 1.9, impact: 0.55, xp: 11, gold: [2, 6], armor: 6, radius: 0.36, fps: { walk: 11, attack: 11 } },
+  t_archer: { realm: 'temple', name: 'Лучник руин', from: 'skel_archer', model3d: 'skel_archer', filter: 'saturate(.3) brightness(1.15)', size: 1.0, ai: 'archer', hp: 17, dmg: [3, 5], speed: 2.3, range: 8, keep: 5.5, cd: 2.1, impact: 0.66, xp: 11, gold: [3, 7], armor: 2, radius: 0.32, proj: 'arrow', fps: { attack: 9 } },
+  t_hound: { realm: 'temple', name: 'Костяной пёс храма', from: 'beast', model3d: 'bone_wolf', filter: 'saturate(.1) brightness(1.3)', size: 0.78, ai: 'pack', hp: 14, dmg: [2, 4], speed: 4.2, range: 1.1, cd: 2.2, impact: 0.5, xp: 9, gold: [1, 3], armor: 2, radius: 0.33, fps: { walk: 16, attack: 12 }, tele: { lunge: T('line', { r: 3.4, w: 0.6 }) } },
+  t_ghoul: { realm: 'temple', name: 'Храмовый упырь', from: 'ghoul', model3d: 'ghoul', filter: 'hue-rotate(40deg) saturate(.6)', size: 1.0, ai: 'charge', hp: 24, dmg: [4, 6], speed: 2.8, range: 1.2, cd: 1.8, impact: 0.5, xp: 12, gold: [2, 6], armor: 3, radius: 0.36, charge: { r: 4.0, w: 0.8, cd: 5.5, speed: 8, mult: 1.25 }, fps: { walk: 12, attack: 12 }, tele: { lunge: T('line', { r: 4.0, w: 0.8 }) } },
+  t_priest: { realm: 'temple', name: 'Жрец праха', from: 'skel_mage', model3d: 'skel_mage', filter: 'sepia(.6) saturate(1.4) brightness(1.1)', size: 1.0, ai: 'root', hp: 30, dmg: [4, 7], speed: 2.0, range: 8, keep: 6, cd: 3.3, impact: 0.6, xp: 18, gold: [4, 10], armor: 3, radius: 0.34, fps: { attack: 8 }, tele: { attack: T('circle', { at: 'target', r: 1.8, mult: 1.0, rift: true, slow: 2.0 }) } },
+  t_golem: { realm: 'temple', name: 'Каменный голем', from: 'beast', model3d: 'f_jotun', filter: 'saturate(0) brightness(1.2)', size: 1.55, ai: 'giant', hp: 95, dmg: [7, 11], speed: 1.9, range: 1.9, cd: 2.3, impact: 0.6, xp: 45, gold: [8, 20], armor: 14, radius: 0.58, fps: { walk: 8, attack: 8 }, tele: { attack: T('cone', { r: 2.4, arc: 95, mult: 1.0 }), attack2: T('circle', { at: 'self', r: 2.6, mult: 1.2 }) } },
+  // пять мини-боссов храма: по одному в святилище каждого из пяти лабиринтов
+  t_mb_gate: { realm: 'temple', name: 'Привратник храма', from: 'elite', model3d: 'elite_guard', filter: 'saturate(.3) brightness(1.15)', size: 1.12, elite: true, mini: true, ai: 'jarl', hp: 170, dmg: [6, 10], speed: 2.5, range: 1.8, cd: 1.8, impact: 0.6, xp: 90, gold: [35, 60], armor: 14, radius: 0.5, minion: ['t_warden', 't_hound'], fps: { walk: 10, attack: 10, attack2: 10 }, tele: { attack: T('cone', { r: 2.1, arc: 90, mult: 1.0 }), attack2: T('circle', { at: 'self', r: 2.4, mult: 1.3 }) } },
+  t_mb_relic: { realm: 'temple', name: 'Хранитель реликвий', from: 'elite', model3d: 'elite_warlord', filter: 'sepia(.5) brightness(1.1)', size: 1.14, elite: true, mini: true, ai: 'jarl', hp: 180, dmg: [6, 10], speed: 2.4, range: 1.9, cd: 1.8, impact: 0.6, xp: 95, gold: [35, 60], armor: 16, radius: 0.52, minion: ['t_warden', 't_archer'], fps: { walk: 10, attack: 10, attack2: 10 }, tele: { attack: T('cone', { r: 2.2, arc: 95, mult: 1.0 }), attack2: T('circle', { at: 'self', r: 2.5, mult: 1.3 }) } },
+  t_mb_paladin: { realm: 'temple', name: 'Падший паладин', from: 'elite', model3d: 'f_jarl', filter: 'saturate(.4) brightness(1.1)', size: 1.14, elite: true, mini: true, ai: 'jarl', hp: 190, dmg: [7, 11], speed: 2.6, range: 1.8, cd: 1.7, impact: 0.6, xp: 100, gold: [40, 65], armor: 18, radius: 0.52, minion: ['t_warden', 't_ghoul'], fps: { walk: 10, attack: 10, attack2: 10 }, tele: { attack: T('cone', { r: 2.1, arc: 90, mult: 1.0 }), attack2: T('circle', { at: 'self', r: 2.4, mult: 1.3 }) } },
+  t_mb_hierophant: { realm: 'temple', name: 'Верховный жрец', from: 'elite', model3d: 'w_ataman', filter: 'sepia(.6) saturate(1.3)', size: 1.12, elite: true, mini: true, ai: 'jarl', hp: 175, dmg: [7, 11], speed: 2.5, range: 1.8, cd: 1.8, impact: 0.6, xp: 100, gold: [40, 65], armor: 14, radius: 0.5, minion: ['t_priest', 't_hound', 't_hound'], fps: { walk: 10, attack: 10, attack2: 10 }, tele: { attack: T('cone', { r: 2.1, arc: 90, mult: 1.0 }), attack2: T('circle', { at: 'self', r: 2.4, mult: 1.3 }) } },
+  t_mb_sentinel: { realm: 'temple', name: 'Каменный часовой', from: 'elite', model3d: 'b_chief', filter: 'saturate(0) brightness(1.2)', size: 1.16, elite: true, mini: true, ai: 'jarl', hp: 210, dmg: [7, 12], speed: 2.3, range: 1.9, cd: 1.9, impact: 0.6, xp: 110, gold: [45, 70], armor: 20, radius: 0.54, minion: ['t_warden', 't_archer', 't_hound'], fps: { walk: 10, attack: 10, attack2: 10 }, tele: { attack: T('cone', { r: 2.2, arc: 95, mult: 1.0 }), attack2: T('circle', { at: 'self', r: 2.5, mult: 1.3 }) } },
+  // большие боссы храма: Осквернитель — в святилище шестого уровня, Падший бог — на двенадцатом
+  t_lord: { realm: 'temple', name: 'Осквернитель храма', from: 'elite', model3d: 'w_boss', filter: 'saturate(.3) brightness(1.05)', size: 1.2, elite: true, ai: 'jarl', hp: 300, dmg: [9, 14], speed: 2.5, range: 2.2, cd: 1.8, impact: 0.6, xp: 220, gold: [90, 140], armor: 20, radius: 0.7, minion: ['t_warden', 't_priest', 't_hound'], fps: { walk: 9, attack: 10, attack2: 10 }, tele: { attack: T('cone', { r: 2.6, arc: 100, mult: 1.0 }), attack2: T('circle', { at: 'self', r: 2.8, mult: 1.3 }) } },
+  t_boss: { realm: 'temple', name: 'Падший бог храма', from: 'boss', model3d: 'b_boss', filter: 'saturate(.2) brightness(1.2)', size: 1.3, boss: true, ai: 'wildboss', hp: 760, dmg: [12, 18], speed: 2.4, range: 2.5, cd: 1.7, impact: 0.6, xp: 680, gold: [250, 330], armor: 26, radius: 0.85, minion: ['t_warden', 't_hound', 't_golem'], novaElem: 'phys', fps: { walk: 9, attack: 10, attack2: 10, slam: 11, roar: 8 }, tele: { attack: T('cone', { r: 2.8, arc: 110, mult: 1.0 }), attack2: T('circle', { at: 'self', r: 3.2, mult: 1.2 }), slam: T('circle', { at: 'target', r: 2.4, mult: 1.5 }) } },
 };
 
 export const REALMS = {
@@ -70,6 +87,18 @@ export const REALMS = {
       { name: 'Кладбище великанов', ground: [140, 80, 54], alt: [124, 70, 48], water: [34, 70, 80], tint: 'rgba(120,40,40,0.22)', dark: true, fog: [20, 8, 8], particles: { c: [255, 170, 110], rate: 14, vz: 0.4, g: -0.05, size: 3, life: 2.6 }, lake: 0.0 },
     ],
   },
+  temple: {
+    id: 'temple', name: 'Разрушенный храм', short: 'Храм', portalColor: [255, 214, 150], portal: 'portal_hands', reqLevel: 2, baseLevel: 2,
+    blurb: 'Каменный храм древних, расколотый и заросший кустами. Его коридоры каждый раз ложатся по-новому. В святилище каждого лабиринта ждёт свой страж.',
+    pool: [['t_warden', 1], ['t_hound', 1], ['t_archer', 1], ['t_ghoul', 2], ['t_priest', 2], ['t_golem', 3]],
+    minis: ['t_mb_gate', 't_mb_relic', 't_mb_paladin', 't_mb_hierophant', 't_mb_sentinel'],   // мини-босс святилища по номеру лабиринта (1–5)
+    commander: 't_lord', boss: 't_boss', fortName: 'Святилище храма',
+    moods: [
+      { name: 'Внешний двор', ground: [150, 142, 120], alt: [138, 130, 110], water: [48, 84, 96], tint: null, dark: false, fog: [10, 10, 8], particles: { c: [255, 240, 200], rate: 8, vz: 0.3, g: -0.05, size: 2.5, life: 2.4 }, lake: 0 },
+      { name: 'Заросшие галереи', ground: [128, 132, 104], alt: [116, 120, 96], water: [40, 74, 84], tint: 'rgba(30,50,20,0.14)', dark: false, fog: [6, 10, 6], particles: { c: [210, 255, 170], rate: 12, vz: 0.4, g: -0.1, size: 2.5, life: 2.4 }, lake: 0 },
+      { name: 'Внутреннее святилище', ground: [112, 104, 96], alt: [100, 94, 88], water: [30, 54, 70], tint: 'rgba(60,40,90,0.22)', dark: true, fog: [8, 6, 14], particles: { c: [255, 210, 140], rate: 14, vz: 0.5, g: -0.1, size: 3, life: 2.6 }, lake: 0 },
+    ],
+  },
 };
 // Цикл похода: пять разных открытых полей подряд, в конце каждого — портал «Вглубь» (следующее поле требует уровня);
 // шестая локация — захваченный форт (сцена с отбиванием форта). Каждый второй форт — босс.
@@ -80,6 +109,7 @@ export const isWildBoss = d => d % BOSS_EVERY === 0;
 export const FIELD_NAMES = {
   forest: ['Опушка', 'Берёзовая роща', 'Каменистые ручьи', 'Дремучий бор', 'Бурелом'],
   bones: ['Красная степь', 'Долина черепов', 'Колючие балки', 'Хребет великана', 'Пыльные курганы'],
+  temple: ['Внешний двор', 'Галерея колонн', 'Заросший клуатр', 'Зал обетов', 'Расколотый неф'],
   fjord: ['Береговая полоса', 'Ледяное поле', 'Ущелье ветров', 'Замёрзший залив', 'Курганы ётунов'],
 };
 export const fieldVariant = d => isWildFort(d) ? FIELDS_PER_FORT : (d - 1) % FORT_EVERY;
@@ -91,6 +121,14 @@ export const wildLevel = (realm, depth) => REALMS[realm].baseLevel + Math.floor(
 // Задания походов. Прогресс — счётчики P.wild.stat[realm] (реальные события). Награда забирается в окне портала.
 const R = (slot, tier, rarity, names) => ({ slot, tier, rarity, names });
 export const WILD_QUESTS = {
+  temple: [
+    { id: 'tm_kill', title: 'Очистить руины', text: 'Убейте 15 тварей Разрушенного храма.', stat: 'kills', n: 15, reward: { xp: 90, gold: 60, potions: 2 } },
+    { id: 'tm_chest', title: 'Дары древних', text: 'Откройте 5 сундуков в храме.', stat: 'chests', n: 5, reward: { xp: 90, gold: 80, items: [R('head', 1, 1, { warrior: 'Шлем храмовника', archer: 'Капюшон паломника', mage: 'Венец жреца' })] } },
+    { id: 'tm_mini', title: 'Стражи святилищ', text: 'Победите 3 мини-боссов в святилищах лабиринтов.', stat: 'minis', n: 3, reward: { xp: 200, gold: 120, skillPts: 1 } },
+    { id: 'tm_deep', title: 'К внутреннему святилищу', text: 'Дойдите до глубины 3.', stat: 'depth', n: 3, reward: { xp: 180, gold: 100, potions: 3 } },
+    { id: 'tm_fort', title: 'Осквернитель', text: 'Пройдите пять лабиринтов и победите Осквернителя храма.', stat: 'forts', n: 1, reward: { xp: 220, gold: 120, items: [R('weapon', 1, 2, { warrior: 'Меч храмовника', archer: 'Лук паломника', mage: 'Посох жреца' })] } },
+    { id: 'tm_boss', title: 'Падший бог', text: 'Победите Падшего бога храма (глубина 12).', stat: 'bosses', n: 1, reward: { xp: 520, gold: 350, items: [{ slot: 'weapon', epic: true }] } },
+  ],
   bones: [
     { id: 'bn_kill', title: 'Кровь на песке', text: 'Убейте 15 тварей Костяных пустошей.', stat: 'kills', n: 15, reward: { xp: 140, gold: 80, potions: 2 } },
     { id: 'bn_chest', title: 'Добыча клыкачей', text: 'Откройте 5 сундуков в Костяных пустошах.', stat: 'chests', n: 5, reward: { xp: 130, gold: 110, items: [R('head', 1, 1, { warrior: 'Шлем с бивнями', archer: 'Повязка следопыта', mage: 'Венец из позвонков' })] } },

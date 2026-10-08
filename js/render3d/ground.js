@@ -381,6 +381,7 @@ const ABYSS = {
   forest: { sky: 0x050c14, neb: 0x1d5a58, neb2: 0x3a2a6a, rock: 0x3b2c20, rim: 0x5a4a2a },
   fjord: { sky: 0x060c22, neb: 0x3a6ac0, neb2: 0x2aa088, rock: 0x7a8ca4, rim: 0xc8d8e8 },
   bones: { sky: 0x12060c, neb: 0x8a3020, neb2: 0x5a2a6a, rock: 0x7a3a22, rim: 0xb0703a },
+  temple: { sky: 0x0a0a10, neb: 0x6a5a3a, neb2: 0x3a5a4a, rock: 0x6a6252, rim: 0xb0a484 },   // Разрушенный храм: светлый камень острова
 };
 function abyss(W, H, M, realm) {
   const P = ABYSS[realm] || ABYSS.forest, col = c => new THREE.Color(c), grp = new THREE.Group();
