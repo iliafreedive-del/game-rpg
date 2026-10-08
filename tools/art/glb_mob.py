@@ -51,6 +51,12 @@ CFG = {
   'w_leshy_m': {'rig': 'skel', 'h': 2.0, 'lift': 0.28, 'spin': 0.78, 'items': [('handR', 'staff')]},
   'w_ataman_m': {'rig': 'skel', 'h': 2.0, 'spin': 0.5, 'items': [('handR', 'axe'), ('handL', 'shield')]},
   'w_boss_m': {'rig': 'boss', 'h': 2.3, 'spin': 0.9, 'items': [('handR', 'axe')]},
+  # сборка 57: Фьорды (папка «фьорд»)
+  'f_hag_m': {'rig': 'skel', 'h': 2.0, 'lift': 0.28, 'spin': 0.78, 'items': [('handR', 'staff')]},
+  'f_berserk_m': {'rig': 'skel', 'h': 1.95, 'spin': 0.5, 'items': [('handR', 'axe')]},
+  'f_draugr_m': {'rig': 'skel', 'h': 1.95, 'spin': 0.5, 'items': [('handL', 'shield'), ('handR', 'axe')]},
+  'f_jarl_m': {'rig': 'skel', 'h': 2.0, 'spin': 0.5, 'items': [('handR', 'axe')]},
+  'f_boss_m': {'rig': 'boss', 'h': 2.3, 'spin': 0.9, 'items': [('handR', 'axe')]},
   'boss_m': {'rig': 'boss', 'h': 2.3, 'spin': 0.9, 'items': [('handR', 'axe')], 'turn': True, 'aim': [0, -0.12, 1]},   # turn — предмет повёрнут на 180° вокруг древка (просьба пользователя, сборка 57)
 }
 # хват по длине (доля от нижнего конца) для древковых: у процедурных axe_great — 20 %, staff_bone — 29 %
