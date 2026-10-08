@@ -1,4 +1,4 @@
-// Сборка 54: враги не возникают на виду, когда герой долго бежит в одну сторону. Запуск: node tools/qa/run.mjs tools/qa/scenarios/surv54_pop.js 430 932
+// Сборка 55: враги не возникают на виду, когда герой долго бежит в одну сторону. Запуск: node tools/qa/run.mjs tools/qa/scenarios/surv54_pop.js 430 932
 const G = window.__G; const gm = await import('/js/game/game.js'); const P = G.profile; P.level = 5; P.tutorial.prologue = true; P.survIntro = true;
 const closeAll = () => { for (let k = 0; k < 6; k++) { const b = document.querySelector('.modal .btn.gold, .modal-bg .btn.gold'); if (b) b.click(); } };
 await gm.loadZone('survival', {}); await sleep(1500); closeAll(); G.surv.t = 130; G.surv.intro = false; document.querySelectorAll('.modal-bg').forEach(m => m.remove()); G.modalOpen = false; G.paused = false;

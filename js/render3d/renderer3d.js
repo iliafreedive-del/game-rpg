@@ -114,7 +114,7 @@ function governor(dt) {
   govSlow = ms > 19 ? govSlow + 1 : 0;
   if (govSlow >= 2) { govSlow = 0;
     if (govScale > 0.75 && DPR * 0.85 >= 1) { govScale = govScale > 0.9 ? 0.85 : 0.72; applyQuality(true); }
-    else { govLevel = quality === 'high' ? 'med' : 'lite'; govScale = 1; applyQuality(); } }   // сборка 54: не ниже «экономного» — вид не меняется
+    else { govLevel = quality === 'high' ? 'med' : 'lite'; govScale = 1; applyQuality(); } }   // сборка 55: не ниже «экономного» — вид не меняется
 }
 function applyQuality(force) {
   const q = qualityNow(); if (q === quality && !force) return; quality = q;
@@ -125,13 +125,13 @@ function applyQuality(force) {
   setOutlinesVisible(q !== 'low'); if (world) { world.ground.setQuality(q); world.props.setQuality(q); if (world.atmo) world.atmo.setQuality(q); }
   const sm = Q.shadow;
   lights.hemi.intensity = LV.hemi.i * (Q.light ?? 1); lights.moon.intensity = LV.key.i * (Q.light ?? 1);
-  // сборка 54: в «Авто» число огней не меняется при смене ступени — иначе пересборка всех шейдеров и рывок прямо во время лага
+  // сборка 55: в «Авто» число огней не меняется при смене ступени — иначе пересборка всех шейдеров и рывок прямо во время лага
   const auto = !(G.profile && G.profile.settings) || G.profile.settings.quality === 'auto' || !G.profile.settings.quality;
   if (auto) autoPts = autoPts || Q.points; setPointCount(auto ? autoPts : Q.points);   // сборка 46: число огней одно во всех зонах — иначе при каждом переходе пересобирались все шейдеры (в деревне и походах горят только 2 ближних)
   if (lights.moon.castShadow !== !!sm || lights.moon.shadow.mapSize.x !== sm) {
     const toggled = lights.moon.castShadow !== !!sm; lights.moon.castShadow = !!sm;
     if (sm) { lights.moon.shadow.mapSize.set(sm, sm); if (lights.moon.shadow.map) { lights.moon.shadow.map.dispose(); lights.moon.shadow.map = null; } }
-    if (toggled) scene.traverse(o => { if (o.material && o.material.isMaterial) o.material.needsUpdate = true; });   // сборка 54: шейдеры — только когда тени включаются/выключаются, не при смене размера карты
+    if (toggled) scene.traverse(o => { if (o.material && o.material.isMaterial) o.material.needsUpdate = true; });   // сборка 55: шейдеры — только когда тени включаются/выключаются, не при смене размера карты
   }
   const msaa = base < 1.5 ? Q.msaa : 0, pk = [Math.round(W * DPR), Math.round(H * DPR), Q.post, msaa, Q.bloom].join();
   if (pk !== postKey) { postKey = pk; post.setup(Math.round(W * DPR), Math.round(H * DPR), { enabled: Q.post, samples: msaa, levels: Q.bloom }); }   // цели постобработки пересоздаём только при смене размера/качества

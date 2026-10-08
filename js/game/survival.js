@@ -76,7 +76,7 @@ export function generateArena() {
 function shiftWorld(dx, dy) {
   const S = G.surv, pl = G.player, mv = o => { o.x += dx; o.y += dy; };
   mv(pl); G.cam.x += dx; G.cam.y += dy;
-  for (const e of S.swarm) mv(e);   // сборка 54: отставших больше не переносят на плитку вперёд — они появлялись из воздуха прямо перед героем (см. catchUp)
+  for (const e of S.swarm) mv(e);   // сборка 55: отставших больше не переносят на плитку вперёд — они появлялись из воздуха прямо перед героем (см. catchUp)
   for (const a of [S.gems, S.projs, S.pools, S.eprojs, G.particles, G.texts]) for (const o of a) mv(o);
   for (const e of G.effects) { if (e.x != null) mv(e); if (e.x1 != null) { e.x1 += dx; e.y1 += dy; e.x2 += dx; e.y2 += dy; } }
   if (S.bladePts) for (const b of S.bladePts) { b[0] += dx; b[1] += dy; }
@@ -208,7 +208,7 @@ function edgePoint(dir) {
   }
   return null;
 }
-// сборка 54: враг отстал дальше 30 м (герой долго бежит в одну сторону) — переносим его за край кадра по ходу героя: он снова
+// сборка 55: враг отстал дальше 30 м (герой долго бежит в одну сторону) — переносим его за край кадра по ходу героя: он снова
 // подходит из-за экрана, а не возникает на виду
 function catchUp() {
   const S = G.surv, pl = G.player, mvx = pl.x - (S.lastX ?? pl.x), mvy = pl.y - (S.lastY ?? pl.y);

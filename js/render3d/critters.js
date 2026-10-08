@@ -59,7 +59,7 @@ function chicken(kit, v, proc = false) {
   root.scale.setScalar(1.35 + (v ? 0.08 : 0));   // чуть крупнее жизни — иначе с высоты камеры кур не разглядеть
   return { root, body, head, legs };
 }
-// сборка 54: две собаки — две модели Meshy на риге волка: тёмная (dog_town, у кузницы) и светлая рыжая (dog_brown, на площади)
+// сборка 55: две собаки — две модели Meshy на риге волка: тёмная (dog_town, у кузницы) и светлая рыжая (dog_brown, на площади)
 const DOG_GLB = coat => coat ? 'dog_brown' : 'dog_town';
 const glbDog = (kit, coat) => kit.mob && kit.skin.SKINS.on && kit.mob.mobLoaded(DOG_GLB(coat));
 function dog(kit, coat, proc = false) {
@@ -179,7 +179,7 @@ export class Critters {
       if (dog && m.glb) {
         // ходьба и покой — анимации модели; «села» — легла на живот, голова к герою — поворотом всего зверя (уже выше)
         const sit = a.st === 'sit' ? 1 : 0; a.sit = (a.sit || 0) + (sit - (a.sit || 0)) * Math.min(1, dt * 3);
-        // сборка 54: поведение как у первой собаки — садится (а не ложится «замертво»), в покое оглядывается по сторонам
+        // сборка 55: поведение как у первой собаки — садится (а не ложится «замертво»), в покое оглядывается по сторонам
         const A = { t: t + a.ph, dt, speed: sp, k: a.sit, wag: a.wag, look: a.st === 'idle' || a.st === 'sit' ? 0.4 : 0.12 };
         if (a.sit > 0.02) m.glb.anims.sit(A); else if (sp) m.glb.anims.walk(A); else m.glb.anims.idle(A);
       } else if (dog) {

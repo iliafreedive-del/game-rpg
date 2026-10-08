@@ -2073,5 +2073,17 @@
  "Ярлык добавлен": "Acceso directo añadido",
  "осколок Бездны": "fragmento del Abismo",
  "осколков Бездны": "fragmentos del Abismo",
- "<p class=\"bad\">Злейший враг: <b>{0}</b> — {1}×</p>": "<p class=\"bad\">Peor enemigo: <b>{0}</b> — {1}×</p>"
+ "<p class=\"bad\">Злейший враг: <b>{0}</b> — {1}×</p>": "<p class=\"bad\">Peor enemigo: <b>{0}</b> — {1}×</p>",
+ "Наставник Элвин стоит у тренировочного чучела. Изучите у него первое умение — после урока останется ровно на зелье здоровья.": "El mentor Elvin está junto al muñeco de entrenamiento. Aprende con él tu primera habilidad: después de la lección te quedará justo para una poción de salud.",
+ "Торговка Мира продаёт зелья здоровья. Купите одно: в бою оно лечит. Потом испытайте себя в Летописи битв.": "La comerciante Mira vende pociones de salud. Compra una: en combate te cura. Después ponte a prueba en la Crónica de batallas.",
+ "Умение есть. Теперь к торговке Мире: купи зелье здоровья — в бою оно спасёт. Золота у тебя ровно на одно.": "Ya tienes una habilidad. Ahora ve con la comerciante Mira: compra una poción de salud, en combate te salvará. Tienes oro justo para una.",
+ "Умение есть, зелье тоже — проверь себя в деле. Арка «Летопись битв» на площади: там бой идёт сам. Иди, пока не проиграешь, — а потом к Элвину: он подскажет, как стать сильнее.": "Tienes habilidad y poción: ponte a prueba. El arco «Crónica de batallas» está en la plaza: allí el combate es automático. Sigue hasta perder y luego ve con Elvin: te dirá cómo hacerte más fuerte.",
+ "Сначала первый урок у Элвина": "Primero, la primera lección con Elvin",
+ "Золото — на урок и на зелье здоровья": "Ese oro es para la lección y una poción de salud",
+ "Сначала зелье здоровья у Миры": "Primero, una poción de salud de Mira",
+ "Это золото — на зелье": "Ese oro es para la poción",
+ "2026-10-08 · сборка 55": "2026-10-08 · versión 55",
+ "Экономное": "Ahorro",
+ "Первый урок — {0} зол.: выберите приём, наставник обучит ему сразу. Останется {1} зол. — ровно на зелье здоровья у Миры.": "Primera lección: {0} de oro. Elige una técnica y el mentor te la enseñará al momento. Te quedarán {1} de oro, justo para una poción de salud de Mira.",
+ "Первый урок: выберите приём — наставник обучит ему сразу.": "Primera lección: elige una técnica y el mentor te la enseñará al momento."
 }

@@ -660,7 +660,7 @@ W.npc_trainer = () => {
     if (!P.tutorial.trainerGift) {
       const C = CLASSES[P.cls || 'warrior'];
       const first = classSkillOrder(P.cls || 'warrior')[0], opts = [[first, SKILLS[first].name]];
-      const fc = firstLessonCost();   // сборка 54: урок платный — остаётся ровно на зелье здоровья
+      const fc = firstLessonCost();   // сборка 55: урок платный — остаётся ровно на зелье здоровья
       b.appendChild(el('p', 'good', fc ? `Первый урок — ${fc} зол.: выберите приём, наставник обучит ему сразу. Останется ${POTION_RESERVE} зол. — ровно на зелье здоровья у Миры.` : 'Первый урок: выберите приём — наставник обучит ему сразу.'));
       const row = el('div', 'row');
       for (const [id, n] of opts) { const bt = el('button', 'btn gold', n); bt.onclick = () => { P.gold -= firstLessonCost(); P.tutorial.trainerGift = id; CH.grantSkill(id); bus.emit('toast', { text: 'Изучено: ' + n, kind: 'good' }); rerender(); }; row.appendChild(bt); }

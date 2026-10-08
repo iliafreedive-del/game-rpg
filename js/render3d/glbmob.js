@@ -165,7 +165,7 @@ export function buildMob(kit, name, o = {}) {
       root.updateMatrixWorld(true); turn(head, root, X, 0.3 * e);
     },
   };
-  // сборка 54: «села», как первая (процедурная) собака деревни: перед корпуса поднят, передние лапы прямые, задние подогнуты, голова ровно
+  // сборка 55: «села», как первая (процедурная) собака деревни: перед корпуса поднят, передние лапы прямые, задние подогнуты, голова ровно
   anims.sit = a => {
     const e = smooth(Math.min(1, (a.k ?? 1)));
     pose(a, 0); body.rotation.x = -0.5 * e; body.position.y -= H * 0.1 * e; body.position.z -= H * 0.12 * e;

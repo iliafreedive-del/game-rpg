@@ -2073,5 +2073,17 @@
  "Ярлык добавлен": "Kısayol eklendi",
  "осколок Бездны": "Uçurum parçası",
  "осколков Бездны": "Uçurum parçası",
- "<p class=\"bad\">Злейший враг: <b>{0}</b> — {1}×</p>": "<p class=\"bad\">En azılı düşman: <b>{0}</b> — {1}×</p>"
+ "<p class=\"bad\">Злейший враг: <b>{0}</b> — {1}×</p>": "<p class=\"bad\">En azılı düşman: <b>{0}</b> — {1}×</p>",
+ "Наставник Элвин стоит у тренировочного чучела. Изучите у него первое умение — после урока останется ровно на зелье здоровья.": "Usta Elvin antrenman kuklasının yanında duruyor. İlk becerini ondan öğren — dersten sonra tam bir can iksirine yetecek kadar altının kalacak.",
+ "Торговка Мира продаёт зелья здоровья. Купите одно: в бою оно лечит. Потом испытайте себя в Летописи битв.": "Tüccar Mira can iksiri satıyor. Bir tane al: savaşta seni iyileştirir. Sonra Savaş Vakayinamesi'nde kendini dene.",
+ "Умение есть. Теперь к торговке Мире: купи зелье здоровья — в бою оно спасёт. Золота у тебя ровно на одно.": "Artık bir becerin var. Şimdi tüccar Mira'ya git: bir can iksiri al — savaşta hayatını kurtarır. Altının tam bir taneye yetiyor.",
+ "Умение есть, зелье тоже — проверь себя в деле. Арка «Летопись битв» на площади: там бой идёт сам. Иди, пока не проиграешь, — а потом к Элвину: он подскажет, как стать сильнее.": "Becerin de iksirin de var — kendini sına. «Savaş Vakayinamesi» kemeri meydanda: orada savaş kendiliğinden yürür. Kaybedene kadar devam et, sonra Elvin'e git: nasıl güçleneceğini söyler.",
+ "Сначала первый урок у Элвина": "Önce Elvin'den ilk ders",
+ "Золото — на урок и на зелье здоровья": "Bu altın ders ve can iksiri için",
+ "Сначала зелье здоровья у Миры": "Önce Mira'dan can iksiri",
+ "Это золото — на зелье": "Bu altın iksir için",
+ "2026-10-08 · сборка 55": "2026-10-08 · sürüm 55",
+ "Экономное": "Tasarruflu",
+ "Первый урок — {0} зол.: выберите приём, наставник обучит ему сразу. Останется {1} зол. — ровно на зелье здоровья у Миры.": "İlk ders — {0} altın: bir teknik seç, usta hemen öğretsin. Geriye {1} altın kalacak — Mira'dan tam bir can iksiri için.",
+ "Первый урок: выберите приём — наставник обучит ему сразу.": "İlk ders: bir teknik seç, usta hemen öğretsin."
 }

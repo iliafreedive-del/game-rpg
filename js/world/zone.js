@@ -154,7 +154,7 @@ export class Zone {
         case 'chest_rich_d': this.add({ x: o.x, y: o.y, spr: 'chest_rich' }); this.map.circles.push({ x: o.x, y: o.y, r: 0.35 }); break;
         case 'sarcophagus_d': this.add({ x: o.x, y: o.y, spr: 'sarcophagus' }); this.map.rects.push({ x0: o.x - 0.45, y0: o.y - 0.9, x1: o.x + 0.45, y1: o.y + 0.9 }); break;
         case 'floor_exit': {
-          const d = this.add({ x: o.x, y: o.y, spr: J.prologue ? 'portal_skulls' : 'portal', hidden: !!o.hidden, anim: 'portal' });   // сборка 54: из склепа пробуждения — катакомбный портал из черепов, как в деревне
+          const d = this.add({ x: o.x, y: o.y, spr: J.prologue ? 'portal_skulls' : 'portal', hidden: !!o.hidden, anim: 'portal' });   // сборка 55: из склепа пробуждения — катакомбный портал из черепов, как в деревне
           const L = this.addLight(o.x, o.y, { r: 4.5, c: [120, 200, 255], flicker: 0.3, z: 1.2 }); L.on = !o.hidden;
           this.inter.push({ id: 'floor_exit', type: 'exit', x: o.x, y: o.y, r: 1.6, label: 'Завершить этаж', draw: d, light: L, hidden: !!o.hidden });
           break;
@@ -253,7 +253,7 @@ export class Zone {
         this.prop({ ...o, t: 'runebed' }); this.addLight(o.x, o.y, { r: 4, c: [255, 210, 90], flicker: 0.3, z: 1 });
         this.inter.push({ id: 'wheel', type: 'wheel', x: o.x, y: o.y, r: 1.9, label: 'Колесо Фортуны', plate: 'Колесо Фортуны' });
       } else if (o.t === 'hwsign') {
-        const d = this.add({ x: o.x, y: o.y, spr: 'banner', model: 'chronicle', tall: 1 }); this.map.circles.push({ x: o.x, y: o.y, r: 1.3 });   // сборка 46: алтарь Летописи — один круг (раньше две колонны врат)
+        const d = this.add({ x: o.x, y: o.y, spr: 'banner', model: 'chronicle', tall: 1, rot: o.rot || 0 }); this.map.circles.push({ x: o.x, y: o.y, r: 1.3 });   // сборка 46: алтарь Летописи — один круг (раньше две колонны врат)
         this.addLight(o.x, o.y, { r: 5, c: [255, 200, 110], flicker: 0.3, z: 1.4 });
         this.inter.push({ id: 'herospath', type: 'herospath', x: o.x, y: o.y + 0.2, r: 2.2, label: 'Летопись битв', plate: 'Летопись битв', reqLevel: 2 });
       } else if (o.t === 'depths') {

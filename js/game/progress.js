@@ -25,7 +25,7 @@ export function earlyLock(kind) {
   const need = kind === 'upg' ? 'hw_elvin' : kind === 'shop' ? 'meet_merchant' : 'elder_task';
   return s.stage < stIdx(need);
 }
-// сборка 54: первый урок у Элвина платный (55 зол.): после него остаётся ровно на первое зелье здоровья у Миры (30).
+// сборка 55: первый урок у Элвина платный (55 зол.): после него остаётся ровно на первое зелье здоровья у Миры (30).
 // Пока зелье не куплено, другие покупки, после которых на зелье не хватит, не проходят — шаг обучения не застрянет.
 export const POTION_RESERVE = 30;
 export const firstLessonCost = () => !G.profile || Object.values(G.profile.skills || {}).some(Boolean) ? 0 : Math.max(0, Math.min(55, (G.profile.gold | 0) - POTION_RESERVE));

@@ -1,4 +1,4 @@
-// Сборка 54: площадь, лавочка у церкви, сухое дерево у катакомб, собаки, поля. Запуск: TAG=after node tools/qa/run.mjs tools/qa/scenarios/village54.js 430 932
+// Сборка 55: площадь, лавочка у церкви, сухое дерево у катакомб, собаки, поля. Запуск: TAG=after node tools/qa/run.mjs tools/qa/scenarios/village54.js 430 932
 const G = window.__G; const gm = await import('/js/game/game.js'); const P = G.profile; P.level = 5; P.tutorial.prologue = true;
 await gm.loadZone('town', {}); await sleep(2500);
 const tag = window.__TAG || 'x', J = G.zone.json, ob = t => J.objects.filter(o => o.t === t), npc = id => J.npcs.find(n => n.id === id);
