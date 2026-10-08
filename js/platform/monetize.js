@@ -66,7 +66,9 @@ let lastInter = Date.now();
 export async function maybeInterstitial(reason) {
   const P = G.profile;
   if (P.iap.noAds || platform.name === 'demo' && !P.settings.demoInter) return false;
-  if (Date.now() - lastInter < 4 * MIN || P.stats.playTime < 180) return false;
+  // сборка 54: частота меняется флагами в консоли Яндекса без новой версии: inter_gap_min (минут между показами), inter_first_sec (не раньше, сек игры)
+  const F = platform.flags || {}, gap = +F.inter_gap_min > 0 ? +F.inter_gap_min : 4, first = +F.inter_first_sec >= 0 && F.inter_first_sec != null ? +F.inter_first_sec : 180;
+  if (Date.now() - lastInter < gap * MIN || P.stats.playTime < first) return false;
   lastInter = Date.now(); G.paused = true; bus.emit('audioPause', true); gameplay(false);
   try { await platform.p.showInterstitial(); } catch { }
   track('ad_inter', { reason: reason || '' });

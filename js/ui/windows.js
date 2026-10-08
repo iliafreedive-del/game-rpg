@@ -261,7 +261,7 @@ W.character = (arg = {}) => {
     b.appendChild(el('div', 'stats', [['Убито монстров', s.kills], ['Элитных', s.elites], ['Боссов', s.bossKills], ['Сундуков', s.chests], ['Пройдено', Math.round(s.meters) + ' м'], ['Собрано золота', fmt(s.gold)], ['Смертей', s.deaths], ['Время в игре', Math.round(s.playTime / 60) + ' мин']].map(([a, v]) => `<div><span>${a}</span><b>${v}</b></div>`).join('')));
     if (P.fallen && P.fallen.length) {   // сборка 49: «Зал павших» — смерти не пропадают бесследно, злейший враг виден
       const cnt = {}; for (const f of P.fallen) cnt[f.who] = (cnt[f.who] || 0) + 1; const [foe, fn] = Object.entries(cnt).sort((a, b) => b[1] - a[1])[0];
-      b.appendChild(el('details', 'more fallen', `<summary class="muted" style="cursor:pointer;margin:6px 0">☠ Зал павших (${P.fallen.length})</summary>${fn > 1 ? `<p class="bad">Злейший враг: <b>${esc(foe)}</b> — ${fn} раз${fn % 10 >= 2 && fn % 10 <= 4 && (fn < 12 || fn > 14) ? 'а' : ''}</p>` : ''}<div class="stats">${P.fallen.slice(0, 10).map(f => `<div><span>${esc(f.where || '—')} · ур. ${f.lvl}</span><b>${esc(f.who)}</b></div>`).join('')}</div>`));
+      b.appendChild(el('details', 'more fallen', `<summary class="muted" style="cursor:pointer;margin:6px 0">☠ Зал павших (${P.fallen.length})</summary>${fn > 1 ? `<p class="bad">Злейший враг: <b>${esc(foe)}</b> — ${fn}×</p>` : ''}<div class="stats">${P.fallen.slice(0, 10).map(f => `<div><span>${esc(f.where || '—')} · ур. ${f.lvl}</span><b>${esc(f.who)}</b></div>`).join('')}</div>`));
     }
   });
   m.live = true;
@@ -450,6 +450,12 @@ W.settings = () => modal('Настройки', 'sm', b => {
   const P = G.profile, s = P.settings;
   const range = (lab, key) => { const r = el('div', 'attr', `<b>${lab}</b>`); const i = document.createElement('input'); i.type = 'range'; i.min = 0; i.max = 1; i.step = 0.05; i.value = s[key]; i.oninput = () => { s[key] = +i.value; setVolumes(s.sfx, s.music); }; i.onchange = () => bus.emit('save'); r.appendChild(i); b.appendChild(r); };
   range('Звуки', 'sfx'); range('Музыка', 'music');
+  if (platform.p.canShortcut) platform.p.canShortcut().then(ok => {   // сборка 54: ярлык на рабочий стол (Яндекс), 200 золота один раз
+    if (!ok || !b.isConnected) return;
+    const r = el('div', 'attr', '<b>Ярлык на рабочий стол</b>' + (P.shortcutDone ? '' : ' <small class="muted">+200 золота</small>'));
+    const bt = el('button', 'btn sm gold', 'Добавить'); bt.onclick = async () => { if (!(await platform.p.shortcut())) return; if (!P.shortcutDone) { P.shortcutDone = 1; P.gold += 200; bus.emit('hud'); } bus.emit('toast', { text: 'Ярлык добавлен', kind: 'good' }); bus.emit('save'); rerender(); };
+    r.appendChild(bt); b.insertBefore(r, b.children[2] || null);
+  });
   if (platform.name === 'vk') {   // сборка 52: VK — позвать друзей и добавить игру в избранное
     const v = el('div', 'attr', '<b>ВКонтакте</b>');
     const inv = el('button', 'btn sm', 'Пригласить друзей'); inv.onclick = () => platform.p.invite();

@@ -2066,5 +2066,12 @@
  "Зелье здоровья (Q)": "Health Potion (Q)",
  "Зелье маны (E)": "Mana Potion (E)",
  "Деревня Тихий Брод": "Quiet Ford Village",
- "2026-10-08 · сборка 53": "2026-10-08 · build 53"
+ "2026-10-08 · сборка 54": "2026-10-08 · build 54",
+ "<b>Ярлык на рабочий стол</b>": "<b>Desktop shortcut</b>",
+ " <small class=\"muted\">+200 золота</small>": " <small class=\"muted\">+200 gold</small>",
+ "Добавить": "Add",
+ "Ярлык добавлен": "Shortcut added",
+ "осколок Бездны": "Abyss shard",
+ "осколков Бездны": "Abyss shards",
+ "<p class=\"bad\">Злейший враг: <b>{0}</b> — {1}×</p>": "<p class=\"bad\">Worst foe: <b>{0}</b> — {1}×</p>"
 }

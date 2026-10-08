@@ -114,9 +114,17 @@ export function itemPower(it) {
 const PREFIX = { dmgPct: 'Жестокий', ias: 'Быстрый', armor: 'Крепкий', hp: 'Живучий', mp: 'Мудрый' };
 const RARE_A = ['Мрачный', 'Кровавый', 'Древний', 'Проклятый', 'Сумрачный', 'Костяной', 'Железный', 'Вечный'];
 const RARE_B = ['Страж', 'Клятва', 'Шёпот', 'Рок', 'Коготь', 'Приговор', 'Завет', 'Оплот'];
+// сборка 54: порядок слов по языку (boot.js → window.__LANG). Русский — как было (согласование окончаний);
+// es/pt/fr/it/id — прилагательное после существительного; остальные — перед, без перевода в строчные (в немецком существительные с заглавной)
+const LANG = (typeof window !== 'undefined' && window.__LANG) || 'ru';
+const NOUN_FIRST = ['es', 'pt', 'fr', 'it', 'id'].includes(LANG);
 function itemName(it, base) {
-  if (it.rarity === 1 && it.affixes[0]) { const p = PREFIX[it.affixes[0].k]; return p ? `${agree(p, base.name)} ${lower(base.name)}` : base.name; }
-  if (it.rarity >= 2) return `${pick(RARE_A)} ${pick(RARE_B).toLowerCase()} · ${base.name}`;
+  if (it.rarity === 1 && it.affixes[0]) {
+    const p = PREFIX[it.affixes[0].k]; if (!p) return base.name;
+    if (LANG === 'ru') return `${agree(p, base.name)} ${lower(base.name)}`;
+    return NOUN_FIRST ? `${base.name} ${p.toLowerCase()}` : `${p} ${base.name}`;
+  }
+  if (it.rarity >= 2) { const a = pick(RARE_A), b = pick(RARE_B); return LANG === 'ru' ? `${a} ${b.toLowerCase()} · ${base.name}` : NOUN_FIRST ? `${b} ${a.toLowerCase()} · ${base.name}` : `${a} ${b} · ${base.name}`; }
   return base.name;
 }
 const lower = s => s.charAt(0).toLowerCase() + s.slice(1);

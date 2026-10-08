@@ -49,6 +49,7 @@ export class VKProvider {
   hasProduct() { return false; }
   async requestReview() { return false; }
   async setLeaderboardScore() { return false; } async getLeaderboard() { return null; }
+  async flags() { return {}; } async canShortcut() { return false; } async shortcut() { return false; }
   async get(keys) { const r = await this.bridge.send('VKWebAppStorageGet', { keys }); const o = {}; for (const k of (r && r.keys) || []) o[k.key] = k.value; return o; }
   async cloudLoad() {
     try {

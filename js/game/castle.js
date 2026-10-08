@@ -48,7 +48,7 @@ export function addTorches(n) { const t = torches(); t.n = Math.min(EN_CAP, t.n 
 // ---- shards: random drops (the «рандомчик» the citadel is built on)
 export function addShards(n, x, y) {
   C(); G.profile.shards += n; bus.emit('hud');
-  if (x != null) bus.emit('float', { x, y, text: `+${n} осколк${n === 1 ? '' : n < 5 ? 'а' : 'ов'} Бездны`, color: '#d49bff', z: 2.6 });
+  if (x != null) bus.emit('float', { x, y, text: `+${n} ` + (n === 1 ? 'осколок Бездны' : 'осколков Бездны') /* сборка 54: целые фразы вместо окончаний — их можно перевести */, color: '#d49bff', z: 2.6 });
   bus.emit('sfx', 'rareDrop');
 }
 bus.on('kill', e => {
