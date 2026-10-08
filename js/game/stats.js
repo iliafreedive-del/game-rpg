@@ -5,6 +5,7 @@ import { SKILLS, PASSIVE_K as K } from '../data/skills.js';
 import { upgMult } from './items.js';
 import { G } from './ctx.js';
 import { DECOR } from '../data/upgrades.js';
+import { ENEMIES, scaleHP } from '../data/enemies.js';
 export const hasBoon = id => !!(G.run && G.run.boons && G.run.boons.includes(id));
 
 export const xpToNext = l => Math.round(75 * Math.pow(l, 1.75) * Math.pow(1.1, l - 1) * (l > 1 ? 2 : 1))   // сборка 47: со 2-го уровня опыта нужно вдвое больше (6 ур. за полчаса — слишком быстро)   // сборка 20: ×1,1 за уровень (как цены) — топ — это долгий фарм;   // чуть круче прежнего: до босса (ур. 6) приходится заглянуть в лес и перепройти катакомбы;
@@ -102,6 +103,14 @@ export function stats(p, gearOverride) {
   s.spellDps = +(16 * s.spellPower * ((s.elem.fire + s.elem.cold + s.elem.light) / 3)).toFixed(1);
   return s;
 }
+// сборка 49, «TTK идёт ступеньками»: сколько ударов оружием нужно на скелета-воина уровнем выше героя (бой длится целое число ударов —
+// прибавка к урону заметна, только если убирает удар). Броню врага и крит учитываем в среднем.
+export function hitsToKill(s, p) {
+  const l = (p.level || 1) + 1, D = ENEMIES.skel_warrior;
+  const hp = Math.max(D.hp * scaleHP(l) * 1.2, l >= 3 ? 88 + 12 * l : 0), arm = (D.armor || 0) * (1 + 0.15 * (l - 1));   // как в entities.js
+  const hit = (s.dmgMin + s.dmgMax) / 2 * (1 + s.critChance * (s.critMult - 1)) * (1 - 0.9 * arm / (arm + 50 + 10 * (p.level || 1)));
+  return Math.max(1, Math.ceil(hp / Math.max(1, hit)));
+}
 export const damageReduction = (armor, enemyLvl) => armor / (armor + 50 + 10 * enemyLvl);
 
 export function meetsReq(p, it, st) {
@@ -117,12 +126,13 @@ export function compare(p, item, slot) {
   const rows = [
     ['Урон в секунду', a.dps, b.dps], ['Урон', `${a.dmgMin}–${a.dmgMax}`, `${b.dmgMin}–${b.dmgMax}`, (b.dmgMin + b.dmgMax) - (a.dmgMin + a.dmgMax)],
     ['Скорость атаки', a.aps, b.aps], ['Шанс крита', Math.round(a.critChance * 100), Math.round(b.critChance * 100), null, '%'],
-    ['Защита', a.armor, b.armor], ['Здоровье', a.maxHP, b.maxHP], ['Запас прочности', a.ehp, b.ehp], ['Мана', a.maxMP, b.maxMP],
+    ['Защита', a.armor, b.armor], ['Здоровье', a.maxHP, b.maxHP], ['Запас прочности', a.ehp, b.ehp],
+    ['Ударов на скелета', hitsToKill(a, p), hitsToKill(b, p), hitsToKill(a, p) - hitsToKill(b, p), '', true], ['Мана', a.maxMP, b.maxMP],
     ['Сила заклинаний', Math.round(a.spellPower * 100), Math.round(b.spellPower * 100), null, '%'],
     ['Сила', a.str, b.str], ['Ловкость', a.dex, b.dex], ['Интеллект', a.int, b.int], ['Живучесть', a.vit, b.vit],
     ['Находка золота', a.goldFind, b.goldFind, null, '%'],
   ];
-  return rows.map(([l, x, y, d, suf]) => ({ label: l, before: x, after: y, delta: d != null ? d : (typeof x === 'number' ? +(y - x).toFixed(2) : 0), suf: suf || '' }))
+  return rows.map(([l, x, y, d, suf, inv]) => ({ label: l, before: x, after: y, delta: d != null ? d : (typeof x === 'number' ? +(y - x).toFixed(2) : 0), suf: suf || '', inv: !!inv }))
     .filter(r => r.delta !== 0 || r.label === 'Урон в секунду' || r.label === 'Защита');
 }
 // "Usefulness" score for sorting & upgrade arrows

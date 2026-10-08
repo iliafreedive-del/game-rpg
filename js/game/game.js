@@ -17,7 +17,8 @@ import { loadFloor, buildFloorCanvas } from '../render/index.js';
 import { widen } from '../world/widen.js';
 import { declutter } from '../world/declutter.js';
 import { respawnTick } from './respawn.js';
-import { weeklyRule, finishWeekly, codexScan, circle, circleHP, circleDmg, circleRew } from './season.js';
+import { weeklyRule, finishWeekly, codexScan, circle, circleHP, circleDmg, circleRew, rm } from './season.js';
+import { FLOOR_MODS, modReward } from '../data/floormods.js';
 const clean = J => (declutter(J), J), WILD_DECOR = new Set(['rocks']);   // сборка 47: предметы не входят друг в друга и в стены (world/declutter.js)
 const ROOMY = 1.5;   // «простор» (сборка 18): подземелья в 3D растянуты в 1,5 раза — шире комнаты и коридоры
 import { generateFloor, isBossFloor, parTime } from '../world/floorgen.js';
@@ -146,6 +147,11 @@ export async function loadZone(id, how = {}) {
     if (G.run.circle) { const k = G.run.circle, h = circleHP(k), d = circleDmg(k);
       for (const e of G.enemies) { e.maxHP = Math.round(e.maxHP * h); e.hp = e.maxHP; e.dmgMul = (e.dmgMul || 1) * d; }
       bus.emit('toast', { text: `Круг Бездны ${k}`, sub: `Враги крепче ×${h.toFixed(1)}, награда ×${circleRew(k).toFixed(1)}`, kind: 'quest' }); }
+    { const id = !G.run.weekly && G.run.floor > 0 && P.depthsMod, M = id && FLOOR_MODS[id];   // сборка 49: модификатор этажа, выбранный игроком у входа в Глубины
+      if (M) { G.run.mod = M; G.run.modId = id; let n = 0;
+        for (const e of G.enemies) { if (M.hp) { e.maxHP = Math.round(e.maxHP * M.hp); e.hp = e.maxHP; } if (M.dmg) e.dmgMul *= M.dmg; if (M.spd) e.spdBonus = (e.spdBonus || 1) * M.spd;
+          if (M.champ && !e.champion && !e.D.boss && !e.D.elite && !e.story && (n++ % Math.round(1 / M.champ)) === 0) { e.champion = true; e.maxHP = Math.round(e.maxHP * 2.2); e.hp = e.maxHP; e.dmgMul *= 1.3; e.name = 'Чемпион: ' + e.name; } }
+        bus.emit('toast', { text: `${M.glyph} ${M.name}`, sub: `${M.txt} · ${modReward(M)}`, kind: 'quest' }); } }
     if (G.run.weekly) { const R = G.run.weekly; for (const e of G.enemies) { if (R.hp) { e.maxHP = Math.round(e.maxHP * R.hp); e.hp = e.maxHP; } if (R.dmg) e.dmgMul *= R.dmg; if (R.spd) e.spdBonus = (e.spdBonus || 1) * R.spd; } bus.emit('toast', { text: 'Испытание недели: ' + R.name, sub: R.txt, kind: 'quest' }); }
   } else {
     if (how.useCache && G.dungeonCache) { pl.x = G.dungeonCache.x; pl.y = G.dungeonCache.y; G.dungeonCache = null; }
@@ -252,6 +258,8 @@ bus.on('summon', ({ x, y, n, lvl }) => {
 });
 bus.on('playerDeath', () => {
   if (G.zoneId === 'survival') { if (!SV.offerRevive()) SV.endRun(false); return; }   // сборка 47: один раз за забег — возрождение за рекламу или выход
+  { const P = G.profile, h = G.lastHit || {}; P.fallen = P.fallen || [];   // сборка 49: «Зал павших» — кто, где, на каком уровне
+    P.fallen.unshift({ who: (h.name || 'неизвестный').replace(/^Чемпион: /, ''), where: L.placeName(), lvl: P.level, t: Date.now() }); P.fallen.length = Math.min(P.fallen.length, 30); }
   G.profile.stats.deaths++; G.diedThisRun = true; if (G.run) G.run.deaths++; requestSave();
   bus.emit('deathAt', G.zoneId === 'depths' && G.run ? 'floor' + G.run.floor : G.zoneId === 'wild' && G.wild ? G.wild.realm + G.wild.depth : G.zoneId);
   setTimeout(() => bus.emit('showDeath'), 1300);
@@ -433,7 +441,7 @@ export function finishFloor() {
   const stars = 1 + (r.kills >= Math.ceil(r.total * 0.9) ? 1 : 0) + (time <= parTime(r.floor, r.total) && r.deaths === 0 ? 1 : 0);
   const prevStars = P.depths.stars[r.floor] || 0;
   const cmul = circleRew(r.circle || 0);
-  const gold = Math.round((25 + r.floor * 15) * (first ? 2 : 1) * (1 + (stars - 1) * 0.25) * cmul);
+  const gold = Math.round((25 + r.floor * 15) * (first ? 2 : 1) * (1 + (stars - 1) * 0.25) * cmul * rm('gold'));   // сборка 49: модификатор этажа множит и награду за этаж
   const xp = Math.round((20 + r.floor * 14) * (first ? 1.5 : 1) * cmul);
   P.gold += gold; P.stats.gold += 0; P.stats.floors = (P.stats.floors || 0) + 1; if (stars === 3) P.stats.stars3 = (P.stats.stars3 || 0) + 1;
   if (first) { P.depths.best = r.floor; P.potions.hp += 1; }
@@ -462,6 +470,7 @@ export function usePotion(k) {
   const P = G.profile, pl = G.player; if (pl.dead) return;
   if (P.potions[k] <= 0) { bus.emit('toast', { text: k === 'hp' ? 'Нет зелий здоровья' : 'Нет зелий маны', kind: 'warn' }); bus.emit('sfx', 'deny'); return; }
   if ((pl.cds['pot_' + k] || 0) > 0) return;
+  if (G.run && G.run.mod && G.run.mod.nopot) { if (!(G.time - (G.potDenyT || -9) < 3)) { G.potDenyT = G.time; bus.emit('toast', { text: 'Сухая глотка: зелья не действуют', kind: 'warn' }); } return; }
   P.potions[k]--; pl.cds['pot_' + k] = 1.2; pl.potT = 1;
   if (k === 'hp') pl.potHeal = G.stats.maxHP * 0.45 * (hasBoon('bloodpact') ? 0.5 : 1); else pl.potMana = G.stats.maxMP * 0.5;
   bus.emit('sfx', 'potion'); C.particles(pl.x, pl.y, 12, { c: k === 'hp' ? [255, 80, 80] : [90, 140, 255], z: 0.3, sp: 0.8, vz: 3, g: 0, size: 3 }); bus.emit('hud');

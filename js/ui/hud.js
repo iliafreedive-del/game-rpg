@@ -152,6 +152,7 @@ export function updateHUD(dt) {
   if (P.boosts.goldUntil > now) bf.push(`Золото +50% ${mmss(P.boosts.goldUntil - now)}`);
   if (pl.shield > 1) bf.push(`Щит ${Math.round(pl.shield)}`);
   if (G.run && G.run.boons) for (const id of G.run.boons) bf.push(`${BOONS[id].glyph} ${BOONS[id].name}`);
+  if (G.run && G.run.mod) bf.push(`<b class="modbuff">${G.run.mod.glyph} ${G.run.mod.name}</b>`);   // сборка 49: модификатор этажа виден без меню
   $('buffs').innerHTML = bf.map(b => `<span class="buff">${b}</span>`).join('');
   tracker(); huntBox(); minimap();
 }

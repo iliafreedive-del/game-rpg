@@ -98,6 +98,7 @@ export function mergeOnce(slot, rarity, quiet) {
   if (!g || g.can < 1) return null;
   const cost = mergeCost(rarity); if (P.gold < cost) { if (!quiet) { bus.emit('toast', { text: `Слияние стоит ${cost} зол.`, kind: 'warn' }); bus.emit('sfx', 'deny'); } return null; }
   const three = g.list.slice(0, 3), it = mergeItems(three, P.cls); if (!it) return null;
+  it.from = { who: 'Слияние у кузнеца Горана', t: Date.now() };   // сборка 49: история вещи
   P.gold -= cost; P.bag = P.bag.filter(x => !three.includes(x)); P.bag.push(it);
   P.stats.merges = (P.stats.merges || 0) + 1; bus.emit('merged', it);
   if (!quiet) { bus.emit('sfx', rarity >= 2 ? 'epicDrop' : 'rareDrop'); bus.emit('toast', { text: 'Слияние: ' + it.name, sub: 'Новая вещь в сумке', kind: 'item' }); }

@@ -35,6 +35,7 @@ import * as HU from '../game/hunts.js';
 import { huntReward } from '../data/hunts.js';
 import { MEMORIES, SEALS } from '../data/story.js';
 import { BOONS, BOON_IDS } from '../data/boons.js';
+import { FLOOR_MODS, FLOOR_MOD_IDS, modReward } from '../data/floormods.js';
 import { stats as calcStats } from '../game/stats.js';
 import { particles } from '../game/combat.js';
 import { maybeInterstitial } from '../platform/monetize.js';
@@ -159,14 +160,21 @@ function itemHTML(it, S) {
   const ep = epicOf(it); if (ep) h += `<div class="it-epic">★ ${esc(ep.desc)}</div>`;
   h += setHTML(it);
   if (it.req) { const ok = meetsReq(G.profile, it, S); h += `<div class="it-stat ${ok ? 'muted' : 'bad'}">Требуется: ${Object.entries(it.req).map(([k, v]) => `${CH.ATTR_NAMES[k]} ${v}`).join(', ')}</div>`; }
+  h += originHTML(it);
   h += `<div class="it-stat muted" style="font-size:12px">Цена продажи: ${sellValue(it)} зол.</div>`;
   return h;
+}
+// сборка 49: у вещи есть история — откуда она (ценность вещи: польза, вид и происхождение)
+export function originHTML(it) {
+  const f = it && it.from; if (!f) return '';
+  const d = f.t ? new Date(f.t).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }) : '';
+  return `<div class="it-stat origin${f.nem ? ' nem' : ''}">${f.nem ? '☠ Трофей немезиса: ' : 'Добыто: '}${esc(f.who || '')}${f.where ? ' · ' + esc(f.where) : ''}${d ? ' · ' + d : ''}</div>`;
 }
 function cmpTable(it, slot) {
   const rows = compare(G.profile, it, slot);
   return `<table class="cmpt"><tr><td class="muted">Показатель</td><td class="muted">Сейчас</td><td class="muted">С этим</td><td></td></tr>` + rows.map(r => {
     const cls = typeof r.delta === 'number' && r.delta !== 0 ? (r.delta > 0 ? 'good' : 'bad') : '';
-    const dv = typeof r.delta === 'number' && r.delta !== 0 ? (r.delta > 0 ? '+' : '') + (Math.round(r.delta * 100) / 100) + r.suf : '';
+    const dv = typeof r.delta === 'number' && r.delta !== 0 ? (r.inv ? (r.delta > 0 ? '−' : '+') + Math.abs(r.delta) : (r.delta > 0 ? '+' : '') + (Math.round(r.delta * 100) / 100) + r.suf) : '';
     return `<tr><td>${r.label}</td><td>${r.before}${r.suf}</td><td>${r.after}${r.suf}</td><td class="d ${cls}">${dv}</td></tr>`;
   }).join('') + '</table>';
 }
@@ -210,14 +218,14 @@ W.inventory = (arg = {}) => {
     const inBag = !slot, tslot = CH.slotFor(it), eq = inBag ? P.gear[tslot] : null;
     const ov = el('div', 'ic-ov'); const box = el('div', 'ic-box r' + it.rarity);
     const um = x => 1 + (x.upg || 0) * 0.1;
-    const lines = x => !x ? '<div class="muted">— пусто —</div>' : `${x.dmg ? `<div>Урон <b>${Math.round(x.dmg[0] * um(x))}–${Math.round(x.dmg[1] * um(x))}</b></div><div>Урон в сек. <b>${(Math.round((x.dmg[0] + x.dmg[1]) / 2 * um(x) * WEAPONS[x.wt].aps * 10) / 10)}</b></div>` : ''}${x.armor ? `<div>Защита <b>${Math.round(x.armor * um(x))}</b></div>` : ''}${x.block ? `<div>Блок <b>${Math.round(x.block * 100)}%</b></div>` : ''}${x.affixes.map(a => `<div class="it-aff">${esc(affixText(a))}</div>`).join('')}${epicOf(x) ? `<div class="it-epic">★ ${esc(epicOf(x).desc)}</div>` : ''}${setHTML(x)}`;
+    const lines = x => !x ? '<div class="muted">— пусто —</div>' : `${x.dmg ? `<div>Урон <b>${Math.round(x.dmg[0] * um(x))}–${Math.round(x.dmg[1] * um(x))}</b></div><div>Урон в сек. <b>${(Math.round((x.dmg[0] + x.dmg[1]) / 2 * um(x) * WEAPONS[x.wt].aps * 10) / 10)}</b></div>` : ''}${x.armor ? `<div>Защита <b>${Math.round(x.armor * um(x))}</b></div>` : ''}${x.block ? `<div>Блок <b>${Math.round(x.block * 100)}%</b></div>` : ''}${x.affixes.map(a => `<div class="it-aff">${esc(affixText(a))}</div>`).join('')}${epicOf(x) ? `<div class="it-epic">★ ${esc(epicOf(x).desc)}</div>` : ''}${setHTML(x)}${originHTML(x)}`;
     const head = (x, tag) => `<div class="cc-h">${tag ? `<small class="muted">${tag}</small>` : ''}<div class="cc-n" style="color:${RARITY[x.rarity].color}">${esc(x.name)}${x.upg ? ` <span class="good">+${x.upg}</span>` : ''}</div><small>${RARITY[x.rarity].name} · ур. ${x.ilvl}</small></div>`;
     const rows = inBag ? compare(P, it, tslot).filter(r => typeof r.delta === 'number' && r.delta !== 0).slice(0, 6) : [];
     const ok = inBag ? CH.canEquip(it) : { ok: true };
     box.innerHTML = `<div class="ic-top"><button class="ic-x" aria-label="Закрыть">✕</button></div><div class="cc ${eq ? 'two' : ''}">
       <div class="cc-col">${head(it, inBag ? 'Эта вещь' : '')}<div class="iv-slot big r${it.rarity}"><img src="${iconURL(iconOf(it))}"></div><div class="ic-stats">${lines(it)}</div></div>
       ${eq ? `<div class="cc-col dim">${head(eq, 'Надето сейчас')}<div class="ic-stats">${lines(eq)}</div></div>` : ''}</div>
-      ${rows.length ? `<div class="ic-cmp"><b>Если надеть:</b>${rows.map(r => `<span class="${r.delta > 0 ? 'good' : 'bad'}">${r.delta > 0 ? '▲' : '▼'} ${r.label} ${r.delta > 0 ? '+' : ''}${Math.round(r.delta * 100) / 100}${r.suf}</span>`).join('')}</div>` : ''}
+      ${rows.length ? `<div class="ic-cmp"><b>Если надеть:</b>${rows.map(r => `<span class="${r.delta > 0 ? 'good' : 'bad'}">${r.delta > 0 ? '▲' : '▼'} ${r.label} ${r.inv ? `${r.before} → ${r.after}` : `${r.delta > 0 ? '+' : ''}${Math.round(r.delta * 100) / 100}${r.suf}`}</span>`).join('')}</div>` : ''}
       ${!ok.ok ? `<div class="bad ic-why">${esc(ok.why)}</div>` : ''}`;
     const btns = el('div', 'ic-btns');
     if (inBag) { const eqb = el('button', 'btn gold', ok.ok ? 'Надеть' : 'Нельзя надеть'); eqb.disabled = !ok.ok; eqb.onclick = () => { CH.equip(it.id); ov.remove(); rerender(); }; btns.appendChild(eqb);
@@ -251,6 +259,10 @@ W.character = (arg = {}) => {
     const s = P.stats;
     b.appendChild(el('h3', '', 'Летопись'));
     b.appendChild(el('div', 'stats', [['Убито монстров', s.kills], ['Элитных', s.elites], ['Боссов', s.bossKills], ['Сундуков', s.chests], ['Пройдено', Math.round(s.meters) + ' м'], ['Собрано золота', fmt(s.gold)], ['Смертей', s.deaths], ['Время в игре', Math.round(s.playTime / 60) + ' мин']].map(([a, v]) => `<div><span>${a}</span><b>${v}</b></div>`).join('')));
+    if (P.fallen && P.fallen.length) {   // сборка 49: «Зал павших» — смерти не пропадают бесследно, злейший враг виден
+      const cnt = {}; for (const f of P.fallen) cnt[f.who] = (cnt[f.who] || 0) + 1; const [foe, fn] = Object.entries(cnt).sort((a, b) => b[1] - a[1])[0];
+      b.appendChild(el('details', 'more fallen', `<summary class="muted" style="cursor:pointer;margin:6px 0">☠ Зал павших (${P.fallen.length})</summary>${fn > 1 ? `<p class="bad">Злейший враг: <b>${esc(foe)}</b> — ${fn} раз${fn % 10 >= 2 && fn % 10 <= 4 && (fn < 12 || fn > 14) ? 'а' : ''}</p>` : ''}<div class="stats">${P.fallen.slice(0, 10).map(f => `<div><span>${esc(f.where || '—')} · ур. ${f.lvl}</span><b>${esc(f.who)}</b></div>`).join('')}</div>`));
+    }
   });
   m.live = true;
 };
@@ -752,7 +764,7 @@ function showDeath() {
   d.innerHTML = `<h2>Вы погибли</h2><p class="muted">${G.zoneId === 'wild' ? 'Ноша потеряна. Враг запомнил вас — вернитесь и отомстите.' : G.run ? `Этаж ${G.run.floor} не пройден. Собранное золото остаётся у вас.` : 'Нежить торжествует… но Орден даёт второй шанс.'}</p>`;
   { const h = G.lastHit, EL = { fire: 'огнём', cold: 'холодом', light: 'молнией', poison: 'ядом' }, P = G.profile;   // сборка 49: кто убил и что можно было сделать
     if (h && h.name) { const tip = P.potions.hp > 0 ? `Осталось зелий здоровья: ${P.potions.hp} — пейте раньше, на трети здоровья.` : h.big && !h.proj ? 'Его сильный удар подсвечен на земле — уходите из красной зоны или уклоняйтесь.' : h.proj ? 'Стрелков и магов лучше бить первыми — их снаряды можно обойти.' : 'Купите зелья у Миры и наденьте броню получше у кузнеца.';
-      d.innerHTML += `<p class="death-why">Вас убил: <b>${esc(h.name)}</b> — последний удар ${h.dmg}${EL[h.elem] ? ' ' + EL[h.elem] : ''}.<br><small>${tip}</small></p>`; } }
+      d.innerHTML += `<p class="death-why">Вас убил: <b>${esc(h.name)}</b>${(() => { const n = (P.fallen || []).filter(f => f.who === h.name.replace(/^Чемпион: /, '')).length; return n > 1 ? ` (уже ${n}-й раз)` : ''; })()} — последний удар ${h.dmg}${EL[h.elem] ? ' ' + EL[h.elem] : ''}.<br><small>${tip}</small></p>`; } }
   const row = el('div', 'row'); row.style.justifyContent = 'center';
   const left = Math.max(0, MAX_REVIVES - (G.revives || 0)), canRev = left > 0 && G.zoneId !== 'castle' && G.zoneId !== 'town';
   const ad = el('button', 'btn ad', `Воскреснуть на месте (осталось ${left})`);
@@ -833,6 +845,14 @@ W.depths = () => modal('Глубины катакомб', 'sm', b => {
     const c = el('div', 'weekly-card', `<b>⚔ Испытание недели: ${esc(R.name)}</b><div>${esc(R.txt)}</div><div class="muted">Этаж ${f} обычных Глубин${HU.huntFloor() ? ' — там же чудовище охоты' : ''} · ${WS.done ? `ваш рекорд ${Math.floor(WS.best / 60)}:${String(Math.floor(WS.best % 60)).padStart(2, '0')} · улучшайте время` : 'первая победа недели — вещь (синяя/золотая) и двойная награда'} · до смены ${days} дн.</div><div class="lb muted"></div>`);
     const go = el('button', 'btn gold', WS.done ? 'Ещё раз (на время)' : 'Принять вызов'); go.onclick = () => { closeModal(); loadZone('depths', { floor: f, weekly: true }); }; c.appendChild(go); b.appendChild(c);
     platform.p.getLeaderboard && platform.p.getLeaderboard('weeklyDepths').then(L => { const d = c.querySelector('.lb'); if (d && L && L.length) d.innerHTML = 'Лучшие недели: ' + L.slice(0, 5).map(e => `${e.rank}. ${esc(e.name)} ${Math.floor(e.score / 60000)}:${String(Math.floor(e.score / 1000) % 60).padStart(2, '0')}`).join(' · '); }); }
+  if ((P.depths.best || 0) >= 2) {   // сборка 49: модификатор этажа — риск по желанию игрока, награда растёт вместе с ним
+    const cur = FLOOR_MODS[P.depthsMod] ? P.depthsMod : '';
+    const c = el('div', 'weekly-card mod-card', `<b>☠ Модификатор этажа</b><div class="muted">${cur ? `${esc(FLOOR_MODS[cur].txt)} — ${modReward(FLOOR_MODS[cur])}` : 'Сложнее — богаче. Действует на все этажи, кроме испытания недели.'}</div>`);
+    const row = el('div', 'row mod-row');
+    const off = el('button', 'btn sm' + (cur ? '' : ' gold'), 'Без'); off.onclick = () => { P.depthsMod = ''; rerender(); }; row.appendChild(off);
+    for (const id of FLOOR_MOD_IDS) { const M = FLOOR_MODS[id], bt = el('button', 'btn sm' + (cur === id ? ' gold' : ''), `${M.glyph} ${esc(M.name)}`); bt.title = M.txt; bt.onclick = () => { P.depthsMod = id; rerender(); }; row.appendChild(bt); }
+    c.appendChild(row); b.appendChild(c);
+  }
   const next = P.depths.best + 1;
   const go = el('button', 'btn gold', `▶ Этаж ${next}${isBossFloor(next) ? ' · страж' : ''}${HU.huntFloor() === next ? ' · ⚠ охота' : ''} (ур. врагов ${floorLevel(next)})`);
   go.style.width = '100%'; go.disabled = P.level < floorLevel(next) - 1; if (go.disabled) go.textContent = `Этаж ${next}: нужен уровень ${floorLevel(next) - 1}`; go.onclick = () => enter(next);

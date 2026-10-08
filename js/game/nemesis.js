@@ -90,6 +90,8 @@ export function onNemesisKilled(e) {
   const bonus = 1 + 0.5 * n.rank; S.trophies.push({ id: n.id, name: displayName(n), realm: n.realm, rank: n.rank, bonus });
   if (n.stash) { for (let i = 0; i < 5; i++) L.dropGold(e.x, e.y, n.stash / 5 / (G.stats.goldFind ? 1 + G.stats.goldFind / 100 : 1)); }
   bus.emit('toast', { text: `Трофей: ${displayName(n)}`, sub: `Постоянно: +${bonus.toFixed(1)}% урона и золота${n.stash ? `. Вернули ${n.stash} зол.` : ''}`, kind: 'good' }); bus.emit('sfx', 'epicDrop');
+  { const P = G.profile, it = L.rollDrop((P.level || 1) + 1 + Math.min(3, n.rank), [0, 0, 80, 20]);   // сборка 49: вещь с именем немезиса — у неё есть история
+    it.name = `${it.name} «${n.name}»`; it.from = { who: displayName(n), where: (REALMS[n.realm] && REALMS[n.realm].name) || '', t: Date.now(), nem: true }; L.dropItem(e.x, e.y, it); }
   n.stash = 0; import('./stats.js').then(m => { G.stats = m.stats(G.profile); bus.emit('statsChanged'); });
 }
 export const trophyBonus = P => (P.nemesis ? P.nemesis.trophies.reduce((a, t) => a + t.bonus, 0) : 0);
