@@ -53,7 +53,7 @@ CFG = {
   'w_boss_m': {'rig': 'boss', 'h': 2.3, 'spin': 0.9, 'items': [('handR', 'axe')], 'aim': [0, -0.12, 1]},   # как у Палача: в покое вперёд, замах над головой, удар перед собой
   # сборка 57: Фьорды (папка «фьорд»)
   'f_hag_m': {'rig': 'skel', 'h': 2.0, 'lift': 0.28, 'spin': 0.78, 'items': [('handR', 'staff')]},
-  'f_berserk_m': {'rig': 'skel', 'h': 1.95, 'spin': 0.5, 'items': [('handR', 'axe')]},
+  'f_berserk_m': {'rig': 'skel', 'h': 1.95, 'spin': 0.5, 'items': [('handR', 'axe')], 'turn': True},
   'f_draugr_m': {'rig': 'skel', 'h': 1.95, 'spin': 0.5, 'items': [('handL', 'shield'), ('handR', 'axe')]},
   'f_jarl_m': {'rig': 'skel', 'h': 2.0, 'spin': 0.5, 'items': [('handR', 'axe')]},
   'f_boss_m': {'rig': 'boss', 'h': 2.3, 'spin': 0.9, 'items': [('handR', 'axe')], 'aim': [0, -0.12, 1]},   # как у Палача: в покое вперёд, замах над головой, удар перед собой

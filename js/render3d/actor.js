@@ -129,7 +129,7 @@ export class Actor {
       this.clip = name; this.time = 0; this.blend = 0; this.blendDur = name === 'hit' || name === 'attack' || name === 'cast' ? 0.06 : 0.14;
     } else this.time += dt;
     const spec = (this.model.clips || {})[name] || {};
-    const k = drive.k == null ? undefined : clamp01(warp(drive.k, drive.impact, spec.hit ?? spec.fire)); this.k = k;   // фаза разового клипа — для доворота оружия у шкур (_skin.js swing)
+    const k = drive.k == null ? undefined : clamp01(warp(drive.k, drive.impact, spec.hit ?? spec.fire));
     this.model.anims[name]({ t: this.t, dt, time: this.time, k, speed: drive.speed || 0, move: clamp01((drive.speed || 0) / 3.7), combo: drive.combo || 0, back: !!drive.back, env });
     if (this.blend < 1) {
       this.blend = Math.min(1, this.blend + dt / this.blendDur); const w = this.blend * this.blend * (3 - 2 * this.blend);
