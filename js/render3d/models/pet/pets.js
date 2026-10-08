@@ -1,4 +1,4 @@
-// Питомцы каравана (сборка 58, js/data/pets.js): десять маленьких процедурных моделей на своих простых ригах.
+// Питомцы каравана (сборка 58, js/data/pets.js): восемь маленьких процедурных моделей на своих простых ригах.
 // Вперёд — +Z. Летуны (ворон, огонёк, череп, мышь) висят в воздухе сами (тело поднято в модели, качается).
 // Клипы: idle / walk / attack (укус или выстрел, hit 0.5) / hit / death / cast. Рост — с крупную кошку: сверху камеры их видно.
 const CLIPS = { idle: { loop: true }, walk: { loop: true }, attack: { dur: 0.5, hit: 0.5 }, hit: { dur: 0.3 }, death: { dur: 1 }, cast: { dur: 0.5, fire: 0.5 } };
@@ -21,20 +21,6 @@ function legs(kit, b, parent, spots, len, color, top, drop) {
 }
 const stepLegs = (L, a, sp) => { for (const g of L) g.rotation.y = Math.sin(a.t * 14 + g.ph * Math.PI) * 0.45 * (sp ? 1 : 0); };
 
-// 1. Песчаный скарабей: бирюзовый с золотом панцирь, рог, шесть лапок
-function scarab(kit) {
-  const b = base(kit, { rimColor: 0xa0fff0 }), { THREE } = b, { part, ball } = kit;
-  const sh = b.M(b.body, [
-    ball(0.24, 0x0f5a5a, [0, 0.2, -0.02], [1, 0.7, 1.25], { top: 0x3ad0b8 }),
-    part(new THREE.BoxGeometry(0.015, 0.05, 0.56), 0xf0c040, [0, 0.36, -0.02], 0, 1, { top: 0xffe890 }),
-    ball(0.1, 0x0a3a3a, [0, 0.16, 0.22], [1.3, 0.8, 0.8], { top: 0x1a6a5a }),
-  ]);
-  const head = b.M(b.body, [ball(0.09, 0x0a3a3a, [0, 0, 0.06], [1.1, 0.8, 1], { top: 0x2a8a7a }), part(new THREE.ConeGeometry(0.035, 0.16, 5), 0xf0c040, [0, 0.07, 0.12], [-0.9, 0, 0], 1, { top: 0xfff0a0 }),
-    ...[-1, 1].map(s => ball(0.02, 0xff5030, [s * 0.05, 0.03, 0.12], 1, { emit: true }))], [0, 0.17, 0.3]);
-  const L = legs(kit, b, b.body, [[-0.15, 0.12, 0.15], [0.15, 0.12, 0.15], [-0.17, 0.12, 0], [0.17, 0.12, 0], [-0.15, 0.12, -0.15], [0.15, 0.12, -0.15]], 0.2, 0x0a2a2a, 0x2a6a5a);
-  b.root.scale.setScalar(2.0);
-  return done(b, { sh, head, ...L }, (a, sp, k, dead) => { stepLegs(L, a, sp); sh.position.y = Math.abs(Math.sin(a.t * 14)) * 0.012 * (sp ? 1 : 0) + Math.sin(a.t * 2) * 0.004; head.rotation.x = -0.5 * k; head.position.z = 0.3 + 0.08 * k; b.body.rotation.z = dead ? Math.PI * 0.9 : 0; b.body.position.y = dead ? 0.3 : 0; }, { height: 0.5 });
-}
 // 2. Огненный фенек: рыжий лисёнок с огромными ушами, хвост горит
 function fennec(kit) {
   const b = base(kit, { rimColor: 0xffc080 }), { THREE } = b, { part, ball } = kit;
@@ -87,19 +73,6 @@ function wisp(kit) {
   return done(b, { core, orb }, (a, sp, k, dead) => {
     core.position.y = dead ? 0.2 : 1.0 + Math.sin(a.t * 2.2) * 0.07; const s = 1 + Math.sin(a.t * 5) * 0.06 + 0.25 * k; core.scale.setScalar(dead ? 0.4 : s); orb.rotation.y = a.t * 3; orb.rotation.x = Math.sin(a.t) * 0.4;
   }, { height: 1.4, shadow: 0.4 });
-}
-// 6. Пустынная кобра: кольца на земле, поднятая шея с капюшоном
-function cobra(kit) {
-  const b = base(kit, { rimColor: 0xf0e0a0 }), { THREE } = b, { part, ball } = kit, C0 = 0x4a4a14, C1 = 0xc8a83a;
-  const ring = []; for (let i = 0; i <= 14; i++) { const t = i / 14 * Math.PI * 2.4, r = 0.2 - i * 0.008; ring.push([Math.cos(t) * r, 0.05 + i * 0.006, Math.sin(t) * r - 0.05]); }
-  const coil = b.M(b.body, [kit.tube(ring, 0.045, 0.06, C0, { top: C1 }, 7), part(new THREE.ConeGeometry(0.04, 0.16, 5), C0, [0.2, 0.04, -0.05], [0, 0, -Math.PI / 2], 1, { top: C1 })]);
-  const neck = b.M(b.body, [kit.tube([[0, 0, 0], [0, 0.16, 0.02], [0, 0.3, 0.06]], 0.06, 0.05, C0, { top: C1 }, 7), ball(0.13, C0, [0, 0.26, 0.04], [1.25, 1.1, 0.3], { top: C1 }), ball(0.08, 0x2a2210, [0, 0.27, 0.06], [1, 1, 0.2])], [0, 0.08, 0.1]);
-  const head = b.M(neck, [ball(0.065, C0, [0, 0, 0.03], [1, 0.75, 1.35], { top: C1 }), ...[-1, 1].map(s => ball(0.014, 0xff3020, [s * 0.04, 0.02, 0.08], 1, { emit: true })), part(new THREE.BoxGeometry(0.008, 0.008, 0.06), 0xd02020, [0, -0.02, 0.13])], [0, 0.34, 0.08]);
-  b.root.scale.setScalar(2.0);
-  return done(b, { coil, neck, head }, (a, sp, k, dead) => {
-    neck.rotation.z = Math.sin(a.t * 1.8) * 0.15; neck.rotation.x = 0.6 * k - (dead ? -1.4 : 0); head.rotation.x = 0.4 * k; head.rotation.y = Math.sin(a.t * 1.1) * 0.2;
-    coil.rotation.y = sp ? Math.sin(a.t * 8) * 0.12 : 0;
-  }, { height: 0.6 });
 }
 // 7. Костяной череп: парит, зелёное пламя в глазницах, нижняя челюсть щёлкает
 function skull(kit) {
@@ -158,4 +131,4 @@ function golem(kit) {
 
 const FLY = { crow: 1, wisp: 1, skull: 1, bat: 1 };
 const def = (id, fn) => ({ id: 'pet_' + id, kind: 'npc', outline: 'mob', fly: !!FLY[id], build: fn });
-export const PET_MODELS = { scarab: def('scarab', scarab), fennec: def('fennec', fennec), crow: def('crow', crow), scorpid: def('scorpid', scorpid), wisp: def('wisp', wisp), cobra: def('cobra', cobra), skull: def('skull', skull), basilisk: def('basilisk', basilisk), bat: def('bat', bat), golem: def('golem', golem) };
+export const PET_MODELS = { fennec: def('fennec', fennec), crow: def('crow', crow), scorpid: def('scorpid', scorpid), wisp: def('wisp', wisp), skull: def('skull', skull), basilisk: def('basilisk', basilisk), bat: def('bat', bat), golem: def('golem', golem) };

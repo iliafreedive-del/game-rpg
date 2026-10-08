@@ -1,6 +1,6 @@
 // Питомцы (сборка 58): один зверёк ходит за героем по деревне, подземельям, Цитадели и походам и сам дерётся.
 // Состояние — G.pet (только логика; вид рисует renderer3d.js syncPet). Сохранение — P.pets: { own: { id: уровень }, active, met }.
-// Урон слабый (доля среднего удара героя), у каждого свой эффект: замедление, поджог, яд, лечение героя, щит и т. д.
+// Урон слабый (доля среднего удара героя), у каждого свой эффект: поджог, яд, лечение героя, щит и т. д.
 import { G, bus } from './ctx.js';
 import { PETS, PET_MAX, petPrice, petUpCost, petReqLevel, GIFT_PET } from '../data/pets.js';
 import * as C from './combat.js';
@@ -9,7 +9,12 @@ import { addShards } from './castle.js';
 import { rand, rint } from '../core/util.js';
 import { dirVec } from '../core/iso.js';
 
-export const petsOf = P => P.pets || (P.pets = { own: {}, active: null, met: false });
+export function petsOf(P) {
+  const S = P.pets || (P.pets = { own: {}, active: null, met: false });
+  for (const id in S.own) if (!PETS[id]) delete S.own[id];   // скарабей и кобра убраны (сборка 58)
+  if (S.active && !PETS[S.active]) S.active = null;
+  return S;
+}
 const LV = l => 1 + 0.15 * (l - 1);
 
 // ---------------------------------------------------------------- лавка Кофи
@@ -38,7 +43,7 @@ export function choosePet(id) {
   const S = petsOf(G.profile); if (id && !S.own[id]) return;
   S.active = S.active === id ? null : id; spawnPet(true); bus.emit('sfx', 'click'); bus.emit('save');
 }
-// первая встреча: Кофи дарит скарабея
+// первая встреча: Кофи дарит фенека
 export function meetCaravan() {
   const S = petsOf(G.profile); if (S.met) return false;
   S.met = true; if (!S.own[GIFT_PET]) { S.own[GIFT_PET] = 1; if (!S.active) S.active = GIFT_PET; spawnPet(true); }
@@ -111,10 +116,8 @@ function strike(p, e) {
   if (e.dead) return;
   const s = e.st;
   switch (D.fx) {
-    case 'slow': s.slow = Math.max(s.slow, 0.3 + 0.03 * (lv - 1)); s.slowT = Math.max(s.slowT, 1.6); break;
     case 'burn': s.burn = 3; s.burnDps = Math.max(s.burnDps || 0, dmg * 0.35); break;
     case 'poison': s.poison = Math.min(5, (s.poison || 0) + 1); s.poisonT = 4; s.poisonDps = Math.max(s.poisonDps || 0, dmg * 0.15); break;
-    case 'expose': if (!(s.expose > 0)) C.float(e.x, e.y, 'Ослаблен', '#c8f07a'); s.expose = 4; s.exposeAmp = 0.12 + 0.02 * (lv - 1); break;
     case 'stun': if (rand() < 0.15 + 0.02 * (lv - 1)) { s.stun = Math.max(s.stun, e.D.boss ? 0.25 : e.D.elite ? 0.4 : 0.6); C.float(e.x, e.y, 'Оглушён', '#f0e08a'); } break;
     case 'leech': { const S = G.stats, h = Math.round(done * 0.6); if (h > 0 && pl().hp < S.maxHP) { pl().hp = Math.min(S.maxHP, pl().hp + h); C.float(pl().x, pl().y, '+' + h, '#7ef07a', { z: 2.3 }); } break; }
   }
