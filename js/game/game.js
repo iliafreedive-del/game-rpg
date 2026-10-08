@@ -37,6 +37,7 @@ import * as SV from './survival.js';
 import * as DQ from './daily.js';
 import { resize as rResize, prepareRender } from '../render/index.js';
 import * as HU from './hunts.js';
+import { updatePet } from './pets.js';
 import { SKILLS } from '../data/skills.js';
 import { rand, rrange, rint } from '../core/util.js';
 import { pollMove, input, mouse, tapAim } from '../core/input.js';
@@ -129,7 +130,7 @@ export async function loadZone(id, how = {}) {
     const altar = how.from === 'catacombs' && zone.json.objects.find(o => o.t === 'shrine' || o.t === 'well');   // из первых катакомб — на площадь к источнику силы (сборка 47; раньше к колодцу), не к порталу
     if (altar) [pl.x, pl.y] = altar.t === 'shrine' ? [altar.x + 0.6, altar.y + 2.6] : [altar.x + 0.6, altar.y + 1.8];
     for (const n of zone.json.npcs) G.npcs.push(new NPC({ ...n }));
-    await loadGroup(zone.json.npcs.filter(n => !G.render3d || n.id !== 'fortune').map(n => 'npc_' + (n.id === 'fortune' ? 'merchant' : n.id))).catch(() => { });
+    await loadGroup(zone.json.npcs.filter(n => n.id !== 'caravan' && (!G.render3d || n.id !== 'fortune')).map(n => 'npc_' + (n.id === 'fortune' ? 'merchant' : n.id))).catch(() => { });
     HU.spawnFor(zone);   // hunt beast at the forest edge / graveyard
   } else if (id === 'survival') {
     [pl.x, pl.y] = zone.start; pl.face = pl.dir = 1;
@@ -528,6 +529,7 @@ export function update(dt) {
   if (G.zoneId === 'survival') SV.updateSurvival(dt);
   for (let i = G.enemies.length - 1; i >= 0; i--) if (G.enemies[i].remove) G.enemies.splice(i, 1);
   for (const n of G.npcs) n.update(dt, pl);
+  updatePet(dt);
   C.updateProjectiles(dt); C.updateTimers(dt); L.updatePickups(dt);
   // age VFX (bounded, removed when finished → no leaks)
   for (const e of G.effects) e.t += dt; G.effects = G.effects.filter(e => e.t < e.dur);
@@ -582,6 +584,7 @@ function updateMarkers() {
   const hp = G.zone.inter.find(i => i.id === 'herospath'); if (hp) { const noSkill = !!gate('hw', 1); hp.locked = noSkill; hp.lockNote = noSkill && G.profile.level >= 2 ? 'выберите навык' : ''; }
   const wh = G.zone.inter.find(i => i.id === 'wheel'); if (wh) wh.marker = wheelReady() ? '!' : null;
   const fn = G.npcs.find(n => n.id === 'fortune'); if (fn) fn.marker = wheelReady() ? '!' : null;
+  const kv = G.npcs.find(n => n.id === 'caravan'); if (kv && !kv.marker) kv.marker = (G.profile.pets && G.profile.pets.met) || elderFirst() ? null : '!';   // сборка 58: Кофи ждёт с подарком
   const bd = G.zone.inter.find(i => i.id === 'board'); if (bd) bd.marker = (REPEATABLE.some(r => Q.repState(r).done) || DQ.dailyReady() || DQ.weeklyQuests().some(q => q.done && !q.claimed)) ? '?' : null;
   const P = G.profile; const tr = G.npcs.find(n => n.id === 'trainer'); if (tr && !tr.marker && (P.attrPts || P.skillPts)) tr.marker = '+';
 }

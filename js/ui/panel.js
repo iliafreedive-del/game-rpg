@@ -18,6 +18,8 @@ import { startTrial } from '../game/game.js';
 import { adButton } from './adbtn.js';
 import { stats } from '../game/stats.js';
 import { earlyLock } from '../game/progress.js';
+import { PETS, TIERS, PET_MAX, GIFT_PET } from '../data/pets.js';
+import * as PT from '../game/pets.js';
 
 let target = null, box = null, lastSig = '', dismissed = null;
 export function initPanel() {
@@ -40,7 +42,7 @@ function render(force) {
   if (!box) return;
   const showing = !(!target || target === dismissed || G.modalOpen || G.player.dead); $('ui').classList.toggle('panel-open', showing);
   if (!showing) { box.classList.add('hidden'); return; }
-  const P = G.profile; const sig = [target.id, P.gold, P.shards, P.level, P.attrPts, P.skillPts, JSON.stringify(P.upg), JSON.stringify(P.castle), P.potions.hp, Math.floor(Date.now() / 1000)].join('|');
+  const P = G.profile; const sig = [target.id, P.gold, P.shards, P.level, P.attrPts, P.skillPts, JSON.stringify(P.upg), JSON.stringify(P.castle), JSON.stringify(P.pets), P.potions.hp, Math.floor(Date.now() / 1000)].join('|');
   if (!force && sig === lastSig) return; lastSig = sig;
   const st = box.scrollTop; box.innerHTML = ''; box.classList.remove('hidden');
   const head = (t, s) => { const h = el('div', 'pn-head', `<b>${t}</b>${s ? `<small>${s}</small>` : ''}`); const x = el('button', 'pn-x', '✕'); x.onpointerdown = e => { e.stopPropagation(); dismissed = target; render(true); }; h.appendChild(x); box.appendChild(h); };
@@ -77,6 +79,27 @@ function render(force) {
       const pr = EC.potionPrice(k); box.appendChild(row(`<img src="${iconURL(ic)}">`, n, `есть: ${k === 'scroll' ? P.scrolls : P.potions[k]}`, fmt(pr), P.gold >= pr, () => EC.buyConsumable(k)));
     }
     const b = el('button', 'btn sm', 'Товары дня для класса'); b.onclick = () => W.npc_merchant(); box.appendChild(b);
+  } else if (T.id === 'caravan') {
+    // сборка 58: Караванщик Кофи — питомцы за осколки Бездны (js/data/pets.js, js/game/pets.js)
+    const S = PT.petsOf(P);
+    head('Караванщик Кофи', 'Зверьки из Пустошей. С вами ходит один: бьёт слабо, зато у каждого свой дар.'); bal();
+    if (!S.met) {
+      box.appendChild(el('div', 'pn-tip', `🎁 Подарок от Кофи: <b>${PETS[GIFT_PET].name}</b>. ${PETS[GIFT_PET].desc}`));
+      const g = el('button', 'btn gold', 'Принять подарок'); g.onpointerdown = e => { e.stopPropagation(); PT.meetCaravan(); bus.emit('sfx', 'rareDrop'); render(true); }; box.appendChild(g);
+    }
+    const btn = (r, text, ok, fn, cls = '') => { const b = el('button', 'pn-btn' + (ok ? ' ok' : '') + cls, text); b.disabled = !ok; b.onpointerdown = e => { e.stopPropagation(); fn(); render(true); }; r.appendChild(b); };
+    for (const [id, D] of Object.entries(PETS)) {
+      const lvl = S.own[id] || 0, c = PT.petCan(id), T0 = TIERS[D.tier], on = S.active === id;
+      const sub = `<span style="color:${T0.color}">${T0.name}</span> · ${D.desc}`;
+      const r = row(D.icon, `${esc(D.name)}${lvl ? ` <span class="lv">ур. ${lvl}</span>` : ''}`, sub, null, false, null, on ? 'hot' : '');
+      if (!lvl) btn(r, c.why ? '🔒 ' + c.why : `${c.cost}◆`, c.ok, () => PT.buyPet(id));
+      else {
+        btn(r, on ? '✔ С вами' : 'Взять', !on, () => PT.choosePet(id));
+        if (lvl < PET_MAX) btn(r, `▲ ${c.cost}◆`, c.ok, () => PT.upgradePet(id), ' up');
+      }
+      box.appendChild(r);
+    }
+    box.appendChild(el('p', 'muted', '<small>Осколки Бездны ◆ дают стражи, боссы, чемпионы, сундуки, Жатва и недельные задания. Улучшение: +15% силы питомца за уровень.</small>'));
   } else if (T.id === 'board') {
     head('Доска заданий', 'Ежедневные · недельные · долгие контракты');
     box.appendChild(el('div', 'pn-sub', 'Ежедневные'));

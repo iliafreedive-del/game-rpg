@@ -296,6 +296,7 @@ button,.slot,.node,.tab{touch-action:manipulation}
 .pn-tx .lv{color:var(--dim);font:11px sans-serif}
 .pn-btn{flex:none;min-width:64px;height:38px;border-radius:7px;border:1px solid #3a3030;background:#2a2222;color:#8a7a6a;font:700 12px sans-serif;padding:0 8px}
 .pn-btn.ok{background:linear-gradient(#78c050,#3f7a24);color:#fff;border-color:#1b3312;box-shadow:0 0 8px #78c05066}
+.pn-btn.up{min-width:52px;margin-left:-4px}.pn-btn.ok.up{background:linear-gradient(#9a6ad8,#5a2a9a);border-color:#2a1048;box-shadow:0 0 8px #9a6ad866}
 .pn-row2{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0}
 .pn-big{font:600 15px var(--serif);margin:6px 0}
 .pn-req{font-size:13px;margin:6px 0}
