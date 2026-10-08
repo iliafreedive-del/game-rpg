@@ -770,3 +770,4 @@ body.cine-on #ui{opacity:0;transition:opacity .4s}
 .boon.cursed{border-color:#8a2a3a}
 .boon .minus{display:block;margin-top:4px;color:#ff7a7a;font-style:normal}
 .btn.blood{margin-top:8px;border-color:#8a2a3a;color:#ffb0b0}.btn.blood.on{background:#3a1018}
+.death-why{color:#ffcf9a;margin:6px 0 10px}.death-why small{color:#d8ccb4}

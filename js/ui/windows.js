@@ -718,6 +718,9 @@ export function showStreakHelp(where) {
 function showDeath() {
   const d = $('death'); d.classList.remove('hidden'); G.paused = true;
   d.innerHTML = `<h2>Вы погибли</h2><p class="muted">${G.zoneId === 'wild' ? 'Ноша потеряна. Враг запомнил вас — вернитесь и отомстите.' : G.run ? `Этаж ${G.run.floor} не пройден. Собранное золото остаётся у вас.` : 'Нежить торжествует… но Орден даёт второй шанс.'}</p>`;
+  { const h = G.lastHit, EL = { fire: 'огнём', cold: 'холодом', light: 'молнией', poison: 'ядом' }, P = G.profile;   // сборка 49: кто убил и что можно было сделать
+    if (h && h.name) { const tip = P.potions.hp > 0 ? `Осталось зелий здоровья: ${P.potions.hp} — пейте раньше, на трети здоровья.` : h.big && !h.proj ? 'Его сильный удар подсвечен на земле — уходите из красной зоны или уклоняйтесь.' : h.proj ? 'Стрелков и магов лучше бить первыми — их снаряды можно обойти.' : 'Купите зелья у Миры и наденьте броню получше у кузнеца.';
+      d.innerHTML += `<p class="death-why">Вас убил: <b>${esc(h.name)}</b> — последний удар ${h.dmg}${EL[h.elem] ? ' ' + EL[h.elem] : ''}.<br><small>${tip}</small></p>`; } }
   const row = el('div', 'row'); row.style.justifyContent = 'center';
   const left = Math.max(0, MAX_REVIVES - (G.revives || 0)), canRev = left > 0 && G.zoneId !== 'castle' && G.zoneId !== 'town';
   const ad = el('button', 'btn ad', `Воскреснуть на месте (осталось ${left})`);

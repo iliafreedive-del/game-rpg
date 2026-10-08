@@ -493,6 +493,7 @@ export function hurtPlayer(src, raw, elem) {
   if (src && src.vamp && !src.dead) src.hp = Math.min(src.maxHP, src.hp + dmg * src.vamp);   // «Кровопийца»
   bus.emit('sfx', 'hurt');
   if (dmg > S.maxHP * 0.12 && !P.busy()) { P.state = 'hit'; P.stateT = 0; P.setAnim('hit', 3 / 0.3); }
+  { const en = src && src.D ? src : src && src.src && src.src.D ? src.src : null; G.lastHit = { name: en ? en.name : '', dmg, elem: elem || 'phys', big: !!(en && (en.D.boss || en.D.elite || en.champion)), proj: !!(src && !src.D) }; }   // сборка 49: «смерть объяснима» — экран гибели называет убийцу
   if (P.hp <= 0) { P.hp = 0; P.dead = true; P.state = 'dead'; P.setAnim('death', 9); bus.emit('playerDeath'); }
 }
 export function blink(e, P) {
