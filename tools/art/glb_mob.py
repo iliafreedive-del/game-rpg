@@ -40,7 +40,7 @@ CFG = {
   'elite_guard_m': {'rig': 'skel', 'h': 2.0, 'spin': 0.5, 'items': [('handR', 'sword')]},
   'elite_warlord_m': {'rig': 'skel', 'h': 2.0, 'spin': 0.5, 'items': [('handR', 'axe')]},
   'ghoul_m': {'rig': 'ghoul', 'h': 1.7, 'spin': 0.5, 'items': []},
-  'boss_m': {'rig': 'boss', 'h': 2.3, 'spin': 0.9, 'items': [('handR', 'axe')]},
+  'boss_m': {'rig': 'boss', 'h': 2.3, 'spin': 0.9, 'items': [('handR', 'axe')], 'turn': True},   # turn — предмет повёрнут на 180° вокруг древка (просьба пользователя, сборка 57)
 }
 # хват по длине (доля от нижнего конца) для древковых: у процедурных axe_great — 20 %, staff_bone — 29 %
 GRIP = {'axe': 0.22, 'staff': 0.36}
@@ -244,6 +244,7 @@ def main(src, name, debug=None):
                 head = Q[Q[:, 1] > lo_[1] + 0.6 * L]; sgn = np.sign(head[:, 0].mean() - gx) or 1.0
                 ez = np.array([sgn, 0, 0]); ex = np.cross(ey, ez)
             else: ex, ez = np.array([1.0, 0, 0]), np.array([0, 0, 1.0])
+        if C.get('turn') and kind != 'shield': ex, ez = -ex, -ez
         # локальная система предмета (строки) → система сокета в покое (столбцы X, Y, Z)
         Bm = np.stack([ex, ey, ez]); S = np.array(SOCK[bone], float).T; S /= np.linalg.norm(S, axis=0)
         u = UPRIGHT.get(kind, 0.0)
