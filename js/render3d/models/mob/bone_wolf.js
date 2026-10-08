@@ -82,6 +82,8 @@ function boneWolf(kit, m) {
 }
 
 export default { id: 'bone_wolf', kind: 'mob', outline: 'mob', build(kit) {
+  // сборка 57: модель с Диска (The Bonewraith Hound) на скелете серого волка — assets/models/bone_wolf.glb, tools/art/rig_transfer.mjs
+  if (kit.mob && kit.skin.SKINS.on && kit.mob.mobLoaded('bone_wolf')) { const m = kit.mob.buildMob(kit, 'bone_wolf', { height: 1.15, radius: 0.34, shadow: 1.5, rimColor: kit.MOB.rimColor.skel }); if (m) return m; }
   if (kit.mob && kit.mob.mobLoaded('wolf_grey')) { const m = kit.mob.buildMob(kit, 'wolf_grey', { height: 1.15, radius: 0.34, shadow: 1.5 }); if (m && m.bones.Hips) return boneWolf(kit, m); }
   return beastModel(kit, { anat: 'wolf', id: 'bone_wolf', strip: 'short', tw: 0.9, furLen: 0.05, furDens: 0.3, seed: 9, fur: kit.MOB.boneD, furL: kit.MOB.bone, skin: kit.MOB.boneD, eye: 0xb48cff, lean: 0.62, hump: 0.45, snout: 1.35, snoutW: 0.62, plates: false, horns: false, ears: 'point', bushy: false, scale: 0.78 });
 } };
