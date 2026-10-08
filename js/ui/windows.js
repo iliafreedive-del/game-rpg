@@ -450,6 +450,12 @@ W.settings = () => modal('Настройки', 'sm', b => {
   const P = G.profile, s = P.settings;
   const range = (lab, key) => { const r = el('div', 'attr', `<b>${lab}</b>`); const i = document.createElement('input'); i.type = 'range'; i.min = 0; i.max = 1; i.step = 0.05; i.value = s[key]; i.oninput = () => { s[key] = +i.value; setVolumes(s.sfx, s.music); }; i.onchange = () => bus.emit('save'); r.appendChild(i); b.appendChild(r); };
   range('Звуки', 'sfx'); range('Музыка', 'music');
+  if (platform.name === 'vk') {   // сборка 52: VK — позвать друзей и добавить игру в избранное
+    const v = el('div', 'attr', '<b>ВКонтакте</b>');
+    const inv = el('button', 'btn sm', 'Пригласить друзей'); inv.onclick = () => platform.p.invite();
+    const fav = el('button', 'btn sm', 'В избранное'); fav.onclick = async () => { if (await platform.p.favorite()) bus.emit('toast', { text: 'Игра добавлена в избранное', kind: 'good' }); };
+    v.append(inv, fav); b.appendChild(v);
+  }
   const q = el('div', 'attr', '<b>Качество графики</b>'); for (const [k, n] of [['low', 'Низкое'], ['auto', 'Авто'], ['med', 'Среднее'], ['high', 'Высокое']]) { const bt = el('button', 'btn sm' + (s.quality === k ? ' gold' : ''), n); bt.onclick = () => { s.quality = k; resize(); bus.emit('save'); rerender(); }; q.appendChild(bt); } b.appendChild(q);
   { const ft = el('button', 'btn sm', '⏱ Тест скорости (FPS)'); ft.onclick = () => { closeModal(); runFpsTest(html => modal('Тест скорости', 'sm', bb => { bb.appendChild(el('div', '', html)); })); }; b.appendChild(ft); }   // сборка 47
   { let cur = '3d'; try { cur = localStorage.getItem('da_render') || '3d'; } catch { } if (new URLSearchParams(location.search).get('render')) cur = new URLSearchParams(location.search).get('render');

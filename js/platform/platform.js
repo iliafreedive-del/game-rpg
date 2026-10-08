@@ -2,6 +2,7 @@
 // Yandex SDK is loaded lazily and only when running on a Yandex domain (or ?yandex=1), so other hosts stay clean.
 
 import { bus } from '../game/ctx.js';
+import { VKProvider, onVK } from './vk.js';
 
 class DemoProvider {
   constructor() { this.name = 'demo'; }
@@ -100,7 +101,7 @@ export const platform = { p: null, name: 'demo' };
 let gpOn = false;
 export function gameplay(on) { if (!platform.p || on === gpOn) return; gpOn = on; if (on) platform.p.gameplayStart(); else platform.p.gameplayStop(); }
 export async function initPlatform() {
-  let prov = onYandex() ? new YandexProvider() : new DemoProvider();
+  let prov = onYandex() ? new YandexProvider() : onVK() ? new VKProvider() : new DemoProvider();   // сборка 52: VK Игры
   try { await prov.init(); } catch (e) { console.warn('platform init failed, fallback to demo', e); prov = new DemoProvider(); await prov.init(); }
   platform.p = prov; platform.name = prov.name; return prov;
 }
