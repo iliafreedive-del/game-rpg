@@ -163,6 +163,8 @@ def main(src, name, debug=None):
         BONES += [('arm' + sd, par_arm, J['arm' + sd]), ('el' + sd, 'arm' + sd, J['el' + sd])] + ([('hand' + sd, 'el' + sd, J['hand' + sd])] if hands else [])
     for sd in 'LR':
         BONES += [('leg' + sd, par_leg, J['leg' + sd]), ('knee' + sd, 'leg' + sd, J['knee' + sd]), ('foot' + sd, 'knee' + sd, J['foot' + sd])]
+    # оружие — своя кость wpnR/wpnL в кулаке (дочерняя к кисти): игра может довернуть предмет в руке, не трогая саму кисть
+    BONES += [('wpn' + bone[-1], bone, [0, 0, 0]) for bone, kind in C['items'] if kind != 'shield']
     bn = [b[0] for b in BONES]; BI = {b: i for i, b in enumerate(bn)}
     # ---- отрезки для весов: кость → (начало, конец, толщина)
     th = C.get('thick', {})
@@ -215,7 +217,7 @@ def main(src, name, debug=None):
         Pb += w * ((P - J0[b]) @ Rb[b].T + Jp[b]); Nb += w * (N @ Rb[b].T)
     P1[body] = Pb[body]; N1[body] = Nb[body]
     # ---- оружие: жёстко в кулак, поворот — как у процедурного оружия в сокете
-    SOCK = {'skel': SKEL_SOCK, 'boss': BOSS_SOCK}.get(rig, {})
+    SOCK = {'skel': SKEL_SOCK, 'boss': BOSS_SOCK}.get(rig, {}); items_meta = []
     for (bone, kind), m in zip(C['items'], items):
         Q = P[m]; lo_, hi_ = Q.min(0), Q.max(0); c = (lo_ + hi_) / 2; L = hi_[1] - lo_[1]
         ey = np.array([0, 1.0, 0])   # в Т-позе Meshy оружие стоит вертикально, навершие/клинок вверху
@@ -253,7 +255,10 @@ def main(src, name, debug=None):
         Rw = S @ Bm
         sd = bone[-1]; fist = Jp['hand' + sd] + (Jp['tip' + sd] - Jp['hand' + sd]) * 0.5
         P1[m] = (P[m] - grip) @ Rw.T + fist; N1[m] = N[m] @ Rw.T
-        W[m] = 0; W[m, BI[bone]] = 1
+        wb = 'wpn' + sd if 'wpn' + sd in BI else bone
+        W[m] = 0; W[m, BI[wb]] = 1
+        if wb != bone: Jp[wb] = fist.copy(); items_meta.append({'bone': wb, 'kind': kind, 'len': round(float(L), 4), 'grip': round(float((grip[1] - lo_[1]) / L), 3),
+                                                            'axes': [[round(float(v), 4) for v in S[:, i]] for i in range(3)]})   # оси X, Y (вдоль древка), Z предмета в покое
         print('%s → %s: длина %.2f, хват %.0f%% снизу' % (kind, bone, L, 100 * (grip[1] - lo_[1]) / L))
     # подъём (парящий колдун) и выход
     lift = C.get('lift', 0.0); P1[:, 1] += lift
@@ -267,7 +272,7 @@ def main(src, name, debug=None):
            'uv': np.round(np.clip(UV, 0, 1) * 65535).astype('<u2').tobytes(), 'si': SIo.tobytes(), 'sw': SWo.astype(np.uint8).tobytes(),
            'idx': T.astype('<u2').ravel().tobytes()}
     assert len(P1) < 65536
-    meta = {'vertices': len(P1), 'triangles': len(T), 'bones': meta_b, 'height': H, 'layout': {}}
+    meta = {'vertices': len(P1), 'triangles': len(T), 'bones': meta_b, 'height': H, 'items': items_meta, 'layout': {}}
     buf = b''
     for k in ['pos', 'nrm', 'uv', 'si', 'sw', 'idx']:
         while len(buf) % 4: buf += b'\0'
