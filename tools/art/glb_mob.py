@@ -40,7 +40,7 @@ CFG = {
   'elite_guard_m': {'rig': 'skel', 'h': 2.0, 'spin': 0.5, 'items': [('handR', 'sword')]},
   'elite_warlord_m': {'rig': 'skel', 'h': 2.0, 'spin': 0.5, 'items': [('handR', 'axe')]},
   'ghoul_m': {'rig': 'ghoul', 'h': 1.7, 'spin': 0.5, 'items': []},
-  'boss_m': {'rig': 'boss', 'h': 2.3, 'spin': 0.9, 'items': [('handR', 'axe')], 'turn': True},   # turn — предмет повёрнут на 180° вокруг древка (просьба пользователя, сборка 57)
+  'boss_m': {'rig': 'boss', 'h': 2.3, 'spin': 0.9, 'items': [('handR', 'axe')], 'turn': True, 'aim': [0, -0.12, 1]},   # turn — предмет повёрнут на 180° вокруг древка (просьба пользователя, сборка 57)
 }
 # хват по длине (доля от нижнего конца) для древковых: у процедурных axe_great — 20 %, staff_bone — 29 %
 GRIP = {'axe': 0.22, 'staff': 0.36}
@@ -248,6 +248,11 @@ def main(src, name, debug=None):
         # локальная система предмета (строки) → система сокета в покое (столбцы X, Y, Z)
         Bm = np.stack([ex, ey, ez]); S = np.array(SOCK[bone], float).T; S /= np.linalg.norm(S, axis=0)
         u = UPRIGHT.get(kind, 0.0)
+        if C.get('aim') and kind != 'shield':
+            # aim — ось оружия в покое: вперёд от кулака, как меч у героя-воина (просьба пользователя, сборка 57)
+            y0 = S[:, 1]; yt = np.array(C['aim'], float); yt /= np.linalg.norm(yt); ax = np.cross(y0, yt); sn = np.linalg.norm(ax)
+            k = ax / sn; K = np.array([[0, -k[2], k[1]], [k[2], 0, -k[0]], [-k[1], k[0], 0]]); ang = np.arctan2(sn, y0 @ yt)
+            S = (np.eye(3) + np.sin(ang) * K + (1 - np.cos(ang)) * K @ K) @ S; u = 0
         if u:
             y0 = S[:, 1]; ax = np.cross(y0, [0, 1.0, 0]); sn = np.linalg.norm(ax); ang = u * np.arctan2(sn, y0[1])
             if sn > 1e-6:
