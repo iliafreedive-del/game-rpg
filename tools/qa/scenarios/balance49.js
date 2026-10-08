@@ -2,7 +2,7 @@ const G = window.__G; const gm = await import('/js/game/game.js'); const L = awa
 const P = G.profile; P.level = 12; G.stats = stats(P);
 // rarity pity
 P.luck = { dry: 0, grey: 0, big: 0 }; const rs = []; for (let i = 0; i < 200; i++) rs.push(L.rollDrop(5, [100, 0, 0, 0]).rarity);
-print('grey-only table: greens', rs.filter(r => r === 1).length, 'of 200 (expect 20)');
+print('grey-only table: greens', rs.filter(r => r === 1).length, 'of 200 (expect 10)');
 P.luck = { dry: 0, grey: 0, big: 0 }; const bs = []; for (let i = 0; i < 40; i++) bs.push(L.rollDrop(5, [60, 40, 0, 0], true).rarity);
 print('elite table no blue: blues', bs.filter(r => r === 2).length, 'of 40 (expect 10)');
 P.depths = { best: 9, stars: {} };

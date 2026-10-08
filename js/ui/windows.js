@@ -243,8 +243,8 @@ W.character = (arg = {}) => {
     const st = [['Физический урон', `${S.dmgMin}–${S.dmgMax}`], ['Урон в секунду', S.dps], ['Скорость атаки', S.aps + ' уд/с'], ['Шанс крит. удара', Math.round(S.critChance * 100) + '%'], ['Крит. урон', Math.round(S.critMult * 100) + '%'],
       ['Сила заклинаний', Math.round(S.spellPower * 100) + '%'], ['Урон огнём / льдом / молнией', `${Math.round(S.elem.fire * 100)}% / ${Math.round(S.elem.cold * 100)}% / ${Math.round(S.elem.light * 100)}%`],
       ['Защита', `${S.armor} (−${Math.round(S.armor / (S.armor + 50 + 10 * P.level) * 100)}% урона)`], ['Шанс блока', Math.round(S.block * 100) + '%'],
-      ['Здоровье', S.maxHP], ['Мана', S.maxMP], ['Восст. маны', S.mpRegen.toFixed(1) + '/с'], ['Здоровье за удар', S.leech], ['Находка золота', '+' + S.goldFind + '%']];
-    const core = ['Урон в секунду', 'Здоровье', 'Защита', 'Шанс крит. удара'], mainRows = st.filter(r => core.includes(r[0])), moreRows = st.filter(r => !core.includes(r[0]));
+      ['Здоровье', S.maxHP], ['Запас прочности', S.ehp], ['Мана', S.maxMP], ['Восст. маны', S.mpRegen.toFixed(1) + '/с'], ['Здоровье за удар', S.leech], ['Находка золота', '+' + S.goldFind + '%']];
+    const core = ['Урон в секунду', 'Здоровье', 'Защита', 'Запас прочности'], mainRows = st.filter(r => core.includes(r[0])), moreRows = st.filter(r => !core.includes(r[0]));
     b.appendChild(el('div', 'stats', mainRows.map(([a, v]) => `<div><span>${a}</span><b>${v}</b></div>`).join('')));
     b.appendChild(el('details', 'more', `<summary class="muted" style="cursor:pointer;margin:6px 0">Подробные показатели</summary><div class="stats">${moreRows.map(([a, v]) => `<div><span>${a}</span><b>${v}</b></div>`).join('')}</div>`));
     const s = P.stats;

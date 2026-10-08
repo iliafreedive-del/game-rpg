@@ -93,6 +93,8 @@ export function stats(p, gearOverride) {
     if (hasBoon('bloodpact')) { s.aps = +(s.aps * 1.25).toFixed(2); s.hpRegen = 0; }   // проклятый дар: скорость ценой лечения
   }
   s.block = Math.min(0.5, s.block);
+  // сборка 49: «запас прочности» (EHP = здоровье / (1 − снижение урона)) — броня и здоровье в одних единицах; враги на 1 уровень выше героя
+  s.ehp = Math.round(s.maxHP / (1 - damageReduction(s.armor, (p.level || 1) + 1)));
   // "DPS" summary used by compare panel
   const avg = (s.dmgMin + s.dmgMax) / 2;
   s.dps = +(avg * s.aps * (1 + s.critChance * (s.critMult - 1))).toFixed(1);
@@ -115,7 +117,7 @@ export function compare(p, item, slot) {
   const rows = [
     ['Урон в секунду', a.dps, b.dps], ['Урон', `${a.dmgMin}–${a.dmgMax}`, `${b.dmgMin}–${b.dmgMax}`, (b.dmgMin + b.dmgMax) - (a.dmgMin + a.dmgMax)],
     ['Скорость атаки', a.aps, b.aps], ['Шанс крита', Math.round(a.critChance * 100), Math.round(b.critChance * 100), null, '%'],
-    ['Защита', a.armor, b.armor], ['Здоровье', a.maxHP, b.maxHP], ['Мана', a.maxMP, b.maxMP],
+    ['Защита', a.armor, b.armor], ['Здоровье', a.maxHP, b.maxHP], ['Запас прочности', a.ehp, b.ehp], ['Мана', a.maxMP, b.maxMP],
     ['Сила заклинаний', Math.round(a.spellPower * 100), Math.round(b.spellPower * 100), null, '%'],
     ['Сила', a.str, b.str], ['Ловкость', a.dex, b.dex], ['Интеллект', a.int, b.int], ['Живучесть', a.vit, b.vit],
     ['Находка золота', a.goldFind, b.goldFind, null, '%'],
@@ -133,5 +135,5 @@ export function usefulness(p, item) {
   const spK = p.cls === 'mage' ? (b.spellDps / Math.max(1, a.spellDps) - 1) * 100 : -999;
   const main = Math.max(dpsK, spK);
   if (slot === 'weapon') return main;
-  return main + (b.armor - a.armor) * 0.6 + (b.maxHP - a.maxHP) * 0.25 + (b.maxMP - a.maxMP) * 0.1;
+  return main + (b.ehp / Math.max(1, a.ehp) - 1) * 100 + (b.maxMP - a.maxMP) * 0.1;   // сборка 49: броня и здоровье — через запас прочности, в % как и урон
 }
