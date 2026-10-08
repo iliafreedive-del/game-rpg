@@ -767,3 +767,6 @@ body.cine-on #ui{opacity:0;transition:opacity .4s}
 #streakB{position:absolute;left:-8px;top:-6px;background:#2a1408e8;border:1px solid #ff9a3a;border-radius:10px;padding:0 5px;font:700 12px/18px sans-serif;color:#ffd08a;box-shadow:0 0 8px #ff7a2a88;pointer-events:none}   /* сборка 47: серия побед */
 .rw-wait{margin:8px 0 2px;padding:8px 10px;border:1px solid #5a4630;border-radius:8px;background:#0006;font:13px/1.55 var(--serif);color:#e8dcc0;text-align:left}
 .fps-t{width:100%;border-collapse:collapse;font-size:13px;margin:6px 0}.fps-t td,.fps-t th{border-bottom:1px solid #3a3030;padding:4px;text-align:center}.fps-t th{color:var(--gold);font-weight:600}
+.boon.cursed{border-color:#8a2a3a}
+.boon .minus{display:block;margin-top:4px;color:#ff7a7a;font-style:normal}
+.btn.blood{margin-top:8px;border-color:#8a2a3a;color:#ffb0b0}.btn.blood.on{background:#3a1018}

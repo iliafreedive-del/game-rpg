@@ -39,10 +39,18 @@ export function enemyLoot(e) {
   const ch = (D.boss ? 1 : D.elite ? 0.5 : e.champion ? 0.12 : G.zoneId === 'wild' ? 0.03 : 0.025) / (e.respawned ? 3 : 1) * (G.profile.boosts.blessUntil > Date.now() ? BLESS_ITEMS : 1) * rm('items') * (1 + 0.05 * ((G.run && G.run.circle) || 0));
   // сборка 20: серого больше — сырьё для слияния у кузнеца. Благословение — +15% вещей; «Орда» недели — ×2; возрождённые (respawn.js) — втрое реже; круг Бездны — +5% за круг
   // таблицы: серый / зелёный / синий / золотой. Сборка 47: вещей втрое меньше, зелёные — редкость (жалоба «шмота как грязи»)
-  if (rand() < ch) dropItem(e.x, e.y, rollDrop(L + (D.boss || D.elite ? 1 : 0), D.boss ? [30, 55, 13, 2] : D.elite ? [60, 36, 4, 0] : e.champion ? [85, 15, 0, 0] : [97, 3, 0, 0]));   // сборка 47: зелёное и синее реже, цвет поднимается слиянием у кузнеца
+  // сборка 49, защита от неудач: без вещи 70 убийств подряд — следующий враг роняет вещь наверняка (возрождённые не в счёт)
+  const lk = luck(); if (!e.respawned) lk.dry++;
+  if (rand() < ch || lk.dry >= DRY_PITY) { lk.dry = 0; dropItem(e.x, e.y, rollDrop(L + (D.boss || D.elite ? 1 : 0), D.boss ? [30, 55, 13, 2] : D.elite ? [60, 36, 4, 0] : e.champion ? [85, 15, 0, 0] : [97, 3, 0, 0], D.boss || D.elite)); }   // сборка 47: зелёное и синее реже, цвет поднимается слиянием у кузнеца
 }
-export function rollDrop(ilvl, table) {
-  const P = G.profile, r = rollRarity(table);
+// Защита от неудач (сборка 49, скрытая): 10 серых вещей подряд — следующая зелёная; 4 добычи стража/босса без синей — следующая синяя
+const DRY_PITY = 70, GREY_PITY = 10, BIG_PITY = 4;
+const luck = () => G.profile.luck || (G.profile.luck = { dry: 0, grey: 0, big: 0 });
+export function rollDrop(ilvl, table, big) {
+  const P = G.profile, lk = luck(); let r = rollRarity(table);
+  if (r === 0 && lk.grey + 1 >= GREY_PITY) r = 1;
+  if (big && r < 2 && lk.big + 1 >= BIG_PITY) r = 2;
+  lk.grey = r === 0 ? lk.grey + 1 : 0; if (big) lk.big = r < 2 ? lk.big + 1 : 0;
   if (r >= 3) return makeItem({ epic: pickEpic(P.cls), ilvl, cls: P.cls });
   if (r === 2 && P.level >= 10 && rand() < 0.3) return makeSetItem(pickSet(P.cls), null, ilvl, P.cls);   // часть синих — части сетов (с 6 уровня)
   return makeItem({ ilvl, rarity: r, cls: P.cls });

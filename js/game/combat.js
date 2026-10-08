@@ -104,6 +104,7 @@ export function killEnemy(e, o = {}) {
   if (e.st.frozen > 0 && R('shatter')) { for (let k = 0; k < 4; k++) { const a = k * Math.PI / 2 + 0.4; spawnProj({ kind: 'shard', x: e.x, y: e.y, vx: Math.cos(a) * 12, vy: Math.sin(a) * 12, owner: 'p', dmg: (9 + 5 * Math.max(1, R('ice_shard'))) * S.spellPower * S.elem.cold * 0.6 * PK, elem: 'cold', range: 5 }); } }
   if (S.effects.bloodShield) G.player.shield = Math.min(S.maxHP * 0.3, G.player.shield + S.maxHP * 0.1);
   if (hasBoon('vitality')) G.player.hp = Math.min(S.maxHP, G.player.hp + S.maxHP * 0.02);
+  if (hasBoon('bloodpact')) G.player.hp = Math.min(S.maxHP, G.player.hp + S.maxHP * 0.04);
   if (hasBoon('boom') && !o.fromBoom) { const d = (S.dmgMin + S.dmgMax) * 0.6; setTimeoutGame(0.08, () => { effect({ kind: 'burst', x: e.x, y: e.y, r: 2, dur: 0.4, c: [255, 170, 90] }); for (const t of G.enemies) if (!t.dead && t !== e && Math.hypot(t.x - e.x, t.y - e.y) < 2 + t.r) damageEnemy(t, d, { elem: 'fire', src: 'spell', fromBoom: true, canCrit: false }); G.cam.shake = Math.max(G.cam.shake, 0.2); bus.emit('sfx', 'boom'); }); }
   particles(e.x, e.y, 12, { c: e.D.skeleton ? [220, 210, 190] : [120, 20, 20], z: 1, sp: 3, add: false, size: 3 });
   bus.emit('sfx', e.D.skeleton ? 'bones' : 'death');
@@ -408,6 +409,7 @@ export function enemyTelegraph(e, kind, P) {
   else if (kind === 'nova') tg = { shape: 'circle', x: e.x, y: e.y, r: e.D.abil.nova.r };
   else if (kind === 'volley') tg = { shape: 'cone', a: ang, r: 6, arc: e.D.abil.volley.spread * (e.D.abil.volley.n - 1) * 180 / Math.PI + 12 };
   else if (e.D.proj) tg = null;   // ranged shots are never telegraphed
+  else if (e.champion && kind === 'attack') tg = { shape: 'cone', a: ang, r: Math.max(2, e.D.range + 1), arc: 70 };   // чемпион: замах подсвечен, как у стража
   else if (e.D.elite || e.D.boss) {
     if (kind === 'attack') tg = { shape: 'cone', a: ang, r: e.D.boss ? 3.2 : 2.6, arc: 70 };
     else if (kind === 'attack2') tg = { shape: 'circle', x: e.x, y: e.y, r: e.D.boss ? 3.1 : 2.5 };

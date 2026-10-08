@@ -36,6 +36,7 @@ import { huntReward } from '../data/hunts.js';
 import { MEMORIES, SEALS } from '../data/story.js';
 import { BOONS, BOON_IDS } from '../data/boons.js';
 import { stats as calcStats } from '../game/stats.js';
+import { particles } from '../game/combat.js';
 import { maybeInterstitial } from '../platform/monetize.js';
 import { earlyLock } from '../game/progress.js';
 import { platform as PF } from '../platform/platform.js';
@@ -874,11 +875,12 @@ function floorResult(r) {
       const nx = el('button', 'btn gold', `Этаж ${r.floor + (r.first ? 1 : 0) + (r.first ? 0 : 1)} ▶`);
       const next = Math.max(r.floor + 1, 1);
       nx.textContent = `Этаж ${next} ▶`;
-      nx.onclick = async () => { const keepBoons = true; if (G.profile.level < floorLevel(next) - 1) { bus.emit('toast', { text: `Этаж ${next} — с ${floorLevel(next) - 1} уровня`, sub: 'Фармите опыт на пройденных этажах', kind: 'warn' }); return; } const free = next > (G.profile.depths.best || 0); if (!free && !CS.spendTorch()) { bus.emit('toast', { text: 'Нет энергии ⚡', sub: '+1 за 20 минут или «Получить энергию»', kind: 'warn' }); bus.emit('openEnergy'); return; } closeModal(); await maybeInterstitial('floor'); loadZone('depths', { floor: next, keepBoons, free }); };
+      nx.onclick = async () => { const keepBoons = true; if (G.profile.level < floorLevel(next) - 1) { bus.emit('toast', { text: `Этаж ${next} — с ${floorLevel(next) - 1} уровня`, sub: 'Фармите опыт на пройденных этажах', kind: 'warn' }); return; } const free = next > (G.profile.depths.best || 0); if (!free && !CS.spendTorch()) { bus.emit('toast', { text: 'Нет энергии ⚡', sub: '+1 за 20 минут или «Получить энергию»', kind: 'warn' }); bus.emit('openEnergy'); return; } closeModal(); await maybeInterstitial('floor'); loadZone('depths', { floor: next, keepBoons, free, fullHeal: r.boss }); };   // сборка 49: после босса — передышка, следующий этаж с полным здоровьем
       const home = el('button', 'btn', 'В деревню');
       home.onclick = async () => { closeModal(); await maybeInterstitial('floor'); loadZone('town', { from: 'depths' }); };
       if (r.weekly) { nx.textContent = 'Ещё раз ▶'; nx.onclick = () => { closeModal(); loadZone('depths', { floor: r.floor, weekly: true }); }; }   // испытание недели: повтор на время, а не следующий этаж
       row.append(ad, nx, home); b.appendChild(row);
+      if (r.boss && !r.weekly) b.appendChild(el('p', 'goldc', 'Передышка после босса: следующий этаж — с полным здоровьем и маной.'));
       const P = G.profile; if (G.run && G.run.boons.length) b.appendChild(el('p', 'muted', `Дары Бездны (${G.run.boons.length}) сохранятся, если идти глубже без возвращения в деревню.`)); if (P.attrPts || P.skillPts) b.appendChild(el('p', 'muted', 'Есть неизрасходованные очки — наставник Элвин ждёт в деревне.'));
     }, { sticky: true });
     maybeReview(r);
@@ -929,16 +931,26 @@ function boonChoice() {
   if (!pool.length) return;
   bus.emit('sfx', 'rareDrop');
   modal('Дар Бездны', 'md reward', b => {
-    b.appendChild(el('p', 'muted', 'Дар за просмотр рекламы — действует до конца этажа. Можно идти дальше без дара.'));   // сборка 47: дары только за рекламу
-    const row = el('div', 'boons');
+    b.appendChild(el('p', 'muted', 'Дар за просмотр рекламы или за кровь — действует до конца этажа. Можно идти дальше без дара.'));   // сборка 47: дары за рекламу; сборка 49: или за 30% здоровья
+    const row = el('div', 'boons'), pl = G.player, BLOOD = 0.3;
+    let blood = false; const tags = [];
     for (const id of pool) {
       const B = BOONS[id];
-      const c = el('button', 'boon', `<div class="bg" style="color:${B.color};text-shadow:0 0 18px ${B.color}">${B.glyph}</div><b>${esc(B.name)}</b><span>${esc(B.desc)}</span><small class="lv">▶ за рекламу</small>`);
+      const c = el('button', 'boon' + (B.minus ? ' cursed' : ''), `<div class="bg" style="color:${B.color};text-shadow:0 0 18px ${B.color}">${B.glyph}</div><b>${esc(B.name)}</b><span>${esc(B.desc)}${B.minus ? `<em class="minus">${esc(B.minus)}</em>` : ''}</span><small class="lv">▶ за рекламу</small>`);
+      tags.push(c.querySelector('.lv'));
       const give = () => { r.boons.push(id); G.stats = calcStats(G.profile); bus.emit('statsChanged'); bus.emit('toast', { text: 'Дар: ' + B.name, kind: 'good' }); bus.emit('sfx', 'learn'); closeModal(); };
-      c.onclick = async () => { if (G.auto) { give(); return; } await watchRewarded('boon', offerToken('boon', id + ':' + Date.now()), give); };
+      c.onclick = async () => {
+        if (blood) { pl.hp = Math.max(1, pl.hp - G.stats.maxHP * BLOOD); particles(pl.x, pl.y, 18, { c: [200, 30, 40], z: 1, sp: 2, size: 3 }); bus.emit('sfx', 'hurt'); give(); bus.emit('hud'); return; }   // здоровье как валюта
+        if (G.auto) { give(); return; } await watchRewarded('boon', offerToken('boon', id + ':' + Date.now()), give);
+      };
       row.appendChild(c);
     }
     b.appendChild(row);
+    const can = pl.hp > G.stats.maxHP * (BLOOD + 0.05);
+    const bl = el('button', 'btn blood', can ? '🩸 Заплатить кровью (−30% здоровья)' : '🩸 Мало здоровья для платы кровью');
+    bl.disabled = !can;
+    bl.onclick = () => { blood = !blood; bl.classList.toggle('on', blood); for (const t of tags) t.textContent = blood ? '🩸 за 30% здоровья' : '▶ за рекламу'; bl.textContent = blood ? '▶ Лучше за рекламу' : '🩸 Заплатить кровью (−30% здоровья)'; };
+    b.appendChild(bl);
     const skip = el('button', 'btn', 'Без дара'); skip.onclick = () => closeModal(); b.appendChild(skip);
   }, { sticky: true });
   cur.bg.querySelector('.mx').style.display = 'none';

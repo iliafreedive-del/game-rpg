@@ -89,6 +89,8 @@ export function stats(p, gearOverride) {
     if (hasBoon('frenzy')) s.aps = +(s.aps * 1.12).toFixed(2);
     if (hasBoon('eagle')) { s.critChance = Math.min(0.75, s.critChance + 0.05); s.critMult += 0.2; }
     if (hasBoon('vitality')) s.maxHP = Math.round(s.maxHP * 1.15);
+    if (hasBoon('glass')) { s.dmgMin = Math.round(s.dmgMin * 1.4); s.dmgMax = Math.round(s.dmgMax * 1.4); s.spellPower *= 1.4; s.maxHP = Math.round(s.maxHP * 0.7); }   // проклятый дар: урон ценой здоровья
+    if (hasBoon('bloodpact')) { s.aps = +(s.aps * 1.25).toFixed(2); s.hpRegen = 0; }   // проклятый дар: скорость ценой лечения
   }
   s.block = Math.min(0.5, s.block);
   // "DPS" summary used by compare panel

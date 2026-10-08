@@ -4,7 +4,7 @@ import { generateVillage } from '../world/villagegen.js';
 import { G, bus, inCombat } from './ctx.js';
 import { Zone } from '../world/zone.js';
 import { Player, Enemy, NPC } from './entities.js';
-import { stats } from './stats.js';
+import { stats, hasBoon } from './stats.js';
 import { makeItem } from './items.js';
 import { ROOM_LEVEL } from '../data/enemies.js';
 import * as C from './combat.js';
@@ -457,7 +457,7 @@ export function usePotion(k) {
   if (P.potions[k] <= 0) { bus.emit('toast', { text: k === 'hp' ? 'Нет зелий здоровья' : 'Нет зелий маны', kind: 'warn' }); bus.emit('sfx', 'deny'); return; }
   if ((pl.cds['pot_' + k] || 0) > 0) return;
   P.potions[k]--; pl.cds['pot_' + k] = 1.2; pl.potT = 1;
-  if (k === 'hp') pl.potHeal = G.stats.maxHP * 0.45; else pl.potMana = G.stats.maxMP * 0.5;
+  if (k === 'hp') pl.potHeal = G.stats.maxHP * 0.45 * (hasBoon('bloodpact') ? 0.5 : 1); else pl.potMana = G.stats.maxMP * 0.5;
   bus.emit('sfx', 'potion'); C.particles(pl.x, pl.y, 12, { c: k === 'hp' ? [255, 80, 80] : [90, 140, 255], z: 0.3, sp: 0.8, vz: 3, g: 0, size: 3 }); bus.emit('hud');
 }
 
