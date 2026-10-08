@@ -59,6 +59,8 @@ const SFX = {
   learn: () => { tone('sine', 600, 1200, 0.25, 0.12); },
   chest: () => { nz(0.25, 400, 1, 0.25, 'lowpass'); tone('triangle', 660, 990, 0.3, 0.1, 0.15); },
   door: () => { nz(0.6, 200, 0.6, 0.35, 'lowpass', 0, 90); },
+  // кузнец бьёт по наковальне (сборка 56): звонкий удар стали о сталь — негармонические обертоны бруска (1 : 2,76 : 5,4), щелчок и глухой стук; k — громкость по расстоянию
+  forge: (k = 1) => { const f = 1150 + Math.random() * 90; [[1, 0.13, 0.9], [2.76, 0.07, 0.55], [5.4, 0.035, 0.3], [0.5, 0.05, 0.22]].forEach(([m, p, d]) => tone('sine', f * m, f * m * 0.996, d, p * k)); nz(0.035, 4500, 1.5, 0.22 * k); nz(0.09, 240, 0.8, 0.2 * k, 'lowpass'); },
   anvil: () => { tone('square', 1400, 1300, 0.25, 0.12); tone('sine', 2800, 2700, 0.4, 0.08); nz(0.05, 3000, 2, 0.2); },
   dodge: () => nz(0.2, 1200, 0.8, 0.18, 'bandpass', 0, 400),
   block: () => { tone('square', 900, 700, 0.08, 0.12); nz(0.06, 3000, 2, 0.2); },
@@ -67,10 +69,10 @@ const SFX = {
   portal: () => { tone('sine', 200, 800, 0.6, 0.15); tone('sine', 300, 1200, 0.6, 0.08, 0.1); },
   click: () => tone('triangle', 900, 700, 0.04, 0.06),
 };
-export function sfx(name) {
+export function sfx(name, k) {   // k — громкость 0..1 (если звук её понимает)
   if (!ac || muted || paused || !SFX[name]) return;
   const now = performance.now(); if (last[name] && now - last[name] < 35) return; last[name] = now;
-  try { SFX[name](); } catch { }
+  try { SFX[name](k); } catch { }
 }
 // generative ambience: drone + sparse bell notes (minor mode); town is warmer and brighter
 export function startMusic(zone, force) {

@@ -20,7 +20,7 @@ let models = null;
 export function preloadModels(cls) {
   if (cls && HERO_SKIN[cls]) skin.preloadSkin(HERO_SKIN[cls]);   // выбранный герой — первым
   if (models) return models;
-  const heroes = Object.values(HERO_SKIN).map(n => skin.preloadSkin(n)).concat(skin.preloadSkin('npc_trainer'), MOB_SKIN.map(n => skin.preloadSkin(n)));
+  const heroes = Object.values(HERO_SKIN).map(n => skin.preloadSkin(n)).concat(['npc_trainer', 'npc_elder', 'npc_smith', 'npc_merchant', 'npc_fortune'].map(n => skin.preloadSkin(n)), MOB_SKIN.map(n => skin.preloadSkin(n)));   // жители деревни — шкуры Meshy (сборка 56), нежить подземелий (57)
   return (models = Promise.all(heroes.concat(MOBS.map(n => mob.preloadMob(n)), [fur.loadDecals()])));
 }
 export function makeKit(scene) {
