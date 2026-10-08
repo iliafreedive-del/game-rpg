@@ -30,7 +30,7 @@ for (const [name, w, h, mob] of DEV) {
     return out; }, scr);
   const issues = {};
   try {
-    await p.goto('http://localhost:8123/index.html?shot&nosdk=1'); await p.waitForSelector('#titleBtns button', { timeout: 60000 });
+    await p.goto((process.env.BASE || 'http://localhost:8123') + '/index.html?shot&nosdk=1'); await p.waitForSelector('#titleBtns button', { timeout: 60000 });
     await p.evaluate(() => localStorage.clear()); await p.reload(); await p.waitForSelector('#titleBtns button'); await p.waitForTimeout(800);
     await shot('1title'); issues.title = await check('title');
     await p.click('#titleBtns button'); await p.waitForSelector('.class-card'); await p.waitForTimeout(400); await shot('2class'); issues.class = await check('class');

@@ -3,7 +3,7 @@
 # атлас props_0.png — 256 цветов; в репозитории файлы не меняются. Итог — dist/dark-ascent-cloudflare.zip (~15 МБ вместо 18).
 # Нужен gltf-transform: GT=/путь/к/gltf-transform tools/build_zip.sh  (npm i @gltf-transform/cli). Без него — архив без сжатия.
 set -euo pipefail
-cd "$(dirname "$0")/.."
+cd "${SRC:-$(dirname "$0")/..}"   # SRC=/путь/dist/en — английская копия (tools/i18n/build_en.mjs)
 OUT=${OUT:-dist/dark-ascent-cloudflare.zip}; STAGE=$(mktemp -d)
 cp -r _headers index.html manifest.webmanifest css js assets "$STAGE"/
 if [ -n "${GT:-}" ] && [ -x "$GT" ]; then
