@@ -46,6 +46,11 @@ CFG = {
   'b_shaman_m': {'rig': 'skel', 'h': 2.0, 'spin': 0.5, 'items': [('handR', 'staff')]},
   'b_chief_m': {'rig': 'skel', 'h': 2.0, 'spin': 0.5, 'items': [('handR', 'axe')]},
   'b_boss_m': {'rig': 'boss', 'h': 2.3, 'spin': 0.9, 'items': [('handR', 'sword')]},
+  # сборка 57: Старый Лес (папка «лес»)
+  'w_poacher_m': {'rig': 'skel', 'h': 1.95, 'spin': 0.5, 'items': [('handL', 'bow')]},
+  'w_leshy_m': {'rig': 'skel', 'h': 2.0, 'lift': 0.28, 'spin': 0.78, 'items': [('handR', 'staff')]},
+  'w_ataman_m': {'rig': 'skel', 'h': 2.0, 'spin': 0.5, 'items': [('handR', 'axe'), ('handL', 'shield')]},
+  'w_boss_m': {'rig': 'boss', 'h': 2.3, 'spin': 0.9, 'items': [('handR', 'axe')]},
   'boss_m': {'rig': 'boss', 'h': 2.3, 'spin': 0.9, 'items': [('handR', 'axe')], 'turn': True, 'aim': [0, -0.12, 1]},   # turn — предмет повёрнут на 180° вокруг древка (просьба пользователя, сборка 57)
 }
 # хват по длине (доля от нижнего конца) для древковых: у процедурных axe_great — 20 %, staff_bone — 29 %
@@ -148,6 +153,14 @@ def main(src, name, debug=None):
     body = np.isin(comp, [k for k, gg in zip(ks, g) if gg not in others])
     items = [np.isin(comp, [k for k, gg2 in zip(ks, g) if gg2 == gg]) for gg in others]
     print('тело: %d вершин; предметов рядом: %d (%s)' % (body.sum(), len(items), ', '.join(str(int(m.sum())) for m in items)))
+    if len(items) != len(C['items']) and others:
+        # предметы рядом заходят друг на друга по X (топор у щита атамана): предмет — кусок, не лежащий в рамке другого
+        rk = [k for k, gg in zip(ks, g) if gg in others]; bb = {k: (P[comp == k].min(0) - 0.01, P[comp == k].max(0) + 0.01) for k in rk}
+        inside = lambda a, b: (P[comp == a].min(0)[:2] >= bb[b][0][:2]).all() and (P[comp == a].max(0)[:2] <= bb[b][1][:2]).all()   # по X и Y: умбон щита выступает вперёд
+        top = sorted([k for k in rk if not any(b != k and inside(k, b) for b in rk)], key=lambda k: P[comp == k, 0].min())
+        if len(top) == len(C['items']):
+            items = [np.isin(comp, [k] + [a for a in rk if a != k and inside(a, k)]) for k in top]
+            print('по рамкам: предметов %d (%s)' % (len(items), ', '.join(str(int(m.sum())) for m in items)))
     if len(items) != len(C['items']):
         # оружие касается кулака по X (посох шамана, секира вождя): предмет — высокий кусок справа от центра тела
         Hb = P[comp == big, 1].max() - P[comp == big, 1].min(); cx = (P[comp == big, 0].min() + P[comp == big, 0].max()) / 2
