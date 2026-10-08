@@ -1,5 +1,6 @@
 // Упырь: сутулый, длинные руки до колен, широкая пасть, быстрый. Перенесено из lab/three/js/dark/mobs.js.
-export default {
+import { mobSkin } from './_skin.js';
+const def = {
   id: 'ghoul', kind: 'mob', outline: 'mob',
   build(kit) {
     const { THREE, PAL, MOB, part, merge, ball, group, rig, pivot } = kit;
@@ -97,3 +98,7 @@ export default {
     };
   },
 };
+// сборка 57: модель ghoul_m поверх рига
+const rigBuild = def.build;
+def.build = kit => mobSkin(kit, rigBuild(kit), 'ghoul_m', { rimColor: kit.MOB.rimColor.ghoul });
+export default def;

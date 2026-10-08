@@ -14,12 +14,13 @@ import { PAL, HERO, MOB, OUTLINE, RIM, FOLIAGE, LOOKS, SHADOW } from './style.js
 // сборка 51: модели героев и зверей качаются после титульного экрана (preloadModels из renderer3d.startPreload), а не вместе с ним —
 // на медленной сети они отнимали канал у загрузки и Game Ready наступал через ~50 с. Перед сборкой зоны их ждёт prepare().
 const HERO_SKIN = { warrior: 'warrior_knight', archer: 'archer_raven', mage: 'mage_staff' };
+const MOB_SKIN = ['skel_warrior_m', 'skel_archer_m', 'skel_mage_m', 'ghoul_m', 'elite_guard_m', 'elite_warlord_m', 'boss_m'];   // сборка 57: нежить подземелий
 const MOBS = ['wolf_grey', 'dog_brown', 'dog_town', 'wolf_ice', 'beast', 'chicken_white', 'chicken_red', 'hyena', 'w_boar', 'b_boar', 'w_bear', 'b_scorpid'];
 let models = null;
 export function preloadModels(cls) {
   if (cls && HERO_SKIN[cls]) skin.preloadSkin(HERO_SKIN[cls]);   // выбранный герой — первым
   if (models) return models;
-  const heroes = Object.values(HERO_SKIN).map(n => skin.preloadSkin(n)).concat(skin.preloadSkin('npc_trainer'));
+  const heroes = Object.values(HERO_SKIN).map(n => skin.preloadSkin(n)).concat(skin.preloadSkin('npc_trainer'), MOB_SKIN.map(n => skin.preloadSkin(n)));
   return (models = Promise.all(heroes.concat(MOBS.map(n => mob.preloadMob(n)), [fur.loadDecals()])));
 }
 export function makeKit(scene) {

@@ -252,9 +252,9 @@ function syncEnemies(dt) {
   const live = new Set(G.enemies);
   for (const [k, a] of actors) if (a.isEnemy && !live.has(k)) { a.dispose(); actors.delete(k); }
   for (const e of G.enemies) {
-    let def = MOBS[e.type];
+    let def = MOBS[e.model || e.type];   // e.model — свой вид при том же типе (Страж глубин, сборка 57)
     if (!def) { if (!warned.has(e.type)) { warned.add(e.type); console.warn('[3D] нет модели моба «' + e.type + '» — показан скелет-воин'); } def = MOBS.skel_warrior; }
-    const a = getActor(e, def, { scale: (e.champion ? 1.25 : 1) * (def === MOBS[e.type] ? 1 : e.r / 0.34) }); a.isEnemy = true;
+    const a = getActor(e, def, { scale: (e.champion ? 1.25 : 1) * (def === MOBS[e.model || e.type] ? 1 : e.r / 0.34) }); a.isEnemy = true;
     const c = measure(a, e, dt), an = e.anim; let clip = 'idle', k, impact, speed = 0;
     if (e.dead) { clip = 'death'; k = an.prog; }
     else if (e.state === 'attack') { clip = e.D.proj ? 'cast' : (e.atk && e.atk.kind) || 'attack';   /* у босса: attack2, slam, roar */ k = an.prog; impact = e.atk ? e.atk.impact : undefined; }
