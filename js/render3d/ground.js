@@ -38,7 +38,7 @@ const GRASS_FS = /* glsl */`
 #include <common>
 #include <fog_pars_fragment>
 #include <packing>
-uniform vec3 uBase; uniform vec3 uTip; uniform vec3 uDry; uniform vec3 uLight; varying vec3 hfWv;
+uniform vec3 uBase; uniform vec3 uTip; uniform vec3 uDry; uniform vec3 uLight; uniform vec3 uYel; varying vec3 hfWv;
 uniform float uHFog; uniform vec3 uHFogCol; uniform sampler2D tHNoise; uniform float uHTime; uniform vec3 uHFogC;
 uniform sampler2D uShadowMap; uniform float uShadowOn; uniform float uShadowDark; uniform vec2 uShadowTexel;
 varying float vH; varying float vRand; varying float vSheen; varying float vShade; varying vec4 vSh; varying float vPatch; varying float vBlade;
@@ -55,6 +55,7 @@ void main() {
   vec3 tip = mix(uTip, uDry, smoothstep(0.82, 1.0, rb) * 0.7) * (0.85 + rb * 0.3);
   vec3 c = mix(uBase, tip, smoothstep(0.05, 1.0, vH));
   c *= mix(vec3(0.62, 0.74, 0.62), vec3(1.32, 1.25, 0.82), smoothstep(0.25, 0.8, vPatch));   // те же пятна, что на земле
+  if (uYel.z > 0.0) c = mix(c, c * vec3(1.45, 1.22, 0.42), (1.0 - smoothstep(uYel.z * 0.45, uYel.z, length(hfWv.xz - uYel.xy))) * 0.9);   // сборка 47: жёлтая трава у лесного портала
   c += vSheen * vH * vH * 0.08;
   c *= (1.0 - vShade * 0.4);
   c *= mix(uShadowDark, 1.0, shadowLit());
@@ -142,10 +143,10 @@ function groundMaterial(snow = false, forest = false, puddles = 1, steppe = fals
   // у порталов деревни земля на ~40 % смешана с землёй того мира, куда ведёт портал (рваный край по шуму)
   for (int i = 0; i < 4; i++) {
     vec4 S = uSpots[i]; if (S.z <= 0.0) continue;
-    float w = (1.0 - smoothstep(S.z * 0.45, S.z, length(wp - S.xy) + (nz2.r - 0.5) * 1.6)) * 0.4;
+    float w = (1.0 - smoothstep(S.z * 0.45, S.z, length(wp - S.xy) + (nz2.r - 0.5) * 1.6)) * (S.w > 2.5 && S.w < 3.5 ? 0.75 : 0.4);   // лес (сборка 47): гуще, чтобы арка не сливалась с деревьями
     vec3 bc = S.w < 1.5 ? mix(vec3(0.82, 0.88, 0.95), vec3(0.98, 1.0, 1.0), smoothstep(0.3, 0.75, nz.r))
             : S.w < 2.5 ? mix(mix(vec3(0.46, 0.17, 0.08), vec3(0.68, 0.31, 0.15), nz.r), mix(vec3(0.76, 0.5, 0.3), vec3(0.88, 0.66, 0.42), nz2.g), 0.6)
-            : S.w < 3.5 ? mix(vec3(0.46, 0.6, 0.22), vec3(0.7, 0.76, 0.32), smoothstep(0.3, 0.75, nz.r))
+            : S.w < 3.5 ? mix(vec3(0.66, 0.6, 0.18), vec3(0.86, 0.78, 0.3), smoothstep(0.3, 0.75, nz.r))   // жёлтая трава, как листва лесной арки
             : mix(vec3(0.34, 0.33, 0.36), vec3(0.52, 0.5, 0.5), nz2.g) * (0.85 + nz.r * 0.3);
     col = mix(col, bc, w);
   }
@@ -286,6 +287,7 @@ export function buildGround(scene, zone, opts = {}) {
     uBlobs: { value: Array.from({ length: 12 }, () => new THREE.Vector4(999, 999, 0.5, 0)) },
     uShadowMat: { value: new THREE.Matrix4() }, uShadowMap: { value: null }, uShadowOn: { value: 0 }, uShadowDark: { value: SHADOW.grassDark }, uShadowTexel: { value: new THREE.Vector2(1 / 1024, 1 / 1024) },
     tNoise: { value: noiseTex() }, uHFog: U.uHFog, uHFogCol: U.uHFogCol, tHNoise: U.tHNoise, uHTime: U.uTime, uHFogC: U.uHFogC,
+    uYel: { value: (() => { const f = vil && zone.json.objects.find(o => o.t === 'wildportal' && o.realm === 'forest'); return f ? new THREE.Vector3(f.x, f.y, 5.5) : new THREE.Vector3(0, 0, 0); })() },
     uBase: { value: new THREE.Color(snow ? 0x8a9aa8 : steppe ? 0x6a4a1c : opts.forest ? 0x6a7a1c : GRASS.base) }, uTip: { value: new THREE.Color(snow ? 0xe8f2f8 : steppe ? 0xe8c878 : opts.forest ? 0xd8e060 : GRASS.tip) }, uDry: { value: new THREE.Color(snow ? 0xc8c0a8 : steppe ? 0xd89a4a : opts.forest ? 0xe0c070 : GRASS.dry) }, uLight: { value: new THREE.Color(1, 1, 1) },
   };
   const gmat = new THREE.ShaderMaterial({ uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.fog, {}]), vertexShader: GRASS_VS, fragmentShader: GRASS_FS, side: THREE.DoubleSide, fog: true });

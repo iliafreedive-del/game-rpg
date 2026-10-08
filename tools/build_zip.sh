@@ -7,7 +7,8 @@ cd "$(dirname "$0")/.."
 OUT=${OUT:-dist/dark-ascent-cloudflare.zip}; STAGE=$(mktemp -d)
 cp -r _headers index.html manifest.webmanifest css js assets "$STAGE"/
 if [ -n "${GT:-}" ] && [ -x "$GT" ]; then
-  find "$STAGE/assets/models" -name '*.glb' | while read -r f; do "$GT" webp "$f" "$f.tmp" --quality 82 >/dev/null 2>&1 && mv "$f.tmp" "$f" || rm -f "$f.tmp"; done
+  find "$STAGE/assets/models" -name '*.glb' | while read -r f; do t="${f%.glb}.tmp.glb"; "$GT" webp "$f" "$t" --quality 82 >/dev/null 2>&1 && mv "$t" "$f" || rm -f "$t"; done
+  # сборка 48: выход обязательно .glb — с другим расширением gltf-transform пишет .gltf + отдельные .bin и baseColor.webp (общий на все модели — в сборке 47 текстуры перепутались)
 fi
 python3 - "$STAGE/assets/sprites/props_0.png" <<'PY'
 import sys
