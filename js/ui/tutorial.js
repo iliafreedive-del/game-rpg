@@ -6,6 +6,7 @@
 import { G, bus } from '../game/ctx.js';
 import { $, el, esc } from '../core/util.js';
 import { STORY } from '../data/quests.js';
+import { once as anOnce } from '../platform/analytics.js';
 
 const touch = () => matchMedia('(pointer:coarse)').matches;
 const T = () => { const P = G.profile; P.tutorial = P.tutorial || {}; P.tutorial.tips = P.tutorial.tips || {}; P.tutorial.un = P.tutorial.un || {}; return P.tutorial; };
@@ -22,7 +23,7 @@ export const hintLog = () => (T().log || []).slice();
 // «Считайте минуты»: минута игры, на которой игрок впервые дошёл до ключевого момента
 export const MILESTONES = [['kill1', 'Первый убитый враг'], ['crypt', 'Выбрался из склепа'], ['quest1', 'Первое задание сдано'], ['lvl2', 'Уровень 2'],
   ['skill1', 'Первое умение'], ['cata', 'Вход в катакомбы'], ['death1', 'Первая гибель'], ['lvl5', 'Уровень 5'], ['boss', 'Палач Бездны побеждён']];
-export function mark(k) { const P = G.profile; if (!P) return; const t = T(), ms = (t.ms = t.ms || {}); if (ms[k] != null) return; ms[k] = Math.round(P.stats.playTime || 0); bus.emit('save'); }
+export function mark(k) { const P = G.profile; if (!P) return; const t = T(), ms = (t.ms = t.ms || {}); if (ms[k] != null) return; ms[k] = Math.round(P.stats.playTime || 0); anOnce('ms_' + k, { sec: ms[k] }); bus.emit('save'); }
 export const milestones = () => T().ms || {};
 export const hintsOn = () => { const t = T(); return t.on !== false && !t.off; };
 export function setHints(on) { const t = T(); t.on = !!on; t.off = !on; if (!on) { hideHand(); unlockAll(); } bus.emit('save'); bus.emit('hud'); }
@@ -40,7 +41,7 @@ export function pointAt(sel, text, { key = null, time = 9, mid = false, force = 
   if (key && t.tips[key]) return false;
   const r = sel ? rectOf(sel) : null;
   if (sel && !r) return false;
-  if (key) { t.tips[key] = 1; bus.emit('save'); }
+  if (key) { t.tips[key] = 1; bus.emit('save'); anOnce('hint_' + key); }
   logHint(text);
   hideHand();
   if (r) { hand = el('div', 'hand'); hand.style.left = (r.left + r.width / 2) + 'px'; hand.style.top = (r.top + r.height / 2) + 'px'; document.body.appendChild(hand); }

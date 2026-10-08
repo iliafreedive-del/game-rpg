@@ -32,6 +32,8 @@ export function resize() {
   R2.resize();
   if (R3) R3.resize(G.cam.w, G.cam.h);
 }
+// сборка 51: тяжёлые модели — после титульного экрана (Game Ready раньше)
+export function startPreload(cls) { if (R3) R3.startPreload(cls); }
 // сборка 46: собрать 3D-мир новой зоны и скомпилировать его шейдеры до показа (loadZone ждёт этого перед стартом зоны)
 export function prepareRender() {
   const z = G.zone; if (!(R3 && z && G.player && R3.supports(z, G.profile))) return Promise.resolve();

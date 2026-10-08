@@ -8,7 +8,7 @@ const DEV = [
   ['iPadMini_P', 744, 1133, 1], ['iPadMini_L', 1133, 744, 1], ['iPadPro_P', 1024, 1366, 1], ['iPadPro_L', 1366, 1024, 1],
   ['AndroidTab_P', 800, 1280, 1], ['AndroidTab_L', 1280, 800, 1],
   ['PC_1280x720', 1280, 720, 0], ['PC_1366x768', 1366, 768, 0], ['PC_1920x1080', 1920, 1080, 0], ['Mac_1440x900', 1440, 900, 0],
-  ['Mac_1512x982', 1512, 982, 0], ['PC_square_900', 900, 900, 0], ['PC_ultrawide_2560x1080', 2560, 1080, 0], ['PC_small_1024x600', 1024, 600, 0],
+  ['Mac_1512x982', 1512, 982, 0], ['PC_square_900', 900, 900, 0], ['PC_ultrawide_2560x1080', 2560, 1080, 0], ['PC_small_1024x600', 1024, 600, 0], ['PC_2to1_1600x800', 1600, 800, 0], ['Phone_2to1_800x400', 800, 400, 1],
 ];
 const flt = process.argv[2]; const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--no-sandbox', '--ignore-gpu-blocklist'] });
 const report = [];

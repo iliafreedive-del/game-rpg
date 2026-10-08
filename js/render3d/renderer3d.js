@@ -5,7 +5,7 @@ import * as THREE from '../vendor/three.module.min.js';
 import { G, bus } from '../game/ctx.js';
 import { PX_PER_M } from '../core/iso.js';
 import { U, setSmoothFade } from './toon.js';
-import { makeKit } from './kit.js';
+import { makeKit, preloadModels } from './kit.js';
 import { Actor, setOutlinesVisible } from './actor.js';
 import { preloadBones, bonesReady, preloadBoneTrees } from './bonesglb.js';
 import { preloadPortals, portalsReady } from './portalglb.js';
@@ -52,6 +52,8 @@ export function webglAvailable() {
 // «Кровавую жатву» (рой мобов и кристаллы) пока рисует 2D; походы (wild) — 3D: снег/трава, чаща, вода, стены и башни форта
 export function supports(z, profile) { return !!z && !!HEROES[(profile && profile.cls) || 'warrior']; }
 
+// сборка 51: всё тяжёлое (модели героев и зверей, арки порталов, алтарь) — после титульного экрана; арки деревни качаются, пока герой в склепе
+export function startPreload(cls) { preloadModels(cls); setTimeout(() => { preloadPortals(); preloadAltar(); }, 1500); }
 export function init() {
   canvas = document.createElement('canvas'); canvas.id = 'game3d';
   document.body.insertBefore(canvas, document.getElementById('game'));
@@ -60,7 +62,6 @@ export function init() {
   canvas.addEventListener('webglcontextlost', e => { e.preventDefault(); try { import('../game/game.js').then(m => m.saveNow()); } catch { } setTimeout(() => location.reload(), 900); });
   scene = new THREE.Scene(); camera = new THREE.PerspectiveCamera(CAMERA.fov, 1, CAMERA.near, CAMERA.far);
   kit = makeKit(scene);
-  setTimeout(() => { preloadPortals(); preloadAltar(); }, 1500);   // сборка 46: арки деревни качаются заранее, пока герой в склепе — выход в деревню без догрузки
   // сборка 46: без проверки ошибок шейдеров браузер компилирует их параллельно, а не ждёт каждый (на Android переход стоял до 20 с); ?debug — проверка включена
   renderer.debug.checkShaderErrors = params.has('debug');
   renderer.info.autoReset = false;                      // считаем все проходы кадра (тень, сцена, постобработка) вместе
@@ -379,6 +380,7 @@ export function prepare() {
     if (SKINS.on && Z.id === 'town' && Z.json.village && !altarReady()) packs.push(preloadAltar());
     if (SKINS.on && Z.id === 'town' && Z.json.village) packs.push(preloadBoneTrees());   // сухое дерево пустошей у входа в катакомбы   // источник силы из Meshy
     if (SKINS.on && Z.id === 'wild' && Z.json.wild.realm === 'bones' && !bonesReady()) packs.push(preloadBones());
+    if (SKINS.on) packs.push(preloadModels(G.profile && G.profile.cls));   // сборка 51: модели героев и зверей (качаются с титульного экрана)
     if (packs.length) await settle(Promise.all(packs), 8000);
     if (G.zone !== Z) return;
     if (Z !== zone) setZone(Z);

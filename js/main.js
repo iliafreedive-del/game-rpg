@@ -4,7 +4,7 @@ import { loadGroup, getAtlas } from './core/assets.js';
 import { initInput, initMouse, input } from './core/input.js';
 import { initCamZoom } from './core/camzoom.js';
 import { initAudio, sfx, startMusic, setVolumes, setPaused } from './core/audio.js';
-import { initRenderer, render, resize } from './render/index.js';
+import { initRenderer, render, resize, startPreload } from './render/index.js';
 import { newProfile, loadSlots, mergeCloud } from './game/save.js';
 import { stats } from './game/stats.js';
 import { initQuests } from './game/quests.js';
@@ -17,6 +17,7 @@ import { cinema, introShots, portalShots } from './ui/cinema.js';
 import * as CS from './game/castle.js';
 import { initPlatform, platform, gameplay } from './platform/platform.js';
 import { restorePurchases } from './platform/monetize.js';
+import { initAnalytics, wireAnalytics, track } from './platform/analytics.js';
 import { dozorPending, initDozor } from './game/daily.js';
 import { showDozor } from './ui/windows.js';
 import { $, el, esc } from './core/util.js';
@@ -24,7 +25,7 @@ import { CLASSES } from './data/items.js';
 import { iconURL } from './ui/icons.js';
 import { initFullscreen } from './ui/fullscreen.js';
 
-export const BUILD = '2026-10-08 · сборка 49';   // видно на титульном экране и в настройках: так проверяют, что загрузилась свежая версия
+export const BUILD = '2026-10-08 · сборка 51';   // видно на титульном экране и в настройках: так проверяют, что загрузилась свежая версия
 const CORE = ['props', 'icons'];
 // hero sheets are big (HD): load only the chosen class
 export const CLASS_ATLAS = { warrior: ['hero_body', 'hero_sword', 'hero_axe', 'hero_greatsword', 'hero_shield'], archer: ['hero_archer_body', 'hero_archer_bow'], mage: ['hero_mage_body', 'hero_mage_staff'] };
@@ -41,23 +42,26 @@ async function boot() {
   prog(0.1, 'Загрузка героя и мира…');
   await loadGroup(CORE, f => prog(0.1 + f * 0.6, 'Загрузка героя и мира…'));
   $('titleHero').style.backgroundImage = 'url(assets/sprites/portrait.png)';
-  // monsters stream in the background (needed only in the dungeon)
-  const mons = loadGroup(MONSTERS).catch(e => console.warn(e));
   // save: local, or cloud if newer (Yandex)
   // сборка 44: три сохранения — по одному на класс; облако (Яндекс) — если там новее
   let saves = loadSlots();
   if (platform.name !== 'demo') { try { saves = mergeCloud(saves, await platform.p.cloudLoad()); } catch { } }
   prog(1, 'Готово');
   platform.p.ready();
+  initAnalytics();
+  // сборка 51: монстры, модели героев и зверей качаются после Game Ready, пока игрок на титульном экране
+  const mons = loadGroup(MONSTERS).catch(e => console.warn(e));
+  startPreload(saves.last);
   $('loadbar').classList.add('hidden'); $('loadtxt').classList.add('hidden');
   const btns = $('titleBtns'); btns.classList.remove('hidden');
   const start = async (p) => {
     await loadGroup(CLASS_ATLAS[p.cls || 'warrior']).catch(() => { });
-    G.profile = p; G.stats = stats(p); setVolumes(p.settings.sfx, p.settings.music); resize();
+    G.profile = p; G.stats = stats(p); wireAnalytics(); setVolumes(p.settings.sfx, p.settings.music); resize();
     btns.innerHTML = '<div class="muted">Вход в мир…</div>';
     initQuests(); initHunts(); initHUD(); initPanel(); CS.C(); initTutorial();
     await mons;
     const fresh = !p.tutorial.prologue && p.story.stage === 0 && !p.xp && p.level === 1;
+    track(fresh ? 'start_new' : 'start_continue', { cls: p.cls });
     if (!fresh) unlockAll();   // старые сохранения: все кнопки боя уже открыты
     await loadZone('town');
     $('title').remove(); startMusic('town');

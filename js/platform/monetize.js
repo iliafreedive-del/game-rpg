@@ -10,6 +10,7 @@ import { pickEpic } from '../game/loot.js';
 import { earlyLock, lockToast } from '../game/progress.js';
 import { SETS } from '../data/sets.js';
 import * as CS from '../game/castle.js';
+import { track } from './analytics.js';
 
 const MIN = 60 * 1000;
 export const OFFERS = {
@@ -37,6 +38,7 @@ export async function watchRewarded(kind, token, apply) {
   busy = true; G.paused = true; bus.emit('audioPause', true); gameplay(false);
   let ok = false;
   try { ok = await platform.p.showRewarded(); } catch { ok = false; }
+  track('ad_rewarded', { kind, ok: ok ? 1 : 0 });
   busy = false; G.paused = wasPaused; bus.emit('audioPause', false);   // окно на паузе остаётся на паузе; GameplayAPI.start — из main.js, когда игра снова идёт
   if (!ok) { bus.emit('toast', { text: 'Награда не получена: видео не досмотрено', kind: 'warn' }); return false; }
   if (P.ads.used[token]) return false;  // double-callback guard
@@ -67,6 +69,7 @@ export async function maybeInterstitial(reason) {
   if (Date.now() - lastInter < 4 * MIN || P.stats.playTime < 180) return false;
   lastInter = Date.now(); G.paused = true; bus.emit('audioPause', true); gameplay(false);
   try { await platform.p.showInterstitial(); } catch { }
+  track('ad_inter', { reason: reason || '' });
   G.paused = false; bus.emit('audioPause', false); return true;
 }
 
@@ -77,6 +80,7 @@ export async function buy(productId) {
   if (def.once && P.iap.tx['once_' + productId]) { bus.emit('toast', { text: 'Этот набор уже куплен', kind: 'warn' }); return false; }
   if (!def.consumable && P.iap[flagOf(productId)]) { bus.emit('toast', { text: 'Уже куплено', kind: 'warn' }); return false; }
   G.paused = true; gameplay(false); const r = await platform.p.purchase(productId); G.paused = false;
+  track(r.ok ? 'buy_ok' : 'buy_cancel', { id: productId });
   if (!r.ok) return false;
   return grantPurchase(productId, r.token);
 }

@@ -222,12 +222,14 @@ export const hasDecals = id => ['w_wolf', 'f_wolf', 'w_bear', 'w_boar', 'beast',
 // Спина и грудь под прядями не видны, поэтому их рисунок переносится в цвет вершин прядей и тела: та же проекция, что в шейдере.
 // Картинки грузятся заранее (ready) в маленьком размере 256×256 (слот 128 px) — для цвета этого хватает.
 const pix = new Map();
-export const ready = HAS_DOM ? Promise.all(['w_wolf', 'f_wolf', 'w_bear', 'w_boar', 'beast', 'ghoul'].map(id => new Promise(res => {
+// сборка 51: качаются вместе с моделями зверей (kit.preloadModels), а не при старте страницы
+let ready = null;
+export const loadDecals = () => ready || (ready = !HAS_DOM ? Promise.resolve() : Promise.all(['w_wolf', 'f_wolf', 'w_bear', 'w_boar', 'beast', 'ghoul'].map(id => new Promise(res => {
   const im = new Image();
   im.onload = () => { const c = document.createElement('canvas'); c.width = c.height = 256; const x = c.getContext('2d', { willReadFrequently: true }); x.drawImage(im, 0, 0, 256, 256); pix.set(id, x.getImageData(0, 0, 256, 256).data); res(); };
   im.onerror = () => res();
   im.src = BASE + `decal_${id}.webp`;
-}))) : Promise.resolve();
+}))));
 // цвет наклейки: слот (sx, sy), uv 0…1 (v вверх); null — нет картинки или прозрачно
 function samp(id, sx, sy, u, v) {
   const d = pix.get(id); if (!d || u < 0.01 || u > 0.99 || v < 0.01 || v > 0.99) return null;
