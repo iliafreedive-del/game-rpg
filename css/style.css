@@ -777,7 +777,7 @@ body.cine-on #ui{opacity:0;transition:opacity .4s}
 /* сборка 49: «Справка» */
 .help-list{margin:4px 0 10px;padding-left:18px;max-height:38vh;overflow:auto;font-size:13px;line-height:1.35}.help-list li{margin:3px 0}
 /* сборка 49: режим съёмки — без интерфейса, для скриншотов и роликов */
-body.photo #hudL,body.photo #hudR,body.photo #pad,body.photo #btnAct,body.photo #edgeArrow,body.photo #toasts,body.photo #levelUp,body.photo .hand,body.photo .hint-line,body.photo #joyBase{visibility:hidden!important}
+body.photo #hudL,body.photo #hudR,body.photo #pad,body.photo #btnAct,body.photo #edgeArrow,body.photo #toasts,body.photo #levelUp,body.photo #survHud,body.photo .hand,body.photo .hint-line,body.photo #joyBase{visibility:hidden!important}
 .photo-exit{position:fixed;right:8px;top:8px;z-index:60;opacity:.3;font-size:11px;padding:3px 8px}
 .mod-row{flex-wrap:wrap;gap:6px;margin-top:6px}.modbuff{color:#ff9a7a}
 .it-stat.origin{font-size:11px;color:#b9a888;font-style:italic}.it-stat.origin.nem{color:#ff9a7a;font-style:normal}

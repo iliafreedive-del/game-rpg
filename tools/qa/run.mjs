@@ -8,7 +8,7 @@ const p = await b.newPage({ viewport: { width: +w, height: +h }, deviceScaleFact
 const logs = []; p.on('console', m => { if (['error', 'warning'].includes(m.type()) || m.text().startsWith('>>')) logs.push(m.type() + ': ' + m.text()); }); p.on('pageerror', e => logs.push('PAGEERR: ' + e.message));
 await p.exposeFunction('shot', async name => { const c = process.env.CLIP && process.env.CLIP.split(',').map(Number); await p.screenshot({ path: `/tmp/claude-0/shots/${name}.jpg`, type: 'jpeg', quality: 82, clip: c ? { x: c[0], y: c[1], width: c[2], height: c[3] } : undefined }); });
 await p.exposeFunction('hclick', async sel => { try { await p.click(sel, { timeout: 3000, force: true }); return true; } catch (e) { return String(e).slice(0, 900); } });
-await p.goto('http://localhost:8123/index.html?shot&nosdk=1');
+await p.goto((process.env.BASE || 'http://localhost:8123') + '/index.html?shot&nosdk=1');   // BASE — проверить распакованный архив
 await p.waitForSelector('#titleBtns button', { timeout: 20000 });
 await p.evaluate(() => { localStorage.clear(); });
 await p.reload(); await p.waitForSelector('#titleBtns button');
