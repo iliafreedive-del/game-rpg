@@ -220,7 +220,8 @@ export function generateVillage(plan0 = PLAN) {
   // битв — пара по бокам площади, на одной линии кадра
   // камера смотрит по диагонали, поэтому «слева и справа на экране» — это ось (−1; +1) / (+1; −1) карты; источник силы повёрнут к камере
   const SX = 3.1;
-  put('shrine', CX + 0.9 + SX, CY + 0.9 - SX, { s: 1.35, rot: Math.PI / 4 });   // чуть ближе к камере — не заслоняет доску заданий
+  const AX = church.x;
+  put('shrine', AX + 4.3, CY + 1.2, { s: 1.35 });   // сборка 55: по просьбе — на прежнем месте
   const hwsign = [CX + 0.3 - SX, CY + 0.3 + SX];
   for (const [sx, sy] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) put('lamp', CX + sx * (SQ.hw - 0.6), CY + sy * (SQ.hh - 0.5));
   // сборка 55: лавочка — за старостой (дальше от камеры), у края площади, где начинается трава между таверной и церковью
@@ -249,7 +250,7 @@ export function generateVillage(plan0 = PLAN) {
   {
     const gx0 = church.x - 4.2, gy0 = church.y - church.d / 2 - 4.6;
     for (let r = 0; r < 2; r++) for (let k = 0; k < 4; k++) if (hh(k, r, 4) < 0.85) put('grave', gx0 + 0.8 + k * 1.75, gy0 + 0.9 + r * 1.8, { rot: (hh(k, r) - 0.5) * 0.3 });
-    { const [px, py] = plan.portals.catacombs, tx = px - 2.9, ty = py + 0.4, dx = church.x - tx, dy = church.y - ty, l = Math.hypot(dx, dy); put('deadtree', tx + dx / l * 2, ty + dy / l * 2, { s: 1.8, keep: 1, yaw: 0.236 }); }   // сборка 55: повёрнуто влево на 15 % четверти оборота (≈13,5°)   // и на 2 м ближе к церкви   // сборка 47: сухое дерево — за порталом катакомб и левее (было перед ним), ростом в два героя
+    { const [px, py] = plan.portals.catacombs, tx = px - 2.9, ty = py + 0.4, dx = church.x - tx, dy = church.y - ty, l = Math.hypot(dx, dy); put('deadtree', tx + dx / l * 2, ty + dy / l * 2, { s: 1.8, keep: 1, yaw: 0.236 + Math.PI / 3 }); }   // сборка 55: повёрнуто влево на 15 % четверти оборота (≈13,5°) и ещё на 60° вокруг своей оси   // и на 2 м ближе к церкви   // сборка 47: сухое дерево — за порталом катакомб и левее (было перед ним), ростом в два героя
     markRect(gx0 - 0.5, gy0, gx0 + 9, gy0 + 4, 5);
   }
 
