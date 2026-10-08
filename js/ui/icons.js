@@ -1,9 +1,11 @@
 // Icon helpers: atlas item icons → cached data URLs; procedural skill icons in the same palette.
 import { getAtlas } from '../core/assets.js';
 import { SKILLS, BRANCHES } from '../data/skills.js';
+import { ART, ITEM_ART, artImg, withArt } from './art.js';
 
 const cache = new Map();
 export function iconURL(name, size = 96) {
+  if (ITEM_ART[name]) { const r = artImg(ART.item(ITEM_ART[name])); if (r.ok) return ART.item(ITEM_ART[name]); }   // сборка 58: нарисованные зелья и свиток (пока грузятся — значок из атласа)
   const k = name + '@' + size; if (cache.has(k)) return cache.get(k);
   const A = getAtlas('icons'); if (!A || !A.frames[name]) return '';
   const [si, sx, sy, w, h] = A.frames[name];
@@ -13,6 +15,8 @@ export function iconURL(name, size = 96) {
 }
 export function drawIcon(canvas, name) {
   const A = getAtlas('icons'); const x = canvas.getContext('2d'); x.clearRect(0, 0, canvas.width, canvas.height);
+  canvas.dataset.ic = name;
+  if (ITEM_ART[name]) { const r = artImg(ART.item(ITEM_ART[name])); if (r.ok) { const S = canvas.width; x.drawImage(r.im, S * 0.02, S * 0.02, S * 0.96, S * 0.96); return; } withArt(ART.item(ITEM_ART[name]), () => { if (canvas.dataset.ic === name) drawIcon(canvas, name); }); }
   if (!A || !A.frames[name]) return;
   const [si, sx, sy, w, h] = A.frames[name]; const S = canvas.width; const s = Math.min(S / w, S / h) * 0.95;
   x.drawImage(A.sheets[si], sx, sy, w, h, (S - w * s) / 2, (S - h * s) / 2, w * s, h * s);
@@ -29,6 +33,11 @@ const GLYPH = {
 export function skillIcon(canvas, id, dim) {
   const x = canvas.getContext('2d'); const S = canvas.width; x.clearRect(0, 0, S, S);
   const sk = SKILLS[id]; if (!sk) return; const [c1, c2] = COL[sk.b];
+  // сборка 58: нарисованная иконка навыка; процедурная — пока картинка грузится или если её нет
+  canvas.dataset.sk = id + (dim ? ':d' : '');
+  const art = artImg(ART.skill(id));
+  if (art.ok) { x.drawImage(art.im, 0, 0, S, S); x.strokeStyle = '#000a'; x.lineWidth = 2; x.strokeRect(1, 1, S - 2, S - 2); if (dim) { x.fillStyle = '#0009'; x.fillRect(0, 0, S, S); } return; }
+  withArt(ART.skill(id), () => { if (canvas.dataset.sk === id + (dim ? ':d' : '')) skillIcon(canvas, id, dim); });
   const g = x.createRadialGradient(S * 0.45, S * 0.38, S * 0.05, S / 2, S / 2, S * 0.7); g.addColorStop(0, c2); g.addColorStop(1, '#0a0608');
   x.fillStyle = g; x.fillRect(0, 0, S, S);
   x.strokeStyle = c1; x.fillStyle = c1; x.lineWidth = S * 0.07; x.lineCap = 'round'; x.lineJoin = 'round';
@@ -61,4 +70,6 @@ export function skillIcon(canvas, id, dim) {
   if (dim) { x.fillStyle = '#0009'; x.fillRect(0, 0, S, S); }
 }
 export function skillCanvas(id, size = 72, dim) { const c = document.createElement('canvas'); c.width = c.height = size; skillIcon(c, id, dim); return c; }
+// значок ветки (Меч, Лук, Огонь, Лёд, Молния) — маленькая картинка рядом с названием ветки
+export const branchImg = (b, size = 18) => `<img class="br-ic" src="${ART.branch(b)}" alt="" width="${size}" height="${size}" onerror="this.remove()">`;
 export { BRANCHES };

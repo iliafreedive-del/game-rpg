@@ -53,7 +53,7 @@ async function boot() {
   const mons = loadGroup(MONSTERS).catch(e => console.warn(e));
   startPreload(saves.last);
   $('loadbar').classList.add('hidden'); $('loadtxt').classList.add('hidden');
-  const btns = $('titleBtns'); btns.classList.remove('hidden');
+  const btns = $('titleBtns'); btns.classList.remove('hidden'); $('title').classList.add('ready');   // сборка 58: фон загрузки (лестница) → титульный (Тихий Брод)
   const start = async (p) => {
     await loadGroup(CLASS_ATLAS[p.cls || 'warrior']).catch(() => { });
     G.profile = p; G.stats = stats(p); wireAnalytics(); setVolumes(p.settings.sfx, p.settings.music); resize();
@@ -101,7 +101,7 @@ function pickClass(box, cb, saved = {}, askOverwrite = () => true) {
   const row = el('div', 'classes');
   for (const [id, C] of Object.entries(CLASSES)) {
     const has = saved[id];
-    const c = el('button', 'class-card', `<img class="pt" src="assets/sprites/${id === 'warrior' ? 'portrait' : 'portrait_' + id}.png" alt="" onerror="this.src='${iconURL(C.icon)}'"><b>${esc(C.name)}</b><span>${esc(C.desc)}</span>${has ? `<em class="cc-save">есть сохранение · ур. ${has.level}</em>` : ''}`);
+    const c = el('button', 'class-card', `<picture><source media="(min-width:900px) and (min-height:600px)" srcset="assets/art/gpt/heroes/${id}.png"><img class="pt" src="assets/sprites/${id === 'warrior' ? 'portrait' : 'portrait_' + id}.png" alt="" onerror="this.src='${iconURL(C.icon)}'"></picture><b>${esc(C.name)}</b><span>${esc(C.desc)}</span>${has ? `<em class="cc-save">есть сохранение · ур. ${has.level}</em>` : ''}`);
     c.onclick = () => { if (box._picked) return; if (has && !askOverwrite(id)) return; box._picked = true; sfx('click'); cb(id); }; row.appendChild(c);
   }
   box.appendChild(row);

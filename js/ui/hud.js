@@ -11,6 +11,7 @@ import * as Q from '../game/quests.js';
 import * as C from '../game/combat.js';
 import { interact, usePotion, useScroll } from '../game/game.js';
 import { drawIcon, skillIcon, iconURL } from './icons.js';
+import { ART, withArt } from './art.js';
 import { iconOf } from '../game/items.js';
 import { dailyStatus, chestStatus, blessLeft, blessTick, autoOK, autoFree, autoLeft, autoAd, AUTO_MIN } from '../platform/monetize.js';
 import { seasonClaimable, nextGoalLine } from '../game/season.js';
@@ -20,8 +21,7 @@ import { openWindow, pumpRewards } from './windows.js';
 import * as CS from '../game/castle.js';
 import { hwReady } from './herospath.js';
 import './energy.js';
-import { skillCanvas } from './icons.js';
-const skillCanvasInto = (cv, id) => { const s = skillCanvas(id, cv.width, false); const x = cv.getContext('2d'); x.clearRect(0, 0, cv.width, cv.height); x.drawImage(s, 0, 0, cv.width, cv.height); };
+const skillCanvasInto = (cv, id) => skillIcon(cv, id, false);   // сборка 58: рисуем прямо в кнопку — нарисованная иконка догружается в неё же
 import * as SV from '../game/survival.js';
 import * as HU from '../game/hunts.js';
 import { unlocked as tutUn, hideHand, pointAt } from './tutorial.js';
@@ -62,6 +62,7 @@ export function initHUD() {
     if (code === 'KeyT') useScroll();
   };
   drawIcon($('potHP').querySelector('canvas'), 'potion_hp'); drawIcon($('potMP').querySelector('canvas'), 'potion_mp');
+  withArt(ART.item('scroll'), im => { const b = $('btnScroll'), sv = b.querySelector('svg'); if (sv) sv.replaceWith(Object.assign(im.cloneNode(), { className: 'art-scroll', alt: '' })); });   // сборка 58: нарисованный свиток вместо контура
   const cl = G.profile.cls || 'warrior'; $('portrait').style.backgroundImage = `url(assets/sprites/${cl === 'warrior' ? 'portrait' : 'portrait_' + cl}.png)`;
   bus.on('hud', () => { lastHud = 0; });
   bus.on('skillsChanged', refreshSkills);

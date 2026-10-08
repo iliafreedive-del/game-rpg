@@ -12,7 +12,8 @@ import { iconOf, affixText, epicOf, sellValue, upgradeCost, reforgeCost, MAX_UPG
 import * as CH from '../game/character.js';
 import * as EC from '../game/economy.js';
 import * as Q from '../game/quests.js';
-import { iconURL, skillCanvas } from './icons.js';
+import { iconURL, skillCanvas, branchImg } from './icons.js';
+import { ART, artTag, artHead } from './art.js';
 import { drawMap, seen, seenKey } from './hud.js';
 import { offers, buy, restorePurchases, dailyStatus, claimDaily, chestStatus, chestSkip, openOrderChest, DAILY, LOGIN_DAYS, watchRewarded, offerToken, blessing, blessLeft, BLESS_MIN, BLESS_CAP, BLESS_DAY, blessToday } from '../platform/monetize.js';
 import { PRODUCTS, platform } from '../platform/platform.js';
@@ -333,7 +334,7 @@ function talentInfo(id, P, edit) {
   box.appendChild(skillCanvas(id, 96, !r && !can.ok));
   const reqs = CH.skillReqs(id);
   const t = el('div', 'ti-body', `<div class="ti-n">${esc(sk.name)} <span class="ti-k ${sk.kind}">${sk.kind === 'active' ? '⚔ активное умение' : 'пассивное'}</span></div>
-    <div class="ti-sub"><span style="color:${br.color}">${esc(br.name)}</span> · ранг ${r}/${sk.max}${er > r ? ` <span class="good">(+${er - r} от вещей)</span>` : ''}</div>
+    <div class="ti-sub">${branchImg(br.id)}<span style="color:${br.color}">${esc(br.name)}</span> · ранг ${r}/${sk.max}${er > r ? ` <span class="good">(+${er - r} от вещей)</span>` : ''}</div>
     ${r ? `<div class="ti-d"><b>Сейчас:</b> ${esc(sk.desc(er))}</div>` : ''}
     ${r < sk.max ? `<div class="ti-d ${r ? 'next' : ''}"><b>${r ? 'Следующий ранг:' : 'Ранг 1:'}</b> ${esc(sk.desc(Math.max(1, er + 1)))}</div>` : '<div class="ti-d good">Изучено полностью</div>'}
     ${r < sk.max ? `<ul class="ti-req">${reqs.map(q => `<li class="${q.ok ? 'ok' : 'no'}">${q.ok ? '✔' : '✖'} ${esc(q.text)}</li>`).join('')}</ul>` : ''}`);
@@ -855,6 +856,7 @@ export { W };
 // ---------------------------------------------------------------- Depths: floor select, results, dozor, daily
 W.depths = () => modal('Глубины катакомб', 'sm', b => {
   const P = G.profile; P.depths = P.depths || { best: 0, stars: {} };
+  b.appendChild(artHead(ART.zone('depths')));   // сборка 58
   const tq = CS.torches(); const tl = CS.nextIn(tq, CS.TORCH_MS);
   const trow = el('div', 'row', `<b class="goldc">⚡ Энергия: ${tq.n}/${CS.TORCH_MAX}</b>${tl ? `<span class="muted">+1 через ${Math.ceil(tl / 60000)} мин</span>` : ''}`);
   { const eb = el('button', 'btn gold sm', '⚡ Получить энергию'); eb.onclick = () => bus.emit('openEnergy', rerender); trow.appendChild(eb); } b.appendChild(trow);
@@ -901,6 +903,7 @@ W.depths = () => modal('Глубины катакомб', 'sm', b => {
 // ---------------------------------------------------------------- Походы: Фьорды Скъёльда / Старый Лес
 W.wild = realm => modal(REALMS[realm].name, 'sm', b => {
   const RL = REALMS[realm], WS = wildState(realm), P = G.profile, next = Math.max(1, WS.depth || 1);
+  b.appendChild(artHead(ART.zone(realm)));   // сборка 58: лес / фьорды / пустоши
   b.appendChild(el('div', 'q cur', `<div class="qt">${esc(nextGoal(realm))}</div>`));
   b.appendChild(el('p', 'muted', RL.blurb));
   b.appendChild(el('p', 'muted', `Пять разных открытых локаций подряд: в конце каждой — портал «Вглубь», следующая локация требует уровня. Шестая — ${RL.fortName.toLowerCase()}: перебейте зверей вокруг, чтобы открылись ворота, и отбейте форт. Глубже — снова поля, каждый второй форт — босс. Дальше всего вы дошли до глубины <b class="goldc">${WS.depth || 0}</b>.`));
@@ -1021,7 +1024,7 @@ function boonChoice() {
     let blood = false; const tags = [];
     for (const id of pool) {
       const B = BOONS[id];
-      const c = el('button', 'boon' + (B.minus ? ' cursed' : ''), `<div class="bg" style="color:${B.color};text-shadow:0 0 18px ${B.color}">${B.glyph}</div><b>${esc(B.name)}</b><span>${esc(B.desc)}${B.minus ? `<em class="minus">${esc(B.minus)}</em>` : ''}</span><small class="lv">▶ за рекламу</small>`);
+      const c = el('button', 'boon' + (B.minus ? ' cursed' : ''), `<div class="bg" style="color:${B.color};text-shadow:0 0 18px ${B.color}">${artTag(ART.boon(id), B.glyph)}</div><b>${esc(B.name)}</b><span>${esc(B.desc)}${B.minus ? `<em class="minus">${esc(B.minus)}</em>` : ''}</span><small class="lv">▶ за рекламу</small>`);
       tags.push(c.querySelector('.lv'));
       const give = () => { r.boons.push(id); G.stats = calcStats(G.profile); bus.emit('statsChanged'); bus.emit('toast', { text: 'Дар: ' + B.name, kind: 'good' }); bus.emit('sfx', 'learn'); closeModal(); };
       c.onclick = async () => {
@@ -1046,6 +1049,7 @@ function boonChoice() {
 const mmssT = t => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
 W.survival = () => modal('Жатва Бездны', 'md', b => {
   const P = G.profile; P.surv = P.surv || { best: 0, ach: {}, runs: 0 };
+  b.appendChild(artHead(ART.harvest('intro'), 'tall'));   // сборка 58: староста Эдрик держит портал Жатвы
   b.appendChild(el('p', '', 'Бескрайняя арена Бездны и бесконечные волны. <b>Нужно только бегать</b> — герой атакует сам. Собирайте кристаллы душ, растите в уровне, выбирайте перки и пробуждайте оружие. Цель — продержаться 20 минут. Враги крепнут каждую минуту. <b>Каждый уровень забега даёт герою 2,5% опыта уровня</b> (до 75% за забег).'));
   const row = el('div', 'row'); row.style.cssText = 'justify-content:center;margin:10px 0'; const intro = !(P.story.flags && P.story.flags.bossKilled);
   const go = el('button', 'btn gold', intro ? '▶ Знакомство · 3 минуты' : `▶ В бой · ${SV.RUN_COST} ⚡`); go.style.width = '100%'; go.onclick = () => { if (!intro && !CS.spendEnergy(SV.RUN_COST)) { bus.emit('toast', { text: `Нужно ${SV.RUN_COST} ⚡ энергии`, kind: 'warn' }); bus.emit('openEnergy', rerender); return; } closeModal(); loadZone('survival'); }; row.appendChild(go); b.appendChild(row);   // кнопка вверху: не нужно листать список
@@ -1071,7 +1075,7 @@ function survLevel() {
         row.appendChild(card); return;
       }
       const title = c.evo ? '⚡ ' + c.evo.name : c.gold ? 'Золото' : c.P.name, desc = c.evo ? c.evo.desc : c.gold ? '+50 золота' : c.P.desc(c.lvl), lv = c.evo ? 'ПРОБУЖДЕНИЕ' : c.gold ? '' : c.lvl ? `ур. ${c.lvl} → ${c.lvl + 1}` : 'новое';
-      const card = el('button', 'boon' + (c.evo ? ' evo' : ''), `<div class="bg">${c.evo ? '✹' : c.gold ? '⛁' : (c.P.icon || '⚔')}</div><b>${esc(title)}</b><small class="lv">${lv}</small><span>${esc(desc)}</span>`);
+      const card = el('button', 'boon' + (c.evo ? ' evo' : ''), `<div class="bg">${c.evo ? artTag(ART.evo(c.evo.id), '✹') : c.gold ? '⛁' : artTag(ART.perk(c.id), c.P.icon || '⚔')}</div><b>${esc(title)}</b><small class="lv">${lv}</small><span>${esc(desc)}</span>`);
       card.onclick = () => { SV.take(c); closeModal(); };
       row.appendChild(card);
     });
@@ -1081,6 +1085,7 @@ function survLevel() {
 }
 function survEnd(r) {
   setTimeout(() => modal(r.win ? 'Вы выжили!' : 'Жатва окончена', 'sm reward', b => {
+    b.appendChild(artHead(ART.harvest(r.win ? 'victory' : 'defeat'), 'tall'));   // сборка 58: рассвет над ареной / волна мертвецов
     b.appendChild(el('div', 'rw-head', `<div class="rw-rays r${r.win ? 3 : 1}"></div><div class="rw-t">${mmssT(r.t)}${r.record ? ' · рекорд!' : ''}</div>`));
     b.appendChild(el('div', 'stats', `<div><span>Убито</span><b>${r.kills}</b></div><div><span>Уровень забега</span><b>${r.lvl}</b></div>`));
     b.appendChild(el('div', 'rw-loot', `<span class="goldc">+${r.gold} золота</span>${r.heroXP ? ` · <span style="color:#b8e3ff">+${r.heroXP} опыта герою</span>` : ''}${r.shards ? ` · <span class="c-shard">+${r.shards}◆</span>` : ''}`));
@@ -1100,7 +1105,7 @@ const LORE = {
   castle: ['Цитадель Ордена', 'Когда-то здесь жили магистры Ордена. Теперь это ваш дом. Откройте залы: алтарь будет копить золото, пока вы спите, а в Зале испытаний стражи прошлого проверят вашу силу.'],
 };
 bus.on('zoneEntered', id => { const P = G.profile; P.lore = P.lore || {}; const L = LORE[id]; if (!L || P.lore[id] || (id === 'depths' && !(G.run && G.run.floor > 0))) return; P.lore[id] = 1; bus.emit('save');
-  const show = () => { if (cur) { setTimeout(show, 800); return; } modal(L[0], 'sm reward', b => { b.appendChild(el('p', 'lore', esc(L[1]))); const r = el('div', 'row'); r.style.justifyContent = 'center'; const ok = el('button', 'btn gold', 'Вперёд'); ok.onclick = closeModal; r.appendChild(ok); b.appendChild(r); }); cur.bg.classList.add('rw-bg'); }; setTimeout(show, 600); });
+  const show = () => { if (cur) { setTimeout(show, 800); return; } modal(L[0], 'sm reward', b => { b.appendChild(artHead(ART.zone(id))); b.appendChild(el('p', 'lore', esc(L[1]))); const r = el('div', 'row'); r.style.justifyContent = 'center'; const ok = el('button', 'btn gold', 'Вперёд'); ok.onclick = closeModal; r.appendChild(ok); b.appendChild(r); }); cur.bg.classList.add('rw-bg'); }; setTimeout(show, 600); });
 
 // ---------------------------------------------------------------- main menu: big labelled tiles instead of a row of tiny icons
 W.menu = () => modal('Меню', 'md', b => {

@@ -784,3 +784,29 @@ body.photo #hudL,body.photo #hudR,body.photo #pad,body.photo #btnAct,body.photo 
 .mod-row{flex-wrap:wrap;gap:6px;margin-top:6px}.modbuff{color:#ff9a7a}
 .it-stat.origin{font-size:11px;color:#b9a888;font-style:italic}.it-stat.origin.nem{color:#ff9a7a;font-style:normal}
 .mod-card .mod-row .btn{width:auto;flex:0 0 auto;margin:0}
+/* сборка 58: нарисованный арт (assets/art/gpt) — фоны титула, загрузки, смерти, шторки зон; картинки в окнах; иконки даров и Жатвы */
+#title{background:radial-gradient(ellipse at 50% 50%,#07050ab3,#07050a40 72%),url(../assets/art/gpt/start/loading_land.jpg) center/cover no-repeat,#07050a}
+#title.ready{background:radial-gradient(ellipse at 50% 52%,#07050ac0,#07050a33 72%),url(../assets/art/gpt/start/title_land.jpg) center/cover no-repeat,#07050a}
+#death{background:radial-gradient(ellipse at 50% 50%,#0a0306b0,#1a050855 75%),url(../assets/art/gpt/battle/death.jpg) center/cover no-repeat,#000}
+#zoneVeil{background:linear-gradient(#07050a99,#07050acc),var(--veil-l,none) center/cover no-repeat,#07050a}
+@media (orientation:portrait){
+  #title{background:radial-gradient(ellipse at 50% 50%,#07050ab3,#07050a40 72%),url(../assets/art/gpt/start/loading_port.jpg) center/cover no-repeat,#07050a}
+  #title.ready{background:radial-gradient(ellipse at 50% 52%,#07050ac0,#07050a33 72%),url(../assets/art/gpt/start/title_port.jpg) center/cover no-repeat,#07050a}
+  #death{background:radial-gradient(ellipse at 50% 50%,#0a0306b0,#1a050855 75%),url(../assets/art/gpt/battle/death_port.jpg) center/cover no-repeat,#000}
+  #zoneVeil{background:linear-gradient(#07050a99,#07050acc),var(--veil-p,none) center/cover no-repeat,#07050a}
+}
+.art-head{margin:-12px -12px 10px;height:clamp(110px,24vh,170px);overflow:hidden;position:relative;border-bottom:1px solid #6a5226}
+.art-head.tall{height:clamp(130px,30vh,230px)}
+.art-head img{width:100%;height:100%;object-fit:cover;display:block}
+.art-head::after{content:'';position:absolute;inset:0;background:linear-gradient(transparent 55%,#110d12)}
+.boon .bg .art-ic{width:68px;height:68px;display:block;border-radius:10px;box-shadow:0 0 0 1px #0008,0 2px 10px #000a}
+.boon.evo .bg .art-ic{box-shadow:0 0 0 2px #c07bff,0 0 16px #c07bffaa}
+.boon.cursed .bg .art-ic{box-shadow:0 0 0 2px #8a2a3a,0 0 14px #d0304a88}
+.boons.b4 .boon .bg .art-ic{width:52px;height:52px}
+@media (max-width:560px){.boon .bg .art-ic{width:48px;height:48px}.boons.b4 .boon .bg .art-ic{width:46px;height:46px}}
+.br-ic{width:18px;height:18px;vertical-align:-4px;margin-right:4px;border-radius:4px}
+#btnScroll .art-scroll{width:34px;height:34px;display:block;filter:drop-shadow(0 1px 2px #000)}
+.hw-pano{margin:-12px -12px 8px;height:clamp(70px,16vw,130px);overflow:hidden;border-bottom:3px solid #5a3e22;border-radius:4px 4px 0 0}
+.hw-pano img{width:100%;height:100%;object-fit:cover;display:block}
+.hw-rimg{display:block;width:min(300px,80%);margin:-6px auto -18px;pointer-events:none}
+@media (max-height:500px){.hw-pano{display:none}.hw-rimg{width:180px}}

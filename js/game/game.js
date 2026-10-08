@@ -63,7 +63,7 @@ export function saveNow(force) {
 bus.on('save', requestSave);
 
 export async function loadZone(id, how = {}) {
-  G.zoneReady = false; bus.emit('zoneLoading', id);
+  G.zoneReady = false; G.zoneTo = id === 'wild' ? how.realm : id; bus.emit('zoneLoading', id);   // zoneTo — картинка шторки (сборка 58)
   if (G.zone && typeof requestAnimationFrame !== 'undefined') await new Promise(r => requestAnimationFrame(() => setTimeout(r, 0)));   // сборка 46: дать браузеру нарисовать шторку до тяжёлой сборки зоны
   const P = G.profile;
   onZoneChange(G.zoneId, how);   // серия побед (сборка 47)
