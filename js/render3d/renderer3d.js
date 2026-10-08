@@ -2,7 +2,7 @@
 // логика, ИИ, бой и DOM-интерфейс остаются прежними. Поверх WebGL-холста рисуется прозрачный 2D-холст игры
 // (полоски жизни, цифры урона, эффекты, телеграфы) — для него камера отдаёт проекцию через G.cam.proj.
 import * as THREE from '../vendor/three.module.min.js';
-import { G } from '../game/ctx.js';
+import { G, bus } from '../game/ctx.js';
 import { PX_PER_M } from '../core/iso.js';
 import { U, setSmoothFade } from './toon.js';
 import { makeKit } from './kit.js';
@@ -149,7 +149,7 @@ function presetFor(z) {
   if (z.id === 'town') return { ...LIGHT.village3, look: null };
   if (z.id === 'wild') { const fj = z.json.wild.realm === 'fjord', d = z.json.wild.mood && z.json.wild.mood.dark, B = fj ? LIGHT.wildFjord : z.json.wild.realm === 'bones' ? (d ? LIGHT.wildSteppeDusk : LIGHT.wildSteppe) : LIGHT.wildForest;
     return { ...B, hemi: d ? { ...B.hemi, i: B.hemi.i * 0.8 } : B.hemi, key: d ? { ...B.key, i: B.key.i * 0.85 } : B.key, look: null }; }
-  if (z.id === 'survival') return { ...LIGHT.castle, look: { floor: 0x7a6e96, grime: 0x2a2040, moss: 0x5a3a8a } };   // арена Бездны: светло, но фиолетово
+  if (z.id === 'survival') { const L = LIGHT.castle; return { ...L, hemi: { ...L.hemi, sky: 0xc8c0e8, i: 2.3 }, key: { ...L.key, i: 2.8 }, fog: { color: 0x3a3352, near: 48, far: 130 }, clear: 0x2a2440, look: { floor: 0x9a90b8, grime: 0x4a4064, moss: 0x7a5aaa } }; }   // арена Бездны: сборка 50 — заметно светлее (было темно, врагов не разглядеть), туман дальше
   if (z.id === 'castle') return { ...LIGHT.castle, look: { floor: 0x9a8e7a, grime: 0x4a4034, moss: 0x5a6a3a } };
   const C = LIGHT.crypt, b = C.biome[z.json && z.json.biome];
   const look = { floor: 0x7a7266, grime: 0x3a3028, moss: 0x3a5a3a };
@@ -301,6 +301,8 @@ function syncSwarm(dt) {
   }
 }
 const env = { wind: new THREE.Vector2() };
+// «Жатва» (сборка 50): мир сдвинулся на плитку — пол подставляет тот же рисунок, у моделей не бывает рывка скорости
+bus.on('worldShift', ({ dx, dy }) => { if (U.uWShift) { U.uWShift.value.x -= dx; U.uWShift.value.y -= dy; } for (const a of actors.values()) if (a.ctl) { a.ctl.px += dx; a.ctl.py += dy; } });
 
 // ---------------------------------------------------------------- камера и свет
 function updateCamera(dt) {

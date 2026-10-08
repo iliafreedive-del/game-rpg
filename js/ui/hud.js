@@ -92,6 +92,8 @@ function refreshSkills() {
 // ---------------------------------------------------------------- toasts (bounded, auto-removed)
 export function toast(t) {
   const box = $('toasts'); while (box.children.length >= 4) box.firstChild.remove();
+  // сборка 50: на вертикальном телефоне — под правой колонкой HUD (задание, «Веди меня»), а не поверх неё (iPhone SE, Android 360)
+  { const r = $('hudR'), port = innerHeight > innerWidth && innerWidth <= 760; box.style.top = port && r && r.offsetParent ? Math.min(innerHeight * 0.5, r.getBoundingClientRect().bottom + 8) + 'px' : ''; }
   const d = el('div', 'toast ' + (t.kind || ''), `<div class="a" ${t.color ? `style="color:${t.color}"` : ''}>${esc(t.text)}</div>${t.sub ? `<div class="b">${esc(t.sub)}</div>` : ''}`);
   if (t.onClick) d.onclick = () => { t.onClick(); d.remove(); };
   box.appendChild(d);

@@ -373,8 +373,9 @@ export function generateVillage(plan0 = PLAN) {
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (at(x, y) === 'x' && inClear(x + 0.5, y + 0.5)) set(x, y, 'n');
   }
   // сборка 47: лесной портал стоит в углу у кромки — лес между ним и камерой (+x,+z) прореживается до луга (луг непроходим, как и лес)
-  { const [fx, fy] = plan.portals.forest; viewClear.push({ x: fx, y: fy, len: 14, lat: 5.5 });
-    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const dx = x + 0.5 - fx, dy = y + 0.5 - fy, al = (dx + dy) / Math.SQRT2; if (at(x, y) === 'x' && al > 1 && al < 14 && Math.abs(dx - dy) / Math.SQRT2 < 5.5) set(x, y, 'n'); } }
+  // сборка 50: так же расчищен обзор на портал Жатвы — он у нижней кромки, кусты закрывали его и героя
+  for (const [key, len, lat] of [['forest', 14, 5.5], ['survival', 14, 6.5]]) { const [fx, fy] = plan.portals[key]; viewClear.push({ x: fx, y: fy, len, lat });
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const dx = x + 0.5 - fx, dy = y + 0.5 - fy, al = (dx + dy) / Math.SQRT2; if (at(x, y) === 'x' && al > 1 && al < len && Math.abs(dx - dy) / Math.SQRT2 < lat) set(x, y, 'n'); } }
 
   // ---- деревья: рощи в остатках земли (шум задаёт пятна), не ближе 2,4 м друг к другу, не загораживают NPC и порталы
   const trees = [];

@@ -3,6 +3,10 @@
 // ударил, отскочил на своё место; стрелок и маг бьют издалека снарядом. Арена в метрах: герой слева (x < 0), отряд справа, z — глубина.
 
 export const ARENA = { heroX: -5.4, foeX0: 1.6, foeX1: 5.4, zMax: 2.4 };
+// сборка 50: на вертикальном экране арена уже — бойцы крупнее (по ширине влезает ±HALF_X, на телефоне это давало мелких человечков)
+const WIDE = { heroX: -5.4, foeX0: 1.6, foeX1: 5.4, zMax: 2.4, halfX: 8.6 }, NARROW = { heroX: -3.4, foeX0: 0.5, foeX1: 2.9, zMax: 2.0, halfX: 5.2 };
+let HALF_X = WIDE.halfX;
+export function setArenaLayout(narrow) { const L = narrow ? NARROW : WIDE; ARENA.heroX = L.heroX; ARENA.foeX0 = L.foeX0; ARENA.foeX1 = L.foeX1; ARENA.zMax = L.zMax; HALF_X = L.halfX; }
 const RUN = 10, BACK_T = 0.4, PAUSE = 0.15;
 
 // расстановка отряда: ближний бой — первая линия, стрелки и маги — вторая; босс — в центре первой линии
@@ -171,7 +175,7 @@ export function stageFoes(s) {
 
 // ---- вид на арену (общий для 3D-камеры и 2D-слоя): ортографическая камера под углом THETA, x ∈ ±HALF_X влезает по ширине,
 // глубина ±DEPTH занимает полосу пола FLOOR кадра (доли высоты). toScreen: мир (м) → пиксели.
-const THETA = 32 * Math.PI / 180, HALF_X = 8.6, DEPTH = 3.3, FLOOR = [0.44, 0.97];
+const THETA = 32 * Math.PI / 180, DEPTH = 3.3, FLOOR = [0.44, 0.97];
 export function arenaView(w, h) {
   const span = 2 * DEPTH * Math.sin(THETA);
   const halfH = Math.max(span / (2 * (FLOOR[1] - FLOOR[0])), HALF_X * h / w), halfW = halfH * w / h;

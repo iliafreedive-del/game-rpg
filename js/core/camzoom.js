@@ -8,13 +8,18 @@ import { tapAim, joyPointer, releaseJoy } from './input.js';
 // 0,7 — на 30 % ближе (сборка 45: было 0,8 — пользователь попросил ещё на 10 %; снизу экрана телефона остаётся ≈5,3 м);
 // 1,3 — на 30 % дальше
 export const ZOOM = { min: 0.7, max: 1.3 };
-export const zoomNow = () => { const s = G.profile && G.profile.settings; const z = s ? +s.camZoom : 1; return z ? clamp(z, ZOOM.min, ZOOM.max) : 1; };
+// сборка 50: в «Жатве» свой зум — приблизить так же, как в основной игре, отдалить до прежнего обзора Жатвы (было 1/0,6 ≈ 1,67)
+export const SURV_ZOOM = { min: 0.7, max: 1.75, def: 1.25 };
+const surv = () => G.zoneId === 'survival';
+const zkey = () => surv() ? 'survZoom' : 'camZoom';
+export const zoomRange = () => surv() ? SURV_ZOOM : ZOOM;
+export const zoomNow = () => { const s = G.profile && G.profile.settings, R = zoomRange(); const z = s ? +s[zkey()] : 0; return z ? clamp(z, R.min, R.max) : (R.def || 1); };
 
 let saveT = 0;
 export function setZoom(z) {
   const s = G.profile && G.profile.settings; if (!s) return;
-  z = Math.round(clamp(z, ZOOM.min, ZOOM.max) * 1000) / 1000; if (z === zoomNow()) return;
-  s.camZoom = z; bus.emit('camZoom', z);
+  const R = zoomRange(); z = Math.round(clamp(z, R.min, R.max) * 1000) / 1000; if (z === zoomNow()) return;
+  s[zkey()] = z; bus.emit('camZoom', z);
   clearTimeout(saveT); saveT = setTimeout(() => bus.emit('save'), 700);
 }
 

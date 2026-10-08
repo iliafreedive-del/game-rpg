@@ -162,7 +162,7 @@ export async function loadZone(id, how = {}) {
   G.cam.x = pl.x; G.cam.y = pl.y;
   G.stats = stats(P);
   if (fresh || pl.hp <= 0 || how.fullHeal || id === 'town') { pl.hp = G.stats.maxHP; pl.mp = G.stats.maxMP; }
-  G.zoomMul = id === 'survival' ? 0.6 : id === 'town' ? 1 : 1.05; rResize();   // катакомбы, Глубины, походы, Цитадель — как в деревне и ещё на 5 % ближе (сборка 44; было 0,8–0,85)
+  G.zoomMul = id === 'survival' ? 1 : id === 'town' ? 1 : 1.05; rResize();   // катакомбы, Глубины, походы, Цитадель — как в деревне и ещё на 5 % ближе (сборка 44; было 0,8–0,85)
   await prepareRender().catch(() => { });   // сборка 46: шейдеры новой зоны компилируются до её показа
   if (id === 'survival') SV.startRun(); else G.surv = null;
   G.zoneReady = true;

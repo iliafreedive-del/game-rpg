@@ -58,27 +58,42 @@ const timeHP = m => 1 + m * 0.6 + Math.pow(Math.max(0, m - 4), 1.5) * 0.35;
 const timeDmg = m => 1 + m * 0.18 + Math.max(0, m - 8) * 0.12;
 
 // ---------------------------------------------------------------- arena
+// сборка 50: поле бесконечное, как в старой «змейке». Убранство повторяется плиткой TILE×TILE, а когда герой отходит от центра
+// дальше WRAP, весь мир (герой, враги, кристаллы, снаряды, камера) незаметно сдвигается на TILE назад — картинка та же, края нет.
+export const TILE = 40, WRAP = 20, ARENA_C = 60;
 export function generateArena() {
-  const W = 100, H = 100, rows = [];   // огромная арена: бегать и отступать есть где
+  const W = 120, H = 120, rows = [];
   for (let y = 0; y < H; y++) { let r = ''; for (let x = 0; x < W; x++) r += (x < 2 || y < 2 || x >= W - 2 || y >= H - 2) ? '#' : '.'; rows.push(r); }
   let s = 99; const R = () => (s = (s * 16807) % 2147483647) / 2147483647;
+  const tile = [], c = ARENA_C % TILE;
+  for (let k = 0; k < 15; k++) { const x = R() * TILE, y = R() * TILE; if (Math.hypot(x - c, y - c) < 6) continue; tile.push({ t: ['crystals', 'stalagmite', 'lavarock', 'rocks', 'skulls', 'mushrooms', 'bones', 'pillar'][k % 8], x, y }); }
+  tile.push({ t: 'brazier', x: c + 8, y: c - 9 }, { t: 'brazier', x: c - 10, y: c + 7 }, { t: 'brazier', x: (c + 20) % TILE, y: (c + 20) % TILE });
   const o = [];
-  for (let k = 0; k < 70; k++) { const x = 5 + R() * (W - 10), y = 5 + R() * (H - 10); if (Math.hypot(x - W / 2, y - H / 2) < 6) continue; o.push({ t: ['crystals', 'stalagmite', 'lavarock', 'rocks', 'skulls', 'mushrooms', 'bones', 'pillar'][k % 8], x, y }); }
-  for (let k = 0; k < 16; k++) o.push({ t: 'brazier', x: W / 2 + Math.cos(k / 16 * 6.283) * (14 + (k % 2) * 14), y: H / 2 + Math.sin(k / 16 * 6.283) * (14 + (k % 2) * 14) });
-  return { name: 'Жатва Бездны', floorN: 666, dungeon: true, survival: true, biome: 'abyss', w: W, h: H, rows, objects: o, torches: [], spawns: [], total: 0, rooms: {}, start: [W / 2, H / 2], level: 1, story: [] };
+  for (let ty = 0; ty * TILE < H; ty++) for (let tx = 0; tx * TILE < W; tx++) for (const q of tile) { const x = q.x + tx * TILE, y = q.y + ty * TILE; if (x > 3 && y > 3 && x < W - 3 && y < H - 3) o.push({ ...q, x, y }); }
+  return { name: 'Жатва Бездны', floorN: 666, dungeon: true, survival: true, biome: 'abyss', w: W, h: H, rows, objects: o, torches: [], spawns: [], total: 0, rooms: {}, start: [ARENA_C, ARENA_C], level: 1, story: [] };
+}
+// сдвиг мира на (dx, dy) — всё, что рисуется в мировых координатах
+function shiftWorld(dx, dy) {
+  const S = G.surv, pl = G.player, mv = o => { o.x += dx; o.y += dy; };
+  mv(pl); G.cam.x += dx; G.cam.y += dy;
+  for (const e of S.swarm) { mv(e); const rx = e.x - pl.x, ry = e.y - pl.y; if (rx > TILE * 0.85) e.x -= TILE; else if (rx < -TILE * 0.85) e.x += TILE; if (ry > TILE * 0.85) e.y -= TILE; else if (ry < -TILE * 0.85) e.y += TILE; }
+  for (const a of [S.gems, S.projs, S.pools, S.eprojs, G.particles, G.texts]) for (const o of a) mv(o);
+  for (const e of G.effects) { if (e.x != null) mv(e); if (e.x1 != null) { e.x1 += dx; e.y1 += dy; e.x2 += dx; e.y2 += dy; } }
+  if (S.bladePts) for (const b of S.bladePts) { b[0] += dx; b[1] += dy; }
+  bus.emit('worldShift', { dx, dy });
 }
 
 // ---------------------------------------------------------------- run state
 const TYPES = [
   { type: 'skel_warrior', from: 0, hp: 14, spd: 1.9, dmg: 6, xp: 1 },
   { type: 'ghoul', from: 30, hp: 10, spd: 3.2, dmg: 5, xp: 1 },
-  { type: 'skel_mage', from: 120, hp: 22, spd: 1.8, dmg: 8, xp: 2 },
+  { type: 'skel_archer', from: 40, hp: 16, spd: 2.2, dmg: 7, xp: 2, shoot: 'arrow' },   // сборка 50: стрелки — стоять на месте нельзя
+  { type: 'skel_mage', from: 120, hp: 22, spd: 1.8, dmg: 8, xp: 2, shoot: 'orb' },
   { type: 'beast', from: 200, hp: 60, spd: 2.3, dmg: 12, xp: 4 },
-  { type: 'skel_archer', from: 320, hp: 26, spd: 2.4, dmg: 9, xp: 2 },
 ];
 export function startRun() {
   const intro = !(G.profile.story && G.profile.story.flags && G.profile.story.flags.bossKilled);
-  const S = G.surv = { t: 0, kills: 0, lvl: 1, xp: 0, next: 12, swarm: [], gems: [], projs: [], pools: [], w: { main: 1 }, p: {}, evo: {}, cd: {}, spawnT: 0, eliteT: 150, bossT: 600, bossKills: 0, gold: 0, over: false, hp0: G.stats.maxHP, ach: {}, orbit: 0, pending: 0, intro, rerolls: 0 };
+  const S = G.surv = { t: 0, kills: 0, lvl: 1, xp: 0, next: 12, swarm: [], gems: [], projs: [], eprojs: [], pools: [], w: { main: 1 }, p: {}, evo: {}, cd: {}, spawnT: 0, eliteT: 150, bossT: 600, bossKills: 0, gold: 0, over: false, hp0: G.stats.maxHP, ach: {}, orbit: 0, pending: 0, intro, rerolls: 0 };
   G.player.hp = G.stats.maxHP; G.auto = false;
   bus.emit('toast', { text: 'Жатва Бездны', sub: intro ? 'Староста держит портал 3 минуты: бегайте, герой бьёт сам. Каждый уровень забега — опыт герою' : 'Только бегайте — герой бьёт сам. Каждый уровень забега даёт опыт герою.', kind: 'quest' });
   return S;
@@ -101,7 +116,8 @@ export function updateSurvival(dt) {
     S.spawnT = Math.max(0.18, 0.9 - mins * 0.05);
     const n = 1 + Math.floor(mins / 1.5);
     const pool = TYPES.filter(t => S.t >= t.from);
-    for (let i = 0; i < n; i++) spawn(pool[Math.floor(rand() * pool.length)], false);
+    const melee = pool.filter(t => !t.shoot), shooters = S.swarm.filter(e => e.shoot).length;
+    for (let i = 0; i < n; i++) { let t = pool[Math.floor(rand() * pool.length)]; if (t.shoot && (rand() < 0.55 || shooters > S.swarm.length * 0.22)) t = melee[Math.floor(rand() * melee.length)]; spawn(t, false); }   // стрелков — не больше пятой части толпы
   }
   S.eliteT -= dt; if (S.eliteT <= 0) { S.eliteT = 120; spawn({ type: 'elite_guard', hp: 420, spd: 2.1, dmg: 18, xp: 25 }, true); bus.emit('toast', { text: 'Страж жатвы!', kind: 'warn' }); }
   S.bossT -= dt; if (S.bossT <= 0) { S.bossT = 600; spawn({ type: 'boss', hp: 3000, spd: 2.2, dmg: 28, xp: 120 }, true, true); bus.emit('toast', { text: 'Палач жатвы пришёл за вами!', kind: 'warn' }); bus.emit('sfx', 'roar'); }
@@ -112,13 +128,26 @@ export function updateSurvival(dt) {
   for (const e of S.swarm) {
     e.t += dt; e.flash -= dt; e.hitCd -= dt; if (e.slowT > 0) e.slowT -= dt; if (e.burn > 0) { e.burn -= dt; hitE(e, e.burnDps * dt, true); }
     let vx = pl.x - e.x, vy = pl.y - e.y; const d = Math.hypot(vx, vy) || 1; vx /= d; vy /= d;
+    if (e.shoot) {   // стрелок держит дистанцию 5–8 м и раз в 2,6 с пускает медленный снаряд в героя: от него можно увернуться
+      if (d < 5) { vx = -vx * 0.6; vy = -vy * 0.6; } else if (d < 8) { vx *= 0.05; vy *= 0.05; }
+      e.shotCd = (e.shotCd ?? 1 + rand() * 1.5) - dt;
+      if (e.shotCd <= 0 && d < 11) { e.shotCd = 2.6; e.hitCd = 0.9; const sp = e.shoot === 'arrow' ? 8 : 6;
+        S.eprojs.push({ kind: e.shoot, x: e.x, y: e.y, vx: (pl.x - e.x) / d * sp, vy: (pl.y - e.y) / d * sp, dmg: e.dmg, life: 2.4 }); bus.emit('sfx', e.shoot === 'arrow' ? 'bow' : 'cast'); }
+    }
     for (let gx = -1; gx <= 1; gx++) for (let gy = -1; gy <= 1; gy++) { const a = grid.get(key(e.x + gx, e.y + gy)); if (a) for (const o of a) { if (o === e) continue; const ox = e.x - o.x, oy = e.y - o.y, dd = ox * ox + oy * oy, rr = (e.r + o.r) * 0.9; if (dd < rr * rr && dd > 1e-4) { const k2 = (rr - Math.sqrt(dd)) * 3; vx += ox * k2; vy += oy * k2; } } }
     const sp = e.spd * (e.slowT > 0 ? 0.5 : 1) * dt; const nx = e.x + vx * sp, ny = e.y + vy * sp;
     if (!map.blocked(nx | 0, ny | 0)) { e.x = nx; e.y = ny; }
     e.dir = dirOf8(vx, vy);
-    if (d < e.r + pl.r + 0.15 && e.hitCd <= 0 && pl.inv <= 0) { e.hitCd = 0.9; C.hurtPlayer({ lvl: heroL() + (mins | 0) }, e.dmg * (1 - (S.p.plate || 0) * 0.08), 'phys'); }
+    if (!e.shoot && d < e.r + pl.r + 0.15 && e.hitCd <= 0 && pl.inv <= 0) { e.hitCd = 0.9; C.hurtPlayer({ lvl: heroL() + (mins | 0) }, e.dmg * (1 - (S.p.plate || 0) * 0.08), 'phys'); }
   }
   weapons(dt);
+  // снаряды стрелков
+  for (const p of S.eprojs) { p.life -= dt; p.x += p.vx * dt; p.y += p.vy * dt;
+    if (pl.inv <= 0 && (p.x - pl.x) ** 2 + (p.y - pl.y) ** 2 < (pl.r + 0.25) ** 2) { p.life = 0; C.hurtPlayer({ lvl: heroL() + (mins | 0) }, p.dmg * (1 - (S.p.plate || 0) * 0.08), 'phys'); }
+    else if (map.blocked(p.x | 0, p.y | 0)) p.life = 0; }
+  S.eprojs = S.eprojs.filter(p => p.life > 0);
+  // бесконечное поле
+  { let dx = 0, dy = 0; if (pl.x < ARENA_C - WRAP) dx = TILE; else if (pl.x > ARENA_C + WRAP) dx = -TILE; if (pl.y < ARENA_C - WRAP) dy = TILE; else if (pl.y > ARENA_C + WRAP) dy = -TILE; if (dx || dy) shiftWorld(dx, dy); }
   // projectiles
   for (const p of S.projs) {
     p.life -= dt; p.x += p.vx * dt; p.y += p.vy * dt;
@@ -164,13 +193,13 @@ export function revive(ok) {
 }
 const dirOf8 = (x, y) => ((Math.round(Math.atan2(y, x) / (Math.PI / 4)) + 8) % 8);
 // враги появляются ЗА краем экрана, а не из воздуха на глазах: ищем по случайному направлению ближайшую точку, которая на экран не попадает
-const offscreen = (x, y) => { const c = G.cam, [sx, sy] = c.toScreen(x, y, 0.5); return sx < -70 || sx > c.w + 70 || sy < -90 || sy > c.h + 90; };
+const offscreen = (x, y) => { const c = G.cam, [sx, sy] = c.toScreen(x, y, 0.5); return sx < -120 || sx > c.w + 120 || sy < -160 || sy > c.h + 140; };   // сборка 50: запас шире — враг целиком за кадром
 function spawn(t, elite, boss) {
   const S = G.surv, pl = G.player, map = G.zone.map;
   let x = pl.x, y = pl.y, ok = false;
   for (let k = 0; k < 4 && !ok; k++) {
     const a = rand() * 6.283;
-    for (let r = 9; r < 46 && !ok; r += 1.5) {
+    for (let r = 10; r < 34 && !ok; r += 1.5) {
       x = pl.x + Math.cos(a) * r; y = pl.y + Math.sin(a) * r;
       ok = x > 3 && y > 3 && x < map.w - 3 && y < map.h - 3 && !map.blocked(x | 0, y | 0) && offscreen(x, y);
     }
@@ -178,7 +207,7 @@ function spawn(t, elite, boss) {
   if (!ok) return;
   const mins = S.t / 60, L = heroL(), hpMul = timeHP(mins) * scaleHP(L) * 0.8;
   const D = ENEMIES[t.type];
-  S.swarm.push({ type: t.type, atlas: D.atlas, x, y, hp: t.hp * hpMul, max: t.hp * hpMul, spd: t.spd * (1 + mins * 0.02), dmg: t.dmg * scaleDmg(L) * timeDmg(mins), xp: t.xp, r: boss ? 0.8 : elite ? 0.55 : t.type === 'beast' ? 0.45 : 0.32, t: rand() * 2, flash: 0, hitCd: 0, dir: 0, elite, boss });
+  S.swarm.push({ type: t.type, shoot: t.shoot, atlas: D.atlas, x, y, hp: t.hp * hpMul, max: t.hp * hpMul, spd: t.spd * (1 + mins * 0.02), dmg: t.dmg * scaleDmg(L) * timeDmg(mins), xp: t.xp, r: boss ? 0.8 : elite ? 0.55 : t.type === 'beast' ? 0.45 : 0.32, t: rand() * 2, flash: 0, hitCd: 0, dir: 0, elite, boss });
 }
 function hitE(e, d, quiet) {
   const S = G.surv; let crit = false; if (!quiet && rand() < G.stats.critChance + (S.p.eye || 0) * 0.04) { d *= G.stats.critMult; crit = true; }
@@ -278,6 +307,12 @@ export function drawSurvivalFx(ctx, cam) {
     else if (p.kind === 'arrow') { const g = ctx.createLinearGradient(-40 * z, 0, 8 * z, 0); g.addColorStop(0, 'rgba(255,210,120,0)'); g.addColorStop(1, 'rgba(255,230,160,1)'); ctx.strokeStyle = g; ctx.lineWidth = 3.5 * z; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(-40 * z, 0); ctx.lineTo(6 * z, 0); ctx.stroke(); }
     else { const g = ctx.createRadialGradient(0, 0, 0, 0, 0, 16 * z); g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.35, 'rgba(180,140,255,0.9)'); g.addColorStop(1, 'rgba(120,80,255,0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, 16 * z, 0, 7); ctx.fill(); ctx.strokeStyle = 'rgba(170,140,255,0.5)'; ctx.lineWidth = 6 * z; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(-30 * z, 0); ctx.stroke(); }
     ctx.restore();
+  }
+  for (const p of S.eprojs || []) {   // снаряды стрелков — крупные и яркие, чтобы было видно, откуда летит
+    const [x, y] = cam.toScreen(p.x, p.y, 1.0), r = (p.kind === 'orb' ? 14 : 10) * Math.max(0.8, z);
+    const g = ctx.createRadialGradient(x, y, 0, x, y, r); g.addColorStop(0, 'rgba(255,255,230,1)'); g.addColorStop(0.4, p.kind === 'orb' ? 'rgba(255,90,200,0.95)' : 'rgba(255,170,60,0.95)'); g.addColorStop(1, 'rgba(255,60,60,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill();
+    const [x2, y2] = cam.toScreen(p.x - p.vx * 0.12, p.y - p.vy * 0.12, 1.0); ctx.strokeStyle = p.kind === 'orb' ? 'rgba(255,90,200,0.55)' : 'rgba(255,190,90,0.6)'; ctx.lineWidth = r * 0.6; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x2, y2); ctx.stroke();
   }
   if (S.bladePts) for (const [bx, by, a] of S.bladePts) { const [x, y] = cam.toScreen(bx, by, 0.9); ctx.save(); ctx.translate(x, y); ctx.rotate(a * 3); const g = ctx.createRadialGradient(0, 0, 0, 0, 0, 20 * z); g.addColorStop(0, 'rgba(255,255,255,0.95)'); g.addColorStop(0.4, 'rgba(200,190,255,0.5)'); g.addColorStop(1, 'rgba(120,90,255,0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(0, 0, 20 * z, 5 * z, 0, 0, 7); ctx.fill(); ctx.restore(); }
   ctx.globalCompositeOperation = 'source-over';

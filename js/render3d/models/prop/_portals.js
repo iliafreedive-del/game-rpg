@@ -6,6 +6,7 @@
 import { skull, rib, tusk, vertebra, BONE_COL } from './_bones.js';
 import { portalMesh, PORTAL_GLB } from '../../portalglb.js';
 import portal from './portal.js';
+const PORTAL_K = 1.15;   // сборка 50: все порталы на 15% крупнее
 // Вихрь внутри — общий шейдер (цвет берётся из света у портала), форма диска меняется масштабом.
 function vortex(kit, col, sx, sy, y) {
   const { THREE } = kit;
@@ -95,8 +96,8 @@ export function portalDef(id, kind) {
   return { id, kind: 'prop', outline: false,
     build(kit, opts = {}) {
       const { THREE, PAL, merge } = kit, col = new THREE.Color(opts.color ?? PAL.abyss);
-      const F = FRAMES[kind](kit), root = new THREE.Group(); root.add(new THREE.Mesh(merge(F.L), kit.propMat(this)));
-      const v = vortex(kit, col, F.sx, F.sy, F.y); root.add(v.disc); root.rotation.y = Math.PI / 4;
+      const F = FRAMES[kind](kit), root = new THREE.Group(), g = new THREE.Group(); g.scale.setScalar(PORTAL_K); root.add(g); g.add(new THREE.Mesh(merge(F.L), kit.propMat(this)));
+      const v = vortex(kit, col, F.sx, F.sy, F.y); g.add(v.disc); root.rotation.y = Math.PI / 4;
       return { root, update(t) { v.mat.uniforms.uTime.value = t; } };
     } };
 }
@@ -105,8 +106,8 @@ export function glbPortalDef(id, fb) {
   return { id, kind: 'prop', outline: false,
     build(kit, opts = {}) {
       const m = portalMesh(id); if (!m) return fb.build(kit, opts);
-      const { THREE, PAL } = kit, S = PORTAL_GLB[id], root = new THREE.Group(); root.add(m);
-      const v = vortex(kit, new THREE.Color(opts.color ?? PAL.abyss), S.sx * S.h, S.sy * S.h, S.y * S.h); root.add(v.disc); root.rotation.y = Math.PI / 4;
+      const { THREE, PAL } = kit, S = PORTAL_GLB[id], root = new THREE.Group(), g = new THREE.Group(); g.scale.setScalar(PORTAL_K); root.add(g); g.add(m);
+      const v = vortex(kit, new THREE.Color(opts.color ?? PAL.abyss), S.sx * S.h, S.sy * S.h, S.y * S.h); g.add(v.disc); root.rotation.y = Math.PI / 4;
       return { root, update(t) { v.mat.uniforms.uTime.value = t; } };
     } };
 }

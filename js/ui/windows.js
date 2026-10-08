@@ -44,7 +44,7 @@ import { platform as PF } from '../platform/platform.js';
 import { wipeLocal, cloudBundle } from '../game/save.js';
 import { setVolumes } from '../core/audio.js';
 import { resize } from '../render/index.js';
-import { ZOOM, zoomNow, setZoom } from '../core/camzoom.js';
+import { zoomRange, zoomNow, setZoom } from '../core/camzoom.js';
 import { hintLog, hintsOn, setHints, MILESTONES, milestones } from './tutorial.js';
 
 let cur = null;   // {name, bg, render}
@@ -455,7 +455,7 @@ W.settings = () => modal('Настройки', 'sm', b => {
   { let cur = '3d'; try { cur = localStorage.getItem('da_render') || '3d'; } catch { } if (new URLSearchParams(location.search).get('render')) cur = new URLSearchParams(location.search).get('render');
     const g = el('div', 'attr', '<b>Графика</b>'); for (const [k, n] of [['3d', '3D (по умолчанию)'], ['2d', 'Классика 2D']]) { const bt = el('button', 'btn sm' + (cur === k ? ' gold' : ''), n); bt.onclick = () => { try { localStorage.setItem('da_render', k); } catch { } saveNow(); const u = new URL(location.href); u.searchParams.delete('render'); location.href = u.toString(); }; g.appendChild(bt); } b.appendChild(g); b.appendChild(el('p', 'muted', '<small>Смена графики перезапускает игру (прогресс сохраняется). Лучник и маг пока всегда в 2D.</small>')); }
   { const nm = el('div', 'attr', '<b>Новые модели</b> <small class="muted">(герои)</small>'); const bn = el('button', 'btn sm', s.skins !== false ? 'Вкл' : 'Выкл'); bn.onclick = () => { s.skins = s.skins === false; bus.emit('save'); rerender(); }; nm.appendChild(bn); b.appendChild(nm); }
-  { const zr = el('div', 'attr', '<b>Камера</b> <small class="muted">ближе — дальше</small>'); const i = document.createElement('input'); i.type = 'range'; i.min = ZOOM.min; i.max = ZOOM.max; i.step = 0.05; i.value = zoomNow(); i.oninput = () => setZoom(+i.value);
+  { const zr = el('div', 'attr', '<b>Камера</b> <small class="muted">ближе — дальше</small>'); const i = document.createElement('input'); i.type = 'range'; i.min = zoomRange().min; i.max = zoomRange().max; i.step = 0.05; i.value = zoomNow(); i.oninput = () => setZoom(+i.value);
     const rs = el('button', 'btn sm', 'Как было'); rs.onclick = () => { setZoom(1); i.value = 1; }; zr.append(i, rs); b.appendChild(zr);
     b.appendChild(el('p', 'muted', `<small>${matchMedia('(pointer: coarse)').matches ? 'В игре: разведите или сведите два пальца на свободной части экрана.' : 'В игре: колесо мыши или щипок на тачпаде.'}</small>`)); }
   { // сборка 49: режим съёмки — интерфейс прячется, для скриншотов и роликов (план продвижения). Джойстик работает, «АВТО» — как было.
@@ -1031,7 +1031,7 @@ function survLevel() {
   let cs = SV.choices(), extra = false; bus.emit('sfx', 'levelup');
   modal(`Уровень ${S.lvl}!`, 'md reward', b => {
     b.appendChild(el('p', 'muted', 'Выберите усиление:'));
-    { const rr = el('button', 'btn ad sm', '↻ Перемешать за рекламу'); rr.onclick = async () => { const ok = await watchRewarded('surv_reroll', offerToken('surv_reroll', String(Date.now())), () => { S.rerolls++; }); if (ok) { cs = SV.choices(); rerender(); } }; b.appendChild(rr); }   // сборка 47
+    { const rr = el('button', 'btn ad sm', '↻ Обновить за рекламу'); rr.onclick = async () => { const ok = await watchRewarded('surv_reroll', offerToken('surv_reroll', String(Date.now())), () => { S.rerolls++; }); if (ok) { cs = SV.choices(); rerender(); } }; b.appendChild(rr); }   // сборка 47
     const row = el('div', 'boons b4');   // сборка 47: карточки мельче, 4 в ряд; 3 бесплатно, 4-я случайная — за рекламу
     cs.forEach((c, i) => {
       if (i === 3 && !extra) {

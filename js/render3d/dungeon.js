@@ -11,15 +11,15 @@ const isWall = c => c === '#';
 
 function floorMaterial(look, biome) {
   const m = toon(0xffffff, { vc: true, rim: 0.05 });
-  const T = { tNoise: { value: noiseTex() }, tFlag: { value: flagTex() }, uFloor: { value: new THREE.Color(look.floor) }, uGrime: { value: new THREE.Color(look.grime) }, uMoss: { value: new THREE.Color(look.moss) }, uBiome: { value: biome }, uTime: U.uTime };
+  const T = { tNoise: { value: noiseTex() }, tFlag: { value: flagTex() }, uFloor: { value: new THREE.Color(look.floor) }, uGrime: { value: new THREE.Color(look.grime) }, uMoss: { value: new THREE.Color(look.moss) }, uBiome: { value: biome }, uTime: U.uTime, uWShift: U.uWShift || (U.uWShift = { value: new THREE.Vector2() }) };
   const prev = m.onBeforeCompile;
   m.onBeforeCompile = sh => {
     prev(sh); Object.assign(sh.uniforms, T);
     sh.vertexShader = 'attribute float aEdge; varying float vEdge; varying vec2 vGW;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvEdge = aEdge; vGW = (modelMatrix * vec4(position, 1.0)).xz;');
-    sh.fragmentShader = 'uniform float uTime; uniform sampler2D tNoise, tFlag; uniform vec3 uFloor, uGrime, uMoss; uniform float uBiome; varying float vEdge; varying vec2 vGW;\n' + sh.fragmentShader.replace('#include <color_fragment>', /* glsl */`
+    sh.fragmentShader = 'uniform float uTime; uniform sampler2D tNoise, tFlag; uniform vec3 uFloor, uGrime, uMoss; uniform float uBiome; uniform vec2 uWShift; varying float vEdge; varying vec2 vGW;\n' + sh.fragmentShader.replace('#include <color_fragment>', /* glsl */`
 #include <color_fragment>
 {
-  vec2 wp = vGW;
+  vec2 wp = vGW + uWShift;   // «Жатва»: сдвиг бесконечного поля
   float f = texture2D(tFlag, wp * 0.4).r;
   vec4 nz = texture2D(tNoise, wp * 0.045), nz2 = texture2D(tNoise, wp * 0.17 + 0.3);
   vec3 col = uFloor * (0.45 + f * 1.1) * (0.85 + nz.g * 0.3);
@@ -63,6 +63,7 @@ function floorMaterial(look, biome) {
 }
 
 export function buildDungeonFloor(scene, zone, look) {
+  if (U.uWShift) U.uWShift.value.set(0, 0);
   const m = zone.map, W = m.w, H = m.h;
   const P = [], E = [], C = [], I = [], idx = new Map();
   // вес «у стены» в узле сетки: сколько из 4 соседних клеток — стены

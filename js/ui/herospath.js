@@ -13,7 +13,7 @@ import { adButton } from './adbtn.js';
 import { CODEX } from '../data/story.js';
 import { gate } from '../game/progress.js';
 import { paintScene } from './hwscenes.js';
-import { makeBattle, stageFoes, arenaView } from '../game/hwbattle.js';
+import { makeBattle, stageFoes, arenaView, setArenaLayout } from '../game/hwbattle.js';
 
 // сборка 47: энергия общая с Глубинами и Жатвой (game/castle.js); каждый бой стоит 1 ⚡ — и победа, и поражение
 export const EN_MAX = TORCH_MAX;
@@ -112,6 +112,7 @@ async function fight(s) {
   // сборка 47: «Сбежать» — прервать бой (энергия уже потрачена, награды нет)
   const fleeB = el('button', 'hw-speed hw-flee', 'Сбежать'); fleeB.onclick = () => { ended = true; cancelAnimationFrame(raf); raf = 0; speedB.remove(); fleeB.remove(); bus.emit('save'); showMap(); }; root.appendChild(fleeB);
   const ci = chOf(s), cls = G.profile.cls || 'warrior', wt = G.profile.gear.weapon ? G.profile.gear.weapon.wt : 'sword';
+  setArenaLayout(stack.clientWidth < stack.clientHeight * 1.1);   // сборка 50: телефон вертикально — арена уже, бойцы крупнее
   const B = makeBattle({ ...heroSummary(), cls }, stageFoes(s)), Hu = B.H, foes = B.foes; stack.battle = B;   // stack.battle — для автотестов
   const nums = [], fx = [], labels = []; let time = 0, last = performance.now(), ended = false;
   try {   // 3D-бойцы; если WebGL нет или он упал — прежние спрайты
@@ -153,7 +154,19 @@ async function fight(s) {
     ctx.fillStyle = u === Hu ? '#3fae3a' : u.boss ? '#a03ad8' : '#c8302a'; ctx.fillRect(x - w / 2, yy, w * clamp(u.hp / u.max, 0, 1), 7);
     ctx.font = '600 12px Georgia'; ctx.textAlign = 'center'; ctx.lineWidth = 3; ctx.strokeStyle = '#000';
     if (u.act && u.act.kind === 'melee') return;   // подбежал к цели — имя не налезает на её подпись
-    const t = u === Hu ? `Вы ур.${G.profile.level}` : `${u.name} ур.${u.lvl}`; ctx.strokeText(t, x, yy + 22); ctx.fillStyle = u === Hu ? '#9fd0ff' : u.boss ? '#e0b0ff' : '#f0dca8'; ctx.fillText(t, x, yy + 22);
+    const t = u === Hu ? `Вы ур.${G.profile.level}` : `${u.name} ур.${u.lvl}`; names.push({ t, x, y: yy + 22, w: ctx.measureText(t).width, c: u === Hu ? '#9fd0ff' : u.boss ? '#e0b0ff' : '#f0dca8' });
+  }
+  // сборка 50: подписи не налезают друг на друга — пересекающуюся сдвигаем ниже
+  const names = [];
+  function drawNames() {
+    ctx.font = '600 12px Georgia'; ctx.textAlign = 'center'; ctx.lineWidth = 3; ctx.strokeStyle = '#000';
+    names.sort((a, b) => a.y - b.y); const put = [];
+    const Wc = cv.width / dpr; for (const n of names) {
+      n.x = clamp(n.x, n.w / 2 + 4, Wc - n.w / 2 - 4);
+      for (let k = 0; k < 4 && put.some(p => Math.abs(p.x - n.x) < (p.w + n.w) / 2 + 4 && Math.abs(p.y - n.y) < 14); k++) n.y += 14;
+      put.push(n); ctx.strokeText(n.t, n.x, n.y); ctx.fillStyle = n.c; ctx.fillText(n.t, n.x, n.y);
+    }
+    names.length = 0;
   }
   const PROJ = { arrow: ['#f4e6c0', 3], bolt: ['#7fd0ff', 7], fireball: ['#ff8a2a', 13], shadow: ['#b070ff', 8] };
   function drawProj(p) {
@@ -197,6 +210,7 @@ async function fight(s) {
     }
     for (const p of B.projs) drawProj(p);
     for (const u of [Hu, ...foes]) bar(u);
+    drawNames();
     ctx.textAlign = 'center';
     for (let i = labels.length - 1; i >= 0; i--) {   // название умения над героем, как в автобоях: золотом, с подчёркиванием
       const L = labels[i]; L.t += dt; if (L.t > 1.4) { labels.splice(i, 1); continue; }
@@ -211,9 +225,13 @@ async function fight(s) {
     }
     ctx.globalAlpha = 1;
     // табличка этапа сверху по центру, как «Окраины» в автобоях; живых врагов — справа
-    ctx.font = 'bold 20px Georgia'; ctx.lineWidth = 4; ctx.strokeStyle = '#000'; const ttl = `${CHAPTERS[ci].name} · этап ${s}`; ctx.strokeText(ttl, W / 2, 30); ctx.fillStyle = '#f0dca8'; ctx.fillText(ttl, W / 2, 30);
-    ctx.fillStyle = '#c8962e'; ctx.fillRect(W / 2 - 150, 38, 300, 2);
-    ctx.font = '600 14px Georgia'; ctx.textAlign = 'right'; const left = foes.filter(f => !f.dead).length; ctx.strokeText(`Врагов: ${left}/${foes.length}`, W - 14, 26); ctx.fillStyle = '#ffb0a0'; ctx.fillText(`Врагов: ${left}/${foes.length}`, W - 14, 26);
+    // сборка 50: на узком экране заголовок ужимается по ширине, а «Врагов» уходит строкой ниже, а не поверх названия
+    const ttl = `${CHAPTERS[ci].name} · этап ${s}`, narrowT = W < 620; ctx.font = 'bold 20px Georgia'; const tw = ctx.measureText(ttl).width, fs = Math.max(13, Math.min(20, Math.floor(20 * (W - 28) / tw)));
+    ctx.font = `bold ${fs}px Georgia`; ctx.lineWidth = 4; ctx.strokeStyle = '#000'; ctx.strokeText(ttl, W / 2, 30); ctx.fillStyle = '#f0dca8'; ctx.fillText(ttl, W / 2, 30);
+    const uw = Math.min(300, W - 40); ctx.fillStyle = '#c8962e'; ctx.fillRect(W / 2 - uw / 2, 38, uw, 2);
+    const left = foes.filter(f => !f.dead).length, en = `Врагов: ${left}/${foes.length}`; ctx.font = '600 14px Georgia'; ctx.lineWidth = 3;
+    if (narrowT) { ctx.textAlign = 'center'; ctx.strokeText(en, W / 2, 58); ctx.fillStyle = '#ffb0a0'; ctx.fillText(en, W / 2, 58); }
+    else { ctx.textAlign = 'right'; ctx.strokeText(en, W - 14, 26); ctx.fillStyle = '#ffb0a0'; ctx.fillText(en, W - 14, 26); }
     ctx.textAlign = 'center';
     if (B.time < 1.0) { ctx.font = `bold ${Math.round(52 * (1.4 - B.time * 0.4))}px Georgia`; ctx.fillStyle = `rgba(255,220,140,${1 - B.time})`; ctx.fillText('БОЙ!', W / 2, Hh * 0.3); }
     if (B.over && !ended) { ended = true; setTimeout(() => end(B.over === 'win'), 1500 / speed); }
