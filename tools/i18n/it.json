@@ -2087,6 +2087,7 @@
  "Первый урок — {0} зол.: выберите приём, наставник обучит ему сразу. Останется {1} зол. — ровно на зелье здоровья у Миры.": "Prima lezione: {0} oro. Scegli una tecnica e il mentore te la insegna subito. Ti resteranno {1} oro, giusto per una pozione di salute da Mira.",
  "Первый урок: выберите приём — наставник обучит ему сразу.": "Prima lezione: scegli una tecnica e il mentore te la insegna subito.",
  "2026-10-08 · сборка 57": "2026-10-08 · versione 57",
+ "2026-10-08 · сборка 58": "2026-10-08 · versione 58",
  "Песчаный скарабей": "Scarabeo delle sabbie",
  "Кусает и замедляет врага.": "Morde e rallenta il nemico.",
  "Огненный фенек": "Fennec di fuoco",
@@ -2192,5 +2193,7 @@
  "Лев-хранитель": "Leone guardiano",
  "Каменный бык": "Toro di pietra",
  "Каменный король": "Re di pietra",
- "Владыка святилища": "Signore del santuario"
+ "Владыка святилища": "Signore del santuario",
+ "<div class=\"hw-pano\"><img src=\"{0}\" alt=\"\" onerror=\"this.parentNode.remove()\"></div><div class=\"hw-banner\">Летопись битв · {1}</div><div class=\"hw-sub\">Бой идёт сам. Ваш герой, его вещи, закалка и улучшения — те же, что в подземелье.</div>": "<div class=\"hw-pano\"><img src=\"{0}\" alt=\"\" onerror=\"this.parentNode.remove()\"></div><div class=\"hw-banner\">Cronaca delle Battaglie · {1}</div><div class=\"hw-sub\">Si combatte da soli. Eroe, equipaggiamento, tempra e potenziamenti sono gli stessi del sotterraneo.</div>",
+ "<div class=\"ti-n\">{0} <span class=\"ti-k {1}\">{2}</span></div>\n    <div class=\"ti-sub\">{3}<span style=\"color:{4}\">{5}</span> · ранг {6}/{7}{8}</div>\n    {9}\n    {10}\n    {11}": "<div class=\"ti-n\">{0} <span class=\"ti-k {1}\">{2}</span></div>\n    <div class=\"ti-sub\">{3}<span style=\"color:{4}\">{5}</span> · grado {6}/{7}{8}</div>\n    {9}\n    {10}\n    {11}"
 }

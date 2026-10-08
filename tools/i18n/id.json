@@ -2087,6 +2087,7 @@
  "Первый урок — {0} зол.: выберите приём, наставник обучит ему сразу. Останется {1} зол. — ровно на зелье здоровья у Миры.": "Pelajaran pertama — {0} emas: pilih teknik, mentor langsung mengajarkannya. Sisa {1} emas — pas untuk ramuan darah dari Mira.",
  "Первый урок: выберите приём — наставник обучит ему сразу.": "Pelajaran pertama: pilih teknik, mentor langsung mengajarkannya.",
  "2026-10-08 · сборка 57": "2026-10-08 · versi 57",
+ "2026-10-08 · сборка 58": "2026-10-08 · versi 58",
  "Песчаный скарабей": "Kumbang Pasir",
  "Кусает и замедляет врага.": "Menggigit dan memperlambat musuh.",
  "Огненный фенек": "Fenek Api",
@@ -2192,5 +2193,7 @@
  "Лев-хранитель": "Singa Penjaga",
  "Каменный бык": "Banteng Batu",
  "Каменный король": "Raja Batu",
- "Владыка святилища": "Penguasa Tempat Suci"
+ "Владыка святилища": "Penguasa Tempat Suci",
+ "<div class=\"hw-pano\"><img src=\"{0}\" alt=\"\" onerror=\"this.parentNode.remove()\"></div><div class=\"hw-banner\">Летопись битв · {1}</div><div class=\"hw-sub\">Бой идёт сам. Ваш герой, его вещи, закалка и улучшения — те же, что в подземелье.</div>": "<div class=\"hw-pano\"><img src=\"{0}\" alt=\"\" onerror=\"this.parentNode.remove()\"></div><div class=\"hw-banner\">Kronik Pertempuran · {1}</div><div class=\"hw-sub\">Pertarungan otomatis. Pahlawanmu, perlengkapan, tempa, dan peningkatannya sama seperti di ruang bawah tanah.</div>",
+ "<div class=\"ti-n\">{0} <span class=\"ti-k {1}\">{2}</span></div>\n    <div class=\"ti-sub\">{3}<span style=\"color:{4}\">{5}</span> · ранг {6}/{7}{8}</div>\n    {9}\n    {10}\n    {11}": "<div class=\"ti-n\">{0} <span class=\"ti-k {1}\">{2}</span></div>\n    <div class=\"ti-sub\">{3}<span style=\"color:{4}\">{5}</span> · peringkat {6}/{7}{8}</div>\n    {9}\n    {10}\n    {11}"
 }

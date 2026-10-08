@@ -2087,6 +2087,7 @@
  "Первый урок — {0} зол.: выберите приём, наставник обучит ему сразу. Останется {1} зол. — ровно на зелье здоровья у Миры.": "First lesson — {0} gold: pick a technique and the mentor will teach it right away. You'll have {1} gold left — exactly enough for a health potion from Mira.",
  "Первый урок: выберите приём — наставник обучит ему сразу.": "First lesson: pick a technique and the mentor will teach it right away.",
  "2026-10-08 · сборка 57": "2026-10-08 · build 57",
+ "2026-10-08 · сборка 58": "2026-10-08 · build 58",
  "Песчаный скарабей": "Sand Scarab",
  "Кусает и замедляет врага.": "Bites and slows the enemy.",
  "Огненный фенек": "Fire Fennec",
@@ -2192,5 +2193,7 @@
  "Лев-хранитель": "Guardian Lion",
  "Каменный бык": "Stone Bull",
  "Каменный король": "Stone King",
- "Владыка святилища": "Lord of the Sanctum"
+ "Владыка святилища": "Lord of the Sanctum",
+ "<div class=\"hw-pano\"><img src=\"{0}\" alt=\"\" onerror=\"this.parentNode.remove()\"></div><div class=\"hw-banner\">Летопись битв · {1}</div><div class=\"hw-sub\">Бой идёт сам. Ваш герой, его вещи, закалка и улучшения — те же, что в подземелье.</div>": "<div class=\"hw-pano\"><img src=\"{0}\" alt=\"\" onerror=\"this.parentNode.remove()\"></div><div class=\"hw-banner\">Battle Chronicle · {1}</div><div class=\"hw-sub\">The fight is automatic. Your hero, gear, tempering and upgrades are the same as in the dungeon.</div>",
+ "<div class=\"ti-n\">{0} <span class=\"ti-k {1}\">{2}</span></div>\n    <div class=\"ti-sub\">{3}<span style=\"color:{4}\">{5}</span> · ранг {6}/{7}{8}</div>\n    {9}\n    {10}\n    {11}": "<div class=\"ti-n\">{0} <span class=\"ti-k {1}\">{2}</span></div>\n    <div class=\"ti-sub\">{3}<span style=\"color:{4}\">{5}</span> · rank {6}/{7}{8}</div>\n    {9}\n    {10}\n    {11}"
 }

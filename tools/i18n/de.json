@@ -2087,6 +2087,7 @@
  "Первый урок — {0} зол.: выберите приём, наставник обучит ему сразу. Останется {1} зол. — ровно на зелье здоровья у Миры.": "Erste Lektion – {0} Gold: Wähle eine Technik, der Mentor bringt sie dir sofort bei. Danach bleiben {1} Gold – genau genug für einen Heiltrank bei Mira.",
  "Первый урок: выберите приём — наставник обучит ему сразу.": "Erste Lektion: Wähle eine Technik, der Mentor bringt sie dir sofort bei.",
  "2026-10-08 · сборка 57": "2026-10-08 · Version 57",
+ "2026-10-08 · сборка 58": "2026-10-08 · Version 58",
  "Песчаный скарабей": "Sandskarabäus",
  "Кусает и замедляет врага.": "Beißt und verlangsamt den Gegner.",
  "Огненный фенек": "Feuerfennek",
@@ -2192,5 +2193,7 @@
  "Лев-хранитель": "Wächterlöwe",
  "Каменный бык": "Steinstier",
  "Каменный король": "Steinkönig",
- "Владыка святилища": "Herr des Heiligtums"
+ "Владыка святилища": "Herr des Heiligtums",
+ "<div class=\"hw-pano\"><img src=\"{0}\" alt=\"\" onerror=\"this.parentNode.remove()\"></div><div class=\"hw-banner\">Летопись битв · {1}</div><div class=\"hw-sub\">Бой идёт сам. Ваш герой, его вещи, закалка и улучшения — те же, что в подземелье.</div>": "<div class=\"hw-pano\"><img src=\"{0}\" alt=\"\" onerror=\"this.parentNode.remove()\"></div><div class=\"hw-banner\">Schlachtchronik · {1}</div><div class=\"hw-sub\">Der Kampf läuft automatisch. Dein Held, Ausrüstung, Härtung und Upgrades sind wie im Verlies.</div>",
+ "<div class=\"ti-n\">{0} <span class=\"ti-k {1}\">{2}</span></div>\n    <div class=\"ti-sub\">{3}<span style=\"color:{4}\">{5}</span> · ранг {6}/{7}{8}</div>\n    {9}\n    {10}\n    {11}": "<div class=\"ti-n\">{0} <span class=\"ti-k {1}\">{2}</span></div>\n    <div class=\"ti-sub\">{3}<span style=\"color:{4}\">{5}</span> · Rang {6}/{7}{8}</div>\n    {9}\n    {10}\n    {11}"
 }
