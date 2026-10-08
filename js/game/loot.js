@@ -19,6 +19,10 @@ export function dropGold(x, y, amount) {
   const a = rand() * Math.PI * 2, r = 0.3 + rand() * 0.7;
   G.pickups.push({ id: uid('g'), kind: 'gold', amount, x: x + Math.cos(a) * r, y: y + Math.sin(a) * r, t: 0, taken: false, fly: true });
 }
+// сборка 49: история вещи — где и с кого добыта (показывается в карточке вещи)
+const PLACE = { catacombs: 'Катакомбы', castle: 'Цитадель', survival: 'Жатва Бездны', town: 'Тихий Брод' };
+export const placeName = () => G.zoneId === 'depths' && G.run ? (G.run.floor ? `Глубины, этаж ${G.run.floor}` : 'Глубины') : G.zoneId === 'wild' && G.wild ? `Поход, глубина ${G.wild.depth || 1}` : PLACE[G.zoneId] || '';
+export const stamp = (item, who, extra) => { if (item && !item.from) item.from = { who, where: placeName(), t: Date.now(), ...extra }; return item; };
 export function dropItem(x, y, item) {
   const a = rand() * Math.PI * 2, r = 0.4 + rand() * 0.8;
   let px = x + Math.cos(a) * r, py = y + Math.sin(a) * r;
@@ -41,7 +45,7 @@ export function enemyLoot(e) {
   // таблицы: серый / зелёный / синий / золотой. Сборка 47: вещей втрое меньше, зелёные — редкость (жалоба «шмота как грязи»)
   // сборка 49, защита от неудач: без вещи 70 убийств подряд — следующий враг роняет вещь наверняка (возрождённые не в счёт)
   const lk = luck(); if (!e.respawned) lk.dry++;
-  if (rand() < ch || lk.dry >= DRY_PITY) { lk.dry = 0; dropItem(e.x, e.y, rollDrop(L + (D.boss || D.elite ? 1 : 0), D.boss ? [30, 55, 13, 2] : D.elite ? [60, 36, 4, 0] : e.champion ? [85, 15, 0, 0] : [97, 3, 0, 0], D.boss || D.elite)); }   // сборка 47: зелёное и синее реже, цвет поднимается слиянием у кузнеца
+  if (rand() < ch || lk.dry >= DRY_PITY) { lk.dry = 0; dropItem(e.x, e.y, stamp(rollDrop(L + (D.boss || D.elite ? 1 : 0), D.boss ? [30, 55, 13, 2] : D.elite ? [60, 36, 4, 0] : e.champion ? [85, 15, 0, 0] : [97, 3, 0, 0], D.boss || D.elite), e.name)); }   // сборка 47: зелёное и синее реже, цвет поднимается слиянием у кузнеца
 }
 // Защита от неудач (сборка 49, скрытая): 20 серых вещей подряд — следующая зелёная (10 давало зелёных почти вчетверо больше); 4 добычи стража/босса без синей — следующая синяя
 const DRY_PITY = 70, GREY_PITY = 20, BIG_PITY = 4;
@@ -69,7 +73,7 @@ export function chestLoot(x, y, rich, lvl, id) {
 function chestLoot0(x, y, rich, lvl, id) {
   for (let i = 0; i < (rich ? 5 : 3); i++) dropGold(x, y, rint(3, 7) * (1 + 0.15 * (lvl - 1)));
   if (rand() < (rich ? 0.6 : 0.15)) dropPotion(x, y, rand() < 0.75 ? 'hp' : 'mp');
-  if (rand() < (rich ? 0.35 : 0.06)) dropItem(x, y + 0.2, rollDrop(lvl, rich ? [60, 36, 4, 0] : [95, 5, 0, 0]));
+  if (rand() < (rich ? 0.35 : 0.06)) dropItem(x, y + 0.2, stamp(rollDrop(lvl, rich ? [60, 36, 4, 0] : [95, 5, 0, 0]), rich ? 'Сундук Ордена' : 'Сундук'));
   if (rich && G.profile.level >= 10 && rand() < 0.1) dropItem(x + 0.3, y + 0.4, makeSetItem(pickSet(G.profile.cls), null, lvl, G.profile.cls));   // сундук Ордена — шанс части сета
 }
 

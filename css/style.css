@@ -771,3 +771,6 @@ body.cine-on #ui{opacity:0;transition:opacity .4s}
 .boon .minus{display:block;margin-top:4px;color:#ff7a7a;font-style:normal}
 .btn.blood{margin-top:8px;border-color:#8a2a3a;color:#ffb0b0}.btn.blood.on{background:#3a1018}
 .death-why{color:#ffcf9a;margin:6px 0 10px}.death-why small{color:#d8ccb4}
+.mod-row{flex-wrap:wrap;gap:6px;margin-top:6px}.modbuff{color:#ff9a7a}
+.it-stat.origin{font-size:11px;color:#b9a888;font-style:italic}.it-stat.origin.nem{color:#ff9a7a;font-style:normal}
+.mod-card .mod-row .btn{width:auto;flex:0 0 auto;margin:0}

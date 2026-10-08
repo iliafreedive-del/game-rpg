@@ -76,9 +76,9 @@ export const weeklyFloor = lvl => Math.max(2, Math.round((lvl - 1) / 0.85));   /
 export const CIRCLE_MAX = 10;
 export const circlesOpen = () => !!(G.profile && G.profile.storyDone);
 export const circle = () => (circlesOpen() && (G.profile.circle | 0)) || 0;
-export const circleHP = k => Math.pow(1.45, k), circleDmg = k => Math.pow(1.28, k), circleRew = k => 1 + 0.55 * k;
+export const circleHP = k => Math.pow(1.45, k), circleDmg = k => Math.pow(1.28, k), circleRew = k => 1 + 0.55 * k + 0.2 * k * k;   // сборка 49: награда догоняет риск (было линейно: на 3 круге враги ×6,4, награда ×2,65 → теперь ×4,5)
 export function setCircle(k) { const P = G.profile; P.circle = Math.max(0, Math.min(CIRCLE_MAX, k | 0)); bus.emit('save'); bus.emit('hud'); }
-export const rm = k => (G.run && G.run.weekly && G.run.weekly[k]) || 1;   // множитель правила недели в текущем забеге
+export const rm = k => ((G.run && G.run.weekly && G.run.weekly[k]) || 1) * ((G.run && G.run.mod && G.run.mod[k]) || 1);   // + модификатор этажа (сборка 49)   // множитель правила недели в текущем забеге
 export function finishWeekly(time) {
   const P = G.profile, W = weeklyState(), first = !W.done, rec = !W.best || time < W.best;
   W.done = true; if (rec) W.best = time;
