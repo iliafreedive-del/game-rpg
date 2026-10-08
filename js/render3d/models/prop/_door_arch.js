@@ -4,7 +4,7 @@
 // Плоскость двери вдоль X, лицом к +Z (как _door.js); поворот поперёк коридора задаёт слой окружения по флагу flip.
 export function doorArch(kit, def, { open = false, span = 2, square = false } = {}) {
   const { THREE, part, merge, bbox } = kit, ST = 0x3a362e, STL = 0x9a8e74, S = { top: STL, tex: 'stone', texWorld: true };
-  const HW = span / 2 - 0.02, RV = square ? 0 : Math.min(HW, 1.0), TOP = 2.75, SPR = TOP - RV;   // полуширина проёма; полуось арки по высоте; пята арки (верх — ниже стены 3 м)
+  const HW = span / 2 - 0.02, RV = square ? 0 : Math.min(HW, 1.0), TOP = square ? 2.75 : 2.75 * 1.4, SPR = TOP - RV;   // полуширина проёма; полуось арки по высоте; пята арки (сборка 57: арка к Хранителю и боссу на 40 % выше — «мелковата дверь», выше стены 3 м)
   const IRON = { top: 0x5a5a64, tex: 'iron' }, IRONC = 0x1e1e24, WOOD = 0x4e2c16, WOODL = 0x86562e, mat = kit.propMat(def);
   // каменный портал: столбы и арка из клиньев (или прямая перемычка в Цитадели)
   const F = [];
@@ -27,7 +27,7 @@ export function doorArch(kit, def, { open = false, span = 2, square = false } = 
     const L = [part(new THREE.ExtrudeGeometry(sh, { depth: 0.16, bevelEnabled: false, curveSegments: 4 }), WOOD, [0, 0, -0.08], 0, 1, { top: WOODL, tex: 'wood' })];
     const nb = Math.max(3, Math.round(HW / 0.24));
     for (let k = 1; k < nb; k++) { const x = s * HW * k / nb, top = topAt(x) - 0.06; L.push(bbox(0.03, top, 0.02, 0.005, 0x241408, [x, top / 2, 0.085], 0, {})); }   // щели между досками
-    const bands = square ? [0.32, 1.25, 2.2] : [0.32, 1.15, 1.95];
+    const bands = square ? [0.32, 1.25, 2.2] : [0.32, 1.55, 2.75];
     for (const y of bands) {
       L.push(bbox(HW - 0.02, 0.15, 0.04, 0.012, IRONC, [s * HW / 2, y, 0.1], 0, IRON));   // кованая полоса
       for (let k = 0; k < 5; k++) L.push(part(new THREE.SphereGeometry(0.034, 6, 4), 0x8a8a94, [s * (0.08 + k * (HW - 0.16) / 4), y, 0.13], 0, 1, IRON));

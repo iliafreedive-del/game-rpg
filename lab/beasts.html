@@ -70,7 +70,7 @@ MOBS.chicken_red = { id: 'chicken_red', kind: 'mob', outline: 'mob', build: kit 
 MOBS.npc_trainer = { id: 'npc_trainer', kind: 'npc', outline: 'mob', build: kit => { const m = NPC_TRAINER.build(kit); if (!m.skin) m.root.rotation.y = Math.PI; return m; } };
 // сборка 57: нежить подземелий — «Было» процедурная со своим оружием, «Стало» модель с Диска (оружие в кисти — часть модели)
 const { MOBS: REG, WEAPONS } = await import(BASE + 'js/render3d/registry.js');
-const DUNGEON = { skel_warrior: 'Скелет-воин', skel_archer: 'Скелет-лучник', skel_mage: 'Колдун', ghoul: 'Упырь', elite_guard: 'Страж Медальона', elite_warlord: 'Страж глубин', boss: 'Палач Бездны' };
+const DUNGEON = { skel_warrior: 'Скелет-воин', skel_archer: 'Скелет-лучник', skel_mage: 'Колдун', ghoul: 'Упырь', elite_guard: 'Страж Медальона', elite_warlord: 'Страж глубин', boss: 'Палач Бездны', bone_wolf: 'Костяной волк' };
 for (const id of Object.keys(DUNGEON)) MOBS[id] = REG[id];
 const NAMES0 = { npc_trainer: 'Наставник Элвин', dog_brown: 'Собака', chicken_white: 'Курица белая', chicken_red: 'Курица рыжая', archer: 'Лучник', warrior: 'Воин', mage: 'Маг', w_wolf: 'Волк', f_wolf: 'Ледяной волк', w_bear: 'Медведь', w_boar: 'Кабан', b_boar: 'Пустынный кабан', b_hyena: 'Гиена', b_scorpid: 'Скорпион', beast: 'Пещерный зверь' };
 const NAMES = { ...DUNGEON, ...NAMES0 };
@@ -112,7 +112,7 @@ function build() {
     return { a, side, on, ph: 0 };
   });
   kit.fur.FUR.on = true; kit.skin.SKINS.on = true;
-  target.y = DUNGEON[S.mob] ? (S.mob === 'boss' || S.mob.startsWith('elite') ? 1.6 : 1.1) : ['archer', 'warrior', 'mage', 'npc_trainer'].includes(S.mob) ? 1.15 : ['dog_brown', 'chicken_white', 'chicken_red'].includes(S.mob) ? 0.45 : 0.8;   // камера смотрит в середину фигуры
+  target.y = DUNGEON[S.mob] ? (S.mob === 'bone_wolf' ? 0.6 : S.mob === 'boss' || S.mob.startsWith('elite') ? 1.6 : 1.1) : ['archer', 'warrior', 'mage', 'npc_trainer'].includes(S.mob) ? 1.15 : ['dog_brown', 'chicken_white', 'chicken_red'].includes(S.mob) ? 0.45 : 0.8;   // камера смотрит в середину фигуры
   document.getElementById('tags').classList.toggle('show', S.mode === 'side');
   clipT = 0;
 }

@@ -12,8 +12,10 @@ export const ENEMIES = {
 };
 for (const [k, m] of Object.entries(WILD_MOBS)) ENEMIES[k] = { ...m, atlas: 'w_' + k };   // походы: графика выводится из базовых спрайтов (world/wildfloor.js)
 Object.assign(ENEMIES, MINIBOSSES);   // мини-боссы охот (data/hunts.js)
+// сборка 57: костяной волк — нежить подземелий (катакомбы, Глубины): стая, как серый волк похода, модель на его риге (render3d/models/mob/bone_wolf.js)
+{ const { realm, ...wolf } = WILD_MOBS.w_wolf; ENEMIES.bone_wolf = { ...wolf, name: 'Костяной волк', atlas: 'w_w_wolf', skeleton: true, hp: 20, armor: 4, xp: 13, gold: [1, 5] }; }
 // Room -> base monster level (Chapter I progression: 1 → 6)
-export const ROOM_LEVEL = { entry: 1, ossuary: 2, gallery: 3, cave: 3, cross: 4, altar: 4, secret: 5, guard: 5, arena: 6 };
+export const ROOM_LEVEL = { entry: 1, ossuary: 2, gallery: 3, crypt: 3, hall: 4, cave: 3, cross: 4, altar: 4, secret: 5, guard: 5, arena: 6 };
 // рост силы врагов (сборка 16): до 3 уровня как раньше, дальше — быстрее (квадратичная добавка), чтобы прокачанный герой
 // не выкашивал толпы одним ударом: ур. 6 — HP ×2,9 (было ×2,5); ур. 12 — HP ×7,5 (было ×4,3), урон ×4,5 (было ×3,2); ур. 20 — HP ×19
 // сборка 47: «всё с одного удара к 5–9 уровню» — HP с 3-го уровня растёт заметно быстрее (ур. 5 ×4,3 вместо ×2,4; ур. 10 ×13,6 вместо ×5,7;

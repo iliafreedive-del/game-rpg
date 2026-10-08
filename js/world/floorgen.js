@@ -50,7 +50,7 @@ export function generateFloor(floor) {
   const start = [Math.floor(first.cx) + 0.5, Math.floor(first.cy) + 0.5];
   const lvl = floorLevel(floor);
   const pool = ['skel_warrior', 'skel_warrior', 'skel_archer'];
-  if (floor >= 2) pool.push('ghoul');
+  if (floor >= 2) pool.push('ghoul', 'bone_wolf');   // сборка 57: костяной волк
   if (floor >= 3) pool.push('skel_mage');
   if (floor >= 4) pool.push('beast');
   let total = 0;
