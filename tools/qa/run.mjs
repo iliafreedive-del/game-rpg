@@ -18,6 +18,7 @@ await p.waitForFunction(() => window.__G && window.__G.zone && window.__G.player
 // сборка 49: вопроса «Показать подсказки?» нет — для сценариев подсказки выключаем (как раньше «Я опытный игрок»); TUT=1 — оставить обучение
 if (!process.env.TUT) await p.evaluate(async () => { const m = await import('/js/ui/tutorial.js'); m.setHints(false); });
 await p.waitForTimeout(500);
+await p.evaluate(t => { window.__TAG = t; }, process.env.TAG || 'x');
 const src = fs.readFileSync(file, 'utf8');
 const out = await p.evaluate(async s => { const print = (...a) => console.log('>> ' + a.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ')); const sleep = ms => new Promise(r => setTimeout(r, ms));
   const step = async n => { const m = await import('/js/game/game.js'); for (let i = 0; i < n; i++) m.update(1 / 30); };

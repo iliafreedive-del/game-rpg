@@ -1,7 +1,7 @@
 // Живность деревни (только вид, без игровой логики): куры и собаки бродят вокруг своего места (json.critters генератора),
 // обходят препятствия по карте зоны (map.free), куры клюют землю и разбегаются от героя, собаки садятся, виляют хвостом (только рядом с героем)
 // и подходят к герою, если он рядом. Модели — процедурные, из частей kit, анимация — повороты групп (ноги, голова, хвост).
-// Собака и куры из Meshy. Собака (assets/models/dog_brown.glb, риг серого волка, tools/art/meshy.py) — через glbmob.js: ходьба/покой — её анимации,
+// Собака и куры из Meshy. Собаки (assets/models/dog_town.glb тёмная и dog_brown.glb светлая, риг серого волка, tools/art/meshy.py) — через glbmob.js: ходьба/покой — её анимации,
 // «села» — лечь на живот (поза смерти зверя). Куры (chicken_white/chicken_red.glb) без своего скелета остаются на ПРЕЖНЕМ процедурном риге:
 // те же группы body / head / ноги и та же анимация, сетка Meshy привязана к ним весами (chickenGlb). Пока файлы не загрузились или «Новые модели» выключены — процедурные.
 import * as THREE from '../vendor/three.module.min.js';
@@ -59,11 +59,12 @@ function chicken(kit, v, proc = false) {
   root.scale.setScalar(1.35 + (v ? 0.08 : 0));   // чуть крупнее жизни — иначе с высоты камеры кур не разглядеть
   return { root, body, head, legs };
 }
-const DOG_GLB = 'dog_brown';
-const glbDog = kit => kit.mob && kit.skin.SKINS.on && kit.mob.mobLoaded(DOG_GLB);
+// сборка 54: две собаки — две модели Meshy на риге волка: тёмная (dog_town, у кузницы) и светлая рыжая (dog_brown, на площади)
+const DOG_GLB = coat => coat ? 'dog_brown' : 'dog_town';
+const glbDog = (kit, coat) => kit.mob && kit.skin.SKINS.on && kit.mob.mobLoaded(DOG_GLB(coat));
 function dog(kit, coat, proc = false) {
-  if (!proc && glbDog(kit)) {
-    const m = kit.mob.buildMob(kit, DOG_GLB, { height: 0.95, radius: 0.3, rimColor: 0xffe2b8, tint: coat ? 0xffffff : 0xfff0dc, speed0: 1.1 });
+  if (!proc && glbDog(kit, coat)) {
+    const m = kit.mob.buildMob(kit, DOG_GLB(coat), { height: 0.95, radius: 0.3, rimColor: 0xffe2b8, speed0: 1.1 });
     if (m) return { root: m.root, body: m.bones.body, glb: m };
   }
   const { part, merge, ball } = kit, mat = kit.propMat({ rim: 0.35 }), root = new THREE.Group();
@@ -144,7 +145,7 @@ export class Critters {
     for (const a of this.list) {
       const dog = a.k === 'dog', dP = P ? Math.hypot(P.x - a.x, P.y - a.y) : 99;
       // GLB собаки догрузился после входа в деревню — заменить процедурную
-      if (dog && !a.m.glb && glbDog(this.kit)) { const n = makeDog(this.kit, a.coat); if (n.glb) { a.m.root.removeFromParent(); this.scene.add(n.root); a.m = n; } }
+      if (dog && !a.m.glb && glbDog(this.kit, a.coat)) { const n = makeDog(this.kit, a.coat); if (n.glb) { a.m.root.removeFromParent(); this.scene.add(n.root); a.m = n; } }
       else if (!dog && !a.m.glb && glbChicken(this.kit, a.red)) { const n = chicken(this.kit, a.red); if (n.glb) { a.m.root.removeFromParent(); this.scene.add(n.root); a.m = n; } }
       const m = a.m;
       m.root.visible = Math.hypot(a.x - cx, a.y - cz) < 34;
@@ -178,8 +179,9 @@ export class Critters {
       if (dog && m.glb) {
         // ходьба и покой — анимации модели; «села» — легла на живот, голова к герою — поворотом всего зверя (уже выше)
         const sit = a.st === 'sit' ? 1 : 0; a.sit = (a.sit || 0) + (sit - (a.sit || 0)) * Math.min(1, dt * 3);
-        const A = { t: t + a.ph, dt, speed: sp, k: a.sit * 0.75, wag: a.wag };
-        if (a.sit > 0.02) m.glb.anims.death(A); else if (sp) m.glb.anims.walk(A); else m.glb.anims.idle(A);
+        // сборка 54: поведение как у первой собаки — садится (а не ложится «замертво»), в покое оглядывается по сторонам
+        const A = { t: t + a.ph, dt, speed: sp, k: a.sit, wag: a.wag, look: a.st === 'idle' || a.st === 'sit' ? 0.4 : 0.12 };
+        if (a.sit > 0.02) m.glb.anims.sit(A); else if (sp) m.glb.anims.walk(A); else m.glb.anims.idle(A);
       } else if (dog) {
         const sit = a.st === 'sit' ? 1 : 0; a.sit = (a.sit || 0) + (sit - (a.sit || 0)) * Math.min(1, dt * 5);
         m.body.rotation.x = -0.42 * a.sit; m.body.position.y = -0.1 * a.sit; m.body.position.z = -0.12 * a.sit;

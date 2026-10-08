@@ -61,7 +61,7 @@ export class PropLayer {
       if (d.hidden || (d.flat && !PROPS[d.spr])) continue;
       if (d.model) { push(MODEL[d.model] || d.model, d.x, d.y, d.rot || 0, d.s || 1, d.opts); continue; }
       if (!PROPS[d.spr]) { if (!warned.has(d.spr)) { warned.add(d.spr); console.warn('[3D] нет модели предмета «' + d.spr + '» — не показан'); } continue; }
-      if (mode === 'town' && d.spr === 'deadtree') { const bt = boneDeadTree(PROPS, kit); if (bt) { extra0[bt.id] = bt; push(bt.id, d.x, d.y, hash(d.x, d.y) * 6.283, d.s || 1.15); continue; } }   // сухое дерево пустошей (Meshy)
+      if (mode === 'town' && d.spr === 'deadtree') { const bt = boneDeadTree(PROPS, kit); if (bt) { extra0[bt.id] = bt; push(bt.id, d.x, d.y, hash(d.x, d.y) * 6.283 + (d.yaw || 0), d.s || 1.15); continue; } }   // сухое дерево пустошей (Meshy)
       const h = hash(d.x, d.y), isTree = d.spr === 'tree_0' || d.spr === 'tree_1' || (d.spr === 'deadtree' && !fj);
       const light = zone.lights.find(L => Math.hypot(L.x - d.x, L.y - d.y) < 0.3);
       const var3 = ((d.spr === 'rocks' || d.spr === 'deadtree') && open && !light) || STEPPE_FREE.has(d.spr);   // камни и сухие деревья поля — разные формы, повороты, размеры

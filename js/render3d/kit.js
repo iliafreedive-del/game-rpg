@@ -14,7 +14,7 @@ import { PAL, HERO, MOB, OUTLINE, RIM, FOLIAGE, LOOKS, SHADOW } from './style.js
 // сборка 51: модели героев и зверей качаются после титульного экрана (preloadModels из renderer3d.startPreload), а не вместе с ним —
 // на медленной сети они отнимали канал у загрузки и Game Ready наступал через ~50 с. Перед сборкой зоны их ждёт prepare().
 const HERO_SKIN = { warrior: 'warrior_knight', archer: 'archer_raven', mage: 'mage_staff' };
-const MOBS = ['wolf_grey', 'dog_brown', 'wolf_ice', 'beast', 'chicken_white', 'chicken_red', 'hyena', 'w_boar', 'b_boar', 'w_bear', 'b_scorpid'];
+const MOBS = ['wolf_grey', 'dog_brown', 'dog_town', 'wolf_ice', 'beast', 'chicken_white', 'chicken_red', 'hyena', 'w_boar', 'b_boar', 'w_bear', 'b_scorpid'];
 let models = null;
 export function preloadModels(cls) {
   if (cls && HERO_SKIN[cls]) skin.preloadSkin(HERO_SKIN[cls]);   // выбранный герой — первым

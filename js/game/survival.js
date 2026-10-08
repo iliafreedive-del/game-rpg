@@ -76,10 +76,11 @@ export function generateArena() {
 function shiftWorld(dx, dy) {
   const S = G.surv, pl = G.player, mv = o => { o.x += dx; o.y += dy; };
   mv(pl); G.cam.x += dx; G.cam.y += dy;
-  for (const e of S.swarm) { mv(e); const rx = e.x - pl.x, ry = e.y - pl.y; if (rx > TILE * 0.85) e.x -= TILE; else if (rx < -TILE * 0.85) e.x += TILE; if (ry > TILE * 0.85) e.y -= TILE; else if (ry < -TILE * 0.85) e.y += TILE; }
+  for (const e of S.swarm) mv(e);   // сборка 54: отставших больше не переносят на плитку вперёд — они появлялись из воздуха прямо перед героем (см. catchUp)
   for (const a of [S.gems, S.projs, S.pools, S.eprojs, G.particles, G.texts]) for (const o of a) mv(o);
   for (const e of G.effects) { if (e.x != null) mv(e); if (e.x1 != null) { e.x1 += dx; e.y1 += dy; e.x2 += dx; e.y2 += dy; } }
   if (S.bladePts) for (const b of S.bladePts) { b[0] += dx; b[1] += dy; }
+  if (S.lastX != null) { S.lastX += dx; S.lastY += dy; }
   bus.emit('worldShift', { dx, dy });
 }
 
@@ -147,6 +148,7 @@ export function updateSurvival(dt) {
     else if (map.blocked(p.x | 0, p.y | 0)) p.life = 0; }
   S.eprojs = S.eprojs.filter(p => p.life > 0);
   // бесконечное поле
+  catchUp();
   { let dx = 0, dy = 0; if (pl.x < ARENA_C - WRAP) dx = TILE; else if (pl.x > ARENA_C + WRAP) dx = -TILE; if (pl.y < ARENA_C - WRAP) dy = TILE; else if (pl.y > ARENA_C + WRAP) dy = -TILE; if (dx || dy) shiftWorld(dx, dy); }
   // projectiles
   for (const p of S.projs) {
@@ -194,17 +196,33 @@ export function revive(ok) {
 const dirOf8 = (x, y) => ((Math.round(Math.atan2(y, x) / (Math.PI / 4)) + 8) % 8);
 // враги появляются ЗА краем экрана, а не из воздуха на глазах: ищем по случайному направлению ближайшую точку, которая на экран не попадает
 const offscreen = (x, y) => { const c = G.cam, [sx, sy] = c.toScreen(x, y, 0.5); return sx < -120 || sx > c.w + 120 || sy < -160 || sy > c.h + 140; };   // сборка 50: запас шире — враг целиком за кадром
-function spawn(t, elite, boss) {
-  const S = G.surv, pl = G.player, map = G.zone.map;
-  let x = pl.x, y = pl.y, ok = false;
-  for (let k = 0; k < 4 && !ok; k++) {
-    const a = rand() * 6.283;
-    for (let r = 10; r < 34 && !ok; r += 1.5) {
-      x = pl.x + Math.cos(a) * r; y = pl.y + Math.sin(a) * r;
-      ok = x > 3 && y > 3 && x < map.w - 3 && y < map.h - 3 && !map.blocked(x | 0, y | 0) && offscreen(x, y);
+// точка за краем кадра; dir — направление (рад), куда предпочтительно ставить (вперёд по ходу героя), иначе случайно
+function edgePoint(dir) {
+  const pl = G.player, map = G.zone.map;
+  for (let k = 0; k < 6; k++) {
+    const a = dir != null && k < 4 ? dir + (rand() - 0.5) * 2.2 : rand() * 6.283;
+    for (let r = 10; r < 34; r += 1.5) {
+      const x = pl.x + Math.cos(a) * r, y = pl.y + Math.sin(a) * r;
+      if (x > 3 && y > 3 && x < map.w - 3 && y < map.h - 3 && !map.blocked(x | 0, y | 0) && offscreen(x, y)) return [x, y];
     }
   }
-  if (!ok) return;
+  return null;
+}
+// сборка 54: враг отстал дальше 30 м (герой долго бежит в одну сторону) — переносим его за край кадра по ходу героя: он снова
+// подходит из-за экрана, а не возникает на виду
+function catchUp() {
+  const S = G.surv, pl = G.player, mvx = pl.x - (S.lastX ?? pl.x), mvy = pl.y - (S.lastY ?? pl.y);
+  if (Math.hypot(mvx, mvy) > 0.01) S.runDir = Math.atan2(mvy, mvx);
+  S.lastX = pl.x; S.lastY = pl.y;
+  for (const e of S.swarm) {
+    if (e.dead || (e.x - pl.x) ** 2 + (e.y - pl.y) ** 2 < 30 * 30) continue;
+    const p = edgePoint(S.runDir); if (p) { e.x = p[0]; e.y = p[1]; }
+  }
+}
+function spawn(t, elite, boss) {
+  const S = G.surv, pl = G.player;
+  const p = edgePoint(); if (!p) return;
+  const [x, y] = p;
   const mins = S.t / 60, L = heroL(), hpMul = timeHP(mins) * scaleHP(L) * 0.8;
   const D = ENEMIES[t.type];
   S.swarm.push({ type: t.type, shoot: t.shoot, atlas: D.atlas, x, y, hp: t.hp * hpMul, max: t.hp * hpMul, spd: t.spd * (1 + mins * 0.02), dmg: t.dmg * scaleDmg(L) * timeDmg(mins), xp: t.xp, r: boss ? 0.8 : elite ? 0.55 : t.type === 'beast' ? 0.45 : 0.32, t: rand() * 2, flash: 0, hitCd: 0, dir: 0, elite, boss });

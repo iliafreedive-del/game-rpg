@@ -59,7 +59,7 @@ export class Atmo {
     this.smoke = this.pipes.length ? makeLayer(this.pipes.length * this.PER, false) : null;
     if (this.smoke) scene.add(this.smoke.mesh);
   }
-  setQuality(q) { this.k = q === 'low' ? 0.5 : q === 'med' ? 0.8 : 1; }
+  setQuality(q) { this.k = q === 'low' ? 0.5 : q === 'med' || q === 'lite' ? 0.8 : 1; }
   update(dt, t, cx, cz, px, pz) {
     const wind = U.uWind ? U.uWind.value : { x: 1, y: 0 }, ws = U.uWindStr ? U.uWindStr.value : 1;
     if (this.smoke) {

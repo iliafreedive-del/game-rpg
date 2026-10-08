@@ -76,7 +76,7 @@ export class Zone {
     const P = PROP[o.t]; if (!P) return null;
     const d = this.add({ x: o.x, y: o.y, spr: P.spr, tall: P.tall, flat: P.flat });
     if (P.model || o.rot !== undefined) { d.model = P.model || o.t; d.rot = o.rot || 0; }
-    if (o.s) d.s = o.s; if (o.len || o.opts) d.opts = { len: o.len, ...o.opts };   // параметры модели (длина и ширина моста, размеры мельницы)
+    if (o.s) d.s = o.s; if (o.yaw) d.yaw = o.yaw; if (o.len || o.opts) d.opts = { len: o.len, ...o.opts };   // параметры модели (длина и ширина моста, размеры мельницы)
     if (o.boxes) for (const [x0, y0, x1, y1] of o.boxes) this.map.rects.push({ x0, y0, x1, y1 });
     else if (!o.nocol) {
       if (P.r) this.map.circles.push({ x: o.x, y: o.y, r: o.r || P.r });   // o.r — свой радиус (большие хижины пустошей)
@@ -154,7 +154,7 @@ export class Zone {
         case 'chest_rich_d': this.add({ x: o.x, y: o.y, spr: 'chest_rich' }); this.map.circles.push({ x: o.x, y: o.y, r: 0.35 }); break;
         case 'sarcophagus_d': this.add({ x: o.x, y: o.y, spr: 'sarcophagus' }); this.map.rects.push({ x0: o.x - 0.45, y0: o.y - 0.9, x1: o.x + 0.45, y1: o.y + 0.9 }); break;
         case 'floor_exit': {
-          const d = this.add({ x: o.x, y: o.y, spr: 'portal', hidden: !!o.hidden, anim: 'portal' });
+          const d = this.add({ x: o.x, y: o.y, spr: J.prologue ? 'portal_skulls' : 'portal', hidden: !!o.hidden, anim: 'portal' });   // сборка 54: из склепа пробуждения — катакомбный портал из черепов, как в деревне
           const L = this.addLight(o.x, o.y, { r: 4.5, c: [120, 200, 255], flicker: 0.3, z: 1.2 }); L.on = !o.hidden;
           this.inter.push({ id: 'floor_exit', type: 'exit', x: o.x, y: o.y, r: 1.6, label: 'Завершить этаж', draw: d, light: L, hidden: !!o.hidden });
           break;

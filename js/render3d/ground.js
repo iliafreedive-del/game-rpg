@@ -9,13 +9,19 @@ import { GRASS, GRASS_K, SHADOW } from './style.js';
 const GRASS_VS = /* glsl */`
 #include <common>
 #include <fog_pars_vertex>
-attribute float aRand;
+attribute float aRand; attribute float aRank;
+uniform vec4 uLod; uniform float uLodOn;
 uniform float uTime; uniform vec2 uWind; uniform float uWindStr;
 uniform vec4 uBlobs[12]; uniform mat4 uShadowMat; uniform sampler2D tNoise;
 varying float vH; varying float vRand; varying float vSheen; varying float vShade; varying vec4 vSh; varying float vPatch; varying float vBlade; varying vec3 hfWv;
 void main() {
   vec4 wp = modelMatrix * instanceMatrix * vec4(position, 1.0);
   vec3 root = (modelMatrix * instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
+  // сборка 54: дальняя трава реже — травинки плавно уменьшаются до нуля по своему расстоянию, а не исчезают целым чанком
+  float dl = length(root.xz - uLod.xy);
+  float keep = uLod.w * (1.0 - 0.6 * clamp((dl - 10.0) / 16.0, 0.0, 1.0)) * mix(1.0, uLod.z, smoothstep(6.0, 14.0, dl));
+  float vis = mix(1.0, 1.0 - smoothstep(keep - 0.15, keep, aRank), uLodOn);
+  wp.xyz = root + (wp.xyz - root) * vis;
   float t = uv.y, bend = t * t;
   float gust = sin(dot(root.xz, uWind) * 0.35 - uTime * 1.9) * 0.5 + 0.5; gust = gust * gust;
   float flick = sin(uTime * 4.0 + aRand * 40.0 + root.x * 0.7) * 0.12;
@@ -286,6 +292,7 @@ export function buildGround(scene, zone, opts = {}) {
     uTime: U.uTime, uWind: U.uWind, uWindStr: U.uWindStr,
     uBlobs: { value: Array.from({ length: 12 }, () => new THREE.Vector4(999, 999, 0.5, 0)) },
     uShadowMat: { value: new THREE.Matrix4() }, uShadowMap: { value: null }, uShadowOn: { value: 0 }, uShadowDark: { value: SHADOW.grassDark }, uShadowTexel: { value: new THREE.Vector2(1 / 1024, 1 / 1024) },
+    uLod: { value: new THREE.Vector4(0, 0, 1, 1) }, uLodOn: { value: 1 },
     tNoise: { value: noiseTex() }, uHFog: U.uHFog, uHFogCol: U.uHFogCol, tHNoise: U.tHNoise, uHTime: U.uTime, uHFogC: U.uHFogC,
     uYel: { value: (() => { const f = vil && zone.json.objects.find(o => o.t === 'wildportal' && o.realm === 'forest'); return f ? new THREE.Vector3(f.x, f.y, 5.5) : new THREE.Vector3(0, 0, 0); })() },
     uBase: { value: new THREE.Color(snow ? 0x8a9aa8 : steppe ? 0x6a4a1c : opts.forest ? 0x6a7a1c : GRASS.base) }, uTip: { value: new THREE.Color(snow ? 0xe8f2f8 : steppe ? 0xe8c878 : opts.forest ? 0xd8e060 : GRASS.tip) }, uDry: { value: new THREE.Color(snow ? 0xc8c0a8 : steppe ? 0xd89a4a : opts.forest ? 0xe0c070 : GRASS.dry) }, uLight: { value: new THREE.Color(1, 1, 1) },
@@ -296,9 +303,10 @@ export function buildGround(scene, zone, opts = {}) {
   // сборка 46: расстановка травы и пшеницы деревни тоже хранится между заходами (ключ — карта и препятствия)
   const sig = vil ? gkey + '|' + (m.circles || []).map(c => c.x.toFixed(1) + ',' + c.y.toFixed(1)).join(';') + '|' + (m.rects || []).map(b => b.x0.toFixed(1) + ',' + b.y0.toFixed(1)).join(';') : null;
   const GR = sig && GRASS_CACHE.sig === sig ? GRASS_CACHE.list : null, rec = sig && !GR ? [] : null;
-  const fromRec = (r, geo0, mat) => { const im = new THREE.InstancedMesh(geo0.clone(), mat, r.n); im.instanceMatrix.array.set(r.m); im.geometry.setAttribute('aRand', new THREE.InstancedBufferAttribute(r.rnd, 1));
+  const rankArr = n => Float32Array.from({ length: n }, (_, i) => (i + 0.5) / n);   // доля экземпляра в чанке — для плавного LOD
+  const fromRec = (r, geo0, mat) => { const im = new THREE.InstancedMesh(geo0.clone(), mat, r.n); im.instanceMatrix.array.set(r.m); im.geometry.setAttribute('aRand', new THREE.InstancedBufferAttribute(r.rnd, 1)); im.geometry.setAttribute('aRank', new THREE.InstancedBufferAttribute(rankArr(r.n), 1)); im.userData.wheat = !!r.wheat;
     im.userData.max = r.n; im.count = r.n; im.userData.c = r.c; im.computeBoundingSphere(); im.boundingSphere.radius += r.pad; scene.add(im); grass.push(im); };
-  if (GR) { for (const r of GR) if (r.wheat) { if (!fromRec.wmat) { fromRec.wmat = new THREE.ShaderMaterial({ uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.fog, {}]), vertexShader: GRASS_VS, fragmentShader: GRASS_FS, side: THREE.DoubleSide, fog: true }); Object.assign(fromRec.wmat.uniforms, grassU, { uBase: { value: new THREE.Color(0x6a5a1c) }, uTip: { value: new THREE.Color(0xf2d27a) }, uDry: { value: new THREE.Color(0xd89a3a) } }); fromRec.ear = clumpGeometry(6, 0.055); } fromRec(r, fromRec.ear, fromRec.wmat); } else fromRec(r, blade, gmat); }
+  if (GR) { for (const r of GR) if (r.wheat) { if (!fromRec.wmat) { fromRec.wmat = new THREE.ShaderMaterial({ uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.fog, {}]), vertexShader: GRASS_VS, fragmentShader: GRASS_FS, side: THREE.DoubleSide, fog: true }); Object.assign(fromRec.wmat.uniforms, grassU, { uLodOn: { value: 0 }, uBase: { value: new THREE.Color(0x6a5a1c) }, uTip: { value: new THREE.Color(0xf2d27a) }, uDry: { value: new THREE.Color(0xd89a3a) } }); fromRec.ear = clumpGeometry(6, 0.055); } fromRec(r, fromRec.ear, fromRec.wmat); } else fromRec(r, blade, gmat); }
   else for (let cx = -1; cx * CS < W + CS; cx++) for (let cz = -1; cz * CS < H + CS; cz++) {
     const im = new THREE.InstancedMesh(blade.clone(), gmat, MAXP), rnd = new Float32Array(MAXP);
     let n = 0, guard = 0;
@@ -312,7 +320,7 @@ export function buildGround(scene, zone, opts = {}) {
       mm.compose(p.set(x, -0.02, z), q.setFromAxisAngle(up, RG() * 6.283), s.set(sc, tall * (0.7 + RG() * 0.6), sc)); im.setMatrixAt(n, mm); rnd[n] = RG(); n++;
     }
     if (!n) continue;
-    im.geometry.setAttribute('aRand', new THREE.InstancedBufferAttribute(rnd, 1));
+    im.geometry.setAttribute('aRand', new THREE.InstancedBufferAttribute(rnd, 1)); im.geometry.setAttribute('aRank', new THREE.InstancedBufferAttribute(rankArr(n), 1));
     im.userData.max = n; im.count = n; im.userData.c = [(cx + 0.5) * CS, (cz + 0.5) * CS]; im.computeBoundingSphere(); im.boundingSphere.radius += 1;
     scene.add(im); grass.push(im);
     if (rec) rec.push({ n, m: im.instanceMatrix.array.slice(0, n * 16), rnd: rnd.slice(0, n), c: im.userData.c, pad: 1 });
@@ -321,13 +329,13 @@ export function buildGround(scene, zone, opts = {}) {
   const wheatTiles = []; for (let ty = 0; ty < H; ty++) for (let tx = 0; tx < W; tx++) if (m.rows[ty][tx] === 'F') wheatTiles.push([tx, ty]);
   if (wheatTiles.length && !GR) {
     const wmat = new THREE.ShaderMaterial({ uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.fog, {}]), vertexShader: GRASS_VS, fragmentShader: GRASS_FS, side: THREE.DoubleSide, fog: true });
-    Object.assign(wmat.uniforms, grassU, { uBase: { value: new THREE.Color(0x6a5a1c) }, uTip: { value: new THREE.Color(0xf2d27a) }, uDry: { value: new THREE.Color(0xd89a3a) } });
+    Object.assign(wmat.uniforms, grassU, { uLodOn: { value: 0 }, uBase: { value: new THREE.Color(0x6a5a1c) }, uTip: { value: new THREE.Color(0xf2d27a) }, uDry: { value: new THREE.Color(0xd89a3a) } });
     const ear = clumpGeometry(6, 0.055), byChunk = new Map(), RW = rng(41);
     for (const [tx, ty] of wheatTiles) for (let k = 0; k < 9; k++) { const x = tx + RW(), z = ty + RW(), key = Math.floor(x / CS) + ',' + Math.floor(z / CS); if (!byChunk.has(key)) byChunk.set(key, []); byChunk.get(key).push([x, z]); }
     for (const [key, pts] of byChunk) {
       const im = new THREE.InstancedMesh(ear.clone(), wmat, pts.length), rnd = new Float32Array(pts.length), [cx, cz] = key.split(',').map(Number);
       pts.forEach(([x, z], i) => { const sc = 0.9 + RW() * 0.5, edge = Math.min(x % 1, 1 - x % 1, z % 1, 1 - z % 1); mm.compose(p.set(x, -0.02, z), q.setFromAxisAngle(up, RW() * 6.283), s.set(sc, 1.05 + RW() * 0.35 + fbm(x * 0.3, z * 0.3) * 0.3, sc)); im.setMatrixAt(i, mm); rnd[i] = RW(); });
-      im.geometry.setAttribute('aRand', new THREE.InstancedBufferAttribute(rnd, 1));
+      im.geometry.setAttribute('aRand', new THREE.InstancedBufferAttribute(rnd, 1)); im.geometry.setAttribute('aRank', new THREE.InstancedBufferAttribute(rankArr(pts.length), 1)); im.userData.wheat = true;
       im.userData.max = pts.length; im.count = pts.length; im.userData.c = [(cx + 0.5) * CS, (cz + 0.5) * CS]; im.computeBoundingSphere(); im.boundingSphere.radius += 1.5;
       scene.add(im); grass.push(im);
       if (rec) rec.push({ wheat: true, n: pts.length, m: im.instanceMatrix.array.slice(), rnd: rnd.slice(), c: im.userData.c, pad: 1.5 });
@@ -341,7 +349,19 @@ export function buildGround(scene, zone, opts = {}) {
     // LOD: дальние чанки (верх кадра) реже — экземпляры перемешаны, поэтому обрезка счётчика прореживает равномерно
     // zoom — отдаление игрока (1 — обычный вид): сборка 47 — при отдалении травинки мельче на экране, а в кадре их кратно больше
     // (FPS при максимальном отдалении падал даже на ПК), поэтому густота дальней травы снижается
-    lod(x, z, zoom = 1) { const zk = zoom > 1 ? 1 / (zoom * zoom) : 1; for (const g of grass) { const [cx, cz] = g.userData.c, d = Math.hypot(cx - x, cz - z), f = 1 - 0.6 * Math.min(1, Math.max(0, (d - 10) / 16)); g.count = Math.floor(g.userData.max * gk * f * (d < 8 ? 1 : zk)); } },
+    // сборка 54: раньше счётчик чанка обрезался по расстоянию до его центра (и скачком на 8 м при отдалении) — травинки и пшеница
+    // целыми горстями появлялись и пропадали на виду. Теперь шейдер плавно уменьшает каждую травинку по её расстоянию (uLod),
+    // а счётчик чанка отсекает только те, что уже сжаты в ноль (по ближней к камере точке чанка). Пшеница полей — без LOD.
+    lod(x, z, zoom = 1) {
+      const zk = zoom > 1 ? 1 / (zoom * zoom) : 1, sm = (a, b, v) => { v = Math.min(1, Math.max(0, (v - a) / (b - a))); return v * v * (3 - 2 * v); };
+      grassU.uLod.value.set(x, z, zk, gk);
+      for (const g of grass) {
+        if (g.userData.wheat) { g.count = Math.floor(g.userData.max * gk); continue; }
+        const [cx, cz] = g.userData.c, d = Math.max(0, Math.hypot(cx - x, cz - z) - CS * 0.72);
+        const keep = gk * (1 - 0.6 * Math.min(1, Math.max(0, (d - 10) / 16))) * (1 + (zk - 1) * sm(6, 14, d));
+        g.count = Math.min(g.userData.max, Math.ceil(g.userData.max * keep) + 1);
+      }
+    },
     // трава — свой шейдер, поэтому тень направленного света она читает из shadow map сама
     shadow(light) {
       const sm = light.shadow, on = light.castShadow && !!sm.map;
