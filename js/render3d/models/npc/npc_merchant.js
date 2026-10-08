@@ -1,3 +1,4 @@
-// Торговка Мира: алое платье с золотой каймой, шёлковый платок с монетами, длинная коса, ожерелье и фартук — торговка, к которой хочется подойти.
+// Торговка Мира: алое платье с золотой каймой, красный платок, коса (Meshy, сборка 56); без шкуры — процедурная жительница.
 import { villager } from './_villager.js';
-export default { id: 'npc_merchant', kind: 'npc', outline: 'mob', build: kit => villager(kit, { dress: { c: 0xa8323a, top: 0xe0626a, trim: 0xd6a548 }, cloth: 0xa8323a, clothTop: 0xe0626a, sleeve: 0xf0e0c0, cuff: 0xd6a548, apron: 0xf0e6d0, necklace: true, scarf: 0x2f7a5a, scarfTop: 0x5ac08a, scarfTrim: 0xf0c868, braid: 0x6a3a1a, braidTop: 0xa8683a, hair: 0x6a3a1a, skin: 0xe6b08a, eye: 0x4a8a5a, girth: 0.95, height: 1.62 }) };
+import { skinnedNpc } from './_skinned.js';
+export default { id: 'npc_merchant', kind: 'npc', outline: 'mob', build: kit => skinnedNpc(kit, 'npc_merchant', () => villager(kit, { dress: { c: 0xa8323a, top: 0xe0626a, trim: 0xd6a548 }, cloth: 0xa8323a, clothTop: 0xe0626a, sleeve: 0xf0e0c0, cuff: 0xd6a548, apron: 0xf0e6d0, necklace: true, scarf: 0x2f7a5a, scarfTop: 0x5ac08a, scarfTrim: 0xf0c868, braid: 0x6a3a1a, braidTop: 0xa8683a, hair: 0x6a3a1a, skin: 0xe6b08a, eye: 0x4a8a5a, girth: 0.95, height: 1.62 })) };

@@ -44,7 +44,7 @@ const PROP = {
   // декор в духе POLYGON Adventure Pack (деревня и лесные походы)
   cart: { spr: 'crate', box: [1.0, 0.55], model: 'cart' }, cart_load: { spr: 'crate', box: [1.0, 0.55], model: 'cart_load' }, signpost: { spr: 'banner', r: 0.15, model: 'signpost' },
   barrel_stack: { spr: 'barrel', box: [0.9, 0.55], model: 'barrel_stack' }, log_stack: { spr: 'crate', box: [1.35, 0.6], model: 'log_stack' }, plank_pile: { spr: 'crate', box: [1.3, 0.35], model: 'plank_pile' },
-  clothesline: { spr: 'banner', model: 'clothesline' }, pumpkins: { spr: 'hay', r: 0.45, model: 'pumpkins' }, tool_stand: { spr: 'weapon_rack', box: [0.6, 0.25], model: 'tool_stand' },
+  clothesline: { spr: 'banner', model: 'clothesline' }, pumpkins: { spr: 'hay', r: 0.45, model: 'pumpkins' }, tool_stand: { spr: 'weapon_rack', box: [0.6, 0.25], model: 'tool_stand' }, anvil: { spr: 'crate', box: [0.5, 0.4], model: 'anvil' },
   // Костяные пустоши: красный песчаник, акации, скелеты великанов (коллайдеры — o.boxes из wildgen), лагерь дикарей
   sand_spire: { spr: 'sand_spire', r: 0.8, tall: 1 }, sand_spire_b: { spr: 'sand_spire_b', r: 0.75, tall: 1 }, sand_tooth: { spr: 'sand_tooth', r: 0.5, tall: 1 }, sand_mesa: { spr: 'sand_mesa', r: 1.6, tall: 1 },
   sand_rock: { spr: 'sand_rock', r: 0.4 }, sand_rock_b: { spr: 'sand_rock_b', r: 0.4 },

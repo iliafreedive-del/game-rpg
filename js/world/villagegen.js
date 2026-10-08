@@ -24,8 +24,8 @@ function scalePlan(p) {
     portals: Object.fromEntries(Object.entries(p.portals).map(([k, v]) => [k, sp(v)])), roads: p.roads.map(r => ({ ...r, w: r.w + (r.main ? 0.5 : 0.3), pts: r.pts.map(sp) })), start: sp(p.start) };
 }
 // коллайдеры мелочи (как в js/world/zone.js PROP): число — радиус, пара — полуоси коробки
-const COL = { cart: [1.0, 0.55], cart_load: [1.0, 0.55], signpost: 0.15, barrel_stack: [0.9, 0.55], log_stack: [1.35, 0.6], plank_pile: [1.3, 0.35], pumpkins: 0.45, tool_stand: [0.6, 0.25], barrel: 0.3, crate: 0.35, sacks: 0.3, lamp: 0.12, well: 0.62, board: 0.3, banner: 0.15, table: 0.6, dummy: 0.3, target: 0.35, hay: 0.45, tree_0: 0.3, tree_1: 0.3, grave: 0.2, deadtree: 0.25, shrine: 1.3, crystals: 0.3, rocks: 0.35, logpile: [0.7, 0.4], bench: [0.75, 0.22], weapon_rack: [0.6, 0.18], forge: [0.75, 0.6], fortune_tent: [1.5, 1.3] };
-const KEEP = new Set(['well', 'board', 'banner', 'shrine', 'forge', 'fortune_tent', 'portal']);   // то, что не убирается ради зазора
+const COL = { cart: [1.0, 0.55], cart_load: [1.0, 0.55], signpost: 0.15, barrel_stack: [0.9, 0.55], log_stack: [1.35, 0.6], plank_pile: [1.3, 0.35], pumpkins: 0.45, tool_stand: [0.6, 0.25], barrel: 0.3, crate: 0.35, sacks: 0.3, lamp: 0.12, well: 0.62, board: 0.3, banner: 0.15, table: 0.6, dummy: 0.3, target: 0.35, hay: 0.45, tree_0: 0.3, tree_1: 0.3, grave: 0.2, deadtree: 0.25, shrine: 1.3, crystals: 0.3, rocks: 0.35, logpile: [0.7, 0.4], bench: [0.75, 0.22], weapon_rack: [0.6, 0.18], forge: [0.75, 0.6], anvil: [0.55, 0.38], fortune_tent: [1.5, 1.3] };
+const KEEP = new Set(['well', 'board', 'banner', 'shrine', 'forge', 'anvil', 'fortune_tent', 'portal']);   // то, что не убирается ради зазора
 const GAP = 1.8;   // свободный проход между препятствиями (герой ≈ 0,85 м в ширину + запас); сборка 18: шире — просторнее
 
 export const PLAN = {
@@ -210,11 +210,13 @@ export function generateVillage(plan0 = PLAN) {
   // староста — у ступеней церкви слева, доска заданий рядом
   { const [fx, fy] = front(church, 3.4); npc('elder', 'Староста Эдрик', fx - 3.8, fy + 0.2); put('board', church.x + BUILDINGS.church.w / 2 + 1.0, fy - 3.4 + 0.9); }   // доска — между входом в церковь и северной дорогой, на стыке площади и травы (сборка 46)
   if (shop) {
-    const [mx, my] = front(shop, 0.55); npc('merchant', 'Торговка Мира', mx, my, { reach: 3.2 });
+    const [mx, my] = side(shop, 2.45, 3.3); npc('merchant', 'Торговка Мира', mx, my, { reach: 3.2 });   // сборка 56: не за прилавком, а справа от него — модель видно целиком
     const cs = [[-1.75, 3.0], [1.75, 3.0], [-1.75, 3.7], [1.75, 3.7]].map(([u, v]) => side(shop, u, v)), xs = cs.map(c => c[0]), ys = cs.map(c => c[1]);
     shop.obj.boxes.push([+Math.min(...xs).toFixed(2), +Math.min(...ys).toFixed(2), +Math.max(...xs).toFixed(2), +Math.max(...ys).toFixed(2)]);   // прилавок — сквозь него не пройти
   }
-  if (smithy) { const [sx, sy] = side(smithy, 2.4, smithy.d / 2 + 0.9); npc('smith', 'Кузнец Горан', sx, sy); const [fx, fy] = side(smithy, 1.72, 0.1); put('forge', fx, fy, { rot: smithy.rot }); }   // горн вплотную к стене мастерской
+  // сборка 56: кузнец за большой наковальней лицом к улице, бьёт по поковке (forge — где наковальня; renderer3d.js), пока герой не подошёл
+  if (smithy) { const [ax, ay] = side(smithy, 2.15, smithy.d / 2 + 1.65); put('anvil', ax, ay, { rot: smithy.rot, keep: 1 });
+    const [sx, sy] = side(smithy, 2.4, smithy.d / 2 + 0.5); npc('smith', 'Кузнец Горан', sx, sy, { forge: [+ax.toFixed(2), +ay.toFixed(2)], reach: 2.8 }); const [fx, fy] = side(smithy, 1.72, 0.1); put('forge', fx, fy, { rot: smithy.rot }); }   // горн вплотную к стене мастерской
   // площадь: источник силы, летопись, фонари по углам, лавки и бочки
   put('shrine', CX + 1.5, CY + 0.3, { s: 1.35 });   // источник силы — посреди площади, на месте колодца (сборка 47; колодца больше нет)
   const hwsign = [CX - SQ.hw + 4.3, CY + SQ.hh - 1.0];

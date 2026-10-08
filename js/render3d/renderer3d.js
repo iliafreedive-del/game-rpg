@@ -21,6 +21,9 @@ import { LIGHT, CAMERA, QUALITY, SHADOW, HERO } from './style.js';
 import { zoomNow } from '../core/camzoom.js';
 import { SKINS, skinLoaded } from './glbskin.js';
 import { Post } from './post.js';
+import { Sparks } from './sparks.js';
+import { FORGE_HIT } from './models/npc/npc_smith.js';
+import { sfx } from '../core/audio.js';
 
 const params = new URLSearchParams(location.search);
 const SQ = Math.SQRT1_2;
@@ -280,10 +283,25 @@ function syncNpcs(dt) {
       a.update(dt, k < 1 ? { clip: 'attack', k, combo: Math.floor((tAll + n.x) / 1.6) % 3 } : { clip: 'idle' }, env);
       continue;
     }
+    // кузнец (сборка 56) бьёт молотом по наковальне: цикл 1,05 с, каждый 4-й удар — лёгкий; в миг удара — искры и звон
+    // (громкость — по расстоянию до героя); герой рядом или разговор — опускает молот и поворачивается к нему
+    if (n.forge && a.model.skin && !near && !(n.talkT > 0)) {
+      const ph = (tAll + n.x * 0.37) / 1.05, yaw = Math.atan2(n.forge[0] - n.x, n.forge[1] - n.y), hi = Math.floor(ph - FORGE_HIT);
+      a.faceAngle(yaw); a.update(dt, { clip: 'forge', k: ph % 1, combo: Math.floor(ph) }, env);
+      if (a.forgeHit !== undefined && hi !== a.forgeHit && a.root.visible) {
+        const light = ((hi % 4) + 4) % 4 === 3, d = P ? Math.hypot(P.x - n.x, P.y - n.y) : 99;
+        (sparks ||= new Sparks(scene)).burst(n.forge[0] - Math.sin(yaw) * 0.1, n.forge[1] - Math.cos(yaw) * 0.1, 0.99, light ? 10 : 26, yaw);
+        if (d < 16) sfx('forge', (light ? 0.45 : 1) * Math.min(1, 1.25 - d / 16));
+      }
+      a.forgeHit = hi; continue;
+    }
+    a.forgeHit = undefined;
     a.faceAngle(yawOfDir(n.dir));
     a.update(dt, { clip: n.talkT > 0 ? 'talk' : 'idle' }, env);
   }
+  if (sparks) sparks.update(dt);
 }
+let sparks = null;   // искры кузни (sparks.js) — создаются при первом ударе
 // «Жатва Бездны»: рой — настоящие 3D-модели (по типу врага), берутся из пула и возвращаются в него после гибели
 function syncSwarm(dt) {
   const S = G.surv, live = new Set(S ? S.swarm : []);

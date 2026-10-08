@@ -8,7 +8,7 @@ for (const n of G.npcs) {
   const ry = a.root.rotation.y; a.root.rotation.y = 0.35; a.root.updateMatrixWorld(true); const box = new THREE.Box3().setFromObject(a.root); const h = box.max.y - box.min.y;
   const p = a.root.position, yaw = 0, fx = Math.sin(yaw), fz = Math.cos(yaw);
   const W = 192, H = 240, cam = new THREE.PerspectiveCamera(30, W / H, 0.6, 20);
-  const hy = box.min.y + Math.min(h, 2.05) * 0.78;
+  const hy = box.min.y + Math.min(h, 2.05) * 0.78 - (n.id === 'trainer' ? 0 : n.id === 'smith' ? 0.2 : 0.25);   // сборка 56: жители из Meshy ниже Элвина, у кузнеца рамку раздувает поднятый молот
   cam.position.set(p.x + (n.id === 'trainer' ? -0.75 : 0.35), hy + 0.45, p.z + 2.0); cam.lookAt(p.x, hy + 0.08, p.z);
   const vis = R.scene.children.map(o => [o, o.visible]); for (const o of R.scene.children) o.visible = o === a.root || o.isLight || (o.children && o.children.some(c => c.isLight)); const bg = R.scene.background, fog = R.scene.fog; R.scene.background = new THREE.Color(0x2a2030); R.scene.fog = null;
   const ols = []; a.root.traverse(o => { if (o.userData && o.userData.isOutline && o.visible) { ols.push(o); o.visible = false; } });
