@@ -409,6 +409,7 @@ export function enemyTelegraph(e, kind, P) {
   else if (kind === 'nova') tg = { shape: 'circle', x: e.x, y: e.y, r: e.D.abil.nova.r };
   else if (kind === 'volley') tg = { shape: 'cone', a: ang, r: 6, arc: e.D.abil.volley.spread * (e.D.abil.volley.n - 1) * 180 / Math.PI + 12 };
   else if (e.D.proj) tg = null;   // ranged shots are never telegraphed
+  else if (e.teacher && kind === 'attack') tg = { shape: 'cone', a: ang, r: Math.max(2, e.D.range + 1), arc: 70, mult: 0.15 };   // скелет-учитель пролога (сборка 49)
   else if (e.champion && kind === 'attack') tg = { shape: 'cone', a: ang, r: Math.max(2, e.D.range + 1), arc: 70 };   // чемпион: замах подсвечен, как у стража
   else if (e.D.elite || e.D.boss) {
     if (kind === 'attack') tg = { shape: 'cone', a: ang, r: e.D.boss ? 3.2 : 2.6, arc: 70 };

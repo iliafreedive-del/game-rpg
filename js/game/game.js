@@ -41,7 +41,7 @@ import { rand, rrange, rint } from '../core/util.js';
 import { pollMove, input, mouse, tapAim } from '../core/input.js';
 import { gate, BOSS_LEVEL, nextStep, earlyLock, lockToast, bandLevel, CATA_MAX } from './progress.js';
 import { platform } from '../platform/platform.js';
-import { cineTick, inCinema, cinema, portalShots } from '../ui/cinema.js';
+import { cineTick, inCinema, cinema, portalShots, newPortalShots } from '../ui/cinema.js';
 import { maybeInterstitial, dailyStatus, blessed } from '../platform/monetize.js';
 
 G.npcs = [];
@@ -163,6 +163,9 @@ export async function loadZone(id, how = {}) {
   bus.emit('zoneEntered', id); bus.emit('hud'); requestSave();
   if (id === 'town' && G.profile.tutorial.prologue) setTimeout(() => { const d = dailyStatus(); if (d.claimable) bus.emit('toast', { text: 'Дары источника ждут!', sub: `День ${d.day} из 28 — алтарь на площади`, kind: 'quest' }); else if (!blessed()) bus.emit('toast', { text: 'Источник силы на площади', sub: 'Сила источника: +25% золота и опыта на 10 минут', kind: 'info' }); }, 2500);   // сборка 19
   if (id === 'town' && P.tutorial.prologue) setTimeout(() => { if (G.zoneId === 'town') bus.emit('toast', { text: 'Дальше: ' + nextStep(), kind: 'info' }); }, 2200);
+  if (id === 'town' && P.tutorial.prologue) {   // сборка 49: новый портал показываем камерой, когда он открылся (ждём, пока закроются окна)
+    let tries = 0; const tryShow = () => { if (G.zoneId !== 'town' || ++tries > 40) return; if (G.cinema || G.modalOpen || G.paused) { setTimeout(tryShow, 1000); return; } const sh = newPortalShots(); if (sh.length) cinema(sh); };
+    setTimeout(tryShow, 900); }
   if (id === 'town' && how.from && how.from !== 'death') setTimeout(() => maybeInterstitial('return'), 1200);
   if (id === 'town' && P.tutorial.prologue) setTimeout(() => { if (G.zoneId === 'town') bus.emit('wallOffer'); }, 4200);   // лестница покупок: один раз у очередной «стены» (js/platform/offers.js)   // реклама только на спокойном переходе (не чаще раза в 4 минуты)
 }
@@ -403,7 +406,10 @@ function tutorialTick() {
   const point = (sel, text) => bus.emit('tutHand', { sel, text, time: 10 });
   if (T.step === 0 && G.time - G.run.t0 > 0.8) { T.step = 1; point('joyZone', touch() ? 'Ведите палец по левой половине экрана' : 'Идите: WASD или зажмите мышь'); }
   else if (T.step === 1 && G.enemies.some(e => e.aggro)) { T.step = 2; point('btnAtk', touch() ? 'Держите большую кнопку — удар' : 'Пробел — удар'); }
-  else if (T.step === 2 && G.run.kills >= 1) { T.step = 3; say('Отлично! Добейте остальных'); }
+  else if (T.step === 2 && G.run.kills >= 1) { T.step = 3; say('Отлично! Добейте остальных');
+    // сборка 49 («новое — без настоящей угрозы»): оставшийся скелет — учитель: медленный подсвеченный замах, удар почти без урона.
+    // Его замах открывает кнопку рывка с пальцем (revealTick в tutorial.js) — рывок учится не под настоящим ударом.
+    if (!G.profile.tutorial.un.dodge) { const tch = G.enemies.find(e => !e.dead); if (tch) tch.teacher = true; } }
   else if (T.step === 3 && G.enemies.every(e => e.dead)) { T.step = 4; const ex = G.zone.inter.find(i => i.id === 'floor_exit'); if (ex) { ex.hidden = false; ex.draw.hidden = false; ex.light.on = true; } say('Портал открыт — идите к свету', 'Золотые стрелки на земле укажут путь'); }
 }
 export function finishFloor() {

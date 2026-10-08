@@ -183,7 +183,7 @@ export class Enemy {
     let clip = kind === 'attack2' ? 'attack2' : kind === 'slam' ? 'slam' : kind === 'roar' ? 'roar' : 'attack';
     const A = C.atlasOf(D.atlas); if (A && A.clips && !A.clips[clip]) clip = 'attack';   // у зверей нет attack2/slam/roar — бьют обычной анимацией
     const fps = (D.fps && D.fps[clip]) || 10;
-    this.setAnim(clip, fps * (this.enraged ? 1.25 : 1));
+    this.setAnim(clip, fps * (this.enraged ? 1.25 : 1) * (this.teacher ? 0.45 : 1));   // учитель пролога замахивается вдвое медленнее
     this.atk.impact = D.impact; this.atk.tx = P.x; this.atk.ty = P.y;
     C.enemyTelegraph(this, kind, P);
   }

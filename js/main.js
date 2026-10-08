@@ -12,7 +12,7 @@ import { initHunts } from './game/hunts.js';
 import { loadZone, update, saveNow } from './game/game.js';
 import { initHUD, updateHUD } from './ui/hud.js';
 import { initPanel } from './ui/panel.js';
-import { initTutorial, askTutorial, intro, unlockAll } from './ui/tutorial.js';
+import { initTutorial, intro, unlockAll } from './ui/tutorial.js';
 import { cinema, introShots, portalShots } from './ui/cinema.js';
 import * as CS from './game/castle.js';
 import { initPlatform, platform, gameplay } from './platform/platform.js';
@@ -70,9 +70,10 @@ async function boot() {
     requestAnimationFrame(loop);
     // новая игра: сначала облёт деревни («вау» и загадка), потом склеп пробуждения
     if (fresh) {
+      if (p.tutorial.on === undefined) p.tutorial.on = true;   // сборка 49: без вопроса «Показать подсказки?» — сразу в игру; выключить можно в «Справке»
       await cinema(introShots());
       await loadZone('depths', { floor: 0 });
-      if (p.tutorial.on === undefined) { if (await askTutorial()) intro(); else unlockAll(); } else intro();
+      intro();
     }
   };
   const S = saves.slots, cname = c => CLASSES[c] ? CLASSES[c].name : c;

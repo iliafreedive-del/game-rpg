@@ -44,6 +44,7 @@ import { wipeLocal, cloudBundle } from '../game/save.js';
 import { setVolumes } from '../core/audio.js';
 import { resize } from '../render/index.js';
 import { ZOOM, zoomNow, setZoom } from '../core/camzoom.js';
+import { hintLog, hintsOn, setHints, MILESTONES, milestones } from './tutorial.js';
 
 let cur = null;   // {name, bg, render}
 // сборка 47: окно с lock (первый меч, смерть в Жатве) закрывается только своей кнопкой — closeModal(true).
@@ -266,7 +267,10 @@ W.skills = (arg = {}) => {
     b.appendChild(el('div', 'sp-row', `<b class="${P.skillPts ? 'good' : 'muted'}">Очки навыков: ${P.skillPts}</b><span class="muted sp-hint">+1 очко за каждый уровень</span><b class="c-gold">💰 ${fmt(P.gold)} зол.</b>${edit ? '' : '<span class="muted">Изучать — у наставника Элвина в деревне.</span>'}`));
     // сборка 38: без большой подсказки «Начните с верхнего умения» — на доступном узле и так «+»; дерево и карточка — в обёртке
     // (на телефоне горизонтально они встают рядом: дерево слева, карточка справа)
-    const wrap = el('div', 'tal-wrap'), trees = el('div', 'tal-trees');
+    // сборка 49 («одно новое за раз»): пока не изучено ни одного умения, видно только то, что можно изучить сейчас
+    const first = hintsOn() && !Object.values(P.skills || {}).some(Boolean) && ids.some(id => CH.canLearn(id).ok);
+    const wrap = el('div', 'tal-wrap' + (first ? ' tal-first' : '')), trees = el('div', 'tal-trees');
+    if (first) b.appendChild(el('p', 'muted tal-first-note', 'Изучите первое умение — остальные откроются потом, по одному.'));
     trees.appendChild(talentBranch(cls, ids, P, id => { sel = W._skillSel = id; rerender(); }, sel));
     wrap.appendChild(trees);
     if (sel) wrap.appendChild(talentInfo(sel, P, edit));
@@ -405,6 +409,31 @@ W.map = () => modal(G.zone.name, 'md', b => {
   b.appendChild(el('p', 'muted', 'Белая точка — вы. Золотой круг — цель задания. Фиолетовые — порталы. В катакомбах карта открывается по мере исследования.'));
 });
 
+// ---------------------------------------------------------------- «Справка» (сборка 49): «дайте пропустить и вернуться»
+// подсказки вкл/выкл, всё, что уже объясняли (перечитать), перезапуск обучения, «Ваш путь» — минуты до ключевых моментов
+const mmPlay = sec => `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
+W.help = () => modal('Справка', 'sm', b => {
+  const on = hintsOn();
+  const r = el('div', 'attr', '<b>Подсказки</b> <small class="muted">палец над кнопками и стрелки</small>');
+  const bt = el('button', 'btn sm' + (on ? ' gold' : ''), on ? 'Вкл' : 'Выкл'); bt.onclick = () => { setHints(!on); rerender(); }; r.appendChild(bt); b.appendChild(r);
+  const L = hintLog();
+  b.appendChild(el('h3', '', 'Что уже объясняли'));
+  if (!L.length) b.appendChild(el('p', 'muted', 'Пока ничего. Подсказки появятся в игре, когда понадобятся.'));
+  else { const ul = el('ul', 'help-list'); for (const t of L.slice().reverse()) ul.appendChild(el('li', '', esc(t))); b.appendChild(ul); }
+  const rs = el('button', 'btn', 'Показать все подсказки заново'); rs.onclick = () => { closeModal(); const t = G.profile.tutorial; t.tips = {}; t.log = []; bus.emit('tutorialRestart'); };
+  b.appendChild(rs);
+  const ms = milestones(), got = MILESTONES.filter(([k]) => ms[k] != null);
+  if (got.length) {   // «считайте минуты»: тестер присылает скриншот этого списка
+    b.appendChild(el('h3', '', 'Ваш путь'));
+    b.appendChild(el('div', 'stats help-ms', got.map(([k, n]) => `<div><span>${esc(n)}</span><b>${mmPlay(ms[k])}</b></div>`).join('')));
+    b.appendChild(el('p', 'muted', '<small>Минуты игры, когда это случилось впервые.</small>'));
+  }
+});
+export function photoMode(on) {
+  document.body.classList.toggle('photo', on); let x = document.querySelector('.photo-exit'); if (x) x.remove();
+  if (!on) return;
+  x = el('button', 'btn sm photo-exit', '✕ съёмка'); x.onclick = () => photoMode(false); document.body.appendChild(x);
+}
 W.settings = () => modal('Настройки', 'sm', b => {
   const P = G.profile, s = P.settings;
   const range = (lab, key) => { const r = el('div', 'attr', `<b>${lab}</b>`); const i = document.createElement('input'); i.type = 'range'; i.min = 0; i.max = 1; i.step = 0.05; i.value = s[key]; i.oninput = () => { s[key] = +i.value; setVolumes(s.sfx, s.music); }; i.onchange = () => bus.emit('save'); r.appendChild(i); b.appendChild(r); };
@@ -417,6 +446,9 @@ W.settings = () => modal('Настройки', 'sm', b => {
   { const zr = el('div', 'attr', '<b>Камера</b> <small class="muted">ближе — дальше</small>'); const i = document.createElement('input'); i.type = 'range'; i.min = ZOOM.min; i.max = ZOOM.max; i.step = 0.05; i.value = zoomNow(); i.oninput = () => setZoom(+i.value);
     const rs = el('button', 'btn sm', 'Как было'); rs.onclick = () => { setZoom(1); i.value = 1; }; zr.append(i, rs); b.appendChild(zr);
     b.appendChild(el('p', 'muted', `<small>${matchMedia('(pointer: coarse)').matches ? 'В игре: разведите или сведите два пальца на свободной части экрана.' : 'В игре: колесо мыши или щипок на тачпаде.'}</small>`)); }
+  { // сборка 49: режим съёмки — интерфейс прячется, для скриншотов и роликов (план продвижения). Джойстик работает, «АВТО» — как было.
+    const ph = el('div', 'attr', '<b>Режим съёмки</b> <small class="muted">без кнопок, для скриншотов и роликов. Включите АВТО заранее — герой будет сражаться сам</small>'); const bp = el('button', 'btn sm', 'Включить');
+    bp.onclick = () => { closeModal(); photoMode(true); }; ph.appendChild(bp); b.appendChild(ph); }
   const sh = el('div', 'attr', '<b>Тряска камеры</b>'); const bs = el('button', 'btn sm', s.shake ? 'Вкл' : 'Выкл'); bs.onclick = () => { s.shake = !s.shake; rerender(); }; sh.appendChild(bs); b.appendChild(sh);
   b.appendChild(el('p', 'muted', `<small>Версия сборки: ${window.__BUILD || ''}</small>`));
   b.appendChild(el('h3', '', 'Управление'));
@@ -1026,14 +1058,14 @@ W.menu = () => modal('Меню', 'md', b => {
     ['inventory', '🎒', 'Герой', 'снаряжение и сумка', 'dotInv'], ['character', '🛡', 'Персонаж', 'характеристики', 'dotChar'], ['skills', '✦', 'Навыки', 'умения и кнопки', 'dotSkill'],
     ['journal', '📜', 'Задания', 'сюжет и ежедневные'], ['map', '🗺', 'Карта', 'текущая локация'],
     ['herospath', '⚔', 'Летопись битв', 'автобои', 'dotHW'], ['shrine', '🎁', 'Источник силы', 'дары, сила источника', 'dotGift'], ['season', '🏆', 'Путь сезона', SE.seasonName() + ' · 30 ступеней', 'dotSeason'], ['codex', '📖', 'Коллекция', '+0,5% за каждую находку'],
-    ['tutorial', '❓', 'Обучение', 'показать подсказки снова'], ['settings', '⚙', 'Настройки', 'звук, графика'],
+    ['help', '❓', 'Справка', 'подсказки и обучение'], ['settings', '⚙', 'Настройки', 'звук, графика'],
   ];
   const g = el('div', 'menu-grid');
   for (const [id, ic, name, sub, badge] of tiles) {
     const locked = TOWN_ONLY[id] && G.zoneId !== 'town';
     const n = badge ? BADGES[badge] || 0 : 0;
     const t = el('button', 'menu-tile' + (locked ? ' locked' : ''), `<span class="mt-ic">${ic}</span><b>${name}</b><small>${locked ? 'в деревне' : sub}</small>${n ? `<span class="mt-dot">${n}</span>` : ''}`);
-    t.onclick = () => { if (id === 'tutorial') { closeModal(); G.profile.tutorial.tips = {}; bus.emit('tutorialRestart'); return; } closeModal(); openWindow(id); };
+    t.onclick = () => { closeModal(); openWindow(id); };
     g.appendChild(t);
   }
   b.appendChild(g);

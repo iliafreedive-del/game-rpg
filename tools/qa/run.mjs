@@ -15,8 +15,8 @@ await p.reload(); await p.waitForSelector('#titleBtns button');
 await p.click('#titleBtns button');
 await p.waitForSelector('.class-card'); await (await p.$$('.class-card'))[+(process.env.CLS || 0)].click();
 await p.waitForFunction(() => window.__G && window.__G.zone && window.__G.player && window.__G.zoneReady, null, { timeout: 60000 });
-await p.waitForSelector('.tut-ask button', { timeout: 15000 }).catch(() => { });
-await p.evaluate(() => [...document.querySelectorAll('button')].find(b => b.textContent.includes('опытный'))?.click());
+// сборка 49: вопроса «Показать подсказки?» нет — для сценариев подсказки выключаем (как раньше «Я опытный игрок»); TUT=1 — оставить обучение
+if (!process.env.TUT) await p.evaluate(async () => { const m = await import('/js/ui/tutorial.js'); m.setHints(false); });
 await p.waitForTimeout(500);
 const src = fs.readFileSync(file, 'utf8');
 const out = await p.evaluate(async s => { const print = (...a) => console.log('>> ' + a.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ')); const sleep = ms => new Promise(r => setTimeout(r, ms));
