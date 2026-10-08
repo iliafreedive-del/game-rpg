@@ -13,6 +13,7 @@ import { adButton } from './adbtn.js';
 import { CODEX } from '../data/story.js';
 import { gate } from '../game/progress.js';
 import { paintScene } from './hwscenes.js';
+import { ART, artImg } from './art.js';
 import { makeBattle, stageFoes, arenaView, setArenaLayout } from '../game/hwbattle.js';
 
 // сборка 47: энергия общая с Глубинами и Жатвой (game/castle.js); каждый бой стоит 1 ⚡ — и победа, и поражение
@@ -61,7 +62,7 @@ function header(title) {
 function showMap() {
   cancelAnimationFrame(raf); disposeStage(); root.innerHTML = ''; header();
   const h = HW(), ch = CHAPTERS[page];
-  const card = el('div', 'hw-map', `<div class="hw-banner">Летопись битв · ${esc(ch.name)}</div><div class="hw-sub">Бой идёт сам. Ваш герой, его вещи, закалка и улучшения — те же, что в подземелье.</div>`);
+  const card = el('div', 'hw-map', `<div class="hw-pano"><img src="${ART.banner(page + 1)}" alt="" onerror="this.parentNode.remove()"></div><div class="hw-banner">Летопись битв · ${esc(ch.name)}</div><div class="hw-sub">Бой идёт сам. Ваш герой, его вещи, закалка и улучшения — те же, что в подземелье.</div>`);
   const grid = el('div', 'hw-grid');
   for (let i = 1; i <= PER_CH; i++) {
     const s = page * PER_CH + i, st = h.stars[s] || 0, locked = s > h.top || !!gate('hw', s), E = stageEnemy(s);
@@ -122,12 +123,25 @@ async function fight(s) {
   if (!root || !root.contains(stack)) { disposeStage(); return; }
   glcv.style.display = stage ? 'block' : 'none';
   let bgCache = null, bgKey = '';
+  // сборка 58: нарисованный задник главы (3 варианта на главу: этапы 1–10 → a, 11–20 → b, 21–30 → c); горизонт картинки (~50% высоты) — на горизонт арены
+  const variant = 'abc'[Math.min(2, Math.floor(((s - 1) % PER_CH) / 10))];
+  const arenaArt = port => artImg(ART.arena(ci + 1, variant, port));
+  arenaArt(stack.clientWidth < stack.clientHeight);
+  function drawArt(W, Hh) {
+    const r = arenaArt(W < Hh); if (!r.ok) return false;
+    const im = r.im, iw = im.naturalWidth, ih = im.naturalHeight, hz = view.horizon * Hh, IH = 0.5;
+    const k = Math.max(W / iw, Hh / ih, hz / (IH * ih), (Hh - hz) / ((1 - IH) * ih)), w = iw * k, h = ih * k;
+    bctx.drawImage(im, (W - w) / 2, hz - IH * h, w, h); return true;
+  }
   function drawBg(W, Hh) {
     const key = W + 'x' + Hh; if (key !== bgKey) { bgKey = key; bgCache = paintScene(ci, W, Hh, view.horizon); }
-    bctx.drawImage(bgCache.far, 0, 0, W, Hh);
-    for (const c of bgCache.clouds) { const x = ((c.x + time * c.v) % (W + 400)) - 200; bctx.globalAlpha = c.a; bctx.drawImage(bgCache.cloud, x, c.y, c.w, c.w * 0.4); } bctx.globalAlpha = 1;
-    bctx.drawImage(bgCache.near, 0, 0, W, Hh);
-    const P = bgCache.parts; for (const p of P) { p.y += p.vy * 0.016 * speed; if (p.home && p.y < p.home[1] - 70) { p.y = p.home[1]; p.x = p.home[0] + (Math.random() - 0.5) * 14; } p.x += Math.sin(time * p.f + p.o) * 0.3; if (p.y > Hh) p.y = -5; if (p.y < -5) p.y = Hh; bctx.globalAlpha = p.a * (0.6 + 0.4 * Math.sin(time * 3 + p.o)); bctx.fillStyle = p.c; bctx.beginPath(); bctx.arc(p.x, p.y, p.r, 0, 7); bctx.fill(); }
+    const art = drawArt(W, Hh);
+    if (!art) {   // картинка ещё грузится или не загрузилась — прежний процедурный фон
+      bctx.drawImage(bgCache.far, 0, 0, W, Hh);
+      for (const c of bgCache.clouds) { const x = ((c.x + time * c.v) % (W + 400)) - 200; bctx.globalAlpha = c.a; bctx.drawImage(bgCache.cloud, x, c.y, c.w, c.w * 0.4); } bctx.globalAlpha = 1;
+      bctx.drawImage(bgCache.near, 0, 0, W, Hh);
+    }
+    const P = bgCache.parts; for (const p of P) { if (art && p.home) continue; p.y += p.vy * 0.016 * speed; if (p.home && p.y < p.home[1] - 70) { p.y = p.home[1]; p.x = p.home[0] + (Math.random() - 0.5) * 14; } p.x += Math.sin(time * p.f + p.o) * 0.3; if (p.y > Hh) p.y = -5; if (p.y < -5) p.y = Hh; bctx.globalAlpha = p.a * (0.6 + 0.4 * Math.sin(time * 3 + p.o)); bctx.fillStyle = p.c; bctx.beginPath(); bctx.arc(p.x, p.y, p.r, 0, 7); bctx.fill(); }
     bctx.globalAlpha = 1;
   }
   const heightOf = u => u === Hu ? 2.0 : u.type === 'boss' ? 3.0 : u.big ? 2.4 : 1.9;
@@ -253,7 +267,7 @@ async function fight(s) {
       h.stars[s] = Math.max(h.stars[s] || 0, stars); if (first) { h.top = Math.min(STAGES, s + 1); codexPage(s); }
     }
     bus.emit('save');
-    const ov = el('div', 'hw-result ' + (win ? 'win' : 'lose'), `<div class="hw-rt">${win ? 'ПОБЕДА' : 'ПОРАЖЕНИЕ'}</div>${win ? `<div class="stars">${[0, 1, 2].map(i => `<span class="${i < stars ? 'on' : ''}" style="animation-delay:${0.2 + i * 0.3}s">★</span>`).join('')}</div><div class="rw-loot"><span class="goldc">+${gold} золота</span> · <span style="color:#b8e3ff">+${xp} опыта</span>${shards ? ` · <span class="c-shard">+${shards}◆</span>` : ''}</div>` : '<p>Отряд оказался сильнее. Наберитесь опыта в катакомбах, улучшите вещи у кузнеца — и возвращайтесь.</p>'}`);
+    const ov = el('div', 'hw-result ' + (win ? 'win' : 'lose'), `<img class="hw-rimg" src="${ART.hwResult(win)}" alt="" onerror="this.remove()"><div class="hw-rt">${win ? 'ПОБЕДА' : 'ПОРАЖЕНИЕ'}</div>${win ? `<div class="stars">${[0, 1, 2].map(i => `<span class="${i < stars ? 'on' : ''}" style="animation-delay:${0.2 + i * 0.3}s">★</span>`).join('')}</div><div class="rw-loot"><span class="goldc">+${gold} золота</span> · <span style="color:#b8e3ff">+${xp} опыта</span>${shards ? ` · <span class="c-shard">+${shards}◆</span>` : ''}</div>` : '<p>Отряд оказался сильнее. Наберитесь опыта в катакомбах, улучшите вещи у кузнеца — и возвращайтесь.</p>'}`);
     const row = el('div', 'hw-nav');
     const map = el('button', 'btn', 'Карта'); map.onclick = async () => { await maybeInterstitial('hw'); showMap(); };
     const again = el('button', 'btn', 'Ещё раз · 1 ⚡'); again.onclick = () => tryFight(s);

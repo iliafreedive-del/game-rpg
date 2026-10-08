@@ -25,7 +25,10 @@ export async function initRenderer(canvas) {
 }
 // сборка 46: шторка «Загрузка…» на время смены зоны (появляется с задержкой — быстрые переходы её не показывают)
 let veil = null;
-bus.on('zoneLoading', () => { if (!G.zone) return; if (!veil) { veil = document.createElement('div'); veil.id = 'zoneVeil'; veil.innerHTML = '<span>Загрузка…</span>'; document.body.appendChild(veil); } veil.classList.add('on'); });
+const VEIL_ART = ['town', 'catacombs', 'depths', 'survival', 'castle', 'forest', 'fjord', 'bones'];   // сборка 58: картинка зоны под «Загрузка…»
+bus.on('zoneLoading', () => { if (!G.zone) return; if (!veil) { veil = document.createElement('div'); veil.id = 'zoneVeil'; veil.innerHTML = '<span>Загрузка…</span>'; document.body.appendChild(veil); }
+  const z = VEIL_ART.includes(G.zoneTo) ? G.zoneTo : ''; veil.style.setProperty('--veil-l', z ? `url(assets/art/gpt/zones/${z}_land.jpg)` : 'none'); veil.style.setProperty('--veil-p', z ? `url(assets/art/gpt/zones/${z}_port.jpg)` : 'none');
+  veil.classList.add('on'); });
 bus.on('zoneEntered', () => { if (veil) veil.classList.remove('on'); });
 bus.on('camZoom', () => { if (!on3) R2.resize(); });   // 2D: масштаб пересчитывается при зуме игрока (3D сам плавно следует)
 export function resize() {
