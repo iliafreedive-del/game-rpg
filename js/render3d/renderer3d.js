@@ -17,6 +17,7 @@ import { Critters } from './critters.js';
 import { buildDungeonFloor } from './dungeon.js';
 import { glowSet } from './glow.js';
 import { HEROES, MOBS, NPCS, WEAPONS, WEAPON_MODEL, OFFHAND_MODEL } from './registry.js';
+import { PET_MODELS } from './models/pet/pets.js';
 import { LIGHT, CAMERA, QUALITY, SHADOW, HERO } from './style.js';
 import { zoomNow } from '../core/camzoom.js';
 import { SKINS, skinLoaded } from './glbskin.js';
@@ -303,6 +304,15 @@ function syncNpcs(dt) {
   }
   if (sparks) sparks.update(dt);
 }
+// питомец героя (сборка 58, js/game/pets.js): новая модель — когда сменили зверька (G.pet — новый объект)
+function syncPet(dt) {
+  const p = G.pet;
+  for (const [k, a] of actors) if (a.isPet && k !== p) { a.dispose(); actors.delete(k); }
+  if (!p || !PET_MODELS[p.id]) return;
+  const a = getActor(p, PET_MODELS[p.id]); a.isPet = true; a.turnRate = 12;
+  a.place(p.x, p.y); a.faceAngle(Math.PI / 2 - p.ang);
+  a.update(dt, p.act ? { clip: 'attack', k: Math.min(1, p.act.t / p.act.dur) } : p.speed > 0.4 ? { clip: 'walk', speed: p.speed } : { clip: 'idle' }, env);
+}
 let sparks = null;   // искры кузни (sparks.js) — создаются при первом ударе
 // «Жатва Бездны»: рой — настоящие 3D-модели (по типу врага), берутся из пула и возвращаются в него после гибели
 function syncSwarm(dt) {
@@ -421,7 +431,7 @@ export function render() {
   if (Z !== zone) setZone(Z);
   applyQuality();
   updateCamera(dt); updateLights(tAll, dt);
-  syncPlayer(dt); syncEnemies(dt); syncSwarm(dt); syncNpcs(dt); cullActors();
+  syncPlayer(dt); syncEnemies(dt); syncSwarm(dt); syncNpcs(dt); syncPet(dt); cullActors();
   world.props.cull(camera); world.props.update(tAll);
   if (world.atmo) world.atmo.update(dt, tAll, G.cam.x, G.cam.y, G.player.x, G.player.y);
   if (world.critters) world.critters.update(dt, tAll, G.player, G.cam.x, G.cam.y);

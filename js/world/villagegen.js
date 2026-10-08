@@ -24,8 +24,8 @@ function scalePlan(p) {
     portals: Object.fromEntries(Object.entries(p.portals).map(([k, v]) => [k, sp(v)])), roads: p.roads.map(r => ({ ...r, w: r.w + (r.main ? 0.5 : 0.3), pts: r.pts.map(sp) })), start: sp(p.start) };
 }
 // коллайдеры мелочи (как в js/world/zone.js PROP): число — радиус, пара — полуоси коробки
-const COL = { cart: [1.0, 0.55], cart_load: [1.0, 0.55], signpost: 0.15, barrel_stack: [0.9, 0.55], log_stack: [1.35, 0.6], plank_pile: [1.3, 0.35], pumpkins: 0.45, tool_stand: [0.6, 0.25], barrel: 0.3, crate: 0.35, sacks: 0.3, lamp: 0.12, well: 0.62, board: 0.3, banner: 0.15, table: 0.6, dummy: 0.3, target: 0.35, hay: 0.45, tree_0: 0.3, tree_1: 0.3, grave: 0.2, deadtree: 0.25, shrine: 1.3, crystals: 0.3, rocks: 0.35, logpile: [0.7, 0.4], bench: [0.75, 0.22], weapon_rack: [0.6, 0.18], forge: [0.75, 0.6], anvil: [0.55, 0.38], fortune_tent: [1.5, 1.3] };
-const KEEP = new Set(['well', 'board', 'banner', 'shrine', 'forge', 'anvil', 'fortune_tent', 'portal']);   // то, что не убирается ради зазора
+const COL = { cart: [1.0, 0.55], cart_load: [1.0, 0.55], signpost: 0.15, barrel_stack: [0.9, 0.55], log_stack: [1.35, 0.6], plank_pile: [1.3, 0.35], pumpkins: 0.45, tool_stand: [0.6, 0.25], barrel: 0.3, crate: 0.35, sacks: 0.3, lamp: 0.12, well: 0.62, board: 0.3, banner: 0.15, table: 0.6, dummy: 0.3, target: 0.35, hay: 0.45, tree_0: 0.3, tree_1: 0.3, grave: 0.2, deadtree: 0.25, shrine: 1.3, crystals: 0.3, rocks: 0.35, logpile: [0.7, 0.4], bench: [0.75, 0.22], weapon_rack: [0.6, 0.18], forge: [0.75, 0.6], anvil: [0.55, 0.38], fortune_tent: [1.5, 1.3], bonfire: 0.55 };
+const KEEP = new Set(['well', 'board', 'banner', 'shrine', 'forge', 'anvil', 'fortune_tent', 'portal', 'caravan_wagon', 'bonfire']);   // то, что не убирается ради зазора
 const GAP = 1.8;   // свободный проход между препятствиями (герой ≈ 0,85 м в ширину + запас); сборка 18: шире — просторнее
 
 export const PLAN = {
@@ -246,6 +246,18 @@ export function generateVillage(plan0 = PLAN) {
     npc('fortune', 'Хозяйка Колеса', fx + 3.2, fy - 0.6);
     put('fortune_tent', fx, fy, { rot: 0 }); put('crystals', fx + 3.4, fy + 1.0); put('candles', fx + 3.0, fy - 0.4);
     markRect(fx - 3.4, fy - 3.2, fx + 4.4, fy + 3.4, 5);
+  }
+  // сборка 58: стоянка каравана Кофи — у развилки, где дорога уходит к порталу Костяных пустошей (оттуда караван и пришёл),
+  // на дальней от камеры стороне западной улицы: повозка ничего не заслоняет, клетки со зверьками смотрят на камеру
+  {
+    const [bx, by] = plan.portals.bones, wx = bx + 2.6, wy = by + 5.4;
+    // повозка боком к камере (длинная ось — по диагонали экрана, rot = 45°): коллайдер — три квадрата вдоль оси
+    const WR = Math.PI / 4, ax = Math.cos(WR), ay = -Math.sin(WR), cz = 0.2;   // cz — клетки сдвигают середину к камере (+z повозки)
+    put('caravan_wagon', wx, wy, { rot: WR, keep: 1, boxes: [-1.05, 0, 1.05].map(t => { const cx = wx + ax * t + Math.sin(WR) * cz, cy = wy + ay * t + Math.cos(WR) * cz; return [+(cx - 0.72).toFixed(2), +(cy - 0.72).toFixed(2), +(cx + 0.72).toFixed(2), +(cy + 0.72).toFixed(2)]; }) });
+    npc('caravan', 'Караванщик Кофи', wx + 2.5, wy + 1.9, { reach: 3.0 });
+    put('rug', wx + 2.3, wy + 2.1, { rot: 0.4, nocol: 1 }); put('hide_rack', wx - 2.4, wy + 2.3, { rot: 0.8, keep: 1 });   // сушилка шкур — из лагеря Костяных пустошей put('bonfire', wx - 0.4, wy + 3.2, { rot: 0, keep: 1 });
+    put('sacks', wx - 1.82, wy + 0.45, { keep: 1 }); put('barrel', wx - 1.82, wy - 0.4, { keep: 1 }); put('crate', wx - 0.2, wy - 1.55, { keep: 1 });
+    markRect(wx - 3.2, wy - 1.8, wx + 4.4, wy + 4.4, 5);
   }
   function markRect(x0, y0, x1, y1, v) { for (let y = Math.floor(y0); y <= y1; y++) for (let x = Math.floor(x0); x <= x1; x++) if (U(x, y) === 0) setU(x, y, v); }
   // кладбище за церковью и святилище у её бока

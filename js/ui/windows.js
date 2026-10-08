@@ -39,6 +39,8 @@ import { FLOOR_MODS, FLOOR_MOD_IDS, modReward } from '../data/floormods.js';
 import { stats as calcStats } from '../game/stats.js';
 import { particles } from '../game/combat.js';
 import { maybeInterstitial } from '../platform/monetize.js';
+import { petsOf, meetCaravan } from '../game/pets.js';
+import { PETS } from '../data/pets.js';
 import { earlyLock, firstLessonCost, POTION_RESERVE } from '../game/progress.js';
 import { platform as PF } from '../platform/platform.js';
 import { wipeLocal, cloudBundle } from '../game/save.js';
@@ -643,6 +645,20 @@ W.npc_merchant = () => {
     }
   });
   G.atMerchant = true; Q.talked('merchant');
+};
+// сборка 58: Караванщик Кофи. Первая встреча — рассказ и подарок (скарабей); дальше — короткая фраза, лавка — в панели у повозки
+W.npc_caravan = () => {
+  const first = !petsOf(G.profile).met, a = PETS[petsOf(G.profile).active];
+  const lines = first ? ['Мир твоему дому, воин! Я Кофи, караванщик из Пустошей. Мои повозки застряли здесь, когда открылась Бездна.', 'Мои зверьки не боятся тварей Бездны. Бьют они слабо, зато каждый умеет своё: кто жжёт, кто травит, кто лечит.', 'Вот, возьми песчаного скарабея — это подарок. Остальных отдам за осколки Бездны ◆.']
+    : [a ? `Пески любят смелых. ${a.name} рядом с тобой — значит, ты не один.` : 'Пески любят смелых. Кого возьмёшь с собой сегодня?'];
+  modal('Караванщик Кофи', 'sm', b => {
+    const dl = dialog(b, 'caravan', 'Караванщик Кофи', lines);
+    const row = el('div', 'row'); row.style.marginTop = '12px';
+    const nx = el('button', 'btn gold', lines.length > 1 ? 'Далее' : 'Понятно');
+    nx.onclick = () => { if (dl.next()) { if (dl.last()) nx.textContent = first ? 'Принять подарок' : 'Понятно'; return; } if (first) meetCaravan(); closeModal(); };
+    if (lines.length === 1) nx.textContent = 'Понятно';
+    row.appendChild(nx); b.appendChild(row);
+  }, { sticky: true });
 };
 W.npc_trainer = () => {
   // Глава III: герой вспомнил всё — Элвин объясняется (одной сценой, потом обычное окно наставника)

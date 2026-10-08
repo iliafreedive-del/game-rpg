@@ -53,6 +53,7 @@ const PROP = {
   giant_skull: { spr: 'giant_skull', tall: 1 }, giant_ribs: { spr: 'giant_ribs', tall: 1 }, giant_spine: { spr: 'giant_spine' }, tusk_arch: { spr: 'tusk_arch', tall: 1 }, giant_fallen: { spr: 'giant_fallen', tall: 1 },
   bone_hut: { spr: 'bone_hut', r: 1.75, tall: 1 }, bone_totem: { spr: 'bone_totem', r: 0.25, tall: 1 }, hide_rack: { spr: 'hide_rack', box: [0.95, 0.15] }, war_banner: { spr: 'war_banner', r: 0.12, tall: 1 }, tusk_fence: { spr: 'tusk_fence', box: [0.5, 0.15] },
   bonfire: { spr: 'bonfire', r: 0.55, light: { r: 5.5, c: [255, 140, 60], flicker: 1, z: 0.7 } },
+  caravan_wagon: { spr: 'crate', model: 'caravan_wagon', light: { r: 3.6, c: [255, 190, 110], flicker: 0.5, z: 1.6, dx: 1.6, dy: 0.6 } },   // повозка Кофи (сборка 58): коллайдер — o.boxes из генератора
   fortune_tent: { spr: 'hay', box: [1.5, 1.3], model: 'fortune_tent', light: { r: 3.5, c: [200, 120, 255], flicker: 0.4, z: 1.2 } }, reeds: { spr: 'bush', model: 'reeds' }, sacks: { spr: 'sacks', r: 0.3 },
 };
 

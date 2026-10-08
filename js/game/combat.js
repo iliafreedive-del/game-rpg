@@ -53,16 +53,17 @@ export function damageEnemy(e, amount, o = {}) {
   if (o.canCrit !== false) { const cc = S.critChance + (o.critBonus || 0); if (rand() < cc) { crit = true; dmg *= S.critMult; } }
   if (!o.elem || o.elem === 'phys') { const red = damageReduction(e.armor * (1 - (o.pierce || 0)), G.profile.level) * 0.9; dmg *= 1 - red; }
   if (e.st.shock > 0) dmg *= 1 + e.st.shockAmp;
+  if (e.st.expose > 0) dmg *= 1 + e.st.exposeAmp;   // укус кобры (питомец, сборка 58)
   if (G.player && G.player.warcry > G.time && o.src !== 'dot') dmg *= G.player.warcryMul || 1.25;
   if (e.st.frozen > 0 && R('shatter')) dmg *= 1 + 0.5 * PK;
   if (S.effects.execute && e.hp < e.maxHP * 0.3 && o.src === 'melee') dmg *= 2;
   dmg = Math.max(1, Math.round(dmg));
   e.hp -= dmg; e.flash = 0.12; G.lastCombat = G.time; e.lastSrc = o.src;
   if (!e.aggro) { e.aggro = true; bus.emit('aggro', e); }   // попал по врагу — он (и ближайшие соседи) тут же бросаются в бой
-  const col = o.elem === 'fire' ? '#ff9a4a' : o.elem === 'cold' ? '#8fdcff' : o.elem === 'light' ? '#d0c2ff' : crit ? '#ffd23a' : '#ffffff';
+  const col = o.elem === 'poison' ? '#9ae66a' : o.src === 'pet' ? '#e8d8b0' : o.elem === 'fire' ? '#ff9a4a' : o.elem === 'cold' ? '#8fdcff' : o.elem === 'light' ? '#d0c2ff' : crit ? '#ffd23a' : '#ffffff';
   if (!o.quiet) float(e.x, e.y, crit ? dmg + '!' : dmg, col, { big: crit ? 1 : 0, z: e.D.boss ? 3.2 : 1.9 });
   // life on hit
-  if (S.leech && o.src && o.src !== 'dot') { G.player.hp = Math.min(S.maxHP, G.player.hp + S.leech); }
+  if (S.leech && o.src && o.src !== 'dot' && o.src !== 'pet') { G.player.hp = Math.min(S.maxHP, G.player.hp + S.leech); }
   // bleed from crits (sword branch) and axes
   if (o.src === 'melee') {
     const bl = R('bloodletting'); let b = 0;
@@ -136,6 +137,8 @@ export function tickStatus(e, dt) {
     if (s.burn <= 0) s.burnDps = 0;
   }
   if (s.bleed > 0) { s.bleed -= dt; s.bleedAcc = (s.bleedAcc || 0) + s.bleedDps * dt; if ((s.bleedT = (s.bleedT || 0) + dt) >= 0.6) { s.bleedT = 0; const d = Math.round(s.bleedAcc); s.bleedAcc = 0; if (d > 0) damageEnemy(e, d, { src: 'dot', canCrit: false, elem: 'bleed' }); } if (s.bleed <= 0) s.bleedDps = 0; }
+  if (s.poisonT > 0) { s.poisonT -= dt; if ((s.poisonTick = (s.poisonTick || 0) + dt) >= 0.5) { s.poisonTick = 0; const d = Math.round(s.poisonDps * s.poison * 0.5); if (d > 0) damageEnemy(e, d, { src: 'dot', canCrit: false, elem: 'poison' }); } if (s.poisonT <= 0) { s.poison = 0; s.poisonDps = 0; } }   // яд скорпида (питомец)
+  if (s.expose > 0) s.expose -= dt;
   if (s.slowT > 0) { s.slowT -= dt; if (s.slowT <= 0) s.slow = 0; }
   if (s.chillT > 0) { s.chillT -= dt; if (s.chillT <= 0) s.chill = 0; }
   if (s.frozen > 0) s.frozen -= dt;

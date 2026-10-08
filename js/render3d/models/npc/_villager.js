@@ -7,7 +7,7 @@ export function villager(kit, o = {}) {
   const M = g => new THREE.Mesh(g, mat);
   const H = o.height ?? 1.7, k = H / 1.7;
   const root = new THREE.Group(); const { spin, body: rg } = pivot(root, 0.5);
-  const skin = o.skin ?? 0xd9a77e, cloth = o.cloth ?? 0x6a4a2a, clothTop = o.clothTop ?? 0x9a7a4a, pants = o.pants ?? 0x2c2a30;
+  const skin = o.skin ?? 0xd9a77e, skinTop = o.skinTop ?? 0xf2c8a4, cloth = o.cloth ?? 0x6a4a2a, clothTop = o.clothTop ?? 0x9a7a4a, pants = o.pants ?? 0x2c2a30;
   const hips = group([0, 0.85 * k, 0], rg);
   const torso = group([0, 0.05, 0], hips);
   torso.add(M(merge([
@@ -26,20 +26,23 @@ export function villager(kit, o = {}) {
   ])));
   const head = group([0, 0.78 * k, 0], torso);
   head.add(M(merge([
-    ball(0.17, skin, [0, 0.16, 0], [1, 1.08, 1.02], { top: 0xf2c8a4 }),
+    ball(0.17, skin, [0, 0.16, 0], [1, 1.08, 1.02], { top: skinTop }),
     // нарисованное лицо: белки с радужкой и зрачком, блик, брови, румянец, ноздри, складка рта
     ...[-1, 1].flatMap(sx => [ball(0.036, 0xf4eee2, [sx * 0.065, 0.18, 0.138], [1.1, 0.9, 0.55]), ball(0.022, o.eye ?? 0x4a6a8a, [sx * 0.065, 0.18, 0.152], [1, 1, 0.5]), ball(0.012, 0x0c0a10, [sx * 0.065, 0.18, 0.158], [1, 1, 0.5]),
       ball(0.006, 0xffffff, [sx * 0.06, 0.188, 0.162], 1, { emit: true }), kit.bbox(0.07, 0.014, 0.02, 0.004, o.hair ?? 0x3a2a1c, [sx * 0.065, 0.225, 0.145], [0, 0, -sx * 0.18]),
-      ball(0.03, 0xe0907c, [sx * 0.1, 0.12, 0.125], [1, 0.7, 0.4]), ball(0.007, 0x3a1a14, [sx * 0.014, 0.115, 0.18])]),
-    part(new THREE.ConeGeometry(0.035, 0.08, 5), skin, [0, 0.13, 0.17], [Math.PI / 2, 0, 0], 1, { top: 0xf2c8a4 }),
+      ball(0.03, o.blush ?? 0xe0907c, [sx * 0.1, 0.12, 0.125], [1, 0.7, 0.4]), ball(0.007, 0x3a1a14, [sx * 0.014, 0.115, 0.18])]),
+    part(new THREE.ConeGeometry(0.035, 0.08, 5), skin, [0, 0.13, 0.17], [Math.PI / 2, 0, 0], 1, { top: skinTop }),
     ...[-1, 1].map(sx => ball(0.04, skin, [sx * 0.165, 0.16, 0], [0.5, 1, 0.8])),
     kit.bbox(0.1, 0.012, 0.02, 0.004, 0x5a3028, [0, 0.07, 0.155]),
     ...(o.hair !== undefined ? [part(new THREE.SphereGeometry(0.185, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.55), o.hair, [0, 0.2, -0.015], 0, [1, 1, 1.05], { top: o.hairTop ?? o.hair, tex: 'bark' })] : []),
-    ...(o.beard ? [part(new THREE.ConeGeometry(0.13, 0.3, 8), o.beard, [0, 0.0, 0.08], [Math.PI * 0.95, 0, 0], [1, 1, 0.8], { top: 0xffffff })] : []),
+    ...(o.beard ? [part(new THREE.ConeGeometry(0.13, 0.3, 8), o.beard, [0, 0.0, 0.08], [Math.PI * 0.95, 0, 0], [1, 1, 0.8], { top: o.beardTop ?? 0xffffff })] : []),
     ...(o.scarf ? [part(new THREE.SphereGeometry(0.2, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.6), o.scarf, [0, 0.2, -0.01], 0, [1, 1, 1.06], { top: o.scarfTop ?? o.scarf, tex: 'cloth' }),
       part(new THREE.TorusGeometry(0.19, 0.03, 4, 14), o.scarfTrim ?? 0xf0c868, [0, 0.2, 0.0], [Math.PI / 2, 0, 0], [1, 1, 1.05], { top: 0xffe890 }),
       ...[-0.1, -0.03, 0.04, 0.11].map(x => part(new THREE.SphereGeometry(0.014, 5, 4), 0xffd860, [x, 0.285, 0.16], 0, 1, { top: 0xfff0a0, emit: true })),
       kit.tube([[0.1, 0.22, -0.14], [0.16, 0.05, -0.18], [0.14, -0.15, -0.16]], 0.05, 0.02, o.scarf, { top: o.scarfTop ?? o.scarf, tex: 'cloth' }, 6)] : []),
+    ...(o.turban ? [part(new THREE.SphereGeometry(0.21, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.62), o.turban, [0, 0.22, -0.01], 0, [1.05, 1.25, 1.08], { top: o.turbanTop ?? o.turban, tex: 'cloth' }),
+      ...[0.25, 0.32, 0.39].map((y, i) => part(new THREE.TorusGeometry(0.2 - i * 0.03, 0.028, 4, 14), i % 2 ? (o.turbanTop ?? o.turban) : o.turban, [0, y, -0.01], [Math.PI / 2 + 0.12 * (i - 1), 0, 0], [1.05, 1.08, 1], { tex: 'cloth' })),
+      part(new THREE.OctahedronGeometry(0.035), o.gem ?? 0x40d0c0, [0, 0.33, 0.2], 0, [1, 1.3, 0.6], { emit: true })] : []),
     ...(o.braid ? [kit.tube([[0.0, 0.2, -0.17], [0.03, 0.0, -0.21], [-0.03, -0.2, -0.2], [0.02, -0.4, -0.17]], 0.055, 0.02, o.braid, { top: o.braidTop ?? o.braid, tex: 'bark' }, 6)] : []),
     ...(o.veil ? [part(new THREE.BoxGeometry(0.26, 0.1, 0.02), o.veil, [0, 0.07, 0.175], 0, 1, { top: 0xe8dcff, tex: 'cloth' })] : []),
     ...(o.hat === 'pointed' ? [part(new THREE.ConeGeometry(0.2, 0.34, 8), o.hatColor ?? 0x6a3fd0, [0, 0.48, 0], [0.1, 0, 0]), part(new THREE.CylinderGeometry(0.26, 0.26, 0.03, 12), o.hatColor ?? 0x6a3fd0, [0, 0.32, 0], 0, 1, { tex: 'cloth' })] : []),
@@ -49,7 +52,7 @@ export function villager(kit, o = {}) {
     const g = group([s * 0.3, 0.55 * k, 0], torso);
     g.add(M(merge([part(new THREE.CapsuleGeometry(0.065, 0.24 * k, 3, 8), o.sleeve ?? cloth, [0, -0.17 * k, 0], 0, 1, { tex: 'cloth' }), ball(0.09, o.sleeve ?? cloth, [0, 0, 0], [1, 0.8, 1], { tex: 'cloth' })])));
     const el = group([0, -0.36 * k, 0], g);
-    el.add(M(merge([part(new THREE.CapsuleGeometry(0.055, 0.22 * k, 3, 8), o.sleeve ?? cloth, [0, -0.15 * k, 0], 0, 1, { tex: 'cloth' }), part(new THREE.CylinderGeometry(0.075, 0.07, 0.06, 8), o.cuff ?? clothTop, [0, -0.27 * k, 0], 0, 1, { tex: 'cloth' }), kit.bbox(0.11, 0.12, 0.08, 0.025, skin, [0, -0.35 * k, 0.005], 0, { top: 0xf2c8a4 })])));
+    el.add(M(merge([part(new THREE.CapsuleGeometry(0.055, 0.22 * k, 3, 8), o.sleeve ?? cloth, [0, -0.15 * k, 0], 0, 1, { tex: 'cloth' }), part(new THREE.CylinderGeometry(0.075, 0.07, 0.06, 8), o.cuff ?? clothTop, [0, -0.27 * k, 0], 0, 1, { tex: 'cloth' }), kit.bbox(0.11, 0.12, 0.08, 0.025, skin, [0, -0.35 * k, 0.005], 0, { top: skinTop })])));
     g.elbow = el; return g;
   };
   const armR = arm(-1), armL = arm(1);
