@@ -16,7 +16,7 @@ for (const [name, w, h, mob] of DEV) {
   if (flt && !name.includes(flt)) continue;
   const ctx = await b.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: 1, isMobile: !!mob, hasTouch: !!mob });
   const p = await ctx.newPage(); const errs = []; p.on('pageerror', e => errs.push(e.message)); p.on('console', m => { if (m.type() === 'error') errs.push(m.text()); });
-  const shot = async s => { try { await p.screenshot({ path: `/tmp/claude-0/screens/${name}_${s}.jpg`, type: 'jpeg', quality: 70, timeout: 60000 }); } catch (e) { errs.push('shot ' + s); } };
+  const shot = async s => { try { await p.screenshot({ path: `/tmp/claude-0/screens/${(process.env.Q || "").replace(/\W/g, "")}${name}_${s}.jpg`, type: 'jpeg', quality: 70, timeout: 60000 }); } catch (e) { errs.push('shot ' + s); } };
   // проверка: видимые элементы интерфейса за краем экрана и перекрытия кнопок
   const check = async scr => p.evaluate(scr => {
     const W = innerWidth, H = innerHeight, out = [], vis = e => { const s = getComputedStyle(e); if (s.display === 'none' || s.visibility === 'hidden' || +s.opacity === 0) return null; const r = e.getBoundingClientRect(); return r.width > 2 && r.height > 2 ? r : null; };
@@ -30,19 +30,19 @@ for (const [name, w, h, mob] of DEV) {
     return out; }, scr);
   const issues = {};
   try {
-    await p.goto((process.env.BASE || 'http://localhost:8123') + '/index.html?shot&nosdk=1'); await p.waitForSelector('#titleBtns button', { timeout: 60000 });
+    await p.goto((process.env.BASE || 'http://localhost:8123') + '/index.html?shot&nosdk=1' + (process.env.Q ? '&' + process.env.Q : '')); await p.waitForSelector('#titleBtns button', { timeout: 60000 });
     await p.evaluate(() => localStorage.clear()); await p.reload(); await p.waitForSelector('#titleBtns button'); await p.waitForTimeout(800);
     await shot('1title'); issues.title = await check('title');
     await p.click('#titleBtns button'); await p.waitForSelector('.class-card'); await p.waitForTimeout(400); await shot('2class'); issues.class = await check('class');
     await (await p.$$('.class-card'))[0].click();
     await p.waitForFunction(() => window.__G && window.__G.zone && window.__G.zoneReady, null, { timeout: 90000 });
-    await p.evaluate(async () => { const G = window.__G, TU = await import('/js/ui/tutorial.js'); TU.setHints(false); G.profile.tutorial.prologue = true; G.profile.level = 5; const gm = await import('/js/game/game.js'); await gm.loadZone('town', {}); });
+    await p.evaluate(async () => { const G = window.__G, TU = await import((window.__LANG && window.__LANG !== 'ru' ? '/js_' + window.__LANG : '/js') + '/ui/tutorial.js'); TU.setHints(false); G.profile.tutorial.prologue = true; G.profile.level = 5; const gm = await import((window.__LANG && window.__LANG !== 'ru' ? '/js_' + window.__LANG : '/js') + '/game/game.js'); await gm.loadZone('town', {}); });
     await p.waitForTimeout(2500); await p.evaluate(() => { document.querySelectorAll('.modal .btn.gold').forEach(b => b.click()); }); await p.waitForTimeout(600);
-    await p.evaluate(async () => { const H = await import('/js/ui/hud.js'); for (let i = 0; i < 5; i++) H.updateHUD(0.1); });
+    await p.evaluate(async () => { const H = await import((window.__LANG && window.__LANG !== 'ru' ? '/js_' + window.__LANG : '/js') + '/ui/hud.js'); for (let i = 0; i < 5; i++) H.updateHUD(0.1); });
     await shot('3town'); issues.hud = await check('hud');
-    await p.evaluate(async () => { const W = await import('/js/ui/windows.js'); W.openWindow('menu'); }); await p.waitForTimeout(500); await shot('4menu'); issues.menu = await check('menu');
-    await p.evaluate(async () => { const W = await import('/js/ui/windows.js'); document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape' })); W.openWindow('inventory'); }); await p.waitForTimeout(600); await shot('5hero'); issues.hero = await check('hero');
-    await p.evaluate(async () => { const W = await import('/js/ui/windows.js'); document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape' })); W.openWindow('npc_merchant'); }); await p.waitForTimeout(600); await shot('6shop'); issues.shop = await check('shop');
+    await p.evaluate(async () => { const W = await import((window.__LANG && window.__LANG !== 'ru' ? '/js_' + window.__LANG : '/js') + '/ui/windows.js'); W.openWindow('menu'); }); await p.waitForTimeout(500); await shot('4menu'); issues.menu = await check('menu');
+    await p.evaluate(async () => { const W = await import((window.__LANG && window.__LANG !== 'ru' ? '/js_' + window.__LANG : '/js') + '/ui/windows.js'); document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape' })); W.openWindow('inventory'); }); await p.waitForTimeout(600); await shot('5hero'); issues.hero = await check('hero');
+    await p.evaluate(async () => { const W = await import((window.__LANG && window.__LANG !== 'ru' ? '/js_' + window.__LANG : '/js') + '/ui/windows.js'); document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape' })); W.openWindow('npc_merchant'); }); await p.waitForTimeout(600); await shot('6shop'); issues.shop = await check('shop');
   } catch (e) { errs.push('ERR ' + String(e).slice(0, 200)); }
   const flat = Object.entries(issues).flatMap(([k, v]) => (v || []).map(x => k + ': ' + x));
   console.log(`== ${name} ${w}x${h}: ${flat.length ? flat.join(' | ') : 'ок'}${errs.length ? ' || ОШИБКИ: ' + [...new Set(errs)].slice(0, 3).join(' ; ') : ''}`);

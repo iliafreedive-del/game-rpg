@@ -23,6 +23,7 @@ class DemoProvider {
   catalogPrice(id) { return PRODUCTS[id]?.price; }
   hasProduct() { return true; }
   async setLeaderboardScore() { return false; } async getLeaderboard() { return null; }   // демо: таблиц рекордов нет
+  async flags() { return {}; } async canShortcut() { return false; } async shortcut() { return false; }
 }
 
 class YandexProvider {
@@ -31,14 +32,19 @@ class YandexProvider {
   async setLeaderboardScore(name, score) { try { if (this.ysdk.leaderboards && this.ysdk.leaderboards.setScore) { await this.ysdk.leaderboards.setScore(name, score); return true; } const lb = await this.ysdk.getLeaderboards(); await lb.setLeaderboardScore(name, score); return true; } catch (e) { console.warn('leaderboard', e); return false; } }
   async getLeaderboard(name) { try { const lb = this.ysdk.leaderboards && this.ysdk.leaderboards.getEntries ? this.ysdk.leaderboards : await this.ysdk.getLeaderboards(); const r = await (lb.getEntries ? lb.getEntries(name, { quantityTop: 5, includeUser: true, quantityAround: 1 }) : lb.getLeaderboardEntries(name, { quantityTop: 5, includeUser: true, quantityAround: 1 })); return r.entries.map(e => ({ rank: e.rank, name: (e.player && e.player.publicName) || 'Игрок', score: e.score })); } catch { return null; } }
   async init() {
-    await new Promise((res, rej) => { const s = document.createElement('script'); s.src = '/sdk.js'; s.onload = res; s.onerror = rej; document.head.appendChild(s); });
-    this.ysdk = await window.YaGames.init();
+    // сборка 54: boot.js уже инициализировал SDK, чтобы выбрать язык до загрузки игры
+    if (window.__ysdk) this.ysdk = window.__ysdk;
+    else { await new Promise((res, rej) => { const s = document.createElement('script'); s.src = '/sdk.js'; s.onload = res; s.onerror = rej; document.head.appendChild(s); }); this.ysdk = await window.YaGames.init(); }
     try { this.payments = await this.ysdk.getPayments({ signed: false }); this.catalog = await this.payments.getCatalog(); } catch (e) { console.warn('payments unavailable', e); }
     try { this.player = await this.ysdk.getPlayer({ scopes: false }); } catch { }
     // требование модерации: игра ставится на паузу и глушит звук по событиям платформы (реклама, сворачивание, оверлей)
     try { this.ysdk.on('game_api_pause', () => bus.emit('platformPause', true)); this.ysdk.on('game_api_resume', () => bus.emit('platformPause', false)); } catch { }
     return true;
   }
+  // сборка 54: удалённые флаги (консоль → Удалённая конфигурация) и ярлык на рабочий стол
+  async flags() { try { return await this.ysdk.getFlags({ defaultFlags: {} }); } catch { return {}; } }
+  async canShortcut() { try { return !!(await this.ysdk.shortcut.canShowPrompt()).canShow; } catch { return false; } }
+  async shortcut() { try { const r = await this.ysdk.shortcut.showPrompt(); return r && r.outcome === 'accepted'; } catch { return false; } }
   ready() { try { this.ysdk.features.LoadingAPI?.ready(); } catch { } }
   gameplayStart() { try { this.ysdk.features.GameplayAPI?.start(); } catch { } }
   gameplayStop() { try { this.ysdk.features.GameplayAPI?.stop(); } catch { } }
@@ -95,7 +101,7 @@ export const PRODUCTS = {
 function onYandex() {
   const h = location.hostname; return /yandex\.|playhop|games\.s3\.yandex/.test(h) || new URLSearchParams(location.search).has('yandex');
 }
-export const platform = { p: null, name: 'demo' };
+export const platform = { p: null, name: 'demo', flags: {} };
 // GameplayAPI (требование 1.19.3): идёт ли игровой процесс. main.js сверяет каждый кадр (окна, пауза, смерть),
 // реклама и сворачивание выключают сразу; Яндексу уходит только смена состояния
 let gpOn = false;
@@ -103,7 +109,10 @@ export function gameplay(on) { if (!platform.p || on === gpOn) return; gpOn = on
 export async function initPlatform() {
   let prov = onYandex() ? new YandexProvider() : onVK() ? new VKProvider() : new DemoProvider();   // сборка 52: VK Игры
   try { await prov.init(); } catch (e) { console.warn('platform init failed, fallback to demo', e); prov = new DemoProvider(); await prov.init(); }
-  platform.p = prov; platform.name = prov.name; return prov;
+  platform.p = prov; platform.name = prov.name;
+  // флаги — один раз на старте, не дольше 1,5 с (без них — значения по умолчанию)
+  try { platform.flags = (await Promise.race([prov.flags ? prov.flags() : {}, new Promise(r => setTimeout(() => r({}), 1500))])) || {}; } catch { platform.flags = {}; }
+  return prov;
 }
 
 // ---- demo overlays (DOM)
