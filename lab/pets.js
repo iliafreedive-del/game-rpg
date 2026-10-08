@@ -1,5 +1,5 @@
 // Просмотр питомцев каравана (сборка 58): lab/pets.html. Питомец, герой рядом для масштаба и соломенное чучело-цель.
-// Клипы: стоит / ходит по кругу / бьёт чучело (дальние — снарядом) / получает удар / гибель. «Все» — десять в ряд.
+// Восемь питомцев. Клипы: стоит / ходит по кругу / бьёт чучело (дальние — снарядом) / получает удар / гибель. «Все» — все в ряд.
 import * as THREE from '../js/vendor/three.module.min.js';
 import { makeKit } from '../js/render3d/kit.js';
 import { Actor } from '../js/render3d/actor.js';
@@ -12,7 +12,7 @@ import WARRIOR from '../js/render3d/models/hero/warrior.js';
 import SWORD from '../js/render3d/models/weapon/sword_iron.js';
 import SHIELD from '../js/render3d/models/weapon/shield_round.js';
 
-const FX = { slow: ['Замедлен', '#8fd8ff'], burn: ['Горит', '#ff9040'], loot: ['+золото', '#ffd050'], poison: ['Яд', '#9ae04a'], heal: ['+лечение героя', '#7ef07a'], expose: ['Ослаблен', '#c8f07a'], needle: ['Игла', '#e8e0d0'], stun: ['Оглушён', '#f0e08a'], leech: ['+лечение героя', '#7ef07a'], shield: ['Каменный щит', '#e0c08a'] };
+const FX = { burn: ['Горит', '#ff9040'], loot: ['+золото', '#ffd050'], poison: ['Яд', '#9ae04a'], heal: ['+лечение героя', '#7ef07a'], needle: ['Игла', '#e8e0d0'], stun: ['Оглушён', '#f0e08a'], leech: ['+лечение героя', '#7ef07a'], shield: ['Каменный щит', '#e0c08a'] };
 const canvas = document.getElementById('c');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
 renderer.setPixelRatio(Math.min(2, devicePixelRatio || 1));
@@ -42,7 +42,7 @@ const dummy = new THREE.Group(); {
 scene.add(dummy);
 
 const QS = (() => { try { return Object.fromEntries(new URLSearchParams(location.search)); } catch { return {}; } })();
-const S = { pet: QS.pet || 'scarab', clip: QS.clip || 'attack', cam: 'game', spin: false, light: QS.light || 'village', hero: QS.hero !== '0' };
+const S = { pet: QS.pet || 'fennec', clip: QS.clip || 'attack', cam: 'game', spin: false, light: QS.light || 'village', hero: QS.hero !== '0' };
 let pets = [], hero = null, clipT = 0, t = 0, last = performance.now();
 const fx = [];   // всплывающие надписи и снаряды
 function build() {
@@ -58,7 +58,7 @@ function build() {
 }
 const right = new THREE.Vector3(Math.cos(CAMERA.yaw), 0, -Math.sin(CAMERA.yaw)), fwd = new THREE.Vector3(-Math.sin(CAMERA.yaw), 0, -Math.cos(CAMERA.yaw));
 const env = { wind: new THREE.Vector2(0.6, 0.3) };
-function spot(i) { if (S.pet !== 'all') return [0, 0]; const c = i % 5, r = Math.floor(i / 5), v = right.clone().multiplyScalar((c - 2) * 2.1).add(fwd.clone().multiplyScalar((r - 0.5) * 2.8)); return [v.x, v.z]; }
+function spot(i) { if (S.pet !== 'all') return [0, 0]; const c = i % 4, r = Math.floor(i / 4), v = right.clone().multiplyScalar((c - 1.5) * 2.3).add(fwd.clone().multiplyScalar((r - 0.5) * 2.8)); return [v.x, v.z]; }
 function float(x, y, z, text, color) { const d = document.createElement('div'); d.className = 'flt'; d.textContent = text; d.style.color = color; document.body.appendChild(d); fx.push({ kind: 'txt', el: d, p: new THREE.Vector3(x, z, y), t: 0 }); }
 function shoot(from, to, color) { const m = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 6), new THREE.MeshBasicMaterial({ color })); m.position.copy(from); scene.add(m); fx.push({ kind: 'proj', m, from: from.clone(), to: to.clone(), t: 0, dur: from.distanceTo(to) / 9 }); }
 function drive(dt) {
@@ -131,12 +131,12 @@ function chips(el, items, get, set) {
 }
 function showInfo() {
   const el = document.getElementById('card');
-  if (S.pet === 'all') { el.innerHTML = '<b>Все 10 питомцев</b><span>Выберите одного, чтобы увидеть удар по чучелу и эффект</span>'; return; }
+  if (S.pet === 'all') { el.innerHTML = '<b>Все 8 питомцев</b><span>Выберите одного, чтобы увидеть удар по чучелу и эффект</span>'; return; }
   const D = PETS[S.pet], T = TIERS[D.tier];
   el.innerHTML = `<b>${D.icon} ${D.name}</b><span style="color:${T.color}">${T.name} · ${T.price}◆ · с ${T.lvl} ур.</span><span>${D.desc}</span><span class="m">${D.ranged ? 'Бьёт издалека' : 'Ближний бой'} · удар раз в ${D.cd} с · сила ${Math.round(D.k * 100)}% удара героя</span>`;
 }
 const setCam = c => { S.cam = c; camR(); };
-const SHORT = { scarab: 'Скарабей', fennec: 'Фенек', crow: 'Ворон', scorpid: 'Скорпид', wisp: 'Огонёк', cobra: 'Кобра', skull: 'Череп', basilisk: 'Василиск', bat: 'Мышь', golem: 'Голем' };
+const SHORT = { fennec: 'Фенек', crow: 'Ворон', scorpid: 'Скорпид', wisp: 'Огонёк', skull: 'Череп', basilisk: 'Василиск', bat: 'Мышь', golem: 'Голем' };
 chips('pets', [...Object.entries(PETS).map(([k, D]) => [k, D.icon + ' ' + SHORT[k]]), ['all', 'Все']], () => S.pet, k => { S.pet = k; build(); });
 chips('clips', [['idle', 'Стоит'], ['walk', 'Ходит'], ['attack', 'Бьёт'], ['hit', 'Получает удар'], ['death', 'Гибель']], () => S.clip, k => { S.clip = k; clipT = 0; for (const p of pets) { p.act = null; p.cd = 0; } dummy.visible = S.pet !== 'all' && k === 'attack'; });
 const camR = chips('cam', [['game', 'Игровая'], ['free', 'Свободная'], ['close', 'Крупно']], () => S.cam, k => { if (k === 'close') { S.cam = 'free'; dist = S.pet === 'all' ? 7 : 3.2; pitch = 0.3; yaw = CAMERA.yaw; } else S.cam = k; camR(); });
