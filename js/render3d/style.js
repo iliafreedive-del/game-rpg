@@ -163,9 +163,12 @@ export const POST = {
 export const QUALITY = {
   low: { name: 'Низкое', pr: 1, shadow: 0, post: false, msaa: 0, bloom: 0, decor: 0.35, light: 0.8, points: 3 },   // light: без кривой тонов свет чуть слабее
   med: { name: 'Среднее', pr: 1.5, shadow: 1024, post: true, msaa: 0, bloom: 3, decor: 0.7, points: 4 },
+  // сборка 55: ступень регулятора «Авто» вместо «Низкого»: тот же вид (кривая тонов, тени, свет), только меньше декора и мягче тени.
+  // Раньше при лагах «Авто» падало до «Низкого» — без постобработки картинка вдруг становилась блёклой, «как днём»
+  lite: { name: 'Экономное', pr: 1, shadow: 1024, post: true, msaa: 0, bloom: 2, decor: 0.5, points: 4 },
   high: { name: 'Высокое', pr: 2, shadow: 2048, post: true, msaa: 4, bloom: 4, decor: 1, points: 6 },   // points — настоящих огней в подземелье
 };
-export const GRASS_K = { low: 0.3, med: 0.6, high: 1 };
+export const GRASS_K = { low: 0.3, lite: 0.45, med: 0.6, high: 1 };
 // трава деревни (пучки по 5 травинок): низ сливается с рисованной землёй, кончики — сочный жёлто-зелёный, редкие сухие
 export const GRASS = { base: 0x2c4a1a, tip: 0x9ccc48, dry: 0xd6c46a };
 export const WIND = [{ name: 'Штиль', s: 0.35 }, { name: 'Ветер', s: 1 }, { name: 'Буря', s: 2.1 }];

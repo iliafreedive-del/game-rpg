@@ -2073,5 +2073,17 @@
  "Ярлык добавлен": "Raccourci ajouté",
  "осколок Бездны": "éclat d'Abîme",
  "осколков Бездны": "éclats d'Abîme",
- "<p class=\"bad\">Злейший враг: <b>{0}</b> — {1}×</p>": "<p class=\"bad\">Pire ennemi : <b>{0}</b> — {1}×</p>"
+ "<p class=\"bad\">Злейший враг: <b>{0}</b> — {1}×</p>": "<p class=\"bad\">Pire ennemi : <b>{0}</b> — {1}×</p>",
+ "Наставник Элвин стоит у тренировочного чучела. Изучите у него первое умение — после урока останется ровно на зелье здоровья.": "Le mentor Elvin se tient près du mannequin d'entraînement. Apprenez auprès de lui votre première compétence — après la leçon, il vous restera juste de quoi acheter une potion de soin.",
+ "Торговка Мира продаёт зелья здоровья. Купите одно: в бою оно лечит. Потом испытайте себя в Летописи битв.": "La marchande Mira vend des potions de soin. Achetez-en une : en combat, elle soigne. Ensuite, mettez-vous à l'épreuve dans la Chronique des batailles.",
+ "Умение есть. Теперь к торговке Мире: купи зелье здоровья — в бою оно спасёт. Золота у тебя ровно на одно.": "Tu as une compétence. Maintenant, va voir la marchande Mira : achète une potion de soin — en combat, elle te sauvera. Tu as de l'or pour une seule.",
+ "Умение есть, зелье тоже — проверь себя в деле. Арка «Летопись битв» на площади: там бой идёт сам. Иди, пока не проиграешь, — а потом к Элвину: он подскажет, как стать сильнее.": "Tu as une compétence et une potion — fais tes preuves. L'arche « Chronique des batailles » est sur la place : le combat s'y déroule tout seul. Va jusqu'à la défaite, puis rends-toi chez Elvin : il te dira comment devenir plus fort.",
+ "Сначала первый урок у Элвина": "D'abord, la première leçon avec Elvin",
+ "Золото — на урок и на зелье здоровья": "Cet or est pour la leçon et une potion de soin",
+ "Сначала зелье здоровья у Миры": "D'abord, une potion de soin chez Mira",
+ "Это золото — на зелье": "Cet or est pour la potion",
+ "2026-10-08 · сборка 55": "2026-10-08 · version 55",
+ "Экономное": "Économe",
+ "Первый урок — {0} зол.: выберите приём, наставник обучит ему сразу. Останется {1} зол. — ровно на зелье здоровья у Миры.": "Première leçon — {0} or : choisissez une technique, le mentor vous l'enseigne aussitôt. Il vous restera {1} or — juste de quoi acheter une potion de soin chez Mira.",
+ "Первый урок: выберите приём — наставник обучит ему сразу.": "Première leçon : choisissez une technique, le mentor vous l'enseigne aussitôt."
 }

@@ -4,6 +4,7 @@ import { WEAPONS, CLASSES, SLOTS } from '../data/items.js';
 import { SKILLS, BRANCHES, rankLevel, prevNode, inClassTree } from '../data/skills.js';
 import { stats, meetsReq, usefulness, compare } from './stats.js';
 import { sellValue } from './items.js';
+import { firstLessonCost, potionReserve } from './progress.js';
 
 const recalc = () => { const P = G.profile; const old = G.stats; G.stats = stats(P); if (G.player && old) { G.player.hp = Math.min(G.stats.maxHP, G.player.hp * G.stats.maxHP / old.maxHP); G.player.mp = Math.min(G.stats.maxMP, G.player.mp); } bus.emit('statsChanged'); bus.emit('hud'); bus.emit('save'); };
 
@@ -40,12 +41,12 @@ export const attrCost = () => 5 + 5 * G.profile.level;
 // ранг уже изученного навыка — в 1,5 раза дороже предыдущего ранга, база растёт на 10% за уровень героя
 export const skillCost = id => {
   const P = G.profile, n = Object.values(P.skills).filter(Boolean).length, r = P.skills[id] || 0;
-  if (!r) return n === 0 ? 0 : Math.round(25 * Math.pow(2, n - 1));
+  if (!r) return n === 0 ? firstLessonCost() : Math.round(25 * Math.pow(2, n - 1));
   return Math.round(30 * Math.pow(1.5, r) * Math.pow(1.1, P.level - 1));
 };
 export function addAttr(k, n = 1, pay = false) {
   const P = G.profile; n = Math.min(n, P.attrPts); if (n <= 0) return false;
-  if (pay) { const c = attrCost() * n; if (P.gold < c) { bus.emit('toast', { text: `Нужно ${c} золота`, sub: 'Соберите золото в катакомбах', kind: 'warn' }); bus.emit('sfx', 'deny'); return false; } P.gold -= c; bus.emit('sfx', 'coin'); }
+  if (pay) { const c = attrCost() * n; if (potionReserve(c)) return false; if (P.gold < c) { bus.emit('toast', { text: `Нужно ${c} золота`, sub: 'Соберите золото в катакомбах', kind: 'warn' }); bus.emit('sfx', 'deny'); return false; } P.gold -= c; bus.emit('sfx', 'coin'); }
   P.attrs[k] += n; P.attrPts -= n; recalc(); return true;
 }
 // ---- skills
@@ -70,7 +71,7 @@ export function canLearn(id) {
 export function learn(id, pay = false, first = false) {
   const c = first ? (G.profile.skillPts > 0 ? { ok: true } : { ok: false, why: 'Нет очков навыков' }) : canLearn(id); if (!c.ok) { bus.emit('toast', { text: c.why, kind: 'warn' }); bus.emit('sfx', 'deny'); return false; }
   const P = G.profile;
-  if (pay) { const cost = skillCost(id); if (P.gold < cost) { bus.emit('toast', { text: `Урок стоит ${cost} золота`, sub: 'Соберите золото в катакомбах', kind: 'warn' }); bus.emit('sfx', 'deny'); return false; } P.gold -= cost; } P.skills[id] = (P.skills[id] || 0) + 1; P.skillPts--;
+  if (pay) { const cost = skillCost(id); if (Object.keys(P.skills).length && potionReserve(cost)) return false; if (P.gold < cost) { bus.emit('toast', { text: `Урок стоит ${cost} золота`, sub: 'Соберите золото в катакомбах', kind: 'warn' }); bus.emit('sfx', 'deny'); return false; } P.gold -= cost; } P.skills[id] = (P.skills[id] || 0) + 1; P.skillPts--;
   if (SKILLS[id].kind === 'active' && !P.slots.includes(id)) { const e = P.slots.indexOf(null); if (e >= 0) { P.slots[e] = id; setTimeout(() => bus.emit('skillSlotted', { id, i: e }), 0); } }
   bus.emit('sfx', 'learn'); recalc(); bus.emit('skillsChanged'); return true;
 }

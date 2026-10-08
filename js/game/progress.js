@@ -25,6 +25,16 @@ export function earlyLock(kind) {
   const need = kind === 'upg' ? 'hw_elvin' : kind === 'shop' ? 'meet_merchant' : 'elder_task';
   return s.stage < stIdx(need);
 }
+// сборка 55: первый урок у Элвина платный (55 зол.): после него остаётся ровно на первое зелье здоровья у Миры (30).
+// Пока зелье не куплено, другие покупки, после которых на зелье не хватит, не проходят — шаг обучения не застрянет.
+export const POTION_RESERVE = 30;
+export const firstLessonCost = () => !G.profile || Object.values(G.profile.skills || {}).some(Boolean) ? 0 : Math.max(0, Math.min(55, (G.profile.gold | 0) - POTION_RESERVE));
+export function potionReserve(cost) {   // true — покупка запрещена (и показана подсказка)
+  const s = G.profile && G.profile.story, q = s && STORY[s.stage]; if (!q || (q.id !== 'learn_skill' && q.id !== 'meet_merchant')) return false;
+  if (q.id === 'meet_merchant' && (G.profile.gold | 0) - cost >= POTION_RESERVE) return false;
+  bus.emit('toast', q.id === 'learn_skill' ? { text: 'Сначала первый урок у Элвина', sub: 'Золото — на урок и на зелье здоровья', kind: 'warn' } : { text: 'Сначала зелье здоровья у Миры', sub: 'Это золото — на зелье', kind: 'warn' });
+  bus.emit('sfx', 'deny'); return true;
+}
 let lockT = 0;
 export function lockToast(kind) {
   if (Date.now() - lockT < 2000) return; lockT = Date.now();

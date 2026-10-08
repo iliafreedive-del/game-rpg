@@ -218,10 +218,16 @@ export function generateVillage(plan0 = PLAN) {
   if (smithy) { const [ax, ay] = side(smithy, 2.15, smithy.d / 2 + 1.65); put('anvil', ax, ay, { rot: smithy.rot, keep: 1 });
     const [sx, sy] = side(smithy, 2.4, smithy.d / 2 + 0.5); npc('smith', 'Кузнец Горан', sx, sy, { forge: [+ax.toFixed(2), +ay.toFixed(2)], reach: 2.8 }); const [fx, fy] = side(smithy, 1.72, 0.1); put('forge', fx, fy, { rot: smithy.rot }); }   // горн вплотную к стене мастерской
   // площадь: источник силы, летопись, фонари по углам, лавки и бочки
-  put('shrine', CX + 1.5, CY + 0.3, { s: 1.35 });   // источник силы — посреди площади, на месте колодца (сборка 47; колодца больше нет)
-  const hwsign = [CX - SQ.hw + 4.3, CY + SQ.hh - 1.0];
+  // сборка 55 (скрин площади): центр площади свободен — источник силы больше не стоит «колодцем» посередине. Источник силы и Летопись
+  // битв — пара по бокам площади, на одной линии кадра
+  // камера смотрит по диагонали, поэтому «слева и справа на экране» — это ось (−1; +1) / (+1; −1) карты; источник силы повёрнут к камере
+  const SX = 3.1;
+  const AX = church.x;
+  put('shrine', AX + 4.3, CY + 1.2, { s: 1.35 });   // сборка 55: по просьбе — на прежнем месте
+  const hwsign = [CX + 0.3 - SX, CY + 0.3 + SX];
   for (const [sx, sy] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) put('lamp', CX + sx * (SQ.hw - 0.6), CY + sy * (SQ.hh - 0.5));
-  put('bench', CX + 4.6, CY - 2.6, { rot: 0 });   // сборка 47: лавочки у Летописи битв больше нет
+  // сборка 55: лавочка — за старостой (дальше от камеры), у края площади, где начинается трава между таверной и церковью
+  { const e = npcs.find(n => n.id === 'elder'); put('bench', e.x - 1.5, e.y - 2.2, { rot: 0, keep: 1 }); }
   // наставник: тренировочный двор на ближней стороне восточной улицы (низкий: чучела, стойка, плетень)
   {
     const ty0 = CY + SQ.hh + 0.4, tx0 = CX + SQ.hw + 2.6;
@@ -246,7 +252,7 @@ export function generateVillage(plan0 = PLAN) {
   {
     const gx0 = church.x - 4.2, gy0 = church.y - church.d / 2 - 4.6;
     for (let r = 0; r < 2; r++) for (let k = 0; k < 4; k++) if (hh(k, r, 4) < 0.85) put('grave', gx0 + 0.8 + k * 1.75, gy0 + 0.9 + r * 1.8, { rot: (hh(k, r) - 0.5) * 0.3 });
-    { const [px, py] = plan.portals.catacombs, tx = px - 2.9, ty = py + 0.4, dx = church.x - tx, dy = church.y - ty, l = Math.hypot(dx, dy); put('deadtree', tx + dx / l * 2, ty + dy / l * 2, { s: 1.8, keep: 1 }); }   // и на 2 м ближе к церкви   // сборка 47: сухое дерево — за порталом катакомб и левее (было перед ним), ростом в два героя
+    { const [px, py] = plan.portals.catacombs, tx = px - 2.9, ty = py + 0.4, dx = church.x - tx, dy = church.y - ty, l = Math.hypot(dx, dy); put('deadtree', tx + dx / l * 2, ty + dy / l * 2, { s: 1.8, keep: 1, yaw: 0.236 + Math.PI / 3 }); }   // сборка 55: повёрнуто влево на 15 % четверти оборота (≈13,5°) и ещё на 60° вокруг своей оси   // и на 2 м ближе к церкви   // сборка 47: сухое дерево — за порталом катакомб и левее (было перед ним), ростом в два героя
     markRect(gx0 - 0.5, gy0, gx0 + 9, gy0 + 4, 5);
   }
 

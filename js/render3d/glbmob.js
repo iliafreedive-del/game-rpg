@@ -64,6 +64,11 @@ function aim(bone, child, root, dir, w) {
   _m.copy(root.matrixWorld).invert().multiply(bone.parent.matrixWorld); _m.decompose(_a, _pq, _b);
   _q2.copy(_pq).invert().multiply(_q).multiply(_pq); bone.quaternion.premultiply(_q2);
 }
+const SIT = [
+  ['frontleg', 'frontleg0', [0, -1, 0.12]], ['frontleg0', 'frontleg1', [0, -1, 0.05]], ['frontleg1', 'frontleg2', [0, -1, 0.15]],
+  ['backleg0', 'backleg1', [0, -0.35, 0.94]], ['backleg1', 'backleg2', [0, -0.25, -1]],
+  ['tailstart', 'tail1', [0, -0.5, -1]], ['tail1', 'tail2', [0, -0.3, -1]],
+].map(([a, b, d]) => [a, b, new THREE.Vector3(...d)]);
 const X = new THREE.Vector3(1, 0, 0), Y = new THREE.Vector3(0, 1, 0), Z = new THREE.Vector3(0, 0, 1);
 
 /**
@@ -136,7 +141,7 @@ export function buildMob(kit, name, o = {}) {
     body.rotation.set(-rear * 0.42 + lunge * 0.16 - hurt * 0.18 + runK * 0.05 * Math.sin(ph * Math.PI * 4), 0, 0);
     root.updateMatrixWorld(true);
     turn(head, root, X, -roar * 0.55 + lunge * 0.25 - rear * 0.15 + Math.sin(a.t * 1.1) * 0.04 * (1 - mv));
-    turn(head, root, Y, Math.sin(a.t * 0.7) * 0.12 * (1 - mv));
+    turn(head, root, Y, Math.sin(a.t * (a.look ? 0.6 : 0.7)) * (a.look ?? 0.12) * (1 - mv));   // a.look — собака деревни крутит головой шире (как первая собака)
     turn(chest, root, X, br * 0.015 - roar * 0.1);
     // a.wag (0..1) — собака деревни: хвостом виляет только рядом с героем (спокойно, ~1 взмах в секунду — сборка 42), вдали хвост спокоен
     if (a.wag !== undefined) { for (const t of tail) t.quaternion.copy(rest.get(t)); root.updateMatrixWorld(true); }   // и без качания хвоста из клипа ходьбы
@@ -159,6 +164,13 @@ export function buildMob(kit, name, o = {}) {
       for (const [n, c, d] of LIE) for (const p of ['', 'R_']) aim(B[p + n], B[p + c], root, d, e);
       root.updateMatrixWorld(true); turn(head, root, X, 0.3 * e);
     },
+  };
+  // сборка 55: «села», как первая (процедурная) собака деревни: перед корпуса поднят, передние лапы прямые, задние подогнуты, голова ровно
+  anims.sit = a => {
+    const e = smooth(Math.min(1, (a.k ?? 1)));
+    pose(a, 0); body.rotation.x = -0.5 * e; body.position.y -= H * 0.1 * e; body.position.z -= H * 0.12 * e;
+    for (const [n, c, d] of SIT) for (const p of ['', 'R_']) aim(B[p + n], B[p + c], root, d, e);
+    root.updateMatrixWorld(true); turn(head, root, X, 0.42 * e);
   };
   return {
     root, height: H, radius: o.radius ?? 0.34, shadow: o.shadow ?? H * 1.4, materials: [mat],

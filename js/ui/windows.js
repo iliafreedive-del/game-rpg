@@ -39,7 +39,7 @@ import { FLOOR_MODS, FLOOR_MOD_IDS, modReward } from '../data/floormods.js';
 import { stats as calcStats } from '../game/stats.js';
 import { particles } from '../game/combat.js';
 import { maybeInterstitial } from '../platform/monetize.js';
-import { earlyLock } from '../game/progress.js';
+import { earlyLock, firstLessonCost, POTION_RESERVE } from '../game/progress.js';
 import { platform as PF } from '../platform/platform.js';
 import { wipeLocal, cloudBundle } from '../game/save.js';
 import { setVolumes } from '../core/audio.js';
@@ -501,6 +501,7 @@ W.npc_elder = () => {
   if (q && q.id === 'talk_elder') lines = DIALOG.elder[0];
   else if (q && q.id === 'elder_task') lines = DIALOG.elder.task;
   else if (q && q.id === 'learn_skill') lines = DIALOG.elder.skill;
+  else if (q && q.id === 'meet_merchant') lines = DIALOG.elder.shop;
   else if (q && q.id === 'hw_try') lines = DIALOG.elder.hw;
   else if (Q.isReady() && Q.turnNpc(q) !== 'elder') lines = ['Золото собрано? Отнеси его кузнецу Горану — он ждёт у горна.'];
   else if (Q.isReady()) { lines = DIALOG.elder.turnin[q.id] || ['Ты справился. Вот твоя награда.']; fin = true; }
@@ -659,9 +660,10 @@ W.npc_trainer = () => {
     if (!P.tutorial.trainerGift) {
       const C = CLASSES[P.cls || 'warrior'];
       const first = classSkillOrder(P.cls || 'warrior')[0], opts = [[first, SKILLS[first].name]];
-      b.appendChild(el('p', 'good', 'Первый урок бесплатно: выберите приём — наставник обучит ему сразу.'));
+      const fc = firstLessonCost();   // сборка 55: урок платный — остаётся ровно на зелье здоровья
+      b.appendChild(el('p', 'good', fc ? `Первый урок — ${fc} зол.: выберите приём, наставник обучит ему сразу. Останется ${POTION_RESERVE} зол. — ровно на зелье здоровья у Миры.` : 'Первый урок: выберите приём — наставник обучит ему сразу.'));
       const row = el('div', 'row');
-      for (const [id, n] of opts) { const bt = el('button', 'btn gold', n); bt.onclick = () => { P.tutorial.trainerGift = id; CH.grantSkill(id); bus.emit('toast', { text: 'Изучено: ' + n, kind: 'good' }); rerender(); }; row.appendChild(bt); }
+      for (const [id, n] of opts) { const bt = el('button', 'btn gold', n); bt.onclick = () => { P.gold -= firstLessonCost(); P.tutorial.trainerGift = id; CH.grantSkill(id); bus.emit('toast', { text: 'Изучено: ' + n, kind: 'good' }); rerender(); }; row.appendChild(bt); }
       b.appendChild(row);
     }
     b.appendChild(el('h3', '', 'Услуги'));

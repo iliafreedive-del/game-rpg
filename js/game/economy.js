@@ -5,15 +5,19 @@ import { AFFIXES, AFFIX_GROUP, CLASSES } from '../data/items.js';
 import { stats } from './stats.js';
 import { autoEquip } from './character.js';
 import { rint, weighted } from '../core/util.js';
+import { potionReserve, POTION_RESERVE } from './progress.js';
+import { STORY } from '../data/quests.js';
 
 // сборка 47: зелье здоровья — 300 зол. (+10 за уровень); первое, по шагу обучения у Миры, — за 30
-export const potionPrice = k => k === 'hp' ? (G.profile.story.flags.potBought ? 300 + 10 * (G.profile.level - 1) : 30) : k === 'mp' ? 12 + 2 * G.profile.level : 45 + 5 * G.profile.level;
+// сборка 55: первое зелье — 30 (на шаге «Купить зелье у Миры» не дороже, чем есть золота: шаг не застрянет и у старых сохранений)
+const firstPotion = () => { const s = G.profile.story, st = s.stage; return st < STORY.length && STORY[st].id === 'meet_merchant' ? Math.min(POTION_RESERVE, G.profile.gold | 0) : POTION_RESERVE; };
+export const potionPrice = k => k === 'hp' ? (G.profile.story.flags.potBought ? 300 + 10 * (G.profile.level - 1) : firstPotion()) : k === 'mp' ? 12 + 2 * G.profile.level : 45 + 5 * G.profile.level;
 export const stockRefreshPrice = () => 40 * G.profile.level;
 export const respecSkillPrice = () => 100 * G.profile.level;
 export const respecAttrPrice = () => 80 * G.profile.level;
 export const buyPrice = it => Math.round((sellValue(it) * 4 + 20) * Math.pow(1.1, it.ilvl - 1));   // сборка 20: +10% за уровень вещи
 
-function pay(n) { const P = G.profile; if (P.gold < n) { bus.emit('toast', { text: 'Недостаточно золота', kind: 'warn' }); bus.emit('sfx', 'deny'); return false; } P.gold -= n; bus.emit('sfx', 'coin'); bus.emit('hud'); return true; }
+function pay(n, potion = false) { const P = G.profile; if (!potion && potionReserve(n)) return false; if (P.gold < n) { bus.emit('toast', { text: 'Недостаточно золота', kind: 'warn' }); bus.emit('sfx', 'deny'); return false; } P.gold -= n; bus.emit('sfx', 'coin'); bus.emit('hud'); return true; }
 const recalc = () => { G.stats = stats(G.profile); bus.emit('statsChanged'); bus.emit('hud'); bus.emit('save'); };
 
 export function ensureStock(force) {
@@ -26,7 +30,7 @@ export function ensureStock(force) {
 }
 export function refreshStock(free) { if (!free && !pay(stockRefreshPrice())) return false; ensureStock(true); bus.emit('save'); return true; }
 export function buyConsumable(k) {
-  const P = G.profile; if (!pay(potionPrice(k))) return false;
+  const P = G.profile; if (!pay(potionPrice(k), k === 'hp')) return false;
   if (k === 'scroll') P.scrolls++; else P.potions[k]++; if (k === 'hp') P.story.flags.potBought = true; bus.emit('save'); return true;   // флаг — шаг обучения «Купить зелье у Миры»
 }
 export function buyItem(idx) {
@@ -96,7 +100,7 @@ export function mergeOnce(slot, rarity, quiet) {
   const P = G.profile, g = mergeGroups().find(x => x.slot === slot && x.rarity === rarity);
   if (g && g.capLvl && g.n >= 3 && !quiet) { bus.emit('toast', { text: `Такое слияние — с ${g.capLvl} уровня`, kind: 'warn' }); bus.emit('sfx', 'deny'); }
   if (!g || g.can < 1) return null;
-  const cost = mergeCost(rarity); if (P.gold < cost) { if (!quiet) { bus.emit('toast', { text: `Слияние стоит ${cost} зол.`, kind: 'warn' }); bus.emit('sfx', 'deny'); } return null; }
+  const cost = mergeCost(rarity); if (cost && potionReserve(cost)) return null; if (P.gold < cost) { if (!quiet) { bus.emit('toast', { text: `Слияние стоит ${cost} зол.`, kind: 'warn' }); bus.emit('sfx', 'deny'); } return null; }
   const three = g.list.slice(0, 3), it = mergeItems(three, P.cls); if (!it) return null;
   it.from = { who: 'Слияние у кузнеца Горана', t: Date.now() };   // сборка 49: история вещи
   P.gold -= cost; P.bag = P.bag.filter(x => !three.includes(x)); P.bag.push(it);

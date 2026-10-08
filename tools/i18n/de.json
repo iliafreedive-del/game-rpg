@@ -2073,5 +2073,17 @@
  "Ярлык добавлен": "Verknüpfung erstellt",
  "осколок Бездны": "Abgrundsplitter",
  "осколков Бездны": "Abgrundsplitter",
- "<p class=\"bad\">Злейший враг: <b>{0}</b> — {1}×</p>": "<p class=\"bad\">Ärgster Feind: <b>{0}</b> — {1}×</p>"
+ "<p class=\"bad\">Злейший враг: <b>{0}</b> — {1}×</p>": "<p class=\"bad\">Ärgster Feind: <b>{0}</b> — {1}×</p>",
+ "Наставник Элвин стоит у тренировочного чучела. Изучите у него первое умение — после урока останется ровно на зелье здоровья.": "Mentor Elvin steht an der Trainingspuppe. Lerne bei ihm deine erste Fähigkeit – danach bleibt genau genug für einen Heiltrank.",
+ "Торговка Мира продаёт зелья здоровья. Купите одно: в бою оно лечит. Потом испытайте себя в Летописи битв.": "Händlerin Mira verkauft Heiltränke. Kauf einen: Im Kampf heilt er dich. Danach stell dich der Chronik der Schlachten.",
+ "Умение есть. Теперь к торговке Мире: купи зелье здоровья — в бою оно спасёт. Золота у тебя ровно на одно.": "Du hast jetzt eine Fähigkeit. Geh zur Händlerin Mira und kauf einen Heiltrank – im Kampf rettet er dich. Dein Gold reicht für genau einen.",
+ "Умение есть, зелье тоже — проверь себя в деле. Арка «Летопись битв» на площади: там бой идёт сам. Иди, пока не проиграешь, — а потом к Элвину: он подскажет, как стать сильнее.": "Fähigkeit und Trank hast du – jetzt beweise dich. Der Bogen «Chronik der Schlachten» steht auf dem Platz: Dort kämpft es sich von selbst. Mach weiter, bis du verlierst – dann geh zu Elvin: Er sagt dir, wie du stärker wirst.",
+ "Сначала первый урок у Элвина": "Zuerst die erste Lektion bei Elvin",
+ "Золото — на урок и на зелье здоровья": "Dieses Gold ist für die Lektion und einen Heiltrank",
+ "Сначала зелье здоровья у Миры": "Zuerst einen Heiltrank bei Mira",
+ "Это золото — на зелье": "Dieses Gold ist für den Trank",
+ "2026-10-08 · сборка 55": "2026-10-08 · Version 55",
+ "Экономное": "Sparsam",
+ "Первый урок — {0} зол.: выберите приём, наставник обучит ему сразу. Останется {1} зол. — ровно на зелье здоровья у Миры.": "Erste Lektion – {0} Gold: Wähle eine Technik, der Mentor bringt sie dir sofort bei. Danach bleiben {1} Gold – genau genug für einen Heiltrank bei Mira.",
+ "Первый урок: выберите приём — наставник обучит ему сразу.": "Erste Lektion: Wähle eine Technik, der Mentor bringt sie dir sofort bei."
 }

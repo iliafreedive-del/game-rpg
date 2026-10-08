@@ -2073,5 +2073,17 @@
  "Ярлык добавлен": "Pintasan ditambahkan",
  "осколок Бездны": "serpihan Jurang",
  "осколков Бездны": "serpihan Jurang",
- "<p class=\"bad\">Злейший враг: <b>{0}</b> — {1}×</p>": "<p class=\"bad\">Musuh terburuk: <b>{0}</b> — {1}×</p>"
+ "<p class=\"bad\">Злейший враг: <b>{0}</b> — {1}×</p>": "<p class=\"bad\">Musuh terburuk: <b>{0}</b> — {1}×</p>",
+ "Наставник Элвин стоит у тренировочного чучела. Изучите у него первое умение — после урока останется ровно на зелье здоровья.": "Mentor Elvin berdiri di dekat boneka latihan. Pelajari keterampilan pertamamu darinya — setelah pelajaran, emasmu tersisa pas untuk satu ramuan darah.",
+ "Торговка Мира продаёт зелья здоровья. Купите одно: в бою оно лечит. Потом испытайте себя в Летописи битв.": "Pedagang Mira menjual ramuan darah. Beli satu: dalam pertempuran ramuan itu menyembuhkan. Lalu uji dirimu di Kronik Pertempuran.",
+ "Умение есть. Теперь к торговке Мире: купи зелье здоровья — в бою оно спасёт. Золота у тебя ровно на одно.": "Kamu sudah punya keterampilan. Sekarang temui pedagang Mira: beli ramuan darah — dalam pertempuran itu akan menyelamatkanmu. Emasmu cukup untuk tepat satu.",
+ "Умение есть, зелье тоже — проверь себя в деле. Арка «Летопись битв» на площади: там бой идёт сам. Иди, пока не проиграешь, — а потом к Элвину: он подскажет, как стать сильнее.": "Keterampilan ada, ramuan juga — buktikan dirimu. Gapura «Kronik Pertempuran» ada di alun-alun: di sana pertarungan berjalan sendiri. Teruslah sampai kalah, lalu temui Elvin: ia akan memberi tahu cara menjadi lebih kuat.",
+ "Сначала первый урок у Элвина": "Pertama, pelajaran pertama dari Elvin",
+ "Золото — на урок и на зелье здоровья": "Emas ini untuk pelajaran dan ramuan darah",
+ "Сначала зелье здоровья у Миры": "Pertama, ramuan darah dari Mira",
+ "Это золото — на зелье": "Emas ini untuk ramuan",
+ "2026-10-08 · сборка 55": "2026-10-08 · versi 55",
+ "Экономное": "Hemat",
+ "Первый урок — {0} зол.: выберите приём, наставник обучит ему сразу. Останется {1} зол. — ровно на зелье здоровья у Миры.": "Pelajaran pertama — {0} emas: pilih teknik, mentor langsung mengajarkannya. Sisa {1} emas — pas untuk ramuan darah dari Mira.",
+ "Первый урок: выберите приём — наставник обучит ему сразу.": "Pelajaran pertama: pilih teknik, mentor langsung mengajarkannya."
 }

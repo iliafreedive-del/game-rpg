@@ -2073,5 +2073,17 @@
  "Ярлык добавлен": "Shortcut added",
  "осколок Бездны": "Abyss shard",
  "осколков Бездны": "Abyss shards",
- "<p class=\"bad\">Злейший враг: <b>{0}</b> — {1}×</p>": "<p class=\"bad\">Worst foe: <b>{0}</b> — {1}×</p>"
+ "<p class=\"bad\">Злейший враг: <b>{0}</b> — {1}×</p>": "<p class=\"bad\">Worst foe: <b>{0}</b> — {1}×</p>",
+ "Наставник Элвин стоит у тренировочного чучела. Изучите у него первое умение — после урока останется ровно на зелье здоровья.": "Mentor Elvin stands by the training dummy. Learn your first skill from him — after the lesson you'll have exactly enough for a health potion.",
+ "Торговка Мира продаёт зелья здоровья. Купите одно: в бою оно лечит. Потом испытайте себя в Летописи битв.": "Mira the merchant sells health potions. Buy one: it heals you in battle. Then test yourself in the Chronicle of Battles.",
+ "Умение есть. Теперь к торговке Мире: купи зелье здоровья — в бою оно спасёт. Золота у тебя ровно на одно.": "You have a skill now. Next, go to Mira the merchant: buy a health potion — it will save you in battle. You have gold for exactly one.",
+ "Умение есть, зелье тоже — проверь себя в деле. Арка «Летопись битв» на площади: там бой идёт сам. Иди, пока не проиграешь, — а потом к Элвину: он подскажет, как стать сильнее.": "You have a skill and a potion — now prove yourself. The «Chronicle of Battles» arch is on the square: the fight plays itself. Keep going until you lose — then go to Elvin: he'll tell you how to grow stronger.",
+ "Сначала первый урок у Элвина": "First, the first lesson with Elvin",
+ "Золото — на урок и на зелье здоровья": "That gold is for the lesson and a health potion",
+ "Сначала зелье здоровья у Миры": "First, a health potion from Mira",
+ "Это золото — на зелье": "That gold is for the potion",
+ "2026-10-08 · сборка 55": "2026-10-08 · build 55",
+ "Экономное": "Economy",
+ "Первый урок — {0} зол.: выберите приём, наставник обучит ему сразу. Останется {1} зол. — ровно на зелье здоровья у Миры.": "First lesson — {0} gold: pick a technique and the mentor will teach it right away. You'll have {1} gold left — exactly enough for a health potion from Mira.",
+ "Первый урок: выберите приём — наставник обучит ему сразу.": "First lesson: pick a technique and the mentor will teach it right away."
 }
