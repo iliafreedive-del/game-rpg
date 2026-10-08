@@ -98,11 +98,21 @@ export function generateTemple(depth) {
   objects.push(...archs);
   for (const [x, y] of rubble) if (free(x, y)) objects.push({ t: 'rubble', x, y, nocol: 1 });
 
-  // --- святилище: кольцо колонн, алтарь у северной стороны, страж в центре
-  const SX = X0 + 3 * CS + 0.5, SY = Y0 + 3 * CS + 0.5;
-  for (let k = 0; k < 8; k++) { const a = k / 8 * Math.PI * 2 + Math.PI / 8, x = SX + Math.cos(a) * 5.6, y = SY + Math.sin(a) * 5.6; objects.push({ t: k % 3 === 2 ? 'tw_column_b' : 'tw_column', x, y }); placed.push([x, y, 1.2]); }
-  objects.push({ t: 'statue', x: SX, y: SY - 6.6 }); placed.push([SX, SY - 6.6, 1.5]);
-  for (const dx of [-2.2, 2.2]) objects.push({ t: 'brazier', x: SX + dx, y: SY - 6.4 });
+  // --- святилище (по картинке храма из пака): круг с ветром в центре, кольцо — дуги стены по диагоналям и колонны с боков,
+  // с севера и юга кольцо открыто; алтарь у северной стороны, страж на круге
+  const SX = X0 + 3 * CS + 0.5, SY = Y0 + 3 * CS + 0.5, RR = 5.8;
+  objects.push({ t: 'tp_platform', x: SX, y: SY, nocol: 1 });
+  for (let k = 0; k < 8; k++) {
+    if (k === 2 || k === 6) continue;
+    const a = k * Math.PI / 4, x = SX + Math.cos(a) * RR, y = SY + Math.sin(a) * RR;
+    if (k % 2) {   // дуга вогнутой стороной к центру; коллайдер — три круга по дуге (концы ближе к центру, середина дальше)
+      const circles = [-0.3, 0, 0.3].map(da => { const r = da ? RR - 0.45 : RR + 0.35; return [SX + Math.cos(a + da) * r, SY + Math.sin(a + da) * r, 0.55]; });
+      objects.push({ t: 'tp_curve', x, y, rot: Math.PI / 2 - a, circles }); placed.push([x, y, 2.4]);
+    } else { objects.push({ t: 'tw_column', x, y }); placed.push([x, y, 1.2]); }
+  }
+  for (const dy of [-1, 1]) for (const dx of [-1.9, 1.9]) { const x = SX + dx, y = SY + dy * (RR + 0.2); objects.push({ t: 'tw_column_b', x, y }); placed.push([x, y, 1.2]); }   // обломки колонн у входов в кольцо
+  objects.push({ t: 'tp_altar', x: SX, y: SY - 7.2 }); placed.push([SX, SY - 7.2, 1.8]);
+  for (const dx of [-2.4, 2.4]) objects.push({ t: 'brazier', x: SX + dx, y: SY - 7.0 });
   placed.push([SX, SY, 4]);
   if (isFort) spawns.push([boss ? RL.boss : RL.commander, SX, SY, 1, 0, lvl + (boss ? 2 : 1), boss ? 'wildboss' : 'wildkeep']);
   else spawns.push([RL.minis[variant % RL.minis.length], SX, SY, 1, 0, lvl + 1, 'minib']);
@@ -118,6 +128,14 @@ export function generateTemple(depth) {
     const st = style[j * NX + i], x0 = cx0(i), y0 = cy0(j), cx = ccx(i), cy = ccy(j);
     const isStart = i === si && j === sj, isExit = exitCell && i === exitCell[0] && j === exitCell[1];
     if (st === 'hall') for (const [ox, oy] of [[1.6, 1.6], [6.4, 1.6], [1.6, 6.4], [6.4, 6.4]]) { if (R() < 0.75) { const x = x0 + ox, y = y0 + oy; if (free(x, y) && !near(x, y, 2.2)) { objects.push({ t: R() < 0.3 ? 'tw_column_b' : 'tw_column', x, y }); placed.push([x, y, 1.2]); } } }
+    if (st === 'ruin' && !isStart && !isExit && R() < 0.7) {   // угол руин в дальнем (северо-западном) углу зала — только если обе стены за ним целы
+      let ok = true; for (let t = -1; t < 5; t++) if (at(x0 + t, y0 - 1) !== 'D') ok = false; for (let t = -1; t < 4; t++) if (at(x0 - 1, y0 + t) !== 'D') ok = false;
+      if (ok && !near(x0 + 2, y0 + 1.5, 2.5)) { objects.push({ t: 'tp_corner', x: x0 + 1.9, y: y0 + 1.3, rot: 0, boxes: [[x0, y0, x0 + 3.7, y0 + 0.75], [x0, y0, x0 + 0.75, y0 + 2.5]] }); placed.push([x0 + 1.6, y0 + 1.4, 2.4]); }
+      else {   // или в северо-восточном: стены за ним — северная и восточная (модель повёрнута на −90°)
+        ok = true; for (let t = 3; t < 9; t++) if (at(x0 + t, y0 - 1) !== 'D') ok = false; for (let t = -1; t < 5; t++) if (at(x0 + 8, y0 + t) !== 'D') ok = false;
+        if (ok && !near(x0 + 6, y0 + 1.5, 2.5)) { objects.push({ t: 'tp_corner', x: x0 + 6.7, y: y0 + 1.9, rot: -Math.PI / 2, boxes: [[x0 + 7.25, y0, x0 + 8, y0 + 3.7], [x0 + 5.5, y0, x0 + 8, y0 + 0.75]] }); placed.push([x0 + 6.4, y0 + 1.6, 2.4]); }
+      }
+    }
     if (st === 'ruin') { for (let k = 0; k < 3; k++) { const x = x0 + 1 + R() * 6, y = y0 + 1 + R() * 6; if (free(x, y) && !near(x, y, 2.4)) { objects.push({ t: R() < 0.5 ? 'tw_drum' : 'rubble', x, y, rot: R() * 6.28 }); placed.push([x, y, 1.4]); } } }
     if (st === 'garden' && R() < 0.5 && !isStart && !isExit) { if (free(cx, cy, 1) && !near(cx, cy, 2.5)) { objects.push({ t: R() < 0.5 ? 'statue' : 'tw_basin', x: cx, y: cy }); placed.push([cx, cy, 2.2]); } }
     if (isStart || isExit) continue;

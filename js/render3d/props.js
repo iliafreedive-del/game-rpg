@@ -8,6 +8,7 @@ import { fbm } from './geo.js';
 import { wallPieces } from './dungeon.js';
 import { STEPPE_ROCKS, STEPPE_SPIRES, STEPPE_TREES } from './models/prop/_steppe.js';
 import { swap as bonesSwap, liveDef as bonesLive, boneDeadTree } from './bonesglb.js';
+import { walls as templeWalls, swap as templeSwap, liveDef as templeLive, templeReady } from './templeglb.js';
 import { SKINS } from './glbskin.js';
 import { portalsReady } from './portalglb.js';
 import { altarReady } from './altarglb.js';
@@ -43,7 +44,7 @@ export class PropLayer {
     const mode = zone.id === 'town' ? 'town' : zone.id === 'wild' ? 'wild' : 'dungeon', dungeon = mode === 'dungeon', wild = mode === 'wild', m = zone.map;
     const fj = wild && zone.json.wild.realm === 'fjord', bn = wild && zone.json.wild.realm === 'bones', open = !dungeon;   // open — открытая местность (деревня, поход); bn — Костяные пустоши
     const MODEL = { fort_hall: fj ? 'fort_hall_i' : bn ? 'bone_hall' : 'fort_hall_w', tent: fj ? 'tent_i' : bn ? 'bone_hut' : 'tent_w', fort_gate: fj ? 'fort_gate_i' : 'fort_gate_w', fort_door: fj ? 'fort_door_i' : 'fort_door_w', fort_tower: fj ? 'fort_tower' : 'watchtower' };
-    this.fj = fj; this.bn = bn; this.wildForest = wildForest;
+    this.fj = fj; this.bn = bn; this.tp = wild && zone.json.wild.realm === 'temple'; this.wildForest = wildForest;
     const extra0 = {};   // модели не из реестра (сборка 47: сухое дерево пустошей в деревне)
     this.live = [];   // предметы, которые игра меняет на лету: { d, rot, cur, g }
     for (const d of zone.statics) {
@@ -69,9 +70,11 @@ export class PropLayer {
     }
     // сборка 47: деревья выше — в среднем ≈6 м (три роста героя), от 4,5 до 8+ м: множитель 1,0–1,75 (был 0,85–1,4), чаща 1,15–1,95
     if (wild) {   // стены форта по тайлам 'D' (лицом наружу) и густая чаща по тайлам 'x'
-      const tp = zone.json.wild.realm === 'temple', archAt = new Set(zone.json.wild.archPiers || []);
+      const tp = zone.json.wild.realm === 'temple', archAt = new Set(zone.json.wild.archPiers || []), tglb = tp && templeReady();
+      if (tglb) Object.assign(extra0, templeWalls(m, archAt, push));   // храм: стены, опоры и колонны из пака «каменная» (templeglb.js)
       for (let ty = 0; ty < m.h; ty++) for (let tx = 0; tx < m.w; tx++) {
         const c = m.ch(tx, ty);
+        if (c === 'D' && tglb) continue;
         if (c === 'D' && tp) {   // Разрушенный храм: глыбы стены на тайл, опоры на стыках сетки залов; у ближнего к камере края — низкие, у дальнего — высокие
           if (archAt.has(tx + ',' + ty)) continue;   // здесь стоит опора арки (модель tw_arch)
           const h = hash(tx * 1.3 + 2, ty * 0.7 - 1), hz = (ty - 5) % 9 === 0, vt = (tx - 5) % 9 === 0;
@@ -109,7 +112,7 @@ export class PropLayer {
       }
     }
     if (wantBackdrop && open) this.scatterDecor(zone, push, fj);
-    const extra = { ...extra0, ...(bn ? bonesSwap(lists, PROPS, kit) : {}) };   // Костяные пустоши: предметы из паков Meshy (только там, bonesglb.js)
+    const extra = { ...extra0, ...(bn ? bonesSwap(lists, PROPS, kit) : {}), ...(this.tp ? templeSwap(lists) : {}) };   // храм — пак «каменная»   // Костяные пустоши: предметы из паков Meshy (только там, bonesglb.js)
     for (const [id, list] of lists) {
       const def = PROPS[id] || extra[id];
       if (def.batch) this.addBatch(def, list); else for (const it of list) this.addSingle(def, it);
@@ -173,7 +176,7 @@ export class PropLayer {
       if (want !== r.cur) {
         if (r.g) { r.g.removeFromParent(); this.items = this.items.filter(o => o !== r.g); this.dyn = this.dyn.filter(o => o !== r.mdl); }
         r.cur = want; r.g = null;
-        const def = (this.bn && bonesLive(want)) || PROPS[want];   // пустоши: сундуки — из шкур Meshy (bonesglb.js)
+        const def = (this.bn && bonesLive(want)) || (this.tp && templeLive(want)) || PROPS[want];   // пустоши: сундуки — из шкур Meshy (bonesglb.js)
         if (!def) { if (!warned.has(want)) { warned.add(want); console.warn('[3D] нет модели предмета «' + want + '» — не показан'); } continue; }
         const light = this.zoneLights && this.zoneLights.find(L => Math.hypot(L.x - r.d.x, L.y - r.d.y) < 0.3);
         r.g = this.addSingle(def, { x: r.d.x, y: r.d.y, rot: r.rot, s: 1, opts: { ...(r.d.opts || {}), ...(light ? { color: new THREE.Color(light.c[0] / 255, light.c[1] / 255, light.c[2] / 255) } : {}) } });

@@ -1,6 +1,6 @@
 // Разрушенный храм (портал с руками): светлый тёсаный камень, мох на сколах. Стены ставит слой окружения по тайлам 'D'
 // (props.js, temple): глыба стены на тайл (вдоль x модели), опоры на стыках, арки над проёмами — объекты генератора (world/templegen.js).
-// Пока это процедурные модели: когда придёт пак храма (стены, арки, кусты), их заменят модели из пака.
+// Это запасные процедурные модели: с «Новыми моделями» их заменяют модели пака «каменная» (templeglb.js).
 const ST = 0xa0957c, STL = 0xd8ccae, JN = 0x6a604e, MOSS = 0x5e7034, MOSSL = 0x8aa04a;
 const S = { top: STL, tex: 'stone' };
 
@@ -92,4 +92,17 @@ export const tw_basin = { ...base, id: 'tw_basin',
     L.push(geo.paint(geo.jitter(new THREE.DodecahedronGeometry(0.14, 0), 0.05, geo.rng(77)).scale(1.6, 0.35, 1.2).translate(0.6, 0.93, 0.2), MOSS, { top: MOSSL }));
     const root = new THREE.Group(); root.add(new THREE.Mesh(merge(L), kit.propMat(this))); return { root };
   } };
-export const TEMPLE_PROPS = [tw_wall_a, tw_wall_b, tw_wall_c, tw_wall_lo, tw_pier, tw_pier_b, tw_arch, tw_column, tw_column_b, tw_drum, tw_basin];
+// пак «каменная»: святилище и обстановка по картинке храма из пака «каменная» (templeglb.js ставит модели пака; это — запасные, пока пак
+// не загружен или выключены «Новые модели»): плоский круг с ветром в центре, алтарь, дуги стены кольцом, угол руин, лестница
+const mk = (kit, def, L) => { const root = new kit.THREE.Group(); root.add(new kit.THREE.Mesh(kit.merge(L), kit.propMat(def))); return { root }; };
+export const tp_platform = { ...base, id: 'tp_platform', shadow: false,
+  build(kit) { const { THREE, part } = kit; return mk(kit, this, [part(new THREE.CylinderGeometry(3.55, 3.6, 0.1, 32), ST, [0, 0.05, 0], 0, 1, S), part(new THREE.CylinderGeometry(2.6, 2.6, 0.03, 32), JN, [0, 0.11, 0], 0, 1, { top: STL })]); } };
+export const tp_altar = { ...base, id: 'tp_altar',
+  build(kit) { const { bbox } = kit; return mk(kit, this, [bbox(2.3, 0.25, 1.3, 0.05, JN, [0, 0.12, 0], 0, S), bbox(2.0, 0.75, 1.05, 0.05, ST, [0, 0.62, 0], 0, S), bbox(2.2, 0.16, 1.2, 0.04, ST, [0, 1.07, 0], 0, S)]); } };
+export const tp_curve = { ...base, id: 'tp_curve',
+  build(kit) { const { bbox } = kit, L = []; for (let i = 0; i < 5; i++) { const a = (i - 2) * 0.22; L.push(bbox(0.9, 1.0, 0.45, 0.04, ST, [Math.sin(a) * 4, 0.5, Math.cos(a) * 4 - 3.7], [0, a, 0], S)); } for (const sx of [-1.9, 1.9]) L.push(bbox(0.55, 1.6, 0.55, 0.05, ST, [sx, 0.8, -0.2], 0, S)); return mk(kit, this, L); } };
+export const tp_corner = { ...base, id: 'tp_corner',
+  build(kit) { const { bbox } = kit; return mk(kit, this, [bbox(3.4, 2.0, 0.5, 0.05, ST, [0, 1.0, -0.85], 0, S), bbox(0.5, 1.6, 2.0, 0.05, ST, [-1.45, 0.8, 0], 0, S)]); } };
+export const tp_stairs = { ...base, id: 'tp_stairs',
+  build(kit) { const { bbox } = kit, L = []; for (let i = 0; i < 4; i++) L.push(bbox(0.55, 0.3 * (i + 1), 2.0, 0.04, ST, [-0.85 + i * 0.55, 0.15 * (i + 1), 0], 0, S)); return mk(kit, this, L); } };
+export const TEMPLE_PROPS = [tw_wall_a, tw_wall_b, tw_wall_c, tw_wall_lo, tw_pier, tw_pier_b, tw_arch, tw_column, tw_column_b, tw_drum, tw_basin, tp_platform, tp_altar, tp_curve, tp_corner, tp_stairs];

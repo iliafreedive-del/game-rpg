@@ -14,7 +14,11 @@ export const SKINS = { on: true };     // переключатель (Настр
 const STRIDE_K = 2.1, RUN_MAX = 0.5, CALM = { armL: 0.45, elL: 0.45, handL: 0.45, armR: 0.45, elR: 0.45, handR: 0.45, torso: 0.6, head: 0.6 };
 const BASE = new URL('../../assets/models/', import.meta.url).href;
 const HAS_DOM = typeof document !== 'undefined';
-const data = new Map(), wait = new Map();
+const data = new Map(), wait = new Map(), TEX = new Map();
+function texOf(name) {
+  if (!TEX.has(name)) TEX.set(name, new THREE.TextureLoader().loadAsync(BASE + name + '.webp').then(t => { t.colorSpace = THREE.SRGBColorSpace; t.flipY = false; t.anisotropy = 4; return t; }));   // UV из GLB — без переворота
+  return TEX.get(name);
+}
 
 // загрузить заранее (в начале игры): геометрия и текстура; до загрузки attachSkin оставляет процедурную модель
 export function preloadSkin(name) {
@@ -33,8 +37,8 @@ export function preloadSkin(name) {
     g.setAttribute('skinWeight', new THREE.BufferAttribute(V(Uint8Array, 'sw'), 4, true));
     g.setIndex(new THREE.BufferAttribute(V(Uint16Array, 'idx'), 1));
     fixZeroNormals(g); g.computeBoundingSphere();
-    const tex = await new THREE.TextureLoader().loadAsync(BASE + name + '.webp');
-    tex.colorSpace = THREE.SRGBColorSpace; tex.flipY = false; tex.anisotropy = 4;   // UV из GLB — без переворота
+    // meta.tex — общая текстура нескольких шкур (каменные стражи храма вырезаны из одного листа — атлас один на всех)
+    const tex = await texOf(meta.tex || name);
     const d = { meta, geo: g, tex, n }; data.set(name, d); return d;
   })().catch(e => { console.warn('skin', name, e); return null; });
   wait.set(name, p); return p;

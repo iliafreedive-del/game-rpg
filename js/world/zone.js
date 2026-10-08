@@ -57,6 +57,9 @@ const PROP = {
   // Разрушенный храм (world/templegen.js): колонны, арки над проёмами (опоры арки стоят на тайлах стены — своего коллайдера нет), обломки; кусты — декор без коллайдера
   tw_column: { spr: 'pillar', r: 0.42, tall: 1, model: 'tw_column' }, tw_column_b: { spr: 'pillar', r: 0.42, model: 'tw_column_b' }, tw_drum: { spr: 'rubble', r: 0.4, model: 'tw_drum' },
   tw_basin: { spr: 'well', r: 0.8, model: 'tw_basin' }, tw_arch: { spr: 'banner', tall: 1, model: 'tw_arch' }, bush: { spr: 'bush' }, fern: { spr: 'fern' },
+  // пак «каменная»: круг с ветром в центре святилища (плоский, без коллайдера), алтарь, дуги стены кольцом (коллайдеры — o.circles), угол руин (o.boxes), лестница
+  tp_platform: { spr: 'rug', model: 'tp_platform' }, tp_altar: { spr: 'altar', box: [1.1, 0.6], model: 'tp_altar' }, tp_curve: { spr: 'pillar', model: 'tp_curve' },
+  tp_corner: { spr: 'pillar', model: 'tp_corner' }, tp_stairs: { spr: 'crate', box: [1.1, 1.05], model: 'tp_stairs' },
   fortune_tent: { spr: 'hay', box: [1.5, 1.3], model: 'fortune_tent', light: { r: 3.5, c: [200, 120, 255], flicker: 0.4, z: 1.2 } }, reeds: { spr: 'bush', model: 'reeds' }, sacks: { spr: 'sacks', r: 0.3 },
 };
 
@@ -81,6 +84,7 @@ export class Zone {
     const d = this.add({ x: o.x, y: o.y, spr: P.spr, tall: P.tall, flat: P.flat });
     if (P.model || o.rot !== undefined) { d.model = P.model || o.t; d.rot = o.rot || 0; }
     if (o.s) d.s = o.s; if (o.yaw) d.yaw = o.yaw; if (o.len || o.opts) d.opts = { len: o.len, ...o.opts };   // параметры модели (длина и ширина моста, размеры мельницы)
+    if (o.circles) for (const [x, y, r] of o.circles) this.map.circles.push({ x, y, r });
     if (o.boxes) for (const [x0, y0, x1, y1] of o.boxes) this.map.rects.push({ x0, y0, x1, y1 });
     else if (!o.nocol) {
       if (P.r) this.map.circles.push({ x: o.x, y: o.y, r: o.r || P.r });   // o.r — свой радиус (большие хижины пустошей)

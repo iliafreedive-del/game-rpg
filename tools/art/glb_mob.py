@@ -57,6 +57,16 @@ CFG = {
   'f_draugr_m': {'rig': 'skel', 'h': 1.95, 'spin': 0.5, 'items': [('handL', 'shield'), ('handR', 'axe')]},
   'f_jarl_m': {'rig': 'skel', 'h': 2.0, 'spin': 0.5, 'items': [('handR', 'axe')]},
   'f_boss_m': {'rig': 'boss', 'h': 2.3, 'spin': 0.9, 'items': [('handR', 'axe')], 'aim': [0, -0.12, 1]},   # как у Палача: в покое вперёд, замах над головой, удар перед собой
+  # каменные стражи Разрушенного храма (пак «каменная»): А-поза, оружия нет — бьют кулаками
+  't_warden_m': {'rig': 'skel', 'h': 1.95, 'spin': 0.5, 'items': [], 'ov': {'apose': 1, 'tipmin': 0.36, 'shy': 0.76}},
+  't_golem_m': {'rig': 'skel', 'h': 2.0, 'spin': 0.5, 'items': [], 'ov': {'apose': 1, 'tipmin': 0.15, 'shy': 0.8, 'armr': 0.14, 'hip': 0.44, 'knee': 0.22}},
+  't_priest_m': {'rig': 'skel', 'h': 2.0, 'lift': 0.2, 'spin': 0.78, 'items': [], 'ov': {'apose': 1, 'tipmin': 0.36, 'shy': 0.77, 'armr': 0.07}},
+  't_knight_m': {'rig': 'skel', 'h': 1.95, 'spin': 0.5, 'items': [], 'ov': {'apose': 1, 'tipmin': 0.34, 'shy': 0.76, 'armr': 0.11}},
+  't_thrower_m': {'rig': 'skel', 'h': 1.9, 'spin': 0.5, 'items': [], 'ov': {'apose': 1, 'tipmin': 0.22, 'shy': 0.66, 'armr': 0.12, 'hip': 0.4, 'knee': 0.2, 'neck': 0.02}},
+  't_mb_king_m': {'rig': 'skel', 'h': 2.0, 'spin': 0.5, 'items': [], 'ov': {'apose': 1, 'tipmin': 0.34, 'shy': 0.76, 'armr': 0.11}},
+  't_mb_lancer_m': {'rig': 'skel', 'h': 2.0, 'spin': 0.5, 'items': [], 'ov': {'apose': 1, 'tipmin': 0.36, 'shy': 0.76, 'armr': 0.07}},
+  't_mb_colossus_m': {'rig': 'skel', 'h': 2.0, 'spin': 0.5, 'items': [], 'ov': {'apose': 1, 'tipmin': 0.12, 'shy': 0.8, 'armr': 0.15, 'hip': 0.42, 'knee': 0.22}},
+  't_boss_m': {'rig': 'boss', 'h': 2.3, 'spin': 0.9, 'items': [], 'ov': {'apose': 1, 'tipmin': 0.12, 'shy': 0.8, 'armr': 0.15, 'hip': 0.42, 'knee': 0.22}},
   'boss_m': {'rig': 'boss', 'h': 2.3, 'spin': 0.9, 'items': [('handR', 'axe')], 'turn': True, 'aim': [0, -0.12, 1]},   # turn — предмет повёрнут на 180° вокруг древка (просьба пользователя, сборка 57)
 }
 # хват по длине (доля от нижнего конца) для древковых: у процедурных axe_great — 20 %, staff_bone — 29 %
@@ -125,18 +135,34 @@ def joints(P, T, ov):
     ext = np.array([(np.where(M[r])[0].max() - np.where(M[r])[0].min()) if M[r].any() else 0 for r in range(M.shape[0])])
     band = np.where(ext >= ext.max() * 0.93)[0]; yarm = Y(np.median(band))
     J = {}
-    for s, sg in (('L', 1), ('R', -1)):
-        side = P[P[:, 0] * sg > 0]; tip = (side[:, 0] * sg).max()
-        sh, el, wr = ov.get('sh', 0.39) * tip, ov.get('el', 0.65) * tip, ov.get('wr', 0.885) * tip
-        def zc(x, r=0.04 * H):   # глубина сустава — середина вершин рядом по X на высоте руки
-            m = (np.abs(side[:, 0] * sg - x) < r) & (np.abs(side[:, 1] - yarm) < 0.08 * H); return float(np.median(side[m, 2])) if m.any() else 0.0
-        J['arm' + s] = np.array([sg * sh, yarm, zc(sh)]); J['el' + s] = np.array([sg * el, yarm, zc(el)])
-        J['hand' + s] = np.array([sg * wr, yarm, zc(wr)]); J['tip' + s] = np.array([sg * tip, yarm, zc(tip * 0.97)])
+    if ov.get('apose'):
+        # А-поза (руки опущены наискосок, каменные големы пака «каменная»): плечо — на высоте shy·H, по X — доля shx
+        # от внешнего края плеча; кончик руки — самая дальняя от плеча вершина снаружи от плеча, ниже его; локоть и кисть — доли отрезка
+        yarm = ov.get('shy', 0.78) * H
+        for s, sg in (('L', 1), ('R', -1)):
+            side = P[P[:, 0] * sg > 0]; band = side[np.abs(side[:, 1] - yarm) < 0.05 * H]; sx = ov.get('shx', 0.72) * (band[:, 0] * sg).max()
+            S = np.array([sg * sx, yarm, 0.0])
+            cand = side[(side[:, 0] * sg > sx * ov.get('tipin', 1.0)) & (side[:, 1] < yarm - 0.12 * H) & (side[:, 1] > ov.get('tipmin', 0.12) * H)]
+            tip = cand[np.argmax(np.linalg.norm(cand - S, axis=1))].copy(); a = tip - S
+            def zc(q, r=0.05 * H):
+                m = np.linalg.norm(side[:, :2] - q[:2], axis=1) < r; return float(np.median(side[m, 2])) if m.any() else 0.0
+            el, hd = S + ov.get('el', 0.48) * a, S + ov.get('wr', 0.8) * a
+            S[2], el[2], hd[2] = zc(S), zc(el), zc(hd)
+            J['arm' + s], J['el' + s], J['hand' + s], J['tip' + s] = S, el, hd, tip
+    else:
+        for s, sg in (('L', 1), ('R', -1)):
+            side = P[P[:, 0] * sg > 0]; tip = (side[:, 0] * sg).max()
+            sh, el, wr = ov.get('sh', 0.39) * tip, ov.get('el', 0.65) * tip, ov.get('wr', 0.885) * tip
+            def zc(x, r=0.04 * H):   # глубина сустава — середина вершин рядом по X на высоте руки
+                m = (np.abs(side[:, 0] * sg - x) < r) & (np.abs(side[:, 1] - yarm) < 0.08 * H); return float(np.median(side[m, 2])) if m.any() else 0.0
+            J['arm' + s] = np.array([sg * sh, yarm, zc(sh)]); J['el' + s] = np.array([sg * el, yarm, zc(el)])
+            J['hand' + s] = np.array([sg * wr, yarm, zc(wr)]); J['tip' + s] = np.array([sg * tip, yarm, zc(tip * 0.97)])
     # промежность: по центральному столбцу снизу — первый закрашенный пиксель (у мантии — нет щели, берётся доля роста)
     # ноги — по пропорциям (набедренные повязки и мантии закрывают промежность, по силуэту её не найти)
     hipY = ov.get('hip', 0.46) * H; ank = ov.get('ankle', 0.09) * H; crotch = hipY - 0.05 * H
     for s, sg in (('L', 1), ('R', -1)):
         m = (P[:, 0] * sg > 0.01 * H) & (P[:, 1] < crotch * 0.75) & (P[:, 1] > ank)
+        if ov.get('apose'): m &= np.abs(P[:, 0]) < np.abs(J['armL'][0])   # кулаки опущенных рук — не ноги
         lx = float((P[m, 0].min() + P[m, 0].max()) / 2) if m.sum() > 20 else sg * 0.1 * H; lz = float(np.median(P[m, 2])) if m.sum() > 20 else 0.0
         lx = sg * ov.get('legx', abs(lx) / H) * H
         J['leg' + s] = np.array([lx, hipY, lz]); J['knee' + s] = np.array([lx, ov.get('knee', 0.26) * H, lz + 0.01 * H])
@@ -228,10 +254,20 @@ def main(src, name, debug=None):
     x, y = PB[:, 0], PB[:, 1]
     D[np.ix_(x > 0.015 * H, sideR)] += 9; D[np.ix_(x < -0.015 * H, sideL)] += 9   # левая сторона — не правые кости
     # в полосе рук дальше плеча — только кости руки; ниже промежности и далеко от рук — не руки; выше таза — не ноги
-    far = np.abs(x) > np.abs(J['armL'][0]) * 1.08
-    D[np.ix_(far & (np.abs(y - yarm) < 0.14 * H), ~armish)] += 9
-    D[np.ix_(y < J['hips'][1] - 0.08 * H, armish)] += 9
-    D[np.ix_(y > J['hips'][1] + 0.06 * H, legish)] += 9
+    ov = C.get('ov', {})
+    if ov.get('apose'):
+        # А-поза: у отрезка плечо→кончик руки (в его толщине) — только кости руки; внутри по X ниже плеч (ноги, таз) — не руки
+        for sd, sg in (('L', 1), ('R', -1)):
+            S0, ab = J['arm' + sd], J['tip' + sd] - J['arm' + sd]; t = ((PB - S0) @ ab) / (ab @ ab)
+            perp = np.linalg.norm(PB - (S0 + np.clip(t, 0, 1)[:, None] * ab), axis=1)
+            D[np.ix_((t > 0.2) & (t < 1.15) & (perp < ov.get('armr', 0.1) * H) & (x * sg > 0), ~armish)] += 9
+        D[np.ix_((np.abs(x) < np.abs(J['armL'][0]) * 0.75) & (y < yarm - 0.12 * H), armish)] += 9
+        D[np.ix_(y > J['hips'][1] + 0.06 * H, legish)] += 9
+    else:
+        far = np.abs(x) > np.abs(J['armL'][0]) * 1.08
+        D[np.ix_(far & (np.abs(y - yarm) < 0.14 * H), ~armish)] += 9
+        D[np.ix_(y < J['hips'][1] - 0.08 * H, armish)] += 9
+        D[np.ix_(y > J['hips'][1] + 0.06 * H, legish)] += 9
     blend = C.get('blend', 0.03) * H
     o = np.argsort(D, 1); d1 = np.take_along_axis(D, o[:, :1], 1)[:, 0]; d2 = np.take_along_axis(D, o[:, 1:2], 1)[:, 0]
     w2 = 0.5 * np.exp(-(d2 - d1) / blend)
