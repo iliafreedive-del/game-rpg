@@ -70,7 +70,7 @@ MOBS.chicken_red = { id: 'chicken_red', kind: 'mob', outline: 'mob', build: kit 
 MOBS.npc_trainer = { id: 'npc_trainer', kind: 'npc', outline: 'mob', build: kit => { const m = NPC_TRAINER.build(kit); if (!m.skin) m.root.rotation.y = Math.PI; return m; } };
 // сборка 57: нежить подземелий — «Было» процедурная со своим оружием, «Стало» модель с Диска (оружие в кисти — часть модели)
 const { MOBS: REG, WEAPONS } = await import(BASE + 'js/render3d/registry.js');
-const DUNGEON = { skel_warrior: 'Скелет-воин', skel_archer: 'Скелет-лучник', skel_mage: 'Колдун', ghoul: 'Упырь', elite_guard: 'Страж Медальона', elite_warlord: 'Страж глубин', boss: 'Палач Бездны', bone_wolf: 'Костяной волк' };
+const DUNGEON = { skel_warrior: 'Скелет-воин', skel_archer: 'Скелет-лучник', skel_mage: 'Колдун', ghoul: 'Упырь', elite_guard: 'Страж Медальона', elite_warlord: 'Страж глубин', boss: 'Палач Бездны', bone_wolf: 'Костяной волк', b_raider: 'Клыкач-рубака', b_thrower: 'Клыкач-метатель', b_shaman: 'Шаман-костогрыз', b_chief: 'Вождь Кровавый Клык', b_boss: 'Костяной исполин' };
 for (const id of Object.keys(DUNGEON)) MOBS[id] = REG[id];
 const NAMES0 = { npc_trainer: 'Наставник Элвин', dog_brown: 'Собака', chicken_white: 'Курица белая', chicken_red: 'Курица рыжая', archer: 'Лучник', warrior: 'Воин', mage: 'Маг', w_wolf: 'Волк', f_wolf: 'Ледяной волк', w_bear: 'Медведь', w_boar: 'Кабан', b_boar: 'Пустынный кабан', b_hyena: 'Гиена', b_scorpid: 'Скорпион', beast: 'Пещерный зверь' };
 const NAMES = { ...DUNGEON, ...NAMES0 };
@@ -80,7 +80,7 @@ const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
 renderer.setPixelRatio(Math.min(2, devicePixelRatio || 1));
 renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 const scene = new THREE.Scene(), kit = makeKit(scene);
-await kit.fur.ready; await kit.skin.preloadSkin('archer_raven'); await kit.skin.preloadSkin('warrior_vanguard'); await kit.skin.preloadSkin('mage_archmage'); await kit.mob.preloadMob('wolf_grey'); for (const n of ['dog_brown', 'wolf_ice', 'beast', 'chicken_white', 'chicken_red', 'hyena', 'w_boar', 'b_boar', 'w_bear', 'b_scorpid']) await kit.mob.preloadMob(n); await kit.skin.preloadSkin('npc_trainer'); for (const n of ['skel_warrior_m', 'skel_archer_m', 'skel_mage_m', 'ghoul_m', 'elite_guard_m', 'elite_warlord_m', 'boss_m']) await kit.skin.preloadSkin(n);
+await kit.fur.ready; await kit.skin.preloadSkin('archer_raven'); await kit.skin.preloadSkin('warrior_vanguard'); await kit.skin.preloadSkin('mage_archmage'); await kit.mob.preloadMob('wolf_grey'); for (const n of ['dog_brown', 'wolf_ice', 'beast', 'chicken_white', 'chicken_red', 'hyena', 'w_boar', 'b_boar', 'w_bear', 'b_scorpid']) await kit.mob.preloadMob(n); await kit.skin.preloadSkin('npc_trainer'); for (const n of ['skel_warrior_m', 'skel_archer_m', 'skel_mage_m', 'ghoul_m', 'elite_guard_m', 'elite_warlord_m', 'boss_m', 'b_raider_m', 'b_thrower_m', 'b_shaman_m', 'b_chief_m', 'b_boss_m']) await kit.skin.preloadSkin(n);
 const camera = new THREE.PerspectiveCamera(CAMERA.fov, 1, 0.3, 200);
 const hemi = new THREE.HemisphereLight(), sun = new THREE.DirectionalLight();
 sun.castShadow = true; sun.shadow.mapSize.set(1024, 1024); Object.assign(sun.shadow.camera, { left: -8, right: 8, top: 8, bottom: -8, near: 1, far: 60 }); sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.03;

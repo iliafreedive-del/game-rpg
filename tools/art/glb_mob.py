@@ -40,6 +40,12 @@ CFG = {
   'elite_guard_m': {'rig': 'skel', 'h': 2.0, 'spin': 0.5, 'items': [('handR', 'sword')]},
   'elite_warlord_m': {'rig': 'skel', 'h': 2.0, 'spin': 0.5, 'items': [('handR', 'axe')]},
   'ghoul_m': {'rig': 'ghoul', 'h': 1.7, 'spin': 0.5, 'items': []},
+  # сборка 57: Костяные пустоши (папка «пустоши»)
+  'b_raider_m': {'rig': 'skel', 'h': 1.95, 'spin': 0.5, 'items': [('handR', 'axe'), ('handL', 'axe')]},
+  'b_thrower_m': {'rig': 'skel', 'h': 1.95, 'spin': 0.5, 'items': [('handR', 'staff')]},
+  'b_shaman_m': {'rig': 'skel', 'h': 2.0, 'spin': 0.5, 'items': [('handR', 'staff')]},
+  'b_chief_m': {'rig': 'skel', 'h': 2.0, 'spin': 0.5, 'items': [('handR', 'axe')]},
+  'b_boss_m': {'rig': 'boss', 'h': 2.3, 'spin': 0.9, 'items': [('handR', 'sword')]},
   'boss_m': {'rig': 'boss', 'h': 2.3, 'spin': 0.9, 'items': [('handR', 'axe')], 'turn': True, 'aim': [0, -0.12, 1]},   # turn — предмет повёрнут на 180° вокруг древка (просьба пользователя, сборка 57)
 }
 # хват по длине (доля от нижнего конца) для древковых: у процедурных axe_great — 20 %, staff_bone — 29 %
@@ -142,6 +148,23 @@ def main(src, name, debug=None):
     body = np.isin(comp, [k for k, gg in zip(ks, g) if gg not in others])
     items = [np.isin(comp, [k for k, gg2 in zip(ks, g) if gg2 == gg]) for gg in others]
     print('тело: %d вершин; предметов рядом: %d (%s)' % (body.sum(), len(items), ', '.join(str(int(m.sum())) for m in items)))
+    if len(items) != len(C['items']):
+        # оружие касается кулака по X (посох шамана, секира вождя): предмет — высокий кусок справа от центра тела
+        Hb = P[comp == big, 1].max() - P[comp == big, 1].min(); cx = (P[comp == big, 0].min() + P[comp == big, 0].max()) / 2
+        tall = [k for k in ks if k != big and np.ptp(P[comp == k, 1]) > 0.35 * Hb and P[comp == k, 0].mean() > cx + 0.3 * (P[comp == big, 0].max() - cx)]
+        tiv = [iv[list(ks).index(k)] for k in tall]; tg = groups_by_x(tiv) if tall else []
+        # к высокому куску — всё, что лежит в его рамке (навершия, перья, обмотки)
+        items = []
+        for gg in sorted(set(tg), key=lambda q: min(tiv[i][0] for i in range(len(tall)) if tg[i] == q)):
+            ksel = [tall[i] for i in range(len(tall)) if tg[i] == gg]; m = np.isin(comp, ksel)
+            lo_, hi_ = P[m].min(0) - 0.01, P[m].max(0) + 0.01
+            for k in ks:
+                if k == big or k in ksel: continue
+                Q = P[comp == k]
+                if (Q.min(0) >= lo_).all() and (Q.max(0) <= hi_).all(): m |= comp == k
+            items.append(m)
+        body = ~np.any(items, axis=0) if items else np.ones(len(P), bool)
+        print('по высоте: предметов %d (%s)' % (len(items), ', '.join(str(int(m.sum())) for m in items)))
     assert len(items) == len(C['items']), ('ждали предметов', len(C['items']))
     # масштаб и центр — по телу: стопы на y=0, рост C['h'], центр — середина стоп по X и Z
     lo, hi = P[body].min(0), P[body].max(0); s = C['h'] / (hi[1] - lo[1])
