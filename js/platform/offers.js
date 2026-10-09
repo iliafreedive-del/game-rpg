@@ -8,7 +8,7 @@ import { earlyLock } from '../game/progress.js';
 
 // id товара → когда показывать. Первое условие, которое сработало, и показывается.
 const WALLS = [
-  { id: 'starter_pack', when: P => (P.stats.deaths || 0) >= 1 || P.level >= 2, why: 'Первая смерть — самое время усилиться' },
+  { id: 'starter_pack', when: P => (P.stats.deaths || 0) >= 1 || P.level >= 2, why: P => (P.stats.deaths || 0) >= 1 ? 'Первая смерть — самое время усилиться' : 'Начало пути — самое время усилиться' },   // сборка 59: про смерть — только тем, кто погибал
   { id: 'guard_armor', when: P => P.level >= 6 && !P.story.flags.bossKilled, why: 'Печать к Палачу Бездны не поддаётся: нужен 7 уровень и крепкие вещи' },
   { id: 'seal_blade', when: P => (P.depths && P.depths.best >= 8) || forts(P, 'forest') >= 1, why: 'Дальше 8-го этажа Глубин и в фортах враги растут быстрее' },
   { id: 'magister_plate', when: P => forts(P, 'fjord') >= 1 || P.level >= 14, why: 'Костяные пустоши — четвёртая печать, и враги там на 12 уровне' },
@@ -25,7 +25,7 @@ export function wallOffer() {
     if (P.iap.shown[w.id] || owned(P, w.id)) continue;
     if (!platform.p.hasProduct(w.id)) continue;
     if (!w.when(P)) continue;
-    return { ...w, product: PRODUCTS[w.id] };
+    return { ...w, why: typeof w.why === 'function' ? w.why(P) : w.why, product: PRODUCTS[w.id] };
   }
   // сборка 47: акция каждые два уровня (с 4-го) — ближайший ещё не купленный товар лестницы, один раз на уровень
   if (P.level >= 4 && P.level % 2 === 0 && P.iap.promoLvl !== P.level) {

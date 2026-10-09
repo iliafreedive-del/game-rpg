@@ -25,7 +25,7 @@ import { CLASSES } from './data/items.js';
 import { iconURL } from './ui/icons.js';
 import { initFullscreen } from './ui/fullscreen.js';
 
-export const BUILD = '2026-10-08 · сборка 58';   // видно на титульном экране и в настройках: так проверяют, что загрузилась свежая версия
+export const BUILD = '2026-10-09 · сборка 59';   // видно на титульном экране и в настройках: так проверяют, что загрузилась свежая версия
 const CORE = ['props', 'icons'];
 // hero sheets are big (HD): load only the chosen class
 export const CLASS_ATLAS = { warrior: ['hero_body', 'hero_sword', 'hero_axe', 'hero_greatsword', 'hero_shield'], archer: ['hero_archer_body', 'hero_archer_bow'], mage: ['hero_mage_body', 'hero_mage_staff'] };
@@ -62,8 +62,9 @@ async function boot() {
     await mons;
     const fresh = !p.tutorial.prologue && p.story.stage === 0 && !p.xp && p.level === 1;
     track(fresh ? 'start_new' : 'start_continue', { cls: p.cls });
-    if (!fresh) unlockAll();   // старые сохранения: все кнопки боя уже открыты
-    await loadZone('town');
+    if (!fresh && !p.tutorial.un) unlockAll();   // старые сохранения (до обучения кнопками): все кнопки боя открыты. Сборка 59: раньше — при любой перезагрузке, и посреди обучения разом появлялись все кнопки
+    const crypt = !fresh && !p.tutorial.prologue;   // сборка 59: перезагрузка посреди пролога — снова в склеп, а не в деревню без пролога
+    await loadZone(crypt ? 'depths' : 'town', crypt ? { floor: 0 } : undefined);
     $('title').remove(); startMusic('town');
     bus.on('zoneEntered', z => startMusic(z));
     restorePurchases().catch(() => { });

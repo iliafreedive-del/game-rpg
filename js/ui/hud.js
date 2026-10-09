@@ -1,5 +1,6 @@
 // HUD: bars, tracker, gold, buffs, boss bar, toasts, touch controls, minimap.
 import { streak } from '../game/streak.js';
+import { earlyLock } from '../game/progress.js';
 import { G, bus, inCombat } from '../game/ctx.js';
 import { $, el, esc, fmt } from '../core/util.js';
 import { input, resetBase, mouse } from '../core/input.js';
@@ -71,9 +72,10 @@ export function initHUD() {
   bus.on('toast', toast);
   bus.on('bagFull', () => toast({ text: 'Сумка полна!', sub: 'Продайте лишнее или купите расширение сумки — нажмите, чтобы открыть сумку', kind: 'bad', onClick: () => openWindow('inventory') }));   // сборка 38
   bus.on('itemPicked', it => toast({ text: 'Найдено: ' + it.name, sub: RARITY[it.rarity].name + ' · нажмите, чтобы сравнить', kind: 'item', color: RARITY[it.rarity].color, onClick: () => openWindow('inventory', { select: it.id }) }));
-  bus.on('questNew', q => { toast({ text: 'Новое задание', sub: q.title, kind: 'quest' }); trackOpenUntil = G.time + 7; });
+  // сборка 59: новое задание объявляется один раз. Окно награды уже пишет «Следующее задание» — тогда без тоста; подсказка-строка обучения убрана
+  bus.on('questNew', q => { setTimeout(() => { if (!document.querySelector('.rw-bg')) toast({ text: 'Новое задание', sub: q.title + (G.zoneId === 'town' && (q.chapter || 1) === 1 ? ' — идите по золотой стрелке' : ''), kind: 'quest' }); }, 350); trackOpenUntil = G.time + 7; });
   bus.on('zoneEntered', () => { trackOpenUntil = G.time + 6; });
-  bus.on('levelUp', l => { const e = $('levelUp'); e.textContent = `Уровень ${l}!`; e.classList.remove('show'); void e.offsetWidth; e.classList.add('show'); toast({ text: 'Новый уровень ' + l, sub: '+5 характеристик · +1 навык — распределите у наставника Элвина в деревне', kind: 'good' }); });
+  bus.on('levelUp', l => { const e = $('levelUp'); e.textContent = `Уровень ${l}!`; e.classList.remove('show'); void e.offsetWidth; e.classList.add('show'); toast({ text: '+5 характеристик · +1 навык', sub: 'Распределите у наставника Элвина в деревне', kind: 'good' }); });   // сборка 59: «Уровень N!» уже крупно по центру — без повтора
   bus.on('bossStart', e => { G.boss = e; });
   refreshSkills(); refreshWeapon();
 }
@@ -92,10 +94,15 @@ function refreshSkills() {
 
 // ---------------------------------------------------------------- toasts (bounded, auto-removed)
 export function toast(t) {
-  const box = $('toasts'); while (box.children.length >= 4) box.firstChild.remove();
+  const box = $('toasts');
+  // сборка 59: тот же тост уже на экране — не дублировать
+  for (const c of box.children) if (c.dataset.k === t.text + '|' + (t.sub || '')) return c;
+  while (box.children.length >= 4) box.firstChild.remove();
   // сборка 50: на вертикальном телефоне — под правой колонкой HUD (задание, «Веди меня»), а не поверх неё (iPhone SE, Android 360)
-  { const r = $('hudR'), port = innerHeight > innerWidth && innerWidth <= 760; box.style.top = port && r && r.offsetParent ? Math.min(innerHeight * 0.5, r.getBoundingClientRect().bottom + 8) + 'px' : ''; }
+  { const r = $('hudR'), port = innerHeight > innerWidth && innerWidth <= 760; box.style.top = port && r && r.offsetParent ? Math.min(innerHeight * 0.5, r.getBoundingClientRect().bottom + 8) + 'px' : '';
+    const sv = $('survHud'); if (sv && sv.offsetParent && G.zoneId === 'survival') box.style.top = Math.min(innerHeight * 0.5, Math.max(r && r.offsetParent ? r.getBoundingClientRect().bottom : 0, sv.getBoundingClientRect().bottom) + 8) + 'px'; }   // сборка 59: в Жатве — под её табло, не под ним
   const d = el('div', 'toast ' + (t.kind || ''), `<div class="a" ${t.color ? `style="color:${t.color}"` : ''}>${esc(t.text)}</div>${t.sub ? `<div class="b">${esc(t.sub)}</div>` : ''}`);
+  d.dataset.k = t.text + '|' + (t.sub || '');
   if (t.onClick) d.onclick = () => { t.onClick(); d.remove(); };
   box.appendChild(d);
   setTimeout(() => d.classList.add('out'), t.kind === 'quest' ? 3600 : 2600); setTimeout(() => d.remove(), t.kind === 'quest' ? 4100 : 3100);
@@ -143,11 +150,11 @@ export function updateHUD(dt) {
   const newItems = P.bag.filter(x => x.isNew).length; dot('dotInv', newItems);
   dot('dotChar', G.zoneId === 'town' ? P.attrPts : 0); dot('dotSkill', G.zoneId === 'town' ? P.skillPts : 0);
   const ds = dailyStatus(), cs = chestStatus(), gifts = (ds.claimable ? 1 : 0) + (cs.ready ? 1 : 0) + (dailyReady() ? 1 : 0); dot('dotGift', gifts);
-  const sh = G.zone && G.zone.inter.find(i => i.id === 'shrine'); if (sh) { sh.plate = 'Источник силы' + (gifts ? ` 🎁${gifts}` : blessLeft() > 0 ? '' : ' ✦'); sh.marker = gifts ? '!' : null; }   // значок над алтарём
+  const sh = G.zone && G.zone.inter.find(i => i.id === 'shrine'); if (sh) { sh.plate = 'Источник силы' + (gifts ? ` 🎁${gifts}` : blessLeft() > 0 ? '' : ' ✦'); sh.marker = gifts && !earlyLock('extra') ? '!' : null; }   // значок над алтарём
   blessTick(); dot('dotSeason', seasonClaimable());
   { const n = streak(); let sb = $('streakB'); if (!sb) { sb = el('span', '', ''); sb.id = 'streakB'; $('portrait').appendChild(sb); }   // сборка 47: огонёк серии побед
     const t = n ? `🔥${n}` : ''; if (sb.textContent !== t) { sb.textContent = t; sb.title = n ? `Серия побед: +${Math.min(10, n) * 5}% золота` : ''; } sb.style.display = n ? '' : 'none'; }
-  { let gl = $('goalLine'); if (!gl) { gl = el('div', '', ''); gl.id = 'goalLine'; $('buffs').after(gl); } const t = G.zoneId === 'wild' ? '' : G.zoneId === 'town' || !inCombat() ? nextGoalLine() : ''; if (gl.textContent !== t) gl.textContent = t; }   // «до цели» (сборка 21); в походе на этом месте плашка ноши
+  { let gl = $('goalLine'); if (!gl) { gl = el('div', '', ''); gl.id = 'goalLine'; $('buffs').after(gl); } const t = G.zoneId === 'wild' || G.zoneId === 'survival' || (G.run && G.run.floor === 0) ? '' : G.zoneId === 'town' || !inCombat() ? nextGoalLine() : ''; if (gl.textContent !== t) gl.textContent = t; }   // «до цели» (сборка 21); в походе на этом месте плашка ноши
   // buffs
   const now = Date.now(); const bf = [];
   if (blessLeft() > 0) bf.push(`<b class="bless">✦ Сила источника ${mmss(blessLeft())}</b>`);
@@ -203,7 +210,11 @@ function edgeArrow() {
   const m = 46, W = innerWidth, H = innerHeight, inside = sx > m && sx < W - m && sy > m && sy < H - m;
   if (inside) { e.classList.add('hidden'); return; }
   const cx = W / 2, cy = H / 2; let dx = sx - cx, dy = sy - cy; const l = Math.hypot(dx, dy) || 1; dx /= l; dy /= l;
-  const k = Math.min((W / 2 - m) / Math.abs(dx || 1e-6), (H / 2 - m) / Math.abs(dy || 1e-6));
+  let k = Math.min((W / 2 - m) / Math.abs(dx || 1e-6), (H / 2 - m) / Math.abs(dy || 1e-6));
+  // сборка 59: стрелка не ложится на полосы здоровья, трекер, кнопки боя — сдвигается по тому же направлению ближе к центру
+  const R = ['hudL', 'hudR', 'pad', 'btnAct', 'btnLead'].map(id => $(id)).filter(x => x && x.offsetParent).map(x => x.getBoundingClientRect()).filter(r => r.width && r.width < W * 0.9);
+  const hit = (x, y) => R.some(r => x > r.left - 30 && x < r.right + 30 && y > r.top - 26 && y < r.bottom + 26);
+  while (k > 70 && hit(cx + dx * k, cy + dy * k)) k -= 10;
   e.classList.remove('hidden');
   e.style.left = (cx + dx * k) + 'px'; e.style.top = (cy + dy * k) + 'px';
   e.querySelector('.ea-a').style.transform = `rotate(${Math.atan2(dy, dx)}rad)`;

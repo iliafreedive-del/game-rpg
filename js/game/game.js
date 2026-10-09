@@ -168,8 +168,9 @@ export async function loadZone(id, how = {}) {
   if (id === 'survival') SV.startRun(); else G.surv = null;
   G.zoneReady = true;
   bus.emit('zoneEntered', id); bus.emit('hud'); requestSave();
-  if (id === 'town' && G.profile.tutorial.prologue) setTimeout(() => { const d = dailyStatus(); if (d.claimable) bus.emit('toast', { text: 'Дары источника ждут!', sub: `День ${d.day} из 28 — алтарь на площади`, kind: 'quest' }); else if (!blessed()) bus.emit('toast', { text: 'Источник силы на площади', sub: 'Сила источника: +25% золота и опыта на 10 минут', kind: 'info' }); }, 2500);   // сборка 19
-  if (id === 'town' && P.tutorial.prologue) setTimeout(() => { if (G.zoneId === 'town') bus.emit('toast', { text: 'Дальше: ' + nextStep(), kind: 'info' }); }, 2200);
+  if (id === 'town' && G.profile.tutorial.prologue && !earlyLock('extra')) setTimeout(() => { const d = dailyStatus();   // сборка 59: пока Источник закрыт обучением — не звать к нему
+  if (d.claimable) bus.emit('toast', { text: 'Дары источника ждут!', sub: `День ${d.day} из 28 — алтарь на площади`, kind: 'quest' }); else if (!blessed()) bus.emit('toast', { text: 'Источник силы на площади', sub: 'Сила источника: +25% золота и опыта на 10 минут', kind: 'info' }); }, 2500);   // сборка 19
+  if (id === 'town' && P.tutorial.prologue && !Q.current()) setTimeout(() => { if (G.zoneId === 'town') bus.emit('toast', { text: 'Дальше: ' + nextStep(), kind: 'info' }); }, 2200);   // сборка 59: пока идёт сюжет, цель — в трекере задания (тост «Дальше» ей противоречил)
   if (id === 'town' && P.tutorial.prologue) {   // сборка 49: новый портал показываем камерой, когда он открылся (ждём, пока закроются окна)
     let tries = 0; const tryShow = () => { if (G.zoneId !== 'town' || ++tries > 40) return; if (G.cinema || G.modalOpen || G.paused) { setTimeout(tryShow, 1000); return; } const sh = newPortalShots(); if (sh.length) cinema(sh); };
     setTimeout(tryShow, 900); }
@@ -267,10 +268,12 @@ bus.on('playerDeath', () => {
   setTimeout(() => bus.emit('showDeath'), 1300);
 });
 export const MAX_REVIVES = 2;
+export const inPrologue = () => G.zoneId === 'depths' && G.run && G.run.floor === 0 && !G.profile.tutorial.prologue;
 export function revive(inPlace) {
   if (inPlace) G.revives = (G.revives || 0) + 1;
   const pl = G.player; pl.dead = false; pl.state = 'idle'; pl.hp = G.stats.maxHP; pl.mp = G.stats.maxMP; pl.inv = 2; pl.setAnim('idle', 5, true);
   if (inPlace) { C.effect({ kind: 'ring', x: pl.x, y: pl.y, r: 4, dur: 0.6, c: [255, 230, 150] }); for (const e of G.enemies) if (!e.dead && Math.hypot(e.x - pl.x, e.y - pl.y) < 4) { e.kb = { vx: (e.x - pl.x), vy: (e.y - pl.y), t: 0.25 }; } }
+  else if (inPrologue()) loadZone('depths', { floor: 0 });   // сборка 59: гибель в склепе пробуждения — склеп заново (раньше герой попадал в деревню без пролога, и половина порталов не появлялась никогда)
   else { if (G.zoneId === 'depths' && G.run && G.run.free) CS.spendTorch(); loadZone('town', { from: 'death', fullHeal: true }); }   // новый этаж бесплатен, пока побеждаешь: факел уходит только за поражение
 }
 
@@ -427,9 +430,10 @@ export function finishFloor() {
   if (r.done) { if (G.lastFloorResult) bus.emit('floorResult', G.lastFloorResult); return; }
   r.done = true; G.lastCombat = -99;
   if (r.floor === 0) {   // prologue → village
-    P.tutorial.prologue = true; G.tut = null; L.gainXP(45); bus.emit('memory', 'wake');
-    bus.emit('toast', { text: 'Вы выбрались из склепа!', sub: 'Староста Эдрик ждёт на площади', kind: 'quest' });
-    loadZone('town', { from: 'catacombs' }).then(() => cinema(portalShots()));   // показать, сколько всего впереди
+    // сборка 59: по очереди — облёт порталов, потом уровень 2 и «Осколок памяти». Раньше всё это, тост «Вы выбрались» и окно памяти
+    // появлялись в одну секунду, а окно открывалось поверх облёта камеры (полосы кино резали его кнопку)
+    P.tutorial.prologue = true; G.tut = null; bus.emit('save');
+    loadZone('town', { from: 'catacombs' }).then(() => { const tb = typeof document !== 'undefined' && document.getElementById('toasts'); if (tb) tb.replaceChildren(); return cinema(portalShots()); }).then(() => { L.gainXP(45); bus.emit('memory', 'wake'); });
     return;
   }
   P.depths = P.depths || { best: 0, stars: {} };
@@ -581,10 +585,12 @@ function updateMarkers() {
   for (const n of G.npcs) n.marker = n.id === Q.turnNpc(q) && Q.isReady() ? '?' : q && q.target === n.id ? (q.id === 'finish' ? '?' : '!') : null;
   const eld = G.npcs.find(n => n.id === 'elder'); if (eld && HU.readyToTurnIn()) eld.marker = '?';   // hunt to hand in
   for (const it of G.zone.inter) { if (it.type === 'socket') { const open = it.room === 'hall' || (G.profile.castle && G.profile.castle[it.room]); it.hidden = !open; it.glow = open && !(G.profile.castle.decor && G.profile.castle.decor[it.sid]); } else if (it.type === 'roomgate') { it.plate = it.done ? null : ROOMS[it.room].name; it.reqLevel = it.done ? 0 : ROOMS[it.room].lvl; } else if (it.type === 'room') it.plate = ROOMS[it.room].name; }
-  const hp = G.zone.inter.find(i => i.id === 'herospath'); if (hp) { const noSkill = !!gate('hw', 1); hp.locked = noSkill; hp.lockNote = noSkill && G.profile.level >= 2 ? 'выберите навык' : ''; }
-  const wh = G.zone.inter.find(i => i.id === 'wheel'); if (wh) wh.marker = wheelReady() ? '!' : null;
-  const fn = G.npcs.find(n => n.id === 'fortune'); if (fn) fn.marker = wheelReady() ? '!' : null;
-  const kv = G.npcs.find(n => n.id === 'caravan'); if (kv && !kv.marker) kv.marker = (G.profile.pets && G.profile.pets.met) || elderFirst() ? null : '!';   // сборка 58: Кофи ждёт с подарком
+  const hp = G.zone.inter.find(i => i.id === 'herospath'); if (hp) { const g = gate('hw', 1); hp.locked = !!g; hp.lockNote = g && G.profile.level >= 2 && !(G.profile.slots.some(Boolean) || Object.keys(G.profile.skills).length) ? 'выберите навык' : ''; }
+  // сборка 59: пока Колесо и Кофи закрыты обучением — без «!» (их было 3–4 против одного значка задания)
+  const xl = earlyLock('extra');
+  const wh = G.zone.inter.find(i => i.id === 'wheel'); if (wh) wh.marker = !xl && wheelReady() ? '!' : null;
+  const fn = G.npcs.find(n => n.id === 'fortune'); if (fn) fn.marker = !xl && wheelReady() ? '!' : null;
+  const kv = G.npcs.find(n => n.id === 'caravan'); if (kv && !kv.marker) kv.marker = (G.profile.pets && G.profile.pets.met) || xl ? null : '!';   // сборка 58: Кофи ждёт с подарком
   const bd = G.zone.inter.find(i => i.id === 'board'); if (bd) bd.marker = (REPEATABLE.some(r => Q.repState(r).done) || DQ.dailyReady() || DQ.weeklyQuests().some(q => q.done && !q.claimed)) ? '?' : null;
   const P = G.profile; const tr = G.npcs.find(n => n.id === 'trainer'); if (tr && !tr.marker && (P.attrPts || P.skillPts)) tr.marker = '+';
 }

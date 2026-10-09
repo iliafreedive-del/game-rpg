@@ -27,7 +27,8 @@ export async function initRenderer(canvas) {
 let veil = null;
 const VEIL_ART = ['town', 'catacombs', 'depths', 'survival', 'castle', 'forest', 'fjord', 'bones'];   // сборка 58: картинка зоны под «Загрузка…»
 bus.on('zoneLoading', () => { if (!G.zone) return; if (!veil) { veil = document.createElement('div'); veil.id = 'zoneVeil'; veil.innerHTML = '<span>Загрузка…</span>'; document.body.appendChild(veil); }
-  const z = VEIL_ART.includes(G.zoneTo) ? G.zoneTo : ''; veil.style.setProperty('--veil-l', z ? `url(assets/art/gpt/zones/${z}_land.jpg)` : 'none'); veil.style.setProperty('--veil-p', z ? `url(assets/art/gpt/zones/${z}_port.jpg)` : 'none');
+  const z = VEIL_ART.includes(G.zoneTo) ? G.zoneTo : ''; const U = f => `url("${new URL('assets/art/gpt/zones/' + f, document.baseURI).href}")`;   // сборка 59: адрес от страницы — относительный url() в CSS-переменной браузер считал от css/ и картинка не грузилась (404)
+  veil.style.setProperty('--veil-l', z ? U(z + '_land.jpg') : 'none'); veil.style.setProperty('--veil-p', z ? U(z + '_port.jpg') : 'none');
   veil.classList.add('on'); });
 bus.on('zoneEntered', () => { if (veil) veil.classList.remove('on'); });
 bus.on('camZoom', () => { if (!on3) R2.resize(); });   // 2D: масштаб пересчитывается при зуме игрока (3D сам плавно следует)

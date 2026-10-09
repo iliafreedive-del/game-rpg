@@ -14,7 +14,7 @@ import { CODEX } from '../data/story.js';
 import { gate } from '../game/progress.js';
 import { paintScene } from './hwscenes.js';
 import { ART, artImg } from './art.js';
-import { makeBattle, stageFoes, arenaView, setArenaLayout } from '../game/hwbattle.js';
+import { makeBattle, stageFoes, arenaView, setArenaLayout, relayoutBattle } from '../game/hwbattle.js';
 
 // сборка 47: энергия общая с Глубинами и Жатвой (game/castle.js); каждый бой стоит 1 ⚡ — и победа, и поражение
 export const EN_MAX = TORCH_MAX;
@@ -107,14 +107,15 @@ async function fight(s) {
   stack.append(bgcv, glcv, cv); root.appendChild(stack);
   const ctx = cv.getContext('2d'), bctx = bgcv.getContext('2d'); const dpr = Math.min(2, devicePixelRatio || 1);
   let stage = null, view = null;
-  const resize = () => { cv.width = bgcv.width = Math.round(cv.clientWidth * dpr); cv.height = bgcv.height = Math.round(cv.clientHeight * dpr); view = arenaView(cv.clientWidth, cv.clientHeight); if (stage) stage.resize(cv.clientWidth, cv.clientHeight); };
+  let B = null;
+  const resize = () => { if (B) relayoutBattle(B, stack.clientWidth < stack.clientHeight * 1.1); cv.width = bgcv.width = Math.round(cv.clientWidth * dpr); cv.height = bgcv.height = Math.round(cv.clientHeight * dpr); view = arenaView(cv.clientWidth, cv.clientHeight); if (stage) stage.resize(cv.clientWidth, cv.clientHeight); };
   resize();
   let speed = G.profile.hwSpeed === 2 ? 2 : 1; const speedB = el('button', 'hw-speed', '×' + speed); speedB.onclick = () => { speed = speed === 1 ? 2 : 1; G.profile.hwSpeed = speed; speedB.textContent = '×' + speed; }; root.appendChild(speedB);
   // сборка 47: «Сбежать» — прервать бой (энергия уже потрачена, награды нет)
   const fleeB = el('button', 'hw-speed hw-flee', 'Сбежать'); fleeB.onclick = () => { ended = true; cancelAnimationFrame(raf); raf = 0; speedB.remove(); fleeB.remove(); bus.emit('save'); showMap(); }; root.appendChild(fleeB);
   const ci = chOf(s), cls = G.profile.cls || 'warrior', wt = G.profile.gear.weapon ? G.profile.gear.weapon.wt : 'sword';
   setArenaLayout(stack.clientWidth < stack.clientHeight * 1.1);   // сборка 50: телефон вертикально — арена уже, бойцы крупнее
-  const B = makeBattle({ ...heroSummary(), cls }, stageFoes(s)), Hu = B.H, foes = B.foes; stack.battle = B;   // stack.battle — для автотестов
+  B = makeBattle({ ...heroSummary(), cls }, stageFoes(s)); const Hu = B.H, foes = B.foes; stack.battle = B;   // stack.battle — для автотестов
   const nums = [], fx = [], labels = []; let time = 0, last = performance.now(), ended = false;
   try {   // 3D-бойцы; если WebGL нет или он упал — прежние спрайты
     const M = await import('../render3d/hwstage.js');
@@ -125,10 +126,12 @@ async function fight(s) {
   let bgCache = null, bgKey = '';
   // сборка 58: нарисованный задник главы (3 варианта на главу: этапы 1–10 → a, 11–20 → b, 21–30 → c); горизонт картинки (~50% высоты) — на горизонт арены
   const variant = 'abc'[Math.min(2, Math.floor(((s - 1) % PER_CH) / 10))];
-  const arenaArt = port => artImg(ART.arena(ci + 1, variant, port));
-  arenaArt(stack.clientWidth < stack.clientHeight);
+  // сборка 59: картинка выбирается один раз на бой. Вертикальный и горизонтальный варианты нарисованы разными сценами — при повороте
+  // телефона фон менялся на совсем другую картинку (а пока та грузилась — ещё и на процедурную стену). Теперь та же картинка, обрезанная под экран
+  const arenaArt = port => artImg(ART.arena(ci + 1, variant, port)), artPort = stack.clientWidth < stack.clientHeight;
+  arenaArt(artPort);
   function drawArt(W, Hh) {
-    const r = arenaArt(W < Hh); if (!r.ok) return false;
+    const r = arenaArt(artPort); if (!r.ok) return false;
     const im = r.im, iw = im.naturalWidth, ih = im.naturalHeight, hz = view.horizon * Hh, IH = 0.5;
     const k = Math.max(W / iw, Hh / ih, hz / (IH * ih), (Hh - hz) / ((1 - IH) * ih)), w = iw * k, h = ih * k;
     bctx.drawImage(im, (W - w) / 2, hz - IH * h, w, h); return true;
@@ -247,7 +250,7 @@ async function fight(s) {
     if (narrowT) { ctx.textAlign = 'center'; ctx.strokeText(en, W / 2, 58); ctx.fillStyle = '#ffb0a0'; ctx.fillText(en, W / 2, 58); }
     else { ctx.textAlign = 'right'; ctx.strokeText(en, W - 14, 26); ctx.fillStyle = '#ffb0a0'; ctx.fillText(en, W - 14, 26); }
     ctx.textAlign = 'center';
-    if (B.time < 1.0) { ctx.font = `bold ${Math.round(52 * (1.4 - B.time * 0.4))}px Georgia`; ctx.fillStyle = `rgba(255,220,140,${1 - B.time})`; ctx.fillText('БОЙ!', W / 2, Hh * 0.3); }
+    if (B.time < 1.0) { const bf = Math.round(52 * (1.4 - B.time * 0.4)); ctx.font = `bold ${bf}px Georgia`; ctx.fillStyle = `rgba(255,220,140,${1 - B.time})`; ctx.fillText('БОЙ!', W / 2, Math.max(Hh * 0.3, (narrowT ? 66 : 46) + bf)); }   // сборка 59: не наезжает на название этапа
     if (B.over && !ended) { ended = true; setTimeout(() => end(B.over === 'win'), 1500 / speed); }
     if (root && root.contains(stack)) raf = requestAnimationFrame(frame);
   }

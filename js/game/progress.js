@@ -41,8 +41,13 @@ export function lockToast(kind) {
   bus.emit('toast', { text: kind === 'upg' ? 'Усиления откроются после Летописи битв' : 'Откроется чуть позже', sub: 'Сначала пройдите обучение — идите по стрелке', kind: 'warn' }); bus.emit('sfx', 'deny');
 }
 // null — можно, иначе { text, sub }
+// сборка 59: обучение не обойти — Летопись, Жатва и катакомбы открываются своим шагом сюжета (раньше вход открывался по навыку,
+// и в Жатву/катакомбы можно было зайти до задания: шаг потом засчитывался сам или стрелка вела не туда)
+const early = id => G.profile.story && G.profile.story.stage < stIdx(id);
+const EARLY = { text: 'Рано', sub: 'Сначала задания в деревне — идите по золотой стрелке' };
 export function gate(name, extra) {
   const P = G.profile;
+  if ((name === 'catacombs' && early('find_portal')) || (name === 'survival' && early('surv_try')) || (name === 'hw' && early('hw_try'))) return EARLY;
   switch (name) {
     case 'catacombs': return hasSkill() ? null : { text: 'Сначала выберите навык', sub: 'Поговорите с наставником в деревне (у него значок «+») и выучите первое умение' };
     case 'temple': return null;   // Разрушенный храм (портал с руками): открыт сразу со 2 уровня (уровень проверяет портал)

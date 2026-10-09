@@ -13,6 +13,8 @@ const MAX_PARTICLES = 350, MAX_TEXTS = 50, MAX_EFFECTS = 80;
 
 // ------------------------------------------------------------------ VFX helpers (bounded pools)
 export function float(x, y, text, color = '#fff', o = {}) {
+  // сборка 59: одна и та же надпись (не число) в том же месте — не громоздить друг на друга («Уклонение» от трёх ударов разом)
+  if (isNaN(text) && G.texts.some(f => f.text === String(text) && f.t < 0.45 && Math.hypot(f.x - x, f.y - y) < 1.2)) return;
   if (G.texts.length >= MAX_TEXTS) G.texts.shift();
   G.texts.push({ x, y, z: o.z ?? 1.9, text: String(text), color, t: 0, life: o.life || 0.9, big: o.big || 0, dx: rrange(-0.25, 0.25) });
 }

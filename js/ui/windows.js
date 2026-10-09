@@ -19,7 +19,7 @@ import { offers, buy, restorePurchases, dailyStatus, claimDaily, chestStatus, ch
 import { PRODUCTS, platform } from '../platform/platform.js';
 import { wallOffer, markShown, streakHelp, helpGiven } from '../platform/offers.js';
 import { inCinema } from './cinema.js';
-import { revive, saveNow, loadZone, depthsUnlocked, MAX_REVIVES } from '../game/game.js';
+import { revive, saveNow, loadZone, depthsUnlocked, MAX_REVIVES, inPrologue } from '../game/game.js';
 import { generateFloor, isBossFloor, floorLevel } from '../world/floorgen.js';
 import { REALMS, WILD_QUESTS, wildLevel, isWildBoss, isWildFort, locationName, wildReqLevel, FIELDS_PER_FORT } from '../data/wild.js';
 import { wildState, questProgress, claimQuest } from '../game/wild.js';
@@ -38,10 +38,10 @@ import { MEMORIES, SEALS } from '../data/story.js';
 import { BOONS, BOON_IDS } from '../data/boons.js';
 import { FLOOR_MODS, FLOOR_MOD_IDS, modReward } from '../data/floormods.js';
 import { stats as calcStats } from '../game/stats.js';
-import { particles } from '../game/combat.js';
+import { particles, effect } from '../game/combat.js';
 import { maybeInterstitial } from '../platform/monetize.js';
 import { petsOf, meetCaravan } from '../game/pets.js';
-import { PETS } from '../data/pets.js';
+import { PETS, TIERS } from '../data/pets.js';
 import { earlyLock, firstLessonCost, POTION_RESERVE } from '../game/progress.js';
 import { platform as PF } from '../platform/platform.js';
 import { wipeLocal, cloudBundle } from '../game/save.js';
@@ -506,6 +506,7 @@ W.npc_elder = () => {
   else if (q && q.id === 'learn_skill') lines = DIALOG.elder.skill;
   else if (q && q.id === 'meet_merchant') lines = DIALOG.elder.shop;
   else if (q && q.id === 'hw_try') lines = DIALOG.elder.hw;
+  else if (q && DIALOG.elder[q.id] && !Q.isReady()) lines = DIALOG.elder[q.id];
   else if (Q.isReady() && Q.turnNpc(q) !== 'elder') lines = ['Золото собрано? Отнеси его кузнецу Горану — он ждёт у горна.'];
   else if (Q.isReady()) { lines = DIALOG.elder.turnin[q.id] || ['Ты справился. Вот твоя награда.']; fin = true; }
   else if (q && q.id === 'finish') { lines = DIALOG.elder.finish; fin = true; }
@@ -656,11 +657,29 @@ W.npc_caravan = () => {
     const dl = dialog(b, 'caravan', 'Караванщик Кофи', lines);
     const row = el('div', 'row'); row.style.marginTop = '12px';
     const nx = el('button', 'btn gold', lines.length > 1 ? 'Далее' : 'Понятно');
-    nx.onclick = () => { if (dl.next()) { if (dl.last()) nx.textContent = first ? 'Принять подарок' : 'Понятно'; return; } if (first) meetCaravan(); closeModal(); };
+    nx.onclick = () => { if (dl.next()) { if (dl.last()) nx.textContent = first ? 'Принять подарок' : 'Понятно'; return; } closeModal(); if (first && meetCaravan()) petReveal(); };
     if (lines.length === 1) nx.textContent = 'Понятно';
     row.appendChild(nx); b.appendChild(row);
   }, { sticky: true });
 };
+// сборка 59: первый питомец — торжественно. Вспышка и кольцо там, где он появился, фанфары, через секунду — окно «Новый спутник»
+// с лучами, крупным зверьком, его умением и тем, где брать остальных
+function petReveal() {
+  const p = G.pet, D = p && PETS[p.id]; if (!D) return;
+  particles(p.x, p.y, 46, { c: [255, 170, 60], sp: 3.4, size: 4 }); particles(p.x, p.y, 24, { c: [255, 236, 170], sp: 1.6, size: 3 });
+  effect({ kind: 'ring', x: p.x, y: p.y, r: 2.6, dur: 0.7, c: [255, 200, 110] }); G.cam.shake = 0.25;
+  bus.emit('sfx', 'epicDrop'); setTimeout(() => bus.emit('sfx', 'levelup'), 350);
+  bus.emit('float', { x: p.x, y: p.y, text: D.icon + ' ' + D.name, color: '#ffd27a', z: 1.6, life: 1.8, big: 1 });
+  setTimeout(() => {
+    const m = modal('Новый спутник!', 'sm reward', b => {
+      b.appendChild(el('div', 'rw-head pet-rv', `<div class="rw-rays r3"></div><div class="pet-rv-ic">${D.icon}</div><div class="rw-t">${esc(D.name)}</div><div class="pet-rv-tier" style="color:${TIERS[D.tier].color}">${esc(TIERS[D.tier].name)} питомец · подарок Кофи</div>`));
+      b.appendChild(el('p', 'pet-rv-d', `<b>Умение:</b> ${esc(D.desc)}`));
+      b.appendChild(el('p', 'muted pet-rv-d', 'Ходит за вами везде — в подземельях, походах и Цитадели — и сам бьётся рядом. Новых зверьков и улучшения Кофи продаёт за осколки Бездны ◆.'));
+      const r = el('div', 'row'); r.style.justifyContent = 'center'; const ok = el('button', 'btn gold', 'В путь!'); ok.onclick = closeModal; r.appendChild(ok); b.appendChild(r);
+    }, { sticky: true });
+    m.bg.classList.add('rw-bg');
+  }, 1100);
+}
 W.npc_trainer = () => {
   // Глава III: герой вспомнил всё — Элвин объясняется (одной сценой, потом обычное окно наставника)
   { const q = Q.current(), scene = q && { c3_elvin: DIALOG.trainer.confess, c2_stone: DIALOG.trainer.stone }[q.id]; if (scene) { const lines = scene;
@@ -800,6 +819,11 @@ function showDeath() {
   const left = Math.max(0, MAX_REVIVES - (G.revives || 0)), canRev = left > 0 && G.zoneId !== 'castle' && G.zoneId !== 'town';
   const ad = el('button', 'btn ad', `Воскреснуть на месте (осталось ${left})`);
   ad.onclick = async () => { const tok = offerToken('revive'); const ok = await watchRewarded('revive', tok, () => { }); if (ok) { d.classList.add('hidden'); G.paused = false; revive(true); } };
+  if (inPrologue()) {   // сборка 59: в прологе — без деревни и без потери золота: склеп начинается заново
+    d.querySelector('p.muted').textContent = 'Склеп пробуждения не пройден. Попробуйте ещё раз: отходите от замахов и бейте первым.';
+    const again = el('button', 'btn gold', 'Ещё раз'); again.onclick = () => { d.classList.add('hidden'); G.paused = false; revive(false); };
+    row.append(again); d.appendChild(row); return;
+  }
   const loss = Math.floor(G.profile.gold * 0.1);
   const town = el('button', 'btn gold', `В деревню (−${loss} зол.)`); town.onclick = () => { G.profile.gold -= loss; d.classList.add('hidden'); G.paused = false; revive(false); };
   if (canRev) row.append(ad); row.append(town); d.appendChild(row);
