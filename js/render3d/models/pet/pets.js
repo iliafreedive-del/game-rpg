@@ -1,6 +1,7 @@
 // Питомцы каравана (сборка 58, js/data/pets.js): восемь маленьких процедурных моделей на своих простых ригах.
 // Вперёд — +Z. Летуны (ворон, огонёк, череп, мышь) висят в воздухе сами (тело поднято в модели, качается).
 // Клипы: idle / walk / attack (укус или выстрел, hit 0.5) / hit / death / cast. Рост — с крупную кошку: сверху камеры их видно.
+import { meshyPet } from './petrig.js';
 const CLIPS = { idle: { loop: true }, walk: { loop: true }, attack: { dur: 0.5, hit: 0.5 }, hit: { dur: 0.3 }, death: { dur: 1 }, cast: { dur: 0.5, fire: 0.5 } };
 
 function base(kit, o = {}) {
@@ -130,5 +131,6 @@ function golem(kit) {
 }
 
 const FLY = { crow: 1, wisp: 1, skull: 1, bat: 1 };
-const def = (id, fn) => ({ id: 'pet_' + id, kind: 'npc', outline: 'mob', fly: !!FLY[id], build: fn });
+// сборка 60: если загружена модель из Meshy (assets/models/pet_<id>.*) — она на своём скелете (petrig.js), иначе эта процедурная
+const def = (id, fn) => ({ id: 'pet_' + id, kind: 'npc', outline: 'mob', fly: !!FLY[id], build: kit => meshyPet(kit, 'pet_' + id, () => fn(kit)) });
 export const PET_MODELS = { fennec: def('fennec', fennec), crow: def('crow', crow), scorpid: def('scorpid', scorpid), wisp: def('wisp', wisp), skull: def('skull', skull), basilisk: def('basilisk', basilisk), bat: def('bat', bat), golem: def('golem', golem) };
