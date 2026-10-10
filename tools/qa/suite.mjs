@@ -9,7 +9,7 @@
 //   langs     10 языков: главные окна, непереведённый текст, текст, вылезающий за кнопку (нужна dist/langs — соберёт сам)
 //   saves     сохранения старых сборок (tools/qa/fixtures/saves) загружаются в текущую: уровень, золото, вещи на месте
 //   perf      медленный телефон (CPU ×CPU, по умолчанию 4): кадры в тяжёлых местах; сравнение с прошлым прогоном
-//   balance   каждый класс против стража глубин N раз (BAL_N, по умолчанию 10): время, смерти, остаток HP
+//   balance   каждый класс один на один со стражем глубин N раз (BAL_N, по умолчанию 10): время, смерти, остаток HP
 //   prebuild  smoke + bot + visual + screens (iPhone) — быстрый круг перед каждой сборкой
 //   all       всё подряд
 import fs from 'fs'; import path from 'path'; import { execFileSync } from 'child_process';
@@ -136,8 +136,9 @@ async function visual() {
   try {
     for (const S of SCENES) {
       const p = await Q.open(b, { seed: 42, titleOnly: !!S.title });
-      if (!S.title) { if (!S.keep) await Q.loadZone(p, ...S.zone); await Q.setHero(p, S.lvl); await Q.advance(p, S.adv); await Q.closeAll(p); await Q.settle(p); if (S.win) for (let i = 0; i < 4; i++) {   // окно проявляется CSS-анимацией настоящего времени; если зона ещё сменялась — открыть заново
-        await Q.settle(p); await Q.mod(p, "/ui/windows.js", "openWindow", S.win); await Q.sleep(800); await Q.advance(p, 100);
+      await p.addStyleTag({ content: '#zoneVeil{transition:none!important}' });   // шторка гаснет CSS-переходом по настоящим часам — на снимке её быть не должно
+      if (!S.title) { if (!S.keep) await Q.loadZone(p, ...S.zone); await Q.setHero(p, S.lvl); await Q.advance(p, S.adv); await Q.closeQuiet(p); await Q.settle(p); if (S.win) for (let i = 0; i < 4; i++) {   // окно проявляется CSS-анимацией настоящего времени; если зона ещё сменялась — открыть заново
+        await Q.closeQuiet(p); await Q.settle(p); await Q.mod(p, "/ui/windows.js", "openWindow", S.win); await Q.sleep(800); await Q.advance(p, 100);
         if (await p.evaluate(() => !!document.querySelector('.modal') && !document.querySelector('#zoneVeil.on'))) break; } }
       else await Q.sleep(1500);
       const f = await Q.shot(p, path.join(cur, S.name + '.png')), bf = path.join(base, S.name + '.png');
@@ -286,24 +287,30 @@ async function perf() {
 // ---------------------------------------------------------------- balance
 async function balance() {
   const N = env('BAL_N', 10), dir = Q.mkdir(path.join(OUT, 'balance'));
-  const fights = (process.env.BAL || '5:8,10:14,15:20').split(',').map(x => x.split(':').map(Number));   // этаж стража : уровень героя
+  const fights = (process.env.BAL || '5:8,10:14,15:20').split(',').map(x => x.split(':').map(Number));   // этаж стража : уровень героя; бой один на один со стражем
   const rows = []; const b = await Q.browser();
   try {
     for (const cls of [0, 1, 2]) for (const [floor, lvl] of fights) {
-      const runs = [];
+      const runs = []; const p = await Q.open(b, { seed: 1000, cls });   // одна страница на класс, перед каждым боем — свой сид и свежий герой
       for (let i = 0; i < N; i++) {
-        const p = await Q.open(b, { seed: 1000 + i, cls });
-        await Q.loadZone(p, 'depths', { floor }); await Q.setHero(p, lvl); await Q.advance(p, 300); await Q.closeModals(p);
-        let s = await Q.state(p); const total = s.enemies.alive; let t = 0;
-        for (; t < 240 * 4 && s.enemies.alive > 0 && !s.player.dead; t++) {
+        if (i) await Q.sleep(1600);   // экран гибели прошлого боя всплывает по таймеру 1,3 с — дождаться и убрать
+        await p.evaluate(i => { const G = window.__G, d = document.getElementById('death'); if (d) d.classList.add('hidden'); G.paused = false; G.player.dead = false; G.player.state = 'idle'; G.revives = 0; window.__qaReseed(1000 + i); }, i);
+        await Q.closeQuiet(p); await Q.loadZone(p, 'depths', { floor, fullHeal: true, noReseed: true }); await Q.setHero(p, lvl); await Q.closeQuiet(p);
+        // бой один на один со стражем этажа: остальных убираем, героя ставим в 6 м от стража в прямой видимости
+        await p.evaluate(() => { const G = window.__G, pl = G.player, m = G.zone.map, boss = G.enemies.find(e => e.D.boss) || G.enemies.find(e => e.D.elite); if (!boss) return;
+          G.enemies = [boss]; for (let k = 0; k < 24; k++) { const a = k / 24 * 6.283, x = boss.x + Math.cos(a) * 6, y = boss.y + Math.sin(a) * 6; if (m.free(x, y, 0.4) && m.los(x, y, boss.x, boss.y)) { pl.x = x; pl.y = y; break; } }
+          boss.aggro = true; });
+        await Q.advance(p, 100);
+        let s = await Q.state(p); const total = s.zone === 'depths' ? s.enemies.alive : 0; let t = 0;
+        for (; total && t < 240 * 4 && s.zone === 'depths' && s.enemies.alive > 0 && !s.player.dead; t++) {
           if (s.mode !== 'play') { await Q.closeModals(p); s = await Q.botTick(p, { idle: true }); continue; }
           s = await Q.botTick(p);
         }
-        runs.push({ win: s.enemies.alive === 0 && !s.player.dead, dead: s.player.dead, sec: t / 4, hpLeft: s.player.dead ? 0 : Math.round(100 * s.player.hp / s.player.maxHP), killed: total - s.enemies.alive, total });
-        await p.context().close();
+        runs.push({ zone: s.zone, win: total > 0 && s.zone === 'depths' && s.enemies.alive === 0 && !s.player.dead, dead: s.player.dead, sec: t / 4, hpLeft: s.player.dead ? 0 : Math.round(100 * s.player.hp / s.player.maxHP), killed: total - s.enemies.alive, total });
       }
+      await p.context().close();
       const wins = runs.filter(r => r.win), row = { cls: ['воин', 'лучник', 'маг'][cls], floor, lvl, n: N, winPct: Math.round(100 * wins.length / N), deaths: runs.filter(r => r.dead).length, medSec: Q.pct(wins.map(r => r.sec), 0.5), medHpLeft: Q.pct(wins.map(r => r.hpLeft), 0.5) };
-      rows.push(row); log(`balance ${row.cls} ур.${lvl} этаж ${floor}: побед ${row.winPct}%, смертей ${row.deaths}/${N}, медиана ${row.medSec} с, HP в конце ${row.medHpLeft}%`);
+      row.runs = runs; rows.push(row); log(`balance ${row.cls} ур.${lvl} этаж ${floor}: побед ${row.winPct}%, смертей ${row.deaths}/${N}, медиана ${row.medSec} с, HP в конце ${row.medHpLeft}%`);
     }
   } finally { await b.close(); }
   const md = ['| Класс | Ур. | Этаж | Побед | Смертей | Время, с | HP в конце |', '|---|---:|---:|---:|---:|---:|---:|', ...rows.map(r => `| ${r.cls} | ${r.lvl} | ${r.floor} | ${r.winPct}% | ${r.deaths}/${r.n} | ${r.medSec} | ${r.medHpLeft}% |`)].join('\n');

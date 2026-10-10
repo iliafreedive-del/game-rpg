@@ -77,7 +77,7 @@ export const closeModals = p => p.evaluate(() => {
 });
 
 // загрузить зону, подготовить героя нужного уровня (как tools/qa/scenarios/depths_balance.js)
-export const loadZone = (p, id, how = {}) => p.evaluate(async ([id, how]) => { const L = window.__LANG && window.__LANG !== 'ru' ? '/js_' + window.__LANG : '/js'; const gm = await import(L + '/game/game.js'); window.__G.profile.tutorial.prologue = true; if (window.__qaReseed) window.__qaReseed(1234);   // three.js тратит Math.random на uuid при асинхронной загрузке моделей — перед зоной сид заново
+export const loadZone = (p, id, how = {}) => p.evaluate(async ([id, how]) => { const L = window.__LANG && window.__LANG !== 'ru' ? '/js_' + window.__LANG : '/js'; const gm = await import(L + '/game/game.js'); window.__G.profile.tutorial.prologue = true; if (window.__qaReseed && !how.noReseed) window.__qaReseed(1234);   // three.js тратит Math.random на uuid при асинхронной загрузке моделей — перед зоной сид заново
   await gm.loadZone(id, how); }, [id, how]);
 export const setHero = (p, level, rarity = 2) => p.evaluate(async ([L, rarity]) => {
   const D = window.__LANG && window.__LANG !== 'ru' ? '/js_' + window.__LANG : '/js'; const G = window.__G, P = G.profile;
@@ -126,3 +126,14 @@ export const pct = (a, q) => { const s = [...a].sort((x, y) => x - y); return s.
 export async function closeAll(p, tries = 6) { for (let i = 0; i < tries; i++) { const r = await closeModals(p); if (!r) { await sleep(400); if (!(await closeModals(p))) return; } await sleep(150); await advance(p, 50); } }
 // дождаться конца смены зоны (шторка «Загрузка…» снята, у неё CSS-переход 0,2 с настоящего времени)
 export async function settle(p) { await p.waitForFunction(() => window.__G.zoneReady && !document.querySelector('#zoneVeil.on'), null, { timeout: 30000 }).catch(() => { }); await sleep(350); await advance(p, 100); }
+// закрыть окна, ничего в них не нажимая (кнопки окон бывают «В деревню», «Сдаться» — они меняют зону); карточки подсказок — их «Понятно»
+export async function closeQuiet(p) {
+  for (let i = 0; i < 4; i++) {
+    const left = await p.evaluate(async () => { const D = window.__LANG && window.__LANG !== 'ru' ? '/js_' + window.__LANG : '/js'; const W = await import(D + '/ui/windows.js');
+      if (document.querySelector('.modal')) W.closeModal(true);
+      for (const c of document.body.children) { if (['ui', 'title', 'death', 'zoneVeil'].includes(c.id) || getComputedStyle(c).position !== 'fixed' || !c.getClientRects().length) continue;
+        const b = [...c.querySelectorAll('button')].find(b => b.getClientRects().length && /Понятно|OK|Got it/i.test(b.innerText)); if (b) b.click(); }
+      return !!document.querySelector('.modal'); });
+    await sleep(400); await advance(p, 50); if (!left) return;
+  }
+}
