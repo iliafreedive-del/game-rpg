@@ -128,7 +128,9 @@ export class Zone {
         }
         case 'roomgate': {
           const open = !!(W.castle && W.castle[o.id]); const tx = Math.floor(o.x), ty = Math.floor(o.y);
-          const flip = m.ch(tx - 1, ty) !== '#';
+          // правки 2 (П23): у северных дверей Цитадели сосед слева — вторая клетка той же двери ('D'), дверь вставала поперёк стены;
+          // теперь сторону задаёт castlegen (flip — проход вдоль X)
+          const flip = o.flip ?? m.ch(tx - 1, ty) !== '#';
           const wideG = (o.span || 1) > 1 || J.castle, tiles = o.tiles || [[tx, ty]];   // сборка 47: в Цитадели — двустворчатая дверь с прямым верхом на весь проход
           const d = this.add({ x: o.x, y: o.y, spr: wideG ? (open ? 'door_square_open' : 'door_square') : open ? 'door_open' : 'gate_sealed', flip, wall: true, opts: wideG ? { span: o.span || 3 } : undefined });
           if (open) for (const [x, y] of tiles) m.setSolid(x, y, 0);
