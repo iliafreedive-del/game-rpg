@@ -22,7 +22,7 @@ export function initInput(joyZone, joyBase, joyKnob) {
     if (input.onKey && !e.repeat) input.onKey(e.code, e);
   });
   addEventListener('keyup', e => { input.keys.delete(e.code); if (e.code === 'Space') input.attackHeld = false; });
-  addEventListener('blur', () => { input.keys.clear(); input.attackHeld = false; release(); });
+  addEventListener('blur', releaseInput);
   const pd = e => {
     if (e.pointerType === 'mouse') { Ms.x = e.clientX; Ms.y = e.clientY; Ms.t = performance.now(); if (e.button === 2) Ms.down = true; else if (e.button === 0) Ms.aim = true; e.preventDefault(); return; }
     if (J.id !== null) return; input.touch = e.pointerType !== 'mouse' || input.touch;
@@ -51,6 +51,9 @@ function place(idle) {
 }
 export const joyPointer = () => J.id;
 export function releaseJoy() { if (J.id === null) return; try { zone.releasePointerCapture(J.id); } catch (e) { } release(); }   // щипок двумя пальцами забирает палец у джойстика
+// правки по скилам (С33): ушли со страницы (blur, скрытая вкладка, pagehide) — отпустить всё зажатое, иначе герой бежит/бьёт сам по возвращении
+export function releaseInput() { input.keys.clear(); input.attackHeld = false; Ms.down = Ms.aim = false; tapAim.held = null; if (J.id !== null) releaseJoy(); else if (zone) release(); }
+document.addEventListener('visibilitychange', () => { if (document.hidden) releaseInput(); });
 function release() { J.id = null; input.mx = input.my = 0; base.classList.remove('active'); resetBase(); }
 addEventListener('resize', () => { if (zone && J.id === null) resetBase(); });
 
@@ -71,7 +74,7 @@ export function pollMove() {
   const ky = (k.has('KeyS') || k.has('ArrowDown') ? 1 : 0) - (k.has('KeyW') || k.has('ArrowUp') ? 1 : 0);
   if (kx || ky) { const l = Math.hypot(kx, ky); x = kx / l; y = ky / l; }
   const mag = Math.min(1, Math.hypot(x, y));
-  input.mag = mag < 0.12 ? 0 : mag;
+  input.mag = mag < 0.12 ? 0 : mag;   // мёртвая зона 12 %; плавный разгон шага у её края — в entities.js (С33)
   if (input.mag) { const [wx, wy] = screenDirToWorld(x, y); input.wx = wx; input.wy = wy; } else { input.wx = input.wy = 0; }
   return input;
 }

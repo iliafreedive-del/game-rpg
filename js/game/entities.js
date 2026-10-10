@@ -65,7 +65,7 @@ export class Player {
     // movement
     const mag = input.mag;
     if (mag > 0.12) {   // удар по герою не сбивает шаг (сборка 19)
-      const run = mag > 0.55; const sp = (run ? 5.4 : 3.2) * (this.S.moveMul || 1) * (G.surv ? 1 + (G.surv.p.swift || 0) * 0.08 : 1) * (this.slowT > 0 ? 0.6 : 1) * (G.wild ? G.wild.slow : 1) * (G.run && G.run.boons && G.run.boons.includes('haste') ? 1.12 : 1);
+      const run = mag > 0.55; const sp = (run ? 5.4 : 3.2 * Math.min(1, 0.35 + (mag - 0.12) * 3.6)) *   /* С33: у края мёртвой зоны шаг набирает скорость плавно (35 % → 100 % к 30 % наклона), а не рывком */ (this.S.moveMul || 1) * (G.surv ? 1 + (G.surv.p.swift || 0) * 0.08 : 1) * (this.slowT > 0 ? 0.6 : 1) * (G.wild ? G.wild.slow : 1) * (G.run && G.run.boons && G.run.boons.includes('haste') ? 1.12 : 1);
       const ox = this.x, oy = this.y;
       [this.x, this.y] = G.zone.map.move(this.x, this.y, input.wx * sp * dt, input.wy * sp * dt, this.r);
       const moved = Math.hypot(this.x - ox, this.y - oy); this.meters += moved;
