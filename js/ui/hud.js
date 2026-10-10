@@ -45,7 +45,9 @@ export function initHUD() {
   hold('btnAtk', () => { const bs = G.profile.bigSkill; if (bs && G.profile.skills[bs] && C.skillUsable(bs).ok) C.castSkill(bs); input.attackHeld = true; }, () => { input.attackHeld = false; });
   for (let i = 0; i < 4; i++) hold('sk' + i, () => { const id = G.profile.slots[i]; if (id) C.castSkill(id); else openWindow('skills'); });
   hold('btnDodge', () => G.player.dodge(input.wx, input.wy));
-  hold('potHP', () => usePotion('hp')); hold('potMP', () => usePotion('mp'));
+  // П62: нажал пустую банку — окно: купить у Миры или 2 зелья за рекламу (а не только «Нет зелий»)
+  const pot = k => { if (G.profile.potions[k] > 0 || G.player.dead) usePotion(k); else openWindow('potEmpty', k); };
+  hold('potHP', () => pot('hp')); hold('potMP', () => pot('mp'));
   hold('btnAct', () => { if (G.focus) interact(G.focus); });
   $('btnScroll').onclick = () => useScroll();
   const ab = $('btnAuto'); ab.removeAttribute('data-open'); ab.onclick = null; ab.onpointerdown = async e => { e.preventDefault(); e.stopPropagation();

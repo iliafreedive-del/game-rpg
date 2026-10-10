@@ -807,6 +807,32 @@ W.shrine = () => modal('Источник силы', 'md', b => {
   if (platform.name === 'demo') b.appendChild(el('p', 'muted', '<small>Демо-режим: реклама и покупки имитируются, деньги не списываются. На Яндекс Играх подключается SDK площадки.</small>'));
 });
 
+// П62: пустая банка. Реклама даёт 2 зелья; подряд — до 10 раз, потом одна попытка восстанавливается раз в 15 минут.
+// Купить — у торговки Миры (в деревне сразу из этого окна, в походе — подсказка, где купить)
+const POT_ADS = 10, POT_AD_MS = 15 * 60e3;
+function potAds() {
+  const P = G.profile, A = P.potAds || (P.potAds = { n: POT_ADS, t: Date.now() }), now = Date.now();
+  if (A.t > now) A.t = now;   // часы переведены назад — не ждать часами
+  if (A.n >= POT_ADS) A.t = now; else { const k = Math.floor((now - A.t) / POT_AD_MS); if (k > 0) { A.n = Math.min(POT_ADS, A.n + k); A.t = A.n >= POT_ADS ? now : A.t + k * POT_AD_MS; } }
+  return A;
+}
+W.potEmpty = k => {
+  const name = k === 'hp' ? 'здоровья' : 'маны';
+  bus.emit('sfx', 'deny');
+  modal(`Зелья ${name} закончились`, 'sm', b => {
+    const P = G.profile, A = potAds(), lock = earlyLock('extra');
+    b.appendChild(el('div', 'of-pack', `<div class="of-x"><img src="${iconURL(k === 'hp' ? 'potion_hp' : 'potion_mp')}" alt=""><b>${P.potions[k]}</b><small>зелий ${name}</small></div>`));
+    const r = el('div', 'row'); r.style.justifyContent = 'center';
+    if (!lock) {
+      const ad = el('button', 'btn ad', A.n > 0 ? `2 зелья за рекламу · осталось ${A.n} из ${POT_ADS}` : `2 зелья за рекламу · через ${Math.ceil((A.t + POT_AD_MS - Date.now()) / 60000)} мин`); ad.disabled = A.n <= 0;
+      ad.onclick = async () => { if (potAds().n <= 0) return; const ok = await watchRewarded('pot_ad', offerToken('pot_ad', String(Date.now())), () => { const A2 = potAds(); if (A2.n >= POT_ADS) A2.t = Date.now(); A2.n--; P.potions[k] += 2; bus.emit('toast', { text: `+2 зелья ${name}`, kind: 'good' }); }); if (ok) closeModal(); else rerender(); };
+      r.appendChild(ad);
+    }
+    if (G.zoneId === 'town') { const pr = EC.potionPrice(k), buyB = el('button', 'btn gold', `Купить у Миры · ${fmt(pr)} зол.`); buyB.disabled = P.gold < pr; buyB.onclick = () => { if (EC.buyConsumable(k)) { bus.emit('sfx', 'coin'); rerender(); } }; r.appendChild(buyB); }
+    else b.appendChild(el('p', 'muted', 'Зелья продаёт торговка Мира в деревне. Свиток возврата перенесёт вас туда.'));
+    b.appendChild(r);
+  });
+};
 // Предложение у «стены» (js/platform/offers.js): один раз, в спокойный момент, с честными бесплатными путями рядом
 // П24: что именно даёт покупка — иконками (золото, зелья) и сами вещи с подписью «сейчас надето» и сравнением.
 // Вещи выпадают заранее (offerPreview) и всегда сильнее надетого; их же выдаёт покупка
