@@ -97,8 +97,8 @@ function placeTick() {
   const once = (key, sel, text) => !t.tips[key] && pointAt(sel, text, { key });   // сборка 49: объявлено до первого использования (раньше — ошибка в консоли каждые 0,4 с)
   const q = G.profile.story && STORY[G.profile.story.stage];
   // сборка 47: саркофаг с ключом — многие пробегали мимо
-  if (q && q.id === 'medallion' && !P.world.hasKey && G.focus && G.focus.loot === 'key' && once('sarc', 'btnAct', 'Светящийся саркофаг! Откройте его — внутри ключ от двери к амулету')) return;
-  if (q && q.id === 'medallion' && !P.world.hasKey && G.zoneId === 'catacombs' && once('sarc0', null, 'Ищите светящийся саркофаг — жёлтая стрелка ведёт к нему')) return;
+  if (q && q.id === 'medallion' && !P.world.hasKey && G.focus && G.focus.type === 'sarc' && once('sarc', 'btnAct', 'Саркофаг! Откройте его — в одном из них ключ от двери к амулету')) return;
+  if (q && q.id === 'medallion' && !P.world.hasKey && G.zoneId === 'catacombs' && once('sarc0', null, 'Ключ спрятан в одном из саркофагов — открывайте их')) return;
   if (!$('btnLead').classList.contains('hidden') && once('lead', 'btnLead', 'Не знаете, куда идти? Нажмите «Веди меня» — герой сам побежит к цели')) return;
   if ((P.shards || 0) > 0 && once('shards', 'goldBox', 'Фиолетовые ◆ — осколки Бездны. Копите их: они пригодятся позже')) return;
   if (!$('btnAct').classList.contains('hidden')) {

@@ -40,7 +40,8 @@ export function bossReady(key) {
 }
 export function bossTimer(key) {
   const r = bossCD()[key], z = G.zone; if (!r || !z || bossReady(key)) return;
-  if (!z.inter.some(i => i.id === 'bosstimer_' + key)) z.inter.push({ id: 'bosstimer_' + key, type: 'bosstimer', key, x: r.x, y: r.y, r: 0, plate: BOSS_NAMES[key] });
+  const s = z.json.story && z.json.story[key === 'elite' ? 0 : 1], [x, y] = s ? [s[1], s[2]] : [r.x, r.y];   // П30: раскладка катакомб меняется — таймер на месте стража в этой раскладке
+  if (!z.inter.some(i => i.id === 'bosstimer_' + key)) z.inter.push({ id: 'bosstimer_' + key, type: 'bosstimer', key, x, y, r: 0, plate: BOSS_NAMES[key] });
 }
 bus.on('kill', e => {
   if (G.zoneId !== 'catacombs' || !BOSS_NAMES[e.story] || !G.profile) return;
