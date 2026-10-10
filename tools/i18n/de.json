@@ -2226,5 +2226,19 @@
  "Ходит за вами везде — в подземельях, походах и Цитадели — и сам бьётся рядом. Новых зверьков и улучшения Кофи продаёт за осколки Бездны ◆.": "Folgt dir überallhin — in Verliese, auf Streifzüge und in die Zitadelle — und kämpft selbstständig an deiner Seite. Kofi verkauft neue Tiere und Verbesserungen für Abgrundsplitter ◆.",
  "В путь!": "Auf geht's!",
  "Склеп пробуждения не пройден. Попробуйте ещё раз: отходите от замахов и бейте первым.": "Die Gruft des Erwachens ist nicht geschafft. Versuch es noch einmal: weich Ausholbewegungen aus und schlag zuerst zu.",
- "Ещё раз": "Noch einmal"
+ "Ещё раз": "Noch einmal",
+ "Пробел или левая кнопка мыши — удар": "Leertaste oder linke Maustaste – Angriff",
+ "Сохранение не прочиталось": "Spielstand konnte nicht gelesen werden",
+ "Загружена предыдущая копия": "Die vorherige Kopie wurde geladen",
+ "Ноша из похода сохранена: +{0} зол.": "Beute der Expedition gesichert: +{0} Gold",
+ "Игра закрылась посреди похода": "Das Spiel wurde mitten in einer Expedition geschlossen",
+ "Пауза": "Pause",
+ "Установите игру — она будет запускаться с иконки на весь экран, без строки браузера. ": "Installiere das Spiel – es startet dann über ein Symbol im Vollbild, ohne Browserleiste. ",
+ "Установить": "Installieren",
+ "Игра разворачивается на весь экран при касании. Чтобы запускать с иконки: меню браузера <b>⋮</b> → <b>«Добавить на главный экран»</b>.": "Das Spiel wechselt beim Antippen in den Vollbildmodus. Zum Start über ein Symbol: Browsermenü <b>⋮</b> → <b>„Zum Startbildschirm hinzufügen“</b>.",
+ "На весь экран: клавиша <b>F11</b> или ": "Vollbild: Taste <b>F11</b> oder ",
+ "⛶ На весь экран": "⛶ Vollbild",
+ "Не удалось сохранить": "Speichern fehlgeschlagen",
+ "Браузер не даёт записать (приватный режим или нет места)": "Der Browser erlaubt kein Speichern (privater Modus oder kein Platz)",
+ "Телефон/планшет: джойстик слева, атака и навыки справа, удерживайте атаку — герой сам подойдёт к врагу. Щипок двумя пальцами — камера ближе/дальше. ПК: WASD/стрелки или зажатая правая кнопка мыши — движение, левая кнопка мыши — удар в точку, колесо мыши — камера ближе/дальше, Пробел — атака, 1–4 — навыки, Shift — уклонение, Q/E — зелья, F — действие, I/C/K/J/M — окна, T — свиток.": "Handy/Tablet: Joystick links, Angriff und Fähigkeiten rechts; halte Angriff, und der Held geht zum Feind. Mit zwei Fingern zoomen. PC: WASD/Pfeile oder rechte Maustaste halten – laufen, linke Maustaste – Schlag auf einen Punkt, Mausrad – zoomen, Leertaste – Angriff, 1–4 – Fähigkeiten, Shift – Ausweichen, Q/E – Tränke, F – Aktion, I/C/K/J/M – Fenster, T – Rolle."
 }

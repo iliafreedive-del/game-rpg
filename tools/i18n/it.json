@@ -2226,5 +2226,19 @@
  "Ходит за вами везде — в подземельях, походах и Цитадели — и сам бьётся рядом. Новых зверьков и улучшения Кофи продаёт за осколки Бездны ◆.": "Ti segue ovunque (dungeon, spedizioni e Cittadella) e combatte da solo al tuo fianco. Kofi vende nuovi animali e potenziamenti per frammenti dell'Abisso ◆.",
  "В путь!": "In cammino!",
  "Склеп пробуждения не пройден. Попробуйте ещё раз: отходите от замахов и бейте первым.": "La Cripta del Risveglio non è superata. Riprova: allontanati dai colpi caricati e colpisci per primo.",
- "Ещё раз": "Riprova"
+ "Ещё раз": "Riprova",
+ "Пробел или левая кнопка мыши — удар": "Spazio o tasto sinistro del mouse: attacca",
+ "Сохранение не прочиталось": "Impossibile leggere il salvataggio",
+ "Загружена предыдущая копия": "È stata caricata la copia precedente",
+ "Ноша из похода сохранена: +{0} зол.": "Bottino della spedizione salvato: +{0} oro",
+ "Игра закрылась посреди похода": "Il gioco si è chiuso nel mezzo di una spedizione",
+ "Пауза": "Pausa",
+ "Установите игру — она будет запускаться с иконки на весь экран, без строки браузера. ": "Installa il gioco: si aprirà da un'icona a schermo intero, senza la barra del browser. ",
+ "Установить": "Installa",
+ "Игра разворачивается на весь экран при касании. Чтобы запускать с иконки: меню браузера <b>⋮</b> → <b>«Добавить на главный экран»</b>.": "Il gioco va a schermo intero al tocco. Per avviarlo da un'icona: menu del browser <b>⋮</b> → <b>«Aggiungi a schermata Home»</b>.",
+ "На весь экран: клавиша <b>F11</b> или ": "Schermo intero: tasto <b>F11</b> o ",
+ "⛶ На весь экран": "⛶ Schermo intero",
+ "Не удалось сохранить": "Salvataggio non riuscito",
+ "Браузер не даёт записать (приватный режим или нет места)": "Il browser non consente di salvare (modalità privata o spazio esaurito)",
+ "Телефон/планшет: джойстик слева, атака и навыки справа, удерживайте атаку — герой сам подойдёт к врагу. Щипок двумя пальцами — камера ближе/дальше. ПК: WASD/стрелки или зажатая правая кнопка мыши — движение, левая кнопка мыши — удар в точку, колесо мыши — камера ближе/дальше, Пробел — атака, 1–4 — навыки, Shift — уклонение, Q/E — зелья, F — действие, I/C/K/J/M — окна, T — свиток.": "Telefono/tablet: joystick a sinistra, attacco e abilità a destra; tieni premuto l'attacco e l'eroe raggiungerà il nemico. Pizzico con due dita: zoom della camera. PC: WASD/frecce o tasto destro del mouse tenuto premuto: movimento, tasto sinistro del mouse: colpo in un punto, rotella del mouse: zoom, Spazio: attacco, 1–4: abilità, Shift: schivata, Q/E: pozioni, F: interagisci, I/C/K/J/M: finestre, T: pergamena."
 }

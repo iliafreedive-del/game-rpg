@@ -2226,5 +2226,19 @@
  "Ходит за вами везде — в подземельях, походах и Цитадели — и сам бьётся рядом. Новых зверьков и улучшения Кофи продаёт за осколки Бездны ◆.": "Segue você por toda parte — masmorras, expedições e Cidadela — e luta ao seu lado sozinho. Kofi vende novos bichos e melhorias por fragmentos do Abismo ◆.",
  "В путь!": "Vamos!",
  "Склеп пробуждения не пройден. Попробуйте ещё раз: отходите от замахов и бейте первым.": "A Cripta do Despertar não foi concluída. Tente de novo: afaste-se dos golpes preparados e ataque primeiro.",
- "Ещё раз": "De novo"
+ "Ещё раз": "De novo",
+ "Пробел или левая кнопка мыши — удар": "Espaço ou botão esquerdo do mouse — atacar",
+ "Сохранение не прочиталось": "Não foi possível ler o save",
+ "Загружена предыдущая копия": "A cópia anterior foi carregada",
+ "Ноша из похода сохранена: +{0} зол.": "Saque da expedição guardado: +{0} de ouro",
+ "Игра закрылась посреди похода": "O jogo fechou no meio de uma expedição",
+ "Пауза": "Pausa",
+ "Установите игру — она будет запускаться с иконки на весь экран, без строки браузера. ": "Instale o jogo — ele abrirá por um ícone em tela cheia, sem a barra do navegador. ",
+ "Установить": "Instalar",
+ "Игра разворачивается на весь экран при касании. Чтобы запускать с иконки: меню браузера <b>⋮</b> → <b>«Добавить на главный экран»</b>.": "O jogo fica em tela cheia ao tocar. Para abrir por um ícone: menu do navegador <b>⋮</b> → <b>“Adicionar à tela inicial”</b>.",
+ "На весь экран: клавиша <b>F11</b> или ": "Tela cheia: tecla <b>F11</b> ou ",
+ "⛶ На весь экран": "⛶ Tela cheia",
+ "Не удалось сохранить": "Não foi possível salvar",
+ "Браузер не даёт записать (приватный режим или нет места)": "O navegador não permite salvar (modo privado ou sem espaço)",
+ "Телефон/планшет: джойстик слева, атака и навыки справа, удерживайте атаку — герой сам подойдёт к врагу. Щипок двумя пальцами — камера ближе/дальше. ПК: WASD/стрелки или зажатая правая кнопка мыши — движение, левая кнопка мыши — удар в точку, колесо мыши — камера ближе/дальше, Пробел — атака, 1–4 — навыки, Shift — уклонение, Q/E — зелья, F — действие, I/C/K/J/M — окна, T — свиток.": "Celular/tablet: joystick à esquerda, ataque e habilidades à direita; segure o ataque e o herói vai até o inimigo. Pinça com dois dedos — zoom da câmera. PC: WASD/setas ou segurar o botão direito do mouse — mover, botão esquerdo do mouse — golpe num ponto, roda do mouse — zoom, Espaço — atacar, 1–4 — habilidades, Shift — esquiva, Q/E — poções, F — interagir, I/C/K/J/M — janelas, T — pergaminho."
 }

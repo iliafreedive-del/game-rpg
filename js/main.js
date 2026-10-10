@@ -126,7 +126,7 @@ const away = new Set();   // 'hidden' — вкладка скрыта, 'platform
 let pauseOv = null;
 function showPauseOv() {
   if (pauseOv || !G.profile) return;
-  pauseOv = el('div', 'pause-ov', '<div class="pause-box"><div class="goldc pause-t">Пауза</div></div>');
+  pauseOv = el('div', 'pause-ov'); pauseOv.appendChild(el('div', 'pause-box')).appendChild(el('div', 'goldc pause-t', 'Пауза'));
   const go = el('button', 'btn gold', 'Продолжить'); go.onclick = () => { pauseOv.remove(); pauseOv = null; if (away.size) return; G.awayPause = false; if (G.hidePaused) G.paused = false; G.hidePaused = false; bus.emit('sfx', 'click'); };
   pauseOv.firstChild.appendChild(go); document.body.appendChild(pauseOv);
 }
