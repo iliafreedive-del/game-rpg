@@ -40,7 +40,7 @@ import { resize as rResize, prepareRender } from '../render/index.js';
 import * as HU from './hunts.js';
 import { updatePet } from './pets.js';
 import { SKILLS } from '../data/skills.js';
-import { rand, rrange, rint } from '../core/util.js';
+import { rand, rrange } from '../core/util.js';
 import { pollMove, input, mouse, tapAim } from '../core/input.js';
 import { gate, BOSS_LEVEL, nextStep, earlyLock, lockToast, bandLevel, CATA_MAX, wildDepthGate } from './progress.js';
 import { platform } from '../platform/platform.js';
