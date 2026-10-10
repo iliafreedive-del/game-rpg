@@ -21,7 +21,7 @@ import { weeklyRule, weekNo, finishWeekly, codexScan, circle, circleHP, circleDm
 import { FLOOR_MODS, modReward } from '../data/floormods.js';
 const clean = J => (declutter(J), J), WILD_DECOR = new Set(['rocks']);   // сборка 47: предметы не входят друг в друга и в стены (world/declutter.js)
 const ROOMY = 1.5;   // «простор» (сборка 18): подземелья в 3D растянуты в 1,5 раза — шире комнаты и коридоры
-import { generateFloor, isBossFloor, parTime, shuffleCatacombs } from '../world/floorgen.js';
+import { generateFloor, isBossFloor, parTime, generateCatacombs } from '../world/floorgen.js';
 import { generateWild } from '../world/wildgen.js';
 import { repairReach } from '../world/reach.js';
 import { prepareWildAtlases, setPropsPalette, buildWildFloor } from '../world/wildfloor.js';
@@ -114,7 +114,8 @@ export async function loadZone(id, how = {}) {
     await buildFloorCanvas(zone);
   } else {
     const big = id === 'town' && G.render3d;   // в 3D — деревня 64×64 по правилам (js/world/villagegen.js), в 2D-запасном режиме — прежняя 40×40
-    const json = big ? generateVillage() : structuredClone(await loadJSON(ZONES[id])); const B = big ? json.big : null;
+    const gen = id === 'catacombs' && generateCatacombs();   // П30: каждый заход — новая раскладка (ручная карта — запасная, если генератор не справился)
+    const json = big ? generateVillage() : gen || structuredClone(await loadJSON(ZONES[id])); const B = big ? json.big : null;
     if (id === 'town' && depthsUnlocked()) json.objects.push({ t: 'depths', x: B ? B.depths[0] : 13.5, y: B ? B.depths[1] : 8.5, rot: B ? B.depthsRot : undefined });
     if (id === 'town' && P.tutorial.prologue) json.objects.push({ t: 'castle', x: B ? B.castle[0] : 18.5, y: B ? B.castle[1] : 7.5 }, { t: 'survportal', x: B ? B.survportal[0] : 16.5, y: B ? B.survportal[1] : 12.5 }, { t: 'wildportal', realm: 'fjord', x: B ? B.fjord[0] : 26.4, y: B ? B.fjord[1] : 19.6 }, { t: 'wildportal', realm: 'forest', x: B ? B.forest[0] : 25.5, y: B ? B.forest[1] : 34.6 });
     if (id === 'town' && !B) { const bd = json.objects.find(o => o.t === 'board'); if (bd) { bd.x = 28.4; bd.y = 22.4; } json.objects.push({ t: 'wheel', x: 22.6, y: 28.0 }); }
@@ -122,19 +123,17 @@ export async function loadZone(id, how = {}) {
     if (id === 'town' && B) json.objects.push({ t: 'hwsign', x: B.hwsign[0], y: B.hwsign[1] });
     if (id === 'town' && B) json.objects.push({ t: 'wildportal', realm: 'bones', x: B.bones[0], y: B.bones[1] });   // Костяные пустоши: пока открыты всегда (вход со 2 ур., для проверки)
     if (id === 'town' && B) json.objects.push({ t: 'swordportal', x: B.swords[0], y: B.swords[1] }, { t: 'wildportal', realm: 'temple', x: B.hands[0], y: B.hands[1] });   // мечи — пока никуда не ведут (сборка 44); руки — в Разрушенный храм, со 2 уровня (сборка 59)
-    if (id === 'catacombs' && G.profile.world.visits >= 1) shuffleCatacombs(json);   // П30: со второго захода залы перемешиваются
-    if (id === 'catacombs') json.objects.push({ t: 'crystals', x: 47.5, y: 42 }, { t: 'crystals', x: 55, y: 51 }, { t: 'mushrooms', x: 7, y: 25 }, { t: 'mushrooms', x: 13, y: 31 }, { t: 'stalagmite', x: 5.5, y: 32 }, { t: 'puddle', x: 10, y: 28 }, { t: 'banner', x: 43, y: 23 });
+    if (id === 'catacombs' && !gen) json.objects.push({ t: 'crystals', x: 47.5, y: 42 }, { t: 'crystals', x: 55, y: 51 }, { t: 'mushrooms', x: 7, y: 25 }, { t: 'mushrooms', x: 13, y: 31 }, { t: 'stalagmite', x: 5.5, y: 32 }, { t: 'puddle', x: 10, y: 28 }, { t: 'banner', x: 43, y: 23 });
     const roomy = id === 'catacombs' && G.render3d;
-    zone = new Zone(id, roomy ? clean(widen(json, ROOMY)) : json, P);
-    if (roomy) await buildFloorCanvas(zone); else await loadFloor(zone);
+    zone = new Zone(id, roomy ? clean(widen(json, ROOMY)) : gen ? clean(json) : json, P);
+    if (roomy || gen) await buildFloorCanvas(zone); else await loadFloor(zone);   // рисованный пол — только под ручную карту
   }
   if (G.run && G.run.boons) G.lastBoons = G.run.boons.slice();
   G.zone = zone; G.zoneId = id; G.run = null; if (id !== 'wild') G.wild = null; G.revives = 0;   // не больше 2 воскрешений за заход (подземелье, глубины, поход)
   if (id === 'catacombs') {
-    const W = P.world.opened, ks = zone.inter.find(i => i.loot === 'key');
+    const W = P.world.opened;
     { const kid = (zone.json.objects.find(o => o.loot === 'key') || {}).id; if (kid && W[kid]) P.world.hasKey = true; }   // repair: opened key sarcophagus always means we hold the key (П46: он снова закрыт, но ключ уже у героя)
     if (W.medallion) P.world.hasMedallion = true;
-    if (ks && !ks.done && !ks.light) ks.light = zone.addLight(ks.x, ks.y, { r: 3.2, c: [255, 200, 90], flicker: 0.4, z: 1 });
     const door = zone.inter.find(i => i.type === 'door'); if (door) door.label = P.world.hasKey ? 'Отпереть дверь ключом' : 'Дверь заперта';
   }
   const fresh = !G.player; const pl = G.player || new Player(0, 0); G.player = pl;
@@ -204,7 +203,7 @@ export async function loadZone(id, how = {}) {
 
 function roomLevel(zone, x, y) {
   if (zone.id === 'depths' || zone.id === 'wild') return zone.json.level;
-  const base = ROOM_LEVEL[zone.roomAt(x, y)] || 3;
+  const k = zone.roomAt(x, y), base = (zone.json.roomLevel && zone.json.roomLevel[k]) || ROOM_LEVEL[k] || 3;   // П30: новые комнаты — уровень по глубине
   return G.profile.chapterDone ? Math.max(base, G.profile.level - 1 + Math.floor(base / 3)) : bandLevel(base, CATA_MAX);   // сборка 47: герой +1, но не выше 7
 }
 function spawnDungeon(zone) {
@@ -369,7 +368,7 @@ export function interact(it) {
     case 'sarc': {
       it.done = true; it.draw.spr = 'sarcophagus_open'; bus.emit('sfx', 'door');
       if (it.loot === 'key') { W[it.id] = true; P.world.hasKey = true; if (it.light) it.light.on = false; bus.emit('keyItem', 'key'); bus.emit('toast', { text: 'Найден ключ от склепа', sub: 'Он в инвентаре (предметы задания). Откройте дверь на востоке', kind: 'good' }); C.particles(it.x, it.y, 20, { c: [255, 220, 120], sp: 2, size: 3 }); }
-      else { const lvl = roomLevel(G.zone, it.x, it.y); for (let i = 0; i < 2; i++) L.dropGold(it.x, it.y + 0.8, rint(2, 6) * lvl); if (rand() < 0.3 && G.zoneId === 'catacombs') spawnAmbush(it); }
+      else { const lvl = roomLevel(G.zone, it.x, it.y); L.chestLoot(it.x, it.y + 0.8, false, lvl); if (rand() < 0.25) L.dropPotion(it.x, it.y + 0.8, rand() < 0.7 ? 'hp' : 'mp'); if (rand() < 0.3 && G.zoneId === 'catacombs') spawnAmbush(it); }   // правки 2: в каждом саркофаге — как в сундуке (золото, иногда зелье или вещь); ключ искать самому
       requestSave(); return;
     }
     case 'chest': {
@@ -383,7 +382,7 @@ export function interact(it) {
       Q.setFlag('medallion'); requestSave(); return;
     }
     case 'door':
-      if (!P.world.hasKey) { bus.emit('toast', { text: 'Дверь заперта', sub: 'Нужен ключ — поищите в саркофагах оссуария', kind: 'warn' }); bus.emit('sfx', 'deny'); return; }
+      if (!P.world.hasKey) { bus.emit('toast', { text: 'Дверь заперта', sub: 'Нужен ключ — он спрятан в одном из саркофагов', kind: 'warn' }); bus.emit('sfx', 'deny'); return; }
       it.done = true; W[it.id] = true; it.draw.spr = it.draw.spr === 'door_arch' ? 'door_arch_open' : 'door_open'; for (const [x, y] of it.tiles || [it.tile]) G.zone.map.setSolid(x, y, 0); bus.emit('sfx', 'door'); bus.emit('toast', { text: 'Дверь открыта', sub: 'Амулет на алтаре за дверью — но его охраняет Хранитель', kind: 'good' }); requestSave(); return;
     case 'secret':
       it.done = true; W[it.id] = true; for (const d of it.draws) d.hidden = true; for (const [x, y] of it.tiles) { G.zone.map.setSolid(x, y, 0); C.particles(x + 0.5, y + 0.5, 12, { c: [120, 110, 100], sp: 2.5, add: false, size: 4 }); }
@@ -669,7 +668,6 @@ function updateMarkers() {
     if (Q.isReady()) t = G.zoneId === 'town' ? G.zone.inter.find(i => i.id === Q.turnNpc(q)) || null : G.zone.inter.find(i => i.type === 'portal' && !i.hidden && i.to === 'town') || null;
     else if (q.where && q.where !== G.zoneId) t = G.zone.inter.find(i => i.type === 'portal' && !i.hidden) || null;
     else if (q.target && q.id !== 'medallion') t = G.zone.inter.find(i => i.id === q.target && !i.hidden) || G.enemies.find(e => e.story === q.target && !e.dead) || null;   // амулет: сначала саркофаг с ключом, потом дверь (сборка 47 — стрелка вела мимо саркофага)
-    if (!t && q.id === 'medallion' && !G.profile.world.hasKey) t = G.zone.inter.find(i => i.loot === 'key' && !i.done) || null;
     if (!t && q.id === 'medallion' && G.profile.world.hasKey) t = G.zone.inter.find(i => i.type === 'door' && !i.done) || G.enemies.find(e => e.story === 'elite' && !e.dead) || G.zone.inter.find(i => i.id === 'medallion');
   }
   if (G.zoneId === 'depths') { const ex = G.zone.inter.find(i => i.id === 'floor_exit'); t = ex && !ex.hidden ? ex : G.enemies.find(e => e.story === 'floorboss' && !e.dead) || null; }

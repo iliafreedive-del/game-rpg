@@ -223,7 +223,7 @@ function tracker() {
   else {
     const pr = Q.progressOf(q), ch = q.chapter || 1, inCh = STORY.filter(x => (x.chapter || 1) === ch), done = inCh.indexOf(q);
     let txt = q.text; const Wd = G.profile.world;
-    if (q.id === 'medallion') txt = !Wd.hasKey ? 'Шаг 1/3: найдите ключ — светящийся саркофаг в оссуарии (север).' : !Wd.opened.door_altar ? 'Шаг 2/3: ключ у вас. Подойдите к запертой двери на востоке.' : 'Шаг 3/3: победите Хранителя в зале за дверью и возьмите амулет с алтаря.';
+    if (q.id === 'medallion') txt = !Wd.hasKey ? 'Шаг 1/3: ключ спрятан в одном из саркофагов катакомб — открывайте их.' : !Wd.opened.door_altar ? 'Шаг 2/3: ключ у вас. Подойдите к запертой двери на востоке.' : 'Шаг 3/3: победите Хранителя в зале за дверью и возьмите амулет с алтаря.';
     if (Q.isReady()) { const who = Q.TURN_NAME[Q.turnNpc(q)]; txt = G.zoneId === 'town' ? `✔ Выполнено! Подойдите к ${who} (над ним «?») — за наградой.` : `✔ Выполнено! Вернитесь в деревню к ${who} за наградой.`; }
     else if (q.where && q.where !== G.zoneId && !(G.zoneId === 'wild' && G.wild && q.target === 'portal_' + G.wild.realm)) txt =   // задания леса (П37): цель — в этом походе, «вернитесь в деревню» не пишем
       (q.where === 'catacombs' ? 'Спуститесь в катакомбы через портал. ' : 'Вернитесь в деревню через портал. ') + txt;
@@ -264,7 +264,7 @@ const seen = new Map();
 function minimap() {
   const cv = $('minimap'); if (!cv || cv.offsetParent === null) return;
   const Z = G.zone, m = Z.map, x = cv.getContext('2d'), P = G.player;
-  const key = seenKey(Z); let S = seen.get(key); if (!S) { S = new Uint8Array(m.w * m.h); seen.set(key, S); }
+  const key = seenKey(Z); let S = seen.get(key); if (!S) { if (Z.json.seed != null) for (const k of seen.keys()) if (k.startsWith(Z.id + ':')) seen.delete(k); S = new Uint8Array(m.w * m.h); seen.set(key, S); }   // П30: у сгенерированной раскладки своя разведанная карта, прежние не копятся
   const R = 7; for (let dy = -R; dy <= R; dy++) for (let dx = -R; dx <= R; dx++) { const tx = Math.floor(P.x) + dx, ty = Math.floor(P.y) + dy; if (tx >= 0 && ty >= 0 && tx < m.w && ty < m.h && dx * dx + dy * dy <= R * R) S[ty * m.w + tx] = 1; }
   drawMap(x, cv.width, Z, S, P, 13);
 }
@@ -290,7 +290,7 @@ export function drawMap(x, size, Z, S, P, span) {
   x.restore();
 }
 export { seen };
-export const seenKey = Z => `${Z.id}:${Z.json.floorN ?? ''}:${Z.map.w}x${Z.map.h}`;
+export const seenKey = Z => `${Z.id}:${Z.json.floorN ?? ''}:${Z.json.seed ?? ''}:${Z.map.w}x${Z.map.h}`;
 
 // ---------------------------------------------------------------- автобой за рекламу (сборка 47)
 // время вышло — выключаем, но не посреди боя; иногда (не в бою) стрелка напоминает, что АВТО есть
