@@ -2226,5 +2226,12 @@
  "Ходит за вами везде — в подземельях, походах и Цитадели — и сам бьётся рядом. Новых зверьков и улучшения Кофи продаёт за осколки Бездны ◆.": "Vous suit partout (donjons, expéditions et Citadelle) et combat seul à vos côtés. Kofi vend de nouveaux compagnons et des améliorations contre des éclats d'Abîme ◆.",
  "В путь!": "En route !",
  "Склеп пробуждения не пройден. Попробуйте ещё раз: отходите от замахов и бейте первым.": "La Crypte de l'Éveil n'est pas terminée. Réessayez : écartez-vous des coups armés et frappez le premier.",
- "Ещё раз": "Réessayer"
+ "Ещё раз": "Réessayer",
+ "Свиток здесь не работает": "Le parchemin ne fonctionne pas ici",
+ "Только в подземельях, Глубинах и походах": "Seulement dans les donjons, les Profondeurs et les expéditions",
+ "Сумка была полна: продано вещей — {0}": "Sac plein : objets vendus — {0}",
+ "Двери арены захлопнулись": "Les portes de l'arène se sont refermées",
+ "Откроются, когда Палач падёт": "Elles s’ouvriront quand le Bourreau tombera",
+ "Рывок!": "Esquive !",
+ "Рывок — Shift!": "Esquive — Shift !"
 }

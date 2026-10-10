@@ -2226,5 +2226,12 @@
  "Ходит за вами везде — в подземельях, походах и Цитадели — и сам бьётся рядом. Новых зверьков и улучшения Кофи продаёт за осколки Бездны ◆.": "Ti segue ovunque (dungeon, spedizioni e Cittadella) e combatte da solo al tuo fianco. Kofi vende nuovi animali e potenziamenti per frammenti dell'Abisso ◆.",
  "В путь!": "In cammino!",
  "Склеп пробуждения не пройден. Попробуйте ещё раз: отходите от замахов и бейте первым.": "La Cripta del Risveglio non è superata. Riprova: allontanati dai colpi caricati e colpisci per primo.",
- "Ещё раз": "Riprova"
+ "Ещё раз": "Riprova",
+ "Свиток здесь не работает": "La pergamena qui non funziona",
+ "Только в подземельях, Глубинах и походах": "Solo nei sotterranei, negli Abissi e nelle spedizioni",
+ "Сумка была полна: продано вещей — {0}": "Borsa piena: oggetti venduti — {0}",
+ "Двери арены захлопнулись": "Le porte dell'arena si sono chiuse",
+ "Откроются, когда Палач падёт": "Si apriranno quando il Boia cadrà",
+ "Рывок!": "Schiva!",
+ "Рывок — Shift!": "Schiva — Shift!"
 }

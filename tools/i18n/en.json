@@ -2226,5 +2226,12 @@
  "Ходит за вами везде — в подземельях, походах и Цитадели — и сам бьётся рядом. Новых зверьков и улучшения Кофи продаёт за осколки Бездны ◆.": "Follows you everywhere — dungeons, expeditions and the Citadel — and fights at your side on its own. Kofi sells new pets and upgrades for Abyss shards ◆.",
  "В путь!": "Let's go!",
  "Склеп пробуждения не пройден. Попробуйте ещё раз: отходите от замахов и бейте первым.": "The Crypt of Awakening is not cleared. Try again: step away from wind-ups and strike first.",
- "Ещё раз": "Try again"
+ "Ещё раз": "Try again",
+ "Свиток здесь не работает": "The scroll doesn't work here",
+ "Только в подземельях, Глубинах и походах": "Only in dungeons, the Depths and expeditions",
+ "Сумка была полна: продано вещей — {0}": "Bag was full: items sold — {0}",
+ "Двери арены захлопнулись": "The arena doors slammed shut",
+ "Откроются, когда Палач падёт": "They will open when the Executioner falls",
+ "Рывок!": "Dodge!",
+ "Рывок — Shift!": "Dodge — Shift!"
 }
