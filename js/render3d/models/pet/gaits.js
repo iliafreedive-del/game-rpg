@@ -40,7 +40,7 @@ function quad(B, a, st, o) {
     R(B, o.root, 0.02 * Math.sin(ph * TAU * 2), 0.05 * Math.sin(ph * TAU), 0);
     R(B, 'spine', 0, -0.06 * Math.sin(ph * TAU), 0);
     R(B, 'neck', 0.05 * bob - 0.08 * run); R(B, 'head', -0.04 * bob);
-    for (let i = 1; i <= 3; i++) R(B, 'tail' + i, 0.05 * Math.sin(ph * TAU * 2 - i), 0.18 * Math.sin(ph * TAU - i * 0.7), 0);
+    for (let i = 1; i <= 3; i++) R(B, 'tail' + i, 0.05 * Math.sin(ph * TAU * 2 - i), 0.1 * Math.sin(ph * TAU - i * 0.7), 0);   // хвост несётся низко и почти не мотается
     R(B, 'tail1', -0.15 * run);
   } else {
     // покой: дыхание грудью, хвост медленно метёт, голова оглядывается, уши вздрагивают
@@ -128,18 +128,32 @@ function biped(B, a, st, o) {
 }
 
 // ---- крылатые: ворон и летучая мышь
+function twist(b, s, ang) {
+  if (!b) return;
+  const u = b.userData, q = u.tq || (u.tq = b.quaternion.clone());
+  const c = b.children[0], d = c ? c.position : b.position, m = Math.hypot(d.x, d.y, d.z) || 1;
+  q.setFromAxisAngle({ x: d.x / m, y: d.y / m, z: d.z / m }, s * ang);   // ось плеча — к локтю
+  b.quaternion.multiply(q);
+}
 function flyer(B, a, st, o, bat) {
   const t = a.t, walk = a.mode === 'walk', f = bat ? (walk ? 5.5 : 4.5) : (walk ? 3.6 : 2.8);
   // ворон: взмахи сериями, между ними — парение (крылья чуть приподняты); мышь машет без пауз
   let amp = 1;
   if (!bat && !walk) { const c = (t * 0.45) % 1; amp = c < 0.6 ? 1 : 0.15 + 0.85 * sm(Math.abs(c - 0.8) / 0.2); }
   st.wp = (st.wp || 0) + (a.dt || 0) * f * (0.4 + 0.6 * amp);
-  const w = Math.sin(st.wp * TAU), up = Math.max(0, Math.cos(st.wp * TAU));   // up: крыло идёт вверх — складывается
+  const w0 = Math.sin(st.wp * TAU), up = Math.max(0, Math.cos(st.wp * TAU));   // up: крыло идёт вверх — складывается
+  // вверх крыло поднимается меньше, чем опускается: в модели оно уже приподнято, и при полном взмахе вставало «палкой»
+  const w = w0 > 0 ? w0 * 0.35 : w0;
   const A = (bat ? 0.5 : 0.5) * amp, glide = (1 - amp) * 0.2;
   for (const [sf, s] of SIDES) {
     R(B, 'wsh' + sf, 0, 0, s * (A * w + glide));
-    R(B, 'wel' + sf, 0, s * (bat ? 0.18 : 0.12) * up * amp, s * 0.15 * A * w);
-    R(B, 'wwr' + sf, 0, s * (bat ? 0.3 : 0.2) * up * amp, s * 0.2 * A * w);
+    // у мыши перепонка в модели развёрнута лицом вперёд (плоскость XY) и сбоку видна «палкой»:
+    // поворачиваем крыло вокруг оси плеча, перепонка уходит назад-вбок, как у летящей мыши;
+    // на подъёме поворот сильнее (мышь «проводит» крыло ребром), но перепонка остаётся раскрытой
+    // поворот распределён по суставам (кисть поворачивается больше плеча), чтобы перепонка у тела не рвалась
+    if (bat) { const k = 1.6 * (1 + 0.15 * up * amp); twist(B['wsh' + sf], s, 0.08 * k); twist(B['wel' + sf], s, 0.33 * k); twist(B['wwr' + sf], s, 0.24 * k); }
+    R(B, 'wel' + sf, 0, s * (bat ? 0.12 : 0.1) * up * amp, s * 0.15 * A * w);
+    R(B, 'wwr' + sf, 0, s * (bat ? 0.18 : 0.15) * up * amp, s * 0.2 * A * w);
     // лапы в полёте поджаты назад: у ворона «пятка» складывается, у мыши лапки висят и чуть болтаются
     if (bat) { R(B, 'leg' + sf, 0.12 + 0.05 * Math.sin(t * 3 + s), 0, 0); R(B, 'kn' + sf, 0.1); }
     else R(B, 'leg' + sf, 0.3);
