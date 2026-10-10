@@ -7,11 +7,12 @@ import { RARITY } from '../data/items.js';
 import { iconOf } from '../game/items.js';
 import { BIOMES } from '../data/biomes.js';
 import * as SV from '../game/survival.js';
+import { drawFxSheet, drawChargeTele, preloadFxSheets } from './fxsheets.js';
 
 let cv, ctx, lightCv, lctx, W = 0, H = 0, DPR = 1;
 const floorImgs = new Map();
 export function initRenderer(canvas, o = {}) {
-  cv = canvas; ctx = cv.getContext('2d', { alpha: !!o.overlay });   // overlay: холст должен быть прозрачным, когда под ним рисует 3D (js/render/index.js)
+  cv = canvas; ctx = cv.getContext('2d', { alpha: !!o.overlay }); preloadFxSheets();   // overlay: холст должен быть прозрачным, когда под ним рисует 3D (js/render/index.js)
   lightCv = document.createElement('canvas'); lctx = lightCv.getContext('2d');
   resize();
   const later = () => { resize(); window.scrollTo(0, 0); };
@@ -341,6 +342,7 @@ function drawTelegraphs() {
   for (const e of G.enemies) {
     const tg = e.teleg; if (!tg || e.dead) continue;
     const p = Math.min(1, e.anim.prog / (e.atk ? e.atk.impact : 1));
+    if (tg.sheet === 'charge' && drawChargeTele(ctx, cam, tg, p, tg.realm)) continue;   // П21: разбег — полоса шевронов вместо красной
     ctx.save(); const [x, y] = cam.toScreen(tg.x, tg.y);
     ctx.translate(x, y); ctx.scale(1, 0.5);
     const R = tg.r * 32 * z * Math.SQRT2;   // world metre → screen along iso diagonal
@@ -421,6 +423,7 @@ function drawEffects() {
   const cam = G.cam, z = cam.zoom;
   for (const e of G.effects) {
     const k = e.t / e.dur;
+    if (e.kind === 'sheet') { drawFxSheet(ctx, cam, e, e.fade ? 1 - Math.max(0, k - 0.7) / 0.3 : 1); continue; }   // П21: листы атак зверей (render/fxsheets.js)
     if (e.kind === 'slash') {
       const [x, y] = cam.toScreen(e.x, e.y, 0.9); ctx.save(); ctx.translate(x, y); ctx.scale(1, 0.55);
       const a = Math.atan2(Math.sin(e.a) + Math.cos(e.a), Math.cos(e.a) - Math.sin(e.a)); const h = (e.arc / 2) * Math.PI / 180;

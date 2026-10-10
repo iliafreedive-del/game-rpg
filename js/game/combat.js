@@ -443,9 +443,28 @@ export function enemyTelegraph(e, kind, P) {
   // П21/П18: удары «из земли» и их подсветка — в цвет и материал края: Лес — корни, Храм — каменные шипы, Пустоши — костяные, Фьорды — лёд
   if (tg && !tg.fx && (tg.rift || (e.D.realm === 'temple' && tg.shape === 'circle'))) tg.fx = REALM_FX[e.D.realm] || (tg.elem === 'cold' ? 'ice' : null);
   if (tg && tg.fx) tg.col = FX_COL[tg.fx];
+  if (tg && kind === 'lunge') { tg.sheet = 'charge'; tg.realm = e.D.realm; }   // П21: полоса разбега — лист mob_charge_tele (render/fxsheets.js)
   e.teleg = tg; if (tg) { tg.x = tg.x ?? e.x; tg.y = tg.y ?? e.y; tg.t = 0; }
   // П51: в бою с большим боссом — напоминание про рывок, когда удар идёт по герою (кнопка мигает, над героем «Рывок!»)
   if (tg && e.D.boss && inShape(tg, P, e)) bus.emit('dodgeHint');
+}
+// П21: удары зверей — не красная дуга, а листы GPT (assets/art/fx/fx_mobs.json): укус — волки и гиены, когти — медведь, лев, скорпион,
+// пещерный зверь, упырь; клыки — кабаны и олень; удар разбега — врезался в стену/героя. Остальные пока бьют прежним эффектом.
+const MOB_FX = { w_wolf: 'bite', f_wolf: 'bite', b_hyena: 'bite', t_hound: 'bite', beast: 'claw', ghoul: 'claw', w_bear: 'claw', t_lion: 'claw', b_scorpid: 'claw', w_boar: 'gore', b_boar: 'gore', t_boar: 'gore', t_stag: 'gore' };
+const SHEET_DUR = { bite: 0.3, claw: 0.3, gore: 0.32, charge_crash: 0.5 };
+export const mobFxOf = e => MOB_FX[e.type];
+// x, y — точка удара (у героя); size — метры (иначе из листа); a — направление удара (для когтей на полу)
+export function mobSheet(e, kind, x, y, o = {}) {
+  return effect({ kind: 'sheet', id: 'mob_' + kind, x, y, a: o.a ?? Math.atan2(y - e.y, x - e.x), ex: e.x, ey: e.y, z: o.z ?? (kind === 'bite' ? 0.45 : 0), size: o.size ?? (kind === 'bite' ? 2.1 : undefined), realm: e.D.realm, dur: SHEET_DUR[kind] });
+}
+// удар зверя по герою (обычный ближний или бросок): лист у героя, если герой в досягаемости, иначе — в конце замаха
+export function mobStrikeFx(e, P, kind = mobFxOf(e)) {
+  if (!kind) return false;
+  const d = Math.hypot(P.x - e.x, P.y - e.y), a = Math.atan2(P.y - e.y, P.x - e.x), r = Math.min(d, e.D.range + 0.3);
+  const x = e.x + Math.cos(a) * r, y = e.y + Math.sin(a) * r;
+  if (kind === 'claw') mobSheet(e, 'claw', e.x + Math.cos(a) * r * 0.75, e.y + Math.sin(a) * r * 0.75, { a, size: 1.5 * (e.D.size || 1) });
+  else mobSheet(e, kind, x, y, kind === 'gore' ? { size: 2.4 * (e.D.size || 1) } : {});
+  return true;
 }
 const PSPEED = { arrow: 11, rock: 9, bone: 10 };   // П18/П21: камень (Храм) и кость (Пустоши) — брошенные, не магия
 const REALM_FX = { forest: 'roots', temple: 'stone', bones: 'bone', fjord: 'ice' };
@@ -488,6 +507,7 @@ export function updateEnemyAttack(e, dt, P) {
       const inside = inShape(tg, P, e);
       if (tg.fx) groundFx(tg);
       else if (tg.shape === 'circle' && tg.rift) { const cc = tg.elem === 'cold' ? [150, 215, 255] : D.realm === 'forest' ? [110, 200, 90] : D.realm === 'bones' ? [255, 140, 60] : [180, 80, 255]; effect({ kind: 'burst', x: tg.x, y: tg.y, r: tg.r, dur: 0.5, c: cc }); particles(tg.x, tg.y, 20, { c: cc, sp: 4, size: 4 }); }
+      else if (tg.shape === 'cone' && mobFxOf(e) === 'claw') mobSheet(e, 'claw', e.x + Math.cos(tg.a) * tg.r * 0.55, e.y + Math.sin(tg.a) * tg.r * 0.55, { a: tg.a, size: tg.r * 1.15 });   // П21: веер когтей вместо дуги
       else effect({ kind: tg.shape === 'cone' ? 'slash' : 'ring', x: e.x, y: e.y, a: tg.a, r: tg.r, arc: tg.arc || 360, dur: 0.3, c: [255, 90, 60], enemy: true });
       G.cam.kick(D.boss ? 0.45 : 0.3); bus.emit('sfx', 'heavy');
       if (inside) { enemyHitsPlayer(e, tg.mult ?? (a.kind === 'slam' ? 1.3 : a.kind === 'attack2' ? 0.9 : 1.1), tg.elem === 'cold' ? 'cold' : tg.elem ? tg.elem : tg.rift && !D.realm ? 'fire' : 'phys'); if (tg.slow && !P.dead) P.slowT = Math.max(P.slowT || 0, tg.slow); }
@@ -496,6 +516,7 @@ export function updateEnemyAttack(e, dt, P) {
       // regular melee: hit if still in reach & roughly in front
       const d = Math.hypot(P.x - e.x, P.y - e.y);
       if (d <= D.range + P.r + 0.45) enemyHitsPlayer(e, 1, 'phys');
+      mobStrikeFx(e, P);   // П21: укус / когти / клыки
       bus.emit('sfx', 'swingE');
     }
     e.teleg = null;

@@ -24,9 +24,9 @@ function lungeTick(e, dt, P) {
   const L = e.lunge, Cg = e.D.charge || { speed: 8, mult: 1.3, r: 3.4 }; L.t += dt;
   const sp = Cg.speed, [nx, ny] = G.zone.map.move(e.x, e.y, L.vx * sp * dt, L.vy * sp * dt, e.r);
   const blocked = Math.hypot(nx - e.x, ny - e.y) < sp * dt * 0.3; e.x = nx; e.y = ny;
-  if (!L.hit && Math.hypot(P.x - e.x, P.y - e.y) < e.r + P.r + 0.35) { L.hit = true; C.enemyHitsPlayer(e, Cg.mult, 'phys'); }
+  if (!L.hit && Math.hypot(P.x - e.x, P.y - e.y) < e.r + P.r + 0.35) { L.hit = true; C.enemyHitsPlayer(e, Cg.mult, 'phys'); if (!C.mobStrikeFx(e, P)) C.mobSheet(e, 'charge_crash', P.x, P.y, { size: 2.6 }); }   // П21: бросок попал — укус/клыки, у людей — удар разбега
   if (L.t > (Cg.r || 3.4) / sp + 0.1 || blocked) {
-    if (blocked && Cg.crashStun) { e.st.stun = Cg.crashStun; bus.emit('float', { x: e.x, y: e.y, text: 'Врезался!', color: '#ffd24a' }); C.particles(e.x, e.y, 10, { c: [150, 135, 115], sp: 2, size: 3 }); }
+    if (blocked && Cg.crashStun) { e.st.stun = Cg.crashStun; C.mobSheet(e, 'charge_crash', e.x + L.vx * e.r, e.y + L.vy * e.r, { size: 2.8 * (e.D.size || 1) }); bus.emit('float', { x: e.x, y: e.y, text: 'Врезался!', color: '#ffd24a' }); C.particles(e.x, e.y, 10, { c: [150, 135, 115], sp: 2, size: 3 }); }
     e.lunge = null; e.state = 'idle'; e.setAnim('idle', 5, true); e.cd = Cg.cd ? Math.min(Cg.cd, e.D.cd * 1.6) : e.D.cd;
     e.recoverT = 0.85;   // П69: после броска зверь «выдыхается» на месте — окно, чтобы по нему попасть (раньше сразу снова кружил)
   }
