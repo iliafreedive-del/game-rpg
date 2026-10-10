@@ -1,7 +1,7 @@
 // Proximity panels: walk into an NPC/room circle → the panel opens by itself; walk away → it closes.
 // The game keeps running (no pause). Everything shows the price and the effect up front.
 import { G, bus } from '../game/ctx.js';
-import { $, el, esc, fmt } from '../core/util.js';
+import { $, el, esc, fmt, ICO } from '../core/util.js';
 import { UPGRADES, upgCost, upgHave, ROOMS, DECOR } from '../data/upgrades.js';
 import { REPEATABLE } from '../data/quests.js';
 import { REALMS } from '../data/wild.js';
@@ -132,7 +132,7 @@ function render(force) {
         if (!c.max) btn(r, `▲ ${fmt(c.cost)} зол.`, c.ok, () => PT.trainPet(k), ' up'); box.appendChild(r);
       }
     }
-    box.appendChild(el('p', 'muted', '<small>Осколки Бездны ◆ дают стражи, боссы, чемпионы, сундуки, Жатва и недельные задания. Улучшение: +15% силы питомца за уровень.</small>'));
+    box.appendChild(el('p', 'muted pn-shards', ICO.pile + '<small>Осколки Бездны ◆ дают стражи, боссы, чемпионы, сундуки, Жатва и недельные задания. Улучшение: +15% силы питомца за уровень.</small>'));
   } else if (T.id === 'board') {
     head('Доска заданий', 'Ежедневные · недельные · долгие контракты');
     box.appendChild(el('div', 'pn-sub', 'Ежедневные'));
