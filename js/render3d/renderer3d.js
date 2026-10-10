@@ -263,7 +263,10 @@ function syncEnemies(dt) {
   for (const e of G.enemies) {
     let def = MOBS[e.model || e.type] || MOBS[e.D && e.D.model3d];   // e.model — свой вид при том же типе (Страж глубин, сборка 57); model3d — чужая модель на время (мобы храма)
     if (!def) { if (!warned.has(e.type)) { warned.add(e.type); console.warn('[3D] нет модели моба «' + e.type + '» — показан скелет-воин'); } def = MOBS.skel_warrior; }
-    const a = getActor(e, def, { scale: (e.champion ? 1.25 : 1) * (def === MOBS[e.model || e.type] || (e.D && def === MOBS[e.D.model3d]) ? 1 : e.r / 0.34) }); a.isEnemy = true;
+    const sc = { scale: (e.champion ? 1.25 : 1) * (def === MOBS[e.model || e.type] || (e.D && def === MOBS[e.D.model3d]) ? 1 : e.r / 0.34) };
+    let a = getActor(e, def, sc); a.isEnemy = true;
+    // правки 2 (П17–18): моб собран запасной моделью, пока его модель грузилась, — пересобрать, когда догрузилась
+    if (def.ready && SKINS.on) { if (a.fb === undefined) a.fb = !def.ready(kit); else if (a.fb && def.ready(kit)) { a.dispose(); actors.delete(e); a = getActor(e, def, sc); a.isEnemy = true; a.fb = false; } }
     const c = measure(a, e, dt), an = e.anim; let clip = 'idle', k, impact, speed = 0;
     if (e.dead) { clip = 'death'; k = an.prog; }
     else if (e.state === 'attack') { clip = e.D.proj ? 'cast' : (e.atk && e.atk.kind) || 'attack';   /* у босса: attack2, slam, roar */ k = an.prog; impact = e.atk ? e.atk.impact : undefined; }
