@@ -18,8 +18,8 @@ function spot(ac, out, wet, pan = 0, gain = 1, send = 0.2) {
 }
 const SCENES = {
   // музыка: тема деревни (16 тактов) и бой Летописи (24 такта)
-  music_village: { sec: 0, run(ac, out, wet, r) { const o = ac.createGain(); o.connect(out); const s = ac.createGain(); s.gain.value = 0.35; o.connect(s); s.connect(wet); return village(ac, o, 0.2, 16, r) + 2.5; } },
-  music_battle: { sec: 0, run(ac, out, wet, r) { const o = ac.createGain(); o.connect(out); const s = ac.createGain(); s.gain.value = 0.2; o.connect(s); s.connect(wet); return battle(ac, o, 0.1, 24, r) + 2; } },
+  music_village: { sec: 0, run(ac, out, wet, r) { const o = ac.createGain(); o.connect(out); const s = ac.createGain(); s.gain.value = 0; o.connect(s); s.connect(wet); return village(ac, o, 0.2, 16, r) + 4; } },
+  music_battle: { sec: 0, run(ac, out, wet, r) { const o = ac.createGain(); o.connect(out); const s = ac.createGain(); s.gain.value = 0; o.connect(s); s.connect(wet); return battle(ac, o, 0.1, 24, r) + 3; } },
   // лес: ветер с листвой, зяблик, синица, славка, дрозд, кукушка вдали, вой волка далеко
   forest: { sec: 26, run(ac, out, wet, r) {
     const bed = new Bed(ac, out, BEDS.forest, r); bed.schedule(26);
