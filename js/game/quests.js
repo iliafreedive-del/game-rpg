@@ -9,6 +9,8 @@ import { rint } from '../core/util.js';
 import { hasSkill } from './progress.js';
 import { SEALS } from '../data/story.js';
 
+// П57: крупные награды заданий опытом ×0,6 (+250 за задание — слишком быстро). Мелкие шаги обучения (до 100) — как были
+export const questXP = x => x >= 100 ? Math.round(x * 0.6) : x;
 export const current = () => STORY[G.profile.story.stage] || null;
 export const storyDone = () => G.profile.story.stage >= STORY.length;
 
@@ -56,7 +58,7 @@ export function grant(r, title, opts = {}) {
     const it0 = rewardItem(spec); const entry = autoEquip(it0);   // выбор — в окне награды: надеть или оставить в сумке
     got.items.push(entry);
   }
-  if (r.xp) { gainXP(r.xp); got.xp = r.xp; }
+  if (r.xp) { const x = opts.rawXP ? r.xp : questXP(r.xp); gainXP(x); got.xp = x; }
   bus.emit('reward', got); bus.emit('hud'); bus.emit('save');
 }
 const TIER = {

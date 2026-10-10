@@ -128,4 +128,6 @@ export function gainXP(n, x, y) {
 // Враги идут на уровень выше героя, пока не упрутся в потолок зоны (progress.js bandLevel) — перекачавшись, герой здесь почти не растёт
 const OVER = [1, 0.8, 0.55, 0.3, 0.15, 0.05];
 export const overPenalty = (hero, mob) => OVER[Math.min(OVER.length - 1, Math.max(0, hero - mob))];
-export function killXP(e) { return Math.round(e.D.xp * scaleXP(e.lvl) * (e.champion ? 2.5 : 1) * overPenalty(G.profile.level, e.lvl)); }
+// П57: опыт за врагов ×0,8 — «прокачка слишком быстрая»
+export const KILL_XP_K = 0.8;
+export function killXP(e) { return Math.round(e.D.xp * scaleXP(e.lvl) * (e.champion ? 2.5 : 1) * overPenalty(G.profile.level, e.lvl) * KILL_XP_K * (e.repeat ? 0.5 : 1)); }

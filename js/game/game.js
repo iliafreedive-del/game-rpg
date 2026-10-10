@@ -198,7 +198,7 @@ function spawnDungeon(zone) {
   }
   const [el, bo] = zone.json.story;
   if (!P.story.flags.eliteKilled) spawnElite(zone);   // Хранитель амулета стоит в зале за дверью
-  if (P.story.flags.gateOpen || W.gateOpen) G.enemies.push(new Enemy('boss', bo[1], bo[2], P.chapterDone ? Math.max(6, P.level) : bandLevel(BOSS_LEVEL, 10), { story: 'boss' }));
+  if (P.story.flags.gateOpen || W.gateOpen) G.enemies.push(new Enemy('boss', bo[1], bo[2], P.chapterDone ? Math.max(6, P.level) : bandLevel(BOSS_LEVEL, 10, true), { story: 'boss' }));
 }
 export const depthsUnlocked = () => !!G.profile.story.flags.bossKilled || (G.profile.depths && G.profile.depths.best > 0);
 function spawnFloor(zone) {
@@ -207,7 +207,7 @@ function spawnFloor(zone) {
       let px = x, py = y;
       for (let k = 0; k < 10; k++) { const tx = x + rrange(-spread, spread), ty = y + rrange(-spread, spread); if (zone.map.free(tx, ty, 0.4)) { px = tx; py = ty; break; } }
       const rr = ({ boss: 0.8, elite_guard: 0.55, beast: 0.5 })[type] || 0.35; [px, py] = zone.map.nearestFree(px, py, rr);
-      const e = new Enemy(type, px, py, bandLevel(lvl, lvl + 3), { story: tag || null, champion: !tag && rand() < 0.05 + zone.json.floorN * 0.01 });   // сборка 47: герой +1 в пределах этаж..этаж+3
+      const e = new Enemy(type, px, py, bandLevel(lvl, lvl + 3, !!tag), { story: tag || null, champion: !tag && rand() < 0.05 + zone.json.floorN * 0.01 });   // сборка 47: герой +1 в пределах этаж..этаж+3
       if (tag === 'floorboss') e.name = type === 'boss' ? `Палач Глубин · этаж ${zone.json.floorN}` : `Страж глубин · этаж ${zone.json.floorN}`;
       if (tag === 'floorboss' && type === 'elite_guard') e.model = 'elite_warlord';   // сборка 57: свой вид (полководец с секирой)
       G.enemies.push(e);
@@ -215,7 +215,7 @@ function spawnFloor(zone) {
   }
 }
 function spawnElite(zone) {
-  const el = zone.json.story[0], e = new Enemy('elite_guard', el[1], el[2], G.profile.chapterDone ? Math.max(6, G.profile.level) : bandLevel(6, 8), { story: 'elite' });
+  const el = zone.json.story[0], e = new Enemy('elite_guard', el[1], el[2], G.profile.chapterDone ? Math.max(6, G.profile.level) : bandLevel(6, 8, true), { story: 'elite' });
   e.name = 'Хранитель амулета'; e.maxHP = Math.round(e.maxHP * 1.3); e.hp = e.maxHP; e.dmgMul *= 1.1; G.enemies.push(e);   // посложнее обычного стража
 }
 
@@ -342,7 +342,7 @@ export function interact(it) {
       it.done = true; W.gateOpen = true; it.draw.spr = it.draw.spr === 'door_arch' ? 'door_arch_open' : 'door_open'; it.light.on = false; for (const [x, y] of it.tiles || [it.tile]) G.zone.map.setSolid(x, y, 0);
       bus.emit('sfx', 'door'); G.cam.shake = 0.7; bus.emit('toast', { text: 'Печать сломлена', sub: 'Палач Бездны пробуждается…', kind: 'quest' });
       Q.setFlag('gateOpen');
-      if (!G.enemies.some(e => e.D.boss)) { const bo = G.zone.json.story[1]; G.enemies.push(new Enemy('boss', bo[1], bo[2], P.chapterDone ? Math.max(6, P.level) : bandLevel(BOSS_LEVEL, 10), { story: 'boss' })); }
+      if (!G.enemies.some(e => e.D.boss)) { const bo = G.zone.json.story[1]; G.enemies.push(new Enemy('boss', bo[1], bo[2], P.chapterDone ? Math.max(6, P.level) : bandLevel(BOSS_LEVEL, 10, true), { story: 'boss' })); }
       requestSave(); return;
   }
 }
