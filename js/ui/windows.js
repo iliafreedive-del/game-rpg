@@ -50,6 +50,11 @@ import { resize } from '../render/index.js';
 import { zoomRange, zoomNow, setZoom } from '../core/camzoom.js';
 import { hintLog, hintsOn, setHints, MILESTONES, milestones } from './tutorial.js';
 
+// С26: доступность на этом устройстве: fs — масштаб текста окон/панелей/тостов, rm — меньше движения (по умолчанию — как в системе)
+function a11y() { let A = null; try { A = JSON.parse(localStorage.getItem('da_a11y') || 'null'); } catch { } return A || { fs: 1, rm: matchMedia('(prefers-reduced-motion: reduce)').matches }; }
+function setA11y(o) { const A = { ...a11y(), ...o }; try { localStorage.setItem('da_a11y', JSON.stringify(A)); } catch { } applyA11y(A); }
+function applyA11y(A) { document.documentElement.style.setProperty('--fs', A.fs || 1); document.documentElement.classList.toggle('rm', !!A.rm); }
+applyA11y(a11y());
 let cur = null;   // {name, bg, render}
 // сборка 47: окно с lock (первый меч, смерть в Жатве) закрывается только своей кнопкой — closeModal(true).
 // Окна от событий (глава, осколок памяти, босс, итог похода) не вышибают открытое окно, а ждут в очереди.
@@ -503,6 +508,11 @@ W.settings = () => modal('Настройки', 'sm', b => {
     const ph = el('div', 'attr', '<b>Режим съёмки</b> <small class="muted">без кнопок, для скриншотов и роликов. Включите АВТО заранее — герой будет сражаться сам</small>'); const bp = el('button', 'btn sm', 'Включить');
     bp.onclick = () => { closeModal(); photoMode(true); }; ph.appendChild(bp); b.appendChild(ph); }
   const sh = el('div', 'attr', '<b>Тряска камеры</b>'); const bs = el('button', 'btn sm', s.shake ? 'Вкл' : 'Выкл'); bs.onclick = () => { s.shake = !s.shake; rerender(); }; sh.appendChild(bs); b.appendChild(sh);
+  { // С26: размер текста в окнах и подсказках и «меньше движения» — на этом устройстве (localStorage), не в сохранении героя
+    const A = a11y(), ts = el('div', 'attr', '<b>Размер текста</b> <small class="muted">окна, панели, подсказки</small>');
+    for (const [k, n] of [[1, 'Обычный'], [1.15, 'Крупный'], [1.3, 'Очень крупный']]) { const bt = el('button', 'btn sm' + (A.fs === k ? ' gold' : ''), n); bt.onclick = () => { setA11y({ fs: k }); rerender(); }; ts.appendChild(bt); }
+    b.appendChild(ts);
+    const rm = el('div', 'attr', '<b>Меньше движения</b> <small class="muted">без мигания и пульсации кнопок; тряска камеры выключается</small>'); const br = el('button', 'btn sm', A.rm ? 'Вкл' : 'Выкл'); br.onclick = () => { setA11y({ rm: !A.rm }); if (!A.rm) s.shake = false; bus.emit('save'); rerender(); }; rm.appendChild(br); b.appendChild(rm); }
   b.appendChild(el('p', 'muted', `<small>Версия сборки: ${window.__BUILD || ''}</small>`));
   b.appendChild(el('h3', '', 'Управление'));
   b.appendChild(el('p', 'muted', 'Телефон/планшет: джойстик слева, навыки, рывок и зелья справа. Герой бьёт сам, когда враг рядом: ваше дело — двигаться, уклоняться и пить зелья. Щипок двумя пальцами — камера ближе/дальше. ПК: WASD/стрелки — движение, колесо мыши — камера ближе/дальше, Пробел — атака, 1–4 — навыки, Shift — уклонение, Q/E — зелья, F — действие, I/C/K/J/M — окна, T — свиток.'));
