@@ -15,17 +15,19 @@ const STONE = { bone: 0xd8ccae, boneD: 0x8a7f66, boneL: 0xf2e8cc, iron: 0x8a6a3a
 const RIM = 0x7fd4ff, TINT = 0x8e9ab4, RIM_K = 0.95;
 const beastFb = (kit, o) => beastModel(kit, { anat: 'wolf', strip: 'short', tw: 0.9, furLen: 0.03, furDens: 0.2, seed: 5, fur: 0x9a8f78, furL: 0xd8ccae, skin: 0x8a7f66, eye: 0xffc860, plates: true, horns: false, ears: 'point', bushy: false, ...o });
 // зверь на скелете волка (ригнутая GLB); h — рост в игре
-const wolfRig = (id, glb, h, fb) => ({ id, kind: 'mob', outline: 'mob', build(kit) {
+// ready(kit) — модель уже загружена; если моб был собран раньше (запасной процедурный), renderer3d пересобирает его, как только модель
+// догрузится (правки 2, П17–18: на медленной сети пак не успевал за 8 с, и мобы храма оставались скелетами до конца уровня)
+const wolfRig = (id, glb, h, fb) => ({ id, kind: 'mob', outline: 'mob', ready: kit => !!(kit.mob && kit.mob.mobLoaded(glb)), build(kit) {
   if (kit.mob && kit.skin.SKINS.on && kit.mob.mobLoaded(glb)) { const m = kit.mob.buildMob(kit, glb, { height: h, radius: 0.3 * h, shadow: 1.3 * h, rimColor: RIM, rim: RIM_K, tint: TINT }); if (m) return m; }
   return beastFb(kit, { id, ...fb });
 } });
 // зверь на риге процедурного зверя (статичная GLB, кости ставятся по сетке)
-const beastRig = (id, glb, h, fb) => ({ id, kind: 'mob', outline: 'mob', build(kit) {
+const beastRig = (id, glb, h, fb) => ({ id, kind: 'mob', outline: 'mob', ready: kit => !!(kit.mob && kit.mob.mobLoaded(glb)), build(kit) {
   if (kit.mob && kit.skin.SKINS.on && kit.mob.mobLoaded(glb)) { const m = beastGlb(kit, glb, { height: h, rimColor: RIM, rim: RIM_K, tint: TINT }); if (m) return m; }
   return beastFb(kit, { id, anat: 'boar', tusks: true, ears: 'round', ...fb });
 } });
 // воин: шкура <skin> поверх процедурного скелета
-const warrior = (id, skin, o = {}) => ({ id, kind: 'mob', outline: 'mob', build(kit) {
+const warrior = (id, skin, o = {}) => ({ id, kind: 'mob', outline: 'mob', ready: kit => kit.skin.skinLoaded(skin), build(kit) {
   return mobSkin(kit, skeleton(kit, { head: 'great', pal: STONE, cloth: 0x6a6a52, clothL: 0xa8a482, rimColor: RIM, weapons: {}, ...o }), skin, { rimColor: RIM, rim: RIM_K, tint: TINT });
 } });
 
@@ -47,7 +49,7 @@ export const STONE_MOBS = [
   warrior('t_mb_hierophant', 't_mb_king_m', { heavy: true, head: 'crown', scale: 1.45 }),
   warrior('t_mb_sentinel', 't_mb_lancer_m', { scale: 1.4 }),
   warrior('t_lord', 't_mb_king_m', { heavy: true, head: 'crown', scale: 1.6 }),
-  { id: 't_boss', kind: 'mob', outline: 'mob', build(kit) { return mobSkin(kit, bossModel(kit, { SK: 0x8a7f66, SKL: 0xd8ccae, HOOD: 0x5e7034, HOODL: 0x9ab050, IR: 0x8a6a3a, IRL: 0xd0a860, LE: 0x6a604e, LEL: 0xa0957c, rim: RIM, core: 0xffc860, scale: 1.0, weapons: {} }), 't_boss_m', { rimColor: RIM, rim: RIM_K, tint: TINT }); } },
+  { id: 't_boss', kind: 'mob', outline: 'mob', ready: kit => kit.skin.skinLoaded('t_boss_m'), build(kit) { return mobSkin(kit, bossModel(kit, { SK: 0x8a7f66, SKL: 0xd8ccae, HOOD: 0x5e7034, HOODL: 0x9ab050, IR: 0x8a6a3a, IRL: 0xd0a860, LE: 0x6a604e, LEL: 0xa0957c, rim: RIM, core: 0xffc860, scale: 1.0, weapons: {} }), 't_boss_m', { rimColor: RIM, rim: RIM_K, tint: TINT }); } },
 ];
 // модели, которые грузятся при входе в храм (не с титульного экрана): звери — GLB, воины — шкуры
 export const STONE_GLB = ['t_hound', 't_boar', 't_lion', 't_stag', 't_mb_lion', 't_mb_bull'];
