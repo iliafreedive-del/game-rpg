@@ -550,7 +550,9 @@ export function update(dt) {
   const m0 = pl.meters; pl.update(dt, inp); meterAcc += pl.meters - m0; pl.meters = 0;
   if (meterAcc > 5) { Q.addMeters(meterAcc); meterAcc = 0; }
   if (G.zoneId !== 'town') G.zone.map.buildFlow(Math.floor(pl.x), Math.floor(pl.y), G.time);
+  G.meleeBusy = 0; for (const e of G.enemies) if (!e.dead && (e.state === 'attack' || e.lunge) && !e.D.proj && !e.D.boss && !e.D.elite && !e.D.mini && Math.hypot(e.x - pl.x, e.y - pl.y) < 5) G.meleeBusy++;   // П69: занятые удары (см. Enemy.update)
   for (const e of G.enemies) e.update(dt, pl);
+  separate(G.enemies, G.zone.map);
   if (G.zoneId === 'survival') SV.updateSurvival(dt);
   for (let i = G.enemies.length - 1; i >= 0; i--) if (G.enemies[i].remove) G.enemies.splice(i, 1);
   for (const n of G.npcs) n.update(dt, pl);
@@ -593,6 +595,14 @@ export function update(dt) {
 }
 // правки 2 (П50): арена Палача запечатывается, когда герой вошёл в неё и босс вступил в бой — мобов из других залов не притащить,
 // и из арены не выбежать кайтить по коридорам. Палач пал (или герой погиб и ушёл в деревню) — дверь снова открыта
+// П69: мобы не стоят друг в друге — стоящие у героя тоже расталкиваются (раньше расталкивание было только в шаге)
+function separate(list, map) {
+  for (let i = 0; i < list.length; i++) { const a = list[i]; if (a.dead || a.D.boss) continue;
+    for (let j = i + 1; j < list.length; j++) { const b = list[j]; if (b.dead || b.D.boss) continue;
+      const dx = b.x - a.x, dy = b.y - a.y, rr = (a.r + b.r) * 0.95, dd = dx * dx + dy * dy; if (dd >= rr * rr || dd < 1e-6) continue;
+      const dd2 = Math.sqrt(dd), push = Math.min(0.05, (rr - dd2) * 0.5), nx = dx / dd2 * push, ny = dy / dd2 * push;
+      [a.x, a.y] = map.move(a.x, a.y, -nx, -ny, a.r * 0.9); [b.x, b.y] = map.move(b.x, b.y, nx, ny, b.r * 0.9); } }
+}
 function arenaTick() {
   const Z = G.zone; if (G.zoneId !== 'catacombs' || !Z.rooms.arena) return;
   const gate = Z.bossGate || (Z.bossGate = Z.inter.find(i => i.type === 'gate')); if (!gate || !gate.done) return;

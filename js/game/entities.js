@@ -160,7 +160,12 @@ export class Enemy {
     if (this.aggro && !this.D.boss && (!this.story || this.story === 'hunt') && !this.summoned) { const hd = Math.hypot(this.x - this.hx, this.y - this.hy); if (d > 12 || hd > 16 || (d > 8 && !map.los(this.x, this.y, P.x, P.y))) { this.leashT = (this.leashT || 0) + dt; if (this.leashT > (hd > 16 ? 0.5 : 2)) { this.aggro = false; this.leashT = 0; this.alertT = undefined; this.wakeT = undefined; this.state = 'idle'; this.cd = 1.5; this.ret = true; this.teleg = null; this.lunge = null; this.atk = null; } } else this.leashT = 0; }
     if (P.dead) { if (this.state !== 'attack') { this.setAnim('idle', 5, true); this.state = 'idle'; } return; }
     if (this.state === 'attack') { C.updateEnemyAttack(this, dt, P); return; }
-    AI[this.D.ai](this, dt, P, d, dx, dy);
+    // правки 2 (П69): «очередь на удар», как в экшенах: одновременно замахиваются не больше трёх рядовых бойцов ближнего боя,
+    // остальные держат круг и ждут — большой пак вокруг героя не превращается в кашу из одновременных ударов
+    const grunt = !this.D.boss && !this.D.elite && !this.D.proj && !this.D.mini;
+    if (grunt && (G.meleeBusy || 0) >= 3 && d < 5) { this.cd = Math.max(this.cd, 0.25); if (this.chCd != null) this.chCd = Math.max(this.chCd, 0.25); }
+    const was = !!this.lunge; AI[this.D.ai](this, dt, P, d, dx, dy);
+    if (grunt && d < 5 && !was && (this.state === 'attack' || this.lunge)) G.meleeBusy = (G.meleeBusy || 0) + 1;
   }
   moveToward(tx, ty, dt, spMul = 1, useFlow = true) {
     const map = G.zone.map; let vx = tx - this.x, vy = ty - this.y; const l = Math.hypot(vx, vy) || 1; vx /= l; vy /= l;
@@ -221,9 +226,10 @@ const AI = {
       const sp = 7.5; const [nx, ny] = G.zone.map.move(e.x, e.y, L.vx * sp * dt, L.vy * sp * dt, e.r);
       const blocked = Math.hypot(nx - e.x, ny - e.y) < sp * dt * 0.3; e.x = nx; e.y = ny;
       if (!L.hit && Math.hypot(P.x - e.x, P.y - e.y) < e.r + P.r + 0.35) { L.hit = true; C.enemyHitsPlayer(e, 1.3, 'phys'); }
-      if (L.t > 0.45 || blocked) { e.lunge = null; e.state = 'idle'; e.setAnim('idle', 5, true); e.cd = e.D.cd; }
+      if (L.t > 0.45 || blocked) { e.lunge = null; e.state = 'idle'; e.setAnim('idle', 5, true); e.cd = e.D.cd; e.recoverT = 0.85; }
       return;
     }
+    if (e.recoverT > 0) { e.recoverT -= dt; e.dir = dirOf(P.x - e.x, P.y - e.y); e.setAnim('idle', 5, true, e.anim.clip !== 'idle'); return; }   // П69: окно после броска
     if (d < 4.2 && d > 1.4 && e.cd <= 0 && G.zone.map.los(e.x, e.y, P.x, P.y)) {
       // telegraphed lunge
       e.state = 'attack'; e.atk = { kind: 'lunge', t: 0, hit: false, impact: 0.99 }; e.dir = dirOf(P.x - e.x, P.y - e.y);
