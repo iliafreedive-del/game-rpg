@@ -6,7 +6,7 @@ import { Zone } from '../world/zone.js';
 import { Player, Enemy, NPC } from './entities.js';
 import { stats, hasBoon } from './stats.js';
 import { makeItem } from './items.js';
-import { ROOM_LEVEL } from '../data/enemies.js';
+import { ROOM_LEVEL, scaleHP, scaleDmg } from '../data/enemies.js';
 import * as C from './combat.js';
 import * as L from './loot.js';
 import * as Q from './quests.js';
@@ -250,8 +250,13 @@ function spawnFloor(zone) {
       let px = x, py = y;
       for (let k = 0; k < 10; k++) { const tx = x + rrange(-spread, spread), ty = y + rrange(-spread, spread); if (zone.map.free(tx, ty, 0.4)) { px = tx; py = ty; break; } }
       const rr = ({ boss: 0.8, elite_guard: 0.55, beast: 0.5 })[type] || 0.35; [px, py] = zone.map.nearestFree(px, py, rr);
-      const e = new Enemy(type, px, py, bandLevel(lvl, lvl + 3, !!tag), { story: tag || null, champion: !tag && rand() < 0.05 + zone.json.floorN * 0.01 });   // сборка 47: герой +1 в пределах этаж..этаж+3
+      const e = new Enemy(type, px, py, tag ? lvl : bandLevel(lvl, lvl + 3), { story: tag || null, champion: !tag && rand() < 0.05 + zone.json.floorN * 0.01 });   // сборка 47: герой +1 в пределах этаж..этаж+3; страж — ровно уровня этажа (был «герой +1» всегда — прокачка не помогала)
       if (tag === 'floorboss') e.name = type === 'boss' ? `Палач Глубин · этаж ${zone.json.floorN}` : `Страж глубин · этаж ${zone.json.floorN}`;
+      if (tag === 'floorboss') {   // страж: HP ×1,8 и урон ×1,3 за 5 этажей от стража 5-го (раньше уровень² и Палач (база ×3,2) на 10/20/… давали ×9 за 5 этажей)
+        const k = (zone.json.floorN - 5) / 5, boss = type === 'boss';
+        e.maxHP = Math.round(e.maxHP * 1.8 ** k * scaleHP(6) / scaleHP(lvl) * (boss ? 0.31 : 1)); e.hp = e.maxHP;
+        e.dmgMul *= 1.3 ** k * scaleDmg(6) / scaleDmg(lvl) * (boss ? 0.78 : 1);
+      }
       if (tag === 'floorboss' && type === 'elite_guard') e.model = 'elite_warlord';   // сборка 57: свой вид (полководец с секирой)
       G.enemies.push(e);
     }
