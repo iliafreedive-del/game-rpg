@@ -20,8 +20,10 @@ export function C() {
   return P.castle;
 }
 // ---- regenerating counters (work offline)
+// С15: часы телефона переведены назад — отметка времени «в будущем»: прижимаем к «сейчас», иначе счётчики стоят часами, а алтарь отнимает золото
+export const unFuture = (obj, k = 'at') => { if (obj && obj[k] > Date.now()) obj[k] = Date.now(); return obj; };
 function regen(obj, max, periodMs) {
-  const now = Date.now(); if (obj.n >= max) { obj.at = now; return obj; }
+  const now = Date.now(); unFuture(obj); if (obj.n >= max) { obj.at = now; return obj; }
   const k = Math.floor((now - obj.at) / periodMs);
   if (k > 0) { obj.n = Math.min(max, obj.n + k); obj.at = obj.n >= max ? now : obj.at + k * periodMs; }
   return obj;
@@ -35,13 +37,13 @@ export function torches() {
   if (P.hw && P.hw.en && !P.enMerged) { P.torch.n = Math.max(P.torch.n, P.hw.en.n | 0); P.enMerged = 1; }   // старые сохранения: энергия Летописи и факелы — в одну
   return regen(P.torch, TORCH_MAX, TORCH_MS);
 }
-export function enAds() { const P = G.profile; P.enAds = P.enAds || { at: 0, n: 0 }; if (Date.now() - P.enAds.at >= EN_AD_WIN) { P.enAds.at = 0; P.enAds.n = 0; } return P.enAds; }
+export function enAds() { const P = G.profile; P.enAds = unFuture(P.enAds || { at: 0, n: 0 }); if (Date.now() - P.enAds.at >= EN_AD_WIN) { P.enAds.at = 0; P.enAds.n = 0; } return P.enAds; }
 export const enAdsLeft = () => EN_AD_MAX - enAds().n;
 export const enAdsReset = () => { const a = enAds(); return a.at ? Math.max(0, a.at + EN_AD_WIN - Date.now()) : 0; };
 export function enAdGrant() { const a = enAds(); if (!a.at) a.at = Date.now(); a.n++; addTorches(EN_AD); }
 export function spendEnergy(n = 1) { const t = torches(); if (t.n < n) return false; if (t.n >= TORCH_MAX) t.at = Date.now(); t.n -= n; bus.emit('hud'); bus.emit('save'); return true; }
 export function seals() { C(); return regen(G.profile.seals, SEAL_MAX, SEAL_MS); }
-export function nextIn(obj, ms) { return obj.n >= (ms === TORCH_MS ? TORCH_MAX : SEAL_MAX) ? 0 : Math.max(0, obj.at + ms - Date.now()); }
+export function nextIn(obj, ms) { unFuture(obj); return obj.n >= (ms === TORCH_MS ? TORCH_MAX : SEAL_MAX) ? 0 : Math.max(0, obj.at + ms - Date.now()); }
 export function spendTorch() { const t = torches(); if (t.n <= 0) return false; if (t.n >= TORCH_MAX) t.at = Date.now(); t.n--; bus.emit('hud'); bus.emit('save'); return true; }
 export function addTorches(n) { const t = torches(); t.n = Math.min(EN_CAP, t.n + n); bus.emit('hud'); bus.emit('save'); }
 
@@ -53,10 +55,11 @@ export function addShards(n, x, y) {
 }
 bus.on('kill', e => {
   if (!G.profile) return;
-  const ch = e.D.boss ? 1 : e.D.elite ? 1 : e.champion ? 0.35 : e.story === 'floorboss' ? 1 : 0.015;
+  if (e.repeat) { addShards(e.D.boss ? 8 : 5, e.x, e.y); return; }   // П45: возродившийся Хранитель — 5 осколков, Палач — 8
+  const ch = e.D.boss ? 1 : e.D.elite ? 1 : e.champion ? 0.175 : e.story === 'floorboss' ? 1 : 0.015;
   if (rand() < ch) addShards(e.D.boss ? rint(4, 7) : e.D.elite ? rint(2, 4) : 1, e.x, e.y);
 });
-bus.on('chest', () => { if (rand() < 0.25) addShards(1, G.player.x, G.player.y); });
+bus.on('chest', () => { if (rand() < 0.125) addShards(1, G.player.x, G.player.y); });
 
 // ---- rooms
 export function canUnlock(id) {
@@ -77,7 +80,7 @@ export function unlock(id) {
 // ---- gold altar
 export const altarRate = () => { const P = G.profile, l = P.castle.altar || 0; return l ? Math.round((35 + 25 * l) * (1 + P.level * 0.08)) : 0; };   // gold per hour
 export const altarUpgCost = () => { const l = G.profile.castle.altar; return { gold: Math.round(250 * Math.pow(1.6, l)), shards: 2 * l }; };
-export function altarStored() { const P = G.profile; C(); if (!P.castle.altar) return 0; const h = Math.min(8, (Date.now() - P.castle.altarAt) / H); return Math.floor(altarRate() * h); }
+export function altarStored() { const P = G.profile; C(); if (!P.castle.altar) return 0; unFuture(P.castle, 'altarAt'); const h = Math.min(8, (Date.now() - P.castle.altarAt) / H); return Math.floor(altarRate() * h); }
 export function altarCollect(mult = 1) { const g = altarStored(); if (!g) return 0; const P = G.profile; P.gold += g * mult; P.castle.altarAt = Date.now(); bus.emit('sfx', 'coin'); bus.emit('toast', { text: `Алтарь: +${g * mult} золота`, kind: 'good' }); bus.emit('hud'); bus.emit('save'); return g; }
 export function altarUpgrade() {
   const P = G.profile, c = altarUpgCost(); if (P.castle.altar >= 10) return false;

@@ -26,7 +26,7 @@ export function spawnWild(zone) {
       let px = x, py = y;
       for (let k = 0; k < 12; k++) { const tx = x + rrange(-spread, spread), ty = y + rrange(-spread, spread); if (zone.map.free(tx, ty, 0.45)) { px = tx; py = ty; break; } }
       const rr = WILD_MOBS[type].radius + 0.15; [px, py] = zone.map.nearestFree(px, py, rr);
-      const e = new Enemy(type, px, py, bandLevel(lvl, lvl + 3), { story: tag || null, champion: !tag && rand() < 0.04 + zone.json.wild.depth * 0.01 });   // сборка 47: герой +1 в пределах поле..поле+3
+      const e = new Enemy(type, px, py, bandLevel(lvl, lvl + 3, !!tag && tag !== 'fortguard'), { story: tag || null, champion: !tag && rand() < 0.04 + zone.json.wild.depth * 0.01 });   // сборка 47: герой +1 в пределах поле..поле+3
       if (tag === 'wildkeep') applyNemesis(e, pickNemesis(zone.json.wild.realm));
       if (tag === 'wildboss') e.name = `${WILD_MOBS[type].name} · глубина ${zone.json.wild.depth}`;
       G.enemies.push(e);
@@ -58,6 +58,10 @@ function onKill(e) {
   if (G.zone.wildGate) setTimeout(checkGate, 0);
   const realm = G.wild.realm, W = wildState(realm), lvl = e.lvl;
   if (!e.summoned && e.D.realm === realm) { bump(realm, 'kills'); bump(realm, 'k_' + e.type); }
+  if (e.story === 'fquest') {   // П37: Шатун-людоед — задание старосты
+    for (let i = 0; i < 4; i++) L.dropGold(e.x, e.y, rint(6, 12) * (1 + 0.15 * (lvl - 1))); L.dropPotion(e.x, e.y, 'hp');
+    for (const p of G.pickups) if (p.t < 0.1) p.fly = true;
+  }
   if (e.story === 'minib') {   // мини-босс святилища храма: золото, зелье, вещь — и подлетает к герою
     const P = G.profile; bump(realm, 'minis');
     for (let i = 0; i < 5; i++) L.dropGold(e.x, e.y, rint(5, 10) * (1 + 0.15 * (lvl - 1)));

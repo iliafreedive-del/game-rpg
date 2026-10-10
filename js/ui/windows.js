@@ -17,7 +17,7 @@ import { ART, artTag, artHead } from './art.js';
 import { drawMap, seen, seenKey } from './hud.js';
 import { offers, buy, restorePurchases, dailyStatus, claimDaily, chestStatus, chestSkip, openOrderChest, DAILY, LOGIN_DAYS, watchRewarded, offerToken, blessing, blessLeft, BLESS_MIN, BLESS_CAP, BLESS_DAY, blessToday } from '../platform/monetize.js';
 import { PRODUCTS, platform } from '../platform/platform.js';
-import { wallOffer, markShown, streakHelp, helpGiven } from '../platform/offers.js';
+import { wallOffer, markShown, streakHelp, helpGiven, shopGearToday } from '../platform/offers.js';
 import { inCinema } from './cinema.js';
 import { revive, saveNow, loadZone, depthsUnlocked, MAX_REVIVES, inPrologue } from '../game/game.js';
 import { generateFloor, isBossFloor, floorLevel } from '../world/floorgen.js';
@@ -42,7 +42,7 @@ import { particles, effect } from '../game/combat.js';
 import { maybeInterstitial, offerPreview } from '../platform/monetize.js';
 import { petsOf, meetCaravan, petInfo } from '../game/pets.js';
 import { PETS, TIERS, PET_MAX } from '../data/pets.js';
-import { earlyLock, firstLessonCost, POTION_RESERVE } from '../game/progress.js';
+import { earlyLock, firstLessonCost, POTION_RESERVE, wildDepthGate } from '../game/progress.js';
 import { platform as PF } from '../platform/platform.js';
 import { wipeLocal, cloudBundle } from '../game/save.js';
 import { setVolumes } from '../core/audio.js';
@@ -779,7 +779,7 @@ W.board = () => {
 
 // ---------------------------------------------------------------- rewards / shop (monetization hub)
 W.shrine = () => modal('Источник силы', 'md', b => {
-  const P = G.profile, now = Date.now();
+  const P = G.profile, now = Date.now(); if (!P.shrineSeen) { P.shrineSeen = 1; bus.emit('save'); }   // П67
   // 1) благословение — главное предложение алтаря
   { const left = blessLeft(), on = left > 0, full = left > (BLESS_CAP - BLESS_MIN) * 60000;
     const c = el('div', 'bless-card' + (on ? ' on' : ''), `<div class="bl-ic">✦</div><div class="tx"><b>Сила источника</b><div>+25% золота и опыта, +15% к выпадению вещей — ${BLESS_MIN} минут</div><div class="muted">${on ? `Действует ещё <b>${Math.floor(left / 60000)}:${String(Math.floor(left / 1000) % 60).padStart(2, '0')}</b>${full ? ' · предел ' + BLESS_CAP + ' мин' : ' · можно продлить'}` : 'Посмотрите рекламу — и 10 минут всё падает щедрее'}</div></div>`);
@@ -806,8 +806,11 @@ W.shrine = () => modal('Источник силы', 'md', b => {
   const cb = el('button', 'btn ' + (cs.ready ? 'gold' : 'ad'), cs.ready ? 'Открыть' : 'Открыть сейчас'); cb.onclick = () => { (cs.ready ? Promise.resolve(openOrderChest()) : chestSkip()).then(rerender); }; cr.appendChild(cb); b.appendChild(cr);
   // IAP
   b.appendChild(el('h3', '', 'Лавка Ордена'));
+  b.appendChild(el('p', 'muted', '<small>Снаряжение в лавке меняется каждый день. Синий сет — с начала, золотые вещи — с 15 уровня, мифические — с 22-го.</small>'));   // П67
+  const gearToday = shopGearToday();
   for (const [id, p] of Object.entries(PRODUCTS)) {
     if (!platform.p.hasProduct(id)) continue;
+    if (p.gear && !gearToday.includes(id)) continue;   // П67: из снаряжения — только товары дня, открытые по уровню
     const owned = (p.once && P.iap.tx['once_' + id]) || (!p.consumable && P.iap[{ gold_perk: 'goldPerk', no_ads: 'noAds', bag_big: 'bagBig' }[id]]);
     const o = el('div', 'offer', `<div class="ic">${esc(p.icon || '⛁')}</div><div class="tx"><b>${esc(p.title)}</b><div class="muted">${esc(p.desc)}</div></div>`);
     const pr = platform.p.catalogPrice(id), price = typeof pr === 'string' ? esc(pr) : `${esc(pr.value)} ${pr.img ? `<img class="cur" src="${esc(pr.img)}" alt="${esc(pr.code)}">` : esc(pr.code)}`;
@@ -893,7 +896,7 @@ export function showWallOffer() {
 // пока идёт обучение (реклама закрыта) — Орден помогает сам, +15% урона на 10 мин; после — честный выбор: подмога сильнее (+30%) за рекламу,
 // или дальше без неё (предложение повторится при следующей гибели в этом же месте)
 function helpBlock(where) {
-  const P = G.profile, give = (k, txt) => { P.boosts.helpUntil = Date.now() + 10 * 60e3; P.boosts.helpK = k; helpGiven(where); bus.emit('statsChanged'); bus.emit('toast', { text: txt, kind: 'good' }); };
+  const P = G.profile, give = (k, txt) => { P.boosts.helpUntil = Date.now() + 10 * 60e3; P.boosts.helpK = k; G.stats = stats(P); helpGiven(where); bus.emit('statsChanged'); bus.emit('toast', { text: txt, kind: 'good' }); };
   const box = el('div', 'death-help', '<b>Трудное место — третья попытка подряд</b>');
   if (earlyLock('extra')) { give(1.15, 'Подмога Ордена: +15% урона на 10 минут'); box.appendChild(el('p', 'good', 'Орден прислал подмогу: +15% ко всему урону на 10 минут.')); return box; }
   box.appendChild(el('p', 'muted', 'Орден может прислать подмогу: <b class="good">+30% ко всему урону на 10 минут</b>.'));
@@ -931,7 +934,7 @@ function showDeath() {
 function bossReward(k) {
   if (G.player.dead) return;
   modal('Палач Бездны повержен!', 'sm', b => {
-    b.appendChild(el('p', '', 'Золото рассыпано по арене — соберите его. Главная награда ждёт вас в окне задания.'));
+    b.appendChild(el('p', '', k.repeat ? 'Золото и осколки Бездны рассыпаны по арене. Палач вернётся через 30 минут — таймер на месте его гибели.' : 'Золото рассыпано по арене — соберите его. Главная награда ждёт вас в окне задания.'));   // П45
     b.appendChild(el('p', 'good', 'Портал домой открылся в центре арены.'));
     const row = el('div', 'row');
     const ad = el('button', 'btn ad', 'Дополнительный редкий предмет'); ad.onclick = () => offers.bossExtra(k.id, k.x, k.y).then(ok => { if (ok) closeModal(); });
@@ -1032,7 +1035,7 @@ W.wild = realm => modal(REALMS[realm].name, 'sm', b => {
   const enter = d => { closeModal(); loadZone('wild', { realm, depth: d }); };
   const need = wildReqLevel(realm, next);
   const go = el('button', 'btn gold', `▶ ${locationName(realm, next)} · глубина ${next}${isWildBoss(next) ? ' · босс' : ''} (ур. врагов ${wildLevel(realm, next)})`);
-  go.style.width = '100%'; if (P.level < need) { go.disabled = true; go.textContent = `Глубина ${next}: нужен уровень ${need}`; } go.onclick = () => enter(next); b.appendChild(go);
+  go.style.width = '100%'; if (P.level < need) { go.disabled = true; go.textContent = `Глубина ${next}: нужен уровень ${need}`; } else if (wildDepthGate(realm, next)) { go.disabled = true; go.textContent = `Глубина ${next}: после победы над Палачом Бездны`; }   /* П37 */ go.onclick = () => enter(next); b.appendChild(go);
   if ((WS.depth || 0) > 1) {
     b.appendChild(el('h3', '', 'Пройденные локации')); const grid = el('div', 'row');
     for (let d = Math.max(1, (WS.depth || 1) - 11); d < WS.depth; d++) { const bt = el('button', 'btn sm', `${d}${isWildFort(d) ? (isWildBoss(d) ? '♛' : '⚑') : ''}`); bt.title = locationName(realm, d); bt.onclick = () => enter(d); grid.appendChild(bt); }

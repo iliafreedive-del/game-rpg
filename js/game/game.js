@@ -16,7 +16,7 @@ import { loadJSON, loadGroup } from '../core/assets.js';
 import { loadFloor, buildFloorCanvas } from '../render/index.js';
 import { widen } from '../world/widen.js';
 import { declutter } from '../world/declutter.js';
-import { respawnTick } from './respawn.js';
+import { respawnTick, bossReady, bossTimer } from './respawn.js';
 import { weeklyRule, finishWeekly, codexScan, circle, circleHP, circleDmg, circleRew, rm } from './season.js';
 import { FLOOR_MODS, modReward } from '../data/floormods.js';
 const clean = J => (declutter(J), J), WILD_DECOR = new Set(['rocks']);   // сборка 47: предметы не входят друг в друга и в стены (world/declutter.js)
@@ -41,7 +41,7 @@ import { updatePet } from './pets.js';
 import { SKILLS } from '../data/skills.js';
 import { rand, rrange, rint } from '../core/util.js';
 import { pollMove, input, mouse, tapAim } from '../core/input.js';
-import { gate, BOSS_LEVEL, nextStep, earlyLock, lockToast, bandLevel, CATA_MAX } from './progress.js';
+import { gate, BOSS_LEVEL, nextStep, earlyLock, lockToast, bandLevel, CATA_MAX, wildDepthGate } from './progress.js';
 import { platform } from '../platform/platform.js';
 import { cineTick, inCinema, cinema, portalShots, newPortalShots } from '../ui/cinema.js';
 import { CAMERA } from '../render3d/style.js';
@@ -76,6 +76,7 @@ export function saveNow(force) {
 bus.on('save', requestSave);
 
 export async function loadZone(id, how = {}) {
+  if (id === 'wild') { const g = wildDepthGate(how.realm, how.depth); if (g) { bus.emit('toast', { ...g, kind: 'warn' }); bus.emit('sfx', 'deny'); return; } }   // П37
   G.zoneReady = false; G.zoneTo = id === 'wild' ? how.realm : id; bus.emit('zoneLoading', id);   // zoneTo — картинка шторки (сборка 58)
   if (G.zone && typeof requestAnimationFrame !== 'undefined') await new Promise(r => requestAnimationFrame(() => setTimeout(r, 0)));   // сборка 46: дать браузеру нарисовать шторку до тяжёлой сборки зоны
   const P = G.profile;
@@ -102,7 +103,7 @@ export async function loadZone(id, how = {}) {
     zone = new Zone('castle', G.render3d ? clean(widen(json, ROOMY)) : json, P); zone.dark = false;   // bright, readable citadel
     await buildFloorCanvas(zone);
   } else if (id === 'wild') {
-    const json = generateWild(how.realm, how.depth); addEchoes(json);
+    const json = generateWild(how.realm, how.depth, 1 + rint(0, 9999)); addEchoes(json);   // П37: каждый вход — новая раскладка поля
     declutter(json, 'xD~', WILD_DECOR); zone = new Zone('wild', json, P);
     await prepareWildAtlases(how.realm); setPropsPalette(how.realm === 'fjord'); buildWildFloor(zone);
   } else if (id === 'depths') {
@@ -152,7 +153,7 @@ export async function loadZone(id, how = {}) {
   } else if (id === 'castle') {
     [pl.x, pl.y] = zone.start; pl.face = pl.dir = 5; G.trial = null;
   } else if (id === 'wild') {
-    [pl.x, pl.y] = zone.start; pl.face = pl.dir = 1; spawnWild(zone); G.diedThisRun = false;
+    [pl.x, pl.y] = zone.start; pl.face = pl.dir = 1; spawnWild(zone); spawnQuestBeast(zone, how.realm); G.diedThisRun = false;
     const WS = wildState(how.realm); WS.depth = Math.max(WS.depth || 0, how.depth);
     G.wild = { realm: how.realm, depth: how.depth, done: false, t0: G.time, carry: 0, greed: 0, slow: 1, noise: 1, refresh: refreshCarry }; refreshCarry();
   } else if (id === 'depths') {
@@ -189,6 +190,10 @@ export async function loadZone(id, how = {}) {
   if (id === 'town' && P.tutorial.prologue) {   // сборка 49: новый портал показываем камерой, когда он открылся (ждём, пока закроются окна)
     let tries = 0; const tryShow = () => { if (G.zoneId !== 'town' || ++tries > 40) return; if (G.cinema || G.modalOpen || G.paused) { setTimeout(tryShow, 1000); return; } const sh = newPortalShots(); if (sh.length) cinema(sh); };
     setTimeout(tryShow, 900); }
+  if (id === 'town' && P.tutorial.prologue && !earlyLock('extra') && !P.shrineSeen && !P.shrineShown) {   // П67: ни разу не был у Источника — один раз показать его камерой
+    let n = 0; const go = () => { const sh = G.zone.inter.find(i => i.id === 'shrine'); if (G.zoneId !== 'town' || !sh || ++n > 40 || P.shrineShown) return; if (G.cinema || G.modalOpen || G.paused) { setTimeout(go, 1000); return; }
+      P.shrineShown = 1; bus.emit('save'); cinema([{ x: sh.x, y: sh.y, zoom: 1.35, move: 1.3, hold: 2.6, text: 'Источник силы', sub: 'Дары каждый день, Сундук Ордена, лавка и сила источника — подойдите к алтарю' }]); };
+    setTimeout(go, 6500); }
   if (id === 'town' && how.from && how.from !== 'death') setTimeout(() => maybeInterstitial('return'), 1200);
   if (id === 'town' && P.tutorial.prologue) setTimeout(() => { if (G.zoneId === 'town') bus.emit('wallOffer'); }, 4200);   // лестница покупок: один раз у очередной «стены» (js/platform/offers.js)   // реклама только на спокойном переходе (не чаще раза в 4 минуты)
 }
@@ -212,9 +217,28 @@ function spawnDungeon(zone) {
     }
   }
   const [el, bo] = zone.json.story;
-  if (!P.story.flags.eliteKilled) spawnElite(zone);   // Хранитель амулета стоит в зале за дверью
-  if (P.story.flags.gateOpen || W.gateOpen) G.enemies.push(new Enemy('boss', bo[1], bo[2], P.chapterDone ? Math.max(6, P.level) : bandLevel(BOSS_LEVEL, 10), { story: 'boss' }));
+  // П45: Хранитель и Палач после победы возвращаются через 30 минут (respawn.js), пока ждут — на их месте таймер
+  if (!P.story.flags.eliteKilled || bossReady('elite')) spawnElite(zone); else bossTimer('elite');   // Хранитель амулета стоит в зале за дверью
+  if (P.story.flags.gateOpen || W.gateOpen) { if (!P.story.flags.bossKilled || bossReady('boss')) spawnBoss(); else bossTimer('boss'); }
 }
+// П37: задание старосты «Шатун-людоед» — зверь ждёт на поле Старого Леса у самого дальнего лагеря, пока задание не выполнено
+function spawnQuestBeast(zone, realm) {
+  const q = Q.current(); if (realm !== 'forest' || !q || q.id !== 'f_bear' || G.profile.story.flags.forestBear) return;
+  const [sx, sy] = zone.start, camps = zone.json.spawns.filter(s => !s[6]).sort((a, b) => Math.hypot(b[1] - sx, b[2] - sy) - Math.hypot(a[1] - sx, a[2] - sy));
+  const c = camps[0]; if (!c) return;
+  const [x, y] = zone.map.nearestFree(c[1] + 1.5, c[2] + 1.5, 0.6), e = new Enemy('w_bear', x, y, bandLevel(5, 7, true), { story: 'fquest' });
+  e.name = 'Шатун-людоед'; e.maxHP = Math.round(e.maxHP * 2.5); e.hp = e.maxHP; e.dmgMul *= 1.2; G.enemies.push(e);
+}
+function spawnBoss() {
+  const P = G.profile, bo = G.zone.json.story[1], e = new Enemy('boss', bo[1], bo[2], P.chapterDone ? Math.max(6, P.level) : bandLevel(BOSS_LEVEL, 10, true), { story: 'boss' });
+  e.repeat = !!P.story.flags.bossKilled; G.enemies.push(e); return e;
+}
+bus.on('bossRespawn', key => {
+  if (G.zoneId !== 'catacombs') return;
+  const e = key === 'elite' ? spawnElite(G.zone) : spawnBoss(); if (!e) return;
+  C.particles(e.x, e.y, 40, { c: [190, 120, 255], sp: 3, size: 4 }); bus.emit('sfx', 'roar');
+  bus.emit('toast', { text: `${e.name} вернулся!`, sub: 'Повторная победа — осколки Бездны и добыча', kind: 'warn' });
+});
 export const depthsUnlocked = () => !!G.profile.story.flags.bossKilled || (G.profile.depths && G.profile.depths.best > 0);
 function spawnFloor(zone) {
   for (const [type, x, y, n, spread, lvl, tag] of zone.json.spawns) {
@@ -222,7 +246,7 @@ function spawnFloor(zone) {
       let px = x, py = y;
       for (let k = 0; k < 10; k++) { const tx = x + rrange(-spread, spread), ty = y + rrange(-spread, spread); if (zone.map.free(tx, ty, 0.4)) { px = tx; py = ty; break; } }
       const rr = ({ boss: 0.8, elite_guard: 0.55, beast: 0.5 })[type] || 0.35; [px, py] = zone.map.nearestFree(px, py, rr);
-      const e = new Enemy(type, px, py, bandLevel(lvl, lvl + 3), { story: tag || null, champion: !tag && rand() < 0.05 + zone.json.floorN * 0.01 });   // сборка 47: герой +1 в пределах этаж..этаж+3
+      const e = new Enemy(type, px, py, bandLevel(lvl, lvl + 3, !!tag), { story: tag || null, champion: !tag && rand() < 0.05 + zone.json.floorN * 0.01 });   // сборка 47: герой +1 в пределах этаж..этаж+3
       if (tag === 'floorboss') e.name = type === 'boss' ? `Палач Глубин · этаж ${zone.json.floorN}` : `Страж глубин · этаж ${zone.json.floorN}`;
       if (tag === 'floorboss' && type === 'elite_guard') e.model = 'elite_warlord';   // сборка 57: свой вид (полководец с секирой)
       G.enemies.push(e);
@@ -230,8 +254,9 @@ function spawnFloor(zone) {
   }
 }
 function spawnElite(zone) {
-  const el = zone.json.story[0], e = new Enemy('elite_guard', el[1], el[2], G.profile.chapterDone ? Math.max(6, G.profile.level) : bandLevel(6, 8), { story: 'elite' });
+  const el = zone.json.story[0], e = new Enemy('elite_guard', el[1], el[2], G.profile.chapterDone ? Math.max(6, G.profile.level) : bandLevel(6, 8, true), { story: 'elite' });
   e.name = 'Хранитель амулета'; e.maxHP = Math.round(e.maxHP * 1.3); e.hp = e.maxHP; e.dmgMul *= 1.1; G.enemies.push(e);   // посложнее обычного стража
+  e.repeat = !!G.profile.story.flags.eliteKilled; return e;
 }
 
 // ------------------------------------------------------------------ events
@@ -250,7 +275,7 @@ bus.on('kill', e => {
     const it = G.zone.inter.find(i => i.id === 'portal_return');
     if (it) { it.hidden = false; it.draw.hidden = false; it.light.on = true; }
     for (const o of G.enemies) if (!o.dead && o.summoned) C.killEnemy(o, { quiet: true });
-    G.bossKill = { id: 'boss_' + Date.now(), x: e.x, y: e.y }; G.lastCombat = -99;
+    G.bossKill = { id: 'boss_' + Date.now(), x: e.x, y: e.y, repeat: !!e.repeat }; G.lastCombat = -99;
     setTimeout(() => bus.emit('bossDefeated', G.bossKill), 2200);
   }
 });
@@ -364,7 +389,7 @@ export function interact(it) {
       it.done = true; W.gateOpen = true; it.draw.spr = it.draw.spr === 'door_arch' ? 'door_arch_open' : 'door_open'; it.light.on = false; for (const [x, y] of it.tiles || [it.tile]) G.zone.map.setSolid(x, y, 0);
       bus.emit('sfx', 'door'); G.cam.kick(0.7); bus.emit('toast', { text: 'Печать сломлена', sub: 'Палач Бездны пробуждается…', kind: 'quest' });
       Q.setFlag('gateOpen');
-      if (!G.enemies.some(e => e.D.boss)) { const bo = G.zone.json.story[1]; G.enemies.push(new Enemy('boss', bo[1], bo[2], P.chapterDone ? Math.max(6, P.level) : bandLevel(BOSS_LEVEL, 10), { story: 'boss' })); }
+      if (!G.enemies.some(e => e.D.boss) && (!P.story.flags.bossKilled || bossReady('boss'))) spawnBoss();
       requestSave(); return;
   }
 }
@@ -646,7 +671,7 @@ function updateMarkers() {
   if (G.zoneId === 'wild') {
     const home = G.zone.inter.find(i => i.id === 'wild_home'), next = G.zone.inter.find(i => i.id === 'wild_next' && !i.hidden), fort = G.zone.wildGate;
     const outside = fort && !fort.open ? G.enemies.filter(e => !e.dead && !e.summoned && !e.story).sort((a, b) => Math.hypot(a.x - G.player.x, a.y - G.player.y) - Math.hypot(b.x - G.player.x, b.y - G.player.y))[0] : null;
-    t = outside || G.enemies.find(e => (e.story === 'wildkeep' || e.story === 'wildboss') && !e.dead) || (G.wild && G.wild.done ? next || home : fort ? null : next) || null;
+    t = G.enemies.find(e => e.story === 'fquest' && !e.dead) || outside || G.enemies.find(e => (e.story === 'wildkeep' || e.story === 'wildboss') && !e.dead) || (G.wild && G.wild.done ? next || home : fort ? null : next) || null;
   }
   G.guide = t; G.huntGuide = HU.guideTarget();
   for (const n of G.npcs) n.marker = n.id === Q.turnNpc(q) && Q.isReady() ? '?' : q && q.target === n.id ? (q.id === 'finish' ? '?' : '!') : null;

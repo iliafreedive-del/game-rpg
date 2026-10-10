@@ -4,6 +4,7 @@ export const UPGRADES = {
   dmg:  { name: 'Сила удара', icon: '⚔', step: 4, unit: '%', max: 40, base: 60, mul: 1.24, fmt: l => `+${l * 4}% урона (оружия и заклинаний)` },
   hp:   { name: 'Крепость', icon: '♥', step: 12, unit: '', max: 40, base: 45, mul: 1.22, fmt: l => `+${l * 12} здоровья` },
   crit: { name: 'Меткость', icon: '✷', step: 0.6, unit: '%', max: 25, shards: true, fmt: l => `+${(l * 0.6).toFixed(1)}% шанса крита` },
+  mp:   { name: 'Запас маны', icon: '✦', step: 10, unit: '', max: 30, base: 50, mul: 1.21, fmt: l => `+${l * 10} маны и +${(l * 0.1).toFixed(1)} маны/с` },   // П27: мана за золото, растёт по уровням
   aps:  { name: 'Проворство', icon: '⚡', step: 2, unit: '%', max: 20, base: 150, mul: 1.26, fmt: l => `+${l * 2}% скорости атаки` },
 };
 // цена уровня: золото, у Меткости — осколки Бездны (2, 3, 4… за уровень)

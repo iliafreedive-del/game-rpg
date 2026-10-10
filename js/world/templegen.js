@@ -11,9 +11,9 @@ const SANCT = [2, 3];   // святилище — залы (2..3, 2..3)
 // старт и выход по номеру лабиринта: каждый раз из другого угла
 const ROUTES = [[[0, 5], [5, 0]], [[5, 5], [0, 0]], [[0, 0], [5, 5]], [[5, 0], [0, 5]], [[0, 3], [5, 2]], [[0, 5], null]];
 
-export function generateTemple(depth) {
+export function generateTemple(depth, salt = 0) {
   const RL = REALMS.temple, mood = moodOf('temple', depth), boss = isWildBoss(depth), isFort = isWildFort(depth), variant = fieldVariant(depth);
-  const R = rng(6007 + depth * 7919), ri = (a, b) => a + Math.floor(R() * (b - a + 1));
+  const R = rng(6007 + depth * 7919 + salt * 104729), ri = (a, b) => a + Math.floor(R() * (b - a + 1));
   const g = Array.from({ length: H }, () => Array(W).fill('x'));
   const set = (x, y, c) => { if (x >= 0 && y >= 0 && x < W && y < H) g[y][x] = c; };
   const at = (x, y) => (x < 0 || y < 0 || x >= W || y >= H) ? 'x' : g[y][x];
