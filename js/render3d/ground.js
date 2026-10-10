@@ -313,7 +313,9 @@ export function buildGround(scene, zone, opts = {}) {
   Object.assign(gmat.uniforms, grassU);
   const blade = clumpGeometry(), CS = 8, grass = [], MAXP = 270, RG = rng(23), mm = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), s = new THREE.Vector3(), p = new THREE.Vector3();
   // сборка 46: расстановка травы и пшеницы деревни тоже хранится между заходами (ключ — карта и препятствия)
-  const sig = vil ? gkey + '|' + (m.circles || []).map(c => c.x.toFixed(1) + ',' + c.y.toFixed(1)).join(';') + '|' + (m.rects || []).map(b => b.x0.toFixed(1) + ',' + b.y0.toFixed(1)).join(';') : null;
+  // трава не прорастает сквозь ковры (ковёр Кофи и др.): круг на половину диагонали ковра 1,6×2,4 м
+  const rugs = (zone.statics || []).filter(d => d.model === 'rug' || (d.spr === 'rug' && !d.model)), onRug = (x, z) => rugs.some(d => (x - d.x) ** 2 + (z - d.y) ** 2 < 2.1);
+  const sig = vil ? gkey + '|' + rugs.map(d => d.x.toFixed(1) + ',' + d.y.toFixed(1)).join(';') + '|' + (m.circles || []).map(c => c.x.toFixed(1) + ',' + c.y.toFixed(1)).join(';') + '|' + (m.rects || []).map(b => b.x0.toFixed(1) + ',' + b.y0.toFixed(1)).join(';') : null;
   const GR = sig && GRASS_CACHE.sig === sig ? GRASS_CACHE.list : null, rec = sig && !GR ? [] : null;
   const rankArr = n => Float32Array.from({ length: n }, (_, i) => (i + 0.5) / n);   // доля экземпляра в чанке — для плавного LOD
   const fromRec = (r, geo0, mat) => { const im = new THREE.InstancedMesh(geo0.clone(), mat, r.n); im.instanceMatrix.array.set(r.m); im.geometry.setAttribute('aRand', new THREE.InstancedBufferAttribute(r.rnd, 1)); im.geometry.setAttribute('aRank', new THREE.InstancedBufferAttribute(rankArr(r.n), 1)); im.userData.wheat = !!r.wheat;
@@ -327,7 +329,7 @@ export function buildGround(scene, zone, opts = {}) {
       // гуще у краёв троп (трава нависает) и пятнами в поле; на тропе и площади — нет
       const edge = w.g * (w.p + w.c) * 4, patch = Math.min(1, Math.max(0, (fbm(x * 0.12 + 9, z * 0.12) - 0.32) * 3));
       const dens = (w.g * (0.25 + 0.75 * patch) + w.f * 0.45 + edge * 0.8) * (1 - Math.min(1, (w.p + w.c + w.s) * 1.6)) * (1 - w.w) * (1 - Math.min(1, w.v * 2));
-      if (RG() > dens * (snow ? 0.3 : 1) * (opts.grassK ?? 1) || (m.free && !m.free(x, z, 0.05))) continue;
+      if (RG() > dens * (snow ? 0.3 : 1) * (opts.grassK ?? 1) || (m.free && !m.free(x, z, 0.05)) || onRug(x, z)) continue;
       const tall = 0.22 + Math.pow(fbm(x * 0.21, z * 0.21), 2) * 0.35 + edge * 0.08, sc = 0.8 + RG() * 0.7;
       mm.compose(p.set(x, -0.02, z), q.setFromAxisAngle(up, RG() * 6.283), s.set(sc, tall * (0.7 + RG() * 0.6), sc)); im.setMatrixAt(n, mm); rnd[n] = RG(); n++;
     }
