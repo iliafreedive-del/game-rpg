@@ -176,6 +176,10 @@ export class Zone {
           this.inter.push({ id, type: 'sarc', loot, x: o.x, y: o.y, r: 1.6, label: 'Открыть саркофаг', draw: d, done: false, persist: loot === 'key' });
           break;
         }
+        case 'stash': {   // бочка/ящик, как в походе: подойти и обыскать (катакомбы, Глубины)
+          const d = this.add({ x: o.x, y: o.y, spr: o.kind, hidden: false });   // hidden задан — 3D держит тайник «живым» и прячет, когда обыскали this.map.circles.push({ x: o.x, y: o.y, r: 0.3 });
+          this.inter.push({ id, type: 'stash', x: o.x, y: o.y, r: 1.3, label: 'Обыскать', draw: d }); break;
+        }
         case 'chest': {   // П46: все сундуки снова полны при каждом заходе; богатый сундук Ордена даёт богатую добычу один раз, дальше — как обычный
           const look = !!o.rich, rich = look && !W[id];
           const d = this.add({ x: o.x, y: o.y, spr: look ? 'chest_rich' : 'chest' });
@@ -341,7 +345,7 @@ export class Zone {
           this.inter.push({ id: o.id, type: 'echo', x: o.x, y: o.y, r: 1.4, label: o.mine ? 'Эхо вашего падения' : 'Эхо павшего', draw: d, light: L, mine: !!o.mine, lost: o.lost || 0, cls: o.cls, key: o.key, tip: o.tip, name: o.name, lvl: o.lvl, mob: o.mob, dir: o.dir }); break;
         }
         case 'stash': {
-          const d = this.add({ x: o.x, y: o.y, spr: o.kind }); this.map.circles.push({ x: o.x, y: o.y, r: 0.3 });
+          const d = this.add({ x: o.x, y: o.y, spr: o.kind, hidden: false });   // hidden задан — 3D держит тайник «живым» и прячет, когда обыскали this.map.circles.push({ x: o.x, y: o.y, r: 0.3 });
           this.inter.push({ id: o.id, type: 'stash', x: o.x, y: o.y, r: 1.3, label: 'Обыскать', draw: d }); break;
         }
         default: this.prop(o);

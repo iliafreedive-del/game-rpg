@@ -4,7 +4,7 @@ const { generateCatacombs } = await import(new URL('../../js/world/floorgen.js',
 const N = +(process.argv[2] || 300); let bad = 0; const sig = new Set(), kinds = new Set();
 const need = ['portal', 'portal_return', 'altar_medallion', 'door', 'gate'], needId = ['c_entry', 'c_oss', 'c_alt', 'c_gal', 'c_cave', 'c_secret', 'c_guard', 'c_hall', 'sarc0', 'sarc1', 'sarc2', 'sarc3', 'sarc4', 'medallion', 'door_altar', 'gate'];
 const NAMES = ['entry', 'ossuary', 'gallery', 'cave', 'cross', 'altar', 'secret', 'guard', 'arena', 'crypt', 'hall'];
-let fracs = [], sarc = [99, 0], keyRooms = {}; let t0 = Date.now(), skelMin = 1e9, mobs = [0, 1e9];
+let fracs = [], stashN = [99, 0], sarc = [99, 0], keyRooms = {}; let t0 = Date.now(), skelMin = 1e9, mobs = [0, 1e9];
 for (let s = 0; s < N; s++) {
   const J = generateCatacombs(s * 7919 + 13); const err = [];
   if (!J) { bad++; console.log('null', s); continue; }
@@ -42,10 +42,13 @@ for (let s = 0; s < N; s++) {
     for (let i = 0; i < q.length; i++) { const c = q[i], x = c % W, y = (c / W) | 0; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const X = x + dx, Y = y + dy, c2 = ch(X, Y); if (!c2 || D[Y * W + X] >= 0 || !'.DG'.includes(c2)) continue; D[Y * W + X] = D[c] + 1; q.push(Y * W + X); } }
     const dAt = o => { let b = 1e9; for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) { const v = D[(Math.floor(o.y) + dy) * W + Math.floor(o.x) + dx]; if (v >= 0) b = Math.min(b, v); } return b; };
     const fr = dAt(k) / Math.max(dAt(J.objects.find(o => o.id === 'gate')), dAt(J.objects.find(o => o.id === 'door_altar'))); fracs.push(fr); }
+  // тайники (бочки/ящики): достижимы со старта, стоят на полу, не у прохода, не впритык к другой обстановке
+  const st = J.objects.filter(o => o.t === 'stash'); stashN = [Math.min(stashN[0], st.length), Math.max(stashN[1], st.length)];
+  for (const o of st) { if (ch(Math.floor(o.x), Math.floor(o.y)) !== '.' || !nearOk(shut, o.x, o.y)) err.push('stash ' + o.id); if (J.objects.some(p => p !== o && Math.hypot(p.x - o.x, p.y - o.y) < 1.0)) err.push('stash crowd ' + o.id); }
   J.roomKinds.forEach(k => kinds.add(k)); sig.add(J.rows.join(''));
   if (err.length) { bad++; if (bad < 6) console.log('seed', s, err.join(', ')); }
 }
-fracs.sort((a, b) => a - b); console.log('share >0.8', (fracs.filter(f => f > 0.8).length / fracs.length).toFixed(2), '<0.25', (fracs.filter(f => f < 0.25).length / fracs.length).toFixed(2)); console.log('key path / farthest-gate path: min', fracs[0].toFixed(2), 'median', fracs[fracs.length >> 1].toFixed(2), 'max', fracs.at(-1).toFixed(2)); console.log('sarcophagi min/max', sarc, 'key rooms', JSON.stringify(keyRooms)); console.log('layouts', N, 'bad', bad, 'unique', sig.size, 'skeletons min', skelMin, 'mobs max/min', mobs, 'kinds', [...kinds].join(','), 'ms/layout', ((Date.now() - t0) / N).toFixed(1));
+fracs.sort((a, b) => a - b); console.log('share >0.8', (fracs.filter(f => f > 0.8).length / fracs.length).toFixed(2), '<0.25', (fracs.filter(f => f < 0.25).length / fracs.length).toFixed(2)); console.log('key path / farthest-gate path: min', fracs[0].toFixed(2), 'median', fracs[fracs.length >> 1].toFixed(2), 'max', fracs.at(-1).toFixed(2)); console.log('stashes min/max', stashN, 'sarcophagi min/max', sarc, 'key rooms', JSON.stringify(keyRooms)); console.log('layouts', N, 'bad', bad, 'unique', sig.size, 'skeletons min', skelMin, 'mobs max/min', mobs, 'kinds', [...kinds].join(','), 'ms/layout', ((Date.now() - t0) / N).toFixed(1));
 // тупики: у тайника, алтаря и арены ровно один проход
 let deg = 0;
 for (let s = 0; s < N; s++) { const J = generateCatacombs(s * 7919 + 13), ch = (x, y) => (J.rows[y] || '')[x];
