@@ -26,6 +26,7 @@ import { Post } from './post.js';
 import { Sparks } from './sparks.js';
 import { FORGE_HIT } from './models/npc/npc_smith.js';
 import { sfx } from '../core/audio.js';
+import { disposeObject } from './dispose.js';
 
 const params = new URLSearchParams(location.search);
 const SQ = Math.SQRT1_2;
@@ -35,6 +36,8 @@ let LV = LIGHT.village3;                 // пресет света текуще
 const slots = [];                        // пул точечных огней: { lt, L, k } — ближайшие огни зоны, плавно появляются и гаснут
 const actors = new Map();            // сущность игры → Actor
 const swarmPool = new Map();         // «Жатва»: освободившиеся модели врагов по типам (чтобы не собирать геометрию заново для каждого)
+const enemyPool = new Map();         // сборка 60 (С39): то же для врагов подземелий и походов — модель погибшего моба ждёт следующего того же вида
+let frameNo = 0;                     // метка кадра: кого из врагов уже нет (вместо new Set каждый кадр)
 const camTarget = new THREE.Vector3();
 let camDist = CAMERA.village.dist, userZoom = 1, shadowHalf = SHADOW.half, last = performance.now(), tAll = 0, spawned = false;
 
@@ -63,8 +66,11 @@ export function init() {
   canvas = document.createElement('canvas'); canvas.id = 'game3d';
   document.body.insertBefore(canvas, document.getElementById('game'));
   renderer = new THREE.WebGLRenderer({ canvas, antialias: (window.devicePixelRatio || 1) < 2, powerPreference: 'high-performance', preserveDrawingBuffer: params.has('shot') });
-  // потеря контекста WebGL (нехватка видеопамяти/драйвер): экран чернеет, а кнопки «не работают» — сохраняем игру и перезагружаем страницу
-  canvas.addEventListener('webglcontextlost', e => { e.preventDefault(); try { import('../game/game.js').then(m => m.saveNow()); } catch { } setTimeout(() => location.reload(), 900); });
+  // потеря контекста WebGL (нехватка видеопамяти/драйвер): сохраняем игру и ждём, когда браузер вернёт контекст, — тогда зона
+  // собирается заново (С42, сборка 60). Не вернул за 6 с — как раньше, перезагрузка страницы
+  let lostT = 0;
+  canvas.addEventListener('webglcontextlost', e => { e.preventDefault(); try { import('../game/game.js').then(m => m.saveNow()); } catch { } clearTimeout(lostT); lostT = setTimeout(() => location.reload(), 6000); });
+  canvas.addEventListener('webglcontextrestored', () => { clearTimeout(lostT); rebuildAfterRestore(); });
   scene = new THREE.Scene(); camera = new THREE.PerspectiveCamera(CAMERA.fov, 1, CAMERA.near, CAMERA.far);
   kit = makeKit(scene);
   // сборка 46: без проверки ошибок шейдеров браузер компилирует их параллельно, а не ждёт каждый (на Android переход стоял до 20 с); ?debug — проверка включена
@@ -80,9 +86,14 @@ export function init() {
   lights.hero = new THREE.PointLight(0xffe2b8, 0, 10, 1.5);   // свет вокруг героя в подземельях (в деревне погашен)
   scene.add(lights.hemi, lights.moon, lights.moon.target, lights.hero);
   const sc = lights.moon.shadow.camera; sc.left = sc.bottom = -SHADOW.half; sc.right = sc.top = SHADOW.half; sc.near = 1; sc.far = 90;
-  lights.moon.shadow.bias = SHADOW.bias; lights.moon.shadow.normalBias = SHADOW.normalBias; lights.moon.shadow.radius = SHADOW.radius; lights.moon.shadow.intensity = SHADOW.intensity; sc.updateProjectionMatrix(); sc.layers.enable(1);   // слой 1 — заменители теней крон
+  lights.moon.shadow.bias = SHADOW.bias; lights.moon.shadow.normalBias = SHADOW.normalBias; lights.moon.shadow.intensity = SHADOW.intensity; sc.updateProjectionMatrix(); sc.layers.enable(1);   // слой 1 — заменители теней крон
   U.uWindStr.value = 1;
   window.__R3 = { scene, camera, renderer, actors, post, lights, get zone() { return zone; }, get world() { return world; } };
+}
+// three.js сам пересоздаёт свои буферы и текстуры при следующем кадре; мир зоны, цели постобработки и карту тени собираем заново
+function rebuildAfterRestore() {
+  if (lights.moon.shadow.map) { lights.moon.shadow.map.dispose(); lights.moon.shadow.map = null; }
+  postKey = ''; zone = null; prepare();
 }
 export function show(on) { if (canvas) canvas.style.display = on ? 'block' : 'none'; G.cam.proj = on ? proj : null; }
 
@@ -146,9 +157,9 @@ function applyQuality(force) {
 // ---------------------------------------------------------------- мир зоны
 function disposeWorld() {
   for (const a of actors.values()) a.dispose(); actors.clear();
-  for (const l of swarmPool.values()) for (const a of l) a.dispose(); swarmPool.clear();
+  for (const P of [swarmPool, enemyPool]) { for (const l of P.values()) for (const a of l) a.dispose(); P.clear(); }
   if (!world) return;
-  world.ground.dispose(); world.props.dispose(); world.glow.removeFromParent(); world.pool.removeFromParent(); if (world.atmo) world.atmo.dispose(); if (world.critters) world.critters.dispose(); world = null;
+  world.ground.dispose(); world.props.dispose(); disposeObject(world.glow); disposeObject(world.pool); if (world.atmo) world.atmo.dispose(); if (world.critters) world.critters.dispose(); world = null;
 }
 const hex = c => (c[0] << 16) | (c[1] << 8) | c[2];
 // пресет света по зоне: деревня, подземелье (с биомом глубин), цитадель/арена
@@ -257,16 +268,24 @@ function syncPlayer(dt) {
   a.place(P.x, P.y); a.faceAngle(yawOfDir(P.dir));
   a.update(dt, { clip, k, impact, speed, combo: (P.combo - 1) & 1 }, env); a.flash(flashOf(P), 0xffffff);
 }
+// модель из пула: тот же вид, поза покоя без перехода из позы смерти
+function enemyActor(e, def, scale) {
+  let a = actors.get(e); if (a) return a;
+  const pool = enemyPool.get(def);
+  if (!pool || !pool.length) { a = getActor(e, def, { scale }); a.isEnemy = true; a.def = def; return a; }
+  a = pool.pop(); actors.set(e, a); a.ctl = null; a.root.scale.setScalar(scale); a.setVisible(true); a.yaw = a.targetYaw = yawOfDir(e.dir);
+  a.update(0, { clip: 'idle' }, env); a.blend = 1; a.snap.clear(); a.flash(0, 0xffffff);
+  return a;
+}
 function syncEnemies(dt) {
-  const live = new Set(G.enemies);
-  for (const [k, a] of actors) if (a.isEnemy && !live.has(k)) { a.dispose(); actors.delete(k); }
+  const fn = ++frameNo;
   for (const e of G.enemies) {
     let def = MOBS[e.model || e.type] || MOBS[e.D && e.D.model3d];   // e.model — свой вид при том же типе (Страж глубин, сборка 57); model3d — чужая модель на время (мобы храма)
     if (!def) { if (!warned.has(e.type)) { warned.add(e.type); console.warn('[3D] нет модели моба «' + e.type + '» — показан скелет-воин'); } def = MOBS.skel_warrior; }
-    const sc = { scale: (e.champion ? 1.25 : 1) * (def === MOBS[e.model || e.type] || (e.D && def === MOBS[e.D.model3d]) ? 1 : e.r / 0.34) };
-    let a = getActor(e, def, sc); a.isEnemy = true;
+    const scale = (e.champion ? 1.25 : 1) * (def === MOBS[e.model || e.type] || (e.D && def === MOBS[e.D.model3d]) ? 1 : e.r / 0.34);
+    let a = enemyActor(e, def, scale); a.seen = fn;
     // правки 2 (П17–18): моб собран запасной моделью, пока его модель грузилась, — пересобрать, когда догрузилась
-    if (def.ready && SKINS.on) { if (a.fb === undefined) a.fb = !def.ready(kit); else if (a.fb && def.ready(kit)) { a.dispose(); actors.delete(e); a = getActor(e, def, sc); a.isEnemy = true; a.fb = false; } }
+    if (def.ready && SKINS.on) { if (a.fb === undefined) a.fb = !def.ready(kit); else if (a.fb && def.ready(kit)) { a.dispose(); actors.delete(e); a = getActor(e, def, { scale }); a.isEnemy = true; a.def = def; a.seen = fn; a.fb = false; } }
     const c = measure(a, e, dt), an = e.anim; let clip = 'idle', k, impact, speed = 0;
     if (e.dead) { clip = 'death'; k = an.prog; }
     else if (e.state === 'attack') { clip = e.D.proj ? 'cast' : (e.atk && e.atk.kind) || 'attack';   /* у босса: attack2, slam, roar */ k = an.prog; impact = e.atk ? e.atk.impact : undefined; }
@@ -274,6 +293,10 @@ function syncEnemies(dt) {
     else if (c.moving) { clip = 'walk'; speed = c.v; }
     a.place(e.x, e.y); a.faceAngle(yawOfDir(e.dir));
     a.update(dt, { clip, k, impact, speed }, env); a.flash(flashOf(e), 0xffffff);
+  }
+  for (const [k, a] of actors) if (a.isEnemy && a.seen !== fn) {   // враг исчез — модель в пул (не больше 12 одного вида), остальное освобождаем
+    actors.delete(k); let pool = enemyPool.get(a.def); if (!pool) enemyPool.set(a.def, pool = []);
+    if (pool.length < 12) { a.setVisible(false); pool.push(a); } else a.dispose();
   }
 }
 function syncNpcs(dt) {
@@ -324,14 +347,15 @@ function syncPet(dt) {
 let sparks = null;   // искры кузни (sparks.js) — создаются при первом ударе
 // «Жатва Бездны»: рой — настоящие 3D-модели (по типу врага), берутся из пула и возвращаются в него после гибели
 function syncSwarm(dt) {
-  const S = G.surv, live = new Set(S ? S.swarm : []);
-  for (const [k, a] of actors) if (a.isSwarm && !live.has(k)) { actors.delete(k); a.setVisible(false); a.root.visible = false; if (!swarmPool.has(a.swType)) swarmPool.set(a.swType, []); swarmPool.get(a.swType).push(a); }
+  const S = G.surv, fn = frameNo;
+  if (S) for (const e of S.swarm) { const a = actors.get(e); if (a) a.seen = fn; }
+  for (const [k, a] of actors) if (a.isSwarm && a.seen !== fn) { actors.delete(k); a.setVisible(false); a.root.visible = false; if (!swarmPool.has(a.swType)) swarmPool.set(a.swType, []); swarmPool.get(a.swType).push(a); }
   if (!S) return;
   for (const e of S.swarm) {
     let a = actors.get(e);
     if (!a) {
       const def = MOBS[e.type] || MOBS.skel_warrior, pool = swarmPool.get(e.type);
-      a = pool && pool.length ? pool.pop() : new Actor(def, kit, scene); a.isSwarm = true; a.swType = e.type; a.root.visible = true;
+      a = pool && pool.length ? pool.pop() : new Actor(def, kit, scene); a.isSwarm = true; a.seen = fn; a.swType = e.type; a.root.visible = true;
       a.root.scale.setScalar(e.boss ? 1.4 : e.elite ? 1.2 : 1); actors.set(e, a);
     }
     const c = measure(a, e, dt);
@@ -360,7 +384,7 @@ function updateCamera(dt) {
   if (cam.sx || cam.sy) { camera.position.addScaledVector(_right.set(Math.cos(CAMERA.yaw), 0, -Math.sin(CAMERA.yaw)), -cam.sx / ppm); camera.position.y += cam.sy / ppm; }
   camera.updateMatrixWorld(true);
   const P = G.player; if (P) { U.uCam.value.copy(camera.position); U.uFocus.value.set(P.x, 1.0, P.y);
-    const near = (G.enemies || []).filter(e => !e.dead && (e.x - P.x) ** 2 + (e.y - P.y) ** 2 < 144).sort((a, b) => ((a.x - P.x) ** 2 + (a.y - P.y) ** 2) - ((b.x - P.x) ** 2 + (b.y - P.y) ** 2));
+    const near = nearest(G.enemies || [], P, 3, e => !e.dead, 144, _near);
     U.uFoc.value.forEach((v, i) => { const e = near[i]; if (e) v.set(e.x, 0.9, e.y, 1); else v.w = 0; }); }   // три ближайших врага в 12 м: деревья и скалы перед ними растворяются
   // тень: центр ортокамеры чуть вглубь кадра, привязка к текселю карты, чтобы края теней не дрожали при движении
   const sm = lights.moon.shadow, tex = (2 * shadowHalf) / (sm.mapSize.x || 1024);
@@ -370,14 +394,27 @@ function updateCamera(dt) {
   _sc.applyMatrix4(_inv); _sc.x = Math.round(_sc.x / tex) * tex; _sc.y = Math.round(_sc.y / tex) * tex; _sc.applyMatrix4(_basis);
   lights.moon.target.position.copy(_sc); lights.moon.position.copy(_sc).addScaledVector(_ld, 45);
 }
+// k ближайших к P (по x, y) из list, прошедших ok, ближе sqrt(r2): вставкой в готовый массив out — без выделений памяти в кадре (С39)
+const _near = [], _nd = [], _want = [];
+function nearest(list, P, k, ok, r2, out) {
+  out.length = 0; if (k <= 0) return out;
+  for (const e of list) {
+    if (!ok(e)) continue; const d = (e.x - P.x) ** 2 + (e.y - P.y) ** 2; if (d >= r2) continue;
+    let i = out.length; if (i === k && d >= _nd[k - 1]) continue; if (i === k) i--;
+    while (i > 0 && _nd[i - 1] > d) { out[i] = out[i - 1]; _nd[i] = _nd[i - 1]; i--; }
+    out[i] = e; _nd[i] = d;
+  }
+  return out;
+}
+const isOn = l => l.on;
 const _right = new THREE.Vector3(), _off = new THREE.Vector3(), _c = new THREE.Color();
 const _sc = new THREE.Vector3(), _ld = new THREE.Vector3(), _zero = new THREE.Vector3(), _up = new THREE.Vector3(0, 1, 0), _basis = new THREE.Matrix4(), _inv = new THREE.Matrix4();
 function updateLights(t, dt) {
   const P = G.player, f = 0.82 + Math.sin(t * 13) * 0.08 + Math.sin(t * 23.7) * 0.06 + Math.sin(t * 5.1) * 0.06;
-  const on = zone.lights.filter(l => l.on);
-  if (on.length !== world.onKey) { world.glow.removeFromParent(); world.pool.removeFromParent(); Object.assign(world, lightSets(zone)); }   // портал проявился, алтарь погас
+  let onN = 0; for (const l of zone.lights) if (l.on) onN++;
+  if (onN !== world.onKey) { disposeObject(world.glow); disposeObject(world.pool); Object.assign(world, lightSets(zone)); }   // портал проявился, алтарь погас
   const open = zone.id === 'town' || zone.id === 'wild';
-  const want = on.map(l => ({ l, d: Math.hypot(l.x - P.x, l.y - P.y) })).sort((a, b) => a.d - b.d).slice(0, open ? Math.min(2, slots.length) : slots.length).map(n => n.l);
+  const want = nearest(zone.lights, P, open ? Math.min(2, slots.length) : slots.length, isOn, Infinity, _want);
   // огонь, выпавший из ближних, плавно гаснет; освободившийся слот плавно зажигает новый — без «прыжков» света
   for (const s of slots) if (s.L && !want.includes(s.L)) { s.k -= dt * 3; if (s.k <= 0) { s.L = null; s.k = 0; } }
   for (const L of want) if (!slots.some(s => s.L === L)) { const s = slots.find(s => !s.L); if (s) { s.L = L; s.k = 0; } }
@@ -433,6 +470,7 @@ export function prepare() {
   })().finally(() => { warming = null; if (params.has('debug')) console.info('[3d] зона готова', Z.id, Math.round(performance.now() - t0) + ' мс'); });
   return warming;
 }
+const _blobs = Array.from({ length: 11 }, () => ({ x: 0, z: 0, r: 0, w: 1 })), put = (b, x, z, r, w) => { b.x = x; b.z = z; b.r = r; b.w = w; };
 export function render() {
   const Z = G.zone; if (!Z || !G.player || warming) return;
   if (Z !== zone && !G.zoneReady) return;   // новая зона ещё грузится: её мир соберёт prepare(), до этого — прежний кадр под шторкой
@@ -444,7 +482,12 @@ export function render() {
   world.props.cull(camera); world.props.update(tAll);
   if (world.atmo) world.atmo.update(dt, tAll, G.cam.x, G.cam.y, G.player.x, G.player.y);
   if (world.critters) world.critters.update(dt, tAll, G.player, G.cam.x, G.cam.y);
-  world.ground.update([{ x: G.player.x, z: G.player.y, r: 0.7, w: 1 }, ...G.enemies.filter(e => !e.dead).slice(0, 10).map(e => ({ x: e.x, z: e.y, r: e.r * 1.6, w: 1 }))]);
+  // примятая трава: герой и до 10 живых врагов — в готовые объекты (без выделений в кадре)
+  const bl = _blobs; let nb = 0;
+  put(bl[nb++], G.player.x, G.player.y, 0.7, 1);
+  for (const e of G.enemies) { if (nb > 10) break; if (!e.dead) put(bl[nb++], e.x, e.y, e.r * 1.6, 1); }
+  while (nb < bl.length) put(bl[nb++], 999, 999, 0.5, 0);
+  world.ground.update(bl);
   devSpawn();
   world.ground.shadow(lights.moon); world.ground.lod(camTarget.x + SQ * 2, camTarget.z + SQ * 2, userZoom);
   renderer.info.reset();

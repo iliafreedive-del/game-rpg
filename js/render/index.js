@@ -12,11 +12,12 @@ let R3 = null, on3 = false;
 export async function initRenderer(canvas) {
   const want3 = mode !== '2d';
   if (want3) {
-    try { const m = await import('../render3d/renderer3d.js'); if (m.webglAvailable()) { R3 = m; } else console.warn('[render] WebGL недоступен — 2D'); }
+    try { const m = await import('../render3d/renderer3d.js'); if (m.webglAvailable()) { R3 = m; } else { console.warn('[render] WebGL недоступен — 2D'); G.webglFail = 'WebGL is off / not supported'; } }
     catch (e) { console.error('[render] 3D не загрузился, остаёмся на 2D', e); }
   }
+  // П42: видеокарта в чёрном списке браузера / WebGL отключён — WebGLRenderer бросает ошибку; тогда 2D, а не зависшая загрузка
+  if (R3) { try { R3.init(); G.render3d = true; } catch (e) { console.error('[render] 3D не запустился, остаёмся на 2D', e); R3 = null; G.webglFail = String(e && e.message || e); const c3 = document.getElementById('game3d'); if (c3) c3.remove(); } }
   R2.initRenderer(canvas, { overlay: !!R3 });
-  if (R3) { R3.init(); G.render3d = true; }
   // поворот экрана/изменение окна: 2D-рендерер сам слушает resize, но 3D-холст надо пересобрать тоже — иначе картинка растягивается
   const again = () => { if (R3 && G.cam) R3.resize(G.cam.w, G.cam.h); };
   addEventListener('resize', () => { again(); setTimeout(again, 120); });

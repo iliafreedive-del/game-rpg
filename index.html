@@ -13,7 +13,42 @@
 <link rel="icon" href="assets/sprites/icon_app.png">
 <link rel="apple-touch-icon" href="assets/art/gpt/store/icon_180.png">
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="stylesheet" href="css/style.css">
+<!-- П42 (сборка 60): сторож загрузки. Файлы игры не приходят (сеть режет хостинг, файл 404, ошибка модуля) — вместо вечной
+     загрузки показываем причину. Стоит до стилей: пока css/style.css не пришёл, браузер не рисует страницу вообще.
+     Русские тексты — в data-атрибутах (их не трогает tools/i18n), английские — в самом скрипте. -->
+<script data-title="Игра не загрузилась" data-file="Не загрузился файл: " data-err="Ошибка: " data-stall="Файлы игры перестали приходить с сервера (40 с без продвижения загрузки)."
+  data-hint="Что попробовать: обновить страницу (Ctrl+F5); другую сеть (мобильный интернет) или VPN — некоторые сети и провайдеры блокируют хостинг игры; другой браузер; включить аппаратное ускорение в настройках браузера." data-reload="Обновить">
+(function () {
+  var D = document.currentScript.dataset, en = !/^(ru|be|kk|uk|uz)/i.test(navigator.language || 'ru');
+  var T = en ? { title: 'The game could not load', file: 'File did not load: ', err: 'Error: ', stall: 'Game files stopped arriving from the server (40 s without progress).',
+    hint: 'Try: reload the page (Ctrl+F5); another network (mobile internet) or a VPN, since some networks block the game hosting; another browser; turn on hardware acceleration in browser settings.', reload: 'Reload' } : D;
+  var done = false, box = null, fatal = false, t0 = Date.now(), last = t0;
+  window.__bootStep = function () { last = Date.now(); };
+  window.__bootOk = function () { done = true; if (box && !fatal) { box.remove(); box = null; } };   // finally loaded after a stall: hide the message
+  window.__bootFail = function (why, isFatal) {
+    if (box) return; fatal = !!isFatal;
+    var L = document.querySelectorAll('link[rel=stylesheet]'); for (var i = 0; i < L.length; i++) if (!L[i].sheet) L[i].remove();   // a pending stylesheet keeps the page blank
+    var E = function (tag, css, text, parent) { var e = document.createElement(tag); e.style.cssText = css; if (text) e.textContent = text; if (parent) parent.appendChild(e); return e; };
+    var show = function () {
+      box = E('div', 'position:fixed;inset:0;z-index:99999;background:#0d0b0e;color:#e8dcc0;font:16px/1.5 Georgia,serif;display:flex;align-items:center;justify-content:center;padding:20px;text-align:center', '', document.body);
+      var w = E('div', 'max-width:560px', '', box);
+      E('h2', 'color:#e9c46a;margin:0 0 12px', T.title, w); E('p', '', why, w); E('p', 'color:#a99', T.hint, w);
+      E('button', 'font:600 16px Georgia,serif;padding:10px 22px;margin-top:8px;cursor:pointer;color:#1a1208;background:#e9c46a;border:0;border-radius:6px', T.reload, w).onclick = function () { location.reload(); };
+    };
+    if (document.body) show(); else document.addEventListener('DOMContentLoaded', show);
+  };
+  addEventListener('error', function (e) { var t = e.target; if (!done && t && (t.tagName === 'SCRIPT' ? t.type === 'module' : t.tagName === 'LINK' && t.rel === 'stylesheet')) window.__bootFail(T.file + (t.src || t.href), true); }, true);
+  addEventListener('unhandledrejection', function (e) { var r = e.reason; if (!done && r && /module/i.test(String(r.message || r))) window.__bootFail(T.err + (r.message || r), true); });
+  // 40 s without progress, or the stylesheet still not here (the page stays blank even if the scripts ran): the network hangs
+  // (e.g. an ISP slowing Cloudflare: the first ~16 KB arrive, then silence)
+  var tick = setInterval(function () {
+    var css = document.querySelector('link[rel=stylesheet]'), cssWait = !!css && !css.sheet, now = Date.now();
+    if (box || (done && !cssWait)) return clearInterval(tick);
+    if ((cssWait && now - t0 > 40000) || (!done && now - last > 40000)) window.__bootFail(T.stall, cssWait);
+  }, 1000);
+})();
+</script>
+<link rel="stylesheet" href="css/style.css" onload="window.__bootStep()">
 </head>
 <body>
 <canvas id="game"></canvas>

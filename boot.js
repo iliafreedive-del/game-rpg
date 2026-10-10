@@ -19,7 +19,7 @@ async function detect() {
 }
 function pick(l) { l = String(l || 'ru').slice(0, 2).toLowerCase(); if (['be', 'kk', 'uk', 'uz', 'ru'].includes(l)) return 'ru'; return LANGS.includes(l) ? l : (LANGS.includes('en') ? 'en' : 'ru'); }
 (async () => {
-  const lang = pick(await detect()); window.__LANG = lang; document.documentElement.lang = lang;
+  const lang = pick(await detect()); window.__LANG = lang; document.documentElement.lang = lang; if (window.__bootStep) window.__bootStep();
   if (lang !== 'ru') {
     try {   // тексты index.html (титульный экран, подсказки кнопок)
       const D = await fetch(`js_${lang}/html.json`).then(r => r.json());
