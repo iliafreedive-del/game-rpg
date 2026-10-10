@@ -150,6 +150,19 @@ function slotEl(it, ph, cls = '') {
 // сет в карточке: название, сколько надето, бонусы (работающие — зелёные)
 function setHTML(x) { if (!x || !x.set || !SETS[x.set]) return ''; const S = SETS[x.set], c = setCounts(G.profile.gear)[x.set] || 0;
   return `<div class="it-set" style="color:#7ee0a8">◈ Сет «${esc(S.name)}» · надето ${c}/3</div><div class="${c >= 2 ? 'good' : 'muted'}" style="font-size:12px">2 части: ${esc(bonusText(x.set, S.b2))}</div><div class="${c >= 3 ? 'good' : 'muted'}" style="font-size:12px">3 части: ${esc(bonusText(x.set, S.b3))}</div>`; }
+// П47/П52: почему вещь сливается или нет — те же правила, что у кузнеца (EC.mergeGroups): тот же слот + та же редкость, не надета, не 🔒,
+// оружие своего класса, а следующая редкость слиянием открыта уровнем героя. Вид и название вещи не важны.
+function mergeNote(it) {
+  if (!it || it.rarity >= 4) return null;
+  const P = G.profile, what = `${RARITY_SHORT[it.rarity]} ${(SLOT_NAMES[it.slot] || '').toLowerCase()}`;
+  if (Object.values(P.gear).includes(it)) return ['muted', 'Надетая вещь в слиянии не участвует'];
+  if (it.locked) return ['muted', '🔒 Закреплена — в слиянии не участвует'];
+  const g = EC.mergeGroups().find(x => x.slot === it.slot && x.rarity === it.rarity);
+  if (!g || !g.list.includes(it)) return ['muted', 'Не для вашего класса — не сливается'];
+  if (g.capLvl) return ['bad', `3 × ${what} → ${RARITY_SHORT[it.rarity + 1]}: кузнец сольёт с ${g.capLvl} уровня героя (у вас ${g.n} шт.)`];
+  if (g.can) return ['good', `Можно слить у кузнеца: ${g.n} шт. — 3 любые ${what} → 1 ${RARITY_SHORT[it.rarity + 1]}`];
+  return ['muted', `Слияние: 3 × ${what} (любого вида) → 1 ${RARITY_SHORT[it.rarity + 1]}. Есть ${g.n}, нужно ещё ${3 - g.n % 3}`];
+}
 function itemHTML(it, S) {
   const b = BASE[it.base], r = RARITY[it.rarity];
   let h = `<div class="it-name" style="color:${r.color}">${esc(it.name)}${it.upg ? ` <span class="good">+${it.upg}</span>` : ''}<span class="it-pow">⚔ ${itemPower(it)}</span></div>`;
@@ -159,7 +172,7 @@ function itemHTML(it, S) {
   if (it.armor) h += `<div class="it-stat">Защита: <b>${Math.round(it.armor * um)}</b></div>`;
   if (it.block) h += `<div class="it-stat">Шанс блока: ${Math.round(it.block * 100)}%</div>`;
   for (const a of it.affixes) h += a.kp ? `<div class="it-aff kp">◆ ${esc(kindPerkText(it))}: ${esc(affixText(a))}</div>` : `<div class="it-aff">${esc(affixText(a))}</div>`;
-  if (it.rarity < 4) h += `<div class="it-stat muted" style="font-size:12px">Слияние у кузнеца: 3 ${RARITY_SHORT[it.rarity]} ${SLOT_NAMES[it.slot] ? SLOT_NAMES[it.slot].toLowerCase() : ''} → 1 ${RARITY_SHORT[it.rarity + 1]}</div>`;
+  { const mn = mergeNote(it); if (mn) h += `<div class="it-stat ${mn[0]}" style="font-size:12px">⚒ ${mn[1]}</div>`; }
   const ep = epicOf(it); if (ep) h += `<div class="it-epic">★ ${esc(ep.desc)}</div>`;
   h += setHTML(it);
   if (it.req) { const ok = meetsReq(G.profile, it, S); h += `<div class="it-stat ${ok ? 'muted' : 'bad'}">Требуется: ${Object.entries(it.req).map(([k, v]) => `${CH.ATTR_NAMES[k]} ${v}`).join(', ')}</div>`; }
@@ -191,8 +204,9 @@ W.inventory = (arg = {}) => {
   const FILTERS = [['all', 'Всё'], ['weapon', 'Оружие'], ['head', 'Шлем'], ['chest', 'Доспех'], ['amulet', 'Амулет']];
   const m = modal('Герой', 'md', b => {
     const S = G.stats, C = CLASSES[P.cls || 'warrior'];
+    const mrg = new Set(EC.mergeGroups().filter(g => g.can).flatMap(g => g.list));   // П47: что можно слить — значок ⚒
     const cell = (it, slot, arrow) => {
-      const d = el('button', 'eq-slot r' + (it ? it.rarity : 'x'), it ? `<img src="${iconURL(iconOf(it))}"><span class="eq-lv">${it.ilvl}</span>${it.upg ? `<span class="eq-up">+${it.upg}</span>` : ''}${arrow ? `<span class="eq-ar ${ARW[arrow][0]}">${ARW[arrow][1]}</span>` : ''}${it.isNew ? '<span class="eq-new">НОВ</span>' : ''}` : `<span class="ph">${esc(SLOT_NAMES[slot] || '')}</span>`);
+      const d = el('button', 'eq-slot r' + (it ? it.rarity : 'x'), it ? `<img src="${iconURL(iconOf(it))}"><span class="eq-lv">${it.ilvl}</span>${it.upg ? `<span class="eq-up">+${it.upg}</span>` : ''}${arrow ? `<span class="eq-ar ${ARW[arrow][0]}">${ARW[arrow][1]}</span>` : ''}${it.isNew ? '<span class="eq-new">НОВ</span>' : ''}${mrg && mrg.has(it) ? '<span class="eq-mrg" title="Можно слить у кузнеца">⚒</span>' : ''}` : `<span class="ph">${esc(SLOT_NAMES[slot] || '')}</span>`);
       if (it) d.onclick = () => itemCard(it, slot); return d;
     };
     // ---- кукла героя: четыре ячейки вокруг портрета, подписи под ними
@@ -215,7 +229,7 @@ W.inventory = (arg = {}) => {
     // П33: стрелка у каждой вещи, которую можно надеть (▲ лучше, ▼ хуже, = то же); ✕ — не для вашего класса/уровня
     else { const g = el('div', 'eq-grid'); for (const it of list) { const sc = score.get(it); g.appendChild(cell(it, null, sc === -999 ? 'x' : sc > 0.05 ? 'up' : sc < -0.05 ? 'dn' : 'eq')); } right.appendChild(g); }
     if (gray.length) { const v = gray.reduce((a, it) => a + sellValue(it), 0); const sb = el('button', 'btn eq-sellgray', `Продать серое: ${gray.length} шт. · +${fmt(v)} зол.`); sb.onclick = () => { EC.sellAllCommon(); rerender(); }; right.appendChild(sb); }
-    right.appendChild(el('p', 'muted iv-hint', '<b class="good">▲</b> лучше надетого · <b class="bad">▼</b> хуже · = так же · ✕ не подходит · <span class="eq-new inl">НОВ</span> новая вещь. Нажмите на вещь, чтобы сравнить.'));
+    right.appendChild(el('p', 'muted iv-hint', '<b class="good">▲</b> лучше надетого · <b class="bad">▼</b> хуже · = так же · ✕ не подходит · <span class="eq-new inl">НОВ</span> новая вещь · ⚒ можно слить у кузнеца. Нажмите на вещь, чтобы сравнить.'));
     if (arg.select) { const it = P.bag.find(x => x.id === arg.select); arg.select = null; if (it) setTimeout(() => itemCard(it, null), 50); }
   });
   m.live = true; m.onClose = () => { for (const it of P.bag) it.isNew = false; bus.emit('hud'); };   // П33: «НОВ» — до первого просмотра сумки
@@ -231,7 +245,7 @@ W.inventory = (arg = {}) => {
       <div class="cc-col">${head(it, inBag ? 'Эта вещь' : '')}<div class="iv-slot big r${it.rarity}"><img src="${iconURL(iconOf(it))}"></div><div class="ic-stats">${lines(it)}</div></div>
       ${eq ? `<div class="cc-col dim">${head(eq, 'Надето сейчас')}<div class="ic-stats">${lines(eq)}</div></div>` : ''}</div>
       ${rows.length ? `<div class="ic-cmp"><b>Если надеть:</b>${rows.map(r => `<span class="${r.delta > 0 ? 'good' : 'bad'}">${r.delta > 0 ? '▲' : '▼'} ${r.label} ${r.inv ? `${r.before} → ${r.after}` : `${r.delta > 0 ? '+' : ''}${Math.round(r.delta * 100) / 100}${r.suf}`}</span>`).join('')}</div>` : ''}
-      ${!ok.ok ? `<div class="bad ic-why">${esc(ok.why)}</div>` : ''}`;
+      ${!ok.ok ? `<div class="bad ic-why">${esc(ok.why)}</div>` : ''}${inBag && mergeNote(it) ? `<div class="${mergeNote(it)[0]} ic-why" style="font-size:12px">⚒ ${mergeNote(it)[1]}</div>` : ''}`;
     const btns = el('div', 'ic-btns');
     if (inBag) { const eqb = el('button', 'btn gold', ok.ok ? 'Надеть' : 'Нельзя надеть'); eqb.disabled = !ok.ok; eqb.onclick = () => { CH.equip(it.id); ov.remove(); rerender(); }; btns.appendChild(eqb);
       const sell = el('button', 'btn', `Продать · ${fmt(sellValue(it))} зол.`); sell.onclick = () => { EC.sellItem(it.id); ov.remove(); rerender(); }; btns.appendChild(sell); }
@@ -575,7 +589,8 @@ function mergeTab(b) {
     top.append(el('div', 'mrg-t', `<b style="color:${RARITY[G3.rarity + 1].color}">${RARITY[G3.rarity + 1].name}</b> ${SLOT_NAMES[G3.slot].toLowerCase()}`), res, inp);
     const cost = EC.mergeCost(G3.rarity), go = el('button', 'btn gold mrg-go', `Слияние · ${fmt(cost)} зол.`); go.disabled = P.gold < cost;
     go.onclick = () => { lastMerged = EC.mergeOnce(G3.slot, G3.rarity); mergeSel = null; rerender(); }; top.appendChild(go);
-  } else top.appendChild(el('div', 'mrg-empty', 'Нужны <b>три вещи</b> одного слота и одной редкости. Серое → зелёное → синее → золотое → мифическое.<br><small class="muted">Надетые и 🔒 не участвуют.</small>'));
+  } else { const capG = groups.find(g => g.capLvl && g.n >= 3);
+    top.appendChild(el('div', 'mrg-empty', 'Нужны <b>три вещи</b> одного слота (оружие, шлем, доспех, амулет) и <b>одной редкости</b> (цвет рамки). Вид и название не важны: три любых зелёных посоха сольются в синий. Серое → зелёное → синее → золотое → мифическое.<br><small class="muted">Надетые и 🔒 не участвуют.' + (capG ? ` <span class="bad">${RARITY_SHORT[capG.rarity + 1][0].toUpperCase() + RARITY_SHORT[capG.rarity + 1].slice(1)} слиянием — с ${capG.capLvl} уровня героя.</span>` : '') + '</small>')); }
   b.appendChild(top);
   if (lastMerged) { const det = el('div', 'detail'); det.innerHTML = '<div class="muted">Получено:</div>' + itemHTML(lastMerged, G.stats); const eq = el('button', 'btn', 'Надеть'); eq.onclick = () => { CH.equip(lastMerged.id); lastMerged = null; rerender(); }; det.appendChild(eq); b.appendChild(det); }
   const ready = groups.filter(g => g.can).reduce((a, g) => a + g.can, 0);
@@ -590,7 +605,7 @@ function mergeTab(b) {
     d.onclick = () => { if (g.can) { mergeSel = key(g); rerender(); } else if (g.capLvl && g.n >= 3) bus.emit('toast', { text: `Слить в ${RARITY_SHORT[g.rarity + 1]} — с ${g.capLvl} уровня героя`, kind: 'info' }); else bus.emit('toast', { text: `Нужно ещё ${3 - g.n % 3}: ${RARITY_SHORT[g.rarity]} ${SLOT_NAMES[g.slot].toLowerCase()}`, kind: 'info' }); };
     bag.appendChild(d);
   }
-  if (!bag.children.length) bag.appendChild(el('p', 'muted', 'В сумке нет вещей для слияния.'));
+  if (!bag.children.length) { const p0 = el('p', 'muted', 'В сумке нет вещей для слияния.'); p0.style.gridColumn = '1/-1'; bag.appendChild(p0); }   // С5: текст на всю ширину сетки
   b.appendChild(bag);
 }
 // ---------------------------------------------------------------- путь сезона и коллекция (сборка 21)

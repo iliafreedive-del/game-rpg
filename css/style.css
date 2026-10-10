@@ -819,3 +819,4 @@ body.photo #hudL,body.photo #hudR,body.photo #pad,body.photo #btnAct,body.photo 
 :where(.btn.sm,.mx,.eq-tab,.pn-btn){position:relative}
 .btn.sm::after,.mx::after,.eq-tab::after,.q-tab::after,.pn-x::after,.pn-btn::after{content:'';position:absolute;inset:-7px}
 .mbtn::before{content:'';position:absolute;inset:-6px}
+.eq-mrg{position:absolute;right:4px;bottom:15px;font:700 12px sans-serif;color:#ffd98a;text-shadow:0 1px 2px #000}
