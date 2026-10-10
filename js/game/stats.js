@@ -142,8 +142,9 @@ export function usefulness(p, item) {
   const a = stats(p); const g = { ...p.gear, [slot]: item };
   const b = stats(p, g);
   const dpsK = (b.dps / Math.max(1, a.dps) - 1) * 100;
-  const spK = p.cls === 'mage' ? (b.spellDps / Math.max(1, a.spellDps) - 1) * 100 : -999;
-  const main = Math.max(dpsK, spK);
+  // П33: у мага посох почти не меняет силу заклинаний, и max(урон, заклинания) давал 0 у любого посоха хуже надетого — стрелки не было.
+  // Теперь урон и заклинания складываются поровну: хуже посох — ▼, лучше — ▲
+  const main = p.cls === 'mage' ? (dpsK + (b.spellDps / Math.max(1, a.spellDps) - 1) * 100) / 2 : dpsK;
   if (slot === 'weapon') return main;
   return main + (b.ehp / Math.max(1, a.ehp) - 1) * 100 + (b.maxMP - a.maxMP) * 0.1;   // сборка 49: броня и здоровье — через запас прочности, в % как и урон
 }

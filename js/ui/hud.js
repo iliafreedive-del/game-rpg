@@ -100,6 +100,13 @@ export function toast(t) {
   while (box.children.length >= 4) box.firstChild.remove();
   // сборка 50: на вертикальном телефоне — под правой колонкой HUD (задание, «Веди меня»), а не поверх неё (iPhone SE, Android 360)
   { const r = $('hudR'), port = innerHeight > innerWidth && innerWidth <= 760; box.style.top = port && r && r.offsetParent ? Math.min(innerHeight * 0.5, r.getBoundingClientRect().bottom + 8) + 'px' : '';
+    // С2: в горизонтали — в просвет между левой колонкой (полосы, «Сезон») и правой (золото, трекер), а не поверх них
+    box.style.left = box.style.width = '';
+    if (!port && innerWidth > innerHeight && r && r.offsetParent) {
+      const L = $('hudL').getBoundingClientRect().right, Rl = Math.min(...[...r.children].filter(c => c.offsetParent && c.offsetWidth).map(c => c.getBoundingClientRect().left), innerWidth);
+      if (Rl - L >= 220) { box.style.left = (L + Rl) / 2 + 'px'; box.style.width = Math.min(420, Rl - L - 16) + 'px'; }
+      else box.style.top = Math.min(innerHeight * 0.5, r.getBoundingClientRect().bottom + 8) + 'px';
+    }
     const sv = $('survHud'); if (sv && sv.offsetParent && G.zoneId === 'survival') box.style.top = Math.min(innerHeight * 0.5, Math.max(r && r.offsetParent ? r.getBoundingClientRect().bottom : 0, sv.getBoundingClientRect().bottom) + 8) + 'px'; }   // сборка 59: в Жатве — под её табло, не под ним
   const d = el('div', 'toast ' + (t.kind || ''), `<div class="a" ${t.color ? `style="color:${t.color}"` : ''}>${esc(t.text)}</div>${t.sub ? `<div class="b">${esc(t.sub)}</div>` : ''}`);
   d.dataset.k = t.text + '|' + (t.sub || '');
@@ -202,15 +209,24 @@ function tracker() {
   }
   if (h !== lastTrack) { $('tracker').innerHTML = h; lastTrack = h; }
 }
+let safeC = null, safeEl = null;
+addEventListener('resize', () => { safeC = null; }); addEventListener('orientationchange', () => { safeC = null; });
+function safeInsets() {   // env(safe-area-inset-*) в пикселях: CSS-переменные --safe-* читаем через невидимый элемент
+  if (safeC) return safeC;
+  if (!safeEl) { safeEl = el('div', ''); safeEl.style.cssText = 'position:fixed;visibility:hidden;pointer-events:none;padding:var(--safe-t) var(--safe-r) var(--safe-b) var(--safe-l)'; document.body.appendChild(safeEl); }
+  const c = getComputedStyle(safeEl), n = v => parseFloat(v) || 0;
+  return (safeC = { t: n(c.paddingTop), r: n(c.paddingRight), b: n(c.paddingBottom), l: n(c.paddingLeft) });
+}
 // стрелка у края экрана: если цель задания за кадром, показываем, в какую сторону бежать и сколько метров
 function edgeArrow() {
   const e = $('edgeArrow'), t = G.guide, P = G.player;
   if (!t || !P || P.dead || G.surv) { e.classList.add('hidden'); return; }
   const [sx, sy] = G.cam.toScreen(t.x, t.y);
-  const m = 46, W = innerWidth, H = innerHeight, inside = sx > m && sx < W - m && sy > m && sy < H - m;
-  if (inside) { e.classList.add('hidden'); return; }
-  const cx = W / 2, cy = H / 2; let dx = sx - cx, dy = sy - cy; const l = Math.hypot(dx, dy) || 1; dx /= l; dy /= l;
-  let k = Math.min((W / 2 - m) / Math.abs(dx || 1e-6), (H / 2 - m) / Math.abs(dy || 1e-6));
+  // С3: отступ от края — 46 px плюс вырез/скругление экрана с каждой стороны (safe area)
+  const S = safeInsets(), W = innerWidth, H = innerHeight, mL = 46 + S.l, mR = 46 + S.r, mT = 46 + S.t, mB = 46 + S.b;
+  if (sx > mL && sx < W - mR && sy > mT && sy < H - mB) { e.classList.add('hidden'); return; }
+  const cx = (mL + W - mR) / 2, cy = (mT + H - mB) / 2; let dx = sx - cx, dy = sy - cy; const l = Math.hypot(dx, dy) || 1; dx /= l; dy /= l;
+  let k = Math.min((dx > 0 ? W - mR - cx : cx - mL) / Math.abs(dx || 1e-6), (dy > 0 ? H - mB - cy : cy - mT) / Math.abs(dy || 1e-6));
   // сборка 59: стрелка не ложится на полосы здоровья, трекер, кнопки боя — сдвигается по тому же направлению ближе к центру
   const R = ['hudL', 'hudR', 'pad', 'btnAct', 'btnLead'].map(id => $(id)).filter(x => x && x.offsetParent).map(x => x.getBoundingClientRect()).filter(r => r.width && r.width < W * 0.9);
   const hit = (x, y) => R.some(r => x > r.left - 30 && x < r.right + 30 && y > r.top - 26 && y < r.bottom + 26);

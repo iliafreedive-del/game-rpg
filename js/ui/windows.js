@@ -54,13 +54,13 @@ let cur = null;   // {name, bg, render}
 // сборка 47: окно с lock (первый меч, смерть в Жатве) закрывается только своей кнопкой — closeModal(true).
 // Окна от событий (глава, осколок памяти, босс, итог похода) не вышибают открытое окно, а ждут в очереди.
 const winQ = [];
-export function closeModal(force) { if (!cur || (cur.lock && force !== true)) return; cur.bg.remove(); cur = null; G.atMerchant = false; G.modalOpen = false; G.paused = false; bus.emit('sfx', 'click'); bus.emit('hud'); if (winQ.length) setTimeout(pumpWin, 350); }
+export function closeModal(force) { if (!cur || (cur.lock && force !== true)) return; cur.bg.remove(); const oc = cur.onClose; cur = null; if (oc) oc(); G.atMerchant = false; G.modalOpen = false; G.paused = false; bus.emit('sfx', 'click'); bus.emit('hud'); if (winQ.length) setTimeout(pumpWin, 350); }
 function pumpWin() { if (cur || !winQ.length) return; winQ.shift()(); }
 const later = fn => (...a) => { if (cur) winQ.push(() => fn(...a)); else fn(...a); };
 bus.on('closeModal', () => closeModal());
 function modal(title, size, render, opts = {}) {
   if (cur && cur.lock) { winQ.unshift(() => modal(title, size, render, opts)); return { bg: document.createElement('div'), body: null }; }
-  if (cur) { cur.bg.remove(); } G.atMerchant = false;
+  if (cur) { cur.bg.remove(); if (cur.onClose) cur.onClose(); } G.atMerchant = false;
   const bg = el('div', 'modal-bg'); const m = el('div', 'modal ' + (size || ''));
   const h = el('div', 'mh', `<h2>${esc(title)}</h2>`); const x = el('button', 'mx', '✕'); x.onclick = () => closeModal(); if (!opts.lock) h.appendChild(x);
   const b = el('div', 'mb'); m.append(h, b); bg.appendChild(m);
@@ -185,13 +185,14 @@ const SORTS = { type: (a, b) => a.slot.localeCompare(b.slot) || b.ilvl - a.ilvl,
 
 // ---------------------------------------------------------------- windows
 const W = {};
+const ARW = { up: ['good', '▲'], dn: ['bad', '▼'], eq: ['muted', '='], x: ['muted', '✕'] };
 W.inventory = (arg = {}) => {
   const P = G.profile; let filter = W._invFilter || 'all';
   const FILTERS = [['all', 'Всё'], ['weapon', 'Оружие'], ['head', 'Шлем'], ['chest', 'Доспех'], ['amulet', 'Амулет']];
   const m = modal('Герой', 'md', b => {
     const S = G.stats, C = CLASSES[P.cls || 'warrior'];
     const cell = (it, slot, arrow) => {
-      const d = el('button', 'eq-slot r' + (it ? it.rarity : 'x'), it ? `<img src="${iconURL(iconOf(it))}"><span class="eq-lv">${it.ilvl}</span>${it.upg ? `<span class="eq-up">+${it.upg}</span>` : ''}${arrow ? `<span class="eq-ar ${arrow > 0 ? 'good' : 'bad'}">${arrow > 0 ? '▲' : '▼'}</span>` : ''}${it.isNew ? '<span class="eq-new"></span>' : ''}` : `<span class="ph">${esc(SLOT_NAMES[slot] || '')}</span>`);
+      const d = el('button', 'eq-slot r' + (it ? it.rarity : 'x'), it ? `<img src="${iconURL(iconOf(it))}"><span class="eq-lv">${it.ilvl}</span>${it.upg ? `<span class="eq-up">+${it.upg}</span>` : ''}${arrow ? `<span class="eq-ar ${ARW[arrow][0]}">${ARW[arrow][1]}</span>` : ''}${it.isNew ? '<span class="eq-new">НОВ</span>' : ''}` : `<span class="ph">${esc(SLOT_NAMES[slot] || '')}</span>`);
       if (it) d.onclick = () => itemCard(it, slot); return d;
     };
     // ---- кукла героя: четыре ячейки вокруг портрета, подписи под ними
@@ -211,12 +212,13 @@ W.inventory = (arg = {}) => {
     const score = new Map(P.bag.map(it => [it, it.slot === 'weapon' && !CH.canEquip(it).ok ? -999 : usefulness(P, it)]));
     const list = P.bag.filter(it => filter === 'all' || it.slot === filter).sort((x, y) => (score.get(y) > 0.5) - (score.get(x) > 0.5) || y.rarity - x.rarity || score.get(y) - score.get(x));
     if (!list.length) right.appendChild(el('p', 'muted iv-hint', P.bag.length ? 'В этой вкладке пусто.' : 'Сумка пуста. Вещи падают с сильных врагов и из сундуков — каждая что-то да меняет.'));
-    else { const g = el('div', 'eq-grid'); for (const it of list) { const sc = score.get(it); g.appendChild(cell(it, null, sc > 0.5 ? 1 : sc < -0.5 ? -1 : 0)); } right.appendChild(g); }
+    // П33: стрелка у каждой вещи, которую можно надеть (▲ лучше, ▼ хуже, = то же); ✕ — не для вашего класса/уровня
+    else { const g = el('div', 'eq-grid'); for (const it of list) { const sc = score.get(it); g.appendChild(cell(it, null, sc === -999 ? 'x' : sc > 0.05 ? 'up' : sc < -0.05 ? 'dn' : 'eq')); } right.appendChild(g); }
     if (gray.length) { const v = gray.reduce((a, it) => a + sellValue(it), 0); const sb = el('button', 'btn eq-sellgray', `Продать серое: ${gray.length} шт. · +${fmt(v)} зол.`); sb.onclick = () => { EC.sellAllCommon(); rerender(); }; right.appendChild(sb); }
-    right.appendChild(el('p', 'muted iv-hint', '▲ — лучше надетого · ▼ — хуже. Нажмите на вещь, чтобы сравнить.'));
+    right.appendChild(el('p', 'muted iv-hint', '<b class="good">▲</b> лучше надетого · <b class="bad">▼</b> хуже · = так же · ✕ не подходит · <span class="eq-new inl">НОВ</span> новая вещь. Нажмите на вещь, чтобы сравнить.'));
     if (arg.select) { const it = P.bag.find(x => x.id === arg.select); arg.select = null; if (it) setTimeout(() => itemCard(it, null), 50); }
   });
-  m.live = true;
+  m.live = true; m.onClose = () => { for (const it of P.bag) it.isNew = false; bus.emit('hud'); };   // П33: «НОВ» — до первого просмотра сумки
   function itemCard(it, slot) {
     const inBag = !slot, tslot = CH.slotFor(it), eq = inBag ? P.gear[tslot] : null;
     const ov = el('div', 'ic-ov'); const box = el('div', 'ic-box r' + it.rarity);
