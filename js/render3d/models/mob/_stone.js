@@ -41,13 +41,13 @@ export const STONE_MOBS = [
   warrior('t_golem', 't_golem_m', { heavy: true, scale: 1.25 }),
   warrior('t_priest', 't_priest_m', { hover: true, cast: 'staff', pauldron: false, scale: 1.05 }),
   warrior('t_ghoul', 't_knight_m', { heavy: true, scale: 1.1 }),   // каменный латник
-  warrior('t_archer', 't_thrower_m', { cast: 'staff', pauldron: false, scale: 0.95 }),   // валунник: бросает каменные осколки
+  warrior('t_archer', 't_thrower_m', { cast: 'staff', pauldron: false, scale: 0.95, gait: 'brute' }),   // валунник: бросает каменные осколки
   // мини-боссы святилищ по номеру лабиринта; полководец святилища-«форта» и большой босс — те же фигуры крупнее
   warrior('t_mb_gate', 't_mb_colossus_m', { heavy: true, scale: 1.4 }),
   wolfRig('t_mb_relic', 't_mb_lion', 2.3, { scale: 1.5 }),
   beastRig('t_mb_paladin', 't_mb_bull', 2.5, { scale: 1.4, horns: true }),
   warrior('t_mb_hierophant', 't_mb_king_m', { heavy: true, head: 'crown', scale: 1.45 }),
-  warrior('t_mb_sentinel', 't_mb_lancer_m', { scale: 1.4 }),
+  warrior('t_mb_sentinel', 't_mb_lancer_m', { scale: 1.4, gait: { crouch: 0.06, lift: 0.2, stride: 0.66, cyc: 1.45, lean: 0.04, sway: 0.03, twist: 0.1, armSw: 0.28, elb: -0.4, elbSw: 0.3, bob: 0.03 } }),   // часовой: прямой, широкий шаг
   warrior('t_lord', 't_mb_king_m', { heavy: true, head: 'crown', scale: 1.6 }),
   { id: 't_boss', kind: 'mob', outline: 'mob', ready: kit => kit.skin.skinLoaded('t_boss_m'), build(kit) { return mobSkin(kit, bossModel(kit, { SK: 0x8a7f66, SKL: 0xd8ccae, HOOD: 0x5e7034, HOODL: 0x9ab050, IR: 0x8a6a3a, IRL: 0xd0a860, LE: 0x6a604e, LEL: 0xa0957c, rim: RIM, core: 0xffc860, scale: 1.0, weapons: {} }), 't_boss_m', { rimColor: RIM, rim: RIM_K, tint: TINT }); } },
 ];

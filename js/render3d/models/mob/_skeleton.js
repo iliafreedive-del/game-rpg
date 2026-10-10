@@ -108,6 +108,21 @@ export function skeleton(kit, L = {}) {
     const handL = group([0.1, -0.3, 0.1], elL); handL.rotation.y = -0.4;
 
     const SP = { L1: 0.4, L2: 0.38, ankle: 0.07, hip: 0.9, stride: 0.5, lift: 0.14, cyc: 1.2 };
+    // правки 2 (П14, П21): походка. Раньше таз стоял выше длины ноги (0,9 − 0,07 > 0,4 + 0,38) — ноги в шаге не сгибались вовсе,
+    // и все прямоходящие шагали одинаково. Теперь таз ниже (колени согнуты и в покое чуть-чуть), в шаге колено подламывается
+    // на подъёме стопы, локти сгибаются в такт, и у каждого вида своя походка (L.gait — имя или свои числа):
+    //  crouch — насколько таз ниже на ходу, lift — подъём стопы, stride — длина шага, cyc — метров на цикл (каденс), lean — наклон
+    //  вперёд, sway/twist — раскачка и поворот корпуса, armSw — размах рук, elb/elbSw — сгиб локтя и его размах, bob — подпрыгивание
+    const GAITS = {
+      march: { crouch: 0.07, lift: 0.2, stride: 0.55, cyc: 1.25, lean: 0.1, sway: 0.06, twist: 0.15, armSw: 0.5, elb: -0.45, elbSw: 0.45, bob: 0.035 },
+      heavy: { crouch: 0.12, lift: 0.15, stride: 0.48, cyc: 1.1, lean: 0.16, sway: 0.13, twist: 0.22, armSw: 0.32, elb: -0.75, elbSw: 0.25, bob: 0.055 },   // латники, великаны, мини-боссы: вразвалку
+      stalk: { crouch: 0.14, lift: 0.18, stride: 0.44, cyc: 1.0, lean: 0.3, sway: 0.04, twist: 0.1, armSw: 0.25, elb: -0.6, elbSw: 0.3, bob: 0.02 },     // лучники: пригнувшись, крадучись
+      shuffle: { crouch: 0.05, lift: 0.08, stride: 0.36, cyc: 0.9, lean: 0.14, sway: 0.05, twist: 0.08, armSw: 0.18, elb: -0.85, elbSw: 0.15, bob: 0.015 }, // в мантии: семенит
+      brute: { crouch: 0.1, lift: 0.22, stride: 0.6, cyc: 1.35, lean: 0.24, sway: 0.08, twist: 0.26, armSw: 0.7, elb: -0.6, elbSw: 0.55, bob: 0.05 },     // берсерки, рубаки: рвётся вперёд
+    };
+    const GK = typeof L.gait === 'string' ? L.gait : L.heavy || SC >= 1.35 ? 'heavy' : L.quiver || L.cast === 'bow' ? 'stalk' : L.robe && !L.hover ? 'shuffle' : 'march';
+    const GT = { ...GAITS[GK] || GAITS.march, ...(typeof L.gait === 'object' ? L.gait : {}) };
+    const REST = 0.05;   // таз в покое ниже прямой ноги: колени чуть согнуты
     const mkLeg = x => {
       const g = group([x, SP.hip, 0], rigG); g.add(M(merge(boneSeg(0.38, 0.042))));
       const k = group([0, -SP.L1, 0], g); k.add(M(merge([...boneSeg(0.34, 0.036), kit.bbox(0.07, 0.06, 0.03, 0.01, BONE_D, [0, -0.02, 0.05], 0, BONE_T)])));
@@ -120,20 +135,22 @@ export function skeleton(kit, L = {}) {
     // wu — замах (0..1), lu — выпад (0..1); walk: sp — скорость
     function solve(a, sp, wu, lu, hurt = 0) {
       const w = clamp(sp / 1.6), cyc = clamp(sp / (SP.cyc * 3.2), 0, 1);
-      if (sp > 0.25) gp = ((gp + (a.back ? -1 : 1) * a.dt * sp / 1.25) % 1 + 1) % 1;
+      if (sp > 0.25) gp = ((gp + (a.back ? -1 : 1) * a.dt * sp / GT.cyc) % 1 + 1) % 1;
       const th = gp * 6.283;
-      const hipY = SP.hip - 0.05 * w + 0.025 * w * Math.abs(Math.cos(th - 1.9)) - wu * 0.08 + lu * 0.03;
+      const hipY = SP.hip - REST - GT.crouch * w + GT.bob * w * Math.abs(Math.cos(th - 1.9)) - wu * 0.12 - lu * 0.06;   // в замахе и выпаде — присел на согнутых коленях
       [[legR, 0], [legL, 0.5]].forEach(([lg, off], i) => {
-        const ft = footTarget(gp + off, SP.stride * (0.5 + 0.5 * cyc), SP.lift);
+        const ft = footTarget(gp + off, GT.stride * (0.5 + 0.5 * cyc), GT.lift);
         let dz = ft.z * w + (i ? -0.03 : 0.03) * (1 - w); const lift = ft.y * w;
         dz += (i === 0 ? 0.18 : -0.1) * wu + (i === 0 ? 0.25 : -0.15) * lu;
         lg.position.y = hipY; legIK(lg, lg.knee, lg.foot, SP.L1, SP.L2, hipY - SP.ankle, dz, lift, ft.pitch * w);
       });
       body.position.y = hipY - 0.02 + Math.sin(a.t * 3) * 0.008;
-      body.rotation.set(0.08 * w - wu * 0.3 + lu * 0.45 - hurt * 0.35, Math.cos(th) * 0.15 * w + wu * 0.5 - lu * 0.7, Math.sin(th) * 0.06 * w);
-      head.rotation.set(-wu * 0.25 + hurt * 0.3, -body.rotation.y * 0.6, Math.sin(a.t * 2.1) * 0.1);
-      armL.rotation.set(Math.cos(th) * 0.5 * w - 0.2 - wu * 0.5 - hurt * 0.5, 0, 0.15); elL.rotation.x = -0.6 - wu * 0.6;
-      armR.rotation.set(-Math.cos(th) * 0.4 * w - 0.2 - wu * 2.6 + lu * 2.9, 0, -0.2 - wu * 0.5 + lu * 0.7); elR.rotation.x = -0.5 - wu * 1.1 + lu * 0.9;
+      body.rotation.set(GT.lean * w - wu * 0.3 + lu * 0.45 - hurt * 0.35, Math.cos(th) * GT.twist * w + wu * 0.5 - lu * 0.7, Math.sin(th) * GT.sway * w);
+      head.rotation.set(-wu * 0.25 + hurt * 0.3 - GT.lean * w * 0.7, -body.rotation.y * 0.6, Math.sin(a.t * 2.1) * 0.1);   // голова смотрит вперёд, а не в землю
+      // руки — навстречу ногам; локоть сгибается сильнее, когда рука уходит вперёд
+      const cL = Math.cos(th), sw = GT.armSw * w, elbL = GT.elb - GT.elbSw * w * Math.max(0, cL), elbR = GT.elb - GT.elbSw * w * Math.max(0, -cL);
+      armL.rotation.set(cL * sw - 0.2 - wu * 0.5 - hurt * 0.5, 0, 0.15); elL.rotation.x = Math.min(elbL, -0.15) - 0.15 - wu * 0.6;
+      armR.rotation.set(-cL * sw * 0.85 - 0.2 - wu * 2.6 + lu * 2.9, 0, -0.2 - wu * 0.5 + lu * 0.7); elR.rotation.x = elbR - wu * 1.1 + lu * 0.9;
       spin.rotation.set(0, 0, 0); spin.position.y = 0.5 + (L.hover ? 0.28 + Math.sin(a.t * 1.7) * 0.06 : 0);
     }
     const HIT = 0.5;

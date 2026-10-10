@@ -144,7 +144,7 @@ export function attachSkin(kit, model, name, o = {}) {
       const w = wq.get(b), pw = b.parent && wq.get(b.parent);
       b.quaternion.copy(pw ? _qi.copy(pw).invert().multiply(w) : w);
       // сдвиги: ось кувырка, покачивание таза и ног (ноги короче — сдвиг меньше)
-      const n = b.name, k = n === 'spin' ? 1 : n === 'hips' || n === 'legL' || n === 'legR' ? legK : 0;
+      const n = b.name, k = n === 'spin' ? 1 : n === 'hips' || n === 'legL' || n === 'legR' || (o.bodyPos && n === 'body') ? legK : 0;   // bodyPos — мобы: корпус приседает вместе с тазом (правки 2, П14)
       if (k) b.position.copy(restP.get(b)).addScaledVector(_v.subVectors(p.position, idleP.get(b)), k);
       if (CL && n === 'body') b.position.copy(restP.get(b)).addScaledVector(_ho, clipW);
     }
