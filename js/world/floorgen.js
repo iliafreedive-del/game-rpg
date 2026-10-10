@@ -96,7 +96,7 @@ export function generateFloor(floor, seed) {
   if (floor >= 4) pool.push('beast');
   let total = 0;
   const free = (x, y) => g[Math.floor(y)] && g[Math.floor(y)][Math.floor(x)] === '.';
-  const dc = { R, ri, put, wall, rect, g, top: MID0 - 3, ns: 0 }, dress = (r, i) => dressRoom(r, i, dc);
+  const dc = { R, ri, put, wall, rect, g, top: MID0 - 3, ns: 0, S: rng(seed ^ 0x2c1b3c6d), st: 0 }, dress = (r, i) => dressRoom(r, i, dc);
   all.forEach((r, i) => {
     dress(r, i);
     if (r.kind !== 'shrine' && R() < 0.6) put('brazier', r.x + r.w / 2 + 0.5, r.y + 1.2);
@@ -133,6 +133,7 @@ export function generateFloor(floor, seed) {
   // objects must stand on floor and never block the start, the exit or the guardian
   const keep = [start, [last.cx, last.cy], [last.x + last.w - 1.6, last.cy]];
   const objs = objects.filter(o => free(o.x, o.y) && (o.t === 'floor_exit' || entries.every(([ex, ey]) => Math.hypot(o.x - ex, o.y - ey) > 1.6)) && (o.t === 'floor_exit' || o.t === 'chest' || keep.every(([kx, ky]) => Math.hypot(o.x - kx, o.y - ky) > 2.4)));
+  for (let i = objs.length - 1; i >= 0; i--) if (objs[i].t === 'stash' && objs.some(p => p !== objs[i] && Math.hypot(p.x - objs[i].x, p.y - objs[i].y) < 1.2)) objs.splice(i, 1);   // тайник не впритык к сундуку и т. п.
   // пустые ряды стены сверху и снизу срезаем (карта не больше, чем нужно)
   let y0 = 0, y1 = H - 1; while (y0 < H && !rows[y0].includes('.')) y0++; while (y1 > 0 && !rows[y1].includes('.')) y1--;
   const dy = Math.max(0, y0 - 2), H2 = Math.min(H, y1 + 3) - dy;
@@ -145,8 +146,15 @@ export function generateFloor(floor, seed) {
 
 // начинка комнаты по шаблону: стены внутри и обстановка (общая для Глубин и катакомб Ордена)
 function dressRoom(r, i, c) {
-  const { R, ri, put, wall, rect, g } = c;
+  const { R, ri, wall, rect, g } = c, here = [], put = (t, x, y, o) => { here.push([x, y]); c.put(t, x, y, o); };
   const X0 = r.x, Y0 = r.y, w = r.w, h = r.h, cx = X0 + w / 2, cy = Y0 + h / 2;
+  dressKind(r, i, c, { R, ri, put, wall, rect, g, X0, Y0, w, h, cx, cy });
+  // тайники, как в походе: бочка или ящик в углу комнаты (не у прохода — проходы чистит фильтр обстановки); свой ГСЧ, раскладка не меняется
+  const S = c.S; if (!S || ['arena', 'altar', 'secret', 'cross'].includes(r.kind) || S() > 0.4) return;
+  const cs = [[X0 + 0.9, Y0 + 0.9], [X0 + w - 0.9, Y0 + 0.9], [X0 + 0.9, Y0 + h - 0.9], [X0 + w - 0.9, Y0 + h - 0.9]].sort(() => S() - 0.5);
+  for (let n = S() < 0.2 ? 2 : 1; n > 0 && cs.length;) { const [x, y] = cs.pop(); if (g[Math.floor(y)][Math.floor(x)] !== '.' || here.some(([a, b]) => Math.hypot(a - x, b - y) < 1.4)) continue; put('stash', x, y, { id: 'st' + c.st++, kind: S() < 0.5 ? 'crate' : 'barrel' }); n--; }
+}
+function dressKind(r, i, c, { R, ri, put, wall, rect, g, X0, Y0, w, h, cx, cy }) {
   switch (r.kind) {
     case 'plain':
       if (w >= 7 && h >= 7) for (const [dx, dy] of [[1.5, 1.5], [w - 1.5, 1.5], [1.5, h - 1.5], [w - 1.5, h - 1.5]]) if (R() < 0.7) put('pillar', X0 + dx, Y0 + dy);
@@ -296,7 +304,7 @@ export function generateCatacombs(seed = (Math.random() * 4294967296) >>> 0) {
   };
   const rect = (x0, y0, w, h) => { const c = []; for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) c.push([x, y]); return c; };
   const decor = [], key = [], put = (t, x, y, o) => decor.push({ t, x, y, ...o });
-  const dc = { R, ri, put, wall, rect, g, top: 1, ns: 0 };
+  const dc = { R, ri, put, wall, rect, g, top: 1, ns: 0, S: rng(seed ^ 0x2c1b3c6d), st: 0 };
   all.forEach((r, i) => dressRoom(r, i, dc));
   // точка в комнате: ближайшая к желаемой клетка пола, вокруг которой пол, вдали от проходов и других сюжетных вещей
   const mouthPts = r => (mouths.get(r) || []).map(({ side, t }) => side === 'e' ? [r.x + r.w, t] : side === 'w' ? [r.x, t] : side === 's' ? [t, r.y + r.h] : [t, r.y]);
@@ -349,6 +357,7 @@ export function generateCatacombs(seed = (Math.random() * 4294967296) >>> 0) {
   // обстановка не стоит в проходах, у сюжетных вещей и на старте
   const allM = all.flatMap(mouthPts), free = (x, y) => g[Math.floor(y)] && g[Math.floor(y)][Math.floor(x)] === '.';
   const objs = decor.filter(o => free(o.x, o.y) && allM.every(([mx, my]) => Math.hypot(o.x - mx, o.y - my) > 1.8) && [...key, { x: start[0], y: start[1] }, { x: elite[0], y: elite[1] }, { x: boss[0], y: boss[1] }].every(k => Math.hypot(o.x - k.x, o.y - k.y) > 1.6));
+  for (let i = objs.length - 1; i >= 0; i--) if (objs[i].t === 'stash' && objs.some(p => p !== objs[i] && Math.hypot(p.x - objs[i].x, p.y - objs[i].y) < 1.2)) objs.splice(i, 1);   // тайник не впритык к жаровне и т. п.
   { let n = key.filter(o => o.t === 'sarcophagus').length; for (let i = objs.length - 1; i >= 0; i--) if (objs[i].t === 'sarcophagus' && ++n > 12) objs.splice(i, 1); }   // не больше 12 саркофагов
   return {
     name: 'Катакомбы Ордена', gen: true, floorN: 1, seed, w: W, h: H, rows: g.map(r => r.join('')), objects: [...key, ...objs], torches, spawns, start,
