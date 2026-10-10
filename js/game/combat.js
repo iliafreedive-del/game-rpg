@@ -256,12 +256,15 @@ function fireArrow(P, ang, dmgMul) {
 }
 
 // ------------------------------------------------------------------ player: skills
+// С35: свойства вещей под ветвь навыков — урон, перезарядка, мана (stats.js s.br)
+export const skMana = (sk, S) => Math.round(sk.mana * (1 - ((S && S.br && S.br.brMana[sk.b]) || 0) / 100));
+function brStats(S, b) { const k = 1 + ((S.br && S.br.brDmg[b]) || 0) / 100; return k === 1 ? S : { ...S, dmgMin: S.dmgMin * k, dmgMax: S.dmgMax * k, spellPower: S.spellPower * k }; }
 export function skillUsable(id) {
   const P = G.player, S = G.stats, sk = SKILLS[id]; if (!sk || !R(id)) return { ok: false, why: 'Не изучено' };
   if (sk.weapon === 'bow' && P.weaponType() !== 'bow') return { ok: false, why: 'Нужен лук' };
   if (sk.weapon === 'melee' && WEAPONS[P.weaponType()].projectile) return { ok: false, why: 'Нужно оружие ближнего боя' };
   if ((P.cds[id] || 0) > 0) return { ok: false, why: 'Перезарядка' };
-  if (P.mp < sk.mana) return { ok: false, why: 'Мало маны' };
+  if (P.mp < skMana(sk, S)) return { ok: false, why: 'Мало маны' };
   return { ok: true };
 }
 export function castSkill(id, aim) {
@@ -271,10 +274,10 @@ export function castSkill(id, aim) {
   if (P.busy()) return false;
   if (P.state === 'hit') P.state = 'idle';
   const u = skillUsable(id); if (!u.ok) { float(P.x, P.y, u.why, '#ff9c8a', { z: 2.3 }); bus.emit('sfx', 'deny'); return false; }
-  const sk = SKILLS[id], r = R(id), S = G.stats;
+  const sk = SKILLS[id], r = R(id), S = brStats(G.stats, sk.b);
   const echo = S.effects.echo && sk.elem && rand() < 0.25;
-  if (!echo) P.mp -= sk.mana; else float(P.x, P.y, 'Эхо!', '#d7b7ff', { z: 2.4 });
-  P.cds[id] = sk.cd; G.lastCombat = G.time;
+  if (!echo) P.mp -= skMana(sk, S); else float(P.x, P.y, 'Эхо!', '#d7b7ff', { z: 2.4 });
+  P.cds[id] = sk.cd * (1 - ((S.br && S.br.brCd[sk.b]) || 0) / 100); G.lastCombat = G.time;
   const range = id === 'volley' || id === 'pierce_shot' || id === 'arrow_rain' ? 10 : id === 'leap' ? 8 : 8;
   const tgt = aim ? nearAim(aim, 1.6) : pickTarget(P, range); if (tgt) P.faceTo(tgt.x, tgt.y); else if (aim) P.faceTo(aim.x, aim.y); P.dir = P.face;
   const ang = tgt ? Math.atan2(tgt.y - P.y, tgt.x - P.x) : aim ? Math.atan2(aim.y - P.y, aim.x - P.x) : P.face * Math.PI / 4;

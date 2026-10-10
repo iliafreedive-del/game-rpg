@@ -2,7 +2,7 @@
 // Состояние — G.pet (только логика; вид рисует renderer3d.js syncPet). Сохранение — P.pets: { own: { id: уровень }, active, met }.
 // Урон слабый (доля среднего удара героя), у каждого свой эффект: поджог, яд, лечение героя, щит и т. д.
 import { G, bus } from './ctx.js';
-import { PETS, PET_MAX, petPrice, petUpCost, petReqLevel, GIFT_PET } from '../data/pets.js';
+import { PETS, PET_MAX, petPrice, petUpCost, petReqLevel, GIFT_PET, TRAIN, TRAIN_MAX, TRAIN_STEP, trainCost } from '../data/pets.js';
 import * as C from './combat.js';
 import { dropGold } from './loot.js';
 import { addShards } from './castle.js';
@@ -11,6 +11,7 @@ import { dirVec } from '../core/iso.js';
 
 export function petsOf(P) {
   const S = P.pets || (P.pets = { own: {}, active: null, met: false });
+  S.tr = S.tr || { phys: 0, mag: 0 };   // П29: дрессировка у Кофи
   for (const id in S.own) if (!PETS[id]) delete S.own[id];   // скарабей и кобра убраны (сборка 58)
   if (S.active && !PETS[S.active]) S.active = null;
   return S;
@@ -38,6 +39,23 @@ export function upgradePet(id) {
   if (!c.ok || !c.up) { bus.emit('sfx', 'deny'); return false; }
   P.shards -= c.cost; S.own[id]++; if (G.pet && G.pet.id === id) G.pet.lvl = S.own[id];
   bus.emit('float', { x: G.player.x, y: G.player.y, text: `${PETS[id].name} ↑`, color: '#9fe38e', z: 2.4 }); bus.emit('sfx', 'anvil'); bus.emit('hud'); bus.emit('save'); return true;
+}
+// ---------------------------------------------------------------- П29: дрессировка за золото (физ. и маг. урон всех питомцев)
+export const trainMul = (kind, P = G.profile) => 1 + TRAIN_STEP * ((P && P.pets && P.pets.tr && P.pets.tr[kind]) || 0);
+export function trainCan(kind) {
+  const P = G.profile, l = petsOf(P).tr[kind] || 0; if (l >= TRAIN_MAX) return { ok: false, max: true, lvl: l };
+  const cost = trainCost(l); return { ok: P.gold >= cost, cost, lvl: l };
+}
+export function trainPet(kind) {
+  const P = G.profile, S = petsOf(P), c = trainCan(kind);
+  if (!TRAIN[kind] || !c.ok) { bus.emit('sfx', 'deny'); if (c.cost) bus.emit('toast', { text: `Нужно ${c.cost} золота`, kind: 'warn' }); return false; }
+  P.gold -= c.cost; S.tr[kind] = c.lvl + 1;
+  bus.emit('float', { x: G.player.x, y: G.player.y, text: `${TRAIN[kind].name} питомца ↑`, color: '#9fe38e', z: 2.4 }); bus.emit('sfx', 'anvil'); bus.emit('hud'); bus.emit('save'); return true;
+}
+// сила питомца для окна характеристик: удар (физ.) и эффект (маг.) с учётом уровня питомца и дрессировки
+export function petPower(id, P = G.profile) {
+  const S = petsOf(P), lvl = S.own[id] || 1, D = PETS[id], st = G.stats || {}, avg = ((st.dmgMin || 1) + (st.dmgMax || 1)) / 2, base = Math.max(1, avg * D.k * LV(lvl));
+  return { lvl, phys: Math.round(base * (D.ranged && D.fx !== 'needle' ? 0 : trainMul('phys', P))), mag: Math.round(base * trainMul('mag', P) * (D.fx === 'burn' ? 1.05 : D.fx === 'poison' ? 0.75 : D.ranged && D.fx !== 'needle' ? 1 : 0.6)), physLvl: S.tr.phys, magLvl: S.tr.mag };
 }
 export function choosePet(id) {
   const S = petsOf(G.profile); if (id && !S.own[id]) return;
@@ -105,7 +123,7 @@ function dmgOf(p) {
 }
 function strike(p, e) {
   if (!e || e.dead) return;
-  const D = PETS[p.id], dmg = dmgOf(p), lv = p.lvl;
+  const D = PETS[p.id], base = dmgOf(p), lv = p.lvl, mag = base * trainMul('mag'), dmg = D.ranged && D.fx !== 'needle' ? mag : base * trainMul('phys');   // П29: физ. — удар и иглы, маг. — искры и эффекты
   if (D.ranged) {
     const dx = e.x - p.x, dy = e.y - p.y, l = Math.hypot(dx, dy) || 1, sp = D.fx === 'needle' ? 14 : 10;
     C.spawnProj({ kind: D.fx === 'needle' ? 'shard' : 'bolt', x: p.x, y: p.y, z: 1.1, vx: dx / l * sp, vy: dy / l * sp, owner: 'p', dmg, elem: D.fx === 'needle' ? 'phys' : 'light', src: 'pet', range: D.reach + 2 });
@@ -116,10 +134,10 @@ function strike(p, e) {
   if (e.dead) return;
   const s = e.st;
   switch (D.fx) {
-    case 'burn': s.burn = 3; s.burnDps = Math.max(s.burnDps || 0, dmg * 0.35); break;
-    case 'poison': s.poison = Math.min(5, (s.poison || 0) + 1); s.poisonT = 4; s.poisonDps = Math.max(s.poisonDps || 0, dmg * 0.15); break;
+    case 'burn': s.burn = 3; s.burnDps = Math.max(s.burnDps || 0, mag * 0.35); break;
+    case 'poison': s.poison = Math.min(5, (s.poison || 0) + 1); s.poisonT = 4; s.poisonDps = Math.max(s.poisonDps || 0, mag * 0.15); break;
     case 'stun': if (rand() < 0.15 + 0.02 * (lv - 1)) { s.stun = Math.max(s.stun, e.D.boss ? 0.25 : e.D.elite ? 0.4 : 0.6); C.float(e.x, e.y, 'Оглушён', '#f0e08a'); } break;
-    case 'leech': { const S = G.stats, h = Math.round(done * 0.6); if (h > 0 && pl().hp < S.maxHP) { pl().hp = Math.min(S.maxHP, pl().hp + h); C.float(pl().x, pl().y, '+' + h, '#7ef07a', { z: 2.3 }); } break; }
+    case 'leech': { const S = G.stats, h = Math.round(done * 0.6 * trainMul('mag')); if (h > 0 && pl().hp < S.maxHP) { pl().hp = Math.min(S.maxHP, pl().hp + h); C.float(pl().x, pl().y, '+' + h, '#7ef07a', { z: 2.3 }); } break; }
   }
 }
 const pl = () => G.player;
@@ -127,8 +145,8 @@ const pl = () => G.player;
 function passive(p, dt, combat) {
   const D = PETS[p.id], P = G.player, S = G.stats; if (!S || P.dead) return;
   const fight = combat && G.time - (G.lastCombat || -99) < 4;
-  if (D.fx === 'heal' && (p.healT += dt) >= 5) { p.healT = 0; if (P.hp < S.maxHP && combat) { const h = Math.round(S.maxHP * (0.03 + 0.005 * (p.lvl - 1))); P.hp = Math.min(S.maxHP, P.hp + h); C.float(P.x, P.y, '+' + h, '#7ef07a', { z: 2.3 }); C.particles(P.x, P.y, 6, { c: [190, 255, 170], z: 1.2, sp: 1, size: 3, life: 0.6 }); } }
-  if (D.fx === 'shield' && (p.shieldT -= dt) <= 0) { p.shieldT = 8; if (fight) { P.shield = Math.min(S.maxHP * 0.3, (P.shield || 0) + S.maxHP * (0.06 + 0.01 * (p.lvl - 1))); C.float(P.x, P.y, 'Каменный щит', '#e0c08a', { z: 2.4 }); C.particles(P.x, P.y, 8, { c: [220, 180, 120], z: 0.8, sp: 1.5, size: 4, add: false, life: 0.7 }); } }
+  if (D.fx === 'heal' && (p.healT += dt) >= 5) { p.healT = 0; if (P.hp < S.maxHP && combat) { const h = Math.round(S.maxHP * (0.03 + 0.005 * (p.lvl - 1)) * trainMul('mag')); P.hp = Math.min(S.maxHP, P.hp + h); C.float(P.x, P.y, '+' + h, '#7ef07a', { z: 2.3 }); C.particles(P.x, P.y, 6, { c: [190, 255, 170], z: 1.2, sp: 1, size: 3, life: 0.6 }); } }
+  if (D.fx === 'shield' && (p.shieldT -= dt) <= 0) { p.shieldT = 8; if (fight) { P.shield = Math.min(S.maxHP * 0.3, (P.shield || 0) + S.maxHP * (0.06 + 0.01 * (p.lvl - 1)) * trainMul('mag')); C.float(P.x, P.y, 'Каменный щит', '#e0c08a', { z: 2.4 }); C.particles(P.x, P.y, 8, { c: [220, 180, 120], z: 0.8, sp: 1.5, size: 4, add: false, life: 0.7 }); } }
 }
 // ворон: с павших — горсть золота, изредка осколок
 bus.on('kill', e => {

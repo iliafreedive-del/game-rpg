@@ -18,7 +18,7 @@ import { startTrial } from '../game/game.js';
 import { adButton } from './adbtn.js';
 import { stats } from '../game/stats.js';
 import { earlyLock } from '../game/progress.js';
-import { PETS, TIERS, PET_MAX, GIFT_PET } from '../data/pets.js';
+import { PETS, TIERS, PET_MAX, GIFT_PET, TRAIN, TRAIN_MAX, TRAIN_STEP } from '../data/pets.js';
 import * as PT from '../game/pets.js';
 
 let target = null, box = null, lastSig = '', dismissed = null;
@@ -98,6 +98,18 @@ function render(force) {
         if (lvl < PET_MAX) btn(r, `▲ ${c.cost}◆`, c.ok, () => PT.upgradePet(id), ' up');
       }
       box.appendChild(r);
+    }
+    // П29 (правки 2): дрессировка за золото — физический и магический урон всех питомцев; короткое обучение при первом заходе
+    if (S.met) {
+      box.appendChild(el('div', 'pn-sub', 'Дрессировка (для всех питомцев)'));
+      if (!S.tut) {
+        const tip = el('div', 'pn-tip', '<b>Как растёт питомец</b><br>1. <b>Уровень</b> зверька (▲ за осколки ◆) — +15% ко всей его силе, до 5-го.<br>2. <b>Дрессировка</b> за золото — у всех питомцев сразу: 🗡 физический урон (укус, когти, иглы) и ✦ магический (огонь, яд, искры, лечение, щит). +10% за ступень.<br>3. Смените зверька — выучка останется.');
+        const ok = el('button', 'btn gold', 'Понятно'); ok.onpointerdown = e => { e.stopPropagation(); S.tut = 1; bus.emit('save'); render(true); }; tip.appendChild(ok); box.appendChild(tip);
+      }
+      for (const [k, T] of Object.entries(TRAIN)) {
+        const c = PT.trainCan(k), r = row(T.icon, `${esc(T.name)} <span class="lv">${c.lvl}/${TRAIN_MAX}</span>`, `+${Math.round(c.lvl * TRAIN_STEP * 100)}% · ${esc(T.txt)}`, null, false, null, '');
+        if (!c.max) btn(r, `▲ ${fmt(c.cost)} зол.`, c.ok, () => PT.trainPet(k), ' up'); box.appendChild(r);
+      }
     }
     box.appendChild(el('p', 'muted', '<small>Осколки Бездны ◆ дают стражи, боссы, чемпионы, сундуки, Жатва и недельные задания. Улучшение: +15% силы питомца за уровень.</small>'));
   } else if (T.id === 'board') {

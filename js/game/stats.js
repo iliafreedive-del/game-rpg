@@ -1,6 +1,6 @@
 // Derived character stats from attributes, gear and skills. Pure: stats(profile) → object.
 import { SETS } from '../data/sets.js';
-import { WEAPONS, CLASSES, AFFIXES } from '../data/items.js';
+import { WEAPONS, CLASSES, AFFIXES, BR_CAP } from '../data/items.js';
 import { SKILLS, PASSIVE_K as K } from '../data/skills.js';
 import { upgMult } from './items.js';
 import { G, bus } from './ctx.js';
@@ -26,7 +26,7 @@ export function stats(p, gearOverride) {
   const gear = gearOverride || p.gear;
   const s = { str: p.attrs.str, dex: p.attrs.dex, int: p.attrs.int, vit: p.attrs.vit,
     dmgPct: 0, dmgFlat: 0, ias: 0, crit: 0, critDmg: 0, armor: 0, hp: 0, mp: 0, fire: 0, cold: 0, light: 0,
-    resFire: 0, resCold: 0, resLight: 0, regen: 0, leech: 0, goldFind: 0, block: 0, effects: {} };
+    resFire: 0, resCold: 0, resLight: 0, regen: 0, leech: 0, goldFind: 0, block: 0, effects: {}, br: { brDmg: {}, brCd: {}, brMana: {} } };
   let armorItems = 0;
   for (const [slot, it] of Object.entries(gear)) {
     if (!it) continue;
@@ -35,6 +35,7 @@ export function stats(p, gearOverride) {
       if (a.k === 'armorPct') armPct += a.v;
       else if (a.k === 'resAll' || a.k === 'resFire' || a.k === 'resCold' || a.k === 'resLight') { }   // сопротивления убраны
       else if (a.k === 'skill') { }
+      else if (AFFIXES[a.k] && AFFIXES[a.k].branch && a.b) { const B = s.br[a.k]; B[a.b] = Math.min(BR_CAP[a.k], (B[a.b] || 0) + a.v); }   // С35: свойства ветви навыков
       else if (a.k in s && AFFIXES[a.k]) s[a.k] += a.v;   // сборка 47: только нынешние свойства вещей
     }
     armorItems += arm * (1 + armPct / 100);

@@ -20,4 +20,13 @@ export const PETS = {
 export const petPrice = id => TIERS[PETS[id].tier].price;
 export const petUpCost = (id, lvl) => TIERS[PETS[id].tier].up * lvl;
 export const petReqLevel = id => TIERS[PETS[id].tier].lvl;
-export const GIFT_PET = 'fennec';   // первого зверька Кофи дарит
+export const GIFT_PET = 'fennec';
+// П29 (правки 2): дрессировка у Кофи за золото — общая для всех питомцев (сменили зверька — выучка остаётся).
+// Физический урон: удар и иглы (+10% за уровень). Магический: огонь, яд, искры, лечение, щит и вампиризм (+10% за уровень).
+export const TRAIN_MAX = 20;
+export const TRAIN = {
+  phys: { name: 'Физический урон', icon: '🗡', txt: 'удар зубами и когтями, иглы черепа' },
+  mag: { name: 'Магический урон', icon: '✦', txt: 'огонь, яд, искры, лечение, щит, вампиризм' },
+};
+export const TRAIN_STEP = 0.1;
+export const trainCost = l => Math.round(120 * Math.pow(1.22, l));   // первого зверька Кофи дарит

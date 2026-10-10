@@ -13,6 +13,7 @@ import { STORY } from '../data/quests.js';
 const firstPotion = () => { const s = G.profile.story, st = s.stage; return st < STORY.length && STORY[st].id === 'meet_merchant' ? Math.min(POTION_RESERVE, G.profile.gold | 0) : POTION_RESERVE; };
 export const potionPrice = k => k === 'hp' ? (G.profile.story.flags.potBought ? 300 + 10 * (G.profile.level - 1) : firstPotion()) : k === 'mp' ? 300 + 10 * (G.profile.level - 1) /* П36: мана — по цене зелья здоровья */ : 45 + 5 * G.profile.level;
 export const stockRefreshPrice = () => 40 * G.profile.level;
+export const STOCK_MS = 6 * 3600e3;   // П67: товар Миры сам обновляется раз в 6 часов
 export const respecSkillPrice = () => 100 * G.profile.level;
 export const respecAttrPrice = () => 80 * G.profile.level;
 export const buyPrice = it => Math.round((sellValue(it) * 4 + 20) * Math.pow(1.1, it.ilvl - 1));   // сборка 20: +10% за уровень вещи
@@ -22,10 +23,14 @@ const recalc = () => { G.stats = stats(G.profile); bus.emit('statsChanged'); bus
 
 export function ensureStock(force) {
   const P = G.profile, S = P.shop;
-  if (!force && S.stock.length && S.refreshedAtLevel === P.level) return;
-  S.stock = []; S.refreshedAtLevel = P.level;
+  if (S.at > Date.now()) S.at = Date.now();   // часы назад
+  if (!force && S.stock.length && S.refreshedAtLevel === P.level && Date.now() - (S.at || 0) < STOCK_MS) return;
+  S.stock = []; S.refreshedAtLevel = P.level; S.at = Date.now();
   const slots = ['weapon', 'head', 'chest', 'amulet'];
-  for (const slot of slots) S.stock.push(makeItem({ slot, cls: P.cls || 'warrior', ilvl: P.level + rint(0, 1), rarity: weighted([[0, 70], [1, 27], [2, 3]]) /* сборка 47: было 40/50/10 */ }));
+  // П67 (правки 2): лавка Миры — без серого хлама: до 10 ур. зелёные и серые, с 10-го одна вещь всегда синяя (выпадают синие тоже с 10-го);
+  // золота у Миры нет — оно из слияния у кузнеца (с 15 ур.), боссов и лавки Ордена (с 15 ур.). Товар обновляется каждые 6 часов и с уровнем
+  const blue = P.level >= 10 ? rint(0, 3) : -1;
+  slots.forEach((slot, i) => S.stock.push(makeItem({ slot, cls: P.cls || 'warrior', ilvl: P.level + rint(0, 1), rarity: i === blue ? 2 : weighted(P.level >= 10 ? [[1, 75], [2, 25]] : [[0, 45], [1, 55]]) })));
   for (const it of S.stock) delete it.req;
 }
 export function refreshStock(free) { if (!free && !pay(stockRefreshPrice())) return false; ensureStock(true); bus.emit('save'); return true; }

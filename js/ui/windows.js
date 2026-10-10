@@ -17,7 +17,7 @@ import { ART, artTag, artHead } from './art.js';
 import { drawMap, seen, seenKey } from './hud.js';
 import { offers, buy, restorePurchases, dailyStatus, claimDaily, chestStatus, chestSkip, openOrderChest, DAILY, LOGIN_DAYS, watchRewarded, offerToken, blessing, blessLeft, BLESS_MIN, BLESS_CAP, BLESS_DAY, blessToday } from '../platform/monetize.js';
 import { PRODUCTS, platform } from '../platform/platform.js';
-import { wallOffer, markShown, streakHelp, helpGiven } from '../platform/offers.js';
+import { wallOffer, markShown, streakHelp, helpGiven, shopGearToday } from '../platform/offers.js';
 import { inCinema } from './cinema.js';
 import { revive, saveNow, loadZone, depthsUnlocked, MAX_REVIVES, inPrologue } from '../game/game.js';
 import { generateFloor, isBossFloor, floorLevel } from '../world/floorgen.js';
@@ -742,7 +742,7 @@ W.board = () => {
 
 // ---------------------------------------------------------------- rewards / shop (monetization hub)
 W.shrine = () => modal('Источник силы', 'md', b => {
-  const P = G.profile, now = Date.now();
+  const P = G.profile, now = Date.now(); if (!P.shrineSeen) { P.shrineSeen = 1; bus.emit('save'); }   // П67
   // 1) благословение — главное предложение алтаря
   { const left = blessLeft(), on = left > 0, full = left > (BLESS_CAP - BLESS_MIN) * 60000;
     const c = el('div', 'bless-card' + (on ? ' on' : ''), `<div class="bl-ic">✦</div><div class="tx"><b>Сила источника</b><div>+25% золота и опыта, +15% к выпадению вещей — ${BLESS_MIN} минут</div><div class="muted">${on ? `Действует ещё <b>${Math.floor(left / 60000)}:${String(Math.floor(left / 1000) % 60).padStart(2, '0')}</b>${full ? ' · предел ' + BLESS_CAP + ' мин' : ' · можно продлить'}` : 'Посмотрите рекламу — и 10 минут всё падает щедрее'}</div></div>`);
@@ -769,8 +769,11 @@ W.shrine = () => modal('Источник силы', 'md', b => {
   const cb = el('button', 'btn ' + (cs.ready ? 'gold' : 'ad'), cs.ready ? 'Открыть' : 'Открыть сейчас'); cb.onclick = () => { (cs.ready ? Promise.resolve(openOrderChest()) : chestSkip()).then(rerender); }; cr.appendChild(cb); b.appendChild(cr);
   // IAP
   b.appendChild(el('h3', '', 'Лавка Ордена'));
+  b.appendChild(el('p', 'muted', '<small>Снаряжение в лавке меняется каждый день. Синий сет — с начала, золотые вещи — с 15 уровня, мифические — с 22-го.</small>'));   // П67
+  const gearToday = shopGearToday();
   for (const [id, p] of Object.entries(PRODUCTS)) {
     if (!platform.p.hasProduct(id)) continue;
+    if (p.gear && !gearToday.includes(id)) continue;   // П67: из снаряжения — только товары дня, открытые по уровню
     const owned = (p.once && P.iap.tx['once_' + id]) || (!p.consumable && P.iap[{ gold_perk: 'goldPerk', no_ads: 'noAds', bag_big: 'bagBig' }[id]]);
     const o = el('div', 'offer', `<div class="ic">${esc(p.icon || '⛁')}</div><div class="tx"><b>${esc(p.title)}</b><div class="muted">${esc(p.desc)}</div></div>`);
     const pr = platform.p.catalogPrice(id), price = typeof pr === 'string' ? esc(pr) : `${esc(pr.value)} ${pr.img ? `<img class="cur" src="${esc(pr.img)}" alt="${esc(pr.code)}">` : esc(pr.code)}`;
