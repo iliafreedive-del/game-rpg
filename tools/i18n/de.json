@@ -2298,5 +2298,18 @@
  "Золото и осколки Бездны рассыпаны по арене. Палач вернётся через 30 минут — таймер на месте его гибели.": "Gold und Abgrundsplitter liegen in der Arena verstreut. Der Henker kehrt in 30 Minuten zurück – ein Zähler markiert, wo er fiel.",
  "Глубина {0}: после победы над Палачом Бездны": "Tiefe {0}: nach dem Sieg über den Abgrundhenker",
  "Кузнецу Горану нужно серебро": "Schmied Goran braucht Silber",
- "Долгий контракт на доске объявлений: добыть в бою 5000 золота — награда синее оружие": "Langer Auftrag am Anschlagbrett: 5000 Gold im Kampf erbeuten – Belohnung ist eine blaue Waffe"
+ "Долгий контракт на доске объявлений: добыть в бою 5000 золота — награда синее оружие": "Langer Auftrag am Anschlagbrett: 5000 Gold im Kampf erbeuten – Belohnung ist eine blaue Waffe",
+ "Портал «Вглубь» запечатан": "Das Portal „Tiefer“ ist versiegelt",
+ "Победите стража святилища в центре храма — стрелка ведёт к нему": "Besiege den Wächter des Heiligtums in der Tempelmitte — der Pfeil führt zu ihm",
+ "Победите вожака поля — стрелка ведёт к нему": "Besiege den Anführer des Feldes — der Pfeil führt zu ihm",
+ "Вожак поля: ": "Anführer des Feldes: ",
+ "Портал «Вглубь» открыт": "Das Portal „Tiefer“ ist offen",
+ "Страж святилища повержен": "Wächter des Heiligtums besiegt",
+ "{0} повержен": "{0} besiegt",
+ "🔒 На поле портал «Вглубь» запечатан, пока жив вожак поля — стрелка ведёт к нему.": "🔒 Das Portal „Tiefer“ bleibt versiegelt, solange der Anführer des Feldes lebt — der Pfeil führt zu ihm.",
+ "🔒 «Вглубь» запечатан: победите стража святилища в центре храма (стрелка ведёт к нему)": "🔒 „Tiefer“ ist versiegelt: Besiege den Wächter des Heiligtums in der Tempelmitte (der Pfeil führt zu ihm)",
+ "🔒 «Вглубь» запечатан: победите вожака поля (стрелка ведёт к нему)": "🔒 „Tiefer“ ist versiegelt: Besiege den Anführer des Feldes (der Pfeil führt zu ihm)",
+ "Вглубь · запечатан": "Tiefer · versiegelt",
+ "победите стража святилища": "besiege den Wächter des Heiligtums",
+ "победите вожака поля": "besiege den Anführer des Feldes"
 }

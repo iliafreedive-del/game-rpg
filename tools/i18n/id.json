@@ -2298,5 +2298,18 @@
  "Золото и осколки Бездны рассыпаны по арене. Палач вернётся через 30 минут — таймер на месте его гибели.": "Emas dan pecahan Jurang berserakan di arena. Algojo akan kembali dalam 30 menit — penghitung waktu menandai tempat ia tumbang.",
  "Глубина {0}: после победы над Палачом Бездны": "Kedalaman {0}: setelah mengalahkan Algojo Jurang",
  "Кузнецу Горану нужно серебро": "Pandai besi Goran butuh perak",
- "Долгий контракт на доске объявлений: добыть в бою 5000 золота — награда синее оружие": "Kontrak panjang di papan pengumuman: dapatkan 5000 emas dalam pertempuran — hadiahnya senjata biru"
+ "Долгий контракт на доске объявлений: добыть в бою 5000 золота — награда синее оружие": "Kontrak panjang di papan pengumuman: dapatkan 5000 emas dalam pertempuran — hadiahnya senjata biru",
+ "Портал «Вглубь» запечатан": "Portal «Lebih Dalam» tersegel",
+ "Победите стража святилища в центре храма — стрелка ведёт к нему": "Kalahkan penjaga tempat suci di tengah kuil — panah menunjuk ke arahnya",
+ "Победите вожака поля — стрелка ведёт к нему": "Kalahkan pemimpin padang — panah menunjuk ke arahnya",
+ "Вожак поля: ": "Pemimpin padang: ",
+ "Портал «Вглубь» открыт": "Portal «Lebih Dalam» terbuka",
+ "Страж святилища повержен": "Penjaga tempat suci dikalahkan",
+ "{0} повержен": "{0} dikalahkan",
+ "🔒 На поле портал «Вглубь» запечатан, пока жив вожак поля — стрелка ведёт к нему.": "🔒 Portal «Lebih Dalam» di padang ini tersegel selama pemimpin padang masih hidup — panah menunjuk ke arahnya.",
+ "🔒 «Вглубь» запечатан: победите стража святилища в центре храма (стрелка ведёт к нему)": "🔒 «Lebih Dalam» tersegel: kalahkan penjaga tempat suci di tengah kuil (panah menunjuk ke arahnya)",
+ "🔒 «Вглубь» запечатан: победите вожака поля (стрелка ведёт к нему)": "🔒 «Lebih Dalam» tersegel: kalahkan pemimpin padang (panah menunjuk ke arahnya)",
+ "Вглубь · запечатан": "Lebih Dalam · tersegel",
+ "победите стража святилища": "kalahkan penjaga tempat suci",
+ "победите вожака поля": "kalahkan pemimpin padang"
 }

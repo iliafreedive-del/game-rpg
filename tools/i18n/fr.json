@@ -2298,5 +2298,18 @@
  "Золото и осколки Бездны рассыпаны по арене. Палач вернётся через 30 минут — таймер на месте его гибели.": "L'or et les éclats de l'Abîme sont éparpillés dans l'arène. Le Bourreau reviendra dans 30 minutes — un compte à rebours marque l'endroit de sa chute.",
  "Глубина {0}: после победы над Палачом Бездны": "Profondeur {0} : après la victoire sur le Bourreau de l'Abîme",
  "Кузнецу Горану нужно серебро": "Le forgeron Goran a besoin d'argent",
- "Долгий контракт на доске объявлений: добыть в бою 5000 золота — награда синее оружие": "Long contrat au tableau d'affichage : gagnez 5000 or au combat — récompense : une arme bleue"
+ "Долгий контракт на доске объявлений: добыть в бою 5000 золота — награда синее оружие": "Long contrat au tableau d'affichage : gagnez 5000 or au combat — récompense : une arme bleue",
+ "Портал «Вглубь» запечатан": "Le portail « Plus bas » est scellé",
+ "Победите стража святилища в центре храма — стрелка ведёт к нему": "Battez le gardien du sanctuaire au centre du temple — la flèche y mène",
+ "Победите вожака поля — стрелка ведёт к нему": "Battez le chef du champ — la flèche y mène",
+ "Вожак поля: ": "Chef du champ : ",
+ "Портал «Вглубь» открыт": "Le portail « Plus bas » est ouvert",
+ "Страж святилища повержен": "Gardien du sanctuaire vaincu",
+ "{0} повержен": "{0} vaincu",
+ "🔒 На поле портал «Вглубь» запечатан, пока жив вожак поля — стрелка ведёт к нему.": "🔒 Le portail « Plus bas » reste scellé tant que le chef du champ est en vie — la flèche y mène.",
+ "🔒 «Вглубь» запечатан: победите стража святилища в центре храма (стрелка ведёт к нему)": "🔒 « Plus bas » est scellé : battez le gardien du sanctuaire au centre du temple (la flèche y mène)",
+ "🔒 «Вглубь» запечатан: победите вожака поля (стрелка ведёт к нему)": "🔒 « Plus bas » est scellé : battez le chef du champ (la flèche y mène)",
+ "Вглубь · запечатан": "Plus bas · scellé",
+ "победите стража святилища": "battez le gardien du sanctuaire",
+ "победите вожака поля": "battez le chef du champ"
 }

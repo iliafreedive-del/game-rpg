@@ -2298,5 +2298,18 @@
  "Золото и осколки Бездны рассыпаны по арене. Палач вернётся через 30 минут — таймер на месте его гибели.": "Oro e frammenti dell'Abisso sono sparsi per l'arena. Il Carnefice tornerà tra 30 minuti: un timer segna il punto in cui è caduto.",
  "Глубина {0}: после победы над Палачом Бездны": "Profondità {0}: dopo aver sconfitto il Carnefice dell'Abisso",
  "Кузнецу Горану нужно серебро": "Il fabbro Goran ha bisogno d'argento",
- "Долгий контракт на доске объявлений: добыть в бою 5000 золота — награда синее оружие": "Contratto lungo in bacheca: guadagna 5000 oro in battaglia; la ricompensa è un'arma blu"
+ "Долгий контракт на доске объявлений: добыть в бою 5000 золота — награда синее оружие": "Contratto lungo in bacheca: guadagna 5000 oro in battaglia; la ricompensa è un'arma blu",
+ "Портал «Вглубь» запечатан": "Il portale «Più a fondo» è sigillato",
+ "Победите стража святилища в центре храма — стрелка ведёт к нему": "Sconfiggi il guardiano del santuario al centro del tempio: la freccia ti guida",
+ "Победите вожака поля — стрелка ведёт к нему": "Sconfiggi il capo del campo: la freccia ti guida",
+ "Вожак поля: ": "Capo del campo: ",
+ "Портал «Вглубь» открыт": "Il portale «Più a fondo» è aperto",
+ "Страж святилища повержен": "Guardiano del santuario sconfitto",
+ "{0} повержен": "{0} sconfitto",
+ "🔒 На поле портал «Вглубь» запечатан, пока жив вожак поля — стрелка ведёт к нему.": "🔒 Il portale «Più a fondo» resta sigillato finché il capo del campo è vivo: la freccia ti guida.",
+ "🔒 «Вглубь» запечатан: победите стража святилища в центре храма (стрелка ведёт к нему)": "🔒 «Più a fondo» è sigillato: sconfiggi il guardiano del santuario al centro del tempio (la freccia ti guida)",
+ "🔒 «Вглубь» запечатан: победите вожака поля (стрелка ведёт к нему)": "🔒 «Più a fondo» è sigillato: sconfiggi il capo del campo (la freccia ti guida)",
+ "Вглубь · запечатан": "Più a fondo · sigillato",
+ "победите стража святилища": "sconfiggi il guardiano del santuario",
+ "победите вожака поля": "sconfiggi il capo del campo"
 }

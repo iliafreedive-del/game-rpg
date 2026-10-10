@@ -2298,5 +2298,18 @@
  "Золото и осколки Бездны рассыпаны по арене. Палач вернётся через 30 минут — таймер на месте его гибели.": "Gold and Abyss shards are scattered across the arena. The Executioner will return in 30 minutes — a timer marks where he fell.",
  "Глубина {0}: после победы над Палачом Бездны": "Depth {0}: after defeating the Abyss Executioner",
  "Кузнецу Горану нужно серебро": "Goran the Smith needs silver",
- "Долгий контракт на доске объявлений: добыть в бою 5000 золота — награда синее оружие": "A long contract on the notice board: earn 5000 gold in battle — the reward is a blue weapon"
+ "Долгий контракт на доске объявлений: добыть в бою 5000 золота — награда синее оружие": "A long contract on the notice board: earn 5000 gold in battle — the reward is a blue weapon",
+ "Портал «Вглубь» запечатан": "The \"Deeper\" portal is sealed",
+ "Победите стража святилища в центре храма — стрелка ведёт к нему": "Defeat the sanctuary guardian in the center of the temple — the arrow leads to it",
+ "Победите вожака поля — стрелка ведёт к нему": "Defeat the field leader — the arrow leads to it",
+ "Вожак поля: ": "Field leader: ",
+ "Портал «Вглубь» открыт": "The \"Deeper\" portal is open",
+ "Страж святилища повержен": "Sanctuary guardian defeated",
+ "{0} повержен": "{0} defeated",
+ "🔒 На поле портал «Вглубь» запечатан, пока жив вожак поля — стрелка ведёт к нему.": "🔒 The \"Deeper\" portal on this field stays sealed while the field leader lives — the arrow leads to it.",
+ "🔒 «Вглубь» запечатан: победите стража святилища в центре храма (стрелка ведёт к нему)": "🔒 \"Deeper\" is sealed: defeat the sanctuary guardian in the center of the temple (the arrow leads to it)",
+ "🔒 «Вглубь» запечатан: победите вожака поля (стрелка ведёт к нему)": "🔒 \"Deeper\" is sealed: defeat the field leader (the arrow leads to it)",
+ "Вглубь · запечатан": "Deeper · sealed",
+ "победите стража святилища": "defeat the sanctuary guardian",
+ "победите вожака поля": "defeat the field leader"
 }

@@ -275,7 +275,7 @@ export function drawMap(x, size, Z, S, P, span) {
   for (let ty = 0; ty < m.h; ty++) for (let tx = 0; tx < m.w; tx++) {
     if (Z.dark && S && !S[ty * m.w + tx]) continue;
     if (span && (Math.abs(tx - cx) > span * 1.5 || Math.abs(ty - cy) > span * 1.5)) continue;
-    const c = m.ch(tx, ty); if (c === 'x') continue;
+    const c = m.ch(tx, ty); if (c === 'x' || c === 'v') continue;   // пропасть походов — пусто
     x.fillStyle = m.blocked(tx, ty) ? (c === '~' ? '#23406a' : Z.dark ? '#5a4a3a' : '#2a3a1a') : Z.dark ? '#2a221c' : (c === '#' ? '#6a6258' : c === ',' ? '#5a4630' : '#34502a');
     x.fillRect((tx - cx) * cell, (ty - cy) * cell, cell + 0.4, cell + 0.4);
   }

@@ -2298,5 +2298,18 @@
  "Золото и осколки Бездны рассыпаны по арене. Палач вернётся через 30 минут — таймер на месте его гибели.": "Ouro e fragmentos do Abismo estão espalhados pela arena. O Carrasco voltará em 30 minutos — um cronômetro marca onde ele caiu.",
  "Глубина {0}: после победы над Палачом Бездны": "Profundidade {0}: após derrotar o Carrasco do Abismo",
  "Кузнецу Горану нужно серебро": "O ferreiro Goran precisa de prata",
- "Долгий контракт на доске объявлений: добыть в бою 5000 золота — награда синее оружие": "Contrato longo no quadro de avisos: consiga 5000 de ouro em combate — a recompensa é uma arma azul"
+ "Долгий контракт на доске объявлений: добыть в бою 5000 золота — награда синее оружие": "Contrato longo no quadro de avisos: consiga 5000 de ouro em combate — a recompensa é uma arma azul",
+ "Портал «Вглубь» запечатан": "O portal \"Mais Fundo\" está selado",
+ "Победите стража святилища в центре храма — стрелка ведёт к нему": "Derrote o guardião do santuário no centro do templo — a seta leva até ele",
+ "Победите вожака поля — стрелка ведёт к нему": "Derrote o líder do campo — a seta leva até ele",
+ "Вожак поля: ": "Líder do campo: ",
+ "Портал «Вглубь» открыт": "O portal \"Mais Fundo\" está aberto",
+ "Страж святилища повержен": "Guardião do santuário derrotado",
+ "{0} повержен": "{0} derrotado",
+ "🔒 На поле портал «Вглубь» запечатан, пока жив вожак поля — стрелка ведёт к нему.": "🔒 O portal \"Mais Fundo\" deste campo fica selado enquanto o líder do campo viver — a seta leva até ele.",
+ "🔒 «Вглубь» запечатан: победите стража святилища в центре храма (стрелка ведёт к нему)": "🔒 \"Mais Fundo\" está selado: derrote o guardião do santuário no centro do templo (a seta leva até ele)",
+ "🔒 «Вглубь» запечатан: победите вожака поля (стрелка ведёт к нему)": "🔒 \"Mais Fundo\" está selado: derrote o líder do campo (a seta leva até ele)",
+ "Вглубь · запечатан": "Mais Fundo · selado",
+ "победите стража святилища": "derrote o guardião do santuário",
+ "победите вожака поля": "derrote o líder do campo"
 }
