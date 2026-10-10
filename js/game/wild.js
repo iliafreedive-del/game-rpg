@@ -112,11 +112,12 @@ bus.on('wildSummon', ({ e, n, text }) => {
   }
 });
 
-// Тайник: немного золота, иногда зелье.
+// Тайник (бочка/ящик в походе, катакомбах, Глубинах): почти всегда немного золота, реже зелье, очень редко вещь.
 export function openStash(it) {
   it.done = true; it.draw.hidden = true; bus.emit('sfx', 'chest');
-  const lvl = G.zone.json.level; for (let i = 0; i < 2; i++) L.dropGold(it.x, it.y + 0.6, rint(2, 5) * (1 + 0.15 * (lvl - 1)));
-  if (rand() < (G.zone.json.wild.pity ? 0.55 : 0.25)) L.dropPotion(it.x, it.y + 0.6, rand() < 0.7 ? 'hp' : 'mp');
+  const lvl = G.zone.json.level || 1; for (let i = 0; i < 2; i++) L.dropGold(it.x, it.y + 0.6, rint(2, 5) * (1 + 0.15 * (lvl - 1)));
+  if (rand() < (G.zone.json.wild?.pity ? 0.55 : 0.25)) L.dropPotion(it.x, it.y + 0.6, rand() < 0.7 ? 'hp' : 'mp');
+  if (rand() < 0.05) { const n0 = G.pickups.length; L.dropItem(it.x, it.y + 0.8, makeItem({ rarity: 0, ilvl: Math.max(G.profile.level, lvl), cls: G.profile.cls || 'warrior' })); for (let i = n0; i < G.pickups.length; i++) G.pickups[i].fly = true; }
   C.particles(it.x, it.y, 8, { c: [190, 160, 110], sp: 2, size: 3 });
 }
 // Сундуки: форт-сундук «с добром» даёт ещё и вещь.

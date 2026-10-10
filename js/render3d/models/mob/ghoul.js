@@ -43,8 +43,8 @@ const def = {
       part(new THREE.ConeGeometry(0.03, 0.1, 4), BONE, [0, -0.5, -0.07], [-1.9, 0, 0])]);
     const forePart = () => merge([kit.tube([[0, 0, 0], [0, -0.25, 0.015], [0, -0.46, 0.02]], 0.055, 0.04, SKIN, SK, 7), kit.bbox(0.15, 0.1, 0.13, 0.03, SKIN, [0, -0.5, 0.02], 0, SK),
       ...[-0.05, 0, 0.05].map(x => kit.tube([[x, -0.53, 0.05], [x, -0.62, 0.08], [x * 1.3, -0.7, 0.04]], 0.02, 0.006, BONE, { top: 0xffffff }, 4))]);
-    const armR = group([-0.3, 0.38, 0.05], body); armR.add(M(armPart())); const elR = group([0, -0.5, 0], armR); elR.add(M(forePart()));
-    const armL = group([0.3, 0.38, 0.05], body); armL.add(M(armPart())); const elL = group([0, -0.5, 0], armL); elL.add(M(forePart()));
+    const armR = group([-0.3, 0.45, 0.05], body); armR.add(M(armPart())); const elR = group([0, -0.5, 0], armR); elR.add(M(forePart()));
+    const armL = group([0.3, 0.45, 0.05], body); armL.add(M(armPart())); const elL = group([0, -0.5, 0], armL); elL.add(M(forePart()));
 
     const SP = { L1: 0.36, L2: 0.36, ankle: 0.06, hip: 0.72, stride: 0.6, lift: 0.16, cyc: 1.0 };
     const mkLeg = x => {
@@ -55,32 +55,25 @@ const def = {
     };
     const legL = mkLeg(0.13), legR = mkLeg(-0.13);
 
-    // наклон на ходу: у модели ghoul_m покой прямой (у процедурного упыря уже сутулый) — ей нужен наклон больше, чтобы кулаки доставали до земли
-    const SKN = !!(kit.skin && kit.skin.SKINS.on && kit.skin.skinLoaded('ghoul_m'));
-    const LW = SKN ? 1.25 : 0.45, CR = SKN ? 0.12 : 0, AF = SKN ? 0.05 : 0.28, EL = SKN ? 0.05 : 0.25;   // наклон, доп. присед, кулак впереди плеча, сгиб локтя
+    // правки (мама, сборка 60): походка и удар — прежние, процедурного упыря (локти согнуты, руки качаются в такт шагу).
+    // У модели ghoul_m покой прямой, а процедурный упырь сутулый сам по себе — шкуре добавляем сутулость, голову держим прямо
+    const ST = kit.skin && kit.skin.SKINS.on && kit.skin.skinLoaded('ghoul_m') ? 0.3 : 0;
     let gp = Math.random();
     function solve(a, sp, wu, lu, hurt = 0) {
       const w = clamp(sp / 1.6), cyc = clamp(sp / (SP.cyc * 3.2), 0, 1);
       if (sp > 0.25) gp = ((gp + (a.back ? -1 : 1) * a.dt * sp / 1.5) % 1 + 1) % 1;
       const th = gp * 6.283, s = Math.sin(th);
-      const hipY = SP.hip - (0.09 + CR) * w + 0.03 * w * Math.abs(Math.cos(th - 1.9)) - wu * 0.1 - lu * 0.04;
-      const fts = [];
+      const hipY = SP.hip - 0.05 * w + 0.025 * w * Math.abs(Math.cos(th - 1.9)) - wu * 0.08 + lu * 0.03;
       [[legR, 0], [legL, 0.5]].forEach(([lg, off], i) => {
-        const ft = footTarget(gp + off, SP.stride * (0.5 + 0.5 * cyc), SP.lift); fts.push(ft);
+        const ft = footTarget(gp + off, SP.stride * (0.5 + 0.5 * cyc), SP.lift);
         let dz = ft.z * w + (i ? -0.03 : 0.03) * (1 - w); const lift = ft.y * w;
         dz += (i === 0 ? 0.18 : -0.1) * wu + (i === 0 ? 0.25 : -0.15) * lu;
         lg.position.y = hipY; legIK(lg, lg.knee, lg.foot, SP.L1, SP.L2, hipY - SP.ankle, dz, lift, ft.pitch * w);
       });
-      // правки 2 (П14): на ходу — как горилла: корпус сильно наклонён вперёд, руки опущены до земли и опираются на костяшки,
-      // каждая рука шагает вместе с противоположной ногой (правая — с левой); голова поднята, смотрит вперёд
-      const lean = 0.6 + LW * w;
-      body.rotation.set(lean + wu * 0.4 - lu * 0.5 - hurt * 0.4, Math.cos(th) * 0.16 * w, Math.sin(th) * 0.1 * w); body.position.y = hipY + 0.02 - wu * 0.08;
-      head.rotation.set(-0.45 - LW * w - wu * 0.2 + hurt * 0.3, -body.rotation.y * 0.5, Math.sin(a.t * 2.4) * 0.08);
-      // угол руки к вертикали в мире (вперёд +): в покое висит, на ходу — опора на кулак впереди плеча
-      const knuckle = (ft, sd) => -lean - (AF + ft.z * 0.85) * w + (1 - w) * 0.2 - wu * 1.3 + lu * 1.9;
-      armR.rotation.set(knuckle(fts[1]), 0, -0.2 - wu * 0.25); armL.rotation.set(knuckle(fts[0]), 0, 0.2 + wu * 0.25);
-      elR.rotation.x = -0.5 * (1 - w) - (EL + fts[1].y * 2.2) * w - wu * 0.5 + lu * 0.7;   // рука в переносе — локоть сгибается
-      elL.rotation.x = -0.5 * (1 - w) - (EL + fts[0].y * 2.2) * w - wu * 0.5 + lu * 0.7;
+      body.rotation.set(0.6 + ST + 0.08 * w + wu * 0.4 - lu * 0.5 - hurt * 0.4, Math.cos(th) * 0.2 * w, Math.sin(th) * 0.12 * w); body.position.y = hipY + 0.02 - wu * 0.08;
+      head.rotation.set(-0.45 - ST - wu * 0.2 + hurt * 0.3, -body.rotation.y * 0.5, Math.sin(a.t * 2.4) * 0.08);
+      armL.rotation.set(-s * 0.8 * w - 0.4 - wu * 1.3 + lu * 1.9, 0, 0.2 + wu * 0.25); armR.rotation.set(s * 0.8 * w - 0.4 - wu * 1.3 + lu * 1.9, 0, -0.2 - wu * 0.25);
+      elL.rotation.x = elR.rotation.x = -0.5 - 0.4 * w - wu * 0.5 + lu * 0.7;
       spin.rotation.set(0, 0, 0); spin.position.y = 0.5;
     }
     const HIT = 0.5;
