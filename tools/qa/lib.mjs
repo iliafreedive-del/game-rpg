@@ -66,9 +66,9 @@ export async function shot(p, file) { await p.evaluate(() => window.advanceTime 
 // закрыть то, что закрыл бы игрок: выбор дара, экран гибели, окно, карточку подсказки поверх игры
 export const closeModals = p => p.evaluate(() => {
   const vis = e => e && e.getClientRects().length && getComputedStyle(e).visibility !== 'hidden';
-  const boon = document.querySelector('.boons .boon'); if (vis(boon)) { boon.click(); return 'boon'; }
+  const boon = [...document.querySelectorAll('.boons .boon')].find(b => vis(b) && !/реклам|кров/i.test(b.innerText)); if (boon) { boon.click(); return 'boon'; }   // дары «за рекламу» без SDK не выдаются — тогда «Без дара»
   const death = document.getElementById('death'); if (death && !death.classList.contains('hidden')) { const b = death.querySelector('.btn.gold') || [...death.querySelectorAll('button')].pop(); if (b) { b.click(); return 'death'; } }
-  const m = document.querySelector('.modal'); if (m) { const b = m.querySelector('.btn.gold') || [...m.querySelectorAll('button')].pop(); if (b) { b.click(); return 'modal'; } return 'stuck'; }
+  const m = document.querySelector('.modal'); if (m) { const bs = [...m.querySelectorAll('button')]; const b = bs.find(b => /^[✕×]$/.test(b.innerText.trim())) || m.querySelector('.btn.gold') || bs.pop(); if (b) { b.click(); return 'modal'; } return 'stuck'; }   // сначала крестик: «Вперёд»/«В деревню» меняют зону
   for (const c of document.body.children) {   // карточки подсказок (wildhints и т.п.) — fixed-слой с кнопкой
     if (['ui', 'title', 'death'].includes(c.id) || !vis(c) || getComputedStyle(c).position !== 'fixed') continue;
     const b = [...c.querySelectorAll('button')].find(vis); if (b && +getComputedStyle(c).zIndex >= 20) { b.click(); return 'card'; }
@@ -96,6 +96,8 @@ export async function botTick(p, opt = {}, ms = 250) {
     if (opt.skip) B.skip.push({ x: opt.skip.x, y: opt.skip.y, until: G.time + 20 });   // цель, к которой бот дважды не смог пройти, — на 20 с в сторону
     const skipped = o => B.skip.some(k => k.until > G.time && Math.hypot(k.x - o.x, k.y - o.y) < 1.5);
     input.mx = input.my = 0; input.attackHeld = false;
+    // зелье на трети здоровья — как советует экран гибели (клавиша Q, тот же путь, что у игрока)
+    if (!pl.dead && G.stats && pl.hp < G.stats.maxHP * 0.35 && G.profile.potions.hp > 0 && !((pl.cds && pl.cds.pot_hp) > 0)) { dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyQ' })); dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyQ' })); }
     const reach = (G.stats && G.stats.range || 1.5) + 0.6, path = (x, y) => m.clearPath(pl.x, pl.y, x, y, 0.3) ? [x - pl.x, y - pl.y] : m.fieldDir(B.F, pl.x, pl.y, x, y);
     let t = null;
     if (!pl.dead && !opt.idle) {

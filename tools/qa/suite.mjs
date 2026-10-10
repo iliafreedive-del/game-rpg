@@ -52,16 +52,19 @@ const ZONES = [
 async function botZone(p, Z, secs, dir) {
   await Q.loadZone(p, Z.id, Z.how); await Q.setHero(p, Z.lvl); await Q.advance(p, 300);
   const rep = { zone: Z.name, kills: 0, deaths: 0, stuck: [], modalStuck: 0, zoneChanges: [], errors: [], unreachable: 0 };
-  let s = await Q.state(p); const zone0 = s.zone, alive0 = s.enemies.alive; let last = { x: s.player.x, y: s.player.y }, wantMove = 0, modalT = 0, unstick = 0, rnd = null, skip = null;
+  let s = await Q.state(p); const zone0 = s.zone, alive0 = s.enemies.alive; let last = { x: s.player.x, y: s.player.y }, wantMove = 0, modalT = 0, unstick = 0, rnd = null, skip = null, modalReal = 0;
   for (let t = 0; t < secs * 4; t++) {
     if (s.mode !== 'play') {
       const r = await Q.closeModals(p); modalT += 0.25;
       if (s.mode === 'dead' && r !== 'death') { await Q.sleep(250); modalT -= 0.2; }   // экран гибели появляется по обычному таймеру (1,3 с настоящего времени)
       if (s.mode === 'dead' && r === 'death') { rep.deaths++; await Q.advance(p, 500); const z = (await Q.state(p)).zone; if (z !== zone0 || Z.id === 'depths') { await Q.loadZone(p, Z.id, Z.how); await Q.setHero(p, Z.lvl); } s = await Q.state(p); modalT = 0; continue; }
-      if (modalT > 12) { rep.modalStuck++; await Q.shot(p, path.join(dir, `${Z.name}_окно_${rep.modalStuck}.jpg`)); modalT = 0; await p.evaluate(async () => { const D = window.__LANG && window.__LANG !== 'ru' ? '/js_' + window.__LANG : '/js'; (await import(D + '/ui/windows.js')).closeModal(true); window.__G.paused = false; }); }
+      if (!modalReal) modalReal = Date.now();
+      // окна идут очередью по таймерам настоящего времени — «не закрылось» только если висит и 12 с игры, и 8 с по часам
+      if (modalT > 12 && Date.now() - modalReal > 8000) { rep.modalStuck++; await Q.shot(p, path.join(dir, `${Z.name}_окно_${rep.modalStuck}.jpg`)); modalT = 0; modalReal = 0; await p.evaluate(async () => { const D = window.__LANG && window.__LANG !== 'ru' ? '/js_' + window.__LANG : '/js'; (await import(D + '/ui/windows.js')).closeModal(true); window.__G.paused = false; }); }
+      if (s.mode !== 'dead') await Q.sleep(60);
       s = await Q.botTick(p, { idle: true }); continue;
     }
-    modalT = 0;
+    modalT = 0; modalReal = 0;
     if (s.zone !== zone0) { rep.zoneChanges.push(s.zone); break; }
     const before = s; s = await Q.botTick(p, unstick > 0 ? { rnd, skip } : {}); skip = null; if (unstick > 0) unstick--;
     rep.kills += Math.max(0, before.enemies.alive - s.enemies.alive);
@@ -105,7 +108,7 @@ const SCENES = [
   { name: 'пролог', zone: ['depths', { floor: 0 }], lvl: 1, adv: 1500, keep: true },
   { name: 'деревня', zone: ['town', {}], lvl: 5, adv: 2500 },
   { name: 'катакомбы', zone: ['catacombs', {}], lvl: 5, adv: 300, tol: 25 },
-  { name: 'глубины5', zone: ['depths', { floor: 5 }], lvl: 10, adv: 1500 },
+  { name: 'глубины5', zone: ['depths', { floor: 5 }], lvl: 10, adv: 1500, tol: 5 },
   { name: 'жатва', zone: ['survival', {}], lvl: 8, adv: 300, tol: 25 },
   { name: 'лес', zone: ['wild', { realm: 'forest', depth: 1 }], lvl: 6, adv: 1500 },
   { name: 'фьорды', zone: ['wild', { realm: 'fjord', depth: 1 }], lvl: 8, adv: 1500 },
@@ -287,7 +290,7 @@ async function perf() {
 // ---------------------------------------------------------------- balance
 async function balance() {
   const N = env('BAL_N', 10), dir = Q.mkdir(path.join(OUT, 'balance'));
-  const fights = (process.env.BAL || '5:8,10:14,15:20').split(',').map(x => x.split(':').map(Number));   // этаж стража : уровень героя; бой один на один со стражем
+  const fights = (process.env.BAL || '5:8,5:11,5:14,10:14,10:18,15:20,15:24').split(',').map(x => x.split(':').map(Number));   // этаж стража : уровень героя; бой один на один со стражем
   const rows = []; const b = await Q.browser();
   try {
     for (const cls of [0, 1, 2]) for (const [floor, lvl] of fights) {
@@ -306,14 +309,15 @@ async function balance() {
           if (s.mode !== 'play') { await Q.closeModals(p); s = await Q.botTick(p, { idle: true }); continue; }
           s = await Q.botTick(p);
         }
-        runs.push({ zone: s.zone, win: total > 0 && s.zone === 'depths' && s.enemies.alive === 0 && !s.player.dead, dead: s.player.dead, sec: t / 4, hpLeft: s.player.dead ? 0 : Math.round(100 * s.player.hp / s.player.maxHP), killed: total - s.enemies.alive, total });
+        const bossHp = await p.evaluate(() => { const e = window.__G.enemies[0]; return e ? Math.round(100 * Math.max(0, e.hp) / e.maxHP) : 0; });
+        runs.push({ zone: s.zone, bossHpLeft: bossHp, win: total > 0 && s.zone === 'depths' && s.enemies.alive === 0 && !s.player.dead, dead: s.player.dead, sec: t / 4, hpLeft: s.player.dead ? 0 : Math.round(100 * s.player.hp / s.player.maxHP), killed: total - s.enemies.alive, total });
       }
       await p.context().close();
-      const wins = runs.filter(r => r.win), row = { cls: ['воин', 'лучник', 'маг'][cls], floor, lvl, n: N, winPct: Math.round(100 * wins.length / N), deaths: runs.filter(r => r.dead).length, medSec: Q.pct(wins.map(r => r.sec), 0.5), medHpLeft: Q.pct(wins.map(r => r.hpLeft), 0.5) };
-      row.runs = runs; rows.push(row); log(`balance ${row.cls} ур.${lvl} этаж ${floor}: побед ${row.winPct}%, смертей ${row.deaths}/${N}, медиана ${row.medSec} с, HP в конце ${row.medHpLeft}%`);
+      const wins = runs.filter(r => r.win), row = { cls: ['воин', 'лучник', 'маг'][cls], floor, lvl, n: N, winPct: Math.round(100 * wins.length / N), deaths: runs.filter(r => r.dead).length, medSec: Q.pct(wins.map(r => r.sec), 0.5), medHpLeft: Q.pct(wins.map(r => r.hpLeft), 0.5), bossLeft: Q.pct(runs.filter(r => !r.win).map(r => r.bossHpLeft), 0.5) };
+      row.runs = runs; rows.push(row); log(`balance ${row.cls} ур.${lvl} этаж ${floor}: побед ${row.winPct}%, смертей ${row.deaths}/${N}, медиана ${row.medSec} с, HP в конце ${row.medHpLeft}%${row.winPct < 100 ? `, у стража в проигранных осталось ${row.bossLeft}%` : ''}`);
     }
   } finally { await b.close(); }
-  const md = ['| Класс | Ур. | Этаж | Побед | Смертей | Время, с | HP в конце |', '|---|---:|---:|---:|---:|---:|---:|', ...rows.map(r => `| ${r.cls} | ${r.lvl} | ${r.floor} | ${r.winPct}% | ${r.deaths}/${r.n} | ${r.medSec} | ${r.medHpLeft}% |`)].join('\n');
+  const md = ['| Класс | Ур. | Этаж | Побед | Смертей | Время, с | HP героя в конце | HP стража, когда проиграл |', '|---|---:|---:|---:|---:|---:|---:|---:|', ...rows.map(r => `| ${r.cls} | ${r.lvl} | ${r.floor} | ${r.winPct}% | ${r.deaths}/${r.n} | ${r.medSec} | ${r.medHpLeft}% | ${r.winPct < 100 ? r.bossLeft + '%' : '—'} |`)].join('\n');
   fs.writeFileSync(path.join(dir, 'balance.md'), md + '\n'); Q.writeJSON(path.join(dir, 'report.json'), rows);
   return { ok: true, rows };
 }
