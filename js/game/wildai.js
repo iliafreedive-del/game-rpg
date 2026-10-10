@@ -79,8 +79,8 @@ export function makeWildAI(AI, ranged) {
       e.summonT -= dt;
       if (ph >= 2 && e.summonT <= 0 && livingMinions() < 6) { e.summonT = ph === 3 ? 12 : 16; bus.emit('wildSummon', { e, n: ph === 3 ? 3 : 2, text: 'На помощь!' }); }
       if (e.cd <= 0) {
-        if (d > 3.5 && ph >= 2 && rand() < 0.5) { e.startAttack('slam', P); e.cd = 2.2; return; }
-        if (d <= e.D.range + P.r + 0.3) { const r = rand(); e.startAttack(r < 0.4 ? 'attack' : r < 0.75 ? 'attack2' : 'slam', P); e.cd = e.D.cd * (ph === 3 ? 0.75 : 1); return; }
+        if (d > 3.5 && ph >= 2 && rand() < 0.5) { e.startAttack('slam', P); e.cd = 3.2; return; }   // П51: между лужами ≥ 3 с
+        if (d <= e.D.range + P.r + 0.3) { const r = rand(), k = r < 0.4 ? 'attack' : r < 0.75 ? 'attack2' : 'slam'; e.startAttack(k, P); e.cd = k === 'slam' ? 2.6 : e.D.cd * (ph === 3 ? 0.75 : 1); return; }
       }
       if (d > e.D.range + P.r) e.moveToward(P.x, P.y, dt, ph === 3 ? 1.3 : 1); else { e.dir = dirOf(P.x - e.x, P.y - e.y); e.setAnim('idle', 5, true, e.anim.clip !== 'idle'); }
     },

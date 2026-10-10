@@ -44,6 +44,7 @@ import { pollMove, input, mouse, tapAim } from '../core/input.js';
 import { gate, BOSS_LEVEL, nextStep, earlyLock, lockToast, bandLevel, CATA_MAX } from './progress.js';
 import { platform } from '../platform/platform.js';
 import { cineTick, inCinema, cinema, portalShots, newPortalShots } from '../ui/cinema.js';
+import { CAMERA } from '../render3d/style.js';
 import { maybeInterstitial, dailyStatus, blessed } from '../platform/monetize.js';
 
 G.npcs = [];
@@ -71,6 +72,8 @@ export async function loadZone(id, how = {}) {
   if (id !== 'wild') setPropsPalette(false);   // «снежные» пропсы Фьордов только внутри Фьордов
   // keep dungeon state when leaving through a Scroll of Return
   G.dungeonCache = null;   // dungeons always repopulate when re-entered
+  if (G.pickups) L.flushPickups();
+  if (G.player) G.player.shield = 0;   // С17: щит «Кровавого щита»/питомца не переносится между зонами
   G.enemies = []; G.projectiles = []; G.pickups = []; G.effects = []; G.texts = []; G.particles = []; G.npcs = []; C.clearTimers();
   let zone;
   if (id === 'catacombs' && how.useCache && G.dungeonCache) {
@@ -160,7 +163,7 @@ export async function loadZone(id, how = {}) {
     pl.face = pl.dir = 1;
   }
   [pl.x, pl.y] = zone.map.nearestFree(pl.x, pl.y, pl.r + 0.05);
-  G.cam.x = pl.x; G.cam.y = pl.y;
+  G.cam.x = pl.x; G.cam.y = pl.y; G.camPx = G.camPy = undefined; G.camLx = G.camLy = 0;
   G.stats = stats(P);
   if (fresh || pl.hp <= 0 || how.fullHeal || id === 'town') { pl.hp = G.stats.maxHP; pl.mp = G.stats.maxMP; }
   G.zoomMul = id === 'survival' ? 1 : id === 'town' ? 1 : 1.05; rResize();   // катакомбы, Глубины, походы, Цитадель — как в деревне и ещё на 5 % ближе (сборка 44; было 0,8–0,85)
@@ -239,6 +242,13 @@ bus.on('kill', e => {
     setTimeout(() => bus.emit('bossDefeated', G.bossKill), 2200);
   }
 });
+// С25: вибрация телефона (Android; iPhone Safari её не поддерживает — тихо ничего) — удар по герою, новый уровень, вещь в сумку.
+// Под той же настройкой, что тряска камеры; не чаще раза в 0,15 с
+let buzzAt = 0;
+const buzz = p => { const now = performance.now(); if (now - buzzAt < 150 || !G.profile || G.profile.settings.shake === false) return; buzzAt = now; try { navigator.vibrate && navigator.vibrate(p); } catch { } };
+bus.on('hurt', h => buzz(h && h.dmg > G.stats.maxHP * 0.12 ? 25 : 12));
+bus.on('levelUp', () => buzz([30, 60, 30]));
+bus.on('itemPicked', () => buzz(8));
 bus.on('dust', ({ x, y }) => C.particles(x, y, 10, { c: [150, 135, 115], z: 0.1, sp: 1.6, vz: 1.2, g: 3, size: 4, add: false, life: 0.5 }));
 bus.on('aggro', e => {   // соседи просыпаются с задержкой, близко и по видимости; не больше одного-двух, цепочки нет (разбуженный не будит дальше)
   if (e.woken) return;
@@ -271,7 +281,7 @@ export const MAX_REVIVES = 2;
 export const inPrologue = () => G.zoneId === 'depths' && G.run && G.run.floor === 0 && !G.profile.tutorial.prologue;
 export function revive(inPlace) {
   if (inPlace) G.revives = (G.revives || 0) + 1;
-  const pl = G.player; pl.dead = false; pl.state = 'idle'; pl.hp = G.stats.maxHP; pl.mp = G.stats.maxMP; pl.inv = 2; pl.setAnim('idle', 5, true);
+  const pl = G.player; pl.dead = false; pl.state = 'idle'; pl.hp = G.stats.maxHP; pl.mp = G.stats.maxMP; pl.inv = 2; pl.shield = 0; pl.setAnim('idle', 5, true);
   if (inPlace) { C.effect({ kind: 'ring', x: pl.x, y: pl.y, r: 4, dur: 0.6, c: [255, 230, 150] }); for (const e of G.enemies) if (!e.dead && Math.hypot(e.x - pl.x, e.y - pl.y) < 4) { e.kb = { vx: (e.x - pl.x), vy: (e.y - pl.y), t: 0.25 }; } }
   else if (inPrologue()) loadZone('depths', { floor: 0 });   // сборка 59: гибель в склепе пробуждения — склеп заново (раньше герой попадал в деревню без пролога, и половина порталов не появлялась никогда)
   else { if (G.zoneId === 'depths' && G.run && G.run.free) CS.spendTorch(); loadZone('town', { from: 'death', fullHeal: true }); }   // новый этаж бесплатен, пока побеждаешь: факел уходит только за поражение
@@ -336,11 +346,11 @@ export function interact(it) {
     case 'secret':
       it.done = true; W[it.id] = true; for (const d of it.draws) d.hidden = true; for (const [x, y] of it.tiles) { G.zone.map.setSolid(x, y, 0); C.particles(x + 0.5, y + 0.5, 12, { c: [120, 110, 100], sp: 2.5, add: false, size: 4 }); }
       for (const d of G.zone.statics) if (d.tag === it.id) d.hidden = true;
-      G.cam.shake = 0.4; bus.emit('sfx', 'door'); bus.emit('toast', { text: 'Тайный проход!', sub: 'За стеной скрыта сокровищница', kind: 'good' }); requestSave(); return;
+      G.cam.kick(0.4); bus.emit('sfx', 'door'); bus.emit('toast', { text: 'Тайный проход!', sub: 'За стеной скрыта сокровищница', kind: 'good' }); requestSave(); return;
     case 'gate':
       { const g = gate('bossgate'); if (g) { bus.emit('toast', { ...g, kind: 'warn' }); bus.emit('sfx', 'deny'); return; } }
       it.done = true; W.gateOpen = true; it.draw.spr = it.draw.spr === 'door_arch' ? 'door_arch_open' : 'door_open'; it.light.on = false; for (const [x, y] of it.tiles || [it.tile]) G.zone.map.setSolid(x, y, 0);
-      bus.emit('sfx', 'door'); G.cam.shake = 0.7; bus.emit('toast', { text: 'Печать сломлена', sub: 'Палач Бездны пробуждается…', kind: 'quest' });
+      bus.emit('sfx', 'door'); G.cam.kick(0.7); bus.emit('toast', { text: 'Печать сломлена', sub: 'Палач Бездны пробуждается…', kind: 'quest' });
       Q.setFlag('gateOpen');
       if (!G.enemies.some(e => e.D.boss)) { const bo = G.zone.json.story[1]; G.enemies.push(new Enemy('boss', bo[1], bo[2], P.chapterDone ? Math.max(6, P.level) : bandLevel(BOSS_LEVEL, 10), { story: 'boss' })); }
       requestSave(); return;
@@ -364,6 +374,12 @@ function autoTick(inp) {
   // сборка 47: зелья — до проверки «занят»: лучник и маг почти всё время в выстреле/касте, и проверка до зелий не доходила
   if (pl.hp < S.maxHP * 0.35 && P.potions.hp > 0 && !(pl.cds.pot_hp > 0)) usePotion('hp');
   else if (pl.mp < S.maxMP * 0.2 && P.potions.mp > 0 && !(pl.cds.pot_mp > 0) && P.slots.some(Boolean)) usePotion('mp');
+  // правки 2 (П26): навыки — по откату и вблизи. Раньше проверка «занят» стояла раньше навыков, а лучник и маг почти всё время
+  // в обычном выстреле — когда мобы подходили близко, навыки не применялись вовсе. Навык прерывает обычный выстрел/удар (castSkill)
+  const autoAtk = pl.act && pl.act.cancelable && pl.act.kind !== 'skill';
+  if (pl.busy() && !autoAtk) return;
+  { let st = null, sd = 1e9; for (const e of G.enemies) { if (e.dead) continue; const d = Math.hypot(e.x - pl.x, e.y - pl.y); if (d < sd && d < 9 && (e.aggro || d < 7) && C.shotClear(pl.x, pl.y, e.x, e.y)) { sd = d; st = e; } }
+    if (st) for (const id of P.slots) { if (!id) continue; const sk = SKILLS[id]; if (C.skillUsable(id).ok && pl.mp >= sk.mana && sd < (id === 'whirlwind' ? 2.2 : id === 'leap' ? 7.5 : 8.5)) { C.castSkill(id); return; } } }
   if (pl.busy()) return;
   // unstuck: if we tried to move but barely moved, side-step for a moment
   const A = G.autoS || (G.autoS = { t: 0, x: pl.x, y: pl.y, side: 0, sx: 0, sy: 0 });
@@ -372,11 +388,11 @@ function autoTick(inp) {
   if (A.t > 0.6) { const moved = Math.hypot(pl.x - A.x, pl.y - A.y); if (A.wanted && moved < 0.15) { const a = Math.random() < 0.5 ? 1.57 : -1.57; const ang = Math.atan2(A.wy, A.wx) + a; A.sx = Math.cos(ang); A.sy = Math.sin(ang); A.side = 0.45; } A.t = 0; A.x = pl.x; A.y = pl.y; A.wanted = false; }
   let tgt = null, td = 1e9;
   // цель — только тот, кто уже напал или виден (не через стену): иначе герой упирается в стену, за которой стоит неагрессивный моб
-  for (const e of G.enemies) { if (e.dead) continue; const d = Math.hypot(e.x - pl.x, e.y - pl.y); if (d < 16 && d < td && (e.aggro || (d < 9 && map.los(pl.x, pl.y, e.x, e.y)))) { td = d; tgt = e; } }
+  // П60: при равных — тот, по кому есть чистый выстрел (враг за углом «дороже» на 6 м); за невидимым — обход (guideDir ниже)
+  { let bs = 1e9; for (const e of G.enemies) { if (e.dead) continue; const d = Math.hypot(e.x - pl.x, e.y - pl.y); if (d >= 16) continue; const vis = C.sees(pl, e); if (!(e.aggro || (d < 9 && vis))) continue; const sc = d + (vis ? 0 : 6); if (sc < bs) { bs = sc; td = d; tgt = e; } } }
   if (tgt) {
-    for (const id of P.slots) { if (!id) continue; const sk = SKILLS[id]; if (C.skillUsable(id).ok && pl.mp >= sk.mana && td < (id === 'whirlwind' ? 2.2 : 7.5) && map.los(pl.x, pl.y, tgt.x, tgt.y)) { C.castSkill(id); return; } }
     const range = S.ranged ? S.range * 0.8 : S.range + 0.25;
-    if (td > range || !map.los(pl.x, pl.y, tgt.x, tgt.y)) { const d = map.guideDir(pl.x, pl.y, tgt.x, tgt.y) || [(tgt.x - pl.x) / td, (tgt.y - pl.y) / td]; { const [sx, sy] = steer(pl, map, d[0], d[1]); inp.wx = sx; inp.wy = sy; } inp.mag = 0.8; A.wanted = true; A.wx = d[0]; A.wy = d[1]; }
+    if (td > range || !C.sees(pl, tgt)) { const d = map.guideDir(pl.x, pl.y, tgt.x, tgt.y) || [(tgt.x - pl.x) / td, (tgt.y - pl.y) / td]; { const [sx, sy] = steer(pl, map, d[0], d[1]); inp.wx = sx; inp.wy = sy; } inp.mag = 0.8; A.wanted = true; A.wx = d[0]; A.wy = d[1]; }
     else { pl.faceTo(tgt.x, tgt.y); C.playerAttack(pl); }
     return;
   }
@@ -456,7 +472,7 @@ export function finishFloor() {
   const res = { floor: r.floor, time, kills: r.kills, total: r.total, stars, prevStars, gold, xp, first, runGold: P.stats.gold - r.gold0, boss: isBossFloor(r.floor), token: 'floor_' + r.floor + '_' + Math.round(r.t0 * 1000) };
   G.lastFloorResult = res; bus.emit('floorResult', res); bus.emit('hud'); saveNow();
 }
-bus.on('roomUnlocked', id => { const it = G.zone && G.zone.inter.find(i => i.type === 'roomgate' && i.room === id); if (it) { it.done = true; it.draw.spr = it.draw.spr === 'door_square' ? 'door_square_open' : 'door_open'; for (const [x, y] of it.tiles || [it.tile]) G.zone.map.setSolid(x, y, 0); G.panelTarget = null; bus.emit('panel', null); C.particles(it.x, it.y, 20, { c: [255, 210, 120], sp: 2.5, size: 4 }); G.cam.shake = 0.3; } });
+bus.on('roomUnlocked', id => { const it = G.zone && G.zone.inter.find(i => i.type === 'roomgate' && i.room === id); if (it) { it.done = true; it.draw.spr = it.draw.spr === 'door_square' ? 'door_square_open' : 'door_open'; for (const [x, y] of it.tiles || [it.tile]) G.zone.map.setSolid(x, y, 0); G.panelTarget = null; bus.emit('panel', null); C.particles(it.x, it.y, 20, { c: [255, 210, 120], sp: 2.5, size: 4 }); G.cam.kick(0.3); } });
 bus.on('decorPlaced', ({ sid, id }) => { const it = G.zone && G.zone.inter.find(i => i.sid === sid); if (!it) return; const D = DECOR[id]; it.draw.spr = D.spr; it.draw.hidden = false; it.draw.flat = D.spr === 'rug'; it.draw.tall = D.spr === 'statue' || D.spr === 'banner'; C.particles(it.x, it.y, 18, { c: [255, 220, 140], sp: 2, size: 3 }); });
 export function startTrial(t) {
   const s = CS.seals(); if (s.n <= 0 || G.trial) return;
@@ -466,11 +482,14 @@ export function startTrial(t) {
   G.enemies.push(e); G.trial = t; G.zone.map.buildFlow(Math.floor(G.player.x), Math.floor(G.player.y), -1e9);
   bus.emit('toast', { text: 'Испытание: ' + t.name, sub: G.auto ? 'Автобой включён' : 'Нажмите АВТО, чтобы герой сражался сам', kind: 'quest' }); bus.emit('sfx', 'roar'); requestSave();
 }
+export const scrollZone = () => G.zoneId === 'catacombs' || G.zoneId === 'wild' || (G.zoneId === 'depths' && !(G.run && G.run.floor === 0));
 export function useScroll() {
-  const P = G.profile; if (G.zoneId !== 'catacombs') { bus.emit('toast', { text: 'Свиток работает только в подземелье', kind: 'warn' }); return; }
+  // правки 2 (П48, П64): свиток работает и в походах (Лес, Фьорды, Пустоши, Храм), и в Глубинах — не только в катакомбах
+  const P = G.profile; if (!scrollZone()) { bus.emit('toast', { text: 'Свиток здесь не работает', sub: 'Только в подземельях, Глубинах и походах', kind: 'warn' }); return; }
   if (P.scrolls <= 0) { bus.emit('toast', { text: 'Нет свитков возврата', sub: 'Купите у торговки', kind: 'warn' }); return; }
   if (inCombat()) { bus.emit('toast', { text: 'Нельзя читать свиток в бою', kind: 'warn' }); return; }
-  P.scrolls--; bus.emit('sfx', 'portal'); loadZone('town', { from: 'catacombs', keepDungeon: G.zoneId === 'catacombs' });
+  if (G.zoneId === 'depths' && G.run && G.run.free && !G.run.done) CS.spendTorch();   // бесплатный этаж брошен — факел, как за поражение (иначе свиток — способ не платить за проигрыш)
+  P.scrolls--; bus.emit('sfx', 'portal'); loadZone('town', { from: G.zoneId, realm: G.wild && G.wild.realm });
 }
 export function usePotion(k) {
   const P = G.profile, pl = G.player; if (pl.dead) return;
@@ -486,6 +505,8 @@ export function usePotion(k) {
 export function update(dt) {
   if (!G.zoneReady || G.paused) return;
   if (inCinema()) { cineTick(dt); return; }   // идёт облёт камеры: мир стоит
+  // С22: стоп-кадр удара — мир на ~60 мс почти замирает (время ×0,05), отсчёт — по реальному времени, ввод работает
+  if (G.hitStopT > 0) { G.hitStopT -= dt; dt *= 0.05; G.timeScale = 0.05; } else G.timeScale = 1;
   G.dt = dt;
   G.time += dt; G.profile.stats.playTime += dt;
   respawnTick();
@@ -498,7 +519,7 @@ export function update(dt) {
   if (mouse.aim && !G.modalOpen) aimAt(mouse.x, mouse.y);
   if (pl.focus && (pl.focus.dead || !G.enemies.includes(pl.focus))) pl.focus = null;
   const W = G.stats, rng = W.ranged ? W.range : W.range + 0.2;
-  const inRange = e => e && !e.dead && Math.hypot(e.x - pl.x, e.y - pl.y) <= rng + e.r && G.zone.map.los(pl.x, pl.y, e.x, e.y);
+  const inRange = e => e && !e.dead && Math.hypot(e.x - pl.x, e.y - pl.y) <= rng + e.r && C.sees(pl, e);   // П60: стрелку и магу — чистый выстрел, не впритирку к углу
   // кнопка атаки: стоя — бьёт ближайшего, если никого рядом — подводит к врагу
   if (input.attackHeld && !moving && canAct) {
     const t = inRange(pl.focus) ? pl.focus : C.nearestEnemy(pl.x, pl.y, rng + 1, e => inRange(e));
@@ -540,8 +561,14 @@ export function update(dt) {
   for (const t of G.texts) t.t += dt; G.texts = G.texts.filter(t => t.t < t.life);
   for (const p of G.particles) { p.t += dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vz -= p.g * dt; p.z = Math.max(0, p.z + p.vz * dt); p.vx *= 0.97; p.vy *= 0.97; }
   G.particles = G.particles.filter(p => p.t < p.life);
-  G.cam.follow(pl.x, pl.y, dt, 7);
+  // С24: камера чуть впереди героя по ходу движения (CAMERA.follow.lead с скорости, плавно) — видно, куда бежишь
+  { const F = CAMERA.follow, k = 1 - Math.exp(-3 * dt), vx = (pl.x - (G.camPx ?? pl.x)) / Math.max(dt, 1e-3), vy = (pl.y - (G.camPy ?? pl.y)) / Math.max(dt, 1e-3);
+    const sp = Math.hypot(vx, vy), lim = sp > 9 ? 9 / sp : 1;   // телепорт/рывок — без рывка камеры
+    G.camLx = (G.camLx || 0) + (vx * lim * F.lead - (G.camLx || 0)) * k; G.camLy = (G.camLy || 0) + (vy * lim * F.lead - (G.camLy || 0)) * k; G.camPx = pl.x; G.camPy = pl.y;
+    G.cam.off = G.profile.settings.shake === false;
+    G.cam.follow(pl.x + G.camLx, pl.y + G.camLy, dt, F.smooth); }
   if (G.run && G.run.floor === 0 && !G.run.done) tutorialTick();
+  arenaTick();
   if (G.run && G.run.boons && G.run.boons.length) boonTick(dt);
   const bp = G.zone.biome && G.zone.biome.particles;   // ambient biome particles around the hero (drips, embers, spores)
   if (bp && Math.random() < bp.rate * dt) { const a = Math.random() * 6.28, rr = 2 + Math.random() * 7; C.particles(pl.x + Math.cos(a) * rr, pl.y + Math.sin(a) * rr, 1, { c: bp.c, z: bp.vz < 0 ? 3 : 0.1, sp: 0.2, spMin: 0, vz: bp.vz, vzMin: bp.vz * 0.5, g: bp.g, size: bp.size, life: bp.life }); }
@@ -563,6 +590,24 @@ export function update(dt) {
   if ((questT += dt) > 0.3) { questT = 0; Q.check(); HU.tick(); updateMarkers(); }
   // autosave
   saveTimer += dt; if ((saveQueued && saveTimer > 1.5 && !inCombat()) || saveTimer > 15) saveNow();
+}
+// правки 2 (П50): арена Палача запечатывается, когда герой вошёл в неё и босс вступил в бой — мобов из других залов не притащить,
+// и из арены не выбежать кайтить по коридорам. Палач пал (или герой погиб и ушёл в деревню) — дверь снова открыта
+function arenaTick() {
+  const Z = G.zone; if (G.zoneId !== 'catacombs' || !Z.rooms.arena) return;
+  const gate = Z.bossGate || (Z.bossGate = Z.inter.find(i => i.type === 'gate')); if (!gate || !gate.done) return;
+  const boss = G.enemies.find(e => e.D.boss && e.story === 'boss'), pl = G.player;
+  if (!gate.sealed && boss && !boss.dead && boss.aggro && !pl.dead && Z.roomAt(pl.x, pl.y) === 'arena') sealArena(gate, true);
+  else if (gate.sealed && (!boss || boss.dead)) sealArena(gate, false);
+}
+function sealArena(gate, on) {
+  const map = G.zone.map; gate.sealed = on;
+  const arch = /arch/.test(gate.draw.spr); gate.draw.spr = arch ? (on ? 'door_arch' : 'door_arch_open') : on ? 'gate_sealed' : 'door_open';
+  for (const [x, y] of gate.tiles || [gate.tile]) map.setSolid(x, y, on ? 1 : 0);
+  if (gate.light) gate.light.on = on;
+  if (on) for (const e of G.enemies) if (!e.dead && !map.free(e.x, e.y, e.r * 0.5)) [e.x, e.y] = map.nearestFree(e.x, e.y, e.r);   // застрявшего в проёме — наружу
+  bus.emit('sfx', 'door'); G.cam.kick(on ? 0.5 : 0.3);
+  if (on) bus.emit('toast', { text: 'Двери арены захлопнулись', sub: 'Откроются, когда Палач падёт', kind: 'warn' });
 }
 function updateMarkers() {
   const q = Q.current();

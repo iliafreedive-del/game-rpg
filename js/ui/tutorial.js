@@ -75,7 +75,7 @@ function revealTick() {
   // «АВТО»: после 10 побед в подземелье
   if (!t.un.auto && dz && (P.stats.kills || 0) >= 10) { unlock('auto'); pointSoon('btnAuto', 'АВТО: герой будет сражаться сам'); return; }
   // свиток возврата
-  if (!t.un.scroll && G.zoneId === 'catacombs' && P.scrolls > 0) { unlock('scroll'); pointSoon('btnScroll', 'Свиток возврата — мгновенно домой'); return; }
+  if (!t.un.scroll && (G.zoneId === 'catacombs' || G.zoneId === 'wild' || G.zoneId === 'depths') && P.scrolls > 0) { unlock('scroll'); pointSoon('btnScroll', 'Свиток возврата — мгновенно домой'); return; }
 }
 // подсказки по месту: кнопка действия, староста, наставник, портрет, торговка, слияние
 let zoneTicks = 0, zoomTicks = 0;

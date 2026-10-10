@@ -147,7 +147,7 @@ export const CAMERA = {
   village: { pitch: 0.64, dist: 30, aim: 1.0 },       // как torch-вид
   portrait: { maxScale: 1.5, refAspect: 0.85 },      // на вертикальном экране дистанция растёт, чтобы ширина обзора не падала
   zoomIn: 1.05,                                      // общее приближение камеры (сборка 24: на 5 % ближе)
-  follow: { lead: 0.25, smooth: 5, targetY: 0.8 },
+  follow: { lead: 0.25, smooth: 7, targetY: 0.8 },   // lead — опережение камеры, с скорости героя (game.js); smooth — скорость догона
   shake: { decay: 2.5, amp: 0.4 }, hitStop: 0.06,
 };
 

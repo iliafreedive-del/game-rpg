@@ -10,7 +10,7 @@ import { WEAPONS, RARITY } from '../data/items.js';
 import { CHAPTER, STORY, chapterOf } from '../data/quests.js';
 import * as Q from '../game/quests.js';
 import * as C from '../game/combat.js';
-import { interact, usePotion, useScroll } from '../game/game.js';
+import { interact, usePotion, useScroll, scrollZone } from '../game/game.js';
 import { drawIcon, skillIcon, iconURL } from './icons.js';
 import { ART, withArt } from './art.js';
 import { iconOf } from '../game/items.js';
@@ -48,6 +48,9 @@ export function initHUD() {
   hold('potHP', () => usePotion('hp')); hold('potMP', () => usePotion('mp'));
   hold('btnAct', () => { if (G.focus) interact(G.focus); });
   $('btnScroll').onclick = () => useScroll();
+  // правки 2 (П51): напоминание о рывке в бою с большим боссом (combat.js enemyTelegraph) — кнопка мигает, над героем подсказка не чаще раза в 4 с
+  { let hT = 0, fT = -9; bus.on('dodgeHint', () => { const b = $('btnDodge'); if (!b || G.player.cds.dodge > 0.3) return; b.classList.add('hint'); clearTimeout(hT); hT = setTimeout(() => b.classList.remove('hint'), 1100);
+    if (G.time - fT > 4) { fT = G.time; bus.emit('float', { x: G.player.x, y: G.player.y, text: matchMedia('(pointer:coarse)').matches ? 'Рывок!' : 'Рывок — Shift!', color: '#ffe08a', z: 2.6, life: 1.1 }); } }); }
   const ab = $('btnAuto'); ab.removeAttribute('data-open'); ab.onclick = null; ab.onpointerdown = async e => { e.preventDefault(); e.stopPropagation();
     if (!G.auto && !autoOK()) { if (!await autoAd()) return; toast({ text: `Автобой на ${AUTO_MIN} минут`, sub: 'Герой сам сражается, пьёт зелья и идёт к цели', kind: 'good' }); }   // сборка 47: автобой за рекламу
     G.auto = !G.auto; ab.classList.toggle('on', G.auto); toast({ text: G.auto ? 'Автобой включён' : 'Автобой выключен', sub: G.auto ? (autoFree() ? 'Герой сам сражается, пьёт зелья и идёт к цели' : `Осталось ${Math.ceil(autoLeft() / 60000)} мин`) : '', kind: 'info' }); };
@@ -146,7 +149,7 @@ export function updateHUD(dt) {
   $('gold').textContent = fmt(P.gold) + ' зол.'; $('shards').textContent = (P.shards || 0) + '◆'; $('torchN').textContent = '⚡' + CS.torches().n;
   autoTick(); $('btnAuto').classList.toggle('on', !!G.auto); dot('dotHW', G.zoneId === 'town' && hwReady() ? 1 : 0);
   $('hpCount').textContent = P.potions.hp; $('mpCount').textContent = P.potions.mp; $('scrollCount').textContent = P.scrolls;
-  $('btnScroll').classList.toggle('hidden', G.zoneId !== 'catacombs');
+  $('btnScroll').classList.toggle('hidden', !scrollZone());   // П48/П64: и в походах, и в Глубинах
   const newItems = P.bag.filter(x => x.isNew).length; dot('dotInv', newItems);
   dot('dotChar', G.zoneId === 'town' ? P.attrPts : 0); dot('dotSkill', G.zoneId === 'town' ? P.skillPts : 0);
   const ds = dailyStatus(), cs = chestStatus(), gifts = (ds.claimable ? 1 : 0) + (cs.ready ? 1 : 0) + (dailyReady() ? 1 : 0); dot('dotGift', gifts);
