@@ -36,7 +36,7 @@ async function boot() {
   await initRenderer($('game'));
   initAudio(); bus.on('sfx', sfx); bus.on('audioPause', p => setPaused(p));
   const bar = $('loadbar').firstElementChild, txt = $('loadtxt');
-  const prog = (f, t) => { bar.style.width = Math.round(f * 100) + '%'; txt.textContent = t; };
+  const prog = (f, t) => { bar.style.width = Math.round(f * 100) + '%'; txt.textContent = t; if (window.__bootStep) window.__bootStep(); };   // П42: сторож загрузки в index.html
   prog(0.05, 'Подключение платформы…');
   await initPlatform();
   prog(0.1, 'Загрузка героя и мира…');
@@ -53,7 +53,7 @@ async function boot() {
   const mons = loadGroup(MONSTERS).catch(e => console.warn(e));
   startPreload(saves.last);
   $('loadbar').classList.add('hidden'); $('loadtxt').classList.add('hidden');
-  const btns = $('titleBtns'); btns.classList.remove('hidden'); $('title').classList.add('ready');   // сборка 58: фон загрузки (лестница) → титульный (Тихий Брод)
+  const btns = $('titleBtns'); btns.classList.remove('hidden'); $('title').classList.add('ready'); if (window.__bootOk) window.__bootOk();   // сборка 58: фон загрузки (лестница) → титульный (Тихий Брод)
   const start = async (p) => {
     await loadGroup(CLASS_ATLAS[p.cls || 'warrior']).catch(() => { });
     G.profile = p; G.stats = stats(p); wireAnalytics(); setVolumes(p.settings.sfx, p.settings.music); resize();
@@ -95,6 +95,7 @@ async function boot() {
   }
   btns.appendChild(el('div', 'muted', `<small>Версия: ${BUILD}</small>`));
   btns.appendChild(el('div', 'muted', '<small>Телефон: джойстик слева, атака справа · ПК: WASD + Пробел</small>'));
+  if (G.webglFail) btns.appendChild(el('div', 'muted', '<small>' + esc('3D-графика недоступна на этом устройстве — игра в 2D. Причина: ') + esc(G.webglFail) + '</small>'));   // П42
 }
 
 function pickClass(box, cb, saved = {}, askOverwrite = () => true) {
@@ -141,4 +142,5 @@ initInput($('joyZone'), $('joyBase'), $('joyKnob')); initMouse($('game')); initC
 input.anchor = () => G.player ? G.cam.toScreen(G.player.x, G.player.y) : [innerWidth / 2, innerHeight / 2];
 window.__G = G;   // for automated QA
 window.__BUILD = BUILD;
-boot().catch(e => { console.error(e); $('loadtxt').textContent = 'Ошибка загрузки: ' + e.message; });
+if (window.__bootStep) window.__bootStep();
+boot().catch(e => { console.error(e); $('loadtxt').textContent = 'Ошибка загрузки: ' + e.message; if (window.__bootFail) window.__bootFail('Ошибка загрузки: ' + e.message, true); });
