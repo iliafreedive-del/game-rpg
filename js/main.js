@@ -24,6 +24,7 @@ import { $, el, esc } from './core/util.js';
 import { CLASSES } from './data/items.js';
 import { iconURL } from './ui/icons.js';
 import { initFullscreen } from './ui/fullscreen.js';
+import { qa, initQA } from './core/qa.js';
 
 export const BUILD = '2026-10-09 · сборка 59';   // видно на титульном экране и в настройках: так проверяют, что загрузилась свежая версия
 const CORE = ['props', 'icons'];
@@ -111,7 +112,7 @@ let last = performance.now(), fpsAcc = 0, fpsN = 0;
 function loop(now) {
   const dt = Math.min(0.05, (now - last) / 1000); last = now;
   fpsAcc += dt; fpsN++; if (fpsAcc > 1) { G.fps = Math.round(fpsN / fpsAcc); fpsAcc = 0; fpsN = 0; }
-  try { update(dt); render(); updateHUD(dt); } catch (e) { console.error(e); }
+  if (!qa.hold) try { update(dt); render(); updateHUD(dt); } catch (e) { console.error(e); }   // qa.hold — время идёт через window.advanceTime (автотесты)
   gameplay(!G.paused && !document.hidden && !(G.player && G.player.dead));   // меню, окна, пауза, смерть — для Яндекса игра стоит
   requestAnimationFrame(loop);
 }
@@ -140,5 +141,6 @@ if (window.visualViewport) visualViewport.addEventListener('resize', () => { if 
 initInput($('joyZone'), $('joyBase'), $('joyKnob')); initMouse($('game')); initCamZoom($('game'));
 input.anchor = () => G.player ? G.cam.toScreen(G.player.x, G.player.y) : [innerWidth / 2, innerHeight / 2];
 window.__G = G;   // for automated QA
+initQA({ update, render, updateHUD });   // window.advanceTime / render_game_to_text — js/core/qa.js
 window.__BUILD = BUILD;
 boot().catch(e => { console.error(e); $('loadtxt').textContent = 'Ошибка загрузки: ' + e.message; });

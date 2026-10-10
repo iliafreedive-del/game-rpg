@@ -18,6 +18,11 @@ export WEB_GAME_ACTIONS="$SKILL_DIR/references/action_payloads.json"
 
 This skill is installed at project level in `.claude/skills/develop-web-game` (originally from openai/skills).
 
+## This project (Dark Ascent)
+
+The game already exposes the hooks this skill asks for (`js/core/qa.js`): `window.advanceTime(ms[, {render:false}])`, `window.render_game_to_text()`, `window.qaInput`.
+Prefer the project's own runner over the generic client: `node tools/qa/suite.mjs prebuild` before every build, and the single checks (`smoke`, `bot`, `visual`, `soak`, `screens`, `langs`, `saves`, `perf`, `balance`) as needed. Read `progress.md` at the repo root first; it lists the commands, what earlier sessions found, and who owns what.
+
 ## Workflow
 
 1. **Pick a goal.** Define a single feature or behavior to implement.
