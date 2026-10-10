@@ -29,5 +29,16 @@ export function plural(n, one, few, many) {
   if (a > 10 && a < 20) return many; if (b > 1 && b < 5) return few; if (b === 1) return one; return many;
 }
 export const $ = id => document.getElementById(id);
-export function el(tag, cls, html) { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; }
+// П44 (правки 2): валюты картинками (ассеты GPT, assets/art/gpt/ui). Осколок Бездны вместо текстового «◆»: любая строка, вставленная
+// через el(), получает иконку при выводе — сами строки (и их переводы в tools/i18n) остаются с «◆». alt — «♦», не «◆», чтобы не заменялся повторно
+const UI = 'assets/art/gpt/ui/';
+export const ICO = {
+  shard: `<img class="ico ico-shard" src="${UI}shard_64.png" alt="♦" draggable="false">`,
+  gold: `<img class="ico ico-gold" src="${UI}gold_64.png" alt="$" draggable="false">`,
+  energy: `<img class="ico ico-en" src="${UI}energy_64.png" alt="⚡" draggable="false">`,
+  pile: `<img class="ico-pile" src="${UI}shard_pile.png" alt="" draggable="false">`,
+  big: `<img class="ico-big" src="${UI}shard_big.png" alt="" draggable="false">`,
+};
+export const shardify = h => typeof h === 'string' && h.includes('◆') ? h.replace(/◆/g, ICO.shard) : h;
+export function el(tag, cls, html) { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = shardify(html); return e; }
 export const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));

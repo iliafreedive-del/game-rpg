@@ -4,7 +4,7 @@
 // и выключаются в «Справке» (меню); рывок учит медленный скелет-учитель в склепе; зелье — после боя; каждая подсказка
 // попадает в журнал «Справки», а ключевые моменты первых минут — в метки времени (profile.tutorial.ms).
 import { G, bus } from '../game/ctx.js';
-import { $, el, esc } from '../core/util.js';
+import { $, el, esc, ICO } from '../core/util.js';
 import { STORY } from '../data/quests.js';
 import { once as anOnce } from '../platform/analytics.js';
 import { UPGRADES, upgCost } from '../data/upgrades.js';
@@ -48,7 +48,7 @@ export function pointAt(sel, text, { key = null, time = 9, mid = false, force = 
   logHint(text);
   hideHand();
   if (r) { hand = el('div', 'hand'); hand._sel = sel; placeHand(r); document.body.appendChild(hand); }
-  line = el('div', 'hint-line ' + (mid || !r ? 'mid' : 'bot'), text); document.body.appendChild(line);
+  line = el('div', 'hint-line ' + (mid || !r ? 'mid' : 'bot'), (key === 'shards' ? ICO.big : '') + text); document.body.appendChild(line);   // П44: крупный осколок в подсказке про осколки
   handKey = key || sel || text; handUntil = performance.now() + time * 1000; handWin = win && sel ? (typeof sel === 'string' ? $(sel) : sel) : null;
   bus.emit('sfx', 'quest');
   return true;

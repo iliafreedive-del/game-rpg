@@ -3,7 +3,7 @@ import { runFpsTest } from './fpstest.js';
 import { SETS, bonusText } from '../data/sets.js';
 import { setCounts } from '../game/stats.js';
 import { G, bus, inCombat } from '../game/ctx.js';
-import { $, el, esc, fmt } from '../core/util.js';
+import { $, el, esc, fmt, ICO } from '../core/util.js';
 import { SLOTS, SLOT_NAMES, RARITY, WEAPONS, BASE, CLASSES, RARITY_SHORT } from '../data/items.js';
 import { SKILLS, BRANCHES, classSkillOrder, unlockLevel } from '../data/skills.js';
 import { STORY, REPEATABLE, DIALOG, CHAPTER, chapterOf } from '../data/quests.js';
@@ -169,6 +169,7 @@ function showReward(r) {
       c.prepend(skillCanvas(r.skill, 64)); b.appendChild(c);
     }
     const loot = [r.gold && `<span class="goldc">+${fmt(r.gold)} золота</span>`, r.xp && `<span style="color:#b8e3ff">+${r.xp} опыта</span>`, r.potions && `<span style="color:#ff9a9a">+${r.potions} зелья здоровья</span>`, r.mp && `<span style="color:#9cc0ff">+${r.mp} зелья маны</span>`, r.scrolls && `<span>+${r.scrolls} свитка возврата</span>`, r.skillPts && `<span class="good">+${r.skillPts} очко навыка</span>`, r.shards && `<span class="c-shard">+${r.shards}◆ осколков</span>`].filter(Boolean);
+    if (r.shards) b.appendChild(el('div', 'rw-pile', ICO.pile));   // П44: горсть осколков — видно, что за награда
     if (loot.length) b.appendChild(el('div', 'rw-loot', loot.join(' · ')));
     const q = Q.current(); if (q) b.appendChild(el('p', 'muted', `Следующее задание: <b class="goldc">${esc(q.title)}</b>`));
     const row = el('div', 'row'); row.style.justifyContent = 'center'; const ok = el('button', 'btn gold', 'Забрать'); ok.onclick = () => { closeModal(); if (r.back) r.back(); }; okBtn = ok; if (must) ok.disabled = true; row.appendChild(ok); b.appendChild(row);
@@ -209,7 +210,7 @@ function itemHTML(it, S) {
   if (it.dmg) h += `<div class="it-stat">Урон: <b>${Math.round(it.dmg[0] * um)}–${Math.round(it.dmg[1] * um)}</b> · Урон в сек.: <b>${Math.round((it.dmg[0] + it.dmg[1]) / 2 * um * WEAPONS[it.wt].aps * 10) / 10}</b> · Скорость: ${WEAPONS[it.wt].aps} уд/с · Дальность: ${WEAPONS[it.wt].range} м</div><div class="it-stat muted" style="font-size:12px">${WEAPONS[it.wt].note}</div>`;
   if (it.armor) h += `<div class="it-stat">Защита: <b>${Math.round(it.armor * um)}</b></div>`;
   if (it.block) h += `<div class="it-stat">Шанс блока: ${Math.round(it.block * 100)}%</div>`;
-  for (const a of it.affixes) h += a.kp ? `<div class="it-aff kp">◆ ${esc(kindPerkText(it))}: ${esc(affixText(a))}</div>` : `<div class="it-aff">${esc(affixText(a))}</div>`;
+  for (const a of it.affixes) h += a.kp ? `<div class="it-aff kp">◇ ${esc(kindPerkText(it))}: ${esc(affixText(a))}</div>` : `<div class="it-aff">${esc(affixText(a))}</div>`;
   { const mn = mergeNote(it); if (mn) h += `<div class="it-stat ${mn[0]}" style="font-size:12px">⚒ ${mn[1]}</div>`; }
   const ep = epicOf(it); if (ep) h += `<div class="it-epic">★ ${esc(ep.desc)}</div>`;
   h += setHTML(it);

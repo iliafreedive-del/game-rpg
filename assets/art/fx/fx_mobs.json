@@ -1,0 +1,82 @@
+{
+ "mob_bite": {
+  "file": "assets/art/fx/mob_bite.webp",
+  "cols": 3,
+  "rows": 3,
+  "frames": 9,
+  "cell": 256,
+  "dur": 0.25,
+  "loop": false,
+  "view": "upright",
+  "blend": "add",
+  "meters": 1.6,
+  "anchor": [
+   0.5,
+   0.75
+  ]
+ },
+ "mob_claw": {
+  "file": "assets/art/fx/mob_claw.webp",
+  "cols": 3,
+  "rows": 3,
+  "frames": 9,
+  "cell": 256,
+  "dur": 0.25,
+  "loop": false,
+  "view": "ground",
+  "blend": "add",
+  "meters": 3.0,
+  "anchor": [
+   0.5,
+   0.5
+  ]
+ },
+ "mob_gore": {
+  "file": "assets/art/fx/mob_gore.webp",
+  "cols": 3,
+  "rows": 3,
+  "frames": 9,
+  "cell": 256,
+  "dur": 0.25,
+  "loop": false,
+  "view": "upright",
+  "blend": "add",
+  "meters": 2.0,
+  "anchor": [
+   0.5,
+   0.92
+  ]
+ },
+ "mob_charge_tele": {
+  "file": "assets/art/fx/mob_charge_tele.webp",
+  "cols": 4,
+  "rows": 4,
+  "frames": 16,
+  "cell": 256,
+  "dur": 0.5,
+  "loop": true,
+  "view": "ground",
+  "blend": "alpha",
+  "meters": 6.0,
+  "anchor": [
+   0.5,
+   0.5
+  ]
+ },
+ "mob_charge_crash": {
+  "file": "assets/art/fx/mob_charge_crash.webp",
+  "cols": 4,
+  "rows": 4,
+  "frames": 16,
+  "cell": 256,
+  "dur": 0.5,
+  "loop": false,
+  "view": "upright",
+  "blend": "alpha",
+  "meters": 2.5,
+  "anchor": [
+   0.5,
+   0.94
+  ]
+ }
+}

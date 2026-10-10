@@ -2,7 +2,7 @@
 // Same hero, same stats and gear: everything you upgrade in the main game makes you stronger here, and rewards
 // (gold, experience, Abyss shards) flow back. Stamina restores by itself → a reason to come back.
 import { G, bus } from '../game/ctx.js';
-import { $, el, esc, fmt } from '../core/util.js';
+import { $, el, esc, fmt, ICO } from '../core/util.js';
 import { getAtlas, drawFrame } from '../core/assets.js';
 import { ENEMIES } from '../data/enemies.js';
 import { gainXP, xpMul } from '../game/loot.js';
@@ -63,7 +63,7 @@ function close() { bus.emit('music'); cancelAnimationFrame(raf); raf = 0; dispos
 
 function header(title) {
   const n = enN(), left = nextIn(torches(), TORCH_MS);
-  const bar = el('div', 'hw-top', `<span class="hw-cur">⚡ ${n}/${EN_MAX}${left ? ` <small>+1 через ${Math.ceil(left / 60000)} мин</small>` : ''}</span><span class="hw-cur c-gold">${fmt(G.profile.gold)} зол.</span><span class="hw-cur c-shard">${G.profile.shards || 0}◆</span>`);
+  const bar = el('div', 'hw-top', `<span class="hw-cur">${ICO.energy}${n}/${EN_MAX}${left ? ` <small>+1 через ${Math.ceil(left / 60000)} мин</small>` : ''}</span><span class="hw-cur c-gold">${ICO.gold}${fmt(G.profile.gold)}</span><span class="hw-cur c-shard">${ICO.shard}${G.profile.shards || 0}</span>`);
   const x = el('button', 'hw-back', '← В деревню'); x.onclick = close; bar.prepend(x);
   const en = el('button', 'btn gold sm hw-en', '⚡ Получить энергию'); en.onclick = () => bus.emit('openEnergy', () => { if (root) showMap(); }); bar.appendChild(en);   // сборка 47: на виду, сверху
   root.appendChild(bar);

@@ -22,7 +22,7 @@ export const PERKS = {
   haste:  { name: 'Спешка', max: 5, passive: 1, icon: '⚡', desc: () => 'Оружие срабатывает на 8% чаще' },
   area:   { name: 'Размах', max: 5, passive: 1, icon: '◎', desc: () => '+12% к площади атак' },
   swift:  { name: 'Лёгкие сапоги', max: 5, passive: 1, icon: '»', desc: () => '+8% к скорости бега' },
-  magnet: { name: 'Притяжение душ', max: 5, passive: 1, icon: '◆', desc: () => '+40% к радиусу сбора кристаллов' },
+  magnet: { name: 'Притяжение душ', max: 5, passive: 1, icon: '◇', desc: () => '+40% к радиусу сбора кристаллов' },
   vigor:  { name: 'Жизненная сила', max: 5, passive: 1, icon: '♥', desc: () => '+20% здоровья и восстановление' },
   // сборка 47: больше пассивок — выбор разнообразнее (как в Vampire Survivors)
   plate:  { name: 'Латы душ', max: 5, passive: 1, icon: '⛨', desc: () => '−8% получаемого урона' },
