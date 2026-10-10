@@ -839,3 +839,17 @@ body.photo #hudL,body.photo #hudR,body.photo #pad,body.photo #btnAct,body.photo 
 /* С26: размер текста — масштаб содержимого окон, панелей NPC, тостов и трекера; «меньше движения» — без бесконечных анимаций */
 .mb>*,.npc-panel>*,#toasts>.toast,#tracker,.ic-box{zoom:var(--fs,1)}
 html.rm *,html.rm *::before,html.rm *::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
+/* сборка 60 (обучение, Летопись, Жатва) */
+.hw-sk{display:flex;flex-wrap:wrap;gap:6px;align-items:center;justify-content:center;margin:4px 0 8px;font-size:13px}.hw-sk .btn small{opacity:.8;font-weight:400}
+.hw-result.up .hw-rt{font-size:26px}
+.hw-lvl{padding:6px 0 4px;margin:-6px -6px 4px}
+.hw-lvl-ic{position:relative;font:bold 54px/1 var(--serif);color:#ffd24a;text-shadow:0 0 18px #ffb040,0 3px 4px #000;animation:petrv 1.6s ease-in-out infinite}
+.hw-lvl-n{position:relative;font:bold 30px var(--serif);color:#ffe9a0;text-shadow:0 0 14px #c88a10}
+.hw-lvl-g{position:relative;color:#9fe38e;font:600 14px var(--serif);margin-top:2px}
+.hw-lvl-e{position:relative;color:#ffd98a;font:600 14px var(--serif);margin-top:4px}
+.hw-xpbar{position:relative;height:16px;margin:8px 10px 2px;border-radius:8px;background:#0008;border:1px solid #5a4a2a;overflow:hidden}
+.hw-xpbar i{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(90deg,#4a8ad8,#8fd0ff);transition:width .8s}
+.hw-xpbar span{position:relative;font:600 11px/16px var(--serif);color:#fff;text-shadow:0 1px 2px #000}
+.lore-how{margin:2px 6px 10px;font:15px/1.5 var(--serif);color:#f0e2c0}.lore-how div{margin:4px 0}
+.rw-skill{margin-top:8px;border-color:#b8903e}.rw-skill canvas{width:64px;height:64px;border-radius:8px}
+@media (max-height:500px){.hw-lvl-ic{font-size:34px}.hw-lvl-n{font-size:22px}.hw-result.up .hw-rimg{display:none}}

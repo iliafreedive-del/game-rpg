@@ -145,6 +145,10 @@ function showReward(r) {
       box.appendChild(c);
     }
     if (r.items.length) b.appendChild(box);
+    if (r.skill && SKILLS[r.skill]) {   // сборка 60 (П3): первое умение — подарок старосты, показываем его в той же награде
+      const sk = SKILLS[r.skill], c = el('div', 'rw-card r2 rw-skill', `<div><div class="it-name goldc">✦ Новое умение: ${esc(sk.name)}</div><div class="it-type">${esc(sk.desc(1))}</div><div class="it-stat good">Кнопка умения — справа внизу${matchMedia('(pointer: coarse)').matches ? '' : ' (клавиша 1)'}. В автобою герой применяет его сам.</div></div>`);
+      c.prepend(skillCanvas(r.skill, 64)); b.appendChild(c);
+    }
     const loot = [r.gold && `<span class="goldc">+${fmt(r.gold)} золота</span>`, r.xp && `<span style="color:#b8e3ff">+${r.xp} опыта</span>`, r.potions && `<span style="color:#ff9a9a">+${r.potions} зелья здоровья</span>`, r.mp && `<span style="color:#9cc0ff">+${r.mp} зелья маны</span>`, r.scrolls && `<span>+${r.scrolls} свитка возврата</span>`, r.skillPts && `<span class="good">+${r.skillPts} очко навыка</span>`, r.shards && `<span class="c-shard">+${r.shards}◆ осколков</span>`].filter(Boolean);
     if (loot.length) b.appendChild(el('div', 'rw-loot', loot.join(' · ')));
     const q = Q.current(); if (q) b.appendChild(el('p', 'muted', `Следующее задание: <b class="goldc">${esc(q.title)}</b>`));
@@ -247,7 +251,7 @@ W.inventory = (arg = {}) => {
     right.appendChild(el('p', 'muted iv-hint', '<b class="good">▲</b> лучше надетого · <b class="bad">▼</b> хуже · = так же · ✕ не подходит · <span class="eq-new inl">НОВ</span> новая вещь · ⚒ можно слить у кузнеца. Нажмите на вещь, чтобы сравнить.'));
     if (arg.select) { const it = P.bag.find(x => x.id === arg.select); arg.select = null; if (it) setTimeout(() => itemCard(it, null), 50); }
   });
-  m.live = true; m.onClose = () => { for (const it of P.bag) it.isNew = false; bus.emit('hud'); };   // П33: «НОВ» — до первого просмотра сумки
+  m.live = true; m.onClose = () => { for (const it of P.bag) it.isNew = false; bus.emit('hud'); }; setTimeout(() => bus.emit('invOpened'), 60);   // сборка 60 (П32)   // П33: «НОВ» — до первого просмотра сумки
   function itemCard(it, slot) {
     const inBag = !slot, tslot = CH.slotFor(it), eq = inBag ? P.gear[tslot] : null;
     const ov = el('div', 'ic-ov'); const box = el('div', 'ic-box r' + it.rarity);
@@ -688,6 +692,12 @@ W.npc_merchant = () => {
 // сборка 58: Караванщик Кофи. Первая встреча — рассказ и подарок (фенек); дальше — короткая фраза, лавка — в панели у повозки
 W.npc_caravan = () => {
   const first = !petsOf(G.profile).met, a = PETS[petsOf(G.profile).active];
+  // сборка 60 (П15): подарок — только когда староста отправит к Кофи перед катакомбами; раньше Кофи лишь знакомится
+  if (first && earlyLock('pet')) return modal('Караванщик Кофи', 'sm', b => {
+    const dl = dialog(b, 'caravan', 'Караванщик Кофи', ['Мир твоему дому, воин! Я Кофи, караванщик из Пустошей. Мои повозки застряли здесь, когда открылась Бездна.', 'Зверьки мои ещё не отошли с дороги. Загляни, когда староста соберёт тебя в путь, — будет подарок.']);
+    const row = el('div', 'row'); row.style.marginTop = '12px'; const nx = el('button', 'btn gold', 'Далее');
+    nx.onclick = () => { if (dl.next()) { if (dl.last()) nx.textContent = 'Понятно'; return; } closeModal(); }; row.appendChild(nx); b.appendChild(row);
+  }, { sticky: true });
   const lines = first ? ['Мир твоему дому, воин! Я Кофи, караванщик из Пустошей. Мои повозки застряли здесь, когда открылась Бездна.', 'Мои зверьки не боятся тварей Бездны. Бьют они слабо, зато каждый умеет своё: кто жжёт, кто травит, кто лечит.', 'Вот, возьми огненного фенека — это подарок. Остальных отдам за осколки Бездны ◆.']
     : [a ? `Пески любят смелых. ${a.name} рядом с тобой — значит, ты не один.` : 'Пески любят смелых. Кого возьмёшь с собой сегодня?'];
   modal('Караванщик Кофи', 'sm', b => {
@@ -1226,11 +1236,12 @@ function survEnd(r) {
 // ---------------------------------------------------------------- lore intros (first visit)
 const LORE = {
   depths: ['Глубины катакомб', 'Под катакомбами Ордена нет дна. Каждый пятый этаж охраняет страж, а за стражами — всё более древняя тьма: затопленные склепы, пепельные шахты и, говорят, само Сердце Бездны. Дары Бездны помогут — но только пока вы не повернёте назад.'],
-  survival: ['Жатва Бездны', 'Раз в поколение Бездна распахивается, и мёртвые идут бесконечной рекой. Орден посылает на арену лишь одного — чтобы выстоял до рассвета. Не останавливайтесь: собирайте кристаллы душ, и оружие само запоёт в ваших руках.'],
+  // сборка 60 (П13): вместо легенды — короткая инструкция
+  survival: ['Жатва Бездны · как играть', 'Кнопки боя здесь не нужны.', ['🏃 Только бегайте — герой бьёт сам.', '💎 С врагов падают синие души — подбирайте их: они качают ваши умения в этой Жатве.', '⏳ Не стойте в толпе и продержитесь как можно дольше.']],
   castle: ['Цитадель Ордена', 'Когда-то здесь жили магистры Ордена. Теперь это ваш дом. Откройте залы: алтарь будет копить золото, пока вы спите, а в Зале испытаний стражи прошлого проверят вашу силу.'],
 };
 bus.on('zoneEntered', id => { const P = G.profile; P.lore = P.lore || {}; const L = LORE[id]; if (!L || P.lore[id] || (id === 'depths' && !(G.run && G.run.floor > 0))) return; P.lore[id] = 1; bus.emit('save');
-  const show = () => { if (cur) { setTimeout(show, 800); return; } modal(L[0], 'sm reward', b => { b.appendChild(artHead(ART.zone(id))); b.appendChild(el('p', 'lore', esc(L[1]))); const r = el('div', 'row'); r.style.justifyContent = 'center'; const ok = el('button', 'btn gold', 'Вперёд'); ok.onclick = closeModal; r.appendChild(ok); b.appendChild(r); }); cur.bg.classList.add('rw-bg'); }; setTimeout(show, 600); });
+  const show = () => { if (cur) { setTimeout(show, 800); return; } modal(L[0], 'sm reward', b => { b.appendChild(artHead(ART.zone(id))); b.appendChild(el('p', 'lore', esc(L[1]))); if (L[2]) b.appendChild(el('div', 'lore-how', L[2].map(x => `<div>${esc(x)}</div>`).join(''))); const r = el('div', 'row'); r.style.justifyContent = 'center'; const ok = el('button', 'btn gold', 'Вперёд'); ok.onclick = closeModal; r.appendChild(ok); b.appendChild(r); }); cur.bg.classList.add('rw-bg'); }; setTimeout(show, 600); });
 
 // ---------------------------------------------------------------- main menu: big labelled tiles instead of a row of tiny icons
 W.menu = () => modal('Меню', 'md', b => {
@@ -1244,9 +1255,10 @@ W.menu = () => modal('Меню', 'md', b => {
   for (const [id, ic, name, sub, badge] of tiles) {
     const locked = TOWN_ONLY[id] && G.zoneId !== 'town';
     const n = badge ? BADGES[badge] || 0 : 0;
-    const t = el('button', 'menu-tile' + (locked ? ' locked' : ''), `<span class="mt-ic">${ic}</span><b>${name}</b><small>${locked ? 'в деревне' : sub}</small>${n ? `<span class="mt-dot">${n}</span>` : ''}`);
+    const t = el('button', 'menu-tile' + (locked ? ' locked' : ''), `<span class="mt-ic">${ic}</span><b>${name}</b><small>${locked ? 'в деревне' : sub}</small>${n ? `<span class="mt-dot">${n}</span>` : ''}`); t.dataset.w = id;
     t.onclick = () => { closeModal(); openWindow(id); };
     g.appendChild(t);
   }
   b.appendChild(g);
+  setTimeout(() => bus.emit('menuOpened'), 60);   // сборка 60 (П32): обучение показывает плитку «Герой»
 });

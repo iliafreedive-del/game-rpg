@@ -29,13 +29,13 @@ export const hintsOn = () => { const t = T(); return t.on !== false && !t.off; }
 export function setHints(on) { const t = T(); t.on = !!on; t.off = !on; if (!on) { hideHand(); unlockAll(); } bus.emit('save'); bus.emit('hud'); }
 
 // ---------------------------------------------------------------- палец + строка подсказки
-let hand = null, line = null, handKey = null, handUntil = 0;
+let hand = null, line = null, handKey = null, handUntil = 0, handWin = null, zoomLine = false;   // handWin — подсказка внутри окна (живёт, пока элемент на экране)
 const rectOf = id => { const e = typeof id === 'string' ? $(id) : id; if (!e || e.offsetParent === null) return null; const r = e.getBoundingClientRect(); return r.width ? r : null; };
-export function hideHand() { if (hand) { hand.remove(); hand = null; } if (line) { line.remove(); line = null; } handKey = null; }
+export function hideHand() { if (hand) { hand.remove(); hand = null; } if (line) { line.remove(); line = null; } handKey = null; handWin = null; zoomLine = false; }
 // показать палец над элементом (или просто строку, если элемента нет)
 // кнопка только что открылась: подождать кадр, пока HUD её покажет, иначе «палец» не найдёт место
 export const pointSoon = (sel, text, o) => setTimeout(() => pointAt(sel, text, o), 150);
-export function pointAt(sel, text, { key = null, time = 9, mid = false, force = false } = {}) {
+export function pointAt(sel, text, { key = null, time = 9, mid = false, force = false, win = false } = {}) {
   const t = T(); if (t.off && !force) return false;
   if (force && (hand || line)) return false;   // напоминание не перебивает подсказку обучения
   if (key && t.tips[key]) return false;
@@ -46,20 +46,21 @@ export function pointAt(sel, text, { key = null, time = 9, mid = false, force = 
   hideHand();
   if (r) { hand = el('div', 'hand'); hand.style.left = (r.left + r.width / 2) + 'px'; hand.style.top = (r.top + r.height / 2) + 'px'; document.body.appendChild(hand); }
   line = el('div', 'hint-line ' + (mid || !r ? 'mid' : 'bot'), text); document.body.appendChild(line);
-  handKey = key || sel || text; handUntil = performance.now() + time * 1000;
+  handKey = key || sel || text; handUntil = performance.now() + time * 1000; handWin = win && sel ? (typeof sel === 'string' ? $(sel) : sel) : null;
   bus.emit('sfx', 'quest');
   return true;
 }
 // подсказка исчезает сама: по времени, по нажатию нужной кнопки или по событию
 function handTick() {
   if (!hand && !line) return;
-  if (performance.now() > handUntil || G.modalOpen || G.cinema) hideHand();
+  // сборка 60: подсказка внутри окна (win) не гаснет от самого окна — гаснет, когда её кнопка исчезла; строка о зуме гаснет, как только открыто окно или панель NPC (П7)
+  if (performance.now() > handUntil || G.cinema || (handWin ? !handWin.isConnected : G.modalOpen) || (zoomLine && G.panelTarget)) hideHand();
 }
 
 // ---------------------------------------------------------------- что и когда открывать
 let revealAt = 0;   // не больше одной новой кнопки раз в 3 с: иначе подсказки перебивают друг друга
 function revealTick() {
-  const P = G.profile, pl = G.player, S = G.stats, t = T(); if (!P || !pl || !S || t.off || pl.dead) return;   // сборка 59: мёртвому подсказки не нужны
+  const P = G.profile, pl = G.player, S = G.stats, t = T(); if (!P || !pl || !S || t.off || pl.dead || G.modalOpen) return;   // сборка 59: мёртвому подсказки не нужны; сборка 60: и пока открыто окно (подарок старосты — умение — показываем после окна награды)
   if (performance.now() < revealAt) return;
   const unlock = k => { revealAt = performance.now() + 3000; return unlock0(k); };
   const dz = G.zoneId !== 'town' && G.zoneId !== 'castle';
@@ -83,14 +84,15 @@ function placeTick() {
   const P = G.profile, t = T(); zoneTicks = G.zoneId === 'town' ? 0 : zoneTicks + 1;
   // зум камеры: сборка 59 — подсказка в деревне, в катакомбах и в Жатве (по разу в каждой), а не через 15 минут где-то в подземелье.
   // В деревне — когда пролог позади и герой постоял ~6 с без окон; в катакомбах и Жатве — через ~6 с после входа, если рядом нет боя
-  { const zk = { town: 'town', catacombs: 'cata', survival: 'surv' }[G.zoneId], zs = (t.zoomAt = t.zoomAt || {});
-    zoomTicks = zk && !G.modalOpen && !hand && !line ? zoomTicks + 1 : 0;
-    const calm = G.zoneId === 'survival' || !(G.enemies || []).some(e => !e.dead && e.aggro);
-    if (zk && !zs[zk] && !t.zoomSeen && zoomTicks > 14 && calm && (G.zoneId !== 'town' || P.story.stage >= 1)) { zs[zk] = 1; bus.emit('save');
+  // сборка 60 (П7): сначала в первом подземелье (катакомбы), потом один раз в деревне; не поверх окна и не поверх панели NPC (Элвин)
+  { const zk = { town: 'town', catacombs: 'cata' }[G.zoneId], zs = (t.zoomAt = t.zoomAt || {});
+    zoomTicks = zk && !G.modalOpen && !G.panelTarget && !G.hwOpen && !hand && !line ? zoomTicks + 1 : 0;
+    const calm = !(G.enemies || []).some(e => !e.dead && e.aggro);
+    if (zk && !zs[zk] && !t.zoomSeen && zoomTicks > 14 && calm && (G.zoneId !== 'town' || zs.cata)) { zs[zk] = 1; bus.emit('save');
       // своя фраза в каждом месте — не повтор одной и той же строки
       const how = touch() ? { in: 'разведите два пальца на экране', out: 'сведите два пальца' } : { in: 'колесо мыши от себя', out: 'колесо мыши на себя' };
-      const txt = { town: `Камеру можно приблизить (${how.in}) или отдалить (${how.out})`, cata: `В тесных залах удобнее ближе: ${how.in} — камера приблизится`, surv: `В Жатве отдалите камеру (${how.out}) — заметите врагов раньше` }[zk];
-      if (t.off || !t.on) bus.emit('toast', { text: txt, kind: 'info' }); else { pointAt(null, txt, { time: 9 }); return; } } }
+      const txt = { town: `Помните: камеру можно приблизить (${how.in}) или отдалить (${how.out})`, cata: `Камеру можно приблизить (${how.in}) или отдалить (${how.out})` }[zk];
+      if (t.off || !t.on) bus.emit('toast', { text: txt, kind: 'info' }); else { if (pointAt(null, txt, { time: 9 })) zoomLine = true; return; } } }
   if (t.off || !t.on || G.modalOpen) return;
   const once = (key, sel, text) => !t.tips[key] && pointAt(sel, text, { key });   // сборка 49: объявлено до первого использования (раньше — ошибка в консоли каждые 0,4 с)
   const q = G.profile.story && STORY[G.profile.story.stage];
@@ -134,7 +136,17 @@ export function initTutorial() {
     if (newDodge) setTimeout(() => pointAt('btnDodge', touch() ? 'Рывок! Нажмите, чтобы отпрыгнуть от удара врага (красный круг)' : 'Рывок: Shift — отпрыгнуть от удара врага (красный круг)', { key: 'dodge2', time: 8 }), newPot ? 8000 : 300);
   });
   bus.on('panel', it => { if (!it || it.id !== 'trainer') return; setTimeout(() => { if (G.profile.skillPts > 0) pointAt('tBtnSkills', 'Нажмите «Навыки» — там изучают умения', { key: 'tbtn' }); }, 400); });
-  bus.on('skillsOpened', () => setTimeout(() => { const b = document.querySelector('.tal-learn.ok'); if (b) pointAt(b, 'Нажмите «Изучить»', { key: 'learn' }); }, 350));
+  // сборка 60 (П32): окно героя — портрет → «Герой» → сумка и сравнение. Учим на шаге «Осмотреть снаряжение»
+  const gearStep = () => { const q = G.profile && STORY[G.profile.story.stage]; return q && q.id === 'hero_gear'; };
+  const portraitHint = () => { if (gearStep() && !G.modalOpen) pointAt('portrait', 'Нажмите на портрет — это окно героя', { time: 12 }); };
+  bus.on('questNew', q => { if (q && q.id === 'hero_gear') setTimeout(function again(n = 0) { if (G.modalOpen && n < 30) return setTimeout(() => again(n + 1), 700); portraitHint(); }, 900); });
+  bus.on('menuOpened', () => { T().tips.hero = 1; if (gearStep()) pointAt(document.querySelector('.menu-tile[data-w="inventory"]'), '«Герой» — надетые вещи и сумка', { time: 12, win: true }); });
+  bus.on('invOpened', () => {
+    if (!hintsOn()) return; const t = T(); if (t.tips.inv1) return; t.tips.inv1 = 1; bus.emit('save');
+    const g = document.querySelector('.eq-grid .eq-slot') || document.querySelector('.eq-doll .eq-slot');
+    pointAt(g, 'Слева — что надето, справа — сумка. Нажмите на вещь: ▲ — лучше надетой, ▼ — хуже. Там же «Надеть» и «Продать»', { time: 12, win: true });
+  });
+  bus.on('skillsOpened', () => setTimeout(() => { const b = document.querySelector('.tal-learn.ok'); if (b) pointAt(b, 'Нажмите «Изучить»', { key: 'learn', win: true }); }, 350));
   // метки времени «первых минут» (видно в «Справке»: тестер присылает скриншот)
   bus.on('kill', () => mark('kill1'));
   bus.on('questComplete', () => mark('quest1'));
@@ -143,5 +155,9 @@ export function initTutorial() {
   bus.on('zoneEntered', id => { if (id === 'town' && G.profile.tutorial.prologue) mark('crypt'); if (id === 'catacombs') mark('cata'); });
   bus.on('playerDeath', () => { mark('death1'); hideHand(); });
   bus.on('bossDefeated', () => mark('boss'));
+  // сборка 60 (П13): первая синяя душа в Жатве — короткая пауза и стрелка над ней (стрелку рисует survival.js)
+  bus.on('survGemTip', () => { const t = T(); t.tips.survGem = 1; bus.emit('save'); if (!hintsOn()) return;
+    G.paused = true; pointAt(null, '💎 Синяя душа! Подберите её — души качают ваши умения в этой Жатве', { time: 5, mid: true });
+    setTimeout(() => { if (!G.modalOpen && G.surv) G.paused = false; }, 1800); });
   bus.on('mergeReady', () => pointAt(null, 'Три одинаковых вещи! Кузнец Горан сольёт их в одну лучшую', { key: 'merge', time: 8 }));
 }

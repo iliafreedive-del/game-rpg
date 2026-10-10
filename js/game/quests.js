@@ -4,7 +4,9 @@ import { STORY, REPEATABLE } from '../data/quests.js';
 import { gainXP, pickEpic } from './loot.js';
 import { makeItem, makeSetItem } from './items.js';
 import { SETS } from '../data/sets.js';
-import { autoEquip } from './character.js';
+import { autoEquip, grantSkill } from './character.js';
+import { classSkillOrder } from '../data/skills.js';
+import { xpToNext } from './stats.js';
 import { rint } from '../core/util.js';
 import { hasSkill } from './progress.js';
 import { SEALS } from '../data/story.js';
@@ -12,6 +14,7 @@ import { SEALS } from '../data/story.js';
 // П57: крупные награды заданий опытом ×0,6 (+250 за задание — слишком быстро). Мелкие шаги обучения (до 100) — как были
 export const questXP = x => x >= 100 ? Math.round(x * 0.6) : x;
 export const current = () => STORY[G.profile.story.stage] || null;
+const s0 = () => G.profile.story;
 export const storyDone = () => G.profile.story.stage >= STORY.length;
 
 export function progressOf(q) {
@@ -60,7 +63,10 @@ export function grant(r, title, opts = {}) {
     const it0 = rewardItem(spec); const entry = autoEquip(it0);   // выбор — в окне награды: надеть или оставить в сумке
     got.items.push(entry);
   }
-  if (r.xp) { const x = opts.rawXP ? r.xp : questXP(r.xp); gainXP(x); got.xp = x; }
+  // сборка 60 (П3): первое умение — подарок старосты: тратит стартовое очко навыка (раньше урок Элвина его не тратил, и к Летописи копилось 2 очка без денег)
+  if (r.skill && !hasSkill()) { const id = classSkillOrder(P.cls || 'warrior')[0]; P.tutorial.trainerGift = id; if (P.skillPts > 0) P.skillPts--; if (!s0().done.includes('learn_skill')) s0().done.push('learn_skill'); grantSkill(id); got.skill = id; }
+  // до Летописи опыт заданий не переводит на 2-й уровень: уровень 2 — праздник в Летописи (П10), а не тихо в деревне (П3)
+  if (r.xp) { let x = opts.rawXP ? r.xp : questXP(r.xp); if (P.level === 1 && P.story.stage <= STORY.findIndex(q => q.id === 'hw_try')) x = Math.max(0, Math.min(x, xpToNext(1) - 1 - P.xp)); gainXP(x); got.xp = x; }
   bus.emit('reward', got); bus.emit('hud'); bus.emit('save');
 }
 const TIER = {
@@ -88,7 +94,9 @@ export function check() {
   const s = G.profile.story, o = q.obj;
   if (q.turnIn && s.ready === q.id) return;
   if (o.skill && hasSkill()) return complete();
-  if (o.hwTry && (s.flags.hwLost || ((G.profile.hw && G.profile.hw.top) || 1) > 3)) { bus.emit('toast', { text: 'Сил пока маловато', sub: 'Развивайтесь: идите к наставнику Элвину за усилением', kind: 'quest' }); return complete(); }   // сборка 47: дальше 3-го этапа в начале не пускаем
+  // сборка 60 (П8): шаг кончается поражением, отступлением («Сбежать» с 3-го боя) или выходом из Летописи после трёх побед; засчитывается после закрытия Летописи
+  if (o.hwTry && !G.hwOpen && (s.flags.hwLost || s.flags.hwFled || ((G.profile.hw && G.profile.hw.top) || 1) > 3)) { bus.emit('toast', G.profile.level >= 2 ? { text: 'Новый уровень — к Элвину!', sub: 'Очко навыка и золото из Летописи — наставнику Элвину', kind: 'quest' } : { text: 'Сил пока маловато', sub: 'Развивайтесь: идите к наставнику Элвину за усилением', kind: 'quest' }); return complete(); }
+  if (o.kofi && G.profile.pets && G.profile.pets.met) return complete();   // сборка 60 (П15): подарок Кофи получен
   if (o.flag && s.flags[o.flag]) return q.turnIn ? markReady(q) : complete();
   if (o.count && (s.counters[q.id] || 0) >= o.n) return q.turnIn ? markReady(q) : complete();
   if (o.enter && G.zoneId === o.enter && G.zoneReady) return complete();
@@ -151,7 +159,11 @@ export function initQuests() {
   bus.on('gold', n => { if (G.zoneId !== 'town') count('gold', n); repeatTick(); });
   bus.on('chest', () => { G.profile.stats.chests++; repeatTick(); });
   bus.on('zoneEntered', () => check());
-  bus.on('hwLost', () => { G.profile.story.flags.hwLost = true; });   // засчитается, когда окно Летописи закроется (игровой цикл зовёт check)
+  bus.on('hwLost', () => { G.profile.story.flags.hwLost = true; });
+  bus.on('hwFled', () => { G.profile.story.flags.hwFled = true; });
+  bus.on('invOpened', () => { const q = current(); if (q && q.id === 'hero_gear') setFlag('invSeen'); });   // сборка 60 (П32): окно «Герой» открыто
+  // сборка 60: «Усилить героя у Элвина» засчитывает и новый ранг умения (очко навыка из Летописи), а не только усиление
+  bus.on('skillsChanged', () => { const q = current(); if (!q) return; if (q.id === 'hw_elvin') setFlag('upgBought'); else if (q.id === 'surv_elvin') setFlag('upgBought2'); });   // засчитается, когда окно Летописи закроется (игровой цикл зовёт check)
 }
 
 // ---- repeatables: progress = stat now − stat at acceptance
