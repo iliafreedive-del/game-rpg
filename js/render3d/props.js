@@ -232,9 +232,11 @@ export class PropLayer {
   // оставляем в instanced-мешах только то, что рядом с камерой
   // оставляем в instanced-мешах только то, что попадает в кадр (пирамида видимости камеры + запас на высоту кроны)
   cull(camera, force) {
-    const k = camera.position.x * 1.0 + camera.position.z * 1.0 + camera.rotation.y * 7;
-    if (!force && Math.abs(k - this.lastK) < 0.35) return;
-    this.lastK = k;
+    // П41/П53/П54 (сборка 60): раньше ключом была сумма x + z камеры — при камере под 45° она не меняется, когда герой идёт
+    // вправо-влево по экрану, и деревья, не попавшие в кадр, так и не появлялись, пока не сдвинешься иначе. Теперь — расстояние
+    const cp = camera.position, L = this.lastP || (this.lastP = new THREE.Vector3());
+    if (!force && this.lastK === 0 && L.distanceToSquared(cp) < 0.35 * 0.35) return;
+    this.lastK = 0; L.copy(cp);
     this.pv.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse); this.fr.setFromProjectionMatrix(this.pv);
     const m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), p = new THREE.Vector3(), s = new THREE.Vector3(), sp = new THREE.Sphere();
     for (const b of this.batches) {
