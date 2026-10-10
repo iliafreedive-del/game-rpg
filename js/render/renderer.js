@@ -518,7 +518,18 @@ function drawInteractMarker() {
 }
 
 // quest guide: a golden arrow on the ground pointing toward the current objective
-function drawGuide() { drawArrow(G.guide, 'gv', '255,210,90'); if (G.huntGuide && G.huntGuide !== G.guide) drawArrow(G.huntGuide, 'hgv', '255,70,50', 0.27); }
+function drawGuide() { drawArrow(G.guide, 'gv', '255,210,90'); drawBeacon(G.guide); if (G.huntGuide && G.huntGuide !== G.guide) drawArrow(G.huntGuide, 'hgv', '255,70,50', 0.27); }
+// сборка 60 (П1): стрелка у героя гаснет за 4 м до цели, и саркофаг с ключом пробегали мимо (рядом стоит сундук поярче).
+// Теперь над целью задания в подземелье прыгает золотой указатель «▼», а под ней пульсирует кольцо — видно, что открыть надо именно это
+function drawBeacon(t) {
+  const P = G.player; if (!t || !P || P.dead || t.type === 'portal' || t.type === 'npc' || G.zoneId !== 'catacombs' || t.done || !G.zone.inter.includes(t)) return;
+  const d = Math.hypot(t.x - P.x, t.y - P.y); if (d > 11) return;
+  const cam = G.cam, z = cam.zoom, b = Math.abs(Math.sin(G.time * 3.2)) * 14 * z, [gx, gy] = cam.toScreen(t.x, t.y), [x, y] = cam.toScreen(t.x, t.y, 2.3);
+  ctx.save(); ctx.translate(gx, gy); ctx.scale(1, 0.5); const p = (G.time * 0.9) % 1;
+  ctx.strokeStyle = `rgba(255,215,90,${0.9 * (1 - p)})`; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(0, 0, (26 + 34 * p) * z, 0, 7); ctx.stroke(); ctx.restore();
+  ctx.save(); ctx.translate(x, y - b); ctx.shadowColor = '#ffb020'; ctx.shadowBlur = 14; ctx.fillStyle = '#ffd24a'; ctx.strokeStyle = '#3a2400'; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(-15 * z, -16 * z); ctx.lineTo(15 * z, -16 * z); ctx.lineTo(0, 6 * z); ctx.closePath(); ctx.stroke(); ctx.fill(); ctx.restore();
+}
 function drawArrow(t, key, rgb, off = 0) {
   const P = G.player; if (!t || P.dead) return;
   const dx = t.x - P.x, dy = t.y - P.y, d = Math.hypot(dx, dy); if (d < 4) return;
