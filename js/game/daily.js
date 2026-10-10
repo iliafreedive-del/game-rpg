@@ -4,6 +4,7 @@ import { xpToNext } from './stats.js';
 import { gainXP } from './loot.js';
 import { makeItem } from './items.js';
 import { autoEquip } from './character.js';
+import { weekNo } from './season.js';
 
 // сборка 47: задания дня чередуются, как дейлики в WoW: слияние, Жатва, Летопись, форты — только то, что уже открыто по сюжету
 const boss = () => !!(G.profile.story.flags && G.profile.story.flags.bossKilled);
@@ -77,10 +78,11 @@ const WPOOL = [
   { id: 'wmerge', stat: 'merges', n: 5, t: n => `Сделать ${n} слияний у кузнеца` },
   { id: 'whw', stat: 'hwWins', n: 15, t: n => `Победить в ${n} боях Летописи битв` },
 ];
-const weekKey = () => { const d = new Date(); const j = new Date(d.getFullYear(), 0, 1); return d.getFullYear() * 100 + Math.ceil(((d - j) / 864e5 + j.getDay() + 1) / 7); };
+const weekKey = () => weekNo();   // С18: номер недели с эпохи (старый «год·100 + неделя» под Новый год давал две разные недели за два дня)
 export const wqReward = () => ({ gold: 150 + G.profile.level * 60, shards: 3 });
 export function weeklyQuests() {
   const P = G.profile, wk = weekKey();
+  if (P.wq && P.wq.week > 100000) P.wq.week = wk;   // С18: старый формат ключа — неделю не сбрасываем
   if (!P.wq || P.wq.week !== wk) { const R = seeded(wk); const picks = [...WPOOL].sort(() => R() - 0.5).slice(0, 3); P.wq = { week: wk, list: picks.map(q => ({ id: q.id, stat: q.stat, n: q.n, base: P.stats[q.stat] || 0, claimed: false })) }; }
   return P.wq.list.map(q => { const def = WPOOL.find(p => p.id === q.id); const cur = Math.min(q.n, Math.floor((P.stats[q.stat] || 0) - q.base)); return { ...q, title: def.t(q.n), cur, done: cur >= q.n }; });
 }

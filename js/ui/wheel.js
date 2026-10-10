@@ -17,7 +17,7 @@ const PRIZES = [
   { t: '★ вещь', c: '#3a6ec8', w: 8, give: P => { const it = makeItem({ slot: ['weapon', 'head', 'chest', 'amulet'][Math.floor(Math.random() * 4)], ilvl: P.level + 1, rarity: Math.random() < 0.25 ? 2 : 1, cls: P.cls }); delete it.req; autoEquip(it); return 'Вещь: ' + it.name; }   /* сборка 47: обычно зелёная */ },
 ];
 const FREE_MS = 8 * 3600e3;
-export const wheelReady = () => { const P = G.profile; return !P.wheelFree || Date.now() - P.wheelFree >= FREE_MS; };
+export const wheelReady = () => { const P = G.profile; if (P.wheelFree > Date.now()) P.wheelFree = Date.now();   /* С15: часы переведены назад */ return !P.wheelFree || Date.now() - P.wheelFree >= FREE_MS; };
 
 export function openWheel(modal, closeModal) {
   let spinning = false, angle = 0;

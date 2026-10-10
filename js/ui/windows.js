@@ -801,7 +801,7 @@ export function showStreakHelp(where) {
   modal('Трудное место', 'sm', b => {
     b.appendChild(el('p', '', 'Третья попытка подряд. Орден даёт подмогу: +15% ко всему урону на 10 минут.'));
     const r = el('div', 'row');
-    const free = el('button', 'btn gold', 'Взять подмогу'); free.onclick = () => { const P = G.profile; P.boosts.helpUntil = Date.now() + 10 * 60e3; helpGiven(where); bus.emit('statsChanged'); bus.emit('toast', { text: 'Подмога Ордена: +15% урона на 10 минут', kind: 'good' }); closeModal(); };
+    const free = el('button', 'btn gold', 'Взять подмогу'); free.onclick = () => { const P = G.profile; P.boosts.helpUntil = Date.now() + 10 * 60e3; G.stats = stats(P); /* С36: подмога действует сразу */ helpGiven(where); bus.emit('statsChanged'); bus.emit('toast', { text: 'Подмога Ордена: +15% урона на 10 минут', kind: 'good' }); closeModal(); };
     const no = el('button', 'btn', 'Сам справлюсь'); no.onclick = () => { helpGiven(where); closeModal(); };
     r.append(free, no); b.appendChild(r);
   });

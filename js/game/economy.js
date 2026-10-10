@@ -11,7 +11,7 @@ import { STORY } from '../data/quests.js';
 // сборка 47: зелье здоровья — 300 зол. (+10 за уровень); первое, по шагу обучения у Миры, — за 30
 // сборка 55: первое зелье — 30 (на шаге «Купить зелье у Миры» не дороже, чем есть золота: шаг не застрянет и у старых сохранений)
 const firstPotion = () => { const s = G.profile.story, st = s.stage; return st < STORY.length && STORY[st].id === 'meet_merchant' ? Math.min(POTION_RESERVE, G.profile.gold | 0) : POTION_RESERVE; };
-export const potionPrice = k => k === 'hp' ? (G.profile.story.flags.potBought ? 300 + 10 * (G.profile.level - 1) : firstPotion()) : k === 'mp' ? 12 + 2 * G.profile.level : 45 + 5 * G.profile.level;
+export const potionPrice = k => k === 'hp' ? (G.profile.story.flags.potBought ? 300 + 10 * (G.profile.level - 1) : firstPotion()) : k === 'mp' ? 300 + 10 * (G.profile.level - 1) /* П36: мана — по цене зелья здоровья */ : 45 + 5 * G.profile.level;
 export const stockRefreshPrice = () => 40 * G.profile.level;
 export const respecSkillPrice = () => 100 * G.profile.level;
 export const respecAttrPrice = () => 80 * G.profile.level;
