@@ -45,7 +45,8 @@ export function preloadSkin(name) {
   wait.set(name, p); return p;
 }
 export const skinLoaded = name => data.has(name);
-export const skinMeta = name => data.has(name) ? data.get(name).meta : null;   // сборка 57: items — оружие мобов (кость, оси)
+export const skinMeta = name => data.has(name) ? data.get(name).meta : null;
+export const skinData = name => data.get(name) || null;   // сборка 60: питомцы из Meshy строят свой скелет (models/pet/petrig.js)   // сборка 57: items — оружие мобов (кость, оси)
 
 const _q = new THREE.Quaternion(), _qi = new THREE.Quaternion(), _m = new THREE.Matrix4(), _inv = new THREE.Matrix4();
 // повороты костей относительно корня модели

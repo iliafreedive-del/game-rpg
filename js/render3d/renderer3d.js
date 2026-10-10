@@ -340,6 +340,9 @@ function syncPet(dt) {
   const p = G.pet;
   for (const [k, a] of actors) if (a.isPet && k !== p) { a.dispose(); actors.delete(k); }
   if (!p || !PET_MODELS[p.id]) return;
+  // сборка 60: модель из Meshy качается, когда зверёк впервые вышел; пока качается — процедурный, потом подменяется
+  const skin = 'pet_' + p.id; kit.skin.preloadSkin(skin);
+  const was = actors.get(p); if (was && !was.model.skin && kit.skin.skinLoaded(skin) && kit.skin.SKINS.on) { was.dispose(); actors.delete(p); }
   const a = getActor(p, PET_MODELS[p.id]); a.isPet = true; a.turnRate = 12;
   a.place(p.x, p.y); a.faceAngle(Math.PI / 2 - p.ang);
   a.update(dt, p.act ? { clip: 'attack', k: Math.min(1, p.act.t / p.act.dur) } : p.speed > 0.4 ? { clip: 'walk', speed: p.speed } : { clip: 'idle' }, env);
