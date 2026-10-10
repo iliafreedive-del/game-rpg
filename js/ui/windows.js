@@ -61,8 +61,8 @@ let cur = null;   // {name, bg, render}
 const winQ = [];
 export function closeModal(force) { if (!cur || (cur.lock && force !== true)) return; cur.bg.remove(); const oc = cur.onClose; cur = null; if (oc) oc(); G.atMerchant = false; G.modalOpen = false; G.paused = false; bus.emit('sfx', 'click'); bus.emit('hud'); if (winQ.length) setTimeout(pumpWin, 350); }
 function pumpWin() { if (busy() || !winQ.length) return; winQ.shift()(); }
-// П11: «занято» — открыто окно, панель NPC или облёт камеры; тогда окно от события ждёт (pumpRewards достаёт его, когда освободится)
-const busy = () => !!cur || !!G.cinema || $('ui').classList.contains('panel-open');
+// П11: «занято» — открыто окно, Летопись, панель NPC или облёт камеры; тогда окно от события ждёт (pumpRewards достаёт его, когда освободится)
+const busy = () => !!cur || !!G.cinema || !!G.hwOpen || $('ui').classList.contains('panel-open');   // Летопись (G.hwOpen) — тоже «занято»: окно не всплывает под ней
 const later = fn => (...a) => { if (busy()) winQ.push(() => fn(...a)); else fn(...a); };
 bus.on('closeModal', () => closeModal());
 function modal(title, size, render, opts = {}) {

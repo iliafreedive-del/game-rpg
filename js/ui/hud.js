@@ -225,7 +225,8 @@ function tracker() {
     let txt = q.text; const Wd = G.profile.world;
     if (q.id === 'medallion') txt = !Wd.hasKey ? 'Шаг 1/3: найдите ключ — светящийся саркофаг в оссуарии (север).' : !Wd.opened.door_altar ? 'Шаг 2/3: ключ у вас. Подойдите к запертой двери на востоке.' : 'Шаг 3/3: победите Хранителя в зале за дверью и возьмите амулет с алтаря.';
     if (Q.isReady()) { const who = Q.TURN_NAME[Q.turnNpc(q)]; txt = G.zoneId === 'town' ? `✔ Выполнено! Подойдите к ${who} (над ним «?») — за наградой.` : `✔ Выполнено! Вернитесь в деревню к ${who} за наградой.`; }
-    else if (q.where && q.where !== G.zoneId) txt = (q.where === 'catacombs' ? 'Спуститесь в катакомбы через портал. ' : 'Вернитесь в деревню через портал. ') + txt;
+    else if (q.where && q.where !== G.zoneId && !(G.zoneId === 'wild' && G.wild && q.target === 'portal_' + G.wild.realm)) txt =   // задания леса (П37): цель — в этом походе, «вернитесь в деревню» не пишем
+      (q.where === 'catacombs' ? 'Спуститесь в катакомбы через портал. ' : 'Вернитесь в деревню через портал. ') + txt;
     h = `<div class="ch">${chapterOf(q)} · ${done}/${inCh.length}</div><div class="t">${esc(q.title)}${pr ? ` <span class="muted">${pr.cur}/${pr.max}</span>` : ''}</div><div class="d">${esc(txt)}</div>` + (pr ? `<div class="pb"><i style="width:${pr.cur / pr.max * 100}%"></i></div>` : '');
   }
   if (h !== lastTrack) { $('tracker').innerHTML = h; lastTrack = h; }

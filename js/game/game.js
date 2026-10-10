@@ -359,6 +359,7 @@ export function interact(it) {
     case 'wildnext': {
       if (it.hidden || it.sealed || !G.wild) { bus.emit('toast', it.sealed ? { text: 'Портал «Вглубь» запечатан', sub: G.wild && G.wild.realm === 'temple' ? 'Победите стража святилища в центре храма — стрелка ведёт к нему' : 'Победите вожака поля — стрелка ведёт к нему', kind: 'warn' } : { text: 'Портал запечатан', sub: 'Сначала отбейте форт', kind: 'warn' }); bus.emit('sfx', 'deny'); return; }
       const nd = G.wild.depth + 1, need = wildReqLevel(G.wild.realm, nd);
+      { const g = wildDepthGate(G.wild.realm, nd); if (g) { bus.emit('toast', { ...g, kind: 'warn' }); bus.emit('sfx', 'deny'); return; } }   // П37: до ноши и тоста «прошли через портал» (loadZone всё равно не пустит)
       if (P.level < need) { bus.emit('toast', { text: `Дальше — с ${need} уровня`, sub: `У вас ${P.level}. Наберитесь сил на этом поле или в катакомбах`, kind: 'warn' }); bus.emit('sfx', 'deny'); return; }
       bankCarry('Вы прошли через портал «Вглубь»'); bus.emit('wildField'); bus.emit('sfx', 'portal'); loadZone('wild', { realm: G.wild.realm, depth: nd }); return;
     }

@@ -130,7 +130,8 @@ let pauseOv = null;
 function showPauseOv() {
   if (pauseOv || !G.profile) return;
   pauseOv = el('div', 'pause-ov'); pauseOv.appendChild(el('div', 'pause-box')).appendChild(el('div', 'goldc pause-t', 'Пауза'));
-  const go = el('button', 'btn gold', 'Продолжить'); go.onclick = () => { pauseOv.remove(); pauseOv = null; if (away.size) return; G.awayPause = false; if (G.hidePaused) G.paused = false; G.hidePaused = false; bus.emit('sfx', 'click'); };
+  // пока стояла пауза, могло открыться окно (предложение, награда) — тогда паузу держит оно, «Продолжить» её не снимает
+  const go = el('button', 'btn gold', 'Продолжить'); go.onclick = () => { pauseOv.remove(); pauseOv = null; if (away.size) return; G.awayPause = false; if (G.hidePaused && !G.modalOpen) G.paused = false; G.hidePaused = false; bus.emit('sfx', 'click'); };
   pauseOv.firstChild.appendChild(go); document.body.appendChild(pauseOv);
 }
 const setAway = (why, on) => {
