@@ -45,7 +45,9 @@ export function initHUD() {
   hold('btnAtk', () => { const bs = G.profile.bigSkill; if (bs && G.profile.skills[bs] && C.skillUsable(bs).ok) C.castSkill(bs); input.attackHeld = true; }, () => { input.attackHeld = false; });
   for (let i = 0; i < 4; i++) hold('sk' + i, () => { const id = G.profile.slots[i]; if (id) C.castSkill(id); else openWindow('skills'); });
   hold('btnDodge', () => G.player.dodge(input.wx, input.wy));
-  hold('potHP', () => usePotion('hp')); hold('potMP', () => usePotion('mp'));
+  // П62: нажал пустую банку — окно: купить у Миры или 2 зелья за рекламу (а не только «Нет зелий»)
+  const pot = k => { if (G.profile.potions[k] > 0 || G.player.dead) usePotion(k); else openWindow('potEmpty', k); };
+  hold('potHP', () => pot('hp')); hold('potMP', () => pot('mp'));
   hold('btnAct', () => { if (G.focus) interact(G.focus); });
   $('btnScroll').onclick = () => useScroll();
   // правки 2 (П51): напоминание о рывке в бою с большим боссом (combat.js enemyTelegraph) — кнопка мигает, над героем подсказка не чаще раза в 4 с
@@ -70,7 +72,7 @@ export function initHUD() {
   const cl = G.profile.cls || 'warrior'; $('portrait').style.backgroundImage = `url(assets/sprites/${cl === 'warrior' ? 'portrait' : 'portrait_' + cl}.png)`;
   bus.on('hud', () => { lastHud = 0; });
   bus.on('skillsChanged', refreshSkills);
-  bus.on('skillSlotted', ({ id, i }) => { toast({ text: `Новый навык: ${SKILLS[id].name}`, sub: `Кнопка ${i + 1} справа внизу`, kind: 'good' }); const b = $('sk' + i); b.classList.add('flash'); setTimeout(() => b.classList.remove('flash'), 4000); }); bus.on('equipChanged', refreshWeapon); bus.on('statsChanged', refreshSkills);
+  bus.on('skillSlotted', ({ id, i }) => { toast({ text: `Новый навык: ${SKILLS[id].name}`, sub: `Кнопка ${i + 1} справа внизу`, kind: 'good' }); const b = $('sk' + i); b.classList.add('flash'); setTimeout(() => b.classList.remove('flash'), 4000); }); bus.on('equipChanged', refreshWeapon); bus.on('statsChanged', refreshSkills); bus.on('statsChanged', refreshWeapon);
   bus.on('focus', it => { const b = $('btnAct'); if (it) { b.textContent = it.label; b.classList.remove('hidden'); } else b.classList.add('hidden'); });
   bus.on('toast', toast);
   bus.on('bagFull', () => toast({ text: 'Сумка полна!', sub: 'Продайте лишнее или купите расширение сумки — нажмите, чтобы открыть сумку', kind: 'bad', onClick: () => openWindow('inventory') }));   // сборка 38
@@ -83,7 +85,18 @@ export function initHUD() {
   refreshSkills(); refreshWeapon();
 }
 function refreshWeapon() {
-  const w = G.profile.gear.weapon, bs = G.profile.bigSkill; if (bs && G.profile.skills[bs]) skillCanvasInto($('btnAtk').querySelector('canvas'), bs); else drawIcon($('btnAtk').querySelector('canvas'), w ? iconOf(w) : 'sword');
+  const w = G.profile.gear.weapon, bs = G.profile.bigSkill, b = $('btnAtk'); if (bs && G.profile.skills[bs]) skillCanvasInto(b.querySelector('canvas'), bs); else drawIcon(b.querySelector('canvas'), w ? iconOf(w) : 'sword');
+  // П31: герой бьёт сам, когда враг рядом, — отдельная кнопка удара не нужна. Большая кнопка видна, только если на неё поставлен навык (★),
+  // и тогда на ней видна перезарядка, как на малых. Пробел на ПК по-прежнему бьёт
+  const on = !!(bs && G.profile.skills[bs]); $('ui').classList.toggle('noatk', !on);
+  if (on && !b.querySelector('.cd')) b.appendChild(el('div', 'cd'));
+}
+const waveSt = {};
+function potWave(id, low) {
+  const st = waveSt[id] || (waveSt[id] = { low: false, at: 0 }), was = st.low; st.low = low;
+  if (!low || was || performance.now() < st.at) return;
+  const b = $(id); if (!b || !b.offsetParent) return; st.at = performance.now() + 15000;
+  for (let i = 0; i < 3; i++) { const r = el('i', 'potwave ' + id); r.style.cssText = `left:${b.offsetLeft}px;top:${b.offsetTop}px;width:${b.offsetWidth}px;height:${b.offsetHeight}px;animation-delay:${i * 0.45}s`; b.parentNode.appendChild(r); setTimeout(() => r.remove(), 2000 + i * 450); }
 }
 function refreshSkills() {
   for (let i = 0; i < 4; i++) {
@@ -103,6 +116,13 @@ export function toast(t) {
   while (box.children.length >= 4) box.firstChild.remove();
   // сборка 50: на вертикальном телефоне — под правой колонкой HUD (задание, «Веди меня»), а не поверх неё (iPhone SE, Android 360)
   { const r = $('hudR'), port = innerHeight > innerWidth && innerWidth <= 760; box.style.top = port && r && r.offsetParent ? Math.min(innerHeight * 0.5, r.getBoundingClientRect().bottom + 8) + 'px' : '';
+    // С2: в горизонтали — в просвет между левой колонкой (полосы, «Сезон») и правой (золото, трекер), а не поверх них
+    box.style.left = box.style.width = '';
+    if (!port && innerWidth > innerHeight && r && r.offsetParent) {
+      const L = $('hudL').getBoundingClientRect().right, Rl = Math.min(...[...r.children].filter(c => c.offsetParent && c.offsetWidth).map(c => c.getBoundingClientRect().left), innerWidth);
+      if (Rl - L >= 220) { box.style.left = (L + Rl) / 2 + 'px'; box.style.width = Math.min(420, Rl - L - 16) + 'px'; }
+      else box.style.top = Math.min(innerHeight * 0.5, r.getBoundingClientRect().bottom + 8) + 'px';
+    }
     const sv = $('survHud'); if (sv && sv.offsetParent && G.zoneId === 'survival') box.style.top = Math.min(innerHeight * 0.5, Math.max(r && r.offsetParent ? r.getBoundingClientRect().bottom : 0, sv.getBoundingClientRect().bottom) + 8) + 'px'; }   // сборка 59: в Жатве — под её табло, не под ним
   const d = el('div', 'toast ' + (t.kind || ''), `<div class="a" ${t.color ? `style="color:${t.color}"` : ''}>${esc(t.text)}</div>${t.sub ? `<div class="b">${esc(t.sub)}</div>` : ''}`);
   d.dataset.k = t.text + '|' + (t.sub || '');
@@ -124,6 +144,10 @@ export function updateHUD(dt) {
     const sk = SKILLS[id]; const left = pl.cds[id] || 0; cd.style.setProperty('--p', (left > 0 ? left / sk.cd * 100 : 0) + '%');
     const u = C.skillUsable(id); b.classList.toggle('off', !u.ok && u.why !== 'Перезарядка');
   }
+  { const bs = P.bigSkill, cd = bs && P.skills[bs] && $('btnAtk').querySelector('.cd'); if (cd) { const left = pl.cds[bs] || 0; cd.style.setProperty('--p', (left > 0 ? left / SKILLS[bs].cd * 100 : 0) + '%'); } }
+  // П31: здоровье или мана ≤ 30% — от банки ненадолго расходятся волны (раз в 15 с, пока не отпустит)
+  potWave('potHP', !pl.dead && pl.hp <= S.maxHP * 0.3 && P.potions.hp > 0);
+  potWave('potMP', !pl.dead && pl.mp <= S.maxMP * 0.3 && (P.potions.mp || 0) > 0);
   const ui = $('ui');
   ui.classList.toggle('lowhp', G.player && !G.player.dead && G.player.hp < G.stats.maxHP * 0.3);
   ui.classList.toggle('surv', !!G.surv);
@@ -205,15 +229,24 @@ function tracker() {
   }
   if (h !== lastTrack) { $('tracker').innerHTML = h; lastTrack = h; }
 }
+let safeC = null, safeEl = null;
+addEventListener('resize', () => { safeC = null; }); addEventListener('orientationchange', () => { safeC = null; });
+function safeInsets() {   // env(safe-area-inset-*) в пикселях: CSS-переменные --safe-* читаем через невидимый элемент
+  if (safeC) return safeC;
+  if (!safeEl) { safeEl = el('div', ''); safeEl.style.cssText = 'position:fixed;visibility:hidden;pointer-events:none;padding:var(--safe-t) var(--safe-r) var(--safe-b) var(--safe-l)'; document.body.appendChild(safeEl); }
+  const c = getComputedStyle(safeEl), n = v => parseFloat(v) || 0;
+  return (safeC = { t: n(c.paddingTop), r: n(c.paddingRight), b: n(c.paddingBottom), l: n(c.paddingLeft) });
+}
 // стрелка у края экрана: если цель задания за кадром, показываем, в какую сторону бежать и сколько метров
 function edgeArrow() {
   const e = $('edgeArrow'), t = G.guide, P = G.player;
   if (!t || !P || P.dead || G.surv) { e.classList.add('hidden'); return; }
   const [sx, sy] = G.cam.toScreen(t.x, t.y);
-  const m = 46, W = innerWidth, H = innerHeight, inside = sx > m && sx < W - m && sy > m && sy < H - m;
-  if (inside) { e.classList.add('hidden'); return; }
-  const cx = W / 2, cy = H / 2; let dx = sx - cx, dy = sy - cy; const l = Math.hypot(dx, dy) || 1; dx /= l; dy /= l;
-  let k = Math.min((W / 2 - m) / Math.abs(dx || 1e-6), (H / 2 - m) / Math.abs(dy || 1e-6));
+  // С3: отступ от края — 46 px плюс вырез/скругление экрана с каждой стороны (safe area)
+  const S = safeInsets(), W = innerWidth, H = innerHeight, mL = 46 + S.l, mR = 46 + S.r, mT = 46 + S.t, mB = 46 + S.b;
+  if (sx > mL && sx < W - mR && sy > mT && sy < H - mB) { e.classList.add('hidden'); return; }
+  const cx = (mL + W - mR) / 2, cy = (mT + H - mB) / 2; let dx = sx - cx, dy = sy - cy; const l = Math.hypot(dx, dy) || 1; dx /= l; dy /= l;
+  let k = Math.min((dx > 0 ? W - mR - cx : cx - mL) / Math.abs(dx || 1e-6), (dy > 0 ? H - mB - cy : cy - mT) / Math.abs(dy || 1e-6));
   // сборка 59: стрелка не ложится на полосы здоровья, трекер, кнопки боя — сдвигается по тому же направлению ближе к центру
   const R = ['hudL', 'hudR', 'pad', 'btnAct', 'btnLead'].map(id => $(id)).filter(x => x && x.offsetParent).map(x => x.getBoundingClientRect()).filter(r => r.width && r.width < W * 0.9);
   const hit = (x, y) => R.some(r => x > r.left - 30 && x < r.right + 30 && y > r.top - 26 && y < r.bottom + 26);

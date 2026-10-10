@@ -97,7 +97,7 @@ async function boot() {
     const n = el('button', 'btn gold', 'Начать игру'); n.onclick = newGame; btns.append(n);
   }
   btns.appendChild(el('div', 'muted', `<small>Версия: ${BUILD}</small>`));
-  btns.appendChild(el('div', 'muted', '<small>Телефон: джойстик слева, атака справа · ПК: WASD + Пробел</small>'));
+  btns.appendChild(el('div', 'muted', '<small>Телефон: джойстик слева, рывок и зелья справа · ПК: WASD, Shift — рывок</small>'));
 }
 
 function pickClass(box, cb, saved = {}, askOverwrite = () => true) {

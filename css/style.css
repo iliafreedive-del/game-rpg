@@ -510,7 +510,8 @@ canvas#game{filter:saturate(1.22) contrast(1.08) brightness(1.06)}
 .eq-lv{position:absolute;left:5px;bottom:2px;font:800 11px sans-serif;color:#fff;text-shadow:0 1px 2px #000}
 .eq-up{position:absolute;right:5px;bottom:2px;font:800 11px sans-serif;color:#9fe38e;text-shadow:0 1px 2px #000}
 .eq-ar{position:absolute;right:4px;top:1px;font:900 14px sans-serif;text-shadow:0 1px 2px #000}
-.eq-new{position:absolute;left:4px;top:4px;width:9px;height:9px;border-radius:50%;background:#ffd24a;box-shadow:0 0 8px #ffd24a}
+.eq-new{position:absolute;left:3px;top:3px;padding:1px 4px;border-radius:7px;background:#ffd24a;color:#2a1a00;font:800 9px/12px sans-serif;letter-spacing:.3px;box-shadow:0 0 8px #ffd24a;animation:newp 1.1s ease-in-out infinite alternate}.eq-new.inl{position:static;display:inline-block;animation:none}
+@keyframes newp{from{box-shadow:0 0 3px #ffd24a}to{box-shadow:0 0 12px 2px #ffd24a}}
 .eq-bagh{display:flex;justify-content:space-between;align-items:baseline;margin:12px 2px 6px;font:600 16px var(--serif);color:var(--gold)}
 .eq-tabs{display:flex;gap:6px;overflow-x:auto;margin-bottom:8px}
 .eq-tab{flex:none;padding:6px 12px;border-radius:16px;border:1px solid #4a3a2a;background:#1a1418;color:#cdbf9f;font-size:13px}.eq-tab.on{background:#6a4a1a;color:#fff;border-color:#d8a84a}
@@ -819,3 +820,22 @@ body.photo #hudL,body.photo #hudR,body.photo #pad,body.photo #btnAct,body.photo 
 .hw-pano img{width:100%;height:100%;object-fit:cover;display:block}
 .hw-rimg{display:block;width:min(300px,80%);margin:-6px auto -18px;pointer-events:none}
 @media (max-height:500px){.hw-pano{display:none}.hw-rimg{width:180px}}
+/* С4: зона нажатия мелких кнопок не меньше ~44 px — невидимое поле вокруг (сама кнопка того же размера) */
+:where(.btn.sm,.mx,.eq-tab,.pn-btn){position:relative}
+.btn.sm::after,.mx::after,.eq-tab::after,.q-tab::after,.pn-x::after,.pn-btn::after{content:'';position:absolute;inset:-7px}
+.mbtn::before{content:'';position:absolute;inset:-6px}
+.eq-mrg{position:absolute;right:4px;bottom:15px;font:700 12px sans-serif;color:#ffd98a;text-shadow:0 1px 2px #000}
+/* П31: без навыка на ★ большой кнопки удара нет (герой бьёт сам); перезарядка навыка на ней; волны от банки при ≤30% */
+#ui.noatk #btnAtk{display:none}
+#btnAtk .cd{position:absolute;inset:0;border-radius:50%;background:conic-gradient(#000a var(--p,0%),#0000 0);pointer-events:none}
+.potwave{position:absolute;border-radius:50%;pointer-events:none;border:3px solid #ff6a5a;opacity:0;animation:potwave 1.3s ease-out both}
+.potwave.potMP{border-color:#6aa8ff}
+@keyframes potwave{0%{transform:scale(1);opacity:.95}100%{transform:scale(2.3);opacity:0}}
+#pad>.potwave{pointer-events:none}
+.death-help{max-width:420px;padding:8px 12px;border:1px solid #d8a84a88;border-radius:10px;background:#1a1010cc}.death-help p{margin:4px 0 6px}
+.of-pack{display:flex;justify-content:center;gap:10px;margin:8px 0}.of-x{display:flex;flex-direction:column;align-items:center;gap:1px;min-width:64px;padding:6px;border:1px solid #5d4a30;border-radius:10px;background:#1a1418}.of-x img{width:40px;height:40px}.of-x b{color:var(--gold);font-size:14px}.of-x small{font-size:10px;color:#cdbf9f;text-align:center}
+.pn-btn.pn-info{min-width:38px;padding:0}
+.pet-fx{margin:8px 0;padding:8px 10px;border:1px solid #6a5226;border-radius:8px;background:#1e150c}
+/* С26: размер текста — масштаб содержимого окон, панелей NPC, тостов и трекера; «меньше движения» — без бесконечных анимаций */
+.mb>*,.npc-panel>*,#toasts>.toast,#tracker,.ic-box{zoom:var(--fs,1)}
+html.rm *,html.rm *::before,html.rm *::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}

@@ -158,12 +158,30 @@ export function render() {
   if (Z.dark) darkness(); else dusk();
   drawProjectiles(true);
   drawEffects(); drawParticles(); drawBlades();
-  drawBars(); drawPickupLabels(); drawPlates(); drawBubbles(); drawTexts(); drawInteractMarker();
+  placed.length = 0; drawBars(); drawPlates(); drawPickupLabels(); drawBubbles(); drawTexts(); drawInteractMarker();
 }
+// С1/С27: подпись в мире не рисуем, если она легла на блок интерфейса (полосы, трекер, кнопки, тосты) или на уже нарисованную подпись.
+// Прямоугольники интерфейса берём раз в 250 мс (не каждый кадр); дети #hudR/#pad/#toasts — по отдельности, сам контейнер шире видимого
+let hudR = [], hudAt = -1e9; const placed = [];
+function hudRects() {
+  const now = performance.now(); if (now - hudAt < 250) return hudR; hudAt = now; hudR = [];
+  const g = id => document.getElementById(id), nodes = [g('hudL'), g('btnAct'), g('edgeArrow')];
+  for (const id of ['hudR', 'pad', 'toasts']) { const c = g(id); if (c) nodes.push(...c.children); }
+  for (const n of nodes) { if (!n || n.classList.contains('hidden')) continue; const r = n.getBoundingClientRect(); if (r.width > 0 && r.height > 0 && r.width < W * 0.9) hudR.push(r); }
+  return hudR;
+}
+const hit = (a, x0, y0, x1, y1, m) => a.left - m < x1 && a.right + m > x0 && a.top - m < y1 && a.bottom + m > y0;
+// свободно ли место под подпись [x0,y0]-[x1,y1] (экранные px); если да — занимаем его
+function labelFree(x0, y0, x1, y1) {
+  for (const r of hudRects()) if (hit(r, x0, y0, x1, y1, 4)) return false;
+  for (const r of placed) if (hit(r, x0, y0, x1, y1, 1)) return false;
+  placed.push({ left: x0, top: y0, right: x1, bottom: y1 }); return true;
+}
+const byDist = a => { const P = G.player; return P ? a.slice().sort((p, q) => Math.hypot(P.x - p.x, P.y - p.y) - Math.hypot(P.x - q.x, P.y - q.y)) : a; };
 // 3D-режим: подписи над NPC (имя и «!»/«?» задания) — в 2D их рисует drawNPC; без них жителей в деревне не найти
 function drawNpcPlates() {
   const cam = G.cam, z = Math.min(1.25, cam.zoom || 1);
-  for (const n of G.npcs || []) {
+  for (const n of byDist(G.npcs || [])) {
     if (n.echoFor || !n.name) continue;
     const [x, y] = cam.toScreen(n.x, n.y, 2.5); if (x < -60 || y < -40 || x > W + 60 || y > H + 40) continue;
     const d = Math.hypot(G.player.x - n.x, G.player.y - n.y), near = d < 9, ty = y;
@@ -171,10 +189,11 @@ function drawNpcPlates() {
     if (d < 10) {   // сборка 47: имя — только когда герой ближе 10 м, издалека над жителем лишь «!»/«?» (не закрывают деревню)
       ctx.font = `600 ${Math.round(13 * z)}px Georgia, serif`;
       const tw = ctx.measureText(n.name).width + 14;
+      if (labelFree(x - tw / 2, ty - 14, x + tw / 2, ty + 5)) {
       ctx.globalAlpha = near ? 1 : 0.85; ctx.fillStyle = 'rgba(30,20,8,0.82)'; ctx.fillRect(x - tw / 2, ty - 14, tw, 19); ctx.strokeStyle = '#c99a3c'; ctx.lineWidth = 1; ctx.strokeRect(x - tw / 2, ty - 14, tw, 19);
-      ctx.fillStyle = '#ffe9b0'; ctx.fillText(n.name, x, ty);
+      ctx.fillStyle = '#ffe9b0'; ctx.fillText(n.name, x, ty); }
     }
-    if (n.marker) { const b = Math.sin(G.time * 4) * 4; ctx.font = `bold ${Math.round(30 * z)}px Georgia, serif`; ctx.strokeStyle = '#000'; ctx.lineWidth = 4; ctx.strokeText(n.marker, x, ty - 20 + b); ctx.fillStyle = n.marker === '?' ? '#ffe36a' : '#ffd24a'; ctx.fillText(n.marker, x, ty - 20 + b); }
+    if (n.marker && !hudRects().some(r => hit(r, x - 10, ty - 50, x + 10, ty - 14, 2))) { const b = Math.sin(G.time * 4) * 4; ctx.font = `bold ${Math.round(30 * z)}px Georgia, serif`; ctx.strokeStyle = '#000'; ctx.lineWidth = 4; ctx.strokeText(n.marker, x, ty - 20 + b); ctx.fillStyle = n.marker === '?' ? '#ffe36a' : '#ffd24a'; ctx.fillText(n.marker, x, ty - 20 + b); }
     ctx.globalAlpha = 1;
   }
 }
@@ -186,7 +205,7 @@ export function renderOverlay() {
   drawGroundFx(); drawTelegraphs(); drawGuide(); drawPickupsGround();
   drawProjectiles(false); drawProjectiles(true);
   drawEffects(); drawParticles(); drawBlades(); if (G.surv) SV.drawSurvivalFx(ctx, G.cam);
-  drawBars(); drawPickupLabels(); drawPlates(); drawNpcPlates(); drawBubbles(); drawTexts(); drawInteractMarker();
+  placed.length = 0; drawBars(); drawNpcPlates(); drawPlates(); drawPickupLabels(); drawBubbles(); drawTexts(); drawInteractMarker();   // С27: важные подписи первыми
 }
 export function clearOverlay() { if (ctx) { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height); } }
 
@@ -514,9 +533,10 @@ function drawPickupsGround() {
 }
 function drawPickupLabels() {
   const cam = G.cam, z = cam.zoom; ctx.textAlign = 'center'; ctx.font = `600 ${Math.round(11 * Math.min(1.25, z))}px Georgia, serif`;
-  for (const p of G.pickups) {
+  for (const p of byDist(G.pickups)) {
     if (p.kind !== 'item') continue;
     const [x, y] = cam.toScreen(p.x, p.y, 0.9); const t = p.item.name; const w = ctx.measureText(t).width + 10;
+    if (!labelFree(x - w / 2, y - 13, x + w / 2, y + 3)) continue;
     ctx.fillStyle = 'rgba(0,0,0,0.72)'; ctx.fillRect(x - w / 2, y - 13, w, 16); ctx.fillStyle = RARITY[p.item.rarity].color; ctx.fillText(t, x, y);
   }
 }
@@ -591,11 +611,12 @@ function drawPlates() {
     const label = it.plate + (near && it.reqLevel ? ` · ур. ${it.reqLevel}+` : '') + (near && it.lockNote ? ` · ${it.lockNote}` : '');
     const fs = Math.round(12 * Math.min(1.15, z)), ty = y + 34 * z + fs; ctx.font = `600 ${fs}px Georgia, serif`; ctx.textAlign = 'center';
     const tw = ctx.measureText(label).width + 16, th = fs + 7;
+    if (labelFree(x - tw / 2, ty - fs - 1, x + tw / 2, ty - fs - 1 + th)) {
     ctx.globalAlpha = near ? 0.95 : 0.7;
     ctx.fillStyle = locked ? 'rgba(40,8,8,0.72)' : 'rgba(30,20,6,0.62)'; ctx.beginPath(); ctx.roundRect(x - tw / 2, ty - fs - 1, tw, th, th / 2); ctx.fill();
     ctx.strokeStyle = locked ? '#c0463c99' : '#c99a3c99'; ctx.lineWidth = 1; ctx.stroke();
-    ctx.fillStyle = locked ? '#ff8a7a' : '#ffd98a'; ctx.fillText((locked ? '🔒 ' : '') + label, x, ty); ctx.globalAlpha = 1;
-    if (it.marker) { const b = Math.sin(G.time * 4) * 4; ctx.font = `bold ${Math.round(28 * z)}px Georgia, serif`; ctx.strokeStyle = '#000'; ctx.lineWidth = 3; const my = y - 125 * z + b; ctx.strokeText(it.marker, x, my); ctx.fillStyle = '#ffd24a'; ctx.fillText(it.marker, x, my); }
+    ctx.fillStyle = locked ? '#ff8a7a' : '#ffd98a'; ctx.fillText((locked ? '🔒 ' : '') + label, x, ty); ctx.globalAlpha = 1; }
+    if (it.marker && !hudRects().some(r => hit(r, x - 10, y - 125 * z - 26, x + 10, y - 125 * z + 6, 2))) { const b = Math.sin(G.time * 4) * 4; ctx.font = `bold ${Math.round(28 * z)}px Georgia, serif`; ctx.strokeStyle = '#000'; ctx.lineWidth = 3; const my = y - 125 * z + b; ctx.strokeText(it.marker, x, my); ctx.fillStyle = '#ffd24a'; ctx.fillText(it.marker, x, my); }
   }
 }
 
