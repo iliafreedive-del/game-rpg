@@ -106,11 +106,12 @@ function bus(ac, out, wet = 0.55, sec = 4.5) {
 // аккорды (бас, затем струны перебора): Em — C — G — D / Em — Am — C — B — минор без резких диссонансов
 const V_CH = [[40, [52, 59, 64, 67]], [36, [52, 60, 64, 67]], [43, [55, 59, 62, 67]], [38, [54, 57, 62, 66]], [40, [52, 59, 64, 67]], [45, [52, 57, 60, 64]], [36, [52, 60, 64, 67]], [35, [51, 54, 59, 63]]];
 const V_MEL = [[[0, 76], [3, 74]], [[0, 72], [2, 76]], [[0, 74], [2, 71]], [[0, 69]], [[0, 76], [1.5, 79], [3, 78]], [[0, 76], [2, 72]], [[0, 72], [2, 76]], [[0, 75]]];   // [доля, MIDI]
-export function village(ac, out, t0, bars = 16, r = Math.random) {
-  const b = 60 / 64, bar = b * 4, o = bus(ac, out, 0.6, 4.5);
-  air(ac, o, t0, bars * bar + 2, 0.05);
-  for (let i = 0; i < bars; i++) {
-    const t = t0 + i * bar, [bass, up] = V_CH[i % 8], round = Math.floor(i / 8);
+const V_BAR = 60 / 64 * 4;
+// o — выход с залом (bus); from — номер первого такта (в игре тема играется кусками без конца)
+function villageBars(ac, o, t0, bars, r, from = 0) {
+  const b = 60 / 64, bar = b * 4;
+  for (let n = 0; n < bars; n++) {
+    const i = from + n, t = t0 + n * bar, [bass, up] = V_CH[i % 8], round = Math.floor(i / 8);
     guitar(ac, o, t, bass, 0.5, 4, -0.1);
     // перебор восьмыми, «живой» — каждая нота чуть мимо сетки
     const pick = [0, 1, 2, 3, 2, 1, 2, 3];
@@ -122,13 +123,15 @@ export function village(ac, out, t0, bars = 16, r = Math.random) {
   }
   return bars * bar;
 }
+export function village(ac, out, t0, bars = 16, r = Math.random) { const o = bus(ac, out, 0.6, 4.5); air(ac, o, t0, bars * V_BAR + 2, 0.05); return villageBars(ac, o, t0, bars, r); }
 
 // ---------- бой Летописи: тёмный, но бодрый и не давящий — ре минор, 104 уд/мин, Dm — Bb — F — C / Dm — Bb — C — A ----------
 const B_CH = [[38, 3], [34, 4], [41, 4], [36, 4], [38, 3], [34, 4], [36, 4], [33, 4]];   // [бас, терция: 3 — минор, 4 — мажор]
-export function battle(ac, out, t0, bars = 24, r = Math.random) {
-  const b = 60 / 104, bar = b * 4, s = b / 4, lvl = G(ac, 0.6); lvl.connect(out); const o = bus(ac, lvl, 0.4, 3.2);
-  for (let i = 0; i < bars; i++) {
-    const t = t0 + i * bar, [root, third] = B_CH[i % 8], sec = Math.floor(i / 8);
+const B_BAR = 60 / 104 * 4;
+function battleBars(ac, o, t0, bars, r, from = 0) {
+  const b = 60 / 104, bar = b * 4, s = b / 4;
+  for (let n = 0; n < bars; n++) {
+    const i = from + n, t = t0 + n * bar, [root, third] = B_CH[i % 8], sec = i < 8 ? 0 : 1 + Math.floor(i / 8) % 2;   // вступление, дальше по кругу: полный бой ↔ кульминация
     // барабаны: шаг «БУМ . . бум БУМ . . .», к середине гуще, но без грохота
     const kit = sec === 0 ? [[0, 1], [6, 0.5], [8, 0.8]] : [[0, 1], [3, 0.4], [6, 0.55], [8, 0.85], [11, 0.4], [14, 0.5]];
     for (const [k, v] of kit) taiko(ac, o, t + k * s, v * 0.6, k % 8 ? 100 : 75, 0.8);
@@ -144,6 +147,36 @@ export function battle(ac, out, t0, bars = 24, r = Math.random) {
     if (sec >= 1) [0, 2, 3, 6].forEach((k, j) => guitar(ac, o, t + k * b / 2, root + 24 + [0, 7, third, 12][j], 0.16, 2, 0.25));
     if (i % 8 === 7) for (let k = 0; k < 4; k++) taiko(ac, o, t + (12 + k) * s, 0.3 + k * 0.08, 120 - k * 8, 0.6);   // сбивка в конце фразы
   }
-  taiko(ac, o, t0 + bars * bar, 0.7, 60, 2);
-  return bars * bar + 2;
+  return bars * bar;
+}
+export function battle(ac, out, t0, bars = 24, r = Math.random) {
+  const lvl = G(ac, 0.6); lvl.connect(out); const o = bus(ac, lvl, 0.4, 3.2);
+  const d = battleBars(ac, o, t0, bars, r); taiko(ac, o, t0 + d, 0.7, 60, 2); return d + 2;
+}
+
+// ---------- в игре: тема играет бесконечно, ноты раскладываются на 3 с вперёд ----------
+const THEMES = {
+  town: { bars: villageBars, bar: V_BAR, wet: 0.6, rev: 4.5, air: 0.05, gain: 1 },
+  battle: { bars: battleBars, bar: B_BAR, wet: 0.4, rev: 3.2, air: 0, gain: 0.6 },
+};
+export const hasTheme = name => !!THEMES[name];
+let cur = null;
+export function playTheme(ac, dest, name) {
+  stopTheme(); const T = THEMES[name]; if (!T) return;
+  const now = ac.currentTime, out = G(ac, 0); out.gain.setValueAtTime(0, now); out.gain.linearRampToValueAtTime(T.gain, now + 2.5); out.connect(dest);
+  const o = bus(ac, out, T.wet, T.rev), st = { out, o, bar: 0, t: now + 0.3, timer: 0, nodes: [] };
+  if (T.air) { const n = ac.createBufferSource(); n.buffer = noiseBuf(ac, 'brown'); n.loop = true; const f = biq(ac, 'lowpass', 300, 0.5), g = G(ac, T.air); n.connect(f); f.connect(g); g.connect(o); n.start(now); st.nodes.push(n); }
+  const pump = () => {
+    if (cur !== st) return;
+    if (st.t < ac.currentTime) st.t = ac.currentTime + 0.1;   // вкладка спала — не догонять пропущенное
+    while (st.t < ac.currentTime + 3) { try { T.bars(ac, o, st.t, 1, Math.random, st.bar); } catch (e) { console.warn('music', e); } st.t += T.bar; st.bar++; }
+    st.timer = setTimeout(pump, 700);
+  };
+  cur = st; pump();
+}
+export function stopTheme(fade = 2) {
+  const st = cur; if (!st) return; cur = null; clearTimeout(st.timer);
+  const t = st.out.context.currentTime; st.out.gain.cancelScheduledValues(t); st.out.gain.setValueAtTime(st.out.gain.value, t); st.out.gain.linearRampToValueAtTime(0, t + fade);
+  for (const n of st.nodes) { try { n.stop(t + fade + 0.1); } catch { } }
+  setTimeout(() => { try { st.out.disconnect(); } catch { } }, (fade + 5) * 1000);
 }

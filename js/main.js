@@ -67,6 +67,7 @@ async function boot() {
     await loadZone('town');
     $('title').remove(); startMusic('town');
     bus.on('zoneEntered', z => startMusic(z));
+    bus.on('music', z => startMusic(z || G.zoneId));   // сборка 60: бой Летописи — своя тема, потом обратно музыка зоны
     restorePurchases().catch(() => { });
     const dz = dozorPending(); if (dz) setTimeout(() => showDozor(dz), 900); else { initDozor(); G.dozorChecked = true; }
     if (p.simplified && p.simplified.upg) { bus.emit('toast', { text: 'Улучшения упрощены', sub: `Лишние усиления вернули ${p.simplified.gold} зол.`, kind: 'good' }); delete p.simplified; }
