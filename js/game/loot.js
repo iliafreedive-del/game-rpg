@@ -109,6 +109,14 @@ export function updatePickups(dt) {
   for (let i = G.pickups.length - 1; i >= 0; i--) if (G.pickups[i].taken) G.pickups.splice(i, 1);
 }
 
+// С16: смена зоны — вещи, ждавшие места в полной сумке, не пропадают молча: продаются по цене лавки, золото — герою
+export function flushPickups() {
+  const prof = G.profile; let n = 0, v = 0;
+  for (const p of G.pickups) if (!p.taken && p.kind === 'item' && p.wait) { n++; v += sellValue(p.item); }
+  if (!n) return; prof.gold += v; prof.stats.gold += v; bus.emit('gold', v);
+  bus.emit('toast', { text: `Сумка была полна: продано вещей — ${n}`, sub: `+${v} зол.`, kind: 'info' });
+}
+
 // ------------------------------------------------------------------ XP & levels
 import { GROWTH } from '../data/items.js';
 export function autoGrow(P, n = 1) { const g = GROWTH[P.cls || 'warrior']; for (const k in g) P.attrs[k] += g[k] * n; }

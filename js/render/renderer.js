@@ -325,11 +325,13 @@ function drawTelegraphs() {
     ctx.save(); const [x, y] = cam.toScreen(tg.x, tg.y);
     ctx.translate(x, y); ctx.scale(1, 0.5);
     const R = tg.r * 32 * z * Math.SQRT2;   // world metre → screen along iso diagonal
-    ctx.fillStyle = tg.rift ? 'rgba(170,70,255,0.18)' : 'rgba(255,60,30,0.16)'; ctx.strokeStyle = tg.rift ? 'rgba(200,120,255,0.8)' : 'rgba(255,90,50,0.85)'; ctx.lineWidth = 2.5;
+    // правки 2 (П21): цвет подсветки — по материалу удара (tg.col: корни — зелёный, камень — песочный, кость — слоновая кость, лёд — голубой)
+    const tc = tg.col ? tg.col.join(',') : tg.rift ? '170,70,255' : '255,60,30', sc = tg.col ? tc : tg.rift ? '200,120,255' : '255,90,50', fill2 = `rgba(${tc},${tg.col ? 0.4 : 0.3})`;
+    ctx.fillStyle = `rgba(${tc},${tg.col ? 0.26 : tg.rift ? 0.18 : 0.16})`; ctx.strokeStyle = `rgba(${sc},${tg.col ? 1 : 0.85})`; ctx.lineWidth = tg.col ? 3 : 2.5; if (tg.fx === 'stone' || tg.fx === 'bone') ctx.setLineDash([7, 4]);
     const isoA = a => Math.atan2(Math.sin(a) + Math.cos(a), Math.cos(a) - Math.sin(a)); // world angle → screen angle (pre-scale)
     ctx.beginPath();
-    if (tg.shape === 'circle') { ctx.arc(0, 0, R, 0, 7); ctx.fill(); ctx.stroke(); ctx.beginPath(); ctx.arc(0, 0, R * p, 0, 7); ctx.fillStyle = tg.rift ? 'rgba(170,70,255,0.3)' : 'rgba(255,60,30,0.3)'; ctx.fill(); }
-    else if (tg.shape === 'cone') { const a = isoA(tg.a), h = tg.arc / 2 * Math.PI / 180; ctx.moveTo(0, 0); ctx.arc(0, 0, R, a - h, a + h); ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, R * p, a - h, a + h); ctx.closePath(); ctx.fillStyle = 'rgba(255,60,30,0.3)'; ctx.fill(); }
+    if (tg.shape === 'circle') { ctx.arc(0, 0, R, 0, 7); ctx.fill(); ctx.stroke(); ctx.beginPath(); ctx.arc(0, 0, R * p, 0, 7); ctx.fillStyle = fill2; ctx.fill(); }
+    else if (tg.shape === 'cone') { const a = isoA(tg.a), h = tg.arc / 2 * Math.PI / 180; ctx.moveTo(0, 0); ctx.arc(0, 0, R, a - h, a + h); ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, R * p, a - h, a + h); ctx.closePath(); ctx.fillStyle = fill2; ctx.fill(); }
     else if (tg.shape === 'line') { const a = isoA(tg.a); ctx.rotate(a); ctx.fillRect(0, -tg.w * 16 * z, R * p, tg.w * 32 * z); ctx.strokeRect(0, -tg.w * 16 * z, R, tg.w * 32 * z); }
     ctx.restore();
   }
@@ -347,6 +349,14 @@ function drawProjectiles(emissive) {
       ctx.strokeStyle = '#6a4a2a'; ctx.lineWidth = 2.2 * z; ctx.beginPath(); ctx.moveTo(-22 * z, 0); ctx.lineTo(0, 0); ctx.stroke();
       ctx.fillStyle = '#cfd6de'; ctx.beginPath(); ctx.moveTo(4 * z, 0); ctx.lineTo(-3 * z, -3 * z); ctx.lineTo(-3 * z, 3 * z); ctx.fill();
       ctx.fillStyle = p.owner === 'e' ? '#7ac06a' : '#e05050'; ctx.fillRect(-22 * z, -3 * z, 6 * z, 6 * z);
+      ctx.restore(); continue;
+    }
+    if (p.kind === 'rock' || p.kind === 'bone') {   // правки 2 (П18/П21): брошенный камень (Храм) и кость (Пустоши), кувыркаются
+      if (emissive) continue; const [gx, gy] = cam.toScreen(p.x, p.y, 0);
+      ctx.fillStyle = 'rgba(0,0,0,0.25)'; ctx.beginPath(); ctx.ellipse(gx, gy, 7 * z, 3.5 * z, 0, 0, 7); ctx.fill();
+      ctx.save(); ctx.translate(x, y); ctx.rotate(T * (p.kind === 'rock' ? 8 : 14) + p.dist);
+      if (p.kind === 'rock') { ctx.fillStyle = '#8c8070'; ctx.strokeStyle = '#3a332a'; ctx.lineWidth = 1.5 * z; ctx.beginPath(); for (let k = 0; k < 7; k++) { const a = k / 7 * 6.283, r = (6.5 + ((k * 5) % 3) * 1.6) * z; k ? ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r) : ctx.moveTo(Math.cos(a) * r, Math.sin(a) * r); } ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.fillStyle = '#b4a892'; ctx.beginPath(); ctx.arc(-2 * z, -2 * z, 2.2 * z, 0, 7); ctx.fill(); }
+      else { ctx.strokeStyle = '#4a4030'; ctx.lineWidth = 6 * z; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(-10 * z, 0); ctx.lineTo(10 * z, 0); ctx.stroke(); ctx.strokeStyle = '#ece0c4'; ctx.lineWidth = 4 * z; ctx.stroke(); ctx.fillStyle = '#ece0c4'; for (const sx of [-10, 10]) for (const sy of [-2.5, 2.5]) { ctx.beginPath(); ctx.arc(sx * z, sy * z, 3 * z, 0, 7); ctx.fill(); } }
       ctx.restore(); continue;
     }
     if (!emissive) continue;
@@ -422,6 +432,18 @@ function drawEffects() {
         ctx.beginPath(); ctx.moveTo(Math.cos(a + 1.57) * w, Math.sin(a + 1.57) * w * 0.5); ctx.lineTo(tx, ty); ctx.lineTo(Math.cos(a - 1.57) * w, Math.sin(a - 1.57) * w * 0.5); ctx.closePath(); ctx.fill(); ctx.stroke(); }
       const g = ctx.createRadialGradient(0, -10 * z, 0, 0, -10 * z, 50 * z * e.r); g.addColorStop(0, `rgba(200,240,255,${0.6 * fade})`); g.addColorStop(1, 'rgba(100,180,255,0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, -10 * z, 50 * z * e.r, 0, 7); ctx.fill();
       ctx.restore(); ctx.globalCompositeOperation = 'source-over';
+    } else if (e.kind === 'spikes') {   // правки 2 (П21): удар из земли — каменные/костяные шипы или корни, вырастают и уходят обратно
+      const [x, y] = cam.toScreen(e.x, e.y); ctx.save(); ctx.translate(x, y);
+      const grow = Math.min(1, k * 7), sink = k > 0.6 ? 1 - (k - 0.6) / 0.4 : 1, R = e.r * 32 * z * Math.SQRT2 * 0.8, n = e.n || 6, st = e.style;
+      ctx.strokeStyle = `rgba(30,22,14,${0.5 * sink})`; ctx.lineWidth = 2 * z; ctx.beginPath(); ctx.ellipse(0, 0, R, R * 0.5, 0, 0, 7); ctx.stroke();   // трещина в земле
+      const pts = []; for (let i = 0; i < n; i++) { const a = i * 2.4 + e.seed, rr = Math.sqrt((i + 0.5) / n) * R; pts.push([Math.cos(a) * rr, Math.sin(a) * rr * 0.5, i]); } pts.sort((a, b) => a[1] - b[1]);
+      for (const [px, py, i] of pts) { const h = (18 + ((i * 37) % 5) * 6) * z * Math.min(1.5, 0.7 + e.r * 0.4) * grow * sink, w = (4 + (i % 3)) * z;
+        if (st === 'roots') { const sw = ((i % 2) ? 1 : -1) * h * 0.35; ctx.strokeStyle = 'rgb(58,40,22)'; ctx.lineWidth = w * 1.4; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(px, py); ctx.quadraticCurveTo(px + sw, py - h * 0.5, px - sw * 0.4, py - h); ctx.stroke();
+          ctx.strokeStyle = 'rgb(96,140,52)'; ctx.lineWidth = w * 0.7; ctx.stroke(); ctx.fillStyle = 'rgb(120,190,70)'; ctx.beginPath(); ctx.ellipse(px + sw * 0.5, py - h * 0.55, 3.5 * z, 2 * z, 0.6, 0, 7); ctx.fill(); }
+        else { const [f, s2] = st === 'bone' ? ['rgb(232,220,190)', 'rgb(110,96,70)'] : ['rgb(146,132,112)', 'rgb(58,50,40)'];
+          ctx.fillStyle = f; ctx.strokeStyle = s2; ctx.lineWidth = 1.3 * z; ctx.beginPath(); ctx.moveTo(px - w, py); ctx.lineTo(px + w * 0.15, py - h); ctx.lineTo(px + w, py); ctx.closePath(); ctx.fill(); ctx.stroke();
+          ctx.fillStyle = 'rgba(255,255,255,0.25)'; ctx.beginPath(); ctx.moveTo(px - w * 0.6, py); ctx.lineTo(px + w * 0.15, py - h); ctx.lineTo(px - w * 0.1, py); ctx.closePath(); ctx.fill(); } }
+      ctx.restore();
     } else if (e.kind === 'meteor') {   // falling rock of fire
       const p = Math.min(1, k); const [x, y] = cam.toScreen(e.x, e.y, (1 - p) * 9); const [gx, gy] = cam.toScreen(e.x, e.y);
       ctx.globalCompositeOperation = 'lighter';

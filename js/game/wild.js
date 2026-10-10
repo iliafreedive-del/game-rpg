@@ -50,7 +50,7 @@ export function checkGate() {
   const g = G.zone && G.zone.wildGate; if (!g || g.open || outsideLeft() > 0) return;
   g.open = true; g.d.hidden = true; for (const [tx, ty] of g.tiles) G.zone.map.setSolid(tx, ty, 0);
   const cx = g.tiles[1][0] + 0.5, cy = g.tiles[1][1] + 0.5;
-  C.particles(cx, cy, 30, { c: [255, 220, 150], sp: 3, size: 4 }); C.effect({ kind: 'ring', x: cx, y: cy, r: 3.5, dur: 0.6, c: [255, 210, 120] }); G.cam.shake = 0.4;
+  C.particles(cx, cy, 30, { c: [255, 220, 150], sp: 3, size: 4 }); C.effect({ kind: 'ring', x: cx, y: cy, r: 3.5, dur: 0.6, c: [255, 210, 120] }); G.cam.kick(0.4);
   bus.emit('sfx', 'door'); bus.emit('toast', { text: 'Ворота форта открыты!', sub: 'Поле вокруг зачищено — идите внутрь', kind: 'good' }); bus.emit('wildProgress');
 }
 function onKill(e) {

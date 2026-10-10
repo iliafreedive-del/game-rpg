@@ -667,7 +667,7 @@ W.npc_caravan = () => {
 function petReveal() {
   const p = G.pet, D = p && PETS[p.id]; if (!D) return;
   particles(p.x, p.y, 46, { c: [255, 170, 60], sp: 3.4, size: 4 }); particles(p.x, p.y, 24, { c: [255, 236, 170], sp: 1.6, size: 3 });
-  effect({ kind: 'ring', x: p.x, y: p.y, r: 2.6, dur: 0.7, c: [255, 200, 110] }); G.cam.shake = 0.25;
+  effect({ kind: 'ring', x: p.x, y: p.y, r: 2.6, dur: 0.7, c: [255, 200, 110] }); G.cam.kick(0.25);
   bus.emit('sfx', 'epicDrop'); setTimeout(() => bus.emit('sfx', 'levelup'), 350);
   bus.emit('float', { x: p.x, y: p.y, text: D.icon + ' ' + D.name, color: '#ffd27a', z: 1.6, life: 1.8, big: 1 });
   setTimeout(() => {

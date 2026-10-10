@@ -2226,5 +2226,12 @@
  "Ходит за вами везде — в подземельях, походах и Цитадели — и сам бьётся рядом. Новых зверьков и улучшения Кофи продаёт за осколки Бездны ◆.": "Te sigue a todas partes (mazmorras, expediciones y la Ciudadela) y lucha a tu lado por sí solo. Kofi vende nuevas mascotas y mejoras por fragmentos del Abismo ◆.",
  "В путь!": "¡En marcha!",
  "Склеп пробуждения не пройден. Попробуйте ещё раз: отходите от замахов и бейте первым.": "No has superado la Cripta del Despertar. Inténtalo de nuevo: apártate de los golpes cargados y ataca primero.",
- "Ещё раз": "Otra vez"
+ "Ещё раз": "Otra vez",
+ "Свиток здесь не работает": "El pergamino no funciona aquí",
+ "Только в подземельях, Глубинах и походах": "Solo en mazmorras, las Profundidades y expediciones",
+ "Сумка была полна: продано вещей — {0}": "La bolsa estaba llena: objetos vendidos — {0}",
+ "Двери арены захлопнулись": "Las puertas de la arena se cerraron de golpe",
+ "Откроются, когда Палач падёт": "Se abrirán cuando caiga el Verdugo",
+ "Рывок!": "¡Esquiva!",
+ "Рывок — Shift!": "¡Esquiva — Shift!"
 }

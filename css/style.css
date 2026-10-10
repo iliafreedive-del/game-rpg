@@ -441,6 +441,7 @@ canvas#game{filter:saturate(1.22) contrast(1.08) brightness(1.06)}
 #potMP{background:radial-gradient(circle at 40% 35%,#6aa8ff,#14347a 70%)!important;border-color:#b0d0ff!important;box-shadow:0 0 12px #3a7aff88}
 #btnDodge{background:radial-gradient(circle at 40% 35%,#ffe08a,#8a5a10 70%)!important;border-color:#ffe9b0!important;box-shadow:0 0 12px #ffc23a88}
 #btnDodge svg{stroke:#1a1006!important;stroke-width:3}
+#btnDodge.hint{animation:dodgeHint .28s ease-in-out 4 alternate}@keyframes dodgeHint{to{transform:scale(1.22);box-shadow:0 0 0 4px #fff3,0 0 28px 8px #ffd24a}}   /* П51: напоминание о рывке в бою с боссом */
 #potHP .pcount,#potMP .pcount{font-weight:800;text-shadow:0 1px 2px #000}
 #btnAtk{box-shadow:0 0 0 3px #d8a84a,0 0 22px #d8a84a88!important}
 /* low health: pulsing red vignette + pulsing potion */

@@ -2226,5 +2226,12 @@
  "Ходит за вами везде — в подземельях, походах и Цитадели — и сам бьётся рядом. Новых зверьков и улучшения Кофи продаёт за осколки Бездны ◆.": "Folgt dir überallhin — in Verliese, auf Streifzüge und in die Zitadelle — und kämpft selbstständig an deiner Seite. Kofi verkauft neue Tiere und Verbesserungen für Abgrundsplitter ◆.",
  "В путь!": "Auf geht's!",
  "Склеп пробуждения не пройден. Попробуйте ещё раз: отходите от замахов и бейте первым.": "Die Gruft des Erwachens ist nicht geschafft. Versuch es noch einmal: weich Ausholbewegungen aus und schlag zuerst zu.",
- "Ещё раз": "Noch einmal"
+ "Ещё раз": "Noch einmal",
+ "Свиток здесь не работает": "Die Schriftrolle wirkt hier nicht",
+ "Только в подземельях, Глубинах и походах": "Nur in Verliesen, den Tiefen und auf Expeditionen",
+ "Сумка была полна: продано вещей — {0}": "Tasche war voll: verkaufte Gegenstände — {0}",
+ "Двери арены захлопнулись": "Die Arenatore sind zugeschlagen",
+ "Откроются, когда Палач падёт": "Sie öffnen sich, wenn der Henker fällt",
+ "Рывок!": "Ausweichen!",
+ "Рывок — Shift!": "Ausweichen — Shift!"
 }
