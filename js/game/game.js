@@ -433,7 +433,7 @@ export function finishFloor() {
     // сборка 59: по очереди — облёт порталов, потом уровень 2 и «Осколок памяти». Раньше всё это, тост «Вы выбрались» и окно памяти
     // появлялись в одну секунду, а окно открывалось поверх облёта камеры (полосы кино резали его кнопку)
     P.tutorial.prologue = true; G.tut = null; bus.emit('save');
-    loadZone('town', { from: 'catacombs' }).then(() => { const tb = typeof document !== 'undefined' && document.getElementById('toasts'); if (tb) tb.replaceChildren(); return cinema(portalShots()); }).then(() => { L.gainXP(45); bus.emit('memory', 'wake'); });
+    loadZone('town', { from: 'catacombs' }).then(() => { const tb = typeof document !== 'undefined' && document.getElementById('toasts'); if (tb) tb.replaceChildren(); return cinema(portalShots()); }).then(() => { bus.emit('memory', 'wake'); });   // сборка 60 (П3, П10): без +45 опыта — 2-й уровень герой получает в Летописи, а не тихо после склепа
     return;
   }
   P.depths = P.depths || { best: 0, stars: {} };
@@ -547,7 +547,7 @@ export function update(dt) {
   if (bp && Math.random() < bp.rate * dt) { const a = Math.random() * 6.28, rr = 2 + Math.random() * 7; C.particles(pl.x + Math.cos(a) * rr, pl.y + Math.sin(a) * rr, 1, { c: bp.c, z: bp.vz < 0 ? 3 : 0.1, sp: 0.2, spMin: 0, vz: bp.vz, vzMin: bp.vz * 0.5, g: bp.g, size: bp.size, life: bp.life }); }
   // focus: nearest available interactable
   let best = null, bd = 1e9;
-  for (const it of G.zone.inter) { if (it.done || it.hidden) continue; const d = Math.hypot(it.x - pl.x, it.y - pl.y); if (d < it.r && d < bd) { bd = d; best = it; } }
+  for (const it of G.zone.inter) { if (it.done || it.hidden) continue; const d = Math.hypot(it.x - pl.x, it.y - pl.y) - (it === G.guide ? 1.2 : 0); if (d < it.r && d < bd) { bd = d; best = it; } }   // сборка 60 (П1): цель задания (саркофаг с ключом) важнее соседнего сундука
   let pt = null, pd = 1e9;
   for (const it of G.zone.inter) { if (!it.panel || it.hidden || (it.type === 'roomgate' && it.done)) continue; const d = Math.hypot(it.x - pl.x, it.y - pl.y); if (d < it.r + 0.3 && d < pd) { pd = d; pt = it; } }
   if (pt !== G.panelDismissed) G.panelDismissed = null;   // walked away → the panel may open again
@@ -585,12 +585,13 @@ function updateMarkers() {
   for (const n of G.npcs) n.marker = n.id === Q.turnNpc(q) && Q.isReady() ? '?' : q && q.target === n.id ? (q.id === 'finish' ? '?' : '!') : null;
   const eld = G.npcs.find(n => n.id === 'elder'); if (eld && HU.readyToTurnIn()) eld.marker = '?';   // hunt to hand in
   for (const it of G.zone.inter) { if (it.type === 'socket') { const open = it.room === 'hall' || (G.profile.castle && G.profile.castle[it.room]); it.hidden = !open; it.glow = open && !(G.profile.castle.decor && G.profile.castle.decor[it.sid]); } else if (it.type === 'roomgate') { it.plate = it.done ? null : ROOMS[it.room].name; it.reqLevel = it.done ? 0 : ROOMS[it.room].lvl; } else if (it.type === 'room') it.plate = ROOMS[it.room].name; }
-  const hp = G.zone.inter.find(i => i.id === 'herospath'); if (hp) { const g = gate('hw', 1); hp.locked = !!g; hp.lockNote = g && G.profile.level >= 2 && !(G.profile.slots.some(Boolean) || Object.keys(G.profile.skills).length) ? 'выберите навык' : ''; }
+  // сборка 60: в первую Летопись — с 1-го уровня; «!» над аркой — напоминание (П49, herospath.js)
+  const hp = G.zone.inter.find(i => i.id === 'herospath'); if (hp) { const g = gate('hw', 1); hp.locked = !!g; hp.reqLevel = q && q.id === 'hw_try' ? 0 : 2; hp.marker = G.hwRemind && !g ? '!' : null; hp.lockNote = g && G.profile.level >= 2 && !(G.profile.slots.some(Boolean) || Object.keys(G.profile.skills).length) ? 'выберите навык' : ''; }
   // сборка 59: пока Колесо и Кофи закрыты обучением — без «!» (их было 3–4 против одного значка задания)
   const xl = earlyLock('extra');
   const wh = G.zone.inter.find(i => i.id === 'wheel'); if (wh) wh.marker = !xl && wheelReady() ? '!' : null;
   const fn = G.npcs.find(n => n.id === 'fortune'); if (fn) fn.marker = !xl && wheelReady() ? '!' : null;
-  const kv = G.npcs.find(n => n.id === 'caravan'); if (kv && !kv.marker) kv.marker = (G.profile.pets && G.profile.pets.met) || xl ? null : '!';   // сборка 58: Кофи ждёт с подарком
+  const kv = G.npcs.find(n => n.id === 'caravan'); if (kv && !kv.marker) kv.marker = (G.profile.pets && G.profile.pets.met) || earlyLock('pet') ? null : '!';   // сборка 60 (П15): Кофи зовёт, когда староста отправит к нему   // сборка 58: Кофи ждёт с подарком
   const bd = G.zone.inter.find(i => i.id === 'board'); if (bd) bd.marker = (REPEATABLE.some(r => Q.repState(r).done) || DQ.dailyReady() || DQ.weeklyQuests().some(q => q.done && !q.claimed)) ? '?' : null;
   const P = G.profile; const tr = G.npcs.find(n => n.id === 'trainer'); if (tr && !tr.marker && (P.attrPts || P.skillPts)) tr.marker = '+';
 }

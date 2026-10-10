@@ -22,7 +22,7 @@ const forts = realm => { const S = G.profile.wild && G.profile.wild[realm]; retu
 const stIdx = id => STORY.findIndex(q => q.id === id);
 export function earlyLock(kind) {
   const s = G.profile && G.profile.story; if (!s) return false;
-  const need = kind === 'upg' ? 'hw_elvin' : kind === 'shop' ? 'meet_merchant' : 'elder_task';
+  const need = kind === 'upg' ? 'hw_elvin' : kind === 'shop' ? 'meet_merchant' : kind === 'pet' ? 'meet_kofi' : 'elder_task';   // 'pet' — подарок Кофи (сборка 60, П15)
   return s.stage < stIdx(need);
 }
 // сборка 55: первый урок у Элвина платный (55 зол.): после него остаётся ровно на первое зелье здоровья у Миры (30).

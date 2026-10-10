@@ -17,7 +17,7 @@ export function newProfile(cls = 'warrior') {
     skills: {}, slots: [null, null, null, null],
     gear: {}, bag: [], bagSize: 40,
     potions: { hp: 3, mp: 1 }, scrolls: 1,
-    story: { stage: 0, counters: {}, flags: {}, done: [], flow38: true, flow43: true, flow47: true, flowDepths: true, flow55: true },
+    story: { stage: 0, counters: {}, flags: {}, done: [], flow38: true, flow43: true, flow47: true, flowDepths: true, flow55: true, flow60: true },
     repeat: {},            // id -> {accepted, base, completions}
     stats: { kills: 0, skeletons: 0, elites: 0, chests: 0, meters: 0, gold: 0, bossKills: 0, deaths: 0, bossNoDeath: 0, playTime: 0 },
     world: { opened: {}, lastZone: 'town' },   // persistent story objects (key sarcophagus, secret wall, gate…)
@@ -141,6 +141,14 @@ export function migrate(p) {
   if (p.story && !p.story.flow55) {
     const done = new Set(p.story.done || []); let st = 0; while (st < STORY.length && done.has(STORY[st].id)) st++; p.story.stage = st;
     p.story.flow55 = true;
+  }
+  // сборка 60: вставлены «Осмотреть снаряжение» (после старосты) и «Заглянуть к Кофи» (перед порталом) — у тех, кто уже дальше, они позади
+  if (p.story && !p.story.flow60) {
+    const done = new Set(p.story.done || []), add = id => { if (!done.has(id)) { p.story.done.push(id); done.add(id); } };
+    if (done.has('meet_merchant') || done.has('hw_try') || done.has('elder_task')) add('hero_gear');
+    if (done.has('find_portal') || done.has('enter')) add('meet_kofi');
+    let st = 0; while (st < STORY.length && done.has(STORY[st].id)) st++; p.story.stage = st;
+    p.story.flow60 = true;
   }
   // fill any fields added later with defaults (forward-compatible)
   const d = newProfile();
