@@ -17,7 +17,7 @@ import { loadFloor, buildFloorCanvas } from '../render/index.js';
 import { widen } from '../world/widen.js';
 import { declutter } from '../world/declutter.js';
 import { respawnTick } from './respawn.js';
-import { weeklyRule, finishWeekly, codexScan, circle, circleHP, circleDmg, circleRew, rm } from './season.js';
+import { weeklyRule, weekNo, finishWeekly, codexScan, circle, circleHP, circleDmg, circleRew, rm } from './season.js';
 import { FLOOR_MODS, modReward } from '../data/floormods.js';
 const clean = J => (declutter(J), J), WILD_DECOR = new Set(['rocks']);   // сборка 47: предметы не входят друг в друга и в стены (world/declutter.js)
 const ROOMY = 1.5;   // «простор» (сборка 18): подземелья в 3D растянуты в 1,5 раза — шире комнаты и коридоры
@@ -91,7 +91,7 @@ export async function loadZone(id, how = {}) {
     declutter(json, 'xD~', WILD_DECOR); zone = new Zone('wild', json, P);
     await prepareWildAtlases(how.realm); setPropsPalette(how.realm === 'fjord'); buildWildFloor(zone);
   } else if (id === 'depths') {
-    const json = generateFloor(how.floor ?? 1);
+    const json = generateFloor(how.floor ?? 1, how.weekly ? 7001 + weekNo() * 104729 : undefined);   // С34: этаж свой при каждом заходе, у недельного испытания — один на всю неделю
     if (how.weekly) { const R = weeklyRule(); json.name = 'Испытание недели · ' + R.name; json.weekly = R.id; if (R.count) json.spawns = json.spawns.map(s => { const n = s.slice(); if (!n[6]) n[3] = n[3] * R.count; return n; }); }   // сборка 21
     zone = new Zone('depths', G.render3d ? clean(widen(json, ROOMY)) : json, P);
     await buildFloorCanvas(zone);
