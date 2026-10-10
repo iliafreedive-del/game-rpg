@@ -110,7 +110,7 @@ function biped(B, a, st, o) {
     for (const [sf, s] of SIDES) {
       const g = leg(ph + (s > 0 ? 0 : 0.5), 0.6), arm = Math.sin((ph + (s > 0 ? 0.5 : 0)) * TAU);
       R(B, 'lhip' + sf, -0.28 * g.s); P(B, 'lhip' + sf, 0, 0.04 * g.lift, 0);   // каменные ноги почти не гнутся: шаг от бедра, нога приподнимается
-      R(B, 'ash' + sf, -0.35 * arm); R(B, 'ael' + sf, -0.2 - 0.15 * arm);
+      R(B, 'ash' + sf, -0.16 * arm); R(B, 'ael' + sf, -0.08 * arm);   // руки-валуны тяжёлые: качаются едва-едва
     }
     const sw = Math.sin(ph * TAU);
     R(B, o.root, 0.04, 0.07 * sw, 0.06 * sw); P(B, o.root, 0.02 * sw, -0.03 * Math.abs(Math.cos(ph * TAU)), 0);
@@ -147,7 +147,7 @@ function flyer(B, a, st, o, bat) {
   }
   P(B, o.root, 0, o.lift - 0.05 * A * w + 0.05 * Math.sin(t * 1.3), 0);
   R(B, o.root, walk ? 0.3 : 0.08 * Math.sin(t * 0.9), 0, 0.05 * Math.sin(t * 0.7));
-  R(B, 'head', walk ? -0.25 : 0.1 * Math.sin(t * 0.8), 0.25 * Math.sin(t * 0.5) * (walk ? 0.2 : 1), 0);
+  R(B, 'head', walk ? -0.25 : 0.1 * Math.sin(t * 0.8), (bat ? 0.08 : 0.25) * Math.sin(t * 0.5) * (walk ? 0.2 : 1), 0);
   R(B, 'tail1', -0.1 * w * amp + (walk ? -0.2 : 0)); R(B, 'tail2', 0.05 * Math.sin(t * 2));
   if (a.mode === 'attack') { const k = bite(a.k); P(B, o.root, 0, -0.25 * k, 0.15 * k); R(B, o.root, 0.4 * k); R(B, 'head', 0.15 * k); }
   if (a.mode === 'hit') R(B, o.root, -0.2);

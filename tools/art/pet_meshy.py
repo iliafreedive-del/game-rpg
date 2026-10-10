@@ -19,6 +19,7 @@ import glb_rig
 
 CENTERS = {'fennec': (-0.8, 0.3, 0.56), 'crow': (-0.5, 0.3, -0.13), 'scorpid': (0.15, 0.3, -0.4), 'wisp': (0.77, 0.3, -0.7),
            'skull': (-0.56, -0.3, 0.72), 'basilisk': (-0.43, -0.3, -0.04), 'bat': (0.19, -0.3, -0.34), 'golem': (0.74, -0.3, -0.79)}
+SCALE = {'fennec': 1.2, 'skull': 1.2, 'basilisk': 1.2, 'scorpid': 1.2, 'golem': 1.1, 'wisp': 1.1}
 SIZE = {'fennec': ('z', 1.1), 'crow': ('x', 1.3), 'scorpid': ('z', 1.0), 'wisp': ('y', 0.75), 'skull': ('z', 1.2), 'basilisk': ('z', 1.4), 'bat': ('x', 1.3), 'golem': ('y', 1.1)}
 
 
@@ -241,7 +242,10 @@ def build(src, out, only=None):
         P = normalize(P0[idx], name); N, UV = N0[idx], UV0[idx]
         bones = R['bones']; SI, SW, lab, ok, names, cm = weights(P, T, bones, R['limbs'])
         P, N, UV, SI, SW, T = detach(P, N, UV, SI, SW, T, lab, cm, ok)
-        extra = {k: v for k, v in R.items() if k not in ('bones', 'limbs')}
+        # общий масштаб после рига (суставы заданы в метрах до него): наземные зверьки на 20 % крупнее — сверху их лучше видно
+        k = SCALE.get(name, 1.0); P = P * k
+        bones = [[b[0], b[1], [v * k for v in b[2]]] + [[v * k for v in t] for t in b[3:]] for b in bones]
+        extra = {kk: (v * k if kk in ('lift', 'stride') else v) for kk, v in R.items() if kk not in ('bones', 'limbs')}
         extra['height'] = round(float(P[:, 1].max()), 3)
         size = write(out, name, P, N, UV, T, SI, SW, bones, extra)
         print(f'{name}: {len(P)} вершин, {len(T)} треуг. (разъединено перемычек {int((~ok).sum())}), {size // 1024} КБ')
