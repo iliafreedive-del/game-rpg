@@ -41,7 +41,8 @@ import * as HU from './hunts.js';
 import { updatePet } from './pets.js';
 import { SKILLS } from '../data/skills.js';
 import { rand, rrange } from '../core/util.js';
-import { pollMove, input, mouse, tapAim } from '../core/input.js';
+import { pollMove, input, mouse, tapAim, tapMove } from '../core/input.js';
+import { elvinBuy } from '../ui/tutorial.js';
 import { gate, BOSS_LEVEL, nextStep, earlyLock, lockToast, bandLevel, CATA_MAX, wildDepthGate } from './progress.js';
 import { platform } from '../platform/platform.js';
 import { cineTick, inCinema, cinema, portalShots, newPortalShots } from '../ui/cinema.js';
@@ -191,10 +192,10 @@ export async function loadZone(id, how = {}) {
   if (d.claimable) bus.emit('toast', { text: 'Дары источника ждут!', sub: `День ${d.day} из 28 — алтарь на площади`, kind: 'quest' }); else if (!blessed()) bus.emit('toast', { text: 'Источник силы на площади', sub: 'Сила источника: +25% золота и опыта на 10 минут', kind: 'info' }); }, 2500);   // сборка 19
   if (id === 'town' && P.tutorial.prologue && !Q.current()) setTimeout(() => { if (G.zoneId === 'town') bus.emit('toast', { text: 'Дальше: ' + nextStep(), kind: 'info' }); }, 2200);   // сборка 59: пока идёт сюжет, цель — в трекере задания (тост «Дальше» ей противоречил)
   if (id === 'town' && P.tutorial.prologue) {   // сборка 49: новый портал показываем камерой, когда он открылся (ждём, пока закроются окна)
-    let tries = 0; const tryShow = () => { if (G.zoneId !== 'town' || ++tries > 40) return; if (G.cinema || G.modalOpen || G.paused) { setTimeout(tryShow, 1000); return; } const sh = newPortalShots(); if (sh.length) cinema(sh); };
+    let tries = 0; const tryShow = () => { if (G.zoneId !== 'town' || ++tries > 40) return; if (G.cinema || G.modalOpen || G.paused || G.memPending) { setTimeout(tryShow, 1000); return; } const sh = newPortalShots(); if (sh.length) cinema(sh); };
     setTimeout(tryShow, 900); }
   if (id === 'town' && P.tutorial.prologue && !earlyLock('extra') && !P.shrineSeen && !P.shrineShown) {   // П67: ни разу не был у Источника — один раз показать его камерой
-    let n = 0; const go = () => { const sh = G.zone.inter.find(i => i.id === 'shrine'); if (G.zoneId !== 'town' || !sh || ++n > 40 || P.shrineShown) return; if (G.cinema || G.modalOpen || G.paused) { setTimeout(go, 1000); return; }
+    let n = 0; const go = () => { const sh = G.zone.inter.find(i => i.id === 'shrine'); if (G.zoneId !== 'town' || !sh || ++n > 40 || P.shrineShown) return; if (G.cinema || G.modalOpen || G.paused || G.memPending) { setTimeout(go, 1000); return; }
       P.shrineShown = 1; bus.emit('save'); cinema([{ x: sh.x, y: sh.y, zoom: 1.35, move: 1.3, hold: 2.6, text: 'Источник силы', sub: 'Дары каждый день, Сундук Ордена, лавка и сила источника — подойдите к алтарю' }]); };
     setTimeout(go, 6500); }
   if (id === 'town' && how.from && how.from !== 'death') setTimeout(() => maybeInterstitial('return'), 1200);
@@ -450,6 +451,25 @@ function autoTick(inp) {
     if (d > 0.9) { const g = map.guideDir(pl.x, pl.y, goal.x, goal.y) || [(goal.x - pl.x) / d, (goal.y - pl.y) / d]; { const [sx, sy] = steer(pl, map, g[0], g[1]); inp.wx = sx; inp.wy = sy; } inp.mag = 0.8; A.wanted = true; A.wx = g[0]; A.wy = g[1]; }
   }
 }
+// правки мамы (М27): короткое касание экрана — герой бежит в эту точку; ткнули во врага — он становится целью (как раньше).
+// Джойстик, «Веди меня», автобой, окно или 6 с в пути — бег к точке отменяется
+let tapSeen = 0;
+function moveToTick(inp) {
+  const pl = G.player, map = G.zone.map;
+  if (tapMove.t !== tapSeen) { tapSeen = tapMove.t;
+    if (!G.modalOpen && !pl.dead && G.zoneId !== 'survival') {
+      const [wx, wy] = G.cam.toWorld(tapMove.x, tapMove.y + 20), e = C.nearAim({ x: wx, y: wy }, 1.6);
+      if (e) { pl.focus = e; G.moveTo = null; }
+      else if (map.free(wx, wy, pl.r * 0.8)) { G.moveTo = { x: wx, y: wy, t: G.time }; if (G.lead) { G.lead = false; bus.emit('hud'); } }
+      else { const [fx, fy] = map.nearestFree(wx, wy, pl.r); G.moveTo = { x: fx, y: fy, t: G.time }; }
+    } }
+  const m = G.moveTo; if (!m) return;
+  const d = Math.hypot(m.x - pl.x, m.y - pl.y);
+  if (inp.mag >= 0.12 || G.auto || G.lead || G.modalOpen || pl.dead || d < 0.5 || G.time - m.t > 6) { G.moveTo = null; return; }
+  if (pl.busy()) return;
+  const g = map.guideDir(pl.x, pl.y, m.x, m.y) || [(m.x - pl.x) / d, (m.y - pl.y) / d];
+  const [sx, sy] = steer(pl, map, g[0], g[1]); inp.wx = sx; inp.wy = sy; inp.mag = Math.min(1, 0.5 + d * 0.25);
+}
 // «Веди меня»: герой идёт к цели задания сам (бой остаётся за игроком; у цели — останавливается)
 function leadTick(inp) {
   const pl = G.player, map = G.zone.map, t = G.guide;
@@ -474,7 +494,7 @@ function tutorialTick() {
   const T = G.tut || (G.tut = { step: 0, t: 0 }); T.t += G.dt || 0.016;
   const say = (text, sub) => bus.emit('toast', { text, sub, kind: 'quest' });
   const point = (sel, text) => bus.emit('tutHand', { sel, text, time: 10 });
-  if (T.step === 0 && G.time - G.run.t0 > 0.8) { T.step = 1; point('joyZone', touch() ? 'Ведите палец по левой половине экрана' : 'Идите: WASD или зажмите правую кнопку мыши'); }
+  if (T.step === 0 && G.time - G.run.t0 > 0.8) { T.step = 1; point('joyZone', touch() ? 'Ведите пальцем по экрану — герой пойдёт. Коснитесь места — побежит туда' : 'Идите: WASD или зажмите правую кнопку мыши'); }
   else if (T.step === 1 && G.enemies.some(e => e.aggro)) { T.step = 2; point(null, 'Подойдите к врагу — герой бьёт сам. Ваше дело — двигаться и уклоняться'); }   // П31: без кнопки удара
   else if (T.step === 2 && G.run.kills >= 1) { T.step = 3; say('Отлично! Добейте остальных');
     // сборка 49 («новое — без настоящей угрозы»): оставшийся скелет — учитель: медленный подсвеченный замах, удар почти без урона.
@@ -552,6 +572,7 @@ export function update(dt) {
   G.time += dt; G.profile.stats.playTime += dt;
   respawnTick();
   const pl = G.player, inp = pollMove();
+  moveToTick(inp);
   // бой как в Archero: на ходу герой не атакует (лицо по ходу движения), остановился — сразу разворот и удар/выстрел.
   // Цель: тот, в кого ткнули пальцем/мышкой (запоминается, пока жив), иначе ближайший враг
   const moving = inp.mag >= 0.12, canAct = !pl.busy() && !pl.dead && !G.modalOpen && G.zoneId !== 'survival';
@@ -689,6 +710,6 @@ function updateMarkers() {
   const fn = G.npcs.find(n => n.id === 'fortune'); if (fn) fn.marker = !xl && wheelReady() ? '!' : null;
   const kv = G.npcs.find(n => n.id === 'caravan'); if (kv && !kv.marker) kv.marker = (G.profile.pets && G.profile.pets.met) || earlyLock('pet') ? null : '!';   // сборка 60 (П15): Кофи зовёт, когда староста отправит к нему   // сборка 58: Кофи ждёт с подарком
   const bd = G.zone.inter.find(i => i.id === 'board'); if (bd) bd.marker = (REPEATABLE.some(r => Q.repState(r).done) || DQ.dailyReady() || DQ.weeklyQuests().some(q => q.done && !q.claimed)) ? '?' : null;
-  const P = G.profile; const tr = G.npcs.find(n => n.id === 'trainer'); if (tr && !tr.marker && (P.attrPts || P.skillPts)) tr.marker = '+';
+  const P = G.profile; const tr = G.npcs.find(n => n.id === 'trainer'); if (tr && !tr.marker && (P.attrPts || P.skillPts || elvinBuy())) tr.marker = '+';   // М19: «+» над Элвином и когда золота хватает на усиление
 }
 export { Q };

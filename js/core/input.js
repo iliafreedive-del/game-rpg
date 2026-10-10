@@ -8,13 +8,29 @@ export const mouse = Ms;
 let base, knob, zone;
 
 export const tapAim = { t: 0, x: 0, y: 0 };
+// правки мамы (М27): одной рукой в горизонтальном виде. Палец на любом месте экрана (не только слева):
+// короткое касание — бежать в эту точку (или выбрать врага, если ткнули в него; game.js), повёл палец — джойстик с центром там, где коснулись.
+// Пока джойстик уже держит другой палец, касание экрана, как раньше, — прицел/удар в точку (tapAim)
+export const tapMove = { t: 0, x: 0, y: 0 };
+const TP = { id: null, x: 0, y: 0, t: 0 }; const cvTouches = new Set();
 export function initInput(joyZone, joyBase, joyKnob) {
   zone = joyZone; base = joyBase; knob = joyKnob;
-  // touches outside the joystick zone (and not on buttons) → strike / shoot toward the touch point
   const cv = document.getElementById('game');
-  cv.addEventListener('pointerdown', e => { if (e.pointerType === 'mouse') return; tapAim.t = performance.now(); tapAim.x = e.clientX; tapAim.y = e.clientY; tapAim.held = e.pointerId; });
-  cv.addEventListener('pointermove', e => { if (e.pointerId === tapAim.held) { tapAim.x = e.clientX; tapAim.y = e.clientY; } });
-  for (const ev of ['pointerup', 'pointercancel']) cv.addEventListener(ev, e => { if (e.pointerId === tapAim.held) tapAim.held = null; });
+  const cvJoy = e => { J.id = e.pointerId; input.touch = true; try { cv.setPointerCapture(e.pointerId); } catch (er) { }
+    J.bx = TP.x; J.by = TP.y; J.x = e.clientX; J.y = e.clientY; place(); base.classList.add('active'); TP.id = null; };
+  cv.addEventListener('pointerdown', e => { if (e.pointerType === 'mouse') return; cvTouches.add(e.pointerId);
+    if (cvTouches.size > 1) { TP.id = null; return; }   // второй палец — щипок (camzoom.js), не шаг
+    if (J.id !== null) { tapAim.t = performance.now(); tapAim.x = e.clientX; tapAim.y = e.clientY; tapAim.held = e.pointerId; return; }
+    TP.id = e.pointerId; TP.x = e.clientX; TP.y = e.clientY; TP.t = performance.now(); });
+  cv.addEventListener('pointermove', e => {
+    if (e.pointerId === tapAim.held) { tapAim.x = e.clientX; tapAim.y = e.clientY; return; }
+    if (e.pointerId === TP.id && cvTouches.size < 2 && Math.hypot(e.clientX - TP.x, e.clientY - TP.y) > 14) cvJoy(e);
+    else if (e.pointerId === J.id) { J.x = e.clientX; J.y = e.clientY; place(); }
+  });
+  for (const ev of ['pointerup', 'pointercancel']) cv.addEventListener(ev, e => { cvTouches.delete(e.pointerId);
+    if (e.pointerId === tapAim.held) tapAim.held = null;
+    if (e.pointerId === TP.id) { if (ev === 'pointerup' && performance.now() - TP.t < 450) { tapMove.t = performance.now(); tapMove.x = TP.x; tapMove.y = TP.y; } TP.id = null; }
+    if (e.pointerId === J.id) release(); });
   addEventListener('keydown', e => {
     if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
     input.keys.add(e.code);
@@ -50,9 +66,9 @@ function place(idle) {
   input.mx = dx / R; input.my = dy / R;
 }
 export const joyPointer = () => J.id;
-export function releaseJoy() { if (J.id === null) return; try { zone.releasePointerCapture(J.id); } catch (e) { } release(); }   // щипок двумя пальцами забирает палец у джойстика
+export function releaseJoy() { TP.id = null; if (J.id === null) return; try { zone.releasePointerCapture(J.id); } catch (e) { } release(); }   // щипок двумя пальцами забирает палец у джойстика
 // правки по скилам (С33): ушли со страницы (blur, скрытая вкладка, pagehide) — отпустить всё зажатое, иначе герой бежит/бьёт сам по возвращении
-export function releaseInput() { input.keys.clear(); input.attackHeld = false; Ms.down = Ms.aim = false; tapAim.held = null; if (J.id !== null) releaseJoy(); else if (zone) release(); }
+export function releaseInput() { input.keys.clear(); input.attackHeld = false; Ms.down = Ms.aim = false; tapAim.held = null; TP.id = null; cvTouches.clear(); if (J.id !== null) releaseJoy(); else if (zone) release(); }
 document.addEventListener('visibilitychange', () => { if (document.hidden) releaseInput(); });
 function release() { J.id = null; input.mx = input.my = 0; base.classList.remove('active'); resetBase(); }
 addEventListener('resize', () => { if (zone && J.id === null) resetBase(); });

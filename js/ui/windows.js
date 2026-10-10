@@ -65,7 +65,15 @@ function pumpWin() { if (busy() || !winQ.length) return; winQ.shift()(); }
 const busy = () => !!cur || !!G.cinema || !!G.hwOpen || $('ui').classList.contains('panel-open');   // Летопись (G.hwOpen) — тоже «занято»: окно не всплывает под ней
 const later = fn => (...a) => { if (busy()) winQ.push(() => fn(...a)); else fn(...a); };
 bus.on('closeModal', () => closeModal());
+// М2: на любом окне с прокруткой видно, что его можно листать: яркая полоса прокрутки и стрелки ▲/▼ у края, пока есть что листать
+export function scrollHints(sc, host) {
+  const up = el('div', 'sc-hint up', '▲'), dn = el('div', 'sc-hint dn', '▼'); host.classList.add('sc-host'); host.append(up, dn);
+  const upd = () => { const more = sc.scrollHeight - sc.clientHeight > 6; up.classList.toggle('on', more && sc.scrollTop > 6); dn.classList.toggle('on', more && sc.scrollTop < sc.scrollHeight - sc.clientHeight - 6); };
+  up.onclick = () => sc.scrollBy({ top: -sc.clientHeight * 0.7, behavior: 'smooth' }); dn.onclick = () => sc.scrollBy({ top: sc.clientHeight * 0.7, behavior: 'smooth' });
+  sc.addEventListener('scroll', upd, { passive: true }); new ResizeObserver(upd).observe(sc); new MutationObserver(upd).observe(sc, { childList: true, subtree: true }); setTimeout(upd, 60);
+}
 function modal(title, size, render, opts = {}) {
+  if (G.cinema) { winQ.push(() => modal(title, size, render, opts)); return { bg: document.createElement('div'), body: null }; }   // М31: окно не открывается под облётом камеры — ждёт его конца
   if (cur && cur.lock) { winQ.unshift(() => modal(title, size, render, opts)); return { bg: document.createElement('div'), body: null }; }
   if (cur) { cur.bg.remove(); if (cur.onClose) cur.onClose(); } G.atMerchant = false;
   const bg = el('div', 'modal-bg'); const m = el('div', 'modal ' + (size || ''));
@@ -73,8 +81,16 @@ function modal(title, size, render, opts = {}) {
   const b = el('div', 'mb'); m.append(h, b); bg.appendChild(m);
   // П11: тап, начатый ещё по прежнему окну или панели NPC, не закрывает только что всплывшее окно (первые 0,7 с фон не закрывает)
   const born = performance.now();
-  bg.addEventListener('pointerdown', e => { if (e.target === bg && !opts.sticky && !opts.lock && performance.now() - born > 700) closeModal(); });
+  // правки мамы (М1): в горизонтальном виде окно по центру, а по бокам — затемнённый фон. Палец, ведущий по фону сбоку, тоже листает окно;
+  // поэтому фон закрывает окно не касанием, а коротким нажатием без сдвига (раньше свайп сбоку просто закрывал окно)
+  let drag = null;
+  bg.addEventListener('pointerdown', e => { if (e.target === bg) drag = { id: e.pointerId, y: e.clientY, y0: e.clientY, moved: false }; });
+  bg.addEventListener('pointermove', e => { if (!drag || e.pointerId !== drag.id) return; const dy = e.clientY - drag.y; drag.y = e.clientY;
+    if (Math.abs(e.clientY - drag.y0) > 8) drag.moved = true; if (drag.moved) b.scrollTop -= dy * 1.4; });
+  bg.addEventListener('pointerup', e => { const d = drag; drag = null; if (!d || e.pointerId !== d.id || d.moved || e.target !== bg) return; if (!opts.sticky && !opts.lock && performance.now() - born > 700) closeModal(); });
+  bg.addEventListener('pointercancel', () => { drag = null; });
   document.body.appendChild(bg);
+  scrollHints(b, m);
   // сборка 47: render сохраняет и прокрутку списков внутри окна (путь сезона не прыгает в начало после «Забрать»)
   cur = { lock: !!opts.lock, bg, body: b, render: () => { const st = b.scrollTop, inner = [...b.querySelectorAll('*')].filter(x => x.scrollTop > 0 && x.className).map(x => [x.className, x.scrollTop]); b.innerHTML = ''; render(b); b.scrollTop = st; for (const [c, t] of inner) { const x = b.getElementsByClassName(c)[0]; if (x) x.scrollTop = t; } }, title: h.querySelector('h2') };
   G.modalOpen = true; G.paused = true; cur.render(); return cur;
@@ -88,13 +104,13 @@ export function openWindow(name, arg) {
   bus.emit('sfx', 'click');
   if (TOWN_ONLY[name] && G.zoneId !== 'town') { bus.emit('toast', { text: 'Доступно в деревне', sub: 'Развитие героя — у наставника Элвина', kind: 'warn' }); return; }
   if (name === 'herospath') { openHeroPath(); return; }
-  const f = W[name]; if (f) f(arg);
+  const f = W[name]; if (f) { f(arg); if (cur && !cur.reopen) cur.reopen = () => W[name](arg); }
 }
 bus.on('openNPC', id => { if (id === 'fortune') { openWheel(modal, closeModal); return; } W['npc_' + id](); });
 bus.on('openBoard', () => W.board()); bus.on('openWheel', () => openWheel(modal, closeModal)); bus.on('openHeroPath', () => openHeroPath()); bus.on('openDepths', () => W.depths()); bus.on('openWild', r => W.wild(r)); bus.on('wildCleared', later(r => W.wildResult(r)));
 bus.on('floorResult', later(r => floorResult(r)));   // П11: окна от событий ждут, пока закроют открытое
 bus.on('boonChoice', later(() => boonChoice()));
-bus.on('openSurvival', () => W.survival()); bus.on('survLevel', () => survLevel()); bus.on('survEnd', r => survEnd(r)); bus.on('openShrine', () => W.shrine());
+bus.on('openSurvival', () => W.survival()); bus.on('survLevel', () => survLevel()); bus.on('survEnd', r => survEnd(r)); bus.on('openShrine', () => { W.shrine(); if (cur) cur.reopen = () => W.shrine(); });
 bus.on('showDeath', () => showDeath());
 bus.on('survDeath', () => modal('Вы пали', 'sm', b => {
   b.appendChild(el('p', '', 'Бездна вас одолела. Можно вернуться в бой один раз за забег — или выйти и забрать золото.'));
@@ -112,7 +128,10 @@ bus.on('wallOffer', () => showWallOffer());
 let helpWhere = null;
 bus.on('deathAt', where => { helpWhere = streakHelp(where) ? where : null; });
 const rewardQ = [];
-bus.on('reward', r => { if (r.now) rewardQ.unshift(r); else rewardQ.push(r); });   // now — сразу, даже после боя (награда за рекламу)
+bus.on('reward', r => {   // now — сразу, даже после боя (награда за рекламу)
+  // правки мамы (М22): награда за рекламу или дар дня из открытого окна (Источник силы) показывается сразу поверх него, «Забрать» возвращает в то окно
+  if (r.now && cur && !cur.lock && !G.hwOpen) { r.back = cur.reopen; showReward(r); return; }
+  if (r.now) rewardQ.unshift(r); else rewardQ.push(r); });
 export function pumpRewards() {
   // П11: окно награды ждёт, пока игрок не закроет панель NPC (покупки у Элвина, Миры) и не кончится облёт камеры — не всплывает поверх
   if (busy() || G.player.dead || !G.zoneReady) return;
@@ -152,7 +171,7 @@ function showReward(r) {
     const loot = [r.gold && `<span class="goldc">+${fmt(r.gold)} золота</span>`, r.xp && `<span style="color:#b8e3ff">+${r.xp} опыта</span>`, r.potions && `<span style="color:#ff9a9a">+${r.potions} зелья здоровья</span>`, r.mp && `<span style="color:#9cc0ff">+${r.mp} зелья маны</span>`, r.scrolls && `<span>+${r.scrolls} свитка возврата</span>`, r.skillPts && `<span class="good">+${r.skillPts} очко навыка</span>`, r.shards && `<span class="c-shard">+${r.shards}◆ осколков</span>`].filter(Boolean);
     if (loot.length) b.appendChild(el('div', 'rw-loot', loot.join(' · ')));
     const q = Q.current(); if (q) b.appendChild(el('p', 'muted', `Следующее задание: <b class="goldc">${esc(q.title)}</b>`));
-    const row = el('div', 'row'); row.style.justifyContent = 'center'; const ok = el('button', 'btn gold', 'Забрать'); ok.onclick = () => closeModal(); okBtn = ok; if (must) ok.disabled = true; row.appendChild(ok); b.appendChild(row);
+    const row = el('div', 'row'); row.style.justifyContent = 'center'; const ok = el('button', 'btn gold', 'Забрать'); ok.onclick = () => { closeModal(); if (r.back) r.back(); }; okBtn = ok; if (must) ok.disabled = true; row.appendChild(ok); b.appendChild(row);
   }, { lock: must });
   m.bg.classList.add('rw-bg');
 }
@@ -205,13 +224,16 @@ export function originHTML(it) {
   const d = f.t ? new Date(f.t).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }) : '';
   return `<div class="it-stat origin${f.nem ? ' nem' : ''}">${f.nem ? '☠ Трофей немезиса: ' : 'Добыто: '}${esc(f.who || '')}${f.where ? ' · ' + esc(f.where) : ''}${d ? ' · ' + d : ''}</div>`;
 }
+// правки мамы (М23): «запас прочности» было непонятно — пояснение под сравнением и в окне героя
+const EHP_SHORT = '«Запас прочности» — сколько урона герой выдержит, пока не упадёт: здоровье с учётом защиты. Больше — лучше.';
+const EHP_NOTE = EHP_SHORT + ' ' + '▲ зелёное — вещь лучше надетой, ▼ красное — хуже';
 function cmpTable(it, slot) {
   const rows = compare(G.profile, it, slot);
   return `<table class="cmpt"><tr><td class="muted">Показатель</td><td class="muted">Сейчас</td><td class="muted">С этим</td><td></td></tr>` + rows.map(r => {
     const cls = typeof r.delta === 'number' && r.delta !== 0 ? (r.delta > 0 ? 'good' : 'bad') : '';
     const dv = typeof r.delta === 'number' && r.delta !== 0 ? (r.inv ? (r.delta > 0 ? '−' : '+') + Math.abs(r.delta) : (r.delta > 0 ? '+' : '') + (Math.round(r.delta * 100) / 100) + r.suf) : '';
     return `<tr><td>${r.label}</td><td>${r.before}${r.suf}</td><td>${r.after}${r.suf}</td><td class="d ${cls}">${dv}</td></tr>`;
-  }).join('') + '</table>';
+  }).join('') + '</table>' + (rows.some(r => r.label === 'Запас прочности') ? `<p class="muted"><small>${EHP_NOTE}</small></p>` : '');
 }
 const SORTS = { type: (a, b) => a.slot.localeCompare(b.slot) || b.ilvl - a.ilvl, level: (a, b) => b.ilvl - a.ilvl, rarity: (a, b) => b.rarity - a.rarity || b.ilvl - a.ilvl, use: (a, b) => usefulness(G.profile, b) - usefulness(G.profile, a) };
 
@@ -293,6 +315,7 @@ W.character = (arg = {}) => {
       ['Здоровье', S.maxHP], ['Запас прочности', S.ehp], ['Мана', S.maxMP], ['Восст. маны', S.mpRegen.toFixed(1) + '/с'], ['Здоровье за удар', S.leech], ['Находка золота', '+' + S.goldFind + '%']];
     const core = ['Урон в секунду', 'Здоровье', 'Защита', 'Запас прочности'], mainRows = st.filter(r => core.includes(r[0])), moreRows = st.filter(r => !core.includes(r[0]));
     b.appendChild(el('div', 'stats', mainRows.map(([a, v]) => `<div><span>${a}</span><b>${v}</b></div>`).join('')));
+    b.appendChild(el('p', 'muted', `<small>${EHP_SHORT}</small>`));
     b.appendChild(el('details', 'more', `<summary class="muted" style="cursor:pointer;margin:6px 0">Подробные показатели</summary><div class="stats">${moreRows.map(([a, v]) => `<div><span>${a}</span><b>${v}</b></div>`).join('')}</div>`));
     const s = P.stats;
     b.appendChild(el('h3', '', 'Летопись'));
@@ -378,6 +401,7 @@ function talentInfo(id, P, edit) {
     const cost = CH.skillCost(id); const bt = el('button', 'learn tal-learn' + (can.ok ? ' ok' : ''), `${r ? 'Повысить ранг' : 'Изучить'}<small>${cost ? fmt(cost) + ' зол.' : 'бесплатно'}</small>`); bt.disabled = !can.ok;
     bt.onclick = e => { e.stopPropagation(); if (CH.learn(id, true)) rerender(); }; t.appendChild(bt);
     if (!can.ok) t.appendChild(el('div', 'bad', `<small>${esc(can.why)}</small>`));
+    else if (P.gold < cost) { bt.classList.remove('ok'); t.appendChild(el('div', 'bad', `<small>Не хватает ${fmt(cost - P.gold)} зол. (у вас ${fmt(P.gold)}). Очко навыка не пропадёт — вернитесь с золотом из подземелья или Летописи</small>`)); }   // М5
   } else if (!edit && r < sk.max && can.ok) t.appendChild(el('div', 'muted', '<small>Можно изучить у наставника Элвина в деревне.</small>'));
   if (r && sk.kind === 'active') {
     const sr = el('div', 'slots4');
@@ -519,7 +543,7 @@ W.settings = () => modal('Настройки', 'sm', b => {
     const rm = el('div', 'attr', '<b>Меньше движения</b> <small class="muted">без мигания и пульсации кнопок; тряска камеры выключается</small>'); const br = el('button', 'btn sm', A.rm ? 'Вкл' : 'Выкл'); br.onclick = () => { setA11y({ rm: !A.rm }); if (!A.rm) s.shake = false; bus.emit('save'); rerender(); }; rm.appendChild(br); b.appendChild(rm); }
   b.appendChild(el('p', 'muted', `<small>Версия сборки: ${window.__BUILD || ''}</small>`));
   b.appendChild(el('h3', '', 'Управление'));
-  b.appendChild(el('p', 'muted', 'Телефон/планшет: джойстик слева, навыки, рывок и зелья справа. Герой бьёт сам, когда враг рядом: ваше дело — двигаться, уклоняться и пить зелья. Щипок двумя пальцами — камера ближе/дальше. ПК: WASD/стрелки или зажатая правая кнопка мыши — движение, левая кнопка мыши — удар в точку, колесо мыши — камера ближе/дальше, Пробел — атака, 1–4 — навыки, Shift — уклонение, Q/E — зелья, F — действие, I/C/K/J/M — окна, T — свиток.'));
+  b.appendChild(el('p', 'muted', 'Телефон/планшет: ведите пальцем в любом месте экрана — это джойстик; короткое касание места — герой побежит туда, касание врага — выбрать цель. Навыки, рывок и зелья справа. Герой бьёт сам, когда враг рядом: ваше дело — двигаться, уклоняться и пить зелья. Щипок двумя пальцами — камера ближе/дальше. ПК: WASD/стрелки или зажатая правая кнопка мыши — движение, левая кнопка мыши — удар в точку, колесо мыши — камера ближе/дальше, Пробел — атака, 1–4 — навыки, Shift — уклонение, Q/E — зелья, F — действие, I/C/K/J/M — окна, T — свиток.'));
   const row = el('div', 'row'); row.style.marginTop = '10px';
   const sv = el('button', 'btn', 'Сохранить'); sv.onclick = () => { if (saveNow(true)) bus.emit('toast', { text: 'Игра сохранена', kind: 'good' }); else bus.emit('toast', { text: 'Не удалось сохранить', sub: 'Браузер не даёт записать (приватный режим или нет места)', kind: 'warn' }); }; row.appendChild(sv);   // С14
   const rp = el('button', 'btn', 'Восстановить покупки'); rp.onclick = () => restorePurchases(); row.appendChild(rp);
@@ -800,13 +824,14 @@ W.shrine = () => modal('Источник силы', 'md', b => {
   b.appendChild(el('h3', '', `Дары источника · день ${cur} из ${LOGIN_DAYS}${ds.streak >= LOGIN_DAYS ? ` · круг ${Math.floor(base / LOGIN_DAYS) + 1}` : ''}`));
   const cal = el('div', 'login-cal');
   DAILY.forEach((r, i) => { const d = i + 1, got = d < cur || (d === cur && !ds.claimable), today = d === cur && ds.claimable, soon = !got && !today && d - cur <= 3;
-    const what = r.item ? (r.item >= 3 ? '◆ золотая вещь' : '◆ синяя вещь') : r.mid ? '✉ свиток' : (r.gold * P.level) + ' зол.';
-    const cell = el('div', 'lc' + (r.big ? ' big' : r.mid ? ' mid' : '') + (got ? ' got' : '') + (today ? ' today' : '') + (soon ? ' soon' : ''), `<i>${d}</i><span>${what}</span>${got ? '<em>✔</em>' : soon ? `<em>${d - cur === 1 ? "завтра" : "через " + (d - cur) + " дн."}</em>` : ''}`);
+    const what = (r.item ? (r.item >= 3 ? '★ золотая вещь' : '★ синяя вещь') : r.mid ? '✉ свиток' : (r.gold * P.level) + ' зол.') + (r.shards ? ` <b class="c-shard">+${r.shards}◆</b>` : '');
+    const cell = el('div', 'lc' + (r.big ? ' big' : r.mid ? ' mid' : '') + (got ? ' got' : '') + (today ? ' today' : '') + (soon ? ' soon' : ''), `<i>${d}</i><span>${what}</span>${got ? '<em>✔</em>' : today ? '<em>забрать</em>' : soon ? `<em>${d - cur === 1 ? "завтра" : "через " + (d - cur) + " дн."}</em>` : ''}`);
+    if (today) cell.onclick = () => { claimDaily(false); rerender(); };   // правки мамы (М21): нажатие на сам день тоже забирает дар
     cal.appendChild(cell); });
   b.appendChild(cal);
   const nb = DAILY.findIndex((r, i) => i + 1 > cur && (r.big || r.mid)), nr = nb >= 0 ? DAILY[nb] : null;
   const dr = el('div', 'row'); dr.style.marginTop = '6px';
-  if (ds.claimable) { const a = el('button', 'btn gold', `Забрать день ${cur}`); a.onclick = () => { claimDaily(false); rerender(); }; const x2 = el('button', 'btn ad', 'Забрать ×1,5'); x2.onclick = () => watchRewarded('daily_double', offerToken('daily_double', 'd' + new Date().toDateString()), () => claimDaily(true)).then(rerender); dr.append(a, x2); }
+  if (ds.claimable) { const a = el('button', 'btn gold nudge', `Забрать день ${cur}`); a.onclick = () => { claimDaily(false); rerender(); }; const x2 = el('button', 'btn ad', 'Забрать ×1,5'); x2.onclick = () => watchRewarded('daily_double', offerToken('daily_double', 'd' + new Date().toDateString()), () => claimDaily(true)).then(rerender); dr.append(a, x2); }
   else dr.appendChild(el('span', 'muted', `Следующий дар — завтра.${nr ? ` Через ${nb + 1 - cur} дн.: <b>${nr.label}</b>` : ''} Пропуск дня не сбрасывает календарь.`));
   b.appendChild(dr);
   dailyBlock(b);
@@ -957,14 +982,17 @@ export function showMemory(id) {
   const S = G.profile.story; S.mem = S.mem || {};
   if (S.mem[id]) return; S.mem[id] = 1; bus.emit('save');
   const seals = SEALS.filter(x => (S.flags || {})['seal_' + x.id]).length;
-  setTimeout(() => modal(M.title, 'sm', b => {
+  // фото мамы (М31): после склепа облёт нового портала («Открыт портал: Разрушенный храм») успевал начаться в эти 1,4 с и шёл поверх окна —
+  // окно резалось чёрными полосами, «Дальше» не нажималась. Теперь облёт ждёт окно (G.memPending), а окно — конец облёта
+  G.memPending = true;
+  setTimeout(function open() { if (G.cinema) return setTimeout(open, 500); G.memPending = false; modal(M.title, 'sm', b => {
     const box = el('div', 'mem-box', `<div class="mem-ic">${M.kind === 'turn' ? '✦' : '◈'}</div><div class="mem-sub">${esc(M.sub || '')}</div>`);
     for (const l of M.lines) box.appendChild(el('p', '', esc(l)));
     box.appendChild(el('div', 'mem-seals', SEALS.map((x, i) => `<i class="${i < seals ? 'on' : ''}" title="${esc(x.name)}"></i>`).join('')));
     box.appendChild(el('div', 'muted', `Печати: ${seals} из ${SEALS.length}`));
     b.appendChild(box);
-    const r = el('div', 'row'); r.style.justifyContent = 'center'; const ok = el('button', 'btn gold', 'Дальше'); ok.onclick = closeModal; r.appendChild(ok); b.appendChild(r);
-  }, { sticky: true }), 1400);
+    const r = el('div', 'row'); r.style.justifyContent = 'center'; const ok = el('button', 'btn gold', 'Дальше'); ok.onclick = () => closeModal(); r.appendChild(ok); b.appendChild(r);
+  }, { sticky: true }); }, 1400);
   bus.emit('sfx', 'levelup');
 }
 const CH_DONE = {
@@ -1237,7 +1265,7 @@ function survEnd(r) {
 const LORE = {
   depths: ['Глубины катакомб', 'Под катакомбами Ордена нет дна. Каждый пятый этаж охраняет страж, а за стражами — всё более древняя тьма: затопленные склепы, пепельные шахты и, говорят, само Сердце Бездны. Дары Бездны помогут — но только пока вы не повернёте назад.'],
   // сборка 60 (П13): вместо легенды — короткая инструкция
-  survival: ['Жатва Бездны · как играть', 'Кнопки боя здесь не нужны.', ['🏃 Только бегайте — герой бьёт сам.', '💎 С врагов падают синие души — подбирайте их: они качают ваши умения в этой Жатве.', '⏳ Не стойте в толпе и продержитесь как можно дольше.']],
+  survival: ['Жатва Бездны · как играть', 'Кнопки боя здесь не нужны.', ['🏃 Только бегайте — герой бьёт сам. Ведите пальцем по экрану.', '💎 С врагов падают синие души — подбегайте к ним, они собираются сами. Набрали полную полоску — новый уровень, выберите новое умение или усилите старое.', '🏹 Уворачивайтесь от стрел и снарядов врагов — отбегайте в сторону.', '⏳ Не стойте в толпе и продержитесь как можно дольше.']],   // правки мамы (М10)
   castle: ['Цитадель Ордена', 'Когда-то здесь жили магистры Ордена. Теперь это ваш дом. Откройте залы: алтарь будет копить золото, пока вы спите, а в Зале испытаний стражи прошлого проверят вашу силу.'],
 };
 bus.on('zoneEntered', id => { const P = G.profile; P.lore = P.lore || {}; const L = LORE[id]; if (!L || P.lore[id] || (id === 'depths' && !(G.run && G.run.floor > 0))) return; P.lore[id] = 1; bus.emit('save');

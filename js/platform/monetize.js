@@ -161,8 +161,9 @@ export async function restorePurchases() {
 // Каждый 3-й день награда больше (свиток, зелья), 7/14/21/28 — крупная (вещь). Видно, что будет через 1–3 дня.
 export const LOGIN_DAYS = 28;
 export function loginReward(d) {   // d — день календаря 1..28
-  if (d % 7 === 0) return { big: true, gold: 120, potions: 3, scrolls: 1, item: d >= 21 ? 3 : 2, label: d >= 21 ? 'Золотая вещь' : 'Синяя вещь' };
-  if (d % 3 === 0) return { mid: true, gold: 70, potions: 3, scrolls: 1, label: 'Свиток и зелья' };
+  // правки мамы (М21): награда была «примитивной» — только золото. Теперь каждый 3-й день ещё и осколки Бездны ◆ (они по-настоящему ценные), в большие дни — больше
+  if (d % 7 === 0) return { big: true, gold: 120, potions: 3, scrolls: 1, shards: d >= 21 ? 5 : 3, item: d >= 21 ? 3 : 2, label: d >= 21 ? 'Золотая вещь' : 'Синяя вещь' };
+  if (d % 3 === 0) return { mid: true, gold: 70, potions: 3, scrolls: 1, shards: 1, label: 'Свиток, зелья и ◆' };
   return { gold: 35, potions: d % 2 ? 1 : 0, label: 'Золото' };
 }
 export const DAILY = Array.from({ length: LOGIN_DAYS }, (_, i) => loginReward(i + 1));
@@ -179,9 +180,13 @@ export function claimDaily(double) {
   if (r.gold) P.gold += Math.round(r.gold * m * P.level);
   if (r.potions) P.potions.hp += Math.round(r.potions * m);
   if (r.scrolls) P.scrolls += Math.round(r.scrolls * m);
-  if (r.item) for (let i = 0; i < 1; i++) { const it = makeItem({ ilvl: P.level, rarity: r.item, cls: P.cls }); delete it.req; autoEquip(it); }
+  if (r.shards) P.shards = (P.shards || 0) + Math.round(r.shards * m);
+  const items = [];
+  if (r.item) for (let i = 0; i < 1; i++) { const it = makeItem({ ilvl: P.level, rarity: r.item, cls: P.cls }); delete it.req; items.push(autoEquip(it)); }
   P.daily.last = dayKey(Date.now()); P.daily.streak = s.streak + 1; bus.emit('loginClaimed');
-  bus.emit('toast', { text: `Дар источника — день ${s.day} из ${LOGIN_DAYS}`, sub: r.big ? 'Большая награда!' : r.mid ? 'Награда каждого 3-го дня' : '', kind: 'good' }); bus.emit('sfx', 'quest'); bus.emit('hud'); bus.emit('save'); return true;
+  // М22: после рекламы (и без неё) — окно с тем, что получено, а не мимолётная строка
+  bus.emit('reward', { title: `Дар источника — день ${s.day} из ${LOGIN_DAYS}`, sub: double ? 'Награда за просмотр ×1,5' : r.big ? 'Большая награда!' : 'Ежедневный дар', gold: r.gold ? Math.round(r.gold * m * P.level) : 0, xp: 0, potions: r.potions ? Math.round(r.potions * m) : 0, scrolls: r.scrolls ? Math.round(r.scrolls * m) : 0, shards: r.shards ? Math.round(r.shards * m) : 0, skillPts: 0, items, now: true });
+  bus.emit('sfx', 'quest'); bus.emit('hud'); bus.emit('save'); return true;
 }
 
 // ---- благословение богини за рекламу: +25% золота и опыта, +15% к выпадению вещей (сборка 47; было +50% / +25%); 10 минут за просмотр, не больше 30 подряд
@@ -209,8 +214,9 @@ export function chestStatus() { const P = G.profile; P.orderChest = P.orderChest
 export function openOrderChest(viaAd) {
   const P = G.profile; const s = chestStatus();
   if (!s.ready && !viaAd) return false;
-  { const it = makeItem({ ilvl: P.level + 1, rarity: Math.random() < 0.25 ? 2 : 1, cls: P.cls }); delete it.req; autoEquip(it); }   // сборка 47: обычно зелёная, синяя — 1 из 4
+  let got; { const it = makeItem({ ilvl: P.level + 1, rarity: Math.random() < 0.25 ? 2 : 1, cls: P.cls }); delete it.req; got = autoEquip(it); }   // сборка 47: обычно зелёная, синяя — 1 из 4
   P.gold += 40 * P.level; P.orderChest.readyAt = Date.now() + CHEST_TIME;
-  bus.emit('toast', { text: 'Сундук Ордена открыт!', sub: 'Вещь (надета, если лучше) + золото', kind: 'good' }); bus.emit('sfx', 'chest'); bus.emit('hud'); bus.emit('save'); return true;
+  bus.emit('reward', { title: 'Сундук Ордена открыт!', sub: viaAd ? 'Награда за просмотр' : 'Сундук Ордена', gold: 40 * P.level, xp: 0, potions: 0, scrolls: 0, skillPts: 0, items: [got], now: true });   // М22: окно с вещью и сравнением
+  bus.emit('sfx', 'chest'); bus.emit('hud'); bus.emit('save'); return true;
 }
 export function chestSkip() { const s = chestStatus(); if (s.ready) return openOrderChest(); return watchRewarded('chest_skip', offerToken('chest_skip', String(G.profile.orderChest.readyAt)), () => openOrderChest(true)); }

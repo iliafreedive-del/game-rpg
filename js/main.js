@@ -37,7 +37,8 @@ async function boot() {
   await initRenderer($('game'));
   initAudio(); bus.on('sfx', sfx); bus.on('audioPause', p => setPaused(p, 'ad'));   // реклама; своя причина тишины у платформы и скрытой вкладки (audio.js)
   const bar = $('loadbar').firstElementChild, txt = $('loadtxt');
-  const prog = (f, t) => { bar.style.width = Math.round(f * 100) + '%'; txt.textContent = t; if (window.__bootStep) window.__bootStep(); };   // П42: сторож загрузки в index.html
+  // правки мамы (М14): на Android загрузка долгая и казалось, что всё зависло — к тексту добавлены проценты, полоса «переливается» (css #loadbar)
+  const prog = (f, t) => { bar.style.width = Math.round(f * 100) + '%'; txt.textContent = t + (f < 1 ? ` ${Math.round(f * 100)}%` : ''); if (window.__bootStep) window.__bootStep(); };   // П42: сторож загрузки в index.html
   prog(0.05, 'Подключение платформы…');
   await initPlatform();
   prog(0.1, 'Загрузка героя и мира…');
@@ -99,17 +100,20 @@ async function boot() {
     const n = el('button', 'btn gold', 'Начать игру'); n.onclick = newGame; btns.append(n);
   }
   btns.appendChild(el('div', 'muted', `<small>Версия: ${BUILD}</small>`));
-  btns.appendChild(el('div', 'muted', '<small>Телефон: джойстик слева, рывок и зелья справа · ПК: WASD, Shift — рывок</small>'));
+  btns.appendChild(el('div', 'muted', '<small>Телефон: ведите пальцем по экрану или коснитесь места — герой побежит; рывок и зелья справа · ПК: WASD, Shift — рывок</small>'));
   if (G.webglFail) btns.appendChild(el('div', 'muted', '<small>' + esc('3D-графика недоступна на этом устройстве — игра в 2D. Причина: ') + esc(G.webglFail) + '</small>'));   // П42
 }
 
 function pickClass(box, cb, saved = {}, askOverwrite = () => true) {
   box.innerHTML = '<div class="goldc" style="font:600 18px Georgia">Выберите героя</div>';
+  // правки мамы (М14): касание «Начать игру» / «Новая игра» на телефоне доходило и до карточки героя, появившейся под пальцем, — выбор пропускался.
+  // Карточка принимает нажатие, только если палец опустился на неё саму (клавиатура — как раньше)
   const row = el('div', 'classes');
   for (const [id, C] of Object.entries(CLASSES)) {
     const has = saved[id];
     const c = el('button', 'class-card', `<picture><source media="(min-width:900px) and (min-height:600px)" srcset="assets/art/gpt/heroes/${id}.png"><img class="pt" src="assets/sprites/${id === 'warrior' ? 'portrait' : 'portrait_' + id}.png" alt="" onerror="this.src='${iconURL(C.icon)}'"></picture><b>${esc(C.name)}</b><span>${esc(C.desc)}</span>${has ? `<em class="cc-save">есть сохранение · ур. ${has.level}</em>` : ''}`);
-    c.onclick = () => { if (box._picked) return; if (has && !askOverwrite(id)) return; box._picked = true; sfx('click'); cb(id); }; row.appendChild(c);
+    c.onpointerdown = () => { c._down = true; };
+    c.onclick = e => { if (box._picked || (e.detail && !c._down)) return; if (has && !askOverwrite(id)) return; box._picked = true; sfx('click'); cb(id); }; row.appendChild(c);
   }
   box.appendChild(row);
 }

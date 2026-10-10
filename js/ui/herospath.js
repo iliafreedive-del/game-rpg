@@ -85,7 +85,7 @@ function showMap() {
   const pv = el('button', 'btn', '◀'); pv.disabled = page === 0; pv.onclick = () => { page--; showMap(); };
   const nx = el('button', 'btn', '▶'); nx.disabled = page === CHAPTERS.length - 1 || h.top <= (page + 1) * PER_CH; nx.onclick = () => { page++; showMap(); };
   nav.append(pv, el('span', 'hw-page', `Глава ${page + 1}/${CHAPTERS.length}`), nx); card.appendChild(nav);
-  if (h.top >= page * PER_CH + 1 && h.top <= (page + 1) * PER_CH && !gate('hw', h.top)) { const go = el('button', 'btn gold hw-go', `⚔ В бой · этап ${h.top}`); go.onclick = () => showPrefight(h.top); card.appendChild(go); }
+  if (h.top >= page * PER_CH + 1 && h.top <= (page + 1) * PER_CH && !gate('hw', h.top)) { const go = el('button', 'btn gold hw-go' + (h.top <= 3 ? ' nudge' : ''), `⚔ В бой · этап ${h.top}`); go.onclick = () => showPrefight(h.top); card.appendChild(go); }
   root.appendChild(card);
 }
 // П9: умение для Летописи — выбранное перед боем из выученных активных (P.hwSkill), иначе первое на кнопках
@@ -119,6 +119,8 @@ function showPrefight(s) {
   const back = el('button', 'btn', 'К карте'); back.onclick = showMap;
   const go = el('button', 'btn gold', 'В бой · 1 ⚡');
   go.onclick = () => tryFight(s);
+  // правки мамы (М7): «В бой» видно, но нажать не хотелось и было неясно, что дальше — в первых боях кнопка пульсирует и есть пояснение
+  if (tut() || s <= 3) { go.classList.add('nudge'); card.appendChild(el('p', 'goldc', '☟ Нажмите «В бой» — бой пойдёт сам: герой и враги ходят по очереди, вам ничего делать не нужно.')); }
   row.append(back, go); card.appendChild(row); root.appendChild(card);
   artImg(arenaSrc(s, portNow()));   // П5
 }

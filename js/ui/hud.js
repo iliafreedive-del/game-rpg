@@ -160,7 +160,7 @@ export function updateHUD(dt) {
   ui.classList.toggle('fight', inCombat());
   ui.classList.toggle('dungeon', G.zoneId !== 'town');
   $('tracker').classList.toggle('open', G.time < trackOpenUntil && !inCombat());
-  edgeArrow(); const lb = $('btnLead'); lb.classList.toggle('hidden', !G.guide || inCombat() || !!G.surv); lb.classList.toggle('on', !!G.lead);
+  edgeArrow(); const lb = $('btnLead'); lb.classList.toggle('hidden', !G.guide || inCombat() || !!G.surv); lb.classList.toggle('on', !!G.lead); lb.classList.toggle('lure', !G.lead && G.profile.level < 5);   // М24: в начале кнопка «Веди меня» мягко пульсирует — её не хотелось нажимать
   const boss = G.enemies.find(e => (e.D.boss || e.D.elite) && e.aggro && !e.dead) || null;
   ui.classList.toggle('boss', !!boss);
   if (boss && !boss.dead && G.enemies.includes(boss)) {
@@ -239,6 +239,11 @@ function safeInsets() {   // env(safe-area-inset-*) в пикселях: CSS-п�
   const c = getComputedStyle(safeEl), n = v => parseFloat(v) || 0;
   return (safeC = { t: n(c.paddingTop), r: n(c.paddingRight), b: n(c.paddingBottom), l: n(c.paddingLeft) });
 }
+// короткое имя цели стрелки: у жителей — имя без звания («Наставник Элвин» → «Элвин»), у порталов и мест — табличка
+function guideName(t) {
+  const n = (G.npcs || []).find(x => x.id === t.id), full = (n && n.name) || t.npcName || t.plate || (t.D && t.D.name) || '';
+  if (!full) return ''; const w = String(full).split(' '); return n && w.length > 1 ? w[w.length - 1] : full.length > 18 ? w[0] : full;
+}
 // стрелка у края экрана: если цель задания за кадром, показываем, в какую сторону бежать и сколько метров
 function edgeArrow() {
   const e = $('edgeArrow'), t = G.guide, P = G.player;
@@ -256,7 +261,8 @@ function edgeArrow() {
   e.classList.remove('hidden');
   e.style.left = (cx + dx * k) + 'px'; e.style.top = (cy + dy * k) + 'px';
   e.querySelector('.ea-a').style.transform = `rotate(${Math.atan2(dy, dx)}rad)`;
-  e.querySelector('.ea-d').textContent = Math.round(Math.hypot(t.x - P.x, t.y - P.y)) + ' м';
+  // правки мамы (М26): «25 м» без подписи было непонятно — теперь «Элвин · 25 м»: куда идти и сколько шагов (метров) до цели
+  const nm = guideName(t); e.querySelector('.ea-d').textContent = (nm ? nm + ' · ' : '') + Math.round(Math.hypot(t.x - P.x, t.y - P.y)) + ' м';
 }
 
 // minimap: explored-radius reveal in dungeon, quest target marker

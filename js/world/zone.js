@@ -25,7 +25,7 @@ const PROP = {
   board_dungeon: { spr: 'board', r: 0.3 },
   well: { spr: 'well', r: 0.62 },
   runebed: { spr: 'runebed', r: 1.1, light: { r: 5, c: [110, 230, 255], flicker: 0.25, z: 0.8 } }, forge: { spr: 'forge', box: [0.75, 0.6], light: { r: 4, c: [255, 120, 40], flicker: 1, dx: 0, dy: 0.2 } },
-  stall: { spr: 'stall', box: [0.95, 0.45] }, market_tent: { spr: 'stall', box: [1.8, 1.25], model: 'market_tent' }, lamp: { spr: 'lamp', r: 0.12, tall: 1, light: { r: 5.5, c: [255, 190, 110], flicker: 0.5, z: 1.9 } },
+  stall: { spr: 'stall', box: [0.95, 0.45] }, market_tent: { spr: 'stall', box: [1.8, 1.25], model: 'market_tent' }, lamp: { spr: 'lamp', tall: 1, light: { r: 5.5, c: [255, 190, 110], flicker: 0.5, z: 1.9 } },   // правки мамы (М18): сквозь фонарь можно пройти — герой цеплялся за столб
   tree_0: { spr: 'tree_0', r: 0.3, tall: 1 }, tree_1: { spr: 'tree_1', r: 0.3, tall: 1 },
   hay: { spr: 'hay', r: 0.45 }, grave: { spr: 'grave', r: 0.2 }, fence_x: { spr: 'fence_x', box: [0.5, 0.08] }, fence_y: { spr: 'fence_y', box: [0.08, 0.5] },
   house_0: { spr: 'house_0', box: [2.85, 2.2], tall: 1 }, house_1: { spr: 'house_1', box: [3.25, 2.4], tall: 1 }, house_2: { spr: 'house_2', box: [2.95, 2.2], tall: 1 },   // под крупные 3D-дома (ART_BIBLE, раздел 7)
@@ -180,7 +180,7 @@ export class Zone {
           const look = !!o.rich, rich = look && !W[id];
           const d = this.add({ x: o.x, y: o.y, spr: look ? 'chest_rich' : 'chest' });
           this.map.circles.push({ x: o.x, y: o.y, r: 0.35 });
-          this.inter.push({ id, type: 'chest', rich, look, x: o.x, y: o.y, r: 1.4, label: 'Открыть сундук', draw: d, done: false, persist: rich });
+          this.inter.push({ id, type: 'chest', rich, look, x: o.x, y: o.y, r: 2.0, label: 'Открыть сундук', draw: d, done: false, persist: rich });   // правки мамы (М13): кнопка «Открыть сундук» появляется с 2 м (было 1,4 — приходилось подходить вплотную)
           break;
         }
         case 'altar_medallion': {
@@ -324,7 +324,7 @@ export class Zone {
           const big = J.wild && J.wild.realm === 'bones' ? 2 : 1;   // в пустошах сундук из шкур в 2 раза больше (сборка 44) — и упор, и дотянуться
           const d = this.add({ x: o.x, y: o.y, spr: o.rich ? 'chest_rich' : 'chest' }); this.map.circles.push({ x: o.x, y: o.y, r: 0.35 * big });
           if (o.rich) this.addLight(o.x, o.y, { r: 3, c: [255, 210, 110], flicker: 0.3, z: 0.8 });
-          this.inter.push({ id: o.id, type: 'chest', rich: !!o.rich, x: o.x, y: o.y, r: 1.4 + 0.5 * (big - 1), label: 'Открыть сундук', draw: d }); break;
+          this.inter.push({ id: o.id, type: 'chest', rich: !!o.rich, x: o.x, y: o.y, r: 2.0 + 0.5 * (big - 1), label: 'Открыть сундук', draw: d }); break;
         }
         case 'fort_door': {   // ворота форта заперты, пока не перебиты лагеря вокруг (game/wild.js openGate)
           const g = J.wild.gate; const d = this.add({ x: o.x, y: o.y, spr: 'banner', model: 'fort_door', rot: 0, hidden: false }); const tiles = [[g.x - 1, g.y], [g.x, g.y], [g.x + 1, g.y]];
@@ -342,7 +342,7 @@ export class Zone {
         }
         case 'stash': {
           const d = this.add({ x: o.x, y: o.y, spr: o.kind }); this.map.circles.push({ x: o.x, y: o.y, r: 0.3 });
-          this.inter.push({ id: o.id, type: 'stash', x: o.x, y: o.y, r: 1.3, label: 'Обыскать', draw: d }); break;
+          this.inter.push({ id: o.id, type: 'stash', x: o.x, y: o.y, r: 1.9, label: 'Обыскать', draw: d }); break;
         }
         default: this.prop(o);
       }

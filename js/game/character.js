@@ -42,7 +42,9 @@ export const attrCost = () => 5 + 5 * G.profile.level;
 export const skillCost = id => {
   const P = G.profile, n = Object.values(P.skills).filter(Boolean).length, r = P.skills[id] || 0;
   if (!r) return n === 0 ? firstLessonCost() : Math.round(25 * Math.pow(2, n - 1));
-  return Math.round(30 * Math.pow(1.5, r) * Math.pow(1.1, P.level - 1));
+  // правки мамы (М5): второй ранг стоил 50 золота, а после Летописи у игрока ~40 — очко навыка есть, а потратить нельзя.
+  // Первое повышение ранга теперь 30·1,1^(ур.−1) (33 на 2-м уровне), дальше как было
+  return Math.round(30 * (r === 1 ? 1 : Math.pow(1.5, r)) * Math.pow(1.1, P.level - 1));
 };
 export function addAttr(k, n = 1, pay = false) {
   const P = G.profile; n = Math.min(n, P.attrPts); if (n <= 0) return false;

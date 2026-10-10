@@ -560,7 +560,7 @@ function drawInteractMarker() {
 }
 
 // quest guide: a golden arrow on the ground pointing toward the current objective
-function drawGuide() { drawArrow(G.guide, 'gv', '255,210,90'); drawBeacon(G.guide); if (G.huntGuide && G.huntGuide !== G.guide) drawArrow(G.huntGuide, 'hgv', '255,70,50', 0.27); }
+function drawGuide() { drawMoveTo(); drawArrow(G.guide, 'gv', '255,210,90'); drawBeacon(G.guide); if (G.huntGuide && G.huntGuide !== G.guide) drawArrow(G.huntGuide, 'hgv', '255,70,50', 0.27); }
 // сборка 60 (П1): стрелка у героя гаснет за 4 м до цели, и саркофаг с ключом пробегали мимо (рядом стоит сундук поярче).
 // Теперь над целью задания в подземелье прыгает золотой указатель «▼», а под ней пульсирует кольцо — видно, что открыть надо именно это
 function drawBeacon(t) {
@@ -572,20 +572,28 @@ function drawBeacon(t) {
   ctx.save(); ctx.translate(x, y - b); ctx.shadowColor = '#ffb020'; ctx.shadowBlur = 14; ctx.fillStyle = '#ffd24a'; ctx.strokeStyle = '#3a2400'; ctx.lineWidth = 3;
   ctx.beginPath(); ctx.moveTo(-15 * z, -16 * z); ctx.lineTo(15 * z, -16 * z); ctx.lineTo(0, 6 * z); ctx.closePath(); ctx.stroke(); ctx.fill(); ctx.restore();
 }
+// М27: куда бежит герой после касания экрана — сжимающееся кольцо на земле
+function drawMoveTo() {
+  const m = G.moveTo; if (!m) return; const z = G.cam.zoom, [x, y] = G.cam.toScreen(m.x, m.y), p = ((G.time - m.t) * 1.6) % 1;
+  ctx.save(); ctx.translate(x, y); ctx.scale(1, 0.5); ctx.strokeStyle = `rgba(150,230,255,${0.9 - p * 0.5})`; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.arc(0, 0, (22 - 12 * p) * z, 0, 7); ctx.stroke(); ctx.restore();
+}
 function drawArrow(t, key, rgb, off = 0) {
   const P = G.player; if (!t || P.dead) return;
   const dx = t.x - P.x, dy = t.y - P.y, d = Math.hypot(dx, dy); if (d < 4) return;
   let vx = dx / d, vy = dy / d;
   if (G.zone.dark) { const g = G.zone.map.guideDir(P.x, P.y, t.x, t.y); if (g) { vx = g[0]; vy = g[1]; } }
   const gv = G[key] || (G[key] = [vx, vy]); gv[0] += (vx - gv[0]) * 0.12; gv[1] += (vy - gv[1]) * 0.12; const gl = Math.hypot(gv[0], gv[1]) || 1; vx = gv[0] / gl; vy = gv[1] / gl;
-  const cam = G.cam, z = cam.zoom; const pulse = (G.time * 1.5) % 1;
-  ctx.save();
+  // правки мамы (М4): стрелки были мелкие и тусклые — крупнее (в начале игры ещё крупнее), ярче и с тёмной обводкой, чтобы читались на траве и камне
+  const cam = G.cam, s = cam.zoom * ((G.profile && G.profile.level < 6) ? 1.8 : 1.4); const pulse = (G.time * 1.5) % 1;
+  ctx.save(); ctx.lineJoin = 'round';
   for (let i = 0; i < 3; i++) {
-    const k = 1.1 + off + i * 0.55 + pulse * 0.55;
+    const k = 1.2 + off + i * 0.7 + pulse * 0.7;
     const [x, y] = cam.toScreen(P.x + vx * k, P.y + vy * k); const [x2, y2] = cam.toScreen(P.x + vx * (k + 0.3), P.y + vy * (k + 0.3));
-    const a = Math.atan2(y2 - y, x2 - x); const al = (i === 0 ? pulse : i === 2 ? 1 - pulse : 1) * 0.85;
-    ctx.translate(x, y); ctx.rotate(a); ctx.fillStyle = `rgba(${rgb},${al})`;
-    ctx.beginPath(); ctx.moveTo(9 * z, 0); ctx.lineTo(-5 * z, -7 * z); ctx.lineTo(-2 * z, 0); ctx.lineTo(-5 * z, 7 * z); ctx.closePath(); ctx.fill();
+    const a = Math.atan2(y2 - y, x2 - x); const al = (i === 0 ? pulse : i === 2 ? 1 - pulse : 1);
+    ctx.translate(x, y); ctx.rotate(a); ctx.fillStyle = `rgba(${rgb},${al})`; ctx.strokeStyle = `rgba(40,20,0,${al * 0.8})`; ctx.lineWidth = 2.5;
+    ctx.shadowColor = `rgba(${rgb},${al * 0.9})`; ctx.shadowBlur = 10;
+    ctx.beginPath(); ctx.moveTo(9 * s, 0); ctx.lineTo(-5 * s, -7 * s); ctx.lineTo(-2 * s, 0); ctx.lineTo(-5 * s, 7 * s); ctx.closePath(); ctx.stroke(); ctx.fill();
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
   }
   ctx.restore();

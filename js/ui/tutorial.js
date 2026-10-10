@@ -7,6 +7,9 @@ import { G, bus } from '../game/ctx.js';
 import { $, el, esc } from '../core/util.js';
 import { STORY } from '../data/quests.js';
 import { once as anOnce } from '../platform/analytics.js';
+import { UPGRADES, upgCost } from '../data/upgrades.js';
+import { skillCost, canLearn } from '../game/character.js';
+import { earlyLock } from '../game/progress.js';
 
 const touch = () => matchMedia('(pointer:coarse)').matches;
 const T = () => { const P = G.profile; P.tutorial = P.tutorial || {}; P.tutorial.tips = P.tutorial.tips || {}; P.tutorial.un = P.tutorial.un || {}; return P.tutorial; };
@@ -44,15 +47,21 @@ export function pointAt(sel, text, { key = null, time = 9, mid = false, force = 
   if (key) { t.tips[key] = 1; bus.emit('save'); anOnce('hint_' + key); }
   logHint(text);
   hideHand();
-  if (r) { hand = el('div', 'hand'); hand.style.left = (r.left + r.width / 2) + 'px'; hand.style.top = (r.top + r.height / 2) + 'px'; document.body.appendChild(hand); }
+  if (r) { hand = el('div', 'hand'); hand._sel = sel; placeHand(r); document.body.appendChild(hand); }
   line = el('div', 'hint-line ' + (mid || !r ? 'mid' : 'bot'), text); document.body.appendChild(line);
   handKey = key || sel || text; handUntil = performance.now() + time * 1000; handWin = win && sel ? (typeof sel === 'string' ? $(sel) : sel) : null;
   bus.emit('sfx', 'quest');
   return true;
 }
+// правки мамы (М16): палец ставился один раз и оставался на месте, когда кнопка уезжала (поворот телефона, вырез Android, появился трекер) —
+// и показывал на золото с кристаллами. Теперь палец следует за своей кнопкой
+function placeHand(r) { hand.style.left = (r.left + r.width / 2) + 'px'; hand.style.top = (r.top + r.height / 2) + 'px'; }
+function followHand() { if (!hand || !hand._sel) return; const r = rectOf(hand._sel); if (r) placeHand(r); }
+addEventListener('resize', () => setTimeout(followHand, 120));
 // подсказка исчезает сама: по времени, по нажатию нужной кнопки или по событию
 function handTick() {
   if (!hand && !line) return;
+  followHand();
   // сборка 60: подсказка внутри окна (win) не гаснет от самого окна — гаснет, когда её кнопка исчезла; строка о зуме гаснет, как только открыто окно или панель NPC (П7)
   if (performance.now() > handUntil || G.cinema || (handWin ? !handWin.isConnected : G.modalOpen) || (zoomLine && G.panelTarget)) hideHand();
 }
@@ -91,7 +100,7 @@ function placeTick() {
     if (zk && !zs[zk] && !t.zoomSeen && zoomTicks > 14 && calm && (G.zoneId !== 'town' || zs.cata)) { zs[zk] = 1; bus.emit('save');
       // своя фраза в каждом месте — не повтор одной и той же строки
       const how = touch() ? { in: 'разведите два пальца на экране', out: 'сведите два пальца' } : { in: 'колесо мыши от себя', out: 'колесо мыши на себя' };
-      const txt = { town: `Помните: камеру можно приблизить (${how.in}) или отдалить (${how.out})`, cata: `Камеру можно приблизить (${how.in}) или отдалить (${how.out})` }[zk];
+      const txt = { town: `Помните: камеру можно приблизить (${how.in}) или отдалить (${how.out}) — издалека видно больше`, cata: `Камеру можно приблизить (${how.in}) или отдалить (${how.out}) — отдалите, чтобы видеть больше вокруг` }[zk];   // М3
       if (t.off || !t.on) bus.emit('toast', { text: txt, kind: 'info' }); else { if (pointAt(null, txt, { time: 9 })) zoomLine = true; return; } } }
   if (t.off || !t.on || G.modalOpen) return;
   const once = (key, sel, text) => !t.tips[key] && pointAt(sel, text, { key });   // сборка 49: объявлено до первого использования (раньше — ошибка в консоли каждые 0,4 с)
@@ -99,8 +108,11 @@ function placeTick() {
   // сборка 47: саркофаг с ключом — многие пробегали мимо
   if (q && q.id === 'medallion' && !P.world.hasKey && G.focus && G.focus.type === 'sarc' && once('sarc', 'btnAct', 'Саркофаг! Откройте его — в одном из них ключ от двери к амулету')) return;
   if (q && q.id === 'medallion' && !P.world.hasKey && G.zoneId === 'catacombs' && once('sarc0', null, 'Ключ спрятан в одном из саркофагов — открывайте их')) return;
+  // правки мамы (М11): стрелку и магу в первом подземелье — как воевать: выстрел, отход, выстрел (кайт), а не стоять лицом к лицу
+  if (G.stats && G.stats.ranged && (G.zoneId === 'catacombs' || G.zoneId === 'depths') && (G.enemies || []).some(e => !e.dead && e.aggro) &&
+    once('kite', null, G.profile.cls === 'mage' ? 'Вы маг: бейте издалека. Враг подошёл — отбегите и остановитесь, герой ударит сам. Отошёл — ударил — отошёл' : 'Вы лучник: стреляйте издалека. Враг подошёл — отбегите и остановитесь, герой выстрелит сам. Отошёл — выстрелил — отошёл')) return;
   if (!$('btnLead').classList.contains('hidden') && once('lead', 'btnLead', 'Не знаете, куда идти? Нажмите «Веди меня» — герой сам побежит к цели')) return;
-  if ((P.shards || 0) > 0 && once('shards', 'goldBox', 'Фиолетовые ◆ — осколки Бездны. Копите их: они пригодятся позже')) return;
+  if ((P.shards || 0) > 0 && once('shards', 'goldBox', 'Фиолетовые ◆ — осколки Бездны, редкая валюта. Тратьте с умом: питомцы у Кофи, «Меткость» у Элвина')) return;
   if (!$('btnAct').classList.contains('hidden')) {
     const f = G.focus;
     if (once('act', 'btnAct', f && f.type === 'portal' ? 'Нажмите, чтобы войти в портал' : 'Нажмите, чтобы поговорить или открыть')) return;
@@ -109,11 +121,38 @@ function placeTick() {
   if (P.bag && P.bagSize && P.bag.length >= P.bagSize - 2 && G.zoneId === 'town' && once('sell', null, 'Сумка почти полна: у торговки Миры есть кнопка «Продать серое»')) return;
 }
 
+// ---------------------------------------------------------------- напоминания первых уровней (правки мамы)
+// М15 — мало здоровья: зелье (и что вне боя здоровье восстанавливается само); М17 — умение готово, а герой бьёт только автоатакой;
+// М19 — золота хватает на покупку у Элвина. Каждое — не чаще своего интервала, только до 8 уровня и если подсказки не выключены
+const nagT = {}; let lastSkillT = 0, goldNoted = 0;
+const nag = (k, gap) => { const now = performance.now(); if (now - (nagT[k] || -1e9) < gap * 1000) return false; nagT[k] = now; return true; };
+export function elvinBuy() {   // самая дешёвая покупка у Элвина, на которую хватает золота: { text, cost } или null
+  const P = G.profile; if (!P || earlyLock('upg')) return null; let best = null;
+  if (P.skillPts > 0) for (const id of Object.keys(P.skills || {})) if (P.skills[id] && canLearn(id).ok) { const c = skillCost(id); if (P.gold >= c && (!best || c < best.cost)) best = { text: 'повысить умение', cost: c }; }
+  for (const [id, U] of Object.entries(UPGRADES)) { if (U.shards) continue; const l = (P.upg && P.upg[id]) || 0; if (l >= U.max) continue; const c = upgCost(id, l); if (P.gold >= c && (!best || c < best.cost)) best = { text: `«${U.name}»`, cost: c }; }
+  return best;
+}
+function remindTick() {
+  const P = G.profile, pl = G.player, S = G.stats; if (!P || !pl || pl.dead || !S || !hintsOn() || P.level >= 8 || G.modalOpen || G.cinema || G.surv) return;
+  const fight = (G.enemies || []).some(e => !e.dead && e.aggro), dz = G.zoneId !== 'town' && G.zoneId !== 'castle';
+  if (P.slots.some(id => id && (pl.cds[id] || 0) > 0)) lastSkillT = performance.now();
+  if (dz && unlocked('pot') && pl.hp < S.maxHP * 0.4 && P.potions.hp > 0 && (pl.cds.pot_hp || 0) <= 0 && nag('pot', 40)) {
+    pointAt('potHP', fight ? 'Мало здоровья! Нажмите красное зелье' : 'Мало здоровья. Выпейте зелье или постойте без боя — здоровье восстанавливается само', { time: 5, force: true }); return; }
+  if (dz && S.ranged && P.level < 6 && T().tips.kite && (G.enemies || []).some(e => !e.dead && e.aggro && !e.D.proj && Math.hypot(e.x - pl.x, e.y - pl.y) < 1.6 + e.r) && pl.hp < S.maxHP * 0.7 && nag('kite', 90)) {
+    pointAt(null, 'Враг вплотную — отбегите на пару шагов и остановитесь: издалека вы бьёте без ответа', { time: 4, force: true }); return; }   // М11
+  const id = P.slots.find(Boolean), b = $('sk0');
+  if (dz && fight && id && unlocked('sk') && (pl.cds[id] || 0) <= 0 && pl.mp >= 20 && performance.now() - lastSkillT > 45000 && b && b.offsetParent && nag('skill', 70)) {
+    pointAt('sk0', 'Умение готово! Нажмите его — оно бьёт намного сильнее обычной атаки', { time: 5, force: true }); return; }
+  if (G.zoneId === 'town' && !fight) { const e = elvinBuy();
+    if (e && P.gold >= goldNoted + 100 && nag('elvin', 120)) { goldNoted = P.gold; bus.emit('toast', { text: `Хватает золота у Элвина: ${e.text} — ${e.cost} зол.`, sub: 'Сильнее герой — легче бои. Наставник у тренировочных чучел (значок «+»)', kind: 'quest' }); }
+    if (!e) goldNoted = Math.min(goldNoted, P.gold); }
+}
+
 export async function intro() {
   const t = T(); if (t.introDone) return; t.introDone = true; bus.emit('save');
   // первые секунды в склепе: только движение. Остальному учим по ходу.
   if (G.run && G.run.floor === 0) return;   // сборка 49: в склепе это говорит пролог (tutorialTick в game.js) — без повтора
-  pointAt('joyZone', touch() ? 'Ведите палец по левой половине экрана' : 'Идите: WASD или зажмите правую кнопку мыши', { time: 10 });
+  pointAt('joyZone', touch() ? 'Ведите пальцем по экрану — герой пойдёт. Коснитесь места — побежит туда' : 'Идите: WASD или зажмите правую кнопку мыши', { time: 10 });
 }
 
 export function initTutorial() {
@@ -123,7 +162,7 @@ export function initTutorial() {
   bus.on('camZoom', () => { if (G.profile) { T().zoomSeen = 1; bus.emit('save'); } });   // уже нашёл зум сам — подсказка не нужна
   // нажал подсказанную кнопку — палец убираем сразу
   for (const id of ['btnDodge', 'potHP', 'potMP', 'btnAuto', 'btnScroll', 'btnAct', 'portrait', 'sk0']) { const e = $(id); if (e) e.addEventListener('pointerdown', hideHand); }
-  setInterval(() => { if (!G.profile || !G.zoneReady) return; handTick(); if (G.cinema) return; revealTick(); placeTick(); }, 400);   // во время облёта камеры подсказок нет
+  setInterval(() => { if (!G.profile || !G.zoneReady) return; handTick(); if (G.cinema) return; revealTick(); placeTick(); remindTick(); }, 400);   // во время облёта камеры подсказок нет
   // сборка 47: первая вещь из добычи — где её надеть и сравнить
   bus.on('itemPicked', () => setTimeout(() => pointAt('portrait', 'Новая вещь в сумке! Нажмите портрет → «Сумка»: там вещь можно надеть и сравнить с надетой', { key: 'bag1', time: 10 }), 600));
   // первое зелье в награду — откуда они берутся
