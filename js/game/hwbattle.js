@@ -7,6 +7,16 @@ export const ARENA = { heroX: -5.4, foeX0: 1.6, foeX1: 5.4, zMax: 2.4 };
 const WIDE = { heroX: -5.4, foeX0: 1.6, foeX1: 5.4, zMax: 2.4, halfX: 8.6 }, NARROW = { heroX: -3.4, foeX0: 0.5, foeX1: 2.9, zMax: 2.0, halfX: 5.2 };
 let HALF_X = WIDE.halfX;
 export function setArenaLayout(narrow) { const L = narrow ? NARROW : WIDE; ARENA.heroX = L.heroX; ARENA.foeX0 = L.foeX0; ARENA.foeX1 = L.foeX1; ARENA.zMax = L.zMax; HALF_X = L.halfX; }
+// сборка 59: телефон повернули посреди боя — арена под новый экран, бойцы переносятся пропорционально (герой на своём краю, отряд на своём)
+export const arenaNarrow = () => HALF_X === NARROW.halfX;
+export function relayoutBattle(B, narrow) {
+  if (narrow === arenaNarrow()) return false;
+  const o = narrow ? WIDE : NARROW, n = narrow ? NARROW : WIDE, kx = (n.foeX1 - n.heroX) / (o.foeX1 - o.heroX), kz = n.zMax / o.zMax;
+  const mp = p => { if (p) { p.x = n.heroX + (p.x - o.heroX) * kx; p.z *= kz; } };
+  setArenaLayout(narrow);
+  for (const u of [B.H, ...B.foes]) { mp(u); mp(u.home); if (u.act) { mp(u.act.from); mp(u.act.to); } }
+  return true;
+}
 const RUN = 10, BACK_T = 0.4, PAUSE = 0.15;
 
 // расстановка отряда: ближний бой — первая линия, стрелки и маги — вторая; босс — в центре первой линии

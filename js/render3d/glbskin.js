@@ -67,7 +67,7 @@ export function attachSkin(kit, model, name, o = {}) {
     const pa = p ? at[p] : [0, 0, 0]; bone.position.set(a[0] - pa[0], a[1] - pa[1], a[2] - pa[2]);
     (p ? byName[p] : root).add(bone);
   }
-  const mat = toon(0xffffff, { map: tex, rim: o.rim ?? 0.6, rimColor: o.rimColor ?? 0xffe0a0, ao: 0.75, aoH: 0.6 });
+  const mat = toon(o.tint ?? 0xffffff, { map: tex, rim: o.rim ?? 0.6, rimColor: o.rimColor ?? 0xffe0a0, ao: 0.75, aoH: 0.6 });
   const mesh = new THREE.SkinnedMesh(geo, mat); mesh.frustumCulled = false; mesh.castShadow = true; mesh.userData.noBake = true; mesh.userData.noOutline = true;
   root.add(mesh);
   root.updateMatrixWorld(true);

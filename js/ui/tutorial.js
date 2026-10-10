@@ -59,7 +59,7 @@ function handTick() {
 // ---------------------------------------------------------------- что и когда открывать
 let revealAt = 0;   // не больше одной новой кнопки раз в 3 с: иначе подсказки перебивают друг друга
 function revealTick() {
-  const P = G.profile, pl = G.player, S = G.stats, t = T(); if (!P || !pl || !S || t.off) return;
+  const P = G.profile, pl = G.player, S = G.stats, t = T(); if (!P || !pl || !S || t.off || pl.dead) return;   // сборка 59: мёртвому подсказки не нужны
   if (performance.now() < revealAt) return;
   const unlock = k => { revealAt = performance.now() + 3000; return unlock0(k); };
   const dz = G.zoneId !== 'town' && G.zoneId !== 'castle';
@@ -75,17 +75,22 @@ function revealTick() {
   // «АВТО»: после 10 побед в подземелье
   if (!t.un.auto && dz && (P.stats.kills || 0) >= 10) { unlock('auto'); pointSoon('btnAuto', 'АВТО: герой будет сражаться сам'); return; }
   // свиток возврата
-  if (!t.un.scroll && dz && P.scrolls > 0) { unlock('scroll'); pointSoon('btnScroll', 'Свиток возврата — мгновенно домой'); return; }
+  if (!t.un.scroll && G.zoneId === 'catacombs' && P.scrolls > 0) { unlock('scroll'); pointSoon('btnScroll', 'Свиток возврата — мгновенно домой'); return; }
 }
 // подсказки по месту: кнопка действия, староста, наставник, портрет, торговка, слияние
-let zoneTicks = 0;
+let zoneTicks = 0, zoomTicks = 0;
 function placeTick() {
   const P = G.profile, t = T(); zoneTicks = G.zoneId === 'town' ? 0 : zoneTicks + 1;
-  // зум камеры (поток «Зум камеры»): один раз при первом выходе из деревни — и тем, кто играет без подсказок
-  // сборка 49: зум в первые минуты не нужен — подсказка после 15 минут игры и больше не держит остальные подсказки
-  if (G.zoneId !== 'town' && !t.zoomSeen && zoneTicks > 14 && (P.stats.playTime || 0) > 900 && !G.modalOpen) { t.zoomSeen = 1; bus.emit('save');
-    const txt = touch() ? 'Попробуйте: разведите два пальца на свободной части экрана — камера приблизится' : 'Попробуйте: покрутите колесо мыши — камера приблизится и отдалится';
-    if (t.off || !t.on) bus.emit('toast', { text: 'Камеру можно приблизить или отдалить', sub: txt, kind: 'info' }); else { pointAt(null, txt, { time: 10 }); return; } }
+  // зум камеры: сборка 59 — подсказка в деревне, в катакомбах и в Жатве (по разу в каждой), а не через 15 минут где-то в подземелье.
+  // В деревне — когда пролог позади и герой постоял ~6 с без окон; в катакомбах и Жатве — через ~6 с после входа, если рядом нет боя
+  { const zk = { town: 'town', catacombs: 'cata', survival: 'surv' }[G.zoneId], zs = (t.zoomAt = t.zoomAt || {});
+    zoomTicks = zk && !G.modalOpen && !hand && !line ? zoomTicks + 1 : 0;
+    const calm = G.zoneId === 'survival' || !(G.enemies || []).some(e => !e.dead && e.aggro);
+    if (zk && !zs[zk] && !t.zoomSeen && zoomTicks > 14 && calm && (G.zoneId !== 'town' || P.story.stage >= 1)) { zs[zk] = 1; bus.emit('save');
+      // своя фраза в каждом месте — не повтор одной и той же строки
+      const how = touch() ? { in: 'разведите два пальца на экране', out: 'сведите два пальца' } : { in: 'колесо мыши от себя', out: 'колесо мыши на себя' };
+      const txt = { town: `Камеру можно приблизить (${how.in}) или отдалить (${how.out})`, cata: `В тесных залах удобнее ближе: ${how.in} — камера приблизится`, surv: `В Жатве отдалите камеру (${how.out}) — заметите врагов раньше` }[zk];
+      if (t.off || !t.on) bus.emit('toast', { text: txt, kind: 'info' }); else { pointAt(null, txt, { time: 9 }); return; } } }
   if (t.off || !t.on || G.modalOpen) return;
   const once = (key, sel, text) => !t.tips[key] && pointAt(sel, text, { key });   // сборка 49: объявлено до первого использования (раньше — ошибка в консоли каждые 0,4 с)
   const q = G.profile.story && STORY[G.profile.story.stage];
@@ -112,6 +117,7 @@ export async function intro() {
 export function initTutorial() {
   bus.on('tutorialRestart', () => { const t = T(); t.on = true; t.off = false; t.introDone = false; t.tips = {}; t.un = {}; intro(); });
   bus.on('tutHand', o => pointAt(o.sel, o.text, o));
+  bus.on('zoneEntered', () => { zoomTicks = 0; });   // сборка 59: подсказку о зуме считать заново в каждой локации
   bus.on('camZoom', () => { if (G.profile) { T().zoomSeen = 1; bus.emit('save'); } });   // уже нашёл зум сам — подсказка не нужна
   // нажал подсказанную кнопку — палец убираем сразу
   for (const id of ['btnDodge', 'potHP', 'potMP', 'btnAuto', 'btnScroll', 'btnAct', 'portrait', 'sk0']) { const e = $(id); if (e) e.addEventListener('pointerdown', hideHand); }
@@ -127,7 +133,6 @@ export function initTutorial() {
     if (newPot) pointSoon('potHP', touch() ? 'Красная кнопка — зелье здоровья. Нажмите в бою, когда мало жизни' : 'Зелье здоровья: кнопка Q или красная кнопка. Пейте в бою, когда мало жизни', { time: 7 });
     if (newDodge) setTimeout(() => pointAt('btnDodge', touch() ? 'Рывок! Нажмите, чтобы отпрыгнуть от удара врага (красный круг)' : 'Рывок: Shift — отпрыгнуть от удара врага (красный круг)', { key: 'dodge2', time: 8 }), newPot ? 8000 : 300);
   });
-  bus.on('questNew', q => { if (G.zoneId === 'town' && (q.chapter || 1) === 1) setTimeout(() => pointAt(null, 'Новое задание: ' + q.title + ' — идите по жёлтой стрелке', { time: 6 }), 1200); });
   bus.on('panel', it => { if (!it || it.id !== 'trainer') return; setTimeout(() => { if (G.profile.skillPts > 0) pointAt('tBtnSkills', 'Нажмите «Навыки» — там изучают умения', { key: 'tbtn' }); }, 400); });
   bus.on('skillsOpened', () => setTimeout(() => { const b = document.querySelector('.tal-learn.ok'); if (b) pointAt(b, 'Нажмите «Изучить»', { key: 'learn' }); }, 350));
   // метки времени «первых минут» (видно в «Справке»: тестер присылает скриншот)
@@ -136,7 +141,7 @@ export function initTutorial() {
   bus.on('levelUp', () => { const L = G.profile.level; if (L >= 2) mark('lvl2'); if (L >= 5) mark('lvl5'); });
   bus.on('skillsChanged', () => { if (Object.values(G.profile.skills || {}).some(Boolean)) mark('skill1'); });
   bus.on('zoneEntered', id => { if (id === 'town' && G.profile.tutorial.prologue) mark('crypt'); if (id === 'catacombs') mark('cata'); });
-  bus.on('playerDeath', () => mark('death1'));
+  bus.on('playerDeath', () => { mark('death1'); hideHand(); });
   bus.on('bossDefeated', () => mark('boss'));
   bus.on('mergeReady', () => pointAt(null, 'Три одинаковых вещи! Кузнец Горан сольёт их в одну лучшую', { key: 'merge', time: 8 }));
 }
