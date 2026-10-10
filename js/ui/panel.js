@@ -90,8 +90,9 @@ function render(force) {
     const btn = (r, text, ok, fn, cls = '') => { const b = el('button', 'pn-btn' + (ok ? ' ok' : '') + cls, text); b.disabled = !ok; b.onpointerdown = e => { e.stopPropagation(); fn(); render(true); }; r.appendChild(b); };
     for (const [id, D] of Object.entries(PETS)) {
       const lvl = S.own[id] || 0, c = PT.petCan(id), T0 = TIERS[D.tier], on = S.active === id;
-      const sub = `<span style="color:${T0.color}">${T0.name}</span> · ${D.desc}`;
+      const sub = `<span style="color:${T0.color}">${T0.name}</span> · ⚔ ${PT.petInfo(id, lvl || 1).dps}/с · ${D.desc}`;
       const r = row(D.icon, `${esc(D.name)}${lvl ? ` <span class="lv">ур. ${lvl}</span>` : ''}`, sub, null, false, null, on ? 'hot' : '');
+      { const ib = el('button', 'pn-btn ok pn-info', 'ℹ'); ib.title = 'Урон и дар питомца'; ib.onpointerdown = e => { e.stopPropagation(); W.petInfo(id); }; r.appendChild(ib); }   // П61
       if (!lvl) btn(r, c.why ? '🔒 ' + c.why : `${c.cost}◆`, c.ok, () => PT.buyPet(id));
       else {
         btn(r, on ? '✔ С вами' : 'Взять', !on, () => PT.choosePet(id));

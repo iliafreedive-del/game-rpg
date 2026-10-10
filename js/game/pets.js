@@ -99,6 +99,22 @@ export function updatePet(dt) {
     if (!t || d > 0.3) p.ang = Math.atan2(dy, dx);
   } else { p.speed = 0; if (!t && d < 0.5 && Math.hypot(pl.x - p.x, pl.y - p.y) > 0.3) p.ang = Math.atan2(pl.y - p.y, pl.x - p.x); }
 }
+// П61: всё, что видно на странице питомца (окно «Питомец» у Кофи), — из тех же чисел, что в бою
+const pc = x => Math.round(x * 100) + '%';
+export function petInfo(id, lvl) {
+  const D = PETS[id], S = G.stats || {}, hp = S.maxHP || 100, dmg = dmgOf({ id, lvl }), mag = D.fx === 'heal';
+  const fx = {
+    burn: ['Поджог', `${Math.round(dmg * 0.35)} урона огнём в секунду, 3 с (маг.)`],
+    poison: ['Яд', `${Math.max(1, Math.round(dmg * 0.15))} в секунду за каждый заряд, до 5 зарядов, 4 с (маг.)`],
+    heal: ['Лечение героя', `+${Math.round(hp * (0.03 + 0.005 * (lvl - 1)))} здоровья раз в 5 с (${pc(0.03 + 0.005 * (lvl - 1))} от максимума)`],
+    needle: ['Иглы издалека', `бьёт цели до ${D.reach} м`],
+    stun: ['Оглушение', `шанс ${pc(0.15 + 0.02 * (lvl - 1))} за укус: 0,6 с (элита 0,4 с, босс 0,25 с)`],
+    leech: ['Вампиризм', '60% нанесённого урона лечит героя'],
+    shield: ['Каменный щит', `раз в 8 с в бою: щит ${Math.round(hp * (0.06 + 0.01 * (lvl - 1)))} (${pc(0.06 + 0.01 * (lvl - 1))} здоровья, не больше 30%)`],
+    loot: ['Ищейка', `шанс ${pc(0.3 + 0.05 * (lvl - 1))} горсти золота с павшего, осколок Бездны — ${pc(0.02 + 0.006 * (lvl - 1))}`],
+  }[D.fx] || ['', ''];
+  return { dmg: Math.round(dmg), dps: +(dmg / D.cd).toFixed(1), type: mag ? 'магический (молния)' : 'физический', share: pc(D.k * LV(lvl)), cd: D.cd, reach: D.ranged ? `издалека, до ${D.reach} м` : 'вблизи', fxName: fx[0], fxText: fx[1] };
+}
 function dmgOf(p) {
   const S = G.stats, avg = ((S.dmgMin || 1) + (S.dmgMax || 1)) / 2;
   return Math.max(1, avg * PETS[p.id].k * LV(p.lvl));

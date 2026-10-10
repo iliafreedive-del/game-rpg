@@ -40,8 +40,8 @@ import { FLOOR_MODS, FLOOR_MOD_IDS, modReward } from '../data/floormods.js';
 import { stats as calcStats } from '../game/stats.js';
 import { particles, effect } from '../game/combat.js';
 import { maybeInterstitial, offerPreview } from '../platform/monetize.js';
-import { petsOf, meetCaravan } from '../game/pets.js';
-import { PETS, TIERS } from '../data/pets.js';
+import { petsOf, meetCaravan, petInfo } from '../game/pets.js';
+import { PETS, TIERS, PET_MAX } from '../data/pets.js';
 import { earlyLock, firstLessonCost, POTION_RESERVE } from '../game/progress.js';
 import { platform as PF } from '../platform/platform.js';
 import { wipeLocal, cloudBundle } from '../game/save.js';
@@ -807,6 +807,22 @@ W.shrine = () => modal('Источник силы', 'md', b => {
   if (platform.name === 'demo') b.appendChild(el('p', 'muted', '<small>Демо-режим: реклама и покупки имитируются, деньги не списываются. На Яндекс Играх подключается SDK площадки.</small>'));
 });
 
+// П61: страница питомца — урон (сколько и какой), скорость, дальность, дар с числами, уровень и что даст следующий
+W.petInfo = id => {
+  const D = PETS[id]; if (!D) return;
+  modal(`${D.icon} ${D.name}`, 'sm', b => {
+    const S = petsOf(G.profile), lvl = S.own[id] || 1, I = petInfo(id, lvl), N = lvl < PET_MAX ? petInfo(id, lvl + 1) : null, T0 = TIERS[D.tier];
+    const up = (a, c) => N && a !== c ? ` <span class="good">→ ${c}</span>` : '';
+    b.appendChild(el('p', '', `<span style="color:${T0.color}">${T0.name}</span> · ${S.own[id] ? `уровень <b>${lvl}</b> из ${PET_MAX}` : 'ещё не куплен (показан 1-й уровень)'}${S.active === id ? ' · <b class="good">с вами</b>' : ''}`));
+    b.appendChild(el('div', 'stats', [
+      ['Урон за удар', `${I.dmg}${up(I.dmg, N && N.dmg)}`], ['Урон в секунду', `${I.dps}${up(I.dps, N && N.dps)}`], ['Тип урона', I.type],
+      ['Удар', `раз в ${String(I.cd).replace('.', ',')} с, ${I.reach}`], ['Сила от удара героя', `${I.share}${up(I.share, N && N.share)}`],
+    ].map(([a, v]) => `<div><span>${a}</span><b>${v}</b></div>`).join('')));
+    if (I.fxName) b.appendChild(el('div', 'pet-fx', `<b>✦ ${esc(I.fxName)}</b><div>${esc(I.fxText)}</div>${N && N.fxText !== I.fxText ? `<div class="good" style="font-size:12px">На ${lvl + 1}-м уровне: ${esc(N.fxText)}</div>` : ''}`));
+    b.appendChild(el('p', 'muted', `<small>Урон питомца растёт вместе с уроном героя (это доля его среднего удара) и на +15% за каждый уровень питомца. Улучшать — у Кофи за осколки Бездны ◆.</small>`));
+    const r = el('div', 'row'); r.style.justifyContent = 'center'; const ok = el('button', 'btn gold', 'Понятно'); ok.onclick = () => closeModal(); r.appendChild(ok); b.appendChild(r);
+  });
+};
 // П62: пустая банка. Реклама даёт 2 зелья; подряд — до 10 раз, потом одна попытка восстанавливается раз в 15 минут.
 // Купить — у торговки Миры (в деревне сразу из этого окна, в походе — подсказка, где купить)
 const POT_ADS = 10, POT_AD_MS = 15 * 60e3;
