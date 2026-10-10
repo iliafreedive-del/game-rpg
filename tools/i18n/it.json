@@ -2226,5 +2226,18 @@
  "Ходит за вами везде — в подземельях, походах и Цитадели — и сам бьётся рядом. Новых зверьков и улучшения Кофи продаёт за осколки Бездны ◆.": "Ti segue ovunque (dungeon, spedizioni e Cittadella) e combatte da solo al tuo fianco. Kofi vende nuovi animali e potenziamenti per frammenti dell'Abisso ◆.",
  "В путь!": "In cammino!",
  "Склеп пробуждения не пройден. Попробуйте ещё раз: отходите от замахов и бейте первым.": "La Cripta del Risveglio non è superata. Riprova: allontanati dai colpi caricati e colpisci per primo.",
- "Ещё раз": "Riprova"
+ "Ещё раз": "Riprova",
+ "Портал «Вглубь» запечатан": "Il portale «Più a fondo» è sigillato",
+ "Победите стража святилища в центре храма — стрелка ведёт к нему": "Sconfiggi il guardiano del santuario al centro del tempio: la freccia ti guida",
+ "Победите вожака поля — стрелка ведёт к нему": "Sconfiggi il capo del campo: la freccia ti guida",
+ "Вожак поля: ": "Capo del campo: ",
+ "Портал «Вглубь» открыт": "Il portale «Più a fondo» è aperto",
+ "Страж святилища повержен": "Guardiano del santuario sconfitto",
+ "{0} повержен": "{0} sconfitto",
+ "🔒 На поле портал «Вглубь» запечатан, пока жив вожак поля — стрелка ведёт к нему.": "🔒 Il portale «Più a fondo» resta sigillato finché il capo del campo è vivo: la freccia ti guida.",
+ "🔒 «Вглубь» запечатан: победите стража святилища в центре храма (стрелка ведёт к нему)": "🔒 «Più a fondo» è sigillato: sconfiggi il guardiano del santuario al centro del tempio (la freccia ti guida)",
+ "🔒 «Вглубь» запечатан: победите вожака поля (стрелка ведёт к нему)": "🔒 «Più a fondo» è sigillato: sconfiggi il capo del campo (la freccia ti guida)",
+ "Вглубь · запечатан": "Più a fondo · sigillato",
+ "победите стража святилища": "sconfiggi il guardiano del santuario",
+ "победите вожака поля": "sconfiggi il capo del campo"
 }

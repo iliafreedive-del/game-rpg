@@ -2226,5 +2226,18 @@
  "Ходит за вами везде — в подземельях, походах и Цитадели — и сам бьётся рядом. Новых зверьков и улучшения Кофи продаёт за осколки Бездны ◆.": "Folgt dir überallhin — in Verliese, auf Streifzüge und in die Zitadelle — und kämpft selbstständig an deiner Seite. Kofi verkauft neue Tiere und Verbesserungen für Abgrundsplitter ◆.",
  "В путь!": "Auf geht's!",
  "Склеп пробуждения не пройден. Попробуйте ещё раз: отходите от замахов и бейте первым.": "Die Gruft des Erwachens ist nicht geschafft. Versuch es noch einmal: weich Ausholbewegungen aus und schlag zuerst zu.",
- "Ещё раз": "Noch einmal"
+ "Ещё раз": "Noch einmal",
+ "Портал «Вглубь» запечатан": "Das Portal „Tiefer“ ist versiegelt",
+ "Победите стража святилища в центре храма — стрелка ведёт к нему": "Besiege den Wächter des Heiligtums in der Tempelmitte — der Pfeil führt zu ihm",
+ "Победите вожака поля — стрелка ведёт к нему": "Besiege den Anführer des Feldes — der Pfeil führt zu ihm",
+ "Вожак поля: ": "Anführer des Feldes: ",
+ "Портал «Вглубь» открыт": "Das Portal „Tiefer“ ist offen",
+ "Страж святилища повержен": "Wächter des Heiligtums besiegt",
+ "{0} повержен": "{0} besiegt",
+ "🔒 На поле портал «Вглубь» запечатан, пока жив вожак поля — стрелка ведёт к нему.": "🔒 Das Portal „Tiefer“ bleibt versiegelt, solange der Anführer des Feldes lebt — der Pfeil führt zu ihm.",
+ "🔒 «Вглубь» запечатан: победите стража святилища в центре храма (стрелка ведёт к нему)": "🔒 „Tiefer“ ist versiegelt: Besiege den Wächter des Heiligtums in der Tempelmitte (der Pfeil führt zu ihm)",
+ "🔒 «Вглубь» запечатан: победите вожака поля (стрелка ведёт к нему)": "🔒 „Tiefer“ ist versiegelt: Besiege den Anführer des Feldes (der Pfeil führt zu ihm)",
+ "Вглубь · запечатан": "Tiefer · versiegelt",
+ "победите стража святилища": "besiege den Wächter des Heiligtums",
+ "победите вожака поля": "besiege den Anführer des Feldes"
 }

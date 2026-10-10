@@ -2226,5 +2226,18 @@
  "Ходит за вами везде — в подземельях, походах и Цитадели — и сам бьётся рядом. Новых зверьков и улучшения Кофи продаёт за осколки Бездны ◆.": "Te sigue a todas partes (mazmorras, expediciones y la Ciudadela) y lucha a tu lado por sí solo. Kofi vende nuevas mascotas y mejoras por fragmentos del Abismo ◆.",
  "В путь!": "¡En marcha!",
  "Склеп пробуждения не пройден. Попробуйте ещё раз: отходите от замахов и бейте первым.": "No has superado la Cripta del Despertar. Inténtalo de nuevo: apártate de los golpes cargados y ataca primero.",
- "Ещё раз": "Otra vez"
+ "Ещё раз": "Otra vez",
+ "Портал «Вглубь» запечатан": "El portal «Más abajo» está sellado",
+ "Победите стража святилища в центре храма — стрелка ведёт к нему": "Derrota al guardián del santuario en el centro del templo: la flecha te lleva a él",
+ "Победите вожака поля — стрелка ведёт к нему": "Derrota al líder del campo: la flecha te lleva a él",
+ "Вожак поля: ": "Líder del campo: ",
+ "Портал «Вглубь» открыт": "El portal «Más abajo» está abierto",
+ "Страж святилища повержен": "Guardián del santuario derrotado",
+ "{0} повержен": "{0} derrotado",
+ "🔒 На поле портал «Вглубь» запечатан, пока жив вожак поля — стрелка ведёт к нему.": "🔒 El portal «Más abajo» de este campo sigue sellado mientras viva el líder del campo: la flecha te lleva a él.",
+ "🔒 «Вглубь» запечатан: победите стража святилища в центре храма (стрелка ведёт к нему)": "🔒 «Más abajo» está sellado: derrota al guardián del santuario en el centro del templo (la flecha te lleva a él)",
+ "🔒 «Вглубь» запечатан: победите вожака поля (стрелка ведёт к нему)": "🔒 «Más abajo» está sellado: derrota al líder del campo (la flecha te lleva a él)",
+ "Вглубь · запечатан": "Más abajo · sellado",
+ "победите стража святилища": "derrota al guardián del santuario",
+ "победите вожака поля": "derrota al líder del campo"
 }

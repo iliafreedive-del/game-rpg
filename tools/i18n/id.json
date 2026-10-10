@@ -2226,5 +2226,18 @@
  "Ходит за вами везде — в подземельях, походах и Цитадели — и сам бьётся рядом. Новых зверьков и улучшения Кофи продаёт за осколки Бездны ◆.": "Mengikutimu ke mana pun — penjara bawah tanah, ekspedisi, dan Benteng — dan bertarung sendiri di sisimu. Kofi menjual hewan baru dan peningkatan untuk serpihan Jurang ◆.",
  "В путь!": "Ayo berangkat!",
  "Склеп пробуждения не пройден. Попробуйте ещё раз: отходите от замахов и бейте первым.": "Kripta Kebangkitan belum selesai. Coba lagi: menjauh dari ayunan dan serang lebih dulu.",
- "Ещё раз": "Coba lagi"
+ "Ещё раз": "Coba lagi",
+ "Портал «Вглубь» запечатан": "Portal «Lebih Dalam» tersegel",
+ "Победите стража святилища в центре храма — стрелка ведёт к нему": "Kalahkan penjaga tempat suci di tengah kuil — panah menunjuk ke arahnya",
+ "Победите вожака поля — стрелка ведёт к нему": "Kalahkan pemimpin padang — panah menunjuk ke arahnya",
+ "Вожак поля: ": "Pemimpin padang: ",
+ "Портал «Вглубь» открыт": "Portal «Lebih Dalam» terbuka",
+ "Страж святилища повержен": "Penjaga tempat suci dikalahkan",
+ "{0} повержен": "{0} dikalahkan",
+ "🔒 На поле портал «Вглубь» запечатан, пока жив вожак поля — стрелка ведёт к нему.": "🔒 Portal «Lebih Dalam» di padang ini tersegel selama pemimpin padang masih hidup — panah menunjuk ke arahnya.",
+ "🔒 «Вглубь» запечатан: победите стража святилища в центре храма (стрелка ведёт к нему)": "🔒 «Lebih Dalam» tersegel: kalahkan penjaga tempat suci di tengah kuil (panah menunjuk ke arahnya)",
+ "🔒 «Вглубь» запечатан: победите вожака поля (стрелка ведёт к нему)": "🔒 «Lebih Dalam» tersegel: kalahkan pemimpin padang (panah menunjuk ke arahnya)",
+ "Вглубь · запечатан": "Lebih Dalam · tersegel",
+ "победите стража святилища": "kalahkan penjaga tempat suci",
+ "победите вожака поля": "kalahkan pemimpin padang"
 }

@@ -2226,5 +2226,18 @@
  "Ходит за вами везде — в подземельях, походах и Цитадели — и сам бьётся рядом. Новых зверьков и улучшения Кофи продаёт за осколки Бездны ◆.": "Vous suit partout (donjons, expéditions et Citadelle) et combat seul à vos côtés. Kofi vend de nouveaux compagnons et des améliorations contre des éclats d'Abîme ◆.",
  "В путь!": "En route !",
  "Склеп пробуждения не пройден. Попробуйте ещё раз: отходите от замахов и бейте первым.": "La Crypte de l'Éveil n'est pas terminée. Réessayez : écartez-vous des coups armés et frappez le premier.",
- "Ещё раз": "Réessayer"
+ "Ещё раз": "Réessayer",
+ "Портал «Вглубь» запечатан": "Le portail « Plus bas » est scellé",
+ "Победите стража святилища в центре храма — стрелка ведёт к нему": "Battez le gardien du sanctuaire au centre du temple — la flèche y mène",
+ "Победите вожака поля — стрелка ведёт к нему": "Battez le chef du champ — la flèche y mène",
+ "Вожак поля: ": "Chef du champ : ",
+ "Портал «Вглубь» открыт": "Le portail « Plus bas » est ouvert",
+ "Страж святилища повержен": "Gardien du sanctuaire vaincu",
+ "{0} повержен": "{0} vaincu",
+ "🔒 На поле портал «Вглубь» запечатан, пока жив вожак поля — стрелка ведёт к нему.": "🔒 Le portail « Plus bas » reste scellé tant que le chef du champ est en vie — la flèche y mène.",
+ "🔒 «Вглубь» запечатан: победите стража святилища в центре храма (стрелка ведёт к нему)": "🔒 « Plus bas » est scellé : battez le gardien du sanctuaire au centre du temple (la flèche y mène)",
+ "🔒 «Вглубь» запечатан: победите вожака поля (стрелка ведёт к нему)": "🔒 « Plus bas » est scellé : battez le chef du champ (la flèche y mène)",
+ "Вглубь · запечатан": "Plus bas · scellé",
+ "победите стража святилища": "battez le gardien du sanctuaire",
+ "победите вожака поля": "battez le chef du champ"
 }

@@ -2226,5 +2226,18 @@
  "Ходит за вами везде — в подземельях, походах и Цитадели — и сам бьётся рядом. Новых зверьков и улучшения Кофи продаёт за осколки Бездны ◆.": "Her yerde — zindanlarda, seferlerde ve Kale'de — peşinizden gelir ve yanınızda kendi savaşır. Kofi yeni hayvanları ve geliştirmeleri Uçurum kırıntılarına ◆ satar.",
  "В путь!": "Yola çık!",
  "Склеп пробуждения не пройден. Попробуйте ещё раз: отходите от замахов и бейте первым.": "Uyanış Mezarı geçilemedi. Tekrar deneyin: savuruşlardan uzaklaşın ve önce siz vurun.",
- "Ещё раз": "Tekrar"
+ "Ещё раз": "Tekrar",
+ "Портал «Вглубь» запечатан": "«Derine» portalı mühürlü",
+ "Победите стража святилища в центре храма — стрелка ведёт к нему": "Tapınağın ortasındaki tapınak muhafızını yen — ok seni ona götürür",
+ "Победите вожака поля — стрелка ведёт к нему": "Saha liderini yen — ok seni ona götürür",
+ "Вожак поля: ": "Saha lideri: ",
+ "Портал «Вглубь» открыт": "«Derine» portalı açıldı",
+ "Страж святилища повержен": "Tapınak muhafızı yenildi",
+ "{0} повержен": "{0} yenildi",
+ "🔒 На поле портал «Вглубь» запечатан, пока жив вожак поля — стрелка ведёт к нему.": "🔒 Saha lideri yaşadıkça bu sahadaki «Derine» portalı mühürlü kalır — ok seni ona götürür.",
+ "🔒 «Вглубь» запечатан: победите стража святилища в центре храма (стрелка ведёт к нему)": "🔒 «Derine» mühürlü: tapınağın ortasındaki tapınak muhafızını yen (ok seni ona götürür)",
+ "🔒 «Вглубь» запечатан: победите вожака поля (стрелка ведёт к нему)": "🔒 «Derine» mühürlü: saha liderini yen (ok seni ona götürür)",
+ "Вглубь · запечатан": "Derine · mühürlü",
+ "победите стража святилища": "tapınak muhafızını yen",
+ "победите вожака поля": "saha liderini yen"
 }

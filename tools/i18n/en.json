@@ -2226,5 +2226,18 @@
  "Ходит за вами везде — в подземельях, походах и Цитадели — и сам бьётся рядом. Новых зверьков и улучшения Кофи продаёт за осколки Бездны ◆.": "Follows you everywhere — dungeons, expeditions and the Citadel — and fights at your side on its own. Kofi sells new pets and upgrades for Abyss shards ◆.",
  "В путь!": "Let's go!",
  "Склеп пробуждения не пройден. Попробуйте ещё раз: отходите от замахов и бейте первым.": "The Crypt of Awakening is not cleared. Try again: step away from wind-ups and strike first.",
- "Ещё раз": "Try again"
+ "Ещё раз": "Try again",
+ "Портал «Вглубь» запечатан": "The \"Deeper\" portal is sealed",
+ "Победите стража святилища в центре храма — стрелка ведёт к нему": "Defeat the sanctuary guardian in the center of the temple — the arrow leads to it",
+ "Победите вожака поля — стрелка ведёт к нему": "Defeat the field leader — the arrow leads to it",
+ "Вожак поля: ": "Field leader: ",
+ "Портал «Вглубь» открыт": "The \"Deeper\" portal is open",
+ "Страж святилища повержен": "Sanctuary guardian defeated",
+ "{0} повержен": "{0} defeated",
+ "🔒 На поле портал «Вглубь» запечатан, пока жив вожак поля — стрелка ведёт к нему.": "🔒 The \"Deeper\" portal on this field stays sealed while the field leader lives — the arrow leads to it.",
+ "🔒 «Вглубь» запечатан: победите стража святилища в центре храма (стрелка ведёт к нему)": "🔒 \"Deeper\" is sealed: defeat the sanctuary guardian in the center of the temple (the arrow leads to it)",
+ "🔒 «Вглубь» запечатан: победите вожака поля (стрелка ведёт к нему)": "🔒 \"Deeper\" is sealed: defeat the field leader (the arrow leads to it)",
+ "Вглубь · запечатан": "Deeper · sealed",
+ "победите стража святилища": "defeat the sanctuary guardian",
+ "победите вожака поля": "defeat the field leader"
 }
