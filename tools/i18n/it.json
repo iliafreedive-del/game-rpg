@@ -2437,5 +2437,7 @@
  "Кнопки боя здесь не нужны.": "Qui non servono pulsanti di combattimento.",
  "🏃 Только бегайте — герой бьёт сам.": "🏃 Limitati a correre: l'eroe colpisce da solo.",
  "💎 С врагов падают синие души — подбирайте их: они качают ваши умения в этой Жатве.": "💎 I nemici lasciano anime blu: raccoglile, potenziano le tue abilità in questa Mietitura.",
- "⏳ Не стойте в толпе и продержитесь как можно дольше.": "⏳ Non restare in mezzo alla folla e resisti il più a lungo possibile."
+ "⏳ Не стойте в толпе и продержитесь как можно дольше.": "⏳ Non restare in mezzo alla folla e resisti il più a lungo possibile.",
+ "Игра не загрузилась": "Il gioco non si è caricato",
+ "[render] 3D не запустился, остаёмся на 2D": "[render] 3D failed to start, staying in 2D"
 }

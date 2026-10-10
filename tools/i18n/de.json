@@ -2437,5 +2437,7 @@
  "Кнопки боя здесь не нужны.": "Kampfknöpfe brauchst du hier nicht.",
  "🏃 Только бегайте — герой бьёт сам.": "🏃 Lauf einfach – der Held schlägt selbst zu.",
  "💎 С врагов падают синие души — подбирайте их: они качают ваши умения в этой Жатве.": "💎 Gegner lassen blaue Seelen fallen – sammle sie: Sie verbessern deine Fähigkeiten in dieser Ernte.",
- "⏳ Не стойте в толпе и продержитесь как можно дольше.": "⏳ Bleib nicht in der Menge stehen und halte so lange wie möglich durch."
+ "⏳ Не стойте в толпе и продержитесь как можно дольше.": "⏳ Bleib nicht in der Menge stehen und halte so lange wie möglich durch.",
+ "Игра не загрузилась": "Das Spiel konnte nicht geladen werden",
+ "[render] 3D не запустился, остаёмся на 2D": "[render] 3D failed to start, staying in 2D"
 }

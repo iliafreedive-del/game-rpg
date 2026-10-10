@@ -2437,5 +2437,7 @@
  "Кнопки боя здесь не нужны.": "No combat buttons needed here.",
  "🏃 Только бегайте — герой бьёт сам.": "🏃 Just run — the hero attacks on his own.",
  "💎 С врагов падают синие души — подбирайте их: они качают ваши умения в этой Жатве.": "💎 Enemies drop blue souls — pick them up: they level up your skills in this Harvest.",
- "⏳ Не стойте в толпе и продержитесь как можно дольше.": "⏳ Don't stand in the crowd — survive as long as you can."
+ "⏳ Не стойте в толпе и продержитесь как можно дольше.": "⏳ Don't stand in the crowd — survive as long as you can.",
+ "Игра не загрузилась": "The game failed to load",
+ "[render] 3D не запустился, остаёмся на 2D": "[render] 3D failed to start, staying in 2D"
 }

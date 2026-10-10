@@ -2437,5 +2437,7 @@
  "Кнопки боя здесь не нужны.": "Burada savaş düğmelerine gerek yok.",
  "🏃 Только бегайте — герой бьёт сам.": "🏃 Sadece koş — kahraman kendi vurur.",
  "💎 С врагов падают синие души — подбирайте их: они качают ваши умения в этой Жатве.": "💎 Düşmanlar mavi ruhlar düşürür — topla: bu Hasat'ta yeteneklerini geliştirirler.",
- "⏳ Не стойте в толпе и продержитесь как можно дольше.": "⏳ Kalabalığın içinde durma ve olabildiğince uzun dayan."
+ "⏳ Не стойте в толпе и продержитесь как можно дольше.": "⏳ Kalabalığın içinde durma ve olabildiğince uzun dayan.",
+ "Игра не загрузилась": "Oyun yüklenemedi",
+ "[render] 3D не запустился, остаёмся на 2D": "[render] 3D failed to start, staying in 2D"
 }

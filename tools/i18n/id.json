@@ -2437,5 +2437,7 @@
  "Кнопки боя здесь не нужны.": "Di sini tak perlu tombol tempur.",
  "🏃 Только бегайте — герой бьёт сам.": "🏃 Cukup berlari — pahlawan menyerang sendiri.",
  "💎 С врагов падают синие души — подбирайте их: они качают ваши умения в этой Жатве.": "💎 Musuh menjatuhkan jiwa biru — ambil: jiwa menaikkan skill-mu di Panen ini.",
- "⏳ Не стойте в толпе и продержитесь как можно дольше.": "⏳ Jangan diam di tengah kerumunan dan bertahanlah selama mungkin."
+ "⏳ Не стойте в толпе и продержитесь как можно дольше.": "⏳ Jangan diam di tengah kerumunan dan bertahanlah selama mungkin.",
+ "Игра не загрузилась": "Game gagal dimuat",
+ "[render] 3D не запустился, остаёмся на 2D": "[render] 3D failed to start, staying in 2D"
 }
