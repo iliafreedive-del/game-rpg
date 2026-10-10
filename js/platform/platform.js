@@ -64,8 +64,9 @@ class YandexProvider {
   }
   async consume(token) { try { await this.payments.consumePurchase(token); return true; } catch { return false; } }
   async getPurchases() { try { return (await this.payments.getPurchases()).map(p => ({ productId: p.productID, token: p.purchaseToken })); } catch { return []; } }
-  async cloudLoad() { try { const d = await this.player.getData(['save']); return d.save ? JSON.parse(d.save) : null; } catch { return null; } }
-  async cloudSave(p) { try { await this.player.setData({ save: JSON.stringify(p) }, false); return true; } catch { return false; } }
+  // правки по скилам (С11): «облака нет» (null) и «облако не ответило» ({ error }) — разные ответы: при сбое игра не пишет в облако, пока не прочитает его
+  async cloudLoad() { let d; try { d = await this.player.getData(['save']); } catch (e) { console.warn('cloud load', e); return { error: 1 }; } try { return d && d.save ? JSON.parse(d.save) : null; } catch { return null; } }
+  async cloudSave(p, flush) { try { await this.player.setData({ save: JSON.stringify(p) }, !!flush); return true; } catch { return false; } }   // flush — сразу на сервер (сворачивание, «Начать заново»)
   async requestReview() {
     try { const { value } = await this.ysdk.feedback.canReview(); if (!value) return false; const r = await this.ysdk.feedback.requestReview(); return !!(r && r.feedbackSent); } catch { return false; }
   }

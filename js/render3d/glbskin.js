@@ -7,6 +7,7 @@ import * as THREE from '../vendor/three.module.min.js';
 import { toon, outline } from './toon.js';
 import { OUTLINE } from './style.js';
 import { fixZeroNormals } from './geo.js';
+import { shared } from './dispose.js';
 
 export const SKINS = { on: true };     // переключатель (Настройки → «Новые модели»): false — процедурные модели
 // бег из клипов модели (маг, воин; лучник — клипы мага, tools/art/clips_copy.py) спокойнее, «по-геройски»: STRIDE_K — ноги перебирают реже при той же скорости героя;
@@ -36,7 +37,7 @@ export function preloadSkin(name) {
     g.setAttribute('skinIndex', new THREE.BufferAttribute(V(Uint8Array, 'si'), 4));
     g.setAttribute('skinWeight', new THREE.BufferAttribute(V(Uint8Array, 'sw'), 4, true));
     g.setIndex(new THREE.BufferAttribute(V(Uint16Array, 'idx'), 1));
-    fixZeroNormals(g); g.computeBoundingSphere();
+    fixZeroNormals(g); g.computeBoundingSphere(); shared(g);
     // meta.tex — общая текстура нескольких шкур (каменные стражи храма вырезаны из одного листа — атлас один на всех)
     const tex = await texOf(meta.tex || name);
     const d = { meta, geo: g, tex, n }; data.set(name, d); return d;
@@ -144,7 +145,7 @@ export function attachSkin(kit, model, name, o = {}) {
       const w = wq.get(b), pw = b.parent && wq.get(b.parent);
       b.quaternion.copy(pw ? _qi.copy(pw).invert().multiply(w) : w);
       // сдвиги: ось кувырка, покачивание таза и ног (ноги короче — сдвиг меньше)
-      const n = b.name, k = n === 'spin' ? 1 : n === 'hips' || n === 'legL' || n === 'legR' ? legK : 0;
+      const n = b.name, k = n === 'spin' ? 1 : n === 'hips' || n === 'legL' || n === 'legR' || (o.bodyPos && n === 'body') ? legK : 0;   // bodyPos — мобы: корпус приседает вместе с тазом (правки 2, П14)
       if (k) b.position.copy(restP.get(b)).addScaledVector(_v.subVectors(p.position, idleP.get(b)), k);
       if (CL && n === 'body') b.position.copy(restP.get(b)).addScaledVector(_ho, clipW);
     }
@@ -247,16 +248,16 @@ export function attachSkin(kit, model, name, o = {}) {
     const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.BufferAttribute(col, 4)); g.setIndex(idx);
     const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, depthWrite: false, side: THREE.DoubleSide }));
     m.frustumCulled = false; m.renderOrder = 5; m.userData.noOutline = true; m.visible = false; kit.scene.add(m);
-    const c = new THREE.Color(o.trail.color ?? 0xffffff), S = [], _a = new THREE.Vector3(), _b = new THREE.Vector3();
+    const c = new THREE.Color(o.trail.color ?? 0xffffff), S = [], free = [];   // точки следа переиспользуются (С39: без выделений памяти в кадре)
     trail = (dt, actor) => {
       for (const p of S) p.age += dt;
-      while (S.length && S[0].age > LIFE) S.shift();
-      if (actor && actor.clip === 'attack') { tb.updateMatrixWorld(true); S.push({ a: _a.copy(lf).applyMatrix4(tb.matrixWorld).clone(), b: _b.copy(lt).applyMatrix4(tb.matrixWorld).clone(), age: 0 }); if (S.length > N) S.shift(); }
+      while (S.length && S[0].age > LIFE) free.push(S.shift());
+      if (actor && actor.clip === 'attack') { tb.updateMatrixWorld(true); const p = free.pop() || { a: new THREE.Vector3(), b: new THREE.Vector3(), age: 0 }; p.a.copy(lf).applyMatrix4(tb.matrixWorld); p.b.copy(lt).applyMatrix4(tb.matrixWorld); p.age = 0; S.push(p); if (S.length > N) free.push(S.shift()); }
       m.visible = S.length > 1; if (!m.visible) return;
       for (let i = 0; i < N; i++) {
         const p = S[Math.min(i, S.length - 1)], w = i < S.length ? Math.max(0, 1 - p.age / LIFE) * (i / (S.length - 1 || 1)) : 0;
-        pos.set([p.a.x, p.a.y, p.a.z, p.b.x, p.b.y, p.b.z], i * 6);
-        col.set([c.r, c.g, c.b, w * 0.1, c.r, c.g, c.b, w * 0.7], i * 8);
+        const j = i * 6, q = i * 8; pos[j] = p.a.x; pos[j + 1] = p.a.y; pos[j + 2] = p.a.z; pos[j + 3] = p.b.x; pos[j + 4] = p.b.y; pos[j + 5] = p.b.z;
+        col[q] = col[q + 4] = c.r; col[q + 1] = col[q + 5] = c.g; col[q + 2] = col[q + 6] = c.b; col[q + 3] = w * 0.1; col[q + 7] = w * 0.7;
       }
       g.attributes.position.needsUpdate = true; g.attributes.color.needsUpdate = true;
     };

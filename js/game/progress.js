@@ -11,7 +11,9 @@ export const BOSS_LEVEL = 7;
 // выше «до» не растёт — перекачанный герой получает всё меньше опыта (killXP в loot.js) и уходит дальше.
 // Катакомбы до первого прохождения — 1–7 (комната задаёт «от»), Хранитель 6–8, Палач 7–10; Глубины и походы — от уровня этажа/поля до него +3.
 export const CATA_MAX = 7;
-export const bandLevel = (min, max) => Math.max(min, Math.min(max, ((G.profile && G.profile.level) || 1) + 1));
+// П57 (правки 2): перекачанный герой больше не проходит зону «одной левой». Боссы, стражи и сюжетные враги (boss = true) всегда
+// на уровень выше героя (без потолка зоны); рядовые — в коридоре, но не ниже «герой − 3» (опыта с них уже ×0,3 — повод идти дальше)
+export const bandLevel = (min, max, boss) => { const h = (G.profile && G.profile.level) || 1; return boss ? Math.max(min, h + 1) : Math.max(min, Math.min(max, h + 1), h - 3); };
 const F = () => G.profile.story.flags;
 export const hasSkill = () => G.profile.slots.some(Boolean) || Object.keys(G.profile.skills).length > 0;
 const forts = realm => { const S = G.profile.wild && G.profile.wild[realm]; return S && S.stat ? S.stat.forts || 0 : 0; };
@@ -22,7 +24,7 @@ const forts = realm => { const S = G.profile.wild && G.profile.wild[realm]; retu
 const stIdx = id => STORY.findIndex(q => q.id === id);
 export function earlyLock(kind) {
   const s = G.profile && G.profile.story; if (!s) return false;
-  const need = kind === 'upg' ? 'hw_elvin' : kind === 'shop' ? 'meet_merchant' : 'elder_task';
+  const need = kind === 'upg' ? 'hw_elvin' : kind === 'shop' ? 'meet_merchant' : kind === 'pet' ? 'meet_kofi' : 'elder_task';   // 'pet' — подарок Кофи (сборка 60, П15)
   return s.stage < stIdx(need);
 }
 // сборка 55: первый урок у Элвина платный (55 зол.): после него остаётся ровно на первое зелье здоровья у Миры (30).
@@ -65,6 +67,13 @@ export function gate(name, extra) {
       if (s > 90 && !(P.depths && P.depths.best >= 5)) return { text: 'Глава «Пепельные скалы» закрыта', sub: 'Дойдите до 5 этажа Глубин' };
       return null; }
   }
+  return null;
+}
+// П37 (правки 2): Старый Лес до победы над Палачом — только первые три поля (там задания старосты: Шатун-людоед, волки);
+// дальше в лес и к острогу — после Палача Бездны. null — можно
+export const FOREST_FREE = 3;
+export function wildDepthGate(realm, depth) {
+  if (realm === 'forest' && depth > FOREST_FREE && !(G.profile.story.flags.bossKilled)) return { text: 'Чаща не пускает дальше', sub: `Пока жив Палач Бездны, в лес можно только до ${FOREST_FREE}-го поля. Сломайте печать в катакомбах` };
   return null;
 }
 // Текст «что делать дальше» для подсказок

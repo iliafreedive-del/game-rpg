@@ -19,6 +19,7 @@ import boss from './models/mob/boss.js';
 import f_draugr from './models/mob/f_draugr.js';
 import f_berserk from './models/mob/f_berserk.js';
 import f_hag from './models/mob/f_hag.js';
+import mb_grave_weeper from './models/mob/mb_grave_weeper.js';
 import f_jotun from './models/mob/f_jotun.js';
 import f_jarl from './models/mob/f_jarl.js';
 import w_poacher from './models/mob/w_poacher.js';
@@ -184,7 +185,7 @@ import anvil from './models/prop/anvil.js';
 
 const by = (...l) => Object.fromEntries(l.map(m => [m.id, m]));
 export const HEROES = by(warrior, archer, mage);                       // ключ — класс героя
-export const MOBS = by(skel_warrior, ghoul, skel_archer, skel_mage, beast, elite_guard, elite_warlord, bone_wolf, boss, f_draugr, f_berserk, f_hag, f_jotun, f_jarl, w_poacher, w_leshy, w_ataman, f_wolf, w_wolf, w_boar, w_bear, f_boss, w_boss, b_raider, b_thrower, b_hyena, b_boar, b_shaman, b_scorpid, b_chief, b_boss, ...STONE_MOBS);             // ключ — тип врага (ENEMIES)
+export const MOBS = by(skel_warrior, ghoul, skel_archer, skel_mage, beast, elite_guard, elite_warlord, bone_wolf, boss, f_draugr, f_berserk, f_hag, mb_grave_weeper, f_jotun, f_jarl, w_poacher, w_leshy, w_ataman, f_wolf, w_wolf, w_boar, w_bear, f_boss, w_boss, b_raider, b_thrower, b_hyena, b_boar, b_shaman, b_scorpid, b_chief, b_boss, ...STONE_MOBS);             // ключ — тип врага (ENEMIES)
 export const NPCS = by(npc_fortune, npc_elder, npc_smith, npc_merchant, npc_trainer, npc_caravan);
 export const WEAPONS = by(bow_hunter, staff_mage, axe_hand, club_giant, staff_ice, staff_root, sword_iron, shield_round, sword_rust, shield_bone, bow_bone, staff_bone, axe_great);
 export const PROPS = by(fort_door_i, fort_door_w, chronicle, fort_wall, palisade, fort_tower, watchtower, fort_gate_i, fort_gate_w, fort_hall_i, fort_hall_w, tent_i, tent_w, tree_0, tree_1, tree_birch, tree_autumn, tree_elm, tree_pine_tall, tree_fir_blue, deadtree, house_0, house_1, house_2, rocks, grave, fence_x, fence_y, barrel, crate, hay, lamp, runebed, forge, stall, board, altar, banner, statue, weapon_rack, crystals, portal,

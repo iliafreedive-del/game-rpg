@@ -5,6 +5,7 @@ import { outline, addOutlines } from './toon.js';
 export { addOutlines };
 import { blobShadow } from './cape.js';
 import { OUTLINE } from './style.js';
+import { disposeObject } from './dispose.js';
 
 // если у модели нет клипа, берём ближайший (так можно отдавать модель с минимумом клипов)
 export const CLIP_FALLBACK = { run: 'walk', dodge: 'walk', talk: 'idle', attack2: 'attack', slam: 'attack', lunge: 'attack', roar: 'cast', special: 'cast', stun: 'hit', spawn: 'idle' };
@@ -145,7 +146,7 @@ export class Actor {
   }
   setVisible(v) { this.root.visible = this.shadow.visible = v; }
   dispose() {
-    this.root.removeFromParent(); this.shadow.removeFromParent();
     if (this.model.dispose) this.model.dispose();
+    disposeObject(this.root); disposeObject(this.shadow);   // скелеты (текстуры костей), слитые сетки, тень (С20)
   }
 }

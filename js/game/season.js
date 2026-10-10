@@ -5,6 +5,7 @@
 import { G, bus } from './ctx.js';
 import { makeItem, maxRarityFor } from './items.js';
 import { autoEquip } from './character.js';
+import { mergeGroups, mergeCost } from './economy.js';
 import { BASES, CLASSES, RARITY } from '../data/items.js';
 import { platform } from '../platform/platform.js';
 
@@ -90,10 +91,11 @@ export function finishWeekly(time) {
 // ---------------------------------------------------------------- «до цели»: одна ближайшая цель на главном экране
 export function nextGoalLine() {
   const P = G.profile; if (!P) return '';
-  const groups = (P.bag || []).reduce((m, it) => { if (!it.locked && it.rarity < 4) { const k = it.slot + ':' + it.rarity; m[k] = (m[k] || 0) + 1; } return m; }, {});
-  const two = Object.entries(groups).find(([, n]) => n % 3 === 2);
-  if (Object.values(groups).some(n => n >= 3)) return '⚒ Кузнец: можно слить 3 вещи в 1 лучше';
-  if (two) { const [slot, r] = two[0].split(':'); return `⚒ Ещё 1 ${['серая', 'зелёная', 'синяя', 'золотая'][r]} вещь (${{ weapon: 'оружие', head: 'шлем', chest: 'доспех', amulet: 'амулет' }[slot]}) — и слияние`; }
+  // П52: напоминание по тем же правилам, что у кузнеца (класс, 🔒, уровень героя для следующей редкости, золото) — раньше звало, когда слить было нельзя
+  const groups = mergeGroups().filter(g => !g.capLvl);
+  if (groups.some(g => g.can && P.gold >= mergeCost(g.rarity))) return '⚒ Кузнец: можно слить 3 вещи в 1 лучше';
+  const two = groups.find(g => g.n % 3 === 2);
+  if (two) return `⚒ Ещё 1 ${['серая', 'зелёная', 'синяя', 'золотая'][two.rarity]} вещь (${{ weapon: 'оружие', head: 'шлем', chest: 'доспех', amulet: 'амулет' }[two.slot]}) — и слияние`;
   const s = seasonLevel(); if (s.lvl < SEASON_LEVELS) return `🏆 Сезон: ${s.into}/${s.need} до ступени ${s.lvl + 1} (${seasonReward(s.lvl + 1).label})`;
   return '';
 }

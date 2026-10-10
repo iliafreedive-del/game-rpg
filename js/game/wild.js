@@ -26,9 +26,10 @@ export function spawnWild(zone) {
       let px = x, py = y;
       for (let k = 0; k < 12; k++) { const tx = x + rrange(-spread, spread), ty = y + rrange(-spread, spread); if (zone.map.free(tx, ty, 0.45)) { px = tx; py = ty; break; } }
       const rr = WILD_MOBS[type].radius + 0.15; [px, py] = zone.map.nearestFree(px, py, rr);
-      const e = new Enemy(type, px, py, bandLevel(lvl, lvl + 3), { story: tag || null, champion: !tag && rand() < 0.04 + zone.json.wild.depth * 0.01 });   // сборка 47: герой +1 в пределах поле..поле+3
+      const e = new Enemy(type, px, py, bandLevel(lvl, lvl + 3, !!tag && tag !== 'fortguard'), { story: tag || null, champion: !tag && rand() < 0.04 + zone.json.wild.depth * 0.01 });   // сборка 47: герой +1 в пределах поле..поле+3
       if (tag === 'wildkeep') applyNemesis(e, pickNemesis(zone.json.wild.realm));
       if (tag === 'wildboss') e.name = `${WILD_MOBS[type].name} · глубина ${zone.json.wild.depth}`;
+      if (tag === 'wildmini') { e.champion = true; e.maxHP = Math.round(e.maxHP * 2.6); e.hp = e.maxHP; e.dmgMul *= 1.2; e.name = 'Вожак поля: ' + WILD_MOBS[type].name; }   // П20: охраняет «Вглубь», не возрождается
       G.enemies.push(e);
     }
   }
@@ -38,8 +39,8 @@ export function spawnWild(zone) {
 
 // портал «Вглубь» после падения форта
 function openNext(e) {
-  const it = G.zone.inter.find(i => i.id === 'wild_next'); if (!it || !it.hidden) return;
-  it.hidden = false; it.draw.hidden = false; it.light.on = true;
+  const it = G.zone.inter.find(i => i.id === 'wild_next'); if (!it || (!it.hidden && !it.sealed)) return;
+  it.hidden = false; it.sealed = it.locked = false; it.lockNote = ''; it.label = it.plate = 'Вглубь'; it.draw.hidden = false; it.light.on = true;
   C.particles(it.x, it.y, 30, { c: REALMS[G.wild.realm].portalColor, sp: 3, size: 4 }); bus.emit('sfx', 'portal');
 }
 
@@ -50,7 +51,7 @@ export function checkGate() {
   const g = G.zone && G.zone.wildGate; if (!g || g.open || outsideLeft() > 0) return;
   g.open = true; g.d.hidden = true; for (const [tx, ty] of g.tiles) G.zone.map.setSolid(tx, ty, 0);
   const cx = g.tiles[1][0] + 0.5, cy = g.tiles[1][1] + 0.5;
-  C.particles(cx, cy, 30, { c: [255, 220, 150], sp: 3, size: 4 }); C.effect({ kind: 'ring', x: cx, y: cy, r: 3.5, dur: 0.6, c: [255, 210, 120] }); G.cam.shake = 0.4;
+  C.particles(cx, cy, 30, { c: [255, 220, 150], sp: 3, size: 4 }); C.effect({ kind: 'ring', x: cx, y: cy, r: 3.5, dur: 0.6, c: [255, 210, 120] }); G.cam.kick(0.4);
   bus.emit('sfx', 'door'); bus.emit('toast', { text: 'Ворота форта открыты!', sub: 'Поле вокруг зачищено — идите внутрь', kind: 'good' }); bus.emit('wildProgress');
 }
 function onKill(e) {
@@ -58,6 +59,13 @@ function onKill(e) {
   if (G.zone.wildGate) setTimeout(checkGate, 0);
   const realm = G.wild.realm, W = wildState(realm), lvl = e.lvl;
   if (!e.summoned && e.D.realm === realm) { bump(realm, 'kills'); bump(realm, 'k_' + e.type); }
+  if (e.story === 'fquest') {   // П37: Шатун-людоед — задание старосты
+    for (let i = 0; i < 4; i++) L.dropGold(e.x, e.y, rint(6, 12) * (1 + 0.15 * (lvl - 1))); L.dropPotion(e.x, e.y, 'hp');
+    for (const p of G.pickups) if (p.t < 0.1) p.fly = true;
+  }
+  if (e.story === 'wildmini' || (e.story === 'minib' && G.zone.inter.some(i => i.id === 'wild_next' && i.sealed))) {   // П20: вожак повержен — «Вглубь» открыт
+    openNext(e); bus.emit('toast', { text: 'Портал «Вглубь» открыт', sub: e.story === 'minib' ? 'Страж святилища повержен' : `${e.name} повержен`, kind: 'good' }); bus.emit('wildProgress');
+  }
   if (e.story === 'minib') {   // мини-босс святилища храма: золото, зелье, вещь — и подлетает к герою
     const P = G.profile; bump(realm, 'minis');
     for (let i = 0; i < 5; i++) L.dropGold(e.x, e.y, rint(5, 10) * (1 + 0.15 * (lvl - 1)));

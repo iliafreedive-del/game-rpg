@@ -17,7 +17,7 @@ const USELESS = { warrior: [], archer: [], mage: ['ias'] };
 function rollAffixes(item, count, cls) {
   const g = AFFIX_GROUP(item.slot);
   const C = cls && CLASSES[cls], KP = item.rarity >= 2 && KIND_PERK[item.wt || item.slot];   // свойство вида не дублируется второй строкой (было: две строки «к здоровью»)
-  const pool = Object.entries(AFFIXES).filter(([k, a]) => a.g.includes(g) && !item.affixes.some(x => x.k === k) && !(KP && KP.k === k)
+  const pool = Object.entries(AFFIXES).filter(([k, a]) => a.g.includes(g) && !item.affixes.some(x => x.k === k) && !(KP && KP.k === k) && (!a.minR || item.rarity >= a.minR)
     && (!C || ((!ELEM[k] || C.branches.includes(ELEM[k])) && !USELESS[cls].includes(k))));
   for (let i = 0; i < count && pool.length; i++) {
     const k = weighted(pool.map(([k, a]) => [k, a.w]));

@@ -7,7 +7,7 @@ export function mobSkin(kit, m, name, o = {}) {
   const S = kit.skin;
   if (!(S && S.SKINS.on && S.skinLoaded(name))) return m;
   const { bow, restDown, ...so } = o;
-  m = S.attachSkin(kit, m, name, { noEquip: ['handR', 'handL'], rim: 0.6, rimColor: kit.MOB.rimColor.skel, ...so });
+  m = S.attachSkin(kit, m, name, { noEquip: ['handR', 'handL'], rim: 0.6, rimColor: kit.MOB.rimColor.skel, bodyPos: true, ...so });
   if (!m.skin || !(bow || restDown)) return m;
   const { THREE } = kit, meta = S.skinMeta(name);
   let skel = null; m.root.traverse(x => { if (x.isSkinnedMesh && !x.userData.isOutline) skel = x.skeleton; });

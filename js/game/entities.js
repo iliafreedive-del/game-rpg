@@ -43,6 +43,7 @@ export class Player {
       this.hp = Math.min(S.maxHP, this.hp + S.hpRegen * dt + this.potHeal * dt);
       this.mp = Math.min(S.maxMP, this.mp + S.mpRegen * dt + this.potMana * dt);
       if (this.potT > 0) { this.potT -= dt; if (this.potT <= 0) this.potHeal = this.potMana = 0; }
+      if (this.shield > 0 && G.time - G.lastCombat > 4) this.shield = Math.max(0, this.shield - S.maxHP * 0.06 * dt);   // С17: щит тает вне боя (≈ 6 % здоровья в секунду), а не висит вечно
     }
     // turning through intermediate directions (no 180° snaps), but fast
     if (this.dir !== this.face) { this.turnT -= dt; if (this.turnT <= 0) { const d = ((this.face - this.dir + 8) % 8); this.dir = (this.dir + (d <= 4 ? 1 : 7)) % 8; this.turnT = 0.012; } }   // быстрый разворот (180° ≈ 0,05 с)
@@ -65,7 +66,7 @@ export class Player {
     // movement
     const mag = input.mag;
     if (mag > 0.12) {   // удар по герою не сбивает шаг (сборка 19)
-      const run = mag > 0.55; const sp = (run ? 5.4 : 3.2) * (this.S.moveMul || 1) * (G.surv ? 1 + (G.surv.p.swift || 0) * 0.08 : 1) * (this.slowT > 0 ? 0.6 : 1) * (G.wild ? G.wild.slow : 1) * (G.run && G.run.boons && G.run.boons.includes('haste') ? 1.12 : 1);
+      const run = mag > 0.55; const sp = (run ? 5.4 : 3.2 * Math.min(1, 0.35 + (mag - 0.12) * 3.6)) *   /* С33: у края мёртвой зоны шаг набирает скорость плавно (35 % → 100 % к 30 % наклона), а не рывком */ (this.S.moveMul || 1) * (G.surv ? 1 + (G.surv.p.swift || 0) * 0.08 : 1) * (this.slowT > 0 ? 0.6 : 1) * (G.wild ? G.wild.slow : 1) * (G.run && G.run.boons && G.run.boons.includes('haste') ? 1.12 : 1);
       const ox = this.x, oy = this.y;
       [this.x, this.y] = G.zone.map.move(this.x, this.y, input.wx * sp * dt, input.wy * sp * dt, this.r);
       const moved = Math.hypot(this.x - ox, this.y - oy); this.meters += moved;
@@ -136,10 +137,13 @@ export class Enemy {
     const dx = P.x - this.x, dy = P.y - this.y, d = Math.hypot(dx, dy);
     const map = G.zone.map;
     if (!this.aggro && this.wakeT !== undefined) { this.wakeT -= dt; this.dir = dirOf(dx, dy); if (this.anim.clip !== 'idle') this.setAnim('idle', 5, true); if (this.wakeT <= 0) { this.aggro = true; this.woken = true; bus.emit('aggro', this); } return; }
-    if (this.ret) {   // возвращается на место: героя не замечает, здоровье восстанавливается
-      this.hp = Math.min(this.maxHP, this.hp + this.maxHP * 0.3 * dt);
-      if (Math.hypot(this.hx - this.x, this.hy - this.y) > 0.7) { this.moveToward(this.hx, this.hy, dt, 1.3); return; }
-      this.ret = false; this.hp = this.maxHP; this.setAnim('idle', 5, true); return;
+    if (this.ret) {   // возвращается на место
+      // правки 2 (П2): раны не заживают — раньше моб на обратном пути лечился 30 %/с и приходил целым, и стрелку с магом не было смысла
+      // держать дистанцию. П25: герой снова подошёл близко (и моб уже не у края поводка) — агро сразу возвращается, без «приглядывания»
+      const hd = Math.hypot(this.hx - this.x, this.hy - this.y);
+      if (!P.dead && d < 5 && hd < 13 && map.los(this.x, this.y, P.x, P.y)) { this.ret = false; this.aggro = true; this.cd = Math.min(this.cd, 0.4); bus.emit('aggro', this); }
+      else if (hd > 0.7) { this.moveToward(this.hx, this.hy, dt, 1.3); return; }
+      else { this.ret = false; this.setAnim('idle', 5, true); return; }
     }
     if (!this.aggro) {
       const R = ((this.D.boss ? 9.5 : G.wild ? 5.2 : 6.2) + (G.stats && G.stats.ranged ? 3 : 0)) * (G.wild ? G.wild.noise : 1);   // стрелок и маг привлекают врагов издалека
@@ -153,10 +157,15 @@ export class Enemy {
       else { if (this.alertT !== undefined && d > R + 1.5) this.alertT = undefined; if (this.anim.clip !== 'idle') this.setAnim('idle', 5, true); return; }
     }
     // поводок: герой ушёл далеко или моб утащился от своего места — теряет интерес и идёт обратно (сборка 47: паки за героем не собираются)
-    if (this.aggro && !this.D.boss && (!this.story || this.story === 'hunt') && !this.summoned) { const hd = Math.hypot(this.x - this.hx, this.y - this.hy); if (d > 12 || hd > 16 || (d > 8 && !map.los(this.x, this.y, P.x, P.y))) { this.leashT = (this.leashT || 0) + dt; if (this.leashT > (hd > 16 ? 0.5 : 2)) { this.aggro = false; this.leashT = 0; this.alertT = undefined; this.wakeT = undefined; this.state = 'idle'; this.cd = 1.5; this.ret = true; } } else this.leashT = 0; }
+    if (this.aggro && !this.D.boss && (!this.story || this.story === 'hunt') && !this.summoned) { const hd = Math.hypot(this.x - this.hx, this.y - this.hy); if (d > 12 || hd > 16 || (d > 8 && !map.los(this.x, this.y, P.x, P.y))) { this.leashT = (this.leashT || 0) + dt; if (this.leashT > (hd > 16 ? 0.5 : 2)) { this.aggro = false; this.leashT = 0; this.alertT = undefined; this.wakeT = undefined; this.state = 'idle'; this.cd = 1.5; this.ret = true; this.teleg = null; this.lunge = null; this.atk = null; } } else this.leashT = 0; }
     if (P.dead) { if (this.state !== 'attack') { this.setAnim('idle', 5, true); this.state = 'idle'; } return; }
     if (this.state === 'attack') { C.updateEnemyAttack(this, dt, P); return; }
-    AI[this.D.ai](this, dt, P, d, dx, dy);
+    // правки 2 (П69): «очередь на удар», как в экшенах: одновременно замахиваются не больше трёх рядовых бойцов ближнего боя,
+    // остальные держат круг и ждут — большой пак вокруг героя не превращается в кашу из одновременных ударов
+    const grunt = !this.D.boss && !this.D.elite && !this.D.proj && !this.D.mini;
+    if (grunt && (G.meleeBusy || 0) >= 3 && d < 5) { this.cd = Math.max(this.cd, 0.25); if (this.chCd != null) this.chCd = Math.max(this.chCd, 0.25); }
+    const was = !!this.lunge; AI[this.D.ai](this, dt, P, d, dx, dy);
+    if (grunt && d < 5 && !was && (this.state === 'attack' || this.lunge)) G.meleeBusy = (G.meleeBusy || 0) + 1;
   }
   moveToward(tx, ty, dt, spMul = 1, useFlow = true) {
     const map = G.zone.map; let vx = tx - this.x, vy = ty - this.y; const l = Math.hypot(vx, vy) || 1; vx /= l; vy /= l;
@@ -183,7 +192,11 @@ export class Enemy {
     let clip = kind === 'attack2' ? 'attack2' : kind === 'slam' ? 'slam' : kind === 'roar' ? 'roar' : 'attack';
     const A = C.atlasOf(D.atlas); if (A && A.clips && !A.clips[clip]) clip = 'attack';   // у зверей нет attack2/slam/roar — бьют обычной анимацией
     const fps = (D.fps && D.fps[clip]) || 10;
-    this.setAnim(clip, fps * (this.enraged ? 1.25 : 1) * (this.teacher ? 0.45 : 1));   // учитель пролога замахивается вдвое медленнее
+    let f = fps * (this.enraged ? 1.25 : 1) * (this.teacher ? 0.45 : 1);   // учитель пролога замахивается вдвое медленнее
+    // правки 2 (П51): «лужа» удара по месту (slam) взрывается не раньше чем через 1,05 с, и в ярости тоже — раньше в ярости было ≈0,35 с,
+    // убежать из круга 2 м было нельзя даже бегом
+    if (kind === 'slam') f = Math.min(f, this.clipNF(clip) * D.impact / 1.05);
+    this.setAnim(clip, f);
     this.atk.impact = D.impact; this.atk.tx = P.x; this.atk.ty = P.y;
     C.enemyTelegraph(this, kind, P);
   }
@@ -213,9 +226,10 @@ const AI = {
       const sp = 7.5; const [nx, ny] = G.zone.map.move(e.x, e.y, L.vx * sp * dt, L.vy * sp * dt, e.r);
       const blocked = Math.hypot(nx - e.x, ny - e.y) < sp * dt * 0.3; e.x = nx; e.y = ny;
       if (!L.hit && Math.hypot(P.x - e.x, P.y - e.y) < e.r + P.r + 0.35) { L.hit = true; C.enemyHitsPlayer(e, 1.3, 'phys'); }
-      if (L.t > 0.45 || blocked) { e.lunge = null; e.state = 'idle'; e.setAnim('idle', 5, true); e.cd = e.D.cd; }
+      if (L.t > 0.45 || blocked) { e.lunge = null; e.state = 'idle'; e.setAnim('idle', 5, true); e.cd = e.D.cd; e.recoverT = 0.85; }
       return;
     }
+    if (e.recoverT > 0) { e.recoverT -= dt; e.dir = dirOf(P.x - e.x, P.y - e.y); e.setAnim('idle', 5, true, e.anim.clip !== 'idle'); return; }   // П69: окно после броска
     if (d < 4.2 && d > 1.4 && e.cd <= 0 && G.zone.map.los(e.x, e.y, P.x, P.y)) {
       // telegraphed lunge
       e.state = 'attack'; e.atk = { kind: 'lunge', t: 0, hit: false, impact: 0.99 }; e.dir = dirOf(P.x - e.x, P.y - e.y);
@@ -235,12 +249,14 @@ const AI = {
     e.summonT -= dt;
     if (ph >= 2 && e.summonT <= 0) { e.summonT = ph === 3 ? 11 : 14; C.bossSummon(e); }
     if (e.cd <= 0) {
-      if (d > 3.5 && ph >= 2 && rand() < 0.5) { e.startAttack('slam', P); e.cd = 2.2; return; }   // ranged rift slam
+      // П50: от кайта — удар по месту героя издали уже с первой фазы (реже), а вдали Палач ускоряется. П51: между лужами ≥ 3 с
+      if (d > 3.5 && rand() < (ph >= 2 ? 0.5 : 0.3)) { e.startAttack('slam', P); e.cd = 3.2; return; }   // ranged rift slam
       if (d <= e.D.range + P.r + 0.3) {
-        const r = rand(); e.startAttack(r < 0.4 ? 'attack' : r < 0.75 ? 'attack2' : 'slam', P); e.cd = e.D.cd * (ph === 3 ? 0.75 : 1); return;
+        const r = rand(), k = r < 0.4 ? 'attack' : r < 0.75 ? 'attack2' : 'slam'; e.startAttack(k, P); e.cd = k === 'slam' ? 2.6 : e.D.cd * (ph === 3 ? 0.75 : 1); return;
       }
+      if (d > 3.5) e.cd = 0.6;   // не каждый кадр бросать кубик на удар издали
     }
-    if (d > e.D.range + P.r) e.moveToward(P.x, P.y, dt, ph === 3 ? 1.3 : 1); else e.setAnim('idle', 5, true, e.anim.clip !== 'idle');
+    if (d > e.D.range + P.r) e.moveToward(P.x, P.y, dt, (ph === 3 ? 1.3 : 1) * (d > 6 ? 1.45 : 1)); else e.setAnim('idle', 5, true, e.anim.clip !== 'idle');
   },
   // hunt mini-bosses: a base behaviour + special abilities from data/hunts.js (enrage / summon / nova / volley)
   mini(e, dt, P, d, dx, dy) {

@@ -11,6 +11,7 @@ import { toon, outline } from './toon.js';
 import { OUTLINE } from './style.js';
 import { fixZeroNormals } from './geo.js';
 import { clamp, smooth, lerp } from './rig.js';
+import { shared } from './dispose.js';
 
 const BASE = new URL('../../assets/models/', import.meta.url).href;
 const HAS_DOM = typeof document !== 'undefined';
@@ -23,7 +24,7 @@ export function preloadMob(name) {
   const p = fetch(BASE + name + '.glb').then(r => r.ok ? r.arrayBuffer() : fetch(BASE + name + '.glb.json').then(r2 => r2.json()).then(j => Uint8Array.from(atob(j.b64), c => c.charCodeAt(0)).buffer))
     .then(buf => new GLTFLoader().parseAsync(buf, BASE)).then(g => {
     g.scene.updateMatrixWorld(true);
-    let geoH = 0, skinned = false; g.scene.traverse(o => { if (o.isSkinnedMesh) skinned = true; if (o.isMesh) { fixZeroNormals(o.geometry); o.geometry.computeBoundingBox(); geoH = Math.max(geoH, o.geometry.boundingBox.max.y - o.geometry.boundingBox.min.y); } });
+    let geoH = 0, skinned = false; g.scene.traverse(o => { if (o.isSkinnedMesh) skinned = true; if (o.isMesh) { shared(o.geometry); fixZeroNormals(o.geometry); o.geometry.computeBoundingBox(); geoH = Math.max(geoH, o.geometry.boundingBox.max.y - o.geometry.boundingBox.min.y); } });
     const box = new THREE.Box3().setFromObject(g.scene);
     const d = { gltf: g, box, geoH, skinned, walk: g.animations.find(c => /walk/i.test(c.name)) || g.animations.find(c => !/run|idle|attack|death/i.test(c.name)) || g.animations[0], run: g.animations.find(c => /run|gallop/i.test(c.name)) || null };
     data.set(name, d); return d;

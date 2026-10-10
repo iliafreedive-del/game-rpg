@@ -158,12 +158,30 @@ export function render() {
   if (Z.dark) darkness(); else dusk();
   drawProjectiles(true);
   drawEffects(); drawParticles(); drawBlades();
-  drawBars(); drawPickupLabels(); drawPlates(); drawBubbles(); drawTexts(); drawInteractMarker();
+  placed.length = 0; drawBars(); drawPlates(); drawPickupLabels(); drawBubbles(); drawTexts(); drawInteractMarker();
 }
+// С1/С27: подпись в мире не рисуем, если она легла на блок интерфейса (полосы, трекер, кнопки, тосты) или на уже нарисованную подпись.
+// Прямоугольники интерфейса берём раз в 250 мс (не каждый кадр); дети #hudR/#pad/#toasts — по отдельности, сам контейнер шире видимого
+let hudR = [], hudAt = -1e9; const placed = [];
+function hudRects() {
+  const now = performance.now(); if (now - hudAt < 250) return hudR; hudAt = now; hudR = [];
+  const g = id => document.getElementById(id), nodes = [g('hudL'), g('btnAct'), g('edgeArrow')];
+  for (const id of ['hudR', 'pad', 'toasts']) { const c = g(id); if (c) nodes.push(...c.children); }
+  for (const n of nodes) { if (!n || n.classList.contains('hidden')) continue; const r = n.getBoundingClientRect(); if (r.width > 0 && r.height > 0 && r.width < W * 0.9) hudR.push(r); }
+  return hudR;
+}
+const hit = (a, x0, y0, x1, y1, m) => a.left - m < x1 && a.right + m > x0 && a.top - m < y1 && a.bottom + m > y0;
+// свободно ли место под подпись [x0,y0]-[x1,y1] (экранные px); если да — занимаем его
+function labelFree(x0, y0, x1, y1) {
+  for (const r of hudRects()) if (hit(r, x0, y0, x1, y1, 4)) return false;
+  for (const r of placed) if (hit(r, x0, y0, x1, y1, 1)) return false;
+  placed.push({ left: x0, top: y0, right: x1, bottom: y1 }); return true;
+}
+const byDist = a => { const P = G.player; return P ? a.slice().sort((p, q) => Math.hypot(P.x - p.x, P.y - p.y) - Math.hypot(P.x - q.x, P.y - q.y)) : a; };
 // 3D-режим: подписи над NPC (имя и «!»/«?» задания) — в 2D их рисует drawNPC; без них жителей в деревне не найти
 function drawNpcPlates() {
   const cam = G.cam, z = Math.min(1.25, cam.zoom || 1);
-  for (const n of G.npcs || []) {
+  for (const n of byDist(G.npcs || [])) {
     if (n.echoFor || !n.name) continue;
     const [x, y] = cam.toScreen(n.x, n.y, 2.5); if (x < -60 || y < -40 || x > W + 60 || y > H + 40) continue;
     const d = Math.hypot(G.player.x - n.x, G.player.y - n.y), near = d < 9, ty = y;
@@ -171,10 +189,11 @@ function drawNpcPlates() {
     if (d < 10) {   // сборка 47: имя — только когда герой ближе 10 м, издалека над жителем лишь «!»/«?» (не закрывают деревню)
       ctx.font = `600 ${Math.round(13 * z)}px Georgia, serif`;
       const tw = ctx.measureText(n.name).width + 14;
+      if (labelFree(x - tw / 2, ty - 14, x + tw / 2, ty + 5)) {
       ctx.globalAlpha = near ? 1 : 0.85; ctx.fillStyle = 'rgba(30,20,8,0.82)'; ctx.fillRect(x - tw / 2, ty - 14, tw, 19); ctx.strokeStyle = '#c99a3c'; ctx.lineWidth = 1; ctx.strokeRect(x - tw / 2, ty - 14, tw, 19);
-      ctx.fillStyle = '#ffe9b0'; ctx.fillText(n.name, x, ty);
+      ctx.fillStyle = '#ffe9b0'; ctx.fillText(n.name, x, ty); }
     }
-    if (n.marker) { const b = Math.sin(G.time * 4) * 4; ctx.font = `bold ${Math.round(30 * z)}px Georgia, serif`; ctx.strokeStyle = '#000'; ctx.lineWidth = 4; ctx.strokeText(n.marker, x, ty - 20 + b); ctx.fillStyle = n.marker === '?' ? '#ffe36a' : '#ffd24a'; ctx.fillText(n.marker, x, ty - 20 + b); }
+    if (n.marker && !hudRects().some(r => hit(r, x - 10, ty - 50, x + 10, ty - 14, 2))) { const b = Math.sin(G.time * 4) * 4; ctx.font = `bold ${Math.round(30 * z)}px Georgia, serif`; ctx.strokeStyle = '#000'; ctx.lineWidth = 4; ctx.strokeText(n.marker, x, ty - 20 + b); ctx.fillStyle = n.marker === '?' ? '#ffe36a' : '#ffd24a'; ctx.fillText(n.marker, x, ty - 20 + b); }
     ctx.globalAlpha = 1;
   }
 }
@@ -186,7 +205,7 @@ export function renderOverlay() {
   drawGroundFx(); drawTelegraphs(); drawGuide(); drawPickupsGround();
   drawProjectiles(false); drawProjectiles(true);
   drawEffects(); drawParticles(); drawBlades(); if (G.surv) SV.drawSurvivalFx(ctx, G.cam);
-  drawBars(); drawPickupLabels(); drawPlates(); drawNpcPlates(); drawBubbles(); drawTexts(); drawInteractMarker();
+  placed.length = 0; drawBars(); drawNpcPlates(); drawPlates(); drawPickupLabels(); drawBubbles(); drawTexts(); drawInteractMarker();   // С27: важные подписи первыми
 }
 export function clearOverlay() { if (ctx) { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height); } }
 
@@ -325,11 +344,13 @@ function drawTelegraphs() {
     ctx.save(); const [x, y] = cam.toScreen(tg.x, tg.y);
     ctx.translate(x, y); ctx.scale(1, 0.5);
     const R = tg.r * 32 * z * Math.SQRT2;   // world metre → screen along iso diagonal
-    ctx.fillStyle = tg.rift ? 'rgba(170,70,255,0.18)' : 'rgba(255,60,30,0.16)'; ctx.strokeStyle = tg.rift ? 'rgba(200,120,255,0.8)' : 'rgba(255,90,50,0.85)'; ctx.lineWidth = 2.5;
+    // правки 2 (П21): цвет подсветки — по материалу удара (tg.col: корни — зелёный, камень — песочный, кость — слоновая кость, лёд — голубой)
+    const tc = tg.col ? tg.col.join(',') : tg.rift ? '170,70,255' : '255,60,30', sc = tg.col ? tc : tg.rift ? '200,120,255' : '255,90,50', fill2 = `rgba(${tc},${tg.col ? 0.4 : 0.3})`;
+    ctx.fillStyle = `rgba(${tc},${tg.col ? 0.26 : tg.rift ? 0.18 : 0.16})`; ctx.strokeStyle = `rgba(${sc},${tg.col ? 1 : 0.85})`; ctx.lineWidth = tg.col ? 3 : 2.5; if (tg.fx === 'stone' || tg.fx === 'bone') ctx.setLineDash([7, 4]);
     const isoA = a => Math.atan2(Math.sin(a) + Math.cos(a), Math.cos(a) - Math.sin(a)); // world angle → screen angle (pre-scale)
     ctx.beginPath();
-    if (tg.shape === 'circle') { ctx.arc(0, 0, R, 0, 7); ctx.fill(); ctx.stroke(); ctx.beginPath(); ctx.arc(0, 0, R * p, 0, 7); ctx.fillStyle = tg.rift ? 'rgba(170,70,255,0.3)' : 'rgba(255,60,30,0.3)'; ctx.fill(); }
-    else if (tg.shape === 'cone') { const a = isoA(tg.a), h = tg.arc / 2 * Math.PI / 180; ctx.moveTo(0, 0); ctx.arc(0, 0, R, a - h, a + h); ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, R * p, a - h, a + h); ctx.closePath(); ctx.fillStyle = 'rgba(255,60,30,0.3)'; ctx.fill(); }
+    if (tg.shape === 'circle') { ctx.arc(0, 0, R, 0, 7); ctx.fill(); ctx.stroke(); ctx.beginPath(); ctx.arc(0, 0, R * p, 0, 7); ctx.fillStyle = fill2; ctx.fill(); }
+    else if (tg.shape === 'cone') { const a = isoA(tg.a), h = tg.arc / 2 * Math.PI / 180; ctx.moveTo(0, 0); ctx.arc(0, 0, R, a - h, a + h); ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, R * p, a - h, a + h); ctx.closePath(); ctx.fillStyle = fill2; ctx.fill(); }
     else if (tg.shape === 'line') { const a = isoA(tg.a); ctx.rotate(a); ctx.fillRect(0, -tg.w * 16 * z, R * p, tg.w * 32 * z); ctx.strokeRect(0, -tg.w * 16 * z, R, tg.w * 32 * z); }
     ctx.restore();
   }
@@ -337,7 +358,7 @@ function drawTelegraphs() {
 function drawProjectiles(emissive) {
   const cam = G.cam, z = cam.zoom, T = G.time;
   for (const p of G.projectiles) {
-    const pz = p.z ?? 1.0;   // высота полёта (у стрел героя — от лука, на высоте плеча)
+    const pz = p.z ?? (p.owner === 'e' && p.kind === 'arrow' ? 1.35 : 1.0);   // высота полёта (у стрел героя — от лука, на высоте плеча; у стрел мобов тоже от лука, а не из груди — П28)
     const [x, y] = cam.toScreen(p.x, p.y, pz);
     const [x2, y2] = cam.toScreen(p.x - p.vx * 0.035, p.y - p.vy * 0.035, pz);
     const ang = Math.atan2(y - y2, x - x2);
@@ -347,6 +368,14 @@ function drawProjectiles(emissive) {
       ctx.strokeStyle = '#6a4a2a'; ctx.lineWidth = 2.2 * z; ctx.beginPath(); ctx.moveTo(-22 * z, 0); ctx.lineTo(0, 0); ctx.stroke();
       ctx.fillStyle = '#cfd6de'; ctx.beginPath(); ctx.moveTo(4 * z, 0); ctx.lineTo(-3 * z, -3 * z); ctx.lineTo(-3 * z, 3 * z); ctx.fill();
       ctx.fillStyle = p.owner === 'e' ? '#7ac06a' : '#e05050'; ctx.fillRect(-22 * z, -3 * z, 6 * z, 6 * z);
+      ctx.restore(); continue;
+    }
+    if (p.kind === 'rock' || p.kind === 'bone') {   // правки 2 (П18/П21): брошенный камень (Храм) и кость (Пустоши), кувыркаются
+      if (emissive) continue; const [gx, gy] = cam.toScreen(p.x, p.y, 0);
+      ctx.fillStyle = 'rgba(0,0,0,0.25)'; ctx.beginPath(); ctx.ellipse(gx, gy, 7 * z, 3.5 * z, 0, 0, 7); ctx.fill();
+      ctx.save(); ctx.translate(x, y); ctx.rotate(T * (p.kind === 'rock' ? 8 : 14) + p.dist);
+      if (p.kind === 'rock') { ctx.fillStyle = '#8c8070'; ctx.strokeStyle = '#3a332a'; ctx.lineWidth = 1.5 * z; ctx.beginPath(); for (let k = 0; k < 7; k++) { const a = k / 7 * 6.283, r = (6.5 + ((k * 5) % 3) * 1.6) * z; k ? ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r) : ctx.moveTo(Math.cos(a) * r, Math.sin(a) * r); } ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.fillStyle = '#b4a892'; ctx.beginPath(); ctx.arc(-2 * z, -2 * z, 2.2 * z, 0, 7); ctx.fill(); }
+      else { ctx.strokeStyle = '#4a4030'; ctx.lineWidth = 6 * z; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(-10 * z, 0); ctx.lineTo(10 * z, 0); ctx.stroke(); ctx.strokeStyle = '#ece0c4'; ctx.lineWidth = 4 * z; ctx.stroke(); ctx.fillStyle = '#ece0c4'; for (const sx of [-10, 10]) for (const sy of [-2.5, 2.5]) { ctx.beginPath(); ctx.arc(sx * z, sy * z, 3 * z, 0, 7); ctx.fill(); } }
       ctx.restore(); continue;
     }
     if (!emissive) continue;
@@ -422,6 +451,18 @@ function drawEffects() {
         ctx.beginPath(); ctx.moveTo(Math.cos(a + 1.57) * w, Math.sin(a + 1.57) * w * 0.5); ctx.lineTo(tx, ty); ctx.lineTo(Math.cos(a - 1.57) * w, Math.sin(a - 1.57) * w * 0.5); ctx.closePath(); ctx.fill(); ctx.stroke(); }
       const g = ctx.createRadialGradient(0, -10 * z, 0, 0, -10 * z, 50 * z * e.r); g.addColorStop(0, `rgba(200,240,255,${0.6 * fade})`); g.addColorStop(1, 'rgba(100,180,255,0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, -10 * z, 50 * z * e.r, 0, 7); ctx.fill();
       ctx.restore(); ctx.globalCompositeOperation = 'source-over';
+    } else if (e.kind === 'spikes') {   // правки 2 (П21): удар из земли — каменные/костяные шипы или корни, вырастают и уходят обратно
+      const [x, y] = cam.toScreen(e.x, e.y); ctx.save(); ctx.translate(x, y);
+      const grow = Math.min(1, k * 7), sink = k > 0.6 ? 1 - (k - 0.6) / 0.4 : 1, R = e.r * 32 * z * Math.SQRT2 * 0.8, n = e.n || 6, st = e.style;
+      ctx.strokeStyle = `rgba(30,22,14,${0.5 * sink})`; ctx.lineWidth = 2 * z; ctx.beginPath(); ctx.ellipse(0, 0, R, R * 0.5, 0, 0, 7); ctx.stroke();   // трещина в земле
+      const pts = []; for (let i = 0; i < n; i++) { const a = i * 2.4 + e.seed, rr = Math.sqrt((i + 0.5) / n) * R; pts.push([Math.cos(a) * rr, Math.sin(a) * rr * 0.5, i]); } pts.sort((a, b) => a[1] - b[1]);
+      for (const [px, py, i] of pts) { const h = (18 + ((i * 37) % 5) * 6) * z * Math.min(1.5, 0.7 + e.r * 0.4) * grow * sink, w = (4 + (i % 3)) * z;
+        if (st === 'roots') { const sw = ((i % 2) ? 1 : -1) * h * 0.35; ctx.strokeStyle = 'rgb(58,40,22)'; ctx.lineWidth = w * 1.4; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(px, py); ctx.quadraticCurveTo(px + sw, py - h * 0.5, px - sw * 0.4, py - h); ctx.stroke();
+          ctx.strokeStyle = 'rgb(96,140,52)'; ctx.lineWidth = w * 0.7; ctx.stroke(); ctx.fillStyle = 'rgb(120,190,70)'; ctx.beginPath(); ctx.ellipse(px + sw * 0.5, py - h * 0.55, 3.5 * z, 2 * z, 0.6, 0, 7); ctx.fill(); }
+        else { const [f, s2] = st === 'bone' ? ['rgb(232,220,190)', 'rgb(110,96,70)'] : ['rgb(146,132,112)', 'rgb(58,50,40)'];
+          ctx.fillStyle = f; ctx.strokeStyle = s2; ctx.lineWidth = 1.3 * z; ctx.beginPath(); ctx.moveTo(px - w, py); ctx.lineTo(px + w * 0.15, py - h); ctx.lineTo(px + w, py); ctx.closePath(); ctx.fill(); ctx.stroke();
+          ctx.fillStyle = 'rgba(255,255,255,0.25)'; ctx.beginPath(); ctx.moveTo(px - w * 0.6, py); ctx.lineTo(px + w * 0.15, py - h); ctx.lineTo(px - w * 0.1, py); ctx.closePath(); ctx.fill(); } }
+      ctx.restore();
     } else if (e.kind === 'meteor') {   // falling rock of fire
       const p = Math.min(1, k); const [x, y] = cam.toScreen(e.x, e.y, (1 - p) * 9); const [gx, gy] = cam.toScreen(e.x, e.y);
       ctx.globalCompositeOperation = 'lighter';
@@ -492,9 +533,10 @@ function drawPickupsGround() {
 }
 function drawPickupLabels() {
   const cam = G.cam, z = cam.zoom; ctx.textAlign = 'center'; ctx.font = `600 ${Math.round(11 * Math.min(1.25, z))}px Georgia, serif`;
-  for (const p of G.pickups) {
+  for (const p of byDist(G.pickups)) {
     if (p.kind !== 'item') continue;
     const [x, y] = cam.toScreen(p.x, p.y, 0.9); const t = p.item.name; const w = ctx.measureText(t).width + 10;
+    if (!labelFree(x - w / 2, y - 13, x + w / 2, y + 3)) continue;
     ctx.fillStyle = 'rgba(0,0,0,0.72)'; ctx.fillRect(x - w / 2, y - 13, w, 16); ctx.fillStyle = RARITY[p.item.rarity].color; ctx.fillText(t, x, y);
   }
 }
@@ -518,21 +560,40 @@ function drawInteractMarker() {
 }
 
 // quest guide: a golden arrow on the ground pointing toward the current objective
-function drawGuide() { drawArrow(G.guide, 'gv', '255,210,90'); if (G.huntGuide && G.huntGuide !== G.guide) drawArrow(G.huntGuide, 'hgv', '255,70,50', 0.27); }
+function drawGuide() { drawMoveTo(); drawArrow(G.guide, 'gv', '255,210,90'); drawBeacon(G.guide); if (G.huntGuide && G.huntGuide !== G.guide) drawArrow(G.huntGuide, 'hgv', '255,70,50', 0.27); }
+// сборка 60 (П1): стрелка у героя гаснет за 4 м до цели, и саркофаг с ключом пробегали мимо (рядом стоит сундук поярче).
+// Теперь над целью задания в подземелье прыгает золотой указатель «▼», а под ней пульсирует кольцо — видно, что открыть надо именно это
+function drawBeacon(t) {
+  const P = G.player; if (!t || !P || P.dead || t.type === 'portal' || t.type === 'npc' || G.zoneId !== 'catacombs' || t.done || !G.zone.inter.includes(t)) return;
+  const d = Math.hypot(t.x - P.x, t.y - P.y); if (d > 11) return;
+  const cam = G.cam, z = cam.zoom, b = Math.abs(Math.sin(G.time * 3.2)) * 14 * z, [gx, gy] = cam.toScreen(t.x, t.y), [x, y] = cam.toScreen(t.x, t.y, 2.3);
+  ctx.save(); ctx.translate(gx, gy); ctx.scale(1, 0.5); const p = (G.time * 0.9) % 1;
+  ctx.strokeStyle = `rgba(255,215,90,${0.9 * (1 - p)})`; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(0, 0, (26 + 34 * p) * z, 0, 7); ctx.stroke(); ctx.restore();
+  ctx.save(); ctx.translate(x, y - b); ctx.shadowColor = '#ffb020'; ctx.shadowBlur = 14; ctx.fillStyle = '#ffd24a'; ctx.strokeStyle = '#3a2400'; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(-15 * z, -16 * z); ctx.lineTo(15 * z, -16 * z); ctx.lineTo(0, 6 * z); ctx.closePath(); ctx.stroke(); ctx.fill(); ctx.restore();
+}
+// М27: куда бежит герой после касания экрана — сжимающееся кольцо на земле
+function drawMoveTo() {
+  const m = G.moveTo; if (!m) return; const z = G.cam.zoom, [x, y] = G.cam.toScreen(m.x, m.y), p = ((G.time - m.t) * 1.6) % 1;
+  ctx.save(); ctx.translate(x, y); ctx.scale(1, 0.5); ctx.strokeStyle = `rgba(150,230,255,${0.9 - p * 0.5})`; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.arc(0, 0, (22 - 12 * p) * z, 0, 7); ctx.stroke(); ctx.restore();
+}
 function drawArrow(t, key, rgb, off = 0) {
   const P = G.player; if (!t || P.dead) return;
   const dx = t.x - P.x, dy = t.y - P.y, d = Math.hypot(dx, dy); if (d < 4) return;
   let vx = dx / d, vy = dy / d;
   if (G.zone.dark) { const g = G.zone.map.guideDir(P.x, P.y, t.x, t.y); if (g) { vx = g[0]; vy = g[1]; } }
   const gv = G[key] || (G[key] = [vx, vy]); gv[0] += (vx - gv[0]) * 0.12; gv[1] += (vy - gv[1]) * 0.12; const gl = Math.hypot(gv[0], gv[1]) || 1; vx = gv[0] / gl; vy = gv[1] / gl;
-  const cam = G.cam, z = cam.zoom; const pulse = (G.time * 1.5) % 1;
-  ctx.save();
+  // правки мамы (М4): стрелки были мелкие и тусклые — крупнее (в начале игры ещё крупнее), ярче и с тёмной обводкой, чтобы читались на траве и камне
+  const cam = G.cam, s = cam.zoom * ((G.profile && G.profile.level < 6) ? 1.8 : 1.4); const pulse = (G.time * 1.5) % 1;
+  ctx.save(); ctx.lineJoin = 'round';
   for (let i = 0; i < 3; i++) {
-    const k = 1.1 + off + i * 0.55 + pulse * 0.55;
+    const k = 1.2 + off + i * 0.7 + pulse * 0.7;
     const [x, y] = cam.toScreen(P.x + vx * k, P.y + vy * k); const [x2, y2] = cam.toScreen(P.x + vx * (k + 0.3), P.y + vy * (k + 0.3));
-    const a = Math.atan2(y2 - y, x2 - x); const al = (i === 0 ? pulse : i === 2 ? 1 - pulse : 1) * 0.85;
-    ctx.translate(x, y); ctx.rotate(a); ctx.fillStyle = `rgba(${rgb},${al})`;
-    ctx.beginPath(); ctx.moveTo(9 * z, 0); ctx.lineTo(-5 * z, -7 * z); ctx.lineTo(-2 * z, 0); ctx.lineTo(-5 * z, 7 * z); ctx.closePath(); ctx.fill();
+    const a = Math.atan2(y2 - y, x2 - x); const al = (i === 0 ? pulse : i === 2 ? 1 - pulse : 1);
+    ctx.translate(x, y); ctx.rotate(a); ctx.fillStyle = `rgba(${rgb},${al})`; ctx.strokeStyle = `rgba(40,20,0,${al * 0.8})`; ctx.lineWidth = 2.5;
+    ctx.shadowColor = `rgba(${rgb},${al * 0.9})`; ctx.shadowBlur = 10;
+    ctx.beginPath(); ctx.moveTo(9 * s, 0); ctx.lineTo(-5 * s, -7 * s); ctx.lineTo(-2 * s, 0); ctx.lineTo(-5 * s, 7 * s); ctx.closePath(); ctx.stroke(); ctx.fill();
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
   }
   ctx.restore();
@@ -569,11 +630,12 @@ function drawPlates() {
     const label = it.plate + (near && it.reqLevel ? ` · ур. ${it.reqLevel}+` : '') + (near && it.lockNote ? ` · ${it.lockNote}` : '');
     const fs = Math.round(12 * Math.min(1.15, z)), ty = y + 34 * z + fs; ctx.font = `600 ${fs}px Georgia, serif`; ctx.textAlign = 'center';
     const tw = ctx.measureText(label).width + 16, th = fs + 7;
+    if (labelFree(x - tw / 2, ty - fs - 1, x + tw / 2, ty - fs - 1 + th)) {
     ctx.globalAlpha = near ? 0.95 : 0.7;
     ctx.fillStyle = locked ? 'rgba(40,8,8,0.72)' : 'rgba(30,20,6,0.62)'; ctx.beginPath(); ctx.roundRect(x - tw / 2, ty - fs - 1, tw, th, th / 2); ctx.fill();
     ctx.strokeStyle = locked ? '#c0463c99' : '#c99a3c99'; ctx.lineWidth = 1; ctx.stroke();
-    ctx.fillStyle = locked ? '#ff8a7a' : '#ffd98a'; ctx.fillText((locked ? '🔒 ' : '') + label, x, ty); ctx.globalAlpha = 1;
-    if (it.marker) { const b = Math.sin(G.time * 4) * 4; ctx.font = `bold ${Math.round(28 * z)}px Georgia, serif`; ctx.strokeStyle = '#000'; ctx.lineWidth = 3; const my = y - 125 * z + b; ctx.strokeText(it.marker, x, my); ctx.fillStyle = '#ffd24a'; ctx.fillText(it.marker, x, my); }
+    ctx.fillStyle = locked ? '#ff8a7a' : '#ffd98a'; ctx.fillText((locked ? '🔒 ' : '') + label, x, ty); ctx.globalAlpha = 1; }
+    if (it.marker && !hudRects().some(r => hit(r, x - 10, y - 125 * z - 26, x + 10, y - 125 * z + 6, 2))) { const b = Math.sin(G.time * 4) * 4; ctx.font = `bold ${Math.round(28 * z)}px Georgia, serif`; ctx.strokeStyle = '#000'; ctx.lineWidth = 3; const my = y - 125 * z + b; ctx.strokeText(it.marker, x, my); ctx.fillStyle = '#ffd24a'; ctx.fillText(it.marker, x, my); }
   }
 }
 

@@ -5,7 +5,7 @@ import { G, bus } from '../game/ctx.js';
 import { $, el, esc, fmt } from '../core/util.js';
 import { getAtlas, drawFrame } from '../core/assets.js';
 import { ENEMIES } from '../data/enemies.js';
-import { gainXP } from '../game/loot.js';
+import { gainXP, xpMul } from '../game/loot.js';
 import { addShards, torches, spendEnergy, TORCH_MAX, TORCH_MS, nextIn } from '../game/castle.js';
 import { watchRewarded, offerToken, maybeInterstitial } from '../platform/monetize.js';
 import { rand, rrange, clamp } from '../core/util.js';
@@ -14,7 +14,16 @@ import { CODEX } from '../data/story.js';
 import { gate } from '../game/progress.js';
 import { paintScene } from './hwscenes.js';
 import { ART, artImg } from './art.js';
-import { makeBattle, stageFoes, arenaView, setArenaLayout, relayoutBattle } from '../game/hwbattle.js';
+import { makeBattle, stageFoes, arenaView, setArenaLayout, relayoutBattle, hwSkill } from '../game/hwbattle.js';
+import { current as curQuest } from '../game/quests.js';
+import { xpToNext } from '../game/stats.js';
+import { SKILLS } from '../data/skills.js';
+
+// сборка 60: первая Летопись — шаг обучения «Испытать себя» (П8, П10)
+const tut = () => { const q = G.profile && G.profile.story && curQuest(); return !!(q && q.id === 'hw_try'); };
+// нарисованный фон арены этапа (П5): тот же выбор, что в бою, — чтобы заранее загрузить картинку
+const arenaSrc = (s, port) => ART.arena(chOf(s) + 1, 'abc'[Math.min(2, Math.floor(((s - 1) % PER_CH) / 10))], port);
+const portNow = () => innerWidth < innerHeight;
 
 // сборка 47: энергия общая с Глубинами и Жатвой (game/castle.js); каждый бой стоит 1 ⚡ — и победа, и поражение
 export const EN_MAX = TORCH_MAX;
@@ -44,12 +53,13 @@ export const hwReady = () => { HW(); return enN() >= 5; };
 let root = null, page = 0, raf = 0, curStage = null;
 const disposeStage = () => { if (curStage) { try { curStage.dispose(); } catch { } curStage = null; } };
 export function openHeroPath() {
-  if (root) return; HW(); G.paused = true; G.modalOpen = true; bus.emit('audioPause', false);
+  if (root) return; HW(); G.paused = true; G.modalOpen = true; G.hwOpen = true; bus.emit('audioPause', false);
+  { const h = HW(); h.seenAt = G.profile.stats.playTime || 0; G.hwRemind = false; artImg(arenaSrc(h.top, portNow())); }   // П5: фон ближайшего боя грузится, пока игрок смотрит карту
   root = el('div', 'hw-root'); document.body.appendChild(root);
   page = chOf(HW().top);
   showMap();
 }
-function close() { cancelAnimationFrame(raf); raf = 0; disposeStage(); if (root) root.remove(); root = null; G.paused = false; G.modalOpen = false; bus.emit('hud'); bus.emit('save'); }
+function close() { bus.emit('music'); cancelAnimationFrame(raf); raf = 0; disposeStage(); if (root) root.remove(); root = null; G.paused = false; G.modalOpen = false; G.hwOpen = false; bus.emit('hud'); bus.emit('save'); }
 
 function header(title) {
   const n = enN(), left = nextIn(torches(), TORCH_MS);
@@ -75,11 +85,17 @@ function showMap() {
   const pv = el('button', 'btn', '◀'); pv.disabled = page === 0; pv.onclick = () => { page--; showMap(); };
   const nx = el('button', 'btn', '▶'); nx.disabled = page === CHAPTERS.length - 1 || h.top <= (page + 1) * PER_CH; nx.onclick = () => { page++; showMap(); };
   nav.append(pv, el('span', 'hw-page', `Глава ${page + 1}/${CHAPTERS.length}`), nx); card.appendChild(nav);
-  if (h.top >= page * PER_CH + 1 && h.top <= (page + 1) * PER_CH && !gate('hw', h.top)) { const go = el('button', 'btn gold hw-go', `⚔ В бой · этап ${h.top}`); go.onclick = () => showPrefight(h.top); card.appendChild(go); }
+  if (h.top >= page * PER_CH + 1 && h.top <= (page + 1) * PER_CH && !gate('hw', h.top)) { const go = el('button', 'btn gold hw-go' + (h.top <= 3 ? ' nudge' : ''), `⚔ В бой · этап ${h.top}`); go.onclick = () => showPrefight(h.top); card.appendChild(go); }
   root.appendChild(card);
 }
+// П9: умение для Летописи — выбранное перед боем из выученных активных (P.hwSkill), иначе первое на кнопках
+function hwSkillPick() {
+  const P = G.profile, list = Object.keys(P.skills || {}).filter(k => P.skills[k] && SKILLS[k] && SKILLS[k].kind === 'active');
+  const id = list.includes(P.hwSkill) ? P.hwSkill : (P.slots || []).find(k => list.includes(k)) || list[0] || null;
+  return { id, list };
+}
 function heroSummary() {
-  const S = G.stats; const cls = G.profile.cls || 'warrior'; return { hp: S.maxHP, dmg: (S.dmgMin + S.dmgMax) / 2 * (cls === 'mage' ? Math.max(1, S.spellPower * 0.85) : 1), aps: Math.min(2.2, S.aps), crit: S.critChance, critMult: S.critMult, armor: S.armor, spell: S.spellPower };
+  const S = G.stats; const cls = G.profile.cls || 'warrior', sid = hwSkillPick().id; return { skill: hwSkill(cls, sid, sid ? G.profile.skills[sid] : 1, sid ? SKILLS[sid].name : null), hp: S.maxHP, dmg: (S.dmgMin + S.dmgMax) / 2 * (cls === 'mage' ? Math.max(1, S.spellPower * 0.85) : 1), aps: Math.min(2.2, S.aps), crit: S.critChance, critMult: S.critMult, armor: S.armor, spell: S.spellPower };
 }
 const power = (hp, dmg, aps) => Math.round(dmg * aps * 10 + hp);
 function showPrefight(s) {
@@ -92,16 +108,27 @@ function showPrefight(s) {
   const card = el('div', 'hw-map hw-pre', `<div class="hw-banner">Этап ${s}${L.some(f => f.boss) ? ' · босс' : ''}</div>
     <div class="hw-vs"><div><b>Вы · ур. ${G.profile.level}</b><span>Сила ${fmt(me)}</span><span>♥ ${fmt(H.hp)} · ⚔ ${Math.round(H.dmg)}</span></div><div class="hw-vsx">VS</div><div><b>Врагов: ${L.length}</b><span>Сила ${fmt(Math.round(foe))}</span><span style="font-size:12px">${list}</span></div></div>
     <p class="${me >= foe ? 'good' : 'bad'}" style="text-align:center">${me >= foe * 1.3 ? 'Лёгкий бой' : me >= foe * 0.85 ? 'Равный бой' : 'Враг сильнее — прокачайтесь в катакомбах, улучшите вещи у кузнеца'}</p>`);
+  // П9: выбор умения перед боем (их будет несколько) и как часто оно срабатывает
+  { const pk = hwSkillPick(), box = el('div', 'hw-sk', `<b>Умение в бою:</b>`);
+    if (!pk.list.length) box.appendChild(el('span', 'muted', ` ${esc(H.skill.name)} · раз в ${H.skill.every} хода (выучите умение у Элвина — сможете выбрать)`));
+    for (const id of pk.list) { const sk = hwSkill(G.profile.cls || 'warrior', id, G.profile.skills[id], SKILLS[id].name), b = el('button', 'btn sm' + (id === pk.id ? ' gold' : ''), `${esc(sk.name)} <small>· раз в ${sk.every} хода</small>`);
+      b.onclick = () => { G.profile.hwSkill = id; bus.emit('save'); showPrefight(s); }; box.appendChild(b); }
+    card.appendChild(box); }
+  if (tut() && s < 3) card.appendChild(el('p', 'muted', 'Первые два боя — без отступления. «Сбежать» появится с третьего.'));
   const row = el('div', 'hw-nav');
   const back = el('button', 'btn', 'К карте'); back.onclick = showMap;
   const go = el('button', 'btn gold', 'В бой · 1 ⚡');
   go.onclick = () => tryFight(s);
+  // правки мамы (М7): «В бой» видно, но нажать не хотелось и было неясно, что дальше — в первых боях кнопка пульсирует и есть пояснение
+  if (tut() || s <= 3) { go.classList.add('nudge'); card.appendChild(el('p', 'goldc', '☟ Нажмите «В бой» — бой пойдёт сам: герой и враги ходят по очереди, вам ничего делать не нужно.')); }
   row.append(back, go); card.appendChild(row); root.appendChild(card);
+  artImg(arenaSrc(s, portNow()));   // П5
 }
 
 // ------------------------------------------------------------------ battle
 // сборка 44: герой против отряда из 2–4 врагов на широкой арене (логика — game/hwbattle.js). Слои: 2D-фон → 3D-бойцы → 2D-полосы, имена, цифры, снаряды.
 async function fight(s) {
+  bus.emit('music', 'battle');   // сборка 60: боевая тема Летописи
   disposeStage(); cancelAnimationFrame(raf); root.innerHTML = ''; header();
   const stack = el('div', 'hw-stack'), bgcv = document.createElement('canvas'), glcv = document.createElement('canvas'), cv = document.createElement('canvas');
   stack.append(bgcv, glcv, cv); root.appendChild(stack);
@@ -112,15 +139,20 @@ async function fight(s) {
   resize();
   let speed = G.profile.hwSpeed === 2 ? 2 : 1; const speedB = el('button', 'hw-speed', '×' + speed); speedB.onclick = () => { speed = speed === 1 ? 2 : 1; G.profile.hwSpeed = speed; speedB.textContent = '×' + speed; }; root.appendChild(speedB);
   // сборка 47: «Сбежать» — прервать бой (энергия уже потрачена, награды нет)
-  const fleeB = el('button', 'hw-speed hw-flee', 'Сбежать'); fleeB.onclick = () => { ended = true; cancelAnimationFrame(raf); raf = 0; speedB.remove(); fleeB.remove(); bus.emit('save'); showMap(); }; root.appendChild(fleeB);
+  // сборка 60 (П8): в первой Летописи «Сбежать» — с 3-го боя, и отступление честно завершает шаг обучения (раньше — только гибель)
+  const fleeB = el('button', 'hw-speed hw-flee', 'Сбежать'); fleeB.onclick = () => { ended = true; bus.emit('music'); cancelAnimationFrame(raf); raf = 0; speedB.remove(); fleeB.remove(); bus.emit('save'); if (tut()) fled(); else showMap(); };
+  if (!(tut() && s < 3)) root.appendChild(fleeB);
   const ci = chOf(s), cls = G.profile.cls || 'warrior', wt = G.profile.gear.weapon ? G.profile.gear.weapon.wt : 'sword';
   setArenaLayout(stack.clientWidth < stack.clientHeight * 1.1);   // сборка 50: телефон вертикально — арена уже, бойцы крупнее
   B = makeBattle({ ...heroSummary(), cls }, stageFoes(s)); const Hu = B.H, foes = B.foes; stack.battle = B;   // stack.battle — для автотестов
   const nums = [], fx = [], labels = []; let time = 0, last = performance.now(), ended = false;
+  // П5: нарисованный фон ждём (до 1,5 с) вместе с загрузкой 3D — иначе на долю секунды мелькала прежняя процедурная арена
+  const artWait = new Promise(r => { const a = artImg(ART.arena(chOf(s) + 1, 'abc'[Math.min(2, Math.floor(((s - 1) % PER_CH) / 10))], stack.clientWidth < stack.clientHeight)); if (a.ok || a.bad) r(); else { a.wait.push(() => r()); a.im.addEventListener('error', () => r(), { once: true }); setTimeout(r, 1500); } });
   try {   // 3D-бойцы; если WebGL нет или он упал — прежние спрайты
     const M = await import('../render3d/hwstage.js');
     if (M.webglOK() && !(new URLSearchParams(location.search).get('render') === '2d')) { stage = M.createStage(glcv, { cls, wt, foes, ci }); curStage = stage; resize(); }
   } catch (e) { console.warn('[hw] 3D недоступно, спрайты', e); stage = null; }
+  await artWait;
   if (!root || !root.contains(stack)) { disposeStage(); return; }
   glcv.style.display = stage ? 'block' : 'none';
   let bgCache = null, bgKey = '';
@@ -139,7 +171,8 @@ async function fight(s) {
   function drawBg(W, Hh) {
     const key = W + 'x' + Hh; if (key !== bgKey) { bgKey = key; bgCache = paintScene(ci, W, Hh, view.horizon); }
     const art = drawArt(W, Hh);
-    if (!art) {   // картинка ещё грузится или не загрузилась — прежний процедурный фон
+    if (!art && !arenaArt(artPort).bad && time < 4) { bctx.fillStyle = '#120d14'; bctx.fillRect(0, 0, W, Hh); }   // П5: картинка ещё в пути — тёмный фон, без старой арены
+    else if (!art) {   // картинка не загрузилась — прежний процедурный фон
       bctx.drawImage(bgCache.far, 0, 0, W, Hh);
       for (const c of bgCache.clouds) { const x = ((c.x + time * c.v) % (W + 400)) - 200; bctx.globalAlpha = c.a; bctx.drawImage(bgCache.cloud, x, c.y, c.w, c.w * 0.4); } bctx.globalAlpha = 1;
       bctx.drawImage(bgCache.near, 0, 0, W, Hh);
@@ -185,6 +218,15 @@ async function fight(s) {
     }
     names.length = 0;
   }
+  // П9: строка перезарядки умения — сколько ходов героя до следующего применения
+  function cdLine(W) {
+    if (Hu.hp <= 0 || B.over) return; const sk = B.sk, n = B.skillEvery, got = n - B.skillIn, narrow = W < 620, x = 12, y = narrow ? 84 : 24, w = 112;
+    ctx.save(); ctx.textAlign = 'left'; ctx.font = '600 13px Georgia'; ctx.lineWidth = 3; ctx.strokeStyle = '#000';
+    const ic = { smash: '⚔', volley: '➶', ball: '✹' }[sk.fx] || '✦', t = `${ic} ${sk.name}`; ctx.strokeText(t, x, y); ctx.fillStyle = '#ffd77a'; ctx.fillText(t, x, y);
+    const sw = (w - (n - 1) * 3) / n; for (let i = 0; i < n; i++) { ctx.fillStyle = 'rgba(0,0,0,0.7)'; ctx.fillRect(x + i * (sw + 3) - 1, y + 6, sw + 2, 9); ctx.fillStyle = i < got ? (B.skillIn <= 1 ? '#ffd24a' : '#c8962e') : '#3a2f28'; ctx.fillRect(x + i * (sw + 3), y + 7, sw, 7); }
+    const ready = B.skillIn <= 1, lt = ready ? 'на следующем ходу!' : `через ${B.skillIn} хода`; ctx.font = '600 11px Georgia'; ctx.strokeText(lt, x + w + 8, y + 14); ctx.fillStyle = ready ? '#ffe9a0' : '#d8c8a8'; ctx.fillText(lt, x + w + 8, y + 14);
+    ctx.restore();
+  }
   const PROJ = { arrow: ['#f4e6c0', 3], bolt: ['#7fd0ff', 7], fireball: ['#ff8a2a', 13], shadow: ['#b070ff', 8] };
   function drawProj(p) {
     if (p.t < 0) return; const [c, r] = PROJ[p.k] || PROJ.bolt;
@@ -195,6 +237,7 @@ async function fight(s) {
     ctx.globalCompositeOperation = 'lighter'; const rg = ctx.createRadialGradient(x, y, 0, x, y, r * 2.2); rg.addColorStop(0, '#fff8e0'); rg.addColorStop(0.35, c); rg.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = rg; ctx.beginPath(); ctx.arc(x, y, r * 2.2, 0, 7); ctx.fill(); ctx.globalCompositeOperation = 'source-over';
   }
   function frame(now) {
+    if (G.awayPause) { last = now; raf = requestAnimationFrame(frame); return; }   // правки 2 (П12): вкладка свёрнута — бой Летописи ждёт «Продолжить» (main.js)
     const dt = Math.min(0.05, (now - last) / 1000) * speed; last = now; time += dt;
     if (cv.clientWidth * dpr !== cv.width || cv.clientHeight * dpr !== cv.height) resize();
     B.step(dt); if (Hu.hp <= 0) Hu.deadT = (Hu.deadT || 0) + dt;
@@ -228,6 +271,7 @@ async function fight(s) {
     for (const p of B.projs) drawProj(p);
     for (const u of [Hu, ...foes]) bar(u);
     drawNames();
+    cdLine(W);
     ctx.textAlign = 'center';
     for (let i = labels.length - 1; i >= 0; i--) {   // название умения над героем, как в автобоях: золотом, с подчёркиванием
       const L = labels[i]; L.t += dt; if (L.t > 1.4) { labels.splice(i, 1); continue; }
@@ -257,26 +301,59 @@ async function fight(s) {
   raf = requestAnimationFrame(frame);
   function end(win) {
     if (!root || !root.contains(stack)) return;
-    cancelAnimationFrame(raf); raf = 0; speedB.remove(); fleeB.remove();
-    const h = HW(), P = G.profile; const first = win && s >= h.top;
+    cancelAnimationFrame(raf); raf = 0; speedB.remove(); fleeB.remove(); bus.emit('music');
+    const h = HW(), P = G.profile; const first = win && s >= h.top, lvl0 = P.level, isTut = tut(); let bonus = false;
     if (!win) bus.emit('hwLost');   // сборка 43: задание «Испытать себя в Летописи битв»
     const pct = Hu.hp / Hu.max; const stars = win ? (pct > 0.6 ? 3 : pct > 0.3 ? 2 : 1) : 0;
     let gold = 0, xp = 0, shards = 0;
     if (win) {
       // сборка 44: опыта меньше (было (8 + 4·этап)·1,6) — уровни идут из катакомб и походов, Летопись — проверка силы, а не прокачка
       gold = Math.round((10 + s * 4) * (first ? 2 : 0.25) * (1 + (stars - 1) * 0.15)); xp = Math.round((5 + s * 2.5) * (first ? 1 : 0.25));
+      // сборка 60 (П10): в первой Летописи третья победа — 2-й уровень (первые две заполняют полосу опыта), уровень здесь, а не тихо в деревне
+      if (isTut && first && P.level === 1) { const need = Math.max(1, xpToNext(1) - P.xp); xp = s >= 3 ? Math.ceil(need / Math.min(1, xpMul() || 1)) : Math.max(1, Math.min(need - 1, Math.round(need * (s === 1 ? 0.3 : 0.45)))); }
+      if (h.bonus) { gold *= 2; h.bonus = 0; bonus = true; }   // П49: «Зов Летописи» — первая победа после напоминания с двойным золотом
       if (foes.some(f => f.boss) && first) shards = foes.some(f => f.type === 'boss') ? 5 : 3; else if (rand() < 0.1) shards = 1;
       P.gold += gold; gainXP(xp); if (shards) addShards(shards); bus.emit('hwWin');
       h.stars[s] = Math.max(h.stars[s] || 0, stars); if (first) { h.top = Math.min(STAGES, s + 1); codexPage(s); }
     }
     bus.emit('save');
-    const ov = el('div', 'hw-result ' + (win ? 'win' : 'lose'), `<img class="hw-rimg" src="${ART.hwResult(win)}" alt="" onerror="this.remove()"><div class="hw-rt">${win ? 'ПОБЕДА' : 'ПОРАЖЕНИЕ'}</div>${win ? `<div class="stars">${[0, 1, 2].map(i => `<span class="${i < stars ? 'on' : ''}" style="animation-delay:${0.2 + i * 0.3}s">★</span>`).join('')}</div><div class="rw-loot"><span class="goldc">+${gold} золота</span> · <span style="color:#b8e3ff">+${xp} опыта</span>${shards ? ` · <span class="c-shard">+${shards}◆</span>` : ''}</div>` : '<p>Отряд оказался сильнее. Наберитесь опыта в катакомбах, улучшите вещи у кузнеца — и возвращайтесь.</p>'}`);
+    const up = P.level > lvl0;
+    const loseTxt = isTut ? 'Отряд оказался сильнее. Это не беда: наставник Элвин подскажет, как стать сильнее, — идите к нему.' : 'Отряд оказался сильнее. Наберитесь опыта в катакомбах, улучшите вещи у кузнеца — и возвращайтесь.';
+    const ov = el('div', 'hw-result ' + (win ? 'win' : 'lose') + (up ? ' up' : ''), `${up ? lvlBlock(P.level) : `<img class="hw-rimg" src="${ART.hwResult(win)}" alt="" onerror="this.remove()">`}<div class="hw-rt">${win ? 'ПОБЕДА' : 'ПОРАЖЕНИЕ'}</div>${win ? `<div class="stars">${[0, 1, 2].map(i => `<span class="${i < stars ? 'on' : ''}" style="animation-delay:${0.2 + i * 0.3}s">★</span>`).join('')}</div><div class="rw-loot"><span class="goldc">+${gold} золота${bonus ? ' (×2, зов Летописи)' : ''}</span> · <span style="color:#b8e3ff">+${xp} опыта</span>${shards ? ` · <span class="c-shard">+${shards}◆</span>` : ''}</div>${isTut && !up && P.level === 1 ? `<div class="hw-xpbar"><i style="width:${Math.round(P.xp / xpToNext(1) * 100)}%"></i><span>до 2-го уровня: ${Math.max(0, xpToNext(1) - P.xp)} опыта</span></div>` : ''}` : `<p>${loseTxt}</p>`}`);
+    if (up) { bus.emit('sfx', 'epicDrop'); setTimeout(() => bus.emit('sfx', 'levelup'), 380); }
     const row = el('div', 'hw-nav');
     const map = el('button', 'btn', 'Карта'); map.onclick = async () => { await maybeInterstitial('hw'); showMap(); };
     const again = el('button', 'btn', 'Ещё раз · 1 ⚡'); again.onclick = () => tryFight(s);
-    row.append(map, again);
+    if (isTut && !win) { const home = el('button', 'btn gold', 'В деревню — к Элвину'); home.onclick = close; row.append(home); }   // П8: шаг обучения закончен — прямо в деревню
+    else row.append(map, again);
     if (win && s < STAGES && h.top > s && !gate('hw', s + 1)) { const nx = el('button', 'btn gold', `Этап ${s + 1} ▶`); nx.onclick = () => showPrefight(s + 1); row.appendChild(nx); }
     ov.appendChild(row); root.appendChild(ov);
     const top = root.querySelector('.hw-top'); if (top) { top.remove(); const tmp = root.firstChild; header(); root.insertBefore(root.lastChild, tmp); }
   }
 }
+
+// сборка 60 (П10): новый уровень в Летописи — торжественно, как первый питомец: лучи, крупная цифра, что дал уровень и куда идти
+function lvlBlock(L) {
+  const pts = G.profile.skillPts | 0;
+  return `<div class="rw-head hw-lvl"><div class="rw-rays r3"></div><div class="hw-lvl-ic">⬆</div><div class="hw-lvl-n">Уровень ${L}!</div><div class="hw-lvl-g">+1 очко навыка${pts > 1 ? ` (всего ${pts})` : ''} · здоровье и урон выросли</div><div class="hw-lvl-e">Наставник Элвин ждёт: очко навыка — на новый ранг умения</div></div>`;
+}
+// П8: отступление в первой Летописи — отдельный итог и путь в деревню (шаг обучения засчитывается после выхода)
+function fled() {
+  bus.emit('hwFled');
+  const ov = el('div', 'hw-result lose', `<div class="hw-rt" style="color:#ffcf8a">ОТСТУПЛЕНИЕ</div><p>Вы вышли из боя — энергия потрачена, награды за этот бой нет. ${G.profile.level >= 2 ? 'Новый уровень уже ваш: идите к наставнику Элвину.' : 'Наставник Элвин подскажет, как стать сильнее.'}</p>`);
+  const row = el('div', 'hw-nav'), home = el('button', 'btn gold', 'В деревню — к Элвину'); home.onclick = close; row.appendChild(home); ov.appendChild(row); root.appendChild(ov);
+}
+
+// ---------------------------------------------------------------- П49: напоминание о Летописи
+// Игрок забывал про Летопись до 6 уровня. Раз в 15 минут игры (если ⚡ хватает на бои и Летопись уже знакома) в деревне:
+// тост, «!» над аркой и «Зов Летописи» — первая победа после напоминания приносит двойное золото.
+const REMIND_S = 15 * 60;
+function remindTick() {
+  const P = G.profile; if (!P || !P.story || root || G.zoneId !== 'town' || !G.zoneReady || G.cinema) return;
+  const h = HW(); if (!(P.story.done || []).includes('hw_try') || P.level < 2 || gate('hw', h.top)) { G.hwRemind = false; return; }
+  const now = P.stats.playTime || 0; if (h.seenAt == null) { h.seenAt = now; return; }
+  if (G.hwRemind || now - h.seenAt < REMIND_S || enN() < 3 || G.modalOpen) return;
+  G.hwRemind = true; h.bonus = 1; bus.emit('save');
+  bus.emit('toast', { text: '⚔ Летопись битв зовёт!', sub: `⚡ ${enN()} — хватит на бои. Первая победа сейчас — двойное золото. Арка на площади (значок «!»)`, kind: 'quest' });
+}
+setInterval(remindTick, 4000);

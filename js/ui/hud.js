@@ -10,7 +10,7 @@ import { WEAPONS, RARITY } from '../data/items.js';
 import { CHAPTER, STORY, chapterOf } from '../data/quests.js';
 import * as Q from '../game/quests.js';
 import * as C from '../game/combat.js';
-import { interact, usePotion, useScroll } from '../game/game.js';
+import { interact, usePotion, useScroll, scrollZone } from '../game/game.js';
 import { drawIcon, skillIcon, iconURL } from './icons.js';
 import { ART, withArt } from './art.js';
 import { iconOf } from '../game/items.js';
@@ -45,9 +45,14 @@ export function initHUD() {
   hold('btnAtk', () => { const bs = G.profile.bigSkill; if (bs && G.profile.skills[bs] && C.skillUsable(bs).ok) C.castSkill(bs); input.attackHeld = true; }, () => { input.attackHeld = false; });
   for (let i = 0; i < 4; i++) hold('sk' + i, () => { const id = G.profile.slots[i]; if (id) C.castSkill(id); else openWindow('skills'); });
   hold('btnDodge', () => G.player.dodge(input.wx, input.wy));
-  hold('potHP', () => usePotion('hp')); hold('potMP', () => usePotion('mp'));
+  // П62: нажал пустую банку — окно: купить у Миры или 2 зелья за рекламу (а не только «Нет зелий»)
+  const pot = k => { if (G.profile.potions[k] > 0 || G.player.dead) usePotion(k); else openWindow('potEmpty', k); };
+  hold('potHP', () => pot('hp')); hold('potMP', () => pot('mp'));
   hold('btnAct', () => { if (G.focus) interact(G.focus); });
   $('btnScroll').onclick = () => useScroll();
+  // правки 2 (П51): напоминание о рывке в бою с большим боссом (combat.js enemyTelegraph) — кнопка мигает, над героем подсказка не чаще раза в 4 с
+  { let hT = 0, fT = -9; bus.on('dodgeHint', () => { const b = $('btnDodge'); if (!b || G.player.cds.dodge > 0.3) return; b.classList.add('hint'); clearTimeout(hT); hT = setTimeout(() => b.classList.remove('hint'), 1100);
+    if (G.time - fT > 4) { fT = G.time; bus.emit('float', { x: G.player.x, y: G.player.y, text: matchMedia('(pointer:coarse)').matches ? 'Рывок!' : 'Рывок — Shift!', color: '#ffe08a', z: 2.6, life: 1.1 }); } }); }
   const ab = $('btnAuto'); ab.removeAttribute('data-open'); ab.onclick = null; ab.onpointerdown = async e => { e.preventDefault(); e.stopPropagation();
     if (!G.auto && !autoOK()) { if (!await autoAd()) return; toast({ text: `Автобой на ${AUTO_MIN} минут`, sub: 'Герой сам сражается, пьёт зелья и идёт к цели', kind: 'good' }); }   // сборка 47: автобой за рекламу
     G.auto = !G.auto; ab.classList.toggle('on', G.auto); toast({ text: G.auto ? 'Автобой включён' : 'Автобой выключен', sub: G.auto ? (autoFree() ? 'Герой сам сражается, пьёт зелья и идёт к цели' : `Осталось ${Math.ceil(autoLeft() / 60000)} мин`) : '', kind: 'info' }); };
@@ -67,7 +72,7 @@ export function initHUD() {
   const cl = G.profile.cls || 'warrior'; $('portrait').style.backgroundImage = `url(assets/sprites/${cl === 'warrior' ? 'portrait' : 'portrait_' + cl}.png)`;
   bus.on('hud', () => { lastHud = 0; });
   bus.on('skillsChanged', refreshSkills);
-  bus.on('skillSlotted', ({ id, i }) => { toast({ text: `Новый навык: ${SKILLS[id].name}`, sub: `Кнопка ${i + 1} справа внизу`, kind: 'good' }); const b = $('sk' + i); b.classList.add('flash'); setTimeout(() => b.classList.remove('flash'), 4000); }); bus.on('equipChanged', refreshWeapon); bus.on('statsChanged', refreshSkills);
+  bus.on('skillSlotted', ({ id, i }) => { toast({ text: `Новый навык: ${SKILLS[id].name}`, sub: `Кнопка ${i + 1} справа внизу`, kind: 'good' }); const b = $('sk' + i); b.classList.add('flash'); setTimeout(() => b.classList.remove('flash'), 4000); }); bus.on('equipChanged', refreshWeapon); bus.on('statsChanged', refreshSkills); bus.on('statsChanged', refreshWeapon);
   bus.on('focus', it => { const b = $('btnAct'); if (it) { b.textContent = it.label; b.classList.remove('hidden'); } else b.classList.add('hidden'); });
   bus.on('toast', toast);
   bus.on('bagFull', () => toast({ text: 'Сумка полна!', sub: 'Продайте лишнее или купите расширение сумки — нажмите, чтобы открыть сумку', kind: 'bad', onClick: () => openWindow('inventory') }));   // сборка 38
@@ -75,12 +80,24 @@ export function initHUD() {
   // сборка 59: новое задание объявляется один раз. Окно награды уже пишет «Следующее задание» — тогда без тоста; подсказка-строка обучения убрана
   bus.on('questNew', q => { setTimeout(() => { if (!document.querySelector('.rw-bg')) toast({ text: 'Новое задание', sub: q.title + (G.zoneId === 'town' && (q.chapter || 1) === 1 ? ' — идите по золотой стрелке' : ''), kind: 'quest' }); }, 350); trackOpenUntil = G.time + 7; });
   bus.on('zoneEntered', () => { trackOpenUntil = G.time + 6; });
-  bus.on('levelUp', l => { const e = $('levelUp'); e.textContent = `Уровень ${l}!`; e.classList.remove('show'); void e.offsetWidth; e.classList.add('show'); toast({ text: '+5 характеристик · +1 навык', sub: 'Распределите у наставника Элвина в деревне', kind: 'good' }); });   // сборка 59: «Уровень N!» уже крупно по центру — без повтора
+  bus.on('levelUp', l => { if (G.hwOpen) return;   // сборка 60: в Летописи уровень празднует своё окно итога (herospath.js)
+    const e = $('levelUp'); e.textContent = `Уровень ${l}!`; e.classList.remove('show'); void e.offsetWidth; e.classList.add('show'); toast({ text: '+5 характеристик · +1 навык', sub: 'Распределите у наставника Элвина в деревне', kind: 'good' }); });   // сборка 59: «Уровень N!» уже крупно по центру — без повтора
   bus.on('bossStart', e => { G.boss = e; });
   refreshSkills(); refreshWeapon();
 }
 function refreshWeapon() {
-  const w = G.profile.gear.weapon, bs = G.profile.bigSkill; if (bs && G.profile.skills[bs]) skillCanvasInto($('btnAtk').querySelector('canvas'), bs); else drawIcon($('btnAtk').querySelector('canvas'), w ? iconOf(w) : 'sword');
+  const w = G.profile.gear.weapon, bs = G.profile.bigSkill, b = $('btnAtk'); if (bs && G.profile.skills[bs]) skillCanvasInto(b.querySelector('canvas'), bs); else drawIcon(b.querySelector('canvas'), w ? iconOf(w) : 'sword');
+  // П31: герой бьёт сам, когда враг рядом, — отдельная кнопка удара не нужна. Большая кнопка видна, только если на неё поставлен навык (★),
+  // и тогда на ней видна перезарядка, как на малых. Пробел на ПК по-прежнему бьёт
+  const on = !!(bs && G.profile.skills[bs]); $('ui').classList.toggle('noatk', !on);
+  if (on && !b.querySelector('.cd')) b.appendChild(el('div', 'cd'));
+}
+const waveSt = {};
+function potWave(id, low) {
+  const st = waveSt[id] || (waveSt[id] = { low: false, at: 0 }), was = st.low; st.low = low;
+  if (!low || was || performance.now() < st.at) return;
+  const b = $(id); if (!b || !b.offsetParent) return; st.at = performance.now() + 15000;
+  for (let i = 0; i < 3; i++) { const r = el('i', 'potwave ' + id); r.style.cssText = `left:${b.offsetLeft}px;top:${b.offsetTop}px;width:${b.offsetWidth}px;height:${b.offsetHeight}px;animation-delay:${i * 0.45}s`; b.parentNode.appendChild(r); setTimeout(() => r.remove(), 2000 + i * 450); }
 }
 function refreshSkills() {
   for (let i = 0; i < 4; i++) {
@@ -100,6 +117,13 @@ export function toast(t) {
   while (box.children.length >= 4) box.firstChild.remove();
   // сборка 50: на вертикальном телефоне — под правой колонкой HUD (задание, «Веди меня»), а не поверх неё (iPhone SE, Android 360)
   { const r = $('hudR'), port = innerHeight > innerWidth && innerWidth <= 760; box.style.top = port && r && r.offsetParent ? Math.min(innerHeight * 0.5, r.getBoundingClientRect().bottom + 8) + 'px' : '';
+    // С2: в горизонтали — в просвет между левой колонкой (полосы, «Сезон») и правой (золото, трекер), а не поверх них
+    box.style.left = box.style.width = '';
+    if (!port && innerWidth > innerHeight && r && r.offsetParent) {
+      const L = $('hudL').getBoundingClientRect().right, Rl = Math.min(...[...r.children].filter(c => c.offsetParent && c.offsetWidth).map(c => c.getBoundingClientRect().left), innerWidth);
+      if (Rl - L >= 220) { box.style.left = (L + Rl) / 2 + 'px'; box.style.width = Math.min(420, Rl - L - 16) + 'px'; }
+      else box.style.top = Math.min(innerHeight * 0.5, r.getBoundingClientRect().bottom + 8) + 'px';
+    }
     const sv = $('survHud'); if (sv && sv.offsetParent && G.zoneId === 'survival') box.style.top = Math.min(innerHeight * 0.5, Math.max(r && r.offsetParent ? r.getBoundingClientRect().bottom : 0, sv.getBoundingClientRect().bottom) + 8) + 'px'; }   // сборка 59: в Жатве — под её табло, не под ним
   const d = el('div', 'toast ' + (t.kind || ''), `<div class="a" ${t.color ? `style="color:${t.color}"` : ''}>${esc(t.text)}</div>${t.sub ? `<div class="b">${esc(t.sub)}</div>` : ''}`);
   d.dataset.k = t.text + '|' + (t.sub || '');
@@ -121,6 +145,10 @@ export function updateHUD(dt) {
     const sk = SKILLS[id]; const left = pl.cds[id] || 0; cd.style.setProperty('--p', (left > 0 ? left / sk.cd * 100 : 0) + '%');
     const u = C.skillUsable(id); b.classList.toggle('off', !u.ok && u.why !== 'Перезарядка');
   }
+  { const bs = P.bigSkill, cd = bs && P.skills[bs] && $('btnAtk').querySelector('.cd'); if (cd) { const left = pl.cds[bs] || 0; cd.style.setProperty('--p', (left > 0 ? left / SKILLS[bs].cd * 100 : 0) + '%'); } }
+  // П31: здоровье или мана ≤ 30% — от банки ненадолго расходятся волны (раз в 15 с, пока не отпустит)
+  potWave('potHP', !pl.dead && pl.hp <= S.maxHP * 0.3 && P.potions.hp > 0);
+  potWave('potMP', !pl.dead && pl.mp <= S.maxMP * 0.3 && (P.potions.mp || 0) > 0);
   const ui = $('ui');
   ui.classList.toggle('lowhp', G.player && !G.player.dead && G.player.hp < G.stats.maxHP * 0.3);
   ui.classList.toggle('surv', !!G.surv);
@@ -132,7 +160,7 @@ export function updateHUD(dt) {
   ui.classList.toggle('fight', inCombat());
   ui.classList.toggle('dungeon', G.zoneId !== 'town');
   $('tracker').classList.toggle('open', G.time < trackOpenUntil && !inCombat());
-  edgeArrow(); const lb = $('btnLead'); lb.classList.toggle('hidden', !G.guide || inCombat() || !!G.surv); lb.classList.toggle('on', !!G.lead);
+  edgeArrow(); const lb = $('btnLead'); lb.classList.toggle('hidden', !G.guide || inCombat() || !!G.surv); lb.classList.toggle('on', !!G.lead); lb.classList.toggle('lure', !G.lead && G.profile.level < 5);   // М24: в начале кнопка «Веди меня» мягко пульсирует — её не хотелось нажимать
   const boss = G.enemies.find(e => (e.D.boss || e.D.elite) && e.aggro && !e.dead) || null;
   ui.classList.toggle('boss', !!boss);
   if (boss && !boss.dead && G.enemies.includes(boss)) {
@@ -146,11 +174,11 @@ export function updateHUD(dt) {
   $('gold').textContent = fmt(P.gold) + ' зол.'; $('shards').textContent = (P.shards || 0) + '◆'; $('torchN').textContent = '⚡' + CS.torches().n;
   autoTick(); $('btnAuto').classList.toggle('on', !!G.auto); dot('dotHW', G.zoneId === 'town' && hwReady() ? 1 : 0);
   $('hpCount').textContent = P.potions.hp; $('mpCount').textContent = P.potions.mp; $('scrollCount').textContent = P.scrolls;
-  $('btnScroll').classList.toggle('hidden', G.zoneId !== 'catacombs');
+  $('btnScroll').classList.toggle('hidden', !scrollZone());   // П48/П64: и в походах, и в Глубинах
   const newItems = P.bag.filter(x => x.isNew).length; dot('dotInv', newItems);
   dot('dotChar', G.zoneId === 'town' ? P.attrPts : 0); dot('dotSkill', G.zoneId === 'town' ? P.skillPts : 0);
   const ds = dailyStatus(), cs = chestStatus(), gifts = (ds.claimable ? 1 : 0) + (cs.ready ? 1 : 0) + (dailyReady() ? 1 : 0); dot('dotGift', gifts);
-  const sh = G.zone && G.zone.inter.find(i => i.id === 'shrine'); if (sh) { sh.plate = 'Источник силы' + (gifts ? ` 🎁${gifts}` : blessLeft() > 0 ? '' : ' ✦'); sh.marker = gifts && !earlyLock('extra') ? '!' : null; }   // значок над алтарём
+  const sh = G.zone && G.zone.inter.find(i => i.id === 'shrine'); if (sh) { sh.plate = 'Источник силы' + (gifts ? ` 🎁${gifts}` : blessLeft() > 0 ? '' : ' ✦'); sh.marker = (gifts || !P.shrineSeen) && !earlyLock('extra') ? '!' : null; }   /* П67: «!» над Источником, пока игрок ни разу не заходил */   // значок над алтарём
   blessTick(); dot('dotSeason', seasonClaimable());
   { const n = streak(); let sb = $('streakB'); if (!sb) { sb = el('span', '', ''); sb.id = 'streakB'; $('portrait').appendChild(sb); }   // сборка 47: огонёк серии побед
     const t = n ? `🔥${n}` : ''; if (sb.textContent !== t) { sb.textContent = t; sb.title = n ? `Серия побед: +${Math.min(10, n) * 5}% золота` : ''; } sb.style.display = n ? '' : 'none'; }
@@ -195,22 +223,37 @@ function tracker() {
   else {
     const pr = Q.progressOf(q), ch = q.chapter || 1, inCh = STORY.filter(x => (x.chapter || 1) === ch), done = inCh.indexOf(q);
     let txt = q.text; const Wd = G.profile.world;
-    if (q.id === 'medallion') txt = !Wd.hasKey ? 'Шаг 1/3: найдите ключ — светящийся саркофаг в оссуарии (север).' : !Wd.opened.door_altar ? 'Шаг 2/3: ключ у вас. Подойдите к запертой двери на востоке.' : 'Шаг 3/3: победите Хранителя в зале за дверью и возьмите амулет с алтаря.';
+    if (q.id === 'medallion') txt = !Wd.hasKey ? 'Шаг 1/3: ключ спрятан в одном из саркофагов катакомб — открывайте их.' : !Wd.opened.door_altar ? 'Шаг 2/3: ключ у вас. Подойдите к запертой двери на востоке.' : 'Шаг 3/3: победите Хранителя в зале за дверью и возьмите амулет с алтаря.';
     if (Q.isReady()) { const who = Q.TURN_NAME[Q.turnNpc(q)]; txt = G.zoneId === 'town' ? `✔ Выполнено! Подойдите к ${who} (над ним «?») — за наградой.` : `✔ Выполнено! Вернитесь в деревню к ${who} за наградой.`; }
-    else if (q.where && q.where !== G.zoneId) txt = (q.where === 'catacombs' ? 'Спуститесь в катакомбы через портал. ' : 'Вернитесь в деревню через портал. ') + txt;
+    else if (q.where && q.where !== G.zoneId && !(G.zoneId === 'wild' && G.wild && q.target === 'portal_' + G.wild.realm)) txt =   // задания леса (П37): цель — в этом походе, «вернитесь в деревню» не пишем
+      (q.where === 'catacombs' ? 'Спуститесь в катакомбы через портал. ' : 'Вернитесь в деревню через портал. ') + txt;
     h = `<div class="ch">${chapterOf(q)} · ${done}/${inCh.length}</div><div class="t">${esc(q.title)}${pr ? ` <span class="muted">${pr.cur}/${pr.max}</span>` : ''}</div><div class="d">${esc(txt)}</div>` + (pr ? `<div class="pb"><i style="width:${pr.cur / pr.max * 100}%"></i></div>` : '');
   }
   if (h !== lastTrack) { $('tracker').innerHTML = h; lastTrack = h; }
+}
+let safeC = null, safeEl = null;
+addEventListener('resize', () => { safeC = null; }); addEventListener('orientationchange', () => { safeC = null; });
+function safeInsets() {   // env(safe-area-inset-*) в пикселях: CSS-переменные --safe-* читаем через невидимый элемент
+  if (safeC) return safeC;
+  if (!safeEl) { safeEl = el('div', ''); safeEl.style.cssText = 'position:fixed;visibility:hidden;pointer-events:none;padding:var(--safe-t) var(--safe-r) var(--safe-b) var(--safe-l)'; document.body.appendChild(safeEl); }
+  const c = getComputedStyle(safeEl), n = v => parseFloat(v) || 0;
+  return (safeC = { t: n(c.paddingTop), r: n(c.paddingRight), b: n(c.paddingBottom), l: n(c.paddingLeft) });
+}
+// короткое имя цели стрелки: у жителей — имя без звания («Наставник Элвин» → «Элвин»), у порталов и мест — табличка
+function guideName(t) {
+  const n = (G.npcs || []).find(x => x.id === t.id), full = (n && n.name) || t.npcName || t.plate || (t.D && t.D.name) || '';
+  if (!full) return ''; const w = String(full).split(' '); return n && w.length > 1 ? w[w.length - 1] : full.length > 18 ? w[0] : full;
 }
 // стрелка у края экрана: если цель задания за кадром, показываем, в какую сторону бежать и сколько метров
 function edgeArrow() {
   const e = $('edgeArrow'), t = G.guide, P = G.player;
   if (!t || !P || P.dead || G.surv) { e.classList.add('hidden'); return; }
   const [sx, sy] = G.cam.toScreen(t.x, t.y);
-  const m = 46, W = innerWidth, H = innerHeight, inside = sx > m && sx < W - m && sy > m && sy < H - m;
-  if (inside) { e.classList.add('hidden'); return; }
-  const cx = W / 2, cy = H / 2; let dx = sx - cx, dy = sy - cy; const l = Math.hypot(dx, dy) || 1; dx /= l; dy /= l;
-  let k = Math.min((W / 2 - m) / Math.abs(dx || 1e-6), (H / 2 - m) / Math.abs(dy || 1e-6));
+  // С3: отступ от края — 46 px плюс вырез/скругление экрана с каждой стороны (safe area)
+  const S = safeInsets(), W = innerWidth, H = innerHeight, mL = 46 + S.l, mR = 46 + S.r, mT = 46 + S.t, mB = 46 + S.b;
+  if (sx > mL && sx < W - mR && sy > mT && sy < H - mB) { e.classList.add('hidden'); return; }
+  const cx = (mL + W - mR) / 2, cy = (mT + H - mB) / 2; let dx = sx - cx, dy = sy - cy; const l = Math.hypot(dx, dy) || 1; dx /= l; dy /= l;
+  let k = Math.min((dx > 0 ? W - mR - cx : cx - mL) / Math.abs(dx || 1e-6), (dy > 0 ? H - mB - cy : cy - mT) / Math.abs(dy || 1e-6));
   // сборка 59: стрелка не ложится на полосы здоровья, трекер, кнопки боя — сдвигается по тому же направлению ближе к центру
   const R = ['hudL', 'hudR', 'pad', 'btnAct', 'btnLead'].map(id => $(id)).filter(x => x && x.offsetParent).map(x => x.getBoundingClientRect()).filter(r => r.width && r.width < W * 0.9);
   const hit = (x, y) => R.some(r => x > r.left - 30 && x < r.right + 30 && y > r.top - 26 && y < r.bottom + 26);
@@ -218,7 +261,8 @@ function edgeArrow() {
   e.classList.remove('hidden');
   e.style.left = (cx + dx * k) + 'px'; e.style.top = (cy + dy * k) + 'px';
   e.querySelector('.ea-a').style.transform = `rotate(${Math.atan2(dy, dx)}rad)`;
-  e.querySelector('.ea-d').textContent = Math.round(Math.hypot(t.x - P.x, t.y - P.y)) + ' м';
+  // правки мамы (М26): «25 м» без подписи было непонятно — теперь «Элвин · 25 м»: куда идти и сколько шагов (метров) до цели
+  const nm = guideName(t); e.querySelector('.ea-d').textContent = (nm ? nm + ' · ' : '') + Math.round(Math.hypot(t.x - P.x, t.y - P.y)) + ' м';
 }
 
 // minimap: explored-radius reveal in dungeon, quest target marker
@@ -226,7 +270,7 @@ const seen = new Map();
 function minimap() {
   const cv = $('minimap'); if (!cv || cv.offsetParent === null) return;
   const Z = G.zone, m = Z.map, x = cv.getContext('2d'), P = G.player;
-  const key = seenKey(Z); let S = seen.get(key); if (!S) { S = new Uint8Array(m.w * m.h); seen.set(key, S); }
+  const key = seenKey(Z); let S = seen.get(key); if (!S) { if (Z.json.seed != null) for (const k of seen.keys()) if (k.startsWith(Z.id + ':')) seen.delete(k); S = new Uint8Array(m.w * m.h); seen.set(key, S); }   // П30: у сгенерированной раскладки своя разведанная карта, прежние не копятся
   const R = 7; for (let dy = -R; dy <= R; dy++) for (let dx = -R; dx <= R; dx++) { const tx = Math.floor(P.x) + dx, ty = Math.floor(P.y) + dy; if (tx >= 0 && ty >= 0 && tx < m.w && ty < m.h && dx * dx + dy * dy <= R * R) S[ty * m.w + tx] = 1; }
   drawMap(x, cv.width, Z, S, P, 13);
 }
@@ -239,7 +283,7 @@ export function drawMap(x, size, Z, S, P, span) {
   for (let ty = 0; ty < m.h; ty++) for (let tx = 0; tx < m.w; tx++) {
     if (Z.dark && S && !S[ty * m.w + tx]) continue;
     if (span && (Math.abs(tx - cx) > span * 1.5 || Math.abs(ty - cy) > span * 1.5)) continue;
-    const c = m.ch(tx, ty); if (c === 'x') continue;
+    const c = m.ch(tx, ty); if (c === 'x' || c === 'v') continue;   // пропасть походов — пусто
     x.fillStyle = m.blocked(tx, ty) ? (c === '~' ? '#23406a' : Z.dark ? '#5a4a3a' : '#2a3a1a') : Z.dark ? '#2a221c' : (c === '#' ? '#6a6258' : c === ',' ? '#5a4630' : '#34502a');
     x.fillRect((tx - cx) * cell, (ty - cy) * cell, cell + 0.4, cell + 0.4);
   }
@@ -252,7 +296,7 @@ export function drawMap(x, size, Z, S, P, span) {
   x.restore();
 }
 export { seen };
-export const seenKey = Z => `${Z.id}:${Z.json.floorN ?? ''}:${Z.map.w}x${Z.map.h}`;
+export const seenKey = Z => `${Z.id}:${Z.json.floorN ?? ''}:${Z.json.seed ?? ''}:${Z.map.w}x${Z.map.h}`;
 
 // ---------------------------------------------------------------- автобой за рекламу (сборка 47)
 // время вышло — выключаем, но не посреди боя; иногда (не в бою) стрелка напоминает, что АВТО есть
