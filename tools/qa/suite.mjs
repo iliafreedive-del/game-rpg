@@ -297,8 +297,8 @@ async function balance() {
       const runs = []; const p = await Q.open(b, { seed: 1000, cls });   // одна страница на класс, перед каждым боем — свой сид и свежий герой
       for (let i = 0; i < N; i++) {
         if (i) await Q.sleep(1600);   // экран гибели прошлого боя всплывает по таймеру 1,3 с — дождаться и убрать
-        await p.evaluate(i => { const G = window.__G, d = document.getElementById('death'); if (d) d.classList.add('hidden'); G.paused = false; G.player.dead = false; G.player.state = 'idle'; G.revives = 0; window.__qaReseed(1000 + i); }, i);
-        await Q.closeQuiet(p); await Q.loadZone(p, 'depths', { floor, fullHeal: true, noReseed: true }); await Q.setHero(p, lvl); await Q.closeQuiet(p);
+        await p.evaluate(i => { const G = window.__G, d = document.getElementById('death'); if (d) d.classList.add('hidden'); G.paused = false; G.player.dead = false; G.player.state = 'idle'; G.revives = 0; G.profile.potions.hp = 3; G.profile.potions.mp = 1; window.__qaReseed(1000 + i); }, i);   // каждый бой — с теми же 3 зельями (раньше бот выпивал их в первом бою, дальше дрался без них)
+        await Q.setHero(p, lvl); await Q.closeQuiet(p); await Q.loadZone(p, 'depths', { floor, fullHeal: true, noReseed: true }); await Q.setHero(p, lvl); await Q.closeQuiet(p);
         // бой один на один со стражем этажа: остальных убираем, героя ставим в 6 м от стража в прямой видимости
         await p.evaluate(() => { const G = window.__G, pl = G.player, m = G.zone.map, boss = G.enemies.find(e => e.D.boss) || G.enemies.find(e => e.D.elite); if (!boss) return;
           G.enemies = [boss]; for (let k = 0; k < 24; k++) { const a = k / 24 * 6.283, x = boss.x + Math.cos(a) * 6, y = boss.y + Math.sin(a) * 6; if (m.free(x, y, 0.4) && m.los(x, y, boss.x, boss.y)) { pl.x = x; pl.y = y; break; } }
