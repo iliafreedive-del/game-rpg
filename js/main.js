@@ -4,6 +4,7 @@ import { loadGroup, getAtlas } from './core/assets.js';
 import { initInput, initMouse, input } from './core/input.js';
 import { initCamZoom } from './core/camzoom.js';
 import { initAudio, sfx, startMusic, setVolumes, setPaused } from './core/audio.js';
+import './core/nature.js';   // звуки природы и голоса мобов
 import { initRenderer, render, resize, startPreload } from './render/index.js';
 import { newProfile, loadSlots, mergeCloud } from './game/save.js';
 import { stats } from './game/stats.js';
@@ -66,6 +67,7 @@ async function boot() {
     await loadZone('town');
     $('title').remove(); startMusic('town');
     bus.on('zoneEntered', z => startMusic(z));
+    bus.on('music', z => startMusic(z || G.zoneId));   // сборка 60: бой Летописи — своя тема, потом обратно музыка зоны
     restorePurchases().catch(() => { });
     const dz = dozorPending(); if (dz) setTimeout(() => showDozor(dz), 900); else { initDozor(); G.dozorChecked = true; }
     if (p.simplified && p.simplified.upg) { bus.emit('toast', { text: 'Улучшения упрощены', sub: `Лишние усиления вернули ${p.simplified.gold} зол.`, kind: 'good' }); delete p.simplified; }

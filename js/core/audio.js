@@ -1,4 +1,5 @@
 // Procedural WebAudio SFX + generative dungeon/town ambience. No audio files needed (tiny bundle).
+import { playTheme, stopTheme, hasTheme } from './music.js';   // сборка 60: темы деревни и боя Летописи
 let ac = null, master, sfxG, musG, muted = false, paused = false, vol = { sfx: 0.7, music: 0.5 };
 let musicZone = null, musicNodes = [];
 export function initAudio() {
@@ -15,6 +16,8 @@ export function initAudio() {
 function apply() { if (!ac) return; sfxG.gain.value = vol.sfx; musG.gain.value = vol.music * 0.35; master.gain.value = (muted || paused) ? 0 : 1; }
 export function setVolumes(s, m) { vol.sfx = s; vol.music = m; apply(); }
 export function setPaused(p) { paused = p; apply(); }
+// контекст и шина «Звуки» для core/nature.js (звуки природы и голоса мобов)
+export const audioBus = () => ac ? { ac, sfx: sfxG, live: !(muted || paused) && ac.state === 'running' } : null;
 let noiseBuf = null;
 function noise() { if (noiseBuf) return noiseBuf; const b = ac.createBuffer(1, ac.sampleRate, ac.sampleRate); const d = b.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; return noiseBuf = b; }
 function env(g, t, a, d, peak) { g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(peak, t + a); g.gain.exponentialRampToValueAtTime(0.0001, t + a + d); }
@@ -78,6 +81,7 @@ export function sfx(name, k) {   // k — громкость 0..1 (если зв
 export function startMusic(zone, force) {
   if (musicZone === zone && !force) return; musicZone = zone; if (!ac) return;
   for (const n of musicNodes) { try { n.stop ? n.stop() : n.disconnect(); } catch { } } musicNodes = [];
+  stopTheme(); if (hasTheme(zone)) return playTheme(ac, musG, zone);   // деревня и бой Летописи — настоящие темы (core/music.js)
   const base = zone === 'town' ? 110 : 73.4;
   for (const [m, t] of [[1, 'sine'], [1.5, 'sine'], [2.01, 'triangle']]) {
     const o = ac.createOscillator(), g = ac.createGain(), lfo = ac.createOscillator(), lg = ac.createGain();
