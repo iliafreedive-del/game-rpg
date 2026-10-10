@@ -607,7 +607,7 @@ function arenaTick() {
   const Z = G.zone; if (G.zoneId !== 'catacombs' || !Z.rooms.arena) return;
   const gate = Z.bossGate || (Z.bossGate = Z.inter.find(i => i.type === 'gate')); if (!gate || !gate.done) return;
   const boss = G.enemies.find(e => e.D.boss && e.story === 'boss'), pl = G.player;
-  if (!gate.sealed && boss && !boss.dead && boss.aggro && !pl.dead && Z.roomAt(pl.x, pl.y) === 'arena') sealArena(gate, true);
+  if (!gate.sealed && boss && !boss.dead && boss.aggro && !pl.dead && Z.roomAt(pl.x, pl.y) === 'arena' && Z.roomAt(boss.x, boss.y) === 'arena') sealArena(gate, true);   // оба внутри — иначе можно запереть босса снаружи
   else if (gate.sealed && (!boss || boss.dead)) sealArena(gate, false);
 }
 function sealArena(gate, on) {
