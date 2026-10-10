@@ -69,6 +69,13 @@ export function gate(name, extra) {
   }
   return null;
 }
+// П37 (правки 2): Старый Лес до победы над Палачом — только первые три поля (там задания старосты: Шатун-людоед, волки);
+// дальше в лес и к острогу — после Палача Бездны. null — можно
+export const FOREST_FREE = 3;
+export function wildDepthGate(realm, depth) {
+  if (realm === 'forest' && depth > FOREST_FREE && !(G.profile.story.flags.bossKilled)) return { text: 'Чаща не пускает дальше', sub: `Пока жив Палач Бездны, в лес можно только до ${FOREST_FREE}-го поля. Сломайте печать в катакомбах` };
+  return null;
+}
 // Текст «что делать дальше» для подсказок
 export function nextStep() {
   const P = G.profile;

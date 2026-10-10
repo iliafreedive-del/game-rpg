@@ -40,6 +40,7 @@ function complete() {
   const P = G.profile, s = P.story, q = current(); if (!q) return;
   delete s.ready; s.done.push(q.id); s.stage++;
   while (STORY[s.stage] && s.done.includes(STORY[s.stage].id)) s.stage++;   // сборка 47: шаги переставлены — уже пройденные пропускаем
+  s.cur = STORY[s.stage] ? STORY[s.stage].id : null;
   bus.emit('questComplete', q); bus.emit('sfx', 'quest');
   grant(q.reward, q.title, { sub: 'Задание выполнено' });
   bus.emit('save');
@@ -74,7 +75,7 @@ function rewardItem(spec) {
   else if (spec.set) { const own = Object.keys(SETS).filter(k => SETS[k].branch && SETS[k].cls.includes(cls)); it = makeSetItem(own[0], spec.slot, lvl + 1, cls); }   // Глава II собирает первый сет своей ветви
   else {
     const base = spec.slot === 'weapon' ? TIER[cls].weapon[spec.tier || 1] : ARMOR[spec.slot][spec.tier || 1];
-    it = makeItem({ base, ilvl: lvl + (spec.tier || 1) - 1, rarity: spec.rarity ?? 1, cls });
+    it = makeItem({ base, ilvl: lvl + (spec.tier || 1) - 1, rarity: spec.rarity ?? 1, cls, noClamp: !!spec.noClamp });   // noClamp: редкость не урезается уровнем героя (награда «5000 золота»)
     if (spec.names) it.name = spec.names[cls];
   }
   delete it.req;   // story rewards are always wearable
@@ -117,12 +118,31 @@ function count(kind, n) {
   const s = G.profile.story; s.counters[q.id] = (s.counters[q.id] || 0) + n; bus.emit('hud'); check();
 }
 // ---- event wiring
+// Правки 2: шаги сюжета вставлены (лес) и убраны («100 золота») — номер шага в сохранении больше не надёжен.
+// Текущий шаг запоминается по id (story.cur); у старых сохранений id берётся по номеру из списка сборки 59.
+const IDS_59 = ['talk_elder', 'learn_skill', 'meet_merchant', 'hw_try', 'hw_elvin', 'surv_try', 'surv_elvin', 'elder_task', 'find_portal', 'enter', 'kill20', 'gold100', 'medallion', 'reach_gate', 'open_gate', 'boss', 'return', 'finish', 'c2_stone', 'c2_depths_portal', 'c2_depths3', 'c2_forest_fort', 'c2_fjord_portal', 'c2_fjord3', 'c2_depths5', 'c2_hw10', 'c2_depths10', 'c2_fjord_fort', 'c2_finish', 'c3_portal', 'c3_fields3', 'c3_scorpid', 'c3_depths15', 'c3_fort', 'c3_boss', 'c3_elvin', 'c4_castle', 'c4_hw30', 'c4_depths20', 'c4_trial', 'c4_finish'];
+export function syncStory(P = G.profile) {
+  const s = P.story; if (!s) return;
+  if (s.cur === undefined) s.cur = s.stage >= IDS_59.length ? null : IDS_59[s.stage] || null;   // сохранение до правок 2
+  if (s.cur === null) { s.stage = STORY.length; return; }
+  let i = STORY.findIndex(q => q.id === s.cur);
+  if (i < 0) {   // шаг убран: следующий за ним из старого списка, которого ещё нет в пройденных
+    const k = IDS_59.indexOf(s.cur); if (s.ready === s.cur) delete s.ready;
+    for (let j = k + 1; j < IDS_59.length && i < 0; j++) i = STORY.findIndex(q => q.id === IDS_59[j]);
+    if (i < 0) i = STORY.length;
+  }
+  while (STORY[i] && s.done.includes(STORY[i].id)) i++;
+  s.stage = i; s.cur = STORY[i] ? STORY[i].id : null;
+}
 export function initQuests() {
+  syncStory();
   bus.on('kill', e => {
     const st = G.profile.stats; st.kills++;
     if (e.D.skeleton && !e.D.elite) { st.skeletons++; count('skeletons', 1); }
     if (e.D.elite || e.champion) st.elites++;
     if (e.story === 'elite') setFlag('eliteKilled');
+    if (e.story === 'fquest') setFlag('forestBear');   // П37: Шатун-людоед Старого Леса
+    if (e.type === 'w_wolf' && !e.summoned) count('wolves', 1);
     if (e.story === 'wildboss' && G.wild) sealDown(G.wild.realm);
     if (e.story === 'boss') { st.bossKills++; if (!G.diedThisRun) st.bossNoDeath++; const first = !G.profile.story.flags.bossKilled; setFlag('bossKilled'); if (first) sealDown('catacombs'); if (first) setTimeout(() => bus.emit('toast', { text: 'Открыты Глубины катакомб!', sub: 'Синий портал в деревне: бесконечные этажи, дары и рекорды', kind: 'quest' }), 5000); }
     repeatTick();
@@ -136,6 +156,7 @@ export function initQuests() {
 // ---- repeatables: progress = stat now − stat at acceptance
 export function repState(r) {
   const R = G.profile.repeat[r.id]; const st = G.profile.stats;
+  if (r.once && R && R.completions) return { accepted: true, cur: r.n, done: false, finished: true, completions: R.completions };   // разовый контракт уже выполнен
   if (!R || !R.accepted) { G.profile.repeat[r.id] = { ...(R || {}), accepted: true, base: st[r.stat] || 0 }; return repState(r); }
   const cur = Math.min(r.n, Math.floor((st[r.stat] || 0) - R.base));
   return { accepted: true, cur, done: cur >= r.n, completions: R.completions || 0 };

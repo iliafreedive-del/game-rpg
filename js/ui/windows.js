@@ -42,7 +42,7 @@ import { particles, effect } from '../game/combat.js';
 import { maybeInterstitial } from '../platform/monetize.js';
 import { petsOf, meetCaravan } from '../game/pets.js';
 import { PETS, TIERS } from '../data/pets.js';
-import { earlyLock, firstLessonCost, POTION_RESERVE } from '../game/progress.js';
+import { earlyLock, firstLessonCost, POTION_RESERVE, wildDepthGate } from '../game/progress.js';
 import { platform as PF } from '../platform/platform.js';
 import { wipeLocal, cloudBundle } from '../game/save.js';
 import { setVolumes } from '../core/audio.js';
@@ -833,7 +833,7 @@ function showDeath() {
 function bossReward(k) {
   if (G.player.dead) return;
   modal('Палач Бездны повержен!', 'sm', b => {
-    b.appendChild(el('p', '', 'Золото рассыпано по арене — соберите его. Главная награда ждёт вас в окне задания.'));
+    b.appendChild(el('p', '', k.repeat ? 'Золото и осколки Бездны рассыпаны по арене. Палач вернётся через 30 минут — таймер на месте его гибели.' : 'Золото рассыпано по арене — соберите его. Главная награда ждёт вас в окне задания.'));   // П45
     b.appendChild(el('p', 'good', 'Портал домой открылся в центре арены.'));
     const row = el('div', 'row');
     const ad = el('button', 'btn ad', 'Дополнительный редкий предмет'); ad.onclick = () => offers.bossExtra(k.id, k.x, k.y).then(ok => { if (ok) closeModal(); });
@@ -934,7 +934,7 @@ W.wild = realm => modal(REALMS[realm].name, 'sm', b => {
   const enter = d => { closeModal(); loadZone('wild', { realm, depth: d }); };
   const need = wildReqLevel(realm, next);
   const go = el('button', 'btn gold', `▶ ${locationName(realm, next)} · глубина ${next}${isWildBoss(next) ? ' · босс' : ''} (ур. врагов ${wildLevel(realm, next)})`);
-  go.style.width = '100%'; if (P.level < need) { go.disabled = true; go.textContent = `Глубина ${next}: нужен уровень ${need}`; } go.onclick = () => enter(next); b.appendChild(go);
+  go.style.width = '100%'; if (P.level < need) { go.disabled = true; go.textContent = `Глубина ${next}: нужен уровень ${need}`; } else if (wildDepthGate(realm, next)) { go.disabled = true; go.textContent = `Глубина ${next}: после победы над Палачом Бездны`; }   /* П37 */ go.onclick = () => enter(next); b.appendChild(go);
   if ((WS.depth || 0) > 1) {
     b.appendChild(el('h3', '', 'Пройденные локации')); const grid = el('div', 'row');
     for (let d = Math.max(1, (WS.depth || 1) - 11); d < WS.depth; d++) { const bt = el('button', 'btn sm', `${d}${isWildFort(d) ? (isWildBoss(d) ? '♛' : '⚑') : ''}`); bt.title = locationName(realm, d); bt.onclick = () => enter(d); grid.appendChild(bt); }

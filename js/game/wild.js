@@ -58,6 +58,10 @@ function onKill(e) {
   if (G.zone.wildGate) setTimeout(checkGate, 0);
   const realm = G.wild.realm, W = wildState(realm), lvl = e.lvl;
   if (!e.summoned && e.D.realm === realm) { bump(realm, 'kills'); bump(realm, 'k_' + e.type); }
+  if (e.story === 'fquest') {   // П37: Шатун-людоед — задание старосты
+    for (let i = 0; i < 4; i++) L.dropGold(e.x, e.y, rint(6, 12) * (1 + 0.15 * (lvl - 1))); L.dropPotion(e.x, e.y, 'hp');
+    for (const p of G.pickups) if (p.t < 0.1) p.fly = true;
+  }
   if (e.story === 'minib') {   // мини-босс святилища храма: золото, зелье, вещь — и подлетает к герою
     const P = G.profile; bump(realm, 'minis');
     for (let i = 0; i < 5; i++) L.dropGold(e.x, e.y, rint(5, 10) * (1 + 0.15 * (lvl - 1)));

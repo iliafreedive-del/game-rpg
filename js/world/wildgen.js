@@ -20,11 +20,12 @@ const GIANT_FOOT = {
 // какие скелеты чаще на каком поле (варианты 0–5): степь, долина черепов, балки, хребет великана, курганы, руины
 const GIANTS_BY_VARIANT = [['giant_skull', 'tusk_arch', 'giant_ribs'], ['giant_skull', 'giant_skull', 'giant_fallen'], ['tusk_arch', 'giant_spine', 'giant_skull'], ['giant_ribs', 'giant_spine', 'giant_fallen'], ['giant_fallen', 'giant_skull', 'giant_ribs'], ['giant_ribs', 'giant_skull']];   // масштабный лагерь: стены, башни, ворота, длинный дом, шатры
 
-export function generateWild(realm, depth) {
-  if (realm === 'temple') return generateTemple(depth);   // Разрушенный храм — свой генератор-лабиринт (world/templegen.js)
+// П37 (правки 2): salt — новый расклад поля при каждом входе (раньше глубина всегда давала одну и ту же раскладку). 0 — как раньше
+export function generateWild(realm, depth, salt = 0) {
+  if (realm === 'temple') return generateTemple(depth, salt);   // Разрушенный храм — свой генератор-лабиринт (world/templegen.js)
   const RL = REALMS[realm], mood = moodOf(realm, depth), boss = isWildBoss(depth);   // boss: форт с боссом поля
   for (let attempt = 0; attempt < 6; attempt++) {
-    const J = build(RL, mood, depth, boss, attempt);
+    const J = build(RL, mood, depth, boss, attempt + salt * 7);
     if (J) return J;
   }
   return build(RL, mood, depth, boss, 99, true);

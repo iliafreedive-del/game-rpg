@@ -5,6 +5,8 @@ import { gainXP } from './loot.js';
 import { makeItem } from './items.js';
 import { autoEquip } from './character.js';
 import { weekNo } from './season.js';
+import { gate } from './progress.js';
+import { REALMS } from '../data/wild.js';
 
 // сборка 47: задания дня чередуются, как дейлики в WoW: слияние, Жатва, Летопись, форты — только то, что уже открыто по сюжету
 const boss = () => !!(G.profile.story.flags && G.profile.story.flags.bossKilled);
@@ -22,6 +24,22 @@ const POOL = [
   { id: 'fort', stat: 'forts', n: [1, 1], t: () => 'Отбить форт в походе (лес, фьорды или пустоши)', need: () => boss() },
 ];
 bus.on('kill', e => { if (e && e.story === 'wildkeep') { const S = G.profile.stats; S.forts = (S.forts || 0) + 1; } });
+// П38 (правки 2): задания по открытым местам — каждый день 2 из 3 ведут в разные уже открытые локации (лес, фьорды, пустоши, храм,
+// катакомбы с возрождающимися Хранителем и Палачом), неделя — одно крупное дело в одной из них. Счётчики — P.stats.k_<место>, fort_<поход>
+const SPOT = { forest: 'Старый Лес', fjord: 'Фьорды', bones: 'Костяные пустоши', temple: 'Разрушенный храм' };
+const opened = r => !gate(r) && G.profile.level >= REALMS[r].reqLevel && !!(G.profile.wild && G.profile.wild[r] && G.profile.wild[r].depth);   // открыт и герой там уже был
+const fortsIn = r => { const S = G.profile.wild && G.profile.wild[r]; return (S && S.stat && S.stat.forts) || 0; };
+bus.on('kill', e => {
+  const P = G.profile; if (!P || !e || e.summoned) return; const S = P.stats, inc = k => { S[k] = (S[k] || 0) + 1; };
+  if (G.zoneId === 'wild' && G.wild) { inc('k_' + G.wild.realm); if (e.story === 'wildkeep' || e.story === 'wildboss') inc('fort_' + G.wild.realm); }
+  if (G.zoneId === 'catacombs') { inc('k_cata'); if (e.story === 'elite' || e.story === 'boss') inc('k_cataBoss'); }
+});
+const LOC = [
+  ...Object.keys(SPOT).map(r => ({ id: 'l_' + r, loc: 1, stat: 'k_' + r, n: [20, 35], t: n => `${SPOT[r]}: убить ${n} врагов`, need: () => opened(r) })),
+  ...['forest', 'fjord', 'bones'].map(r => ({ id: 'lf_' + r, loc: 1, stat: 'fort_' + r, n: [1, 1], t: () => `${SPOT[r]}: отбить ${REALMS[r].fortName.toLowerCase()} ещё раз`, need: () => opened(r) && fortsIn(r) > 0 })),
+  { id: 'l_cata', loc: 1, stat: 'k_cata', n: [20, 35], t: n => `Катакомбы: упокоить ${n} нежити`, need: P => (P.story.done || []).includes('enter') },
+  { id: 'l_cboss', loc: 1, stat: 'k_cataBoss', n: [1, 1], t: () => 'Катакомбы: снова победить Хранителя или Палача', need: P => !!P.story.flags.eliteKilled },
+];
 bus.on('hwWin', () => { const S = G.profile.stats; S.hwWins = (S.hwWins || 0) + 1; });
 const dayKey = () => { const d = new Date(); return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate(); };
 function seeded(seed) { let s = seed; return () => (s = (s * 16807) % 2147483647) / 2147483647; }
@@ -29,12 +47,13 @@ function seeded(seed) { let s = seed; return () => (s = (s * 16807) % 2147483647
 export function dailyQuests() {
   const P = G.profile, today = dayKey();
   if (!P.dq || P.dq.day !== today) {
-    const R = seeded(today % 2147483646 + 1); const picks = [...POOL].sort(() => R() - 0.5);
-    const list = picks.filter(q => !q.need || q.need(P)).slice(0, 3);
+    const R = seeded(today % 2147483646 + 1); const ok = q => !q.need || q.need(P);
+    const loc = [...LOC].sort(() => R() - 0.5).filter(ok).slice(0, 2), gen = [...POOL].sort(() => R() - 0.5).filter(ok);   // П38: два дела в открытых местах + одно общее
+    const list = [...loc, ...gen].slice(0, 3);
     P.dq = { day: today, bonus: false, list: list.map(q => { const n = q.n[0] + Math.floor(R() * (q.n[1] - q.n[0] + 1)); return { id: q.id, stat: q.stat, n, base: P.stats[q.stat] || 0, claimed: false }; }) };
     bus.emit('save');
   }
-  return P.dq.list.map(q => { const def = POOL.find(p => p.id === q.id); const cur = Math.min(q.n, Math.floor((G.profile.stats[q.stat] || 0) - q.base)); return { ...q, title: def.t(q.n), cur, done: cur >= q.n }; });
+  return P.dq.list.map(q => { const def = POOL.find(p => p.id === q.id) || LOC.find(p => p.id === q.id); const cur = Math.min(q.n, Math.floor((G.profile.stats[q.stat] || 0) - q.base)); return { ...q, title: def.t(q.n), cur, done: cur >= q.n }; });
 }
 export const dqReward = () => ({ gold: 40 + G.profile.level * 20, potions: 1 });
 export function claimDaily(id) {
@@ -77,13 +96,17 @@ const WPOOL = [
   { id: 'wchest', stat: 'chests', n: 15, t: n => `Открыть ${n} сундуков` },
   { id: 'wmerge', stat: 'merges', n: 5, t: n => `Сделать ${n} слияний у кузнеца` },
   { id: 'whw', stat: 'hwWins', n: 15, t: n => `Победить в ${n} боях Летописи битв` },
+  // П38: крупное дело в одном из открытых мест
+  ...Object.keys(SPOT).map(r => ({ id: 'wl_' + r, loc: 1, stat: 'k_' + r, n: 150, t: n => `${SPOT[r]}: убить ${n} врагов`, need: () => opened(r) })),
+  ...['forest', 'fjord', 'bones'].map(r => ({ id: 'wf_' + r, loc: 1, stat: 'fort_' + r, n: 3, t: n => `${SPOT[r]}: отбить ${REALMS[r].fortName.toLowerCase()} ${n} раза`, need: () => opened(r) && fortsIn(r) > 0 })),
+  { id: 'wl_cboss', loc: 1, stat: 'k_cataBoss', n: 4, t: n => `Катакомбы: победить Хранителя или Палача ${n} раза`, need: P => !!P.story.flags.eliteKilled },
 ];
 const weekKey = () => weekNo();   // С18: номер недели с эпохи (старый «год·100 + неделя» под Новый год давал две разные недели за два дня)
 export const wqReward = () => ({ gold: 150 + G.profile.level * 60, shards: 3 });
 export function weeklyQuests() {
   const P = G.profile, wk = weekKey();
   if (P.wq && P.wq.week > 100000) P.wq.week = wk;   // С18: старый формат ключа — неделю не сбрасываем
-  if (!P.wq || P.wq.week !== wk) { const R = seeded(wk); const picks = [...WPOOL].sort(() => R() - 0.5).slice(0, 3); P.wq = { week: wk, list: picks.map(q => ({ id: q.id, stat: q.stat, n: q.n, base: P.stats[q.stat] || 0, claimed: false })) }; }
+  if (!P.wq || P.wq.week !== wk) { const R = seeded(wk), ok = q => !q.need || q.need(P), all = [...WPOOL].sort(() => R() - 0.5).filter(ok); const picks = [...all.filter(q => q.loc).slice(0, 1), ...all.filter(q => !q.loc)].slice(0, 3); P.wq = { week: wk, list: picks.map(q => ({ id: q.id, stat: q.stat, n: q.n, base: P.stats[q.stat] || 0, claimed: false })) }; }
   return P.wq.list.map(q => { const def = WPOOL.find(p => p.id === q.id); const cur = Math.min(q.n, Math.floor((P.stats[q.stat] || 0) - q.base)); return { ...q, title: def.t(q.n), cur, done: cur >= q.n }; });
 }
 export function claimWeekly(id) {

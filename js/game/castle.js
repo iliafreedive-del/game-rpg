@@ -55,6 +55,7 @@ export function addShards(n, x, y) {
 }
 bus.on('kill', e => {
   if (!G.profile) return;
+  if (e.repeat) { addShards(e.D.boss ? 8 : 5, e.x, e.y); return; }   // П45: возродившийся Хранитель — 5 осколков, Палач — 8
   const ch = e.D.boss ? 1 : e.D.elite ? 1 : e.champion ? 0.175 : e.story === 'floorboss' ? 1 : 0.015;
   if (rand() < ch) addShards(e.D.boss ? rint(4, 7) : e.D.elite ? rint(2, 4) : 1, e.x, e.y);
 });
