@@ -167,19 +167,18 @@ export class Zone {
           this.inter.push({ id: 'floor_exit', type: 'exit', x: o.x, y: o.y, r: 1.6, label: 'Завершить этаж', draw: d, light: L, hidden: !!o.hidden });
           break;
         }
-        case 'sarcophagus': {
-          const opened = !!W[id];
-          const d = this.add({ x: o.x, y: o.y, spr: opened ? 'sarcophagus_open' : 'sarcophagus' });
+        case 'sarcophagus': {   // П46: при каждом заходе саркофаги снова закрыты; саркофаг с ключом после ключа — обычный, с золотом
+          const keyTaken = o.loot === 'key' && !!W[id], loot = keyTaken ? 'gold' : o.loot;
+          const d = this.add({ x: o.x, y: o.y, spr: 'sarcophagus' });
           this.map.rects.push({ x0: o.x - 0.45, y0: o.y - 0.9, x1: o.x + 0.45, y1: o.y + 0.9 });
-          this.inter.push({ id, type: 'sarc', loot: o.loot, x: o.x, y: o.y, r: 1.6, label: 'Открыть саркофаг', draw: d, done: opened, persist: o.loot === 'key' });
+          this.inter.push({ id, type: 'sarc', loot, x: o.x, y: o.y, r: 1.6, label: 'Открыть саркофаг', draw: d, done: false, persist: loot === 'key' });
           break;
         }
-        case 'chest': {
-          const rich = !!o.rich; const persist = rich; // rich chests are one-time story rewards; regular chests refill each descent
-          const opened = persist && !!W[id];
-          const d = this.add({ x: o.x, y: o.y, spr: (rich ? 'chest_rich' : 'chest') + (opened ? '_open' : '') });
+        case 'chest': {   // П46: все сундуки снова полны при каждом заходе; богатый сундук Ордена даёт богатую добычу один раз, дальше — как обычный
+          const look = !!o.rich, rich = look && !W[id];
+          const d = this.add({ x: o.x, y: o.y, spr: look ? 'chest_rich' : 'chest' });
           this.map.circles.push({ x: o.x, y: o.y, r: 0.35 });
-          this.inter.push({ id, type: 'chest', rich, x: o.x, y: o.y, r: 1.4, label: 'Открыть сундук', draw: d, done: opened, persist });
+          this.inter.push({ id, type: 'chest', rich, look, x: o.x, y: o.y, r: 1.4, label: 'Открыть сундук', draw: d, done: false, persist: rich });
           break;
         }
         case 'altar_medallion': {
@@ -315,8 +314,9 @@ export class Zone {
           this.inter.push({ id: 'wild_home', type: 'portal', to: 'town', x: o.x, y: o.y, r: 1.6, label: 'Вернуться в деревню', draw: d, plate: 'В деревню' }); break;
         }
         case 'wild_next': {
-          const d = this.add({ x: o.x, y: o.y, spr: VILLAGE_PORTAL[realm] || REALMS[realm].portal, anim: 'portal', hidden: !!o.hidden }); const L = this.addLight(o.x, o.y, { r: 5, c: col, flicker: 0.3, z: 1.2 }); L.on = !o.hidden;   // сборка 47: «Вглубь» — та же арка, что вход в эту локацию из деревни
-          this.inter.push({ id: 'wild_next', type: 'wildnext', x: o.x, y: o.y, r: 1.7, label: 'Вглубь', draw: d, light: L, hidden: !!o.hidden, plate: 'Вглубь' }); break;
+          const sealed = !!o.sealed && !o.hidden;   // П20: арка видна, но погашена и не пускает, пока жив вожак поля / страж святилища
+          const d = this.add({ x: o.x, y: o.y, spr: VILLAGE_PORTAL[realm] || REALMS[realm].portal, anim: 'portal', hidden: !!o.hidden }); const L = this.addLight(o.x, o.y, { r: 5, c: col, flicker: 0.3, z: 1.2 }); L.on = !o.hidden && !sealed;   // сборка 47: «Вглубь» — та же арка, что вход в эту локацию из деревни
+          this.inter.push({ id: 'wild_next', type: 'wildnext', x: o.x, y: o.y, r: 1.7, label: sealed ? 'Вглубь · запечатан' : 'Вглубь', draw: d, light: L, hidden: !!o.hidden, sealed, locked: sealed, lockNote: sealed ? (realm === 'temple' ? 'победите стража святилища' : 'победите вожака поля') : '', plate: sealed ? 'Вглубь · запечатан' : 'Вглубь' }); break;
         }
         case 'wchest': {
           const big = J.wild && J.wild.realm === 'bones' ? 2 : 1;   // в пустошах сундук из шкур в 2 раза больше (сборка 44) — и упор, и дотянуться

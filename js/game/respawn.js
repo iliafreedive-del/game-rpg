@@ -12,6 +12,7 @@ const ZONES = new Set(['catacombs', 'depths', 'wild']);
 bus.on('kill', e => {
   const z = G.zone; if (!z || !ZONES.has(G.zoneId) || e.summoned || e.story || e.D.boss || e.D.elite) return;
   if (G.zoneId === 'depths' && !(G.run && G.run.floor > 0)) return;   // пролог-обучение — без возрождения
+  if (G.zoneId === 'wild' && z.json.wild && z.json.wild.kind === 'fort') return;   // П59: на уровне с фортом мобы не появляются заново (путаница, некуда отступить)
   (z.respawnQ = z.respawnQ || []).push({ type: e.type, x: e.hx, y: e.hy, lvl: e.lvl, room: e.room, at: G.time + RESPAWN_T + rrange(-15, 15) });
 });
 

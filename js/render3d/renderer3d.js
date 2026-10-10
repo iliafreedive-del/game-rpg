@@ -166,7 +166,7 @@ function presetFor(z) {
   if (z.json && z.json.biome === 'abyss') Object.assign(look, { floor: 0x5a5470, moss: 0x5a3a8a });
   return { ...C, look, hemi: b ? { ...C.hemi, sky: b.sky } : C.hemi, fog: b ? { ...C.fog, color: b.fog } : C.fog, clear: b ? b.fog : C.clear };
 }
-const wildKind = ch => ch === ',' ? 'c' : ch === 'D' ? 'p' : ch === 'x' ? 'f' : ch === '~' ? 'w' : 'g';   // земля похода: двор и тракт — плиты, под стеной — тропа
+const wildKind = ch => ch === ',' ? 'c' : ch === 'D' ? 'p' : ch === 'x' ? 'f' : ch === '~' || ch === 'b' ? 'w' : ch === 'v' || ch === 'h' ? 'v' : 'g';   // 'v' пропасть, 'h' мост над ней, 'b' мост над ручьём (правки 2)   // земля похода: двор и тракт — плиты, под стеной — тропа
 function setPointCount(n) {
   if (slots.length === n) return;
   while (slots.length > n) slots.pop().lt.removeFromParent();
@@ -185,7 +185,7 @@ function setZone(z) {
   lights.hemi.color.setHex(LV.hemi.sky); lights.hemi.groundColor.setHex(LV.hemi.ground); lights.moon.color.setHex(LV.key.color);
   for (const s of slots) { s.L = null; s.k = 0; s.lt.intensity = 0; }
   const town = z.id === 'town', wild = z.id === 'wild', open = town || wild, fj = wild && z.json.wild.realm === 'fjord', bn = wild && z.json.wild.realm === 'bones';
-  const ground = wild ? buildGround(scene, z, { abyss: z.json.wild.realm || 'forest', snow: fj, steppe: bn, forest: !fj && !bn, kindOf: wildKind, stoneCh: '\u0000', grassK: bn ? 0.24 : 0.15, farColor: fj ? 0xb4c6d8 : bn ? 0x6a3420 : 0x0f2418, margin: 6 }) : town ? buildGround(scene, z, { margin: z.json.big ? 14 : 3, farColor: z.json.village ? 0x22341c : undefined }) : buildDungeonFloor(scene, z, LV.look), props = new PropLayer(scene, kit, z, open);
+  const ground = wild ? buildGround(scene, z, { abyss: z.json.wild.realm || 'forest', snow: fj, steppe: bn, forest: !fj && !bn, kindOf: wildKind, stoneCh: '\u0000', grassK: bn ? 0.24 : 0.15, islands: !!z.json.wild.islands, farColor: fj ? 0xb4c6d8 : bn ? 0x6a3420 : 0x0f2418, margin: 6 }) : town ? buildGround(scene, z, { margin: z.json.big ? 14 : 3, farColor: z.json.village ? 0x22341c : undefined }) : buildDungeonFloor(scene, z, LV.look), props = new PropLayer(scene, kit, z, open);
   // деревня: дым из труб, стелющийся туман, куры и собаки
   U.uHFog.value = town && z.json.village ? 0.24 : 0;   // туман у земли — только в деревне
   if (z.json.center) U.uHFogC.value.set(z.json.center[0], z.json.center[1], 17); else U.uHFogC.value.set(0, 0, 0);   // в центре деревни тумана почти нет

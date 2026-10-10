@@ -204,3 +204,24 @@ export function generateFloor(floor, seed) {
     rooms: Object.fromEntries([...rooms.map((r, i) => ['r' + i, [r.x, r.y - dy, r.w, r.h]]), ...side.map((r, i) => ['s' + i, [r.x, r.y - dy, r.w, r.h]])]), roomKinds: all.map(r => r.kind), start, boss, level: lvl, story: [],
   };
 }
+
+// П30: катакомбы Ордена (сюжетная карта) при каждом заходе перемешиваются: в обычных залах — другой состав мобов
+// и своя обстановка из тех же шаблонов, что в Глубинах. Стены, двери, сюжетные точки и сундуки не трогаются.
+const SWAP = { skel_warrior: ['skel_warrior', 'skel_warrior', 'ghoul', 'bone_wolf'], skel_archer: ['skel_archer', 'skel_archer', 'skel_mage'], skel_mage: ['skel_mage', 'skel_archer'], beast: ['beast', 'bone_wolf'], ghoul: ['ghoul', 'skel_warrior'], bone_wolf: ['bone_wolf', 'beast', 'skel_warrior'] };
+const DRESS = [['bones', 'skulls', 'skulls', 'candles'], ['puddle', 'puddle', 'mushrooms'], ['stalagmite', 'rubble', 'mushrooms'], ['candles', 'candles', 'statue'], ['rubble', 'rubble', 'rocks'], ['barrel', 'crate', 'weapon_rack'], ['bookshelf', 'candles'], ['crystals', 'stalagmite'], ['skulls', 'rubble', 'candles'], ['banner', 'brazier']];
+export function shuffleCatacombs(J, seed = (Math.random() * 4294967296) >>> 0) {
+  const R = rng(seed), KEEP = new Set(['arena', 'altar', 'entry']);   // зал босса, амулет и вход — как задуманы
+  const inRoom = (r, x, y, m = 0) => x >= r[0] + m && y >= r[1] + m && x < r[0] + r[2] - m && y < r[1] + r[3] - m;
+  J.spawns = J.spawns.map(s => { const o = s.slice(), l = SWAP[o[0]]; if (l && R() < 0.6) o[0] = l[Math.floor(R() * l.length)]; if (R() < 0.3) o[3] = Math.max(1, o[3] + (R() < 0.5 ? -1 : 1)); return o; });
+  const busy = J.objects.map(o => [o.x, o.y]);
+  for (const [id, r] of Object.entries(J.rooms)) {
+    if (KEEP.has(id)) continue;
+    const set = DRESS[Math.floor(R() * DRESS.length)];
+    for (const t of set) for (let k = 0; k < 12; k++) {
+      const x = r[0] + 1.5 + R() * (r[2] - 3), y = r[1] + 1.5 + R() * (r[3] - 3);
+      if (J.rows[Math.floor(y)][Math.floor(x)] !== '.' || !inRoom(r, x, y, 1) || busy.some(([bx, by]) => Math.hypot(bx - x, by - y) < 1.8)) continue;
+      J.objects.push({ t, x, y }); busy.push([x, y]); break;
+    }
+  }
+  return J;
+}

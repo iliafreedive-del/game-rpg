@@ -96,7 +96,7 @@ export class PropLayer {
     }
     if (dungeon) for (const w of wallPieces(zone)) push(w.id === 'dwall_lo' ? 'dwall_lo' : w.v < 0.62 ? 'dwall_hi' : w.v < 0.86 ? 'dwall_buttress' : 'dwall_niche', w.x, w.y, w.rot, 1);
     const VC = zone.json.viewClear || [], clearOf = (x, y) => VC.some(c => { const dx = x - c.x, dy = y - c.y, al = (dx + dy) / Math.SQRT2; return al > -2.5 && al < c.len + 4 && Math.abs(dx - dy) / Math.SQRT2 < c.lat + 1; });
-    if (wantBackdrop && open) {  // лес за краем карты
+    if (wantBackdrop && open && !(zone.json.wild && zone.json.wild.islands)) {  // лес за краем карты (у походов-островов за краем — бездна)
       const m = zone.map, G = zone.json.big ? 3.8 : 3.4, ring = zone.json.big ? 17 : 11;
       for (let y = -ring; y < m.h + ring; y += G) for (let x = -ring; x < m.w + ring; x += G) {
         if (x > -1.5 && y > -1.5 && x < m.w + 1.5 && y < m.h + 1.5) continue;
