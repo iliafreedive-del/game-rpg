@@ -59,7 +59,7 @@ export function openHeroPath() {
   page = chOf(HW().top);
   showMap();
 }
-function close() { cancelAnimationFrame(raf); raf = 0; disposeStage(); if (root) root.remove(); root = null; G.paused = false; G.modalOpen = false; G.hwOpen = false; bus.emit('hud'); bus.emit('save'); }
+function close() { bus.emit('music'); cancelAnimationFrame(raf); raf = 0; disposeStage(); if (root) root.remove(); root = null; G.paused = false; G.modalOpen = false; G.hwOpen = false; bus.emit('hud'); bus.emit('save'); }
 
 function header(title) {
   const n = enN(), left = nextIn(torches(), TORCH_MS);
@@ -126,6 +126,7 @@ function showPrefight(s) {
 // ------------------------------------------------------------------ battle
 // сборка 44: герой против отряда из 2–4 врагов на широкой арене (логика — game/hwbattle.js). Слои: 2D-фон → 3D-бойцы → 2D-полосы, имена, цифры, снаряды.
 async function fight(s) {
+  bus.emit('music', 'battle');   // сборка 60: боевая тема Летописи
   disposeStage(); cancelAnimationFrame(raf); root.innerHTML = ''; header();
   const stack = el('div', 'hw-stack'), bgcv = document.createElement('canvas'), glcv = document.createElement('canvas'), cv = document.createElement('canvas');
   stack.append(bgcv, glcv, cv); root.appendChild(stack);
@@ -137,7 +138,7 @@ async function fight(s) {
   let speed = G.profile.hwSpeed === 2 ? 2 : 1; const speedB = el('button', 'hw-speed', '×' + speed); speedB.onclick = () => { speed = speed === 1 ? 2 : 1; G.profile.hwSpeed = speed; speedB.textContent = '×' + speed; }; root.appendChild(speedB);
   // сборка 47: «Сбежать» — прервать бой (энергия уже потрачена, награды нет)
   // сборка 60 (П8): в первой Летописи «Сбежать» — с 3-го боя, и отступление честно завершает шаг обучения (раньше — только гибель)
-  const fleeB = el('button', 'hw-speed hw-flee', 'Сбежать'); fleeB.onclick = () => { ended = true; cancelAnimationFrame(raf); raf = 0; speedB.remove(); fleeB.remove(); bus.emit('save'); if (tut()) fled(); else showMap(); };
+  const fleeB = el('button', 'hw-speed hw-flee', 'Сбежать'); fleeB.onclick = () => { ended = true; bus.emit('music'); cancelAnimationFrame(raf); raf = 0; speedB.remove(); fleeB.remove(); bus.emit('save'); if (tut()) fled(); else showMap(); };
   if (!(tut() && s < 3)) root.appendChild(fleeB);
   const ci = chOf(s), cls = G.profile.cls || 'warrior', wt = G.profile.gear.weapon ? G.profile.gear.weapon.wt : 'sword';
   setArenaLayout(stack.clientWidth < stack.clientHeight * 1.1);   // сборка 50: телефон вертикально — арена уже, бойцы крупнее
@@ -298,7 +299,7 @@ async function fight(s) {
   raf = requestAnimationFrame(frame);
   function end(win) {
     if (!root || !root.contains(stack)) return;
-    cancelAnimationFrame(raf); raf = 0; speedB.remove(); fleeB.remove();
+    cancelAnimationFrame(raf); raf = 0; speedB.remove(); fleeB.remove(); bus.emit('music');
     const h = HW(), P = G.profile; const first = win && s >= h.top, lvl0 = P.level, isTut = tut(); let bonus = false;
     if (!win) bus.emit('hwLost');   // сборка 43: задание «Испытать себя в Летописи битв»
     const pct = Hu.hp / Hu.max; const stars = win ? (pct > 0.6 ? 3 : pct > 0.3 ? 2 : 1) : 0;
