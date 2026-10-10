@@ -54,8 +54,9 @@ export function trainPet(kind) {
 }
 // сила питомца для окна характеристик: удар (физ.) и эффект (маг.) с учётом уровня питомца и дрессировки
 export function petPower(id, P = G.profile) {
-  const S = petsOf(P), lvl = S.own[id] || 1, D = PETS[id], st = G.stats || {}, avg = ((st.dmgMin || 1) + (st.dmgMax || 1)) / 2, base = Math.max(1, avg * D.k * LV(lvl));
-  return { lvl, phys: Math.round(base * (D.ranged && D.fx !== 'needle' ? 0 : trainMul('phys', P))), mag: Math.round(base * trainMul('mag', P) * (D.fx === 'burn' ? 1.05 : D.fx === 'poison' ? 0.75 : D.ranged && D.fx !== 'needle' ? 1 : 0.6)), physLvl: S.tr.phys, magLvl: S.tr.mag };
+  const S = petsOf(P), lvl = S.own[id] || 1, D = PETS[id], st = G.stats || {}, avg = ((st.dmgMin || 1) + (st.dmgMax || 1)) / 2, base = avg * D.k * LV(lvl), r1 = v => +v.toFixed(1);
+  // phys — урон удара (или игл), mag — урон искр / сила эффекта за удар (огонь 3 с, яд, вампиризм); 0 — у питомца этого нет
+  return { lvl, phys: D.ranged && D.fx !== 'needle' ? 0 : r1(Math.max(1, base) * trainMul('phys', P)), mag: r1(base * trainMul('mag', P) * ({ burn: 1.05, poison: 0.6, leech: 0.6 }[D.fx] || (D.ranged && D.fx !== 'needle' ? 1 : 0))), physLvl: S.tr.phys, magLvl: S.tr.mag };
 }
 export function choosePet(id) {
   const S = petsOf(G.profile); if (id && !S.own[id]) return;

@@ -43,6 +43,7 @@ function complete() {
   s.cur = STORY[s.stage] ? STORY[s.stage].id : null;
   bus.emit('questComplete', q); bus.emit('sfx', 'quest');
   grant(q.reward, q.title, { sub: 'Задание выполнено' });
+  if (q.id === 'kill20') setTimeout(() => bus.emit('toast', { text: 'Кузнецу Горану нужно серебро', sub: 'Долгий контракт на доске объявлений: добыть в бою 5000 золота — награда синее оружие', kind: 'quest' }), 4000);   // П34
   bus.emit('save');
   const n = current(), ch = q.chapter || 1;
   if (!n || (n.chapter || 1) !== ch) bus.emit('chapterDone', ch);   // глава закончилась — окно и переход к следующей
