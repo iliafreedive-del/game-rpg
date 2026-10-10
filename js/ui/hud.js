@@ -67,7 +67,7 @@ export function initHUD() {
   const cl = G.profile.cls || 'warrior'; $('portrait').style.backgroundImage = `url(assets/sprites/${cl === 'warrior' ? 'portrait' : 'portrait_' + cl}.png)`;
   bus.on('hud', () => { lastHud = 0; });
   bus.on('skillsChanged', refreshSkills);
-  bus.on('skillSlotted', ({ id, i }) => { toast({ text: `Новый навык: ${SKILLS[id].name}`, sub: `Кнопка ${i + 1} справа внизу`, kind: 'good' }); const b = $('sk' + i); b.classList.add('flash'); setTimeout(() => b.classList.remove('flash'), 4000); }); bus.on('equipChanged', refreshWeapon); bus.on('statsChanged', refreshSkills);
+  bus.on('skillSlotted', ({ id, i }) => { toast({ text: `Новый навык: ${SKILLS[id].name}`, sub: `Кнопка ${i + 1} справа внизу`, kind: 'good' }); const b = $('sk' + i); b.classList.add('flash'); setTimeout(() => b.classList.remove('flash'), 4000); }); bus.on('equipChanged', refreshWeapon); bus.on('statsChanged', refreshSkills); bus.on('statsChanged', refreshWeapon);
   bus.on('focus', it => { const b = $('btnAct'); if (it) { b.textContent = it.label; b.classList.remove('hidden'); } else b.classList.add('hidden'); });
   bus.on('toast', toast);
   bus.on('bagFull', () => toast({ text: 'Сумка полна!', sub: 'Продайте лишнее или купите расширение сумки — нажмите, чтобы открыть сумку', kind: 'bad', onClick: () => openWindow('inventory') }));   // сборка 38
@@ -80,7 +80,18 @@ export function initHUD() {
   refreshSkills(); refreshWeapon();
 }
 function refreshWeapon() {
-  const w = G.profile.gear.weapon, bs = G.profile.bigSkill; if (bs && G.profile.skills[bs]) skillCanvasInto($('btnAtk').querySelector('canvas'), bs); else drawIcon($('btnAtk').querySelector('canvas'), w ? iconOf(w) : 'sword');
+  const w = G.profile.gear.weapon, bs = G.profile.bigSkill, b = $('btnAtk'); if (bs && G.profile.skills[bs]) skillCanvasInto(b.querySelector('canvas'), bs); else drawIcon(b.querySelector('canvas'), w ? iconOf(w) : 'sword');
+  // П31: герой бьёт сам, когда враг рядом, — отдельная кнопка удара не нужна. Большая кнопка видна, только если на неё поставлен навык (★),
+  // и тогда на ней видна перезарядка, как на малых. Пробел на ПК по-прежнему бьёт
+  const on = !!(bs && G.profile.skills[bs]); $('ui').classList.toggle('noatk', !on);
+  if (on && !b.querySelector('.cd')) b.appendChild(el('div', 'cd'));
+}
+const waveSt = {};
+function potWave(id, low) {
+  const st = waveSt[id] || (waveSt[id] = { low: false, at: 0 }), was = st.low; st.low = low;
+  if (!low || was || performance.now() < st.at) return;
+  const b = $(id); if (!b || !b.offsetParent) return; st.at = performance.now() + 15000;
+  for (let i = 0; i < 3; i++) { const r = el('i', 'potwave ' + id); r.style.cssText = `left:${b.offsetLeft}px;top:${b.offsetTop}px;width:${b.offsetWidth}px;height:${b.offsetHeight}px;animation-delay:${i * 0.45}s`; b.parentNode.appendChild(r); setTimeout(() => r.remove(), 2000 + i * 450); }
 }
 function refreshSkills() {
   for (let i = 0; i < 4; i++) {
@@ -128,6 +139,10 @@ export function updateHUD(dt) {
     const sk = SKILLS[id]; const left = pl.cds[id] || 0; cd.style.setProperty('--p', (left > 0 ? left / sk.cd * 100 : 0) + '%');
     const u = C.skillUsable(id); b.classList.toggle('off', !u.ok && u.why !== 'Перезарядка');
   }
+  { const bs = P.bigSkill, cd = bs && P.skills[bs] && $('btnAtk').querySelector('.cd'); if (cd) { const left = pl.cds[bs] || 0; cd.style.setProperty('--p', (left > 0 ? left / SKILLS[bs].cd * 100 : 0) + '%'); } }
+  // П31: здоровье или мана ≤ 30% — от банки ненадолго расходятся волны (раз в 15 с, пока не отпустит)
+  potWave('potHP', !pl.dead && pl.hp <= S.maxHP * 0.3 && P.potions.hp > 0);
+  potWave('potMP', !pl.dead && pl.mp <= S.maxMP * 0.3 && (P.potions.mp || 0) > 0);
   const ui = $('ui');
   ui.classList.toggle('lowhp', G.player && !G.player.dead && G.player.hp < G.stats.maxHP * 0.3);
   ui.classList.toggle('surv', !!G.surv);

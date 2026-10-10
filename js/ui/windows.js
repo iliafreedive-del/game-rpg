@@ -362,7 +362,7 @@ function talentInfo(id, P, edit) {
   } else if (!edit && r < sk.max && can.ok) t.appendChild(el('div', 'muted', '<small>Можно изучить у наставника Элвина в деревне.</small>'));
   if (r && sk.kind === 'active') {
     const sr = el('div', 'slots4');
-    { const bb = el('button', 'btn sm' + (P.bigSkill === id ? ' gold' : ''), '★'); bb.title = 'На большую кнопку'; bb.onclick = e => { e.stopPropagation(); P.bigSkill = P.bigSkill === id ? null : id; bus.emit('toast', { text: P.bigSkill ? `«${sk.name}» — на большой кнопке` : 'Большая кнопка: обычная атака', kind: 'good' }); bus.emit('statsChanged'); rerender(); }; sr.appendChild(bb); }
+    { const bb = el('button', 'btn sm' + (P.bigSkill === id ? ' gold' : ''), '★'); bb.title = 'На большую кнопку'; bb.onclick = e => { e.stopPropagation(); P.bigSkill = P.bigSkill === id ? null : id; bus.emit('toast', { text: P.bigSkill ? `«${sk.name}» — на большой кнопке` : 'Навык снят с большой кнопки', kind: 'good' }); bus.emit('statsChanged'); rerender(); }; sr.appendChild(bb); }
     for (let i = 0; i < 4; i++) { const sb = el('button', 'btn sm' + (P.slots[i] === id ? ' gold' : ''), String(i + 1)); sb.title = 'Кнопка ' + (i + 1); sb.onclick = e => { e.stopPropagation(); CH.setSlot(i, id); bus.emit('toast', { text: `«${sk.name}» — кнопка ${i + 1}`, kind: 'good' }); rerender(); }; sr.appendChild(sb); }
     t.appendChild(el('div', 'muted', '<small>Кнопка в бою:</small>')); t.appendChild(sr);
   }
@@ -495,7 +495,7 @@ W.settings = () => modal('Настройки', 'sm', b => {
   const sh = el('div', 'attr', '<b>Тряска камеры</b>'); const bs = el('button', 'btn sm', s.shake ? 'Вкл' : 'Выкл'); bs.onclick = () => { s.shake = !s.shake; rerender(); }; sh.appendChild(bs); b.appendChild(sh);
   b.appendChild(el('p', 'muted', `<small>Версия сборки: ${window.__BUILD || ''}</small>`));
   b.appendChild(el('h3', '', 'Управление'));
-  b.appendChild(el('p', 'muted', 'Телефон/планшет: джойстик слева, атака и навыки справа, удерживайте атаку — герой сам подойдёт к врагу. Щипок двумя пальцами — камера ближе/дальше. ПК: WASD/стрелки — движение, колесо мыши — камера ближе/дальше, Пробел — атака, 1–4 — навыки, Shift — уклонение, Q/E — зелья, F — действие, I/C/K/J/M — окна, T — свиток.'));
+  b.appendChild(el('p', 'muted', 'Телефон/планшет: джойстик слева, навыки, рывок и зелья справа. Герой бьёт сам, когда враг рядом: ваше дело — двигаться, уклоняться и пить зелья. Щипок двумя пальцами — камера ближе/дальше. ПК: WASD/стрелки — движение, колесо мыши — камера ближе/дальше, Пробел — атака, 1–4 — навыки, Shift — уклонение, Q/E — зелья, F — действие, I/C/K/J/M — окна, T — свиток.'));
   const row = el('div', 'row'); row.style.marginTop = '10px';
   const sv = el('button', 'btn', 'Сохранить'); sv.onclick = () => { saveNow(true); bus.emit('toast', { text: 'Игра сохранена', kind: 'good' }); }; row.appendChild(sv);
   const rp = el('button', 'btn', 'Восстановить покупки'); rp.onclick = () => restorePurchases(); row.appendChild(rp);

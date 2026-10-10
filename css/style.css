@@ -820,3 +820,10 @@ body.photo #hudL,body.photo #hudR,body.photo #pad,body.photo #btnAct,body.photo 
 .btn.sm::after,.mx::after,.eq-tab::after,.q-tab::after,.pn-x::after,.pn-btn::after{content:'';position:absolute;inset:-7px}
 .mbtn::before{content:'';position:absolute;inset:-6px}
 .eq-mrg{position:absolute;right:4px;bottom:15px;font:700 12px sans-serif;color:#ffd98a;text-shadow:0 1px 2px #000}
+/* П31: без навыка на ★ большой кнопки удара нет (герой бьёт сам); перезарядка навыка на ней; волны от банки при ≤30% */
+#ui.noatk #btnAtk{display:none}
+#btnAtk .cd{position:absolute;inset:0;border-radius:50%;background:conic-gradient(#000a var(--p,0%),#0000 0);pointer-events:none}
+.potwave{position:absolute;border-radius:50%;pointer-events:none;border:3px solid #ff6a5a;opacity:0;animation:potwave 1.3s ease-out both}
+.potwave.potMP{border-color:#6aa8ff}
+@keyframes potwave{0%{transform:scale(1);opacity:.95}100%{transform:scale(2.3);opacity:0}}
+#pad>.potwave{pointer-events:none}
