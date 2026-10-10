@@ -5936,6 +5936,14 @@
   "w": "js/platform/platform.js"
  },
  {
+  "k": "[fx] нет листа",
+  "w": "js/render/fxsheets.js"
+ },
+ {
+  "k": "[fx] нет",
+  "w": "js/render/fxsheets.js"
+ },
+ {
   "k": "[render] WebGL недоступен — 2D",
   "w": "js/render/index.js"
  },
@@ -6221,10 +6229,6 @@
  },
  {
   "k": " <small>+1 через {0} мин</small>",
-  "w": "js/ui/herospath.js"
- },
- {
-  "k": "<span class=\"hw-cur\">⚡ {0}/{1}{2}</span><span class=\"hw-cur c-gold\">{3} зол.</span><span class=\"hw-cur c-shard\">{4}◆</span>",
   "w": "js/ui/herospath.js"
  },
  {
@@ -9392,6 +9396,10 @@
   "w": "js/world/zone.js"
  },
  {
+  "k": "Обыскать",
+  "w": "js/world/zone.js"
+ },
+ {
   "k": "Открыть сундук",
   "w": "js/world/zone.js"
  },
@@ -9441,10 +9449,6 @@
  },
  {
   "k": "Эхо павшего",
-  "w": "js/world/zone.js"
- },
- {
-  "k": "Обыскать",
   "w": "js/world/zone.js"
  },
  {
