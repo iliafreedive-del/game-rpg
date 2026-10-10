@@ -39,7 +39,7 @@ import { BOONS, BOON_IDS } from '../data/boons.js';
 import { FLOOR_MODS, FLOOR_MOD_IDS, modReward } from '../data/floormods.js';
 import { stats as calcStats } from '../game/stats.js';
 import { particles, effect } from '../game/combat.js';
-import { maybeInterstitial } from '../platform/monetize.js';
+import { maybeInterstitial, offerPreview } from '../platform/monetize.js';
 import { petsOf, meetCaravan } from '../game/pets.js';
 import { PETS, TIERS } from '../data/pets.js';
 import { earlyLock, firstLessonCost, POTION_RESERVE } from '../game/progress.js';
@@ -107,12 +107,12 @@ bus.on('wallOffer', () => showWallOffer());
 let helpWhere = null;
 bus.on('deathAt', where => { helpWhere = streakHelp(where) ? where : null; });
 const rewardQ = [];
-bus.on('reward', r => { rewardQ.push(r); });
+bus.on('reward', r => { if (r.now) rewardQ.unshift(r); else rewardQ.push(r); });   // now — сразу, даже после боя (награда за рекламу)
 export function pumpRewards() {
   // П11: окно награды ждёт, пока игрок не закроет панель NPC (покупки у Элвина, Миры) и не кончится облёт камеры — не всплывает поверх
   if (busy() || G.player.dead || !G.zoneReady) return;
   if (winQ.length) { pumpWin(); return; }
-  if (!rewardQ.length || inCombat()) return;
+  if (!rewardQ.length || (inCombat() && !rewardQ[0].now)) return;
   showReward(rewardQ.shift());
 }
 function showReward(r) {
@@ -128,7 +128,7 @@ function showReward(r) {
     for (const en of r.items) {
       const it = en.item;
       const c = el('div', 'rw-card r' + it.rarity, `<div class="slot r${it.rarity}"><img src="${iconURL(iconOf(it))}"></div><div><div class="it-name" style="color:${RARITY[it.rarity].color}">${esc(it.name)}</div><div class="it-type">${RARITY[it.rarity].name} · ${it.wt ? WEAPONS[it.wt].name : SLOT_NAMES[it.slot]}</div>${it.dmg ? `<div class="it-stat">Урон ${it.dmg[0]}–${it.dmg[1]}</div>` : it.armor ? `<div class="it-stat">Защита ${it.armor}</div>` : ''}${it.affixes.slice(0, 3).map(a => `<div class="it-aff">${esc(affixText(a))}</div>`).join('')}${epicOf(it) ? `<div class="it-epic">★ ${esc(epicOf(it).desc)}</div>` : ''}</div>`);
-      if (en.equipped) c.appendChild(el('div', 'rw-eq good', '✔ Надето — слот был пуст'));
+      if (en.equipped) c.appendChild(el('div', 'rw-eq good', '✔ Надето'));
       else if (en.bagged) {
         const rows = (en.cmp || []).map(r => `<div class="cmp ${r.delta > 0 ? 'up' : r.delta < 0 ? 'dn' : ''}"><span>${esc(r.label)}</span><b>${r.before}${r.suf} → ${r.after}${r.suf} ${r.delta > 0 ? '▲' : r.delta < 0 ? '▼' : ''}</b></div>`).join('');
         c.appendChild(el('div', 'rw-eq', `<div class="muted" style="margin:4px 0">Сейчас надето: «${esc(en.old ? en.old.name : '—')}»</div>${rows}`));
@@ -140,7 +140,7 @@ function showReward(r) {
       box.appendChild(c);
     }
     if (r.items.length) b.appendChild(box);
-    const loot = [r.gold && `<span class="goldc">+${fmt(r.gold)} золота</span>`, r.xp && `<span style="color:#b8e3ff">+${r.xp} опыта</span>`, r.potions && `<span style="color:#ff9a9a">+${r.potions} зелья</span>`, r.scrolls && `<span>+${r.scrolls} свитка возврата</span>`, r.skillPts && `<span class="good">+${r.skillPts} очко навыка</span>`, r.shards && `<span class="c-shard">+${r.shards}◆ осколков</span>`].filter(Boolean);
+    const loot = [r.gold && `<span class="goldc">+${fmt(r.gold)} золота</span>`, r.xp && `<span style="color:#b8e3ff">+${r.xp} опыта</span>`, r.potions && `<span style="color:#ff9a9a">+${r.potions} зелья здоровья</span>`, r.mp && `<span style="color:#9cc0ff">+${r.mp} зелья маны</span>`, r.scrolls && `<span>+${r.scrolls} свитка возврата</span>`, r.skillPts && `<span class="good">+${r.skillPts} очко навыка</span>`, r.shards && `<span class="c-shard">+${r.shards}◆ осколков</span>`].filter(Boolean);
     if (loot.length) b.appendChild(el('div', 'rw-loot', loot.join(' · ')));
     const q = Q.current(); if (q) b.appendChild(el('p', 'muted', `Следующее задание: <b class="goldc">${esc(q.title)}</b>`));
     const row = el('div', 'row'); row.style.justifyContent = 'center'; const ok = el('button', 'btn gold', 'Забрать'); ok.onclick = () => closeModal(); okBtn = ok; if (must) ok.disabled = true; row.appendChild(ok); b.appendChild(row);
@@ -802,11 +802,24 @@ W.shrine = () => modal('Источник силы', 'md', b => {
     const o = el('div', 'offer', `<div class="ic">${esc(p.icon || '⛁')}</div><div class="tx"><b>${esc(p.title)}</b><div class="muted">${esc(p.desc)}</div></div>`);
     const pr = platform.p.catalogPrice(id), price = typeof pr === 'string' ? esc(pr) : `${esc(pr.value)} ${pr.img ? `<img class="cur" src="${esc(pr.img)}" alt="${esc(pr.code)}">` : esc(pr.code)}`;
     const bt = el('button', 'btn gold', owned ? 'Куплено' : price); bt.disabled = !!owned; bt.onclick = () => buy(id).then(rerender); o.appendChild(bt); b.appendChild(o);
+    if (!owned && (p.gear || id === 'starter_pack' || id === 'potion_pack')) { const box = el('div', ''), sh = el('button', 'btn sm', 'Что внутри ▾'); sh.onclick = () => { if (box.childElementCount) box.innerHTML = ''; else offerContents(box, id); }; o.querySelector('.tx').appendChild(sh); b.appendChild(box); }   // П24
   }
   if (platform.name === 'demo') b.appendChild(el('p', 'muted', '<small>Демо-режим: реклама и покупки имитируются, деньги не списываются. На Яндекс Играх подключается SDK площадки.</small>'));
 });
 
 // Предложение у «стены» (js/platform/offers.js): один раз, в спокойный момент, с честными бесплатными путями рядом
+// П24: что именно даёт покупка — иконками (золото, зелья) и сами вещи с подписью «сейчас надето» и сравнением.
+// Вещи выпадают заранее (offerPreview) и всегда сильнее надетого; их же выдаёт покупка
+function offerContents(b, id) {
+  const P = G.profile, items = offerPreview(id) || [];
+  const pack = id === 'starter_pack' ? [['gold', 1000, 'золота'], ['potion_hp', 10, 'зелий здоровья'], ['potion_mp', 5, 'зелий маны']] : id === 'potion_pack' ? [['potion_hp', 15, 'зелий здоровья'], ['potion_mp', 10, 'зелий маны']] : [];
+  if (pack.length) b.appendChild(el('div', 'of-pack', pack.map(([ic, n, t]) => `<div class="of-x"><img src="${iconURL(ic)}" alt=""><b>×${fmt(n)}</b><small>${t}</small></div>`).join('')));
+  for (const it of items) {
+    const cur = P.gear[it.slot], rows = compare(P, it, it.slot).filter(r => typeof r.delta === 'number' && r.delta !== 0).slice(0, 4);
+    b.appendChild(el('div', 'rw-card r' + it.rarity, `<div class="slot r${it.rarity}"><img src="${iconURL(iconOf(it))}">${it.upg ? `<span class="up">+${it.upg}</span>` : ''}</div><div><div class="it-name" style="color:${RARITY[it.rarity].color}">${esc(it.name)}</div><div class="it-type">${RARITY[it.rarity].name} · ${it.wt ? WEAPONS[it.wt].name : SLOT_NAMES[it.slot]} · ⚔ ${itemPower(it)}</div>${it.affixes.slice(0, 3).map(a => `<div class="it-aff">${esc(affixText(a))}</div>`).join('')}${epicOf(it) ? `<div class="it-epic">★ ${esc(epicOf(it).desc)}</div>` : ''}
+      <div class="rw-eq"><div class="muted" style="margin:4px 0">Сейчас надето: «${esc(cur ? cur.name : '—')}»${cur ? ` · ⚔ ${itemPower(cur)}` : ''}</div>${rows.map(r => `<div class="cmp ${r.delta > 0 ? 'up' : 'dn'}"><span>${esc(r.label)}</span><b>${r.before}${r.suf} → ${r.after}${r.suf} ${r.delta > 0 ? '▲' : '▼'}</b></div>`).join('')}</div></div>`));
+  }
+}
 export function showWallOffer() {
   const w = wallOffer(); if (!w || G.modalOpen || inCombat() || inCinema()) return false;
   markShown(w.id, w.promo);
@@ -814,6 +827,7 @@ export function showWallOffer() {
   const price = !pr ? '' : typeof pr === 'string' ? esc(pr) : `${esc(pr.value)} ${pr.img ? `<img class="cur" src="${esc(pr.img)}" alt="${esc(pr.code)}">` : esc(pr.code)}`;
   modal(w.product.title, 'sm', b => {
     b.appendChild(el('div', 'offer', `<div class="ic">${esc(w.product.icon || '★')}</div><div class="tx"><b>${esc(w.product.desc)}</b><div class="muted">${esc(w.why)}</div></div>`));
+    offerContents(b, w.id);
     b.appendChild(el('p', 'muted', 'Без покупки игра проходится полностью. Бесплатные пути: прокачаться в уже открытых местах, закалить и слить вещи у кузнеца Горана, пройти этапы Летописи битв.'));
     const r = el('div', 'row');
     const bt = el('button', 'btn gold', price || 'Купить'); bt.onclick = () => { closeModal(); buy(w.id); };
