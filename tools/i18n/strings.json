@@ -5936,14 +5936,6 @@
   "w": "js/platform/platform.js"
  },
  {
-  "k": "[fx] нет листа",
-  "w": "js/render/fxsheets.js"
- },
- {
-  "k": "[fx] нет",
-  "w": "js/render/fxsheets.js"
- },
- {
   "k": "[render] WebGL недоступен — 2D",
   "w": "js/render/index.js"
  },

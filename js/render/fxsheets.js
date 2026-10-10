@@ -9,7 +9,7 @@ const sheets = new Map();   // id -> { ...meta, img }
 let started = false;
 export function preloadFxSheets() {
   if (started) return; started = true;
-  loadJSON(META).then(J => { for (const [id, m] of Object.entries(J)) loadImage(m.file.replace(/^assets\//, '')).then(img => sheets.set(id, { ...m, img }), () => console.warn('[fx] нет листа', id)); }, () => console.warn('[fx] нет', META));
+  loadJSON(META).then(J => { for (const [id, m] of Object.entries(J)) loadImage(m.file.replace(/^assets\//, '')).then(img => sheets.set(id, { ...m, img }), () => console.warn('[fx] missing sheet', id)); }, () => console.warn('[fx] missing', META));
 }
 // подкраска общих листов зверей под край (промт: «игра подкрашивает под локацию»); катакомбы — как нарисовано
 const TINT = { forest: '#dcf0c0', temple: '#ffe6b4', fjord: '#b4dcff', bones: '#ffc8a0' };
