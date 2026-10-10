@@ -5,6 +5,7 @@ import { U, toon, HFOG_F, hfogTex } from './toon.js';
 import { rng, fbm, noise, paint, merge } from './geo.js';
 import { noiseTex, grassTex, dirtTex, mossTex, flagTex } from './textures.js';
 import { GRASS, GRASS_K, SHADOW } from './style.js';
+import { shared, disposeObject } from './dispose.js';
 
 const GRASS_VS = /* glsl */`
 #include <common>
@@ -248,7 +249,7 @@ export function buildGround(scene, zone, opts = {}) {
     const g0 = new THREE.BufferGeometry();
     g0.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g0.setAttribute('color', new THREE.BufferAttribute(col, 4)); g0.setAttribute('aKind', new THREE.BufferAttribute(kind, 4)); g0.setAttribute('aPath', new THREE.BufferAttribute(pathF, 1));
     g0.setIndex(idx); g0.computeVertexNormals();
-    GC = g0; if (vil) { GROUND_CACHE.clear(); GROUND_CACHE.set(gkey, GC); }
+    GC = g0; if (vil) { for (const g of GROUND_CACHE.values()) g.dispose(); GROUND_CACHE.clear(); GROUND_CACHE.set(gkey, shared(GC)); }
   }
   const geo = GC;
   const ground = new THREE.Mesh(geo, groundMaterial(snow, !!opts.forest, zone.json.village ? 0 : 1, steppe, vil ? portalSpots(zone) : [])); ground.userData.noOutline = true; ground.receiveShadow = true; scene.add(ground);
@@ -258,7 +259,7 @@ export function buildGround(scene, zone, opts = {}) {
   if (!opts.abyss) far.position.set(W / 2, -0.4, H / 2); scene.add(far);
 
   // вода: плоскость над впадиной; видна только там, где земля провалилась ниже -0.08, поэтому берег получается плавным
-  let water = null; const wt = [];
+  let water = null, distTex = null; const wt = [];
   for (let ty = 0; ty < H; ty++) for (let tx = 0; tx < W; tx++) if (m.rows[ty][tx] === '~') wt.push([tx, ty]);
   if (wt.length) {
     let x0w = Math.min(...wt.map(t => t[0])) - 1, x1w = Math.max(...wt.map(t => t[0])) + 2, y0w = Math.min(...wt.map(t => t[1])) - 1, y1w = Math.max(...wt.map(t => t[1])) + 2;
@@ -269,7 +270,7 @@ export function buildGround(scene, zone, opts = {}) {
       const d = new Float32Array(W * H).fill(0), isW = (x, y) => x < 0 || y < 0 || x >= W || y >= H ? (m.rows[Math.max(0, Math.min(H - 1, y))][Math.max(0, Math.min(W - 1, x))] === '~') : m.rows[y][x] === '~' || m.rows[y][x] === 'b';
       for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (isW(x, y)) { let r = 9; for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) if (!isW(x + dx, y + dy)) r = Math.min(r, Math.hypot(dx, dy)); d[y * W + x] = Math.min(1, (r - 0.5) / 1.6); }
       const px = new Uint8Array(W * H * 4); for (let i = 0; i < W * H; i++) { px[i * 4] = d[i] * 255; px[i * 4 + 3] = 255; }
-      const tx = new THREE.DataTexture(px, W, H); tx.magFilter = tx.minFilter = THREE.LinearFilter; tx.needsUpdate = true;
+      const tx = distTex = new THREE.DataTexture(px, W, H); tx.magFilter = tx.minFilter = THREE.LinearFilter; tx.needsUpdate = true;
       Object.assign(water.material.uniforms, { tDist: { value: tx }, uDist: { value: 1 }, uSize: { value: new THREE.Vector2(W, H) } });
     }
     water.userData.noOutline = true; scene.add(water);
@@ -369,7 +370,7 @@ export function buildGround(scene, zone, opts = {}) {
       if (on) { grassU.uShadowMap.value = sm.map.texture; grassU.uShadowMat.value.copy(sm.matrix); grassU.uShadowTexel.value.set(1 / sm.mapSize.x, 1 / sm.mapSize.y); }
     },
     update(blobs) { for (let i = 0; i < 12; i++) { const b = blobs[i], v = grassU.uBlobs.value[i]; if (b) v.set(b.x, b.z, b.r, b.w ?? 1); else v.set(999, 999, 0.5, 0); } },
-    dispose() { if (far.userData.parts) for (const o of far.userData.parts) o.geometry.dispose(); for (const o of [ground, far, water, cob, ...grass]) if (o) { o.removeFromParent(); o.geometry.dispose(); } },
+    dispose() { for (const o of [ground, far, water, cob, ...grass]) disposeObject(o); if (distTex) distTex.dispose(); },   // сетка деревни (GROUND_CACHE) и трава из GRASS_CACHE — shared
   };
 }
 

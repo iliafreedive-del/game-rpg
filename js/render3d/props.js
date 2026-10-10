@@ -12,6 +12,7 @@ import { walls as templeWalls, swap as templeSwap, liveDef as templeLive, temple
 import { SKINS } from './glbskin.js';
 import { portalsReady } from './portalglb.js';
 import { altarReady } from './altarglb.js';
+import { shared, disposeObject } from './dispose.js';
 
 const hash = (x, y) => { let h = (Math.round(x * 31) * 374761393 + Math.round(y * 31) * 668265263) >>> 0; h = (h ^ (h >>> 13)) * 1274126177 >>> 0; return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
 const warned = new Set();
@@ -198,7 +199,7 @@ export class PropLayer {
     const ol = this.outlineFor(def); if (ol) addOutlines(model.root, ol);
     model.root.traverse(o => { if (o.isMesh && !o.userData.isOutline) { o.castShadow = def.shadow !== false && !def.shadowProxy; o.receiveShadow = true; } });
     if (def.shadowProxy) { const pm = new THREE.Mesh(def.shadowProxy(this.kit), proxyMat()); pm.castShadow = true; pm.layers.set(1); pm.userData.isOutline = true; model.root.add(pm); }
-    this.items.push(g); if (model.update) this.dyn.push(model); else if (key) BUILT.set(key, model.root);
+    this.items.push(g); if (model.update) this.dyn.push(model); else if (key) { model.root.traverse(o => shared(o.geometry)); BUILT.set(key, model.root); }
     if (model.root.userData.smoke) { g.updateMatrixWorld(true); for (const p of model.root.userData.smoke) this.smoke.push({ p: model.root.localToWorld(new THREE.Vector3(p[0], p[1], p[2])), dark: !!p[3] }); }   // [x, y, z, тёмный дым горна]
     return g;
   }
@@ -209,7 +210,7 @@ export class PropLayer {
       const root = def.build(this.kit).root; root.updateMatrixWorld(true);
       const meshes = []; root.traverse(o => { if (o.isMesh) { const g = o.geometry.clone(); g.applyMatrix4(o.matrixWorld); meshes.push({ geo: g, mat: o.material }); } });
       const bs = new THREE.Box3().setFromObject(root).getBoundingSphere(new THREE.Sphere());
-      B = { meshes, r: bs.radius, proxy: def.shadowProxy ? def.shadowProxy(this.kit) : null }; if (key) BATCHED.set(key, B);
+      B = { meshes, r: bs.radius, proxy: def.shadowProxy ? def.shadowProxy(this.kit) : null }; if (key) { for (const x of meshes) shared(x.geo); shared(B.proxy); BATCHED.set(key, B); }
     }
     const ol = this.outlineFor(def), meshes = B.meshes;
     const parts = meshes.map(({ geo, mat }) => {
@@ -251,5 +252,5 @@ export class PropLayer {
   }
   setQuality(q) { this.quality = q; const k = QUALITY[q] ? QUALITY[q].decor : 1; if (k !== this.decorK) { this.decorK = k; this.lastK = 1e9; } }
   update(t) { this.syncLive(); for (const d of this.dyn) d.update(t); }
-  dispose() { for (const o of this.items) { o.removeFromParent(); if (o.isInstancedMesh) o.dispose(); } this.items = []; }
+  dispose() { for (const o of this.items) disposeObject(o); this.items = []; }   // кеш BUILT/BATCHED помечен shared() — его геометрии остаются
 }

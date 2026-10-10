@@ -8,6 +8,7 @@ import { toon } from './toon.js';
 import { SKINS, preloadSkin } from './glbskin.js';
 import { preloadMob } from './glbmob.js';
 import { STONE_GLB, STONE_SKINS } from './models/mob/_stone.js';
+import { shared } from './dispose.js';
 
 const BASE = new URL('../../assets/models/temple/', import.meta.url).href;
 const PACKS = ['walls', 'ruins'];
@@ -26,7 +27,7 @@ export function preloadTemple() {
       if (!o.isMesh) return;
       if (!m) { m = toon(0xffffff, { rim: 0.22, rimColor: 0xfff0c8, side: THREE.DoubleSide, ao: 0.72, aoH: 1.1, fade: true }); m.map = o.material.map; if (m.map) { m.map.colorSpace = THREE.SRGBColorSpace; m.map.anisotropy = 4; } }
       o.geometry.computeBoundingBox(); const b = o.geometry.boundingBox;
-      OBJ.set(o.name, { geometry: o.geometry, mat: m, w: b.max.x - b.min.x, d: b.max.z - b.min.z });
+      OBJ.set(o.name, { geometry: shared(o.geometry), mat: m, w: b.max.x - b.min.x, d: b.max.z - b.min.z });
     });
   }))]).then(() => (ready = true)).catch(e => { console.warn('temple packs', e); return false; });
   return wait;

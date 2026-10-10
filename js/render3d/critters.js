@@ -7,6 +7,7 @@
 import * as THREE from '../vendor/three.module.min.js';
 import { toon, outline } from './toon.js';
 import { OUTLINE } from './style.js';
+import { shared, disposeObject } from './dispose.js';
 
 // Курица из Meshy на прежнем риге: кости = те же группы (тело в начале координат, голова (0; 0,4; 0,2), ноги (±0,07; 0,18; 0)), веса — по положению вершины
 const CH_GEO = new Map();
@@ -23,7 +24,7 @@ function chickenGeo(kit, name) {
     si.set([0, 1, 2, 3], i * 4); sw.set([1 - wh - wl, wh, wl * (1 - sr), wl * sr], i * 4);
   }
   g.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(si, 4)); g.setAttribute('skinWeight', new THREE.Float32BufferAttribute(sw, 4));
-  g.computeBoundingSphere(); const r = { geometry: g, map: d.map }; CH_GEO.set(name, r); return r;
+  g.computeBoundingSphere(); const r = { geometry: shared(g), map: d.map }; CH_GEO.set(name, r); return r;
 }
 const glbChicken = (kit, v) => kit.mob && kit.skin.SKINS.on && kit.mob.mobLoaded(v ? 'chicken_red' : 'chicken_white');
 function chickenGlb(kit, v) {
@@ -199,5 +200,5 @@ export class Critters {
       }
     }
   }
-  dispose() { for (const a of this.list) a.m.root.removeFromParent(); this.list = []; }
+  dispose() { for (const a of this.list) disposeObject(a.m.root); this.list = []; }
 }

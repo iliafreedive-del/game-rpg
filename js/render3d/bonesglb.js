@@ -6,6 +6,7 @@ import * as THREE from '../vendor/three.module.min.js';
 import { GLTFLoader } from '../vendor/GLTFLoader.js';
 import { toon } from './toon.js';
 import { SKINS } from './glbskin.js';
+import { shared } from './dispose.js';
 
 const BASE = new URL('../../assets/models/bones/', import.meta.url).href;
 const PACKS = ['01_giant_landmarks', '02_sandstone', '03_trees', '04_small_plants', '05_buildings', '06_ritual_fences', '07_camp_props', '08_ancient_ruins'];
@@ -28,7 +29,7 @@ function loadPack(p) {
       const pa = o.geometry.attributes.position, ys = Float32Array.from({ length: pa.count }, (_, i) => pa.getY(i)).sort(), lo = ys[Math.floor(ys.length * 0.01)];
       if (SINK[o.name]) o.geometry.translate(0, -SINK[o.name], 0);
       else if (lo > ys[ys.length - 1] * 0.03) o.geometry.translate(0, -lo, 0);
-      OBJ.set(o.name, { geometry: o.geometry, mat });
+      OBJ.set(o.name, { geometry: shared(o.geometry), mat });
     });
   });
   PACK_WAIT.set(p, w); return w;
