@@ -1,0 +1,100 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Звуки природы — превью</title>
+<!-- Офлайн-рендер голосов из js/core/voices.js в WAV: tools/audio/render.mjs открывает эту страницу в Chromium.
+     Можно открыть и руками (npx http-server . → /tools/audio/render.html): кнопки играют сцены вживую. -->
+<body style="font:16px sans-serif;background:#111;color:#ddd">
+<div id="b"></div>
+<script type="module">
+import { MOB, BIRD, BUG, Bed, BEDS, makeReverb } from '../../js/core/voices.js';
+
+const rng = (s) => () => { s |= 0; s = s + 0x6D2B79F5 | 0; let t = Math.imul(s ^ s >>> 15, 1 | s); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+// место звука: громкость, панорама, доля в реверб
+function spot(ac, out, wet, pan = 0, gain = 1, send = 0.2) {
+  const g = ac.createGain(); g.gain.value = gain;
+  const p = ac.createStereoPanner(); p.pan.value = pan; g.connect(p); p.connect(out);
+  const s = ac.createGain(); s.gain.value = send; g.connect(s); s.connect(wet); return g;
+}
+const SCENES = {
+  // лес: ветер с листвой, зяблик, синица, славка, дрозд, кукушка вдали, вой волка далеко
+  forest: { sec: 26, run(ac, out, wet, r) {
+    const bed = new Bed(ac, out, BEDS.forest, r); bed.schedule(26);
+    const birds = [['chaffinch', -0.5, 1.0, 0.6, [1.0, 9.5, 18]], ['tit', 0.55, 1.05, 0.5, [4.2, 13.5, 22]], ['warbler', 0.15, 1.0, 0.45, [6.8, 15.5, 24]], ['blackbird', -0.25, 0.95, 0.55, [2.6, 11.4, 20.2]]];
+    for (const [sp, pan, k, g, times] of birds) for (const t of times) BIRD[sp](ac, spot(ac, out, wet, pan, g, 0.25), t, k, r);
+    for (const t of [8.5]) BIRD.cuckoo(ac, spot(ac, out, wet, 0.7, 0.35, 0.7), t, 1, r);
+    MOB.wolf.idle(ac, spot(ac, out, wet, -0.7, 0.22, 0.9), 16.5, 1, r);
+  } },
+  // фьорды: сильный ветер со свистом, прибой, чайки
+  fjord: { sec: 22, run(ac, out, wet, r) {
+    const bed = new Bed(ac, out, BEDS.fjord, r); bed.schedule(22);
+    for (const [t, pan, g] of [[3, -0.4, 0.5], [9.5, 0.5, 0.35], [15, 0.1, 0.45], [19, -0.6, 0.25]]) BIRD.gull(ac, spot(ac, out, wet, pan, g, 0.4), t, 0.95 + r() * 0.1, r);
+  } },
+  // звери и мобы подряд: собака, куры, волк, кабан, медведь, гиена, скорпион, упырь, драугр, разбойник, берсерк, ведьма, леший, каменный страж, ётун
+  mobs: { sec: 0, run(ac, out, wet, r) {
+    const seq = [['dog', 'idle', 0.85], ['chicken', 'idle', 1], ['wolf', 'alert', 1], ['wolf', 'idle', 1], ['wolf', 'death', 1], ['boar', 'idle', 1], ['boar', 'alert', 1],
+      ['bear', 'alert', 1], ['hyena', 'alert', 1], ['hyena', 'idle', 1], ['scorpion', 'alert', 1], ['ghoul', 'alert', 1], ['ghoul', 'idle', 1], ['draugr', 'idle', 1], ['human', 'alert', 1], ['human', 'alert', 0.9],
+      ['berserk', 'alert', 1], ['hag', 'alert', 1], ['leshy', 'alert', 1], ['stone', 'alert', 1], ['stone', 'death', 1], ['giant', 'alert', 1]];
+    let t = 0.3; for (const [v, k, p] of seq) { t += MOB[v][k](ac, spot(ac, out, wet, (r() - 0.5) * 0.6, 0.9, 0.15), t, p, r) + 0.55; }
+    return t + 0.6;
+  } },
+  village: { sec: 18, run(ac, out, wet, r) {
+    const bed = new Bed(ac, out, BEDS.town, r); bed.schedule(18);
+    for (const t of [1, 5, 9.5, 14]) BIRD.sparrow(ac, spot(ac, out, wet, -0.3 + r() * 0.6, 0.5, 0.2), t, 1, r);
+    for (const t of [2.5, 8, 13]) MOB.chicken.idle(ac, spot(ac, out, wet, 0.5, 0.5, 0.15), t, 1, r);
+    for (const t of [6, 15.5]) MOB.dog.idle(ac, spot(ac, out, wet, -0.5, 0.45, 0.3), t, 0.85, r);
+    BIRD.tit(ac, spot(ac, out, wet, 0.2, 0.4, 0.3), 11, 1, r);
+  } },
+  cave: { sec: 16, run(ac, out, wet, r) {
+    const bed = new Bed(ac, out, BEDS.cave, r); bed.schedule(16);
+    for (let t = 0.5; t < 15; t += 0.7 + r() * 2) BUG.drip(ac, spot(ac, out, wet, (r() - 0.5) * 1.4, 0.25 + r() * 0.2, 0.8), t, 0.8 + r() * 0.5, r);
+    MOB.draugr.idle(ac, spot(ac, out, wet, 0.5, 0.25, 0.9), 6, 1, r); MOB.skeleton.idle(ac, spot(ac, out, wet, -0.4, 0.4, 0.6), 11, 1, r);
+  } },
+  wastes: { sec: 18, run(ac, out, wet, r) {
+    const bed = new Bed(ac, out, BEDS.bones, r); bed.schedule(18);
+    BUG.cicada(ac, spot(ac, out, wet, 0.4, 0.12, 0.2), 2, 1, r); BUG.cicada(ac, spot(ac, out, wet, -0.5, 0.1, 0.2), 9, 0.95, r);
+    BIRD.hawk(ac, spot(ac, out, wet, -0.2, 0.35, 0.6), 6, 1, r); BIRD.crow(ac, spot(ac, out, wet, 0.6, 0.35, 0.4), 13, 1, r);
+    MOB.hyena.idle(ac, spot(ac, out, wet, 0.7, 0.2, 0.8), 15, 1, r);
+  } },
+};
+const reverbFor = (ac, name) => name === 'cave' ? makeReverb(ac, 2.8, 2.2, 0.7) : makeReverb(ac, 1.4, 3.5, 0.4);
+async function render(name, seed = 7) {
+  const S = SCENES[name], sr = 44100;
+  let sec = S.sec;
+  if (!sec) { const probe = new OfflineAudioContext(2, sr, sr); const o = probe.createGain(); sec = S.run(probe, o, o, rng(seed)); }
+  const ac = new OfflineAudioContext(2, Math.ceil(sr * sec), sr);
+  const master = ac.createGain(); master.gain.value = 1; master.connect(ac.destination);
+  const wet = reverbFor(ac, name), wg = ac.createGain(); wg.gain.value = 0.5; wet.connect(wg); wg.connect(master);
+  S.run(ac, master, wet, rng(seed));
+  const buf = await ac.startRendering();
+  return buf;
+}
+function stats(buf) { let pk = 0, ss = 0, n = 0; for (let c = 0; c < buf.numberOfChannels; c++) { const d = buf.getChannelData(c); for (let i = 0; i < d.length; i++) { const v = Math.abs(d[i]); if (v > pk) pk = v; ss += v * v; n++; } } return { peak: pk, rmsDb: 10 * Math.log10(ss / n) }; }
+function wav(buf, norm = 0) {
+  const ch = buf.numberOfChannels, n = buf.length, out = new DataView(new ArrayBuffer(44 + n * ch * 2));
+  const w = (o, s) => { for (let i = 0; i < s.length; i++) out.setUint8(o + i, s.charCodeAt(i)); };
+  w(0, 'RIFF'); out.setUint32(4, 36 + n * ch * 2, true); w(8, 'WAVEfmt '); out.setUint32(16, 16, true); out.setUint16(20, 1, true); out.setUint16(22, ch, true);
+  out.setUint32(24, buf.sampleRate, true); out.setUint32(28, buf.sampleRate * ch * 2, true); out.setUint16(32, ch * 2, true); out.setUint16(34, 16, true); w(36, 'data'); out.setUint32(40, n * ch * 2, true);
+  const k = norm ? norm / stats(buf).peak : 1, cd = [...Array(ch)].map((_, c) => buf.getChannelData(c));
+  for (let i = 0; i < n; i++) for (let c = 0; c < ch; c++) out.setInt16(44 + (i * ch + c) * 2, Math.max(-1, Math.min(1, cd[c][i] * k)) * 32767, true);
+  let s = ''; const u = new Uint8Array(out.buffer); for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000)); return btoa(s);
+}
+// одиночный звук (для подбора громкости): пик и RMS
+async function measure(group, name, kind) {
+  const sr = 44100, ac = new OfflineAudioContext(2, sr * 4, sr), r = rng(3);
+  const tbl = group === 'MOB' ? MOB : group === 'BIRD' ? BIRD : BUG;
+  if (group === 'MOB') tbl[name][kind](ac, ac.destination, 0.05, 1, r); else tbl[name](ac, ac.destination, 0.05, 1, r);
+  return stats(await ac.startRendering());
+}
+window.renderScene = async (name, norm) => wav(await render(name), norm);
+window.sceneStats = async (name) => stats(await render(name));
+window.measureAll = async () => {
+  const res = {};
+  for (const [v, ks] of Object.entries(MOB)) for (const k of Object.keys(ks)) res[`MOB.${v}.${k}`] = await measure('MOB', v, k);
+  for (const v of Object.keys(BIRD)) res['BIRD.' + v] = await measure('BIRD', v);
+  for (const v of Object.keys(BUG)) res['BUG.' + v] = await measure('BUG', v);
+  return res;
+};
+// живое прослушивание
+const b = document.getElementById('b');
+for (const name of Object.keys(SCENES)) { const btn = document.createElement('button'); btn.textContent = name; btn.style.margin = '6px'; btn.onclick = async () => { const buf = await render(name, Math.random() * 1e9 | 0); const ac = new AudioContext(), s = ac.createBufferSource(); s.buffer = buf; s.connect(ac.destination); s.start(); }; b.append(btn); }
+</script>

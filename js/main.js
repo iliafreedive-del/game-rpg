@@ -4,6 +4,7 @@ import { loadGroup, getAtlas } from './core/assets.js';
 import { initInput, initMouse, input } from './core/input.js';
 import { initCamZoom } from './core/camzoom.js';
 import { initAudio, sfx, startMusic, setVolumes, setPaused } from './core/audio.js';
+import './core/nature.js';   // звуки природы и голоса мобов
 import { initRenderer, render, resize, startPreload } from './render/index.js';
 import { newProfile, loadSlots, mergeCloud } from './game/save.js';
 import { stats } from './game/stats.js';

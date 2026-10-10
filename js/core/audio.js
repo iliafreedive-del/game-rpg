@@ -15,6 +15,8 @@ export function initAudio() {
 function apply() { if (!ac) return; sfxG.gain.value = vol.sfx; musG.gain.value = vol.music * 0.35; master.gain.value = (muted || paused) ? 0 : 1; }
 export function setVolumes(s, m) { vol.sfx = s; vol.music = m; apply(); }
 export function setPaused(p) { paused = p; apply(); }
+// контекст и шина «Звуки» для core/nature.js (звуки природы и голоса мобов)
+export const audioBus = () => ac ? { ac, sfx: sfxG, live: !(muted || paused) && ac.state === 'running' } : null;
 let noiseBuf = null;
 function noise() { if (noiseBuf) return noiseBuf; const b = ac.createBuffer(1, ac.sampleRate, ac.sampleRate); const d = b.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; return noiseBuf = b; }
 function env(g, t, a, d, peak) { g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(peak, t + a); g.gain.exponentialRampToValueAtTime(0.0001, t + a + d); }
