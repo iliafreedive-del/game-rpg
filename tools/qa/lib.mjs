@@ -31,6 +31,7 @@ export async function browser() {
 // плюс виртуальные часы: пока время крутит advanceTime, performance.now/Date.now идут вместе с игрой, а не с настоящими часами
 const SEED_JS = seed => `(() => { const rn = performance.now.bind(performance), rd = Date.now, S = { on: false, b: 0, d: 0, add: 0 };
   performance.now = () => S.on ? S.b + S.add : rn(); Date.now = () => S.on ? S.d + S.add : rd();
+  window.__qaRealNow = rn;
   window.__qaClock = { start() { if (!S.on) { S.on = true; S.b = rn(); S.d = rd(); S.add = 0; } }, add(ms) { S.add += ms; }, stop() { S.on = false; } };
   let a = ${seed >>> 0}; Math.random = () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; window.__qaReseed = v => { a = v >>> 0; }; })();`;
 

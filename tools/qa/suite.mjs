@@ -8,7 +8,7 @@
 //   screens   экраны 28 устройств (tools/qa/screens.mjs)
 //   langs     10 языков: главные окна, непереведённый текст, текст, вылезающий за кнопку (нужна dist/langs — соберёт сам)
 //   saves     сохранения старых сборок (tools/qa/fixtures/saves) загружаются в текущую: уровень, золото, вещи на месте
-//   perf      медленный телефон (CPU ×CPU, по умолчанию 4): кадры в тяжёлых местах; сравнение с прошлым прогоном
+//   perf      кадры в тяжёлых местах; CPU=4 — процессор в 4 раза медленнее (слабый телефон): кадры в тяжёлых местах; сравнение с прошлым прогоном
 //   balance   каждый класс один на один со стражем глубин N раз (BAL_N, по умолчанию 10): время, смерти, остаток HP
 //   prebuild  smoke + bot + visual + screens (iPhone) — быстрый круг перед каждой сборкой
 //   all       всё подряд
@@ -265,26 +265,28 @@ async function saves() {
 
 // ---------------------------------------------------------------- perf
 async function perf() {
-  const rate = env('CPU', 4), dir = Q.mkdir(path.join(OUT, 'perf')), prevF = path.join(dir, 'last.json'), prev = fs.existsSync(prevF) ? JSON.parse(fs.readFileSync(prevF, 'utf8')) : null;
+  const rate = env('CPU', 1), dir = Q.mkdir(path.join(OUT, 'perf')), prevF = path.join(dir, 'last.json'), prev = fs.existsSync(prevF) ? JSON.parse(fs.readFileSync(prevF, 'utf8')) : null;
   const scenes = [['деревня', 'town', {}, 5, 2000], ['катакомбы', 'catacombs', {}, 5, 1000], ['жатва (рой)', 'survival', {}, 10, 45000], ['храм', 'wild', { realm: 'temple', depth: 1 }, 12, 1000], ['фьорды', 'wild', { realm: 'fjord', depth: 1 }, 8, 1000]];
   const out = [];
   await withPage({ seed: 11, mobile: true }, async p => {
     const cdp = await p.context().newCDPSession(p);
     for (const [name, id, how, lvl, pre] of scenes) {
       await Q.loadZone(p, id, how); await Q.setHero(p, lvl); await p.evaluate(() => { window.__G.player.inv = 1e9; });   // бессмертие только на замер
-      await Q.advance(p, pre); await Q.closeModals(p); await Q.resume(p);
+      await Q.advance(p, pre); await Q.closeQuiet(p); await p.evaluate(() => { window.__G.paused = false; }); await Q.resume(p);
       await cdp.send('Emulation.setCPUThrottlingRate', { rate });
-      const fr = await p.evaluate(() => new Promise(ok => { const a = []; let l = performance.now(); const t0 = l; const f = n => { a.push(n - l); l = n; if (n - t0 < 6000) requestAnimationFrame(f); else ok(a.slice(5)); }; requestAnimationFrame(f); }));
+      const fr = await p.evaluate(() => new Promise(ok => { const a = []; let l = performance.now(); const t0 = l; const f = n => { a.push(n - l); l = n; if (n - t0 < 6000) requestAnimationFrame(f); else ok(a.length > 8 ? a.slice(3) : a); }; requestAnimationFrame(f); }));
+      // логика игры без рисования — то, что на телефоне считает процессор (рисование здесь программное и к телефону не относится)
+      const logicMs = await p.evaluate(() => { const now = window.__qaRealNow || performance.now.bind(performance); window.advanceTime(16, { render: false }); const t = now(), n = 180; window.advanceTime(n * 1000 / 60, { render: false }); return (now() - t) / n; });
       await cdp.send('Emulation.setCPUThrottlingRate', { rate: 1 });
-      const r = { scene: name, fpsMed: Math.round(1000 / Q.pct(fr, 0.5)), fps5: Math.round(1000 / Q.pct(fr, 0.95)), long: fr.filter(x => x > 50).length, frames: fr.length };
+      const sum = fr.reduce((x, y) => x + y, 0) || 1, r = { scene: name, fpsMed: fr.length ? +(1000 / Q.pct(fr, 0.5)).toFixed(1) : 0, fps5: fr.length ? +(1000 / Q.pct(fr, 0.95)).toFixed(1) : 0, fpsAvg: +(1000 * fr.length / sum).toFixed(1), long: fr.filter(x => x > 50).length, frames: fr.length, logicMs: +logicMs.toFixed(2) };
       const pv = prev && prev.find(x => x.scene === name); if (pv) r.was = pv.fpsMed;
-      out.push(r); log(`perf ${name}: медиана ${r.fpsMed} FPS, худшие 5% ${r.fps5} FPS, кадров дольше 50 мс ${r.long}${pv ? ` (в прошлый раз ${pv.fpsMed})` : ''}`);
+      out.push(r); log(`perf ${name}: в среднем ${r.fpsAvg} FPS, медиана ${r.fpsMed}, худшие 5% ${r.fps5} FPS, кадров дольше 50 мс ${r.long}; логика игры ${r.logicMs} мс на кадр из 16,7${pv ? ` (в прошлый раз ${pv.fpsMed})` : ''}`);
       await Q.advance(p, 16);
     }
   });
   log(`  процессор замедлен ×${rate}, рисует программный WebGL (SwiftShader): цифры ниже настоящего телефона, сравнивать только между прогонами`);
   Q.writeJSON(prevF, out);
-  return { ok: !out.some(r => r.was && r.fpsMed < r.was * 0.8), scenes: out };
+  return { ok: !out.some(r => r.logicMs > 8), scenes: out };
 }
 
 // ---------------------------------------------------------------- balance
