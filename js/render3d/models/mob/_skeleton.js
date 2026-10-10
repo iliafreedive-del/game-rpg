@@ -104,6 +104,7 @@ export function skeleton(kit, L = {}) {
       kit.lathe([[0.05, -0.08], [0.06, -0.15], [0.055, -0.24]], RUST, [0, 0, 0], 0, 1, RUST_T, 7)]);
     const armR = group([-0.36, 0.62, 0], body); armR.add(M(armPart())); const elR = group([0, -0.34, 0], armR); elR.add(M(forePart()));
     const armL = group([0.36, 0.62, 0], body); armL.add(M(armPart())); const elL = group([0, -0.34, 0], armL); elL.add(M(forePart()));
+    armR.rotation.order = armL.rotation.order = 'YXZ';   // поворот вокруг Y — внешний (доворот руки к цели при развёрнутом корпусе); при y = 0 то же, что XYZ
     const handR = group([0, -0.38, 0.03], elR); handR.rotation.x = 1.3;
     const handL = group([0.1, -0.3, 0.1], elL); handL.rotation.y = -0.4;
 
@@ -165,8 +166,9 @@ export function skeleton(kit, L = {}) {
       cast: a => {
         if (L.cast === 'bow') {   // натянуть лук: левая рука вперёд с луком, правая тянет тетиву к плечу и отпускает
           const draw = smooth(a.k / 0.55), rel = smooth((a.k - 0.6) / 0.15); solve(a, 0, 0, 0);
-          body.rotation.y = 0.9; armL.rotation.set(-1.5, 0, 0.1); elL.rotation.x = -0.05;
-          armR.rotation.set(-1.45 + 0.1 * rel, 0, -0.5 * draw * (1 - rel)); elR.rotation.x = -1.9 * draw * (1 - rel) - 0.2;
+          // правки 2 (П28): корпус боком — левым плечом к цели, руки и голова довёрнуты обратно, лук смотрит туда, куда летит стрела (+Z)
+          body.rotation.y = -0.9; head.rotation.y = 0.75; armL.rotation.set(-1.5, 0.9, 0.1); elL.rotation.x = -0.05;
+          armR.rotation.set(-1.45 + 0.1 * rel, 0.9, -0.5 * draw * (1 - rel)); elR.rotation.x = -1.9 * draw * (1 - rel) - 0.2;
         } else if (L.cast === 'staff') {   // воздеть посох и обрушить заклинание вперёд
           const up = smooth(a.k / 0.5), down = smooth((a.k - 0.5) / 0.2); solve(a, 0, 0, 0, 0);
           armR.rotation.set(-0.3 - 2.4 * up + 1.6 * down, 0, -0.25); elR.rotation.x = -0.3; armL.rotation.set(-1.1 * up, 0, 0.6 * up); head.rotation.x = -0.3 * up + 0.2 * down;

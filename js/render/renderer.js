@@ -337,7 +337,7 @@ function drawTelegraphs() {
 function drawProjectiles(emissive) {
   const cam = G.cam, z = cam.zoom, T = G.time;
   for (const p of G.projectiles) {
-    const pz = p.z ?? 1.0;   // высота полёта (у стрел героя — от лука, на высоте плеча)
+    const pz = p.z ?? (p.owner === 'e' && p.kind === 'arrow' ? 1.35 : 1.0);   // высота полёта (у стрел героя — от лука, на высоте плеча; у стрел мобов тоже от лука, а не из груди — П28)
     const [x, y] = cam.toScreen(p.x, p.y, pz);
     const [x2, y2] = cam.toScreen(p.x - p.vx * 0.035, p.y - p.vy * 0.035, pz);
     const ang = Math.atan2(y - y2, x - x2);
