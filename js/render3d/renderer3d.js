@@ -299,7 +299,7 @@ function syncNpcs(dt) {
       if (a.forgeHit !== undefined && hi !== a.forgeHit && a.root.visible) {
         const light = ((hi % 4) + 4) % 4 === 3, d = P ? Math.hypot(P.x - n.x, P.y - n.y) : 99;
         (sparks ||= new Sparks(scene)).burst(n.forge[0] - Math.sin(yaw) * 0.1, n.forge[1] - Math.cos(yaw) * 0.1, 0.99, light ? 10 : 26, yaw);
-        if (d < 16) sfx('forge', (light ? 0.45 : 1) * Math.min(1, 1.25 - d / 16));
+        if (d < 10) sfx('forge', (light ? 0.45 : 1) * Math.min(1, ((10 - d) / 6) ** 2));   // правки 2 (П4): слышно только рядом — до 10 м, громко с 4 м, к краю затухает по квадрату (было до 16 м)
       }
       a.forgeHit = hi; continue;
     }
