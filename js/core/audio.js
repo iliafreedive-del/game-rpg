@@ -1,37 +1,54 @@
 // Procedural WebAudio SFX + generative dungeon/town ambience. No audio files needed (tiny bundle).
 import { playTheme, stopTheme, hasTheme } from './music.js';   // сборка 60: темы деревни и боя Летописи
-let ac = null, master, sfxG, musG, muted = false, paused = false, vol = { sfx: 0.7, music: 0.5 };
+// Правки по скилам (audio-design): тишина — по набору причин (вкладка скрыта, реклама, платформа), а не одним флагом: одна причина
+// не снимает другую (звук не включался поверх рекламы). Громкость ползунка — по слуху (v²), на выходе — ограничитель, у ударов ±5 % высоты.
+let ac = null, master, limiter, sfxG, musG, muted = false, vol = { sfx: 0.7, music: 0.5 };
+const pauseWhy = new Set();
 let musicZone = null, musicNodes = [];
+const VOL_KEY = 'dark_ascent_audio';   // громкость — настройка устройства, а не героя: одна на все сохранения, видна уже на титульном экране
+try { const v = JSON.parse(localStorage.getItem(VOL_KEY)); if (v && v.sfx >= 0 && v.music >= 0) vol = { sfx: +v.sfx, music: +v.music }; } catch { }
+export const deviceVolumes = () => { try { return localStorage.getItem(VOL_KEY) ? { ...vol } : null; } catch { return null; } };
+// iOS Safari после звонка/Siri ставит контекст в 'interrupted' (не 'suspended') — будим при любом не-'running', когда вкладка видна
+function wake() { if (ac && ac.state !== 'running' && ac.state !== 'closed' && !document.hidden) ac.resume().catch(() => { }); }
 export function initAudio() {
   const unlock = () => {
     if (!ac) { try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch { return; }
-      master = ac.createGain(); master.connect(ac.destination);
+      master = ac.createGain(); limiter = ac.createDynamicsCompressor();
+      limiter.threshold.value = -6; limiter.knee.value = 4; limiter.ratio.value = 12; limiter.attack.value = 0.003; limiter.release.value = 0.25;
+      master.connect(limiter); limiter.connect(ac.destination);
       sfxG = ac.createGain(); sfxG.connect(master); musG = ac.createGain(); musG.connect(master); apply();
       if (musicZone) startMusic(musicZone, true); }
-    if (ac.state === 'suspended') ac.resume();
+    wake();
   };
   addEventListener('pointerdown', unlock, { passive: true }); addEventListener('keydown', unlock);
-  document.addEventListener('visibilitychange', () => setPaused(document.hidden));
+  // свёрнутая вкладка: тишина и контекст на паузу (батарея); вернулись — будим. Своя причина 'hidden', не трогает рекламу
+  document.addEventListener('visibilitychange', () => { setPaused(document.hidden, 'hidden'); if (!ac) return; if (document.hidden) ac.suspend().catch(() => { }); else wake(); });
+  addEventListener('pageshow', wake); addEventListener('focus', wake);
 }
-function apply() { if (!ac) return; sfxG.gain.value = vol.sfx; musG.gain.value = vol.music * 0.35; master.gain.value = (muted || paused) ? 0 : 1; }
-export function setVolumes(s, m) { vol.sfx = s; vol.music = m; apply(); }
-export function setPaused(p) { paused = p; apply(); }
+const paused = () => pauseWhy.size > 0;
+function apply() { if (!ac) return; sfxG.gain.value = vol.sfx * vol.sfx; musG.gain.value = vol.music * vol.music * 0.35; master.gain.value = (muted || paused()) ? 0 : 1; }
+export function setVolumes(s, m) { vol.sfx = s; vol.music = m; apply(); try { localStorage.setItem(VOL_KEY, JSON.stringify(vol)); } catch { } }
+// why: 'ad' | 'platform' | 'hidden' | … — звук вернётся, только когда снята каждая причина
+export function setPaused(p, why = 'ad') { if (p) pauseWhy.add(why); else pauseWhy.delete(why); apply(); }
 // контекст и шина «Звуки» для core/nature.js (звуки природы и голоса мобов)
-export const audioBus = () => ac ? { ac, sfx: sfxG, live: !(muted || paused) && ac.state === 'running' } : null;
+export const audioBus = () => ac ? { ac, sfx: sfxG, live: !(muted || paused()) && ac.state === 'running' } : null;
 let noiseBuf = null;
 function noise() { if (noiseBuf) return noiseBuf; const b = ac.createBuffer(1, ac.sampleRate, ac.sampleRate); const d = b.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; return noiseBuf = b; }
 function env(g, t, a, d, peak) { g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(peak, t + a); g.gain.exponentialRampToValueAtTime(0.0001, t + a + d); }
+let pv = 1;   // разброс высоты текущего звука (sfx), ±5 %
 function tone(type, f0, f1, dur, peak = 0.3, delay = 0) {
   const t = ac.currentTime + delay, o = ac.createOscillator(), g = ac.createGain();
-  o.type = type; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t + dur);
+  f0 *= pv; f1 *= pv; o.type = type; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t + dur);
   env(g, t, 0.005, dur, peak); o.connect(g); g.connect(sfxG); o.start(t); o.stop(t + dur + 0.05);
 }
 function nz(dur, freq, q = 1, peak = 0.3, type = 'bandpass', delay = 0, f1) {
   const t = ac.currentTime + delay, s = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain();
-  s.buffer = noise(); f.type = type; f.frequency.setValueAtTime(freq, t); if (f1) f.frequency.exponentialRampToValueAtTime(f1, t + dur); f.Q.value = q;
+  s.buffer = noise(); freq *= pv; if (f1) f1 *= pv; f.type = type; f.frequency.setValueAtTime(freq, t); if (f1) f.frequency.exponentialRampToValueAtTime(f1, t + dur); f.Q.value = q;
   env(g, t, 0.004, dur, peak); s.connect(f); f.connect(g); g.connect(sfxG); s.start(t, Math.random() * 0.5); s.stop(t + dur + 0.05);
 }
 const last = {};
+// разброс высоты — только у повторяющихся звуков боя (мелодии наград и интерфейса звучат как есть)
+const VARY = new Set(['swing', 'swingE', 'hit', 'heavy', 'hurt', 'bones', 'death', 'bow', 'cast', 'fire', 'ice', 'zap', 'boom', 'whirl', 'dodge', 'block', 'coin', 'pickup']);
 const SFX = {
   swing: () => nz(0.16, 1800, 0.8, 0.22, 'bandpass', 0, 600),
   swingE: () => nz(0.18, 1200, 0.8, 0.18, 'bandpass', 0, 500),
@@ -73,9 +90,10 @@ const SFX = {
   click: () => tone('triangle', 900, 700, 0.04, 0.06),
 };
 export function sfx(name, k) {   // k — громкость 0..1 (если звук её понимает)
-  if (!ac || muted || paused || !SFX[name]) return;
+  if (!ac || muted || paused() || !SFX[name]) return;
   const now = performance.now(); if (last[name] && now - last[name] < 35) return; last[name] = now;
-  try { SFX[name](k); } catch { }
+  pv = VARY.has(name) ? 0.95 + Math.random() * 0.1 : 1;
+  try { SFX[name](k); } catch { } pv = 1;
 }
 // generative ambience: drone + sparse bell notes (minor mode); town is warmer and brighter
 export function startMusic(zone, force) {
@@ -91,7 +109,7 @@ export function startMusic(zone, force) {
   const scale = zone === 'town' ? [0, 3, 5, 7, 10, 12, 15] : [0, 1, 5, 7, 8, 12];
   const bell = () => {
     if (musicZone !== zone || !ac) return;
-    if (!paused) { const f = base * 4 * Math.pow(2, scale[Math.floor(Math.random() * scale.length)] / 12); const t = ac.currentTime, o = ac.createOscillator(), g = ac.createGain(); o.type = 'sine'; o.frequency.value = f; env(g, t, 0.02, 2.5, 0.06); o.connect(g); g.connect(musG); o.start(t); o.stop(t + 2.6); }
+    if (!paused()) { const f = base * 4 * Math.pow(2, scale[Math.floor(Math.random() * scale.length)] / 12); const t = ac.currentTime, o = ac.createOscillator(), g = ac.createGain(); o.type = 'sine'; o.frequency.value = f; env(g, t, 0.02, 2.5, 0.06); o.connect(g); g.connect(musG); o.start(t); o.stop(t + 2.6); }
     setTimeout(bell, 1800 + Math.random() * 3500);
   };
   setTimeout(bell, 1500);

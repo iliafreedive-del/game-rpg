@@ -36,8 +36,10 @@ button{font:inherit;color:inherit;cursor:pointer}
 .mbtn svg{width:22px;height:22px;fill:none;stroke:var(--gold);stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .mbtn:active{transform:scale(.94)}
 .dot{position:absolute;top:-4px;right:-4px;min-width:16px;height:16px;border-radius:8px;background:#d33;color:#fff;font:bold 10px/16px sans-serif;text-align:center;padding:0 3px;border:1px solid #000}
-#goldBox{font:600 14px var(--serif);color:var(--gold);background:#000a;padding:3px 9px;border-radius:12px;border:1px solid #5a4520;display:flex;gap:10px}
+#goldBox{font:600 14px var(--serif);color:var(--gold);padding:3px 18px;border:0 solid;border-image:url(../assets/art/gpt/ui/currency_panel.png) 0 40 fill / 0 17px / 0 stretch;display:flex;gap:10px}   /* П44: подложка GPT (9-slice) */
 #goldBox span{white-space:nowrap}
+#goldBox .gb{display:inline-flex;align-items:center;gap:3px}#goldBox b{font-weight:600}#goldBox .ico{height:19px;margin:0;vertical-align:0}
+#torchN b{color:#ffcf7a}
 #tracker{background:linear-gradient(90deg,#0000,#000b 25%);padding:6px 10px 7px 26px;border-radius:6px;text-align:right;pointer-events:auto;cursor:pointer;max-width:100%}
 #tracker .ch{font:italic 11px var(--serif);color:var(--dim)}
 #tracker .t{font:600 14px var(--serif);color:var(--gold)}
@@ -176,6 +178,10 @@ p{margin:6px 0}
 .demo-ad-tag{font:bold 11px sans-serif;color:#ffcf4a;letter-spacing:.1em}.demo-ad-t{font:600 18px sans-serif}
 .demo-ad-bar{width:100%;height:6px;background:#333;border-radius:3px;overflow:hidden}.demo-ad-bar i{display:block;height:100%;width:0;background:#6ac46a}
 .demo-ad-x{position:absolute;right:8px;top:6px;background:none;border:0;color:#888;font-size:18px}
+/* правки 2 (П12): пауза после сворачивания вкладки — поверх всего, ждёт «Продолжить» */
+.pause-ov{position:fixed;inset:0;z-index:300;background:#000b;display:grid;place-items:center}
+.pause-box{display:flex;flex-direction:column;gap:16px;align-items:center;padding:24px 32px;background:#1c1810ee;border:1px solid #6a5426;border-radius:12px}
+.pause-t{font:600 26px Georgia}.pause-box .btn{min-width:180px;min-height:48px;font-size:18px}
 #rotateHint{display:none}
 /* ------- responsive */
 @media (max-width:760px){
@@ -228,6 +234,9 @@ p{margin:6px 0}
 .rw-card .btn{grid-column:1 / -1}
 .rw-card.r1{border-color:#2a7a34;box-shadow:0 0 12px #5fd16a33}.rw-card.r2{border-color:#2b56a8;box-shadow:0 0 16px #6ea8ff33}.rw-card.r3{border-color:#8d6c10;box-shadow:0 0 22px #f2cf4a66}
 @keyframes rwin{from{transform:translateY(12px) scale(.9);opacity:0}}
+.pet-rv .pet-rv-ic{position:relative;font-size:76px;line-height:1.1;filter:drop-shadow(0 0 18px #ffb040) drop-shadow(0 4px 4px #000);animation:petrv 1.6s ease-in-out infinite}
+@keyframes petrv{50%{transform:translateY(-6px) scale(1.06)}}
+.pet-rv-tier{position:relative;font:600 13px var(--serif);margin-top:2px}.pet-rv-d{text-align:center;margin:6px 4px}
 .rw-loot{text-align:center;font:600 15px var(--serif);margin:8px 0}
 /* hidden floating joystick: appears where the thumb lands */
 #joyBase{opacity:0}
@@ -288,6 +297,11 @@ button,.slot,.node,.tab{touch-action:manipulation}
 .pn-head b{display:block;font:600 16px var(--serif);color:var(--gold)}.pn-head small{display:block;color:var(--dim);font-size:11px;margin-bottom:4px}
 .pn-bal{font-size:12px;margin:2px 0 6px;color:#ddd}
 .c-gold{color:#ffd45a;font-weight:700}.c-shard{color:#d49bff;font-weight:700}
+/* П44: иконки валют (util.js ICO) — по высоте строки текста; горсть и крупный осколок — для наград, Кофи, подсказки */
+.ico{height:1.25em;width:auto;vertical-align:-.28em;margin:0 .06em;filter:drop-shadow(0 1px 1px #000c)}
+.ico-pile{display:block;width:84px;height:84px;margin:2px auto -4px;filter:drop-shadow(0 0 10px #9a5aff88)}
+.ico-big{float:left;width:46px;height:46px;margin:-6px 6px -6px -4px}
+.pn-shards .ico-pile{float:left;width:46px;height:46px;margin:0 6px 0 0}.pn-shards{overflow:hidden}
 .pn-row{display:flex;align-items:center;gap:8px;padding:6px;border-radius:8px;background:#0006;margin-bottom:5px;border:1px solid #2e2428}
 .pn-row.hot{border-color:#d8a84a;box-shadow:0 0 10px #d8a84a44}
 .pn-ic{width:32px;height:32px;flex:none;display:grid;place-items:center;font:bold 18px var(--serif);color:var(--gold);background:#2a2026;border-radius:6px}
@@ -310,7 +324,7 @@ button,.slot,.node,.tab{touch-action:manipulation}
 /* «Летопись битв» mini-game */
 .hw-root{position:fixed;inset:0;z-index:40;background:radial-gradient(ellipse at 50% 30%,#3a2a1c,#0c0806 75%);display:flex;flex-direction:column;align-items:center;padding:calc(6px + var(--safe-t)) calc(8px + var(--safe-r)) calc(8px + var(--safe-b)) calc(8px + var(--safe-l));overflow:auto;touch-action:pan-y}
 .hw-top{width:100%;display:flex;gap:8px;align-items:center;justify-content:flex-end;flex-wrap:wrap}
-.hw-cur{background:#000a;border:1px solid #5a4520;border-radius:14px;padding:4px 10px;font:600 14px var(--serif);color:#f2e6c8}
+.hw-cur{border:0 solid;border-image:url(../assets/art/gpt/ui/currency_panel.png) 0 40 fill / 0 17px / 0 stretch;padding:5px 18px;font:600 14px var(--serif);color:#f2e6c8;display:inline-flex;align-items:center;gap:4px}
 .hw-cur small{color:var(--dim);font:11px sans-serif}
 .hw-x{width:40px;height:40px;border-radius:8px;border:1px solid var(--line);background:#2a1a14;color:#ffb0a0;font-size:18px}
 .hw-map{margin-top:10px;width:min(760px,100%);background:linear-gradient(#e8d4a8,#cdb484);border:6px solid #5a3e22;border-radius:10px;box-shadow:inset 0 0 40px #8a6a3a,0 10px 30px #000;padding:12px;color:#3a2410}
@@ -343,7 +357,7 @@ button,.slot,.node,.tab{touch-action:manipulation}
 html,body,canvas#game,#ui,#joyZone{cursor:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%2232%22%20height%3D%2232%22%20viewBox%3D%220%200%2032%2032%22%3E%3Cdefs%3E%3ClinearGradient%20id%3D%22g%22%20x1%3D%220%22%20y1%3D%220%22%20x2%3D%221%22%20y2%3D%221%22%3E%3Cstop%20offset%3D%220%22%20stop-color%3D%22%23fff3c8%22/%3E%3Cstop%20offset%3D%22.5%22%20stop-color%3D%22%23e8b64a%22/%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%237a4a12%22/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath%20d%3D%22M2%202%20L20%208%20L13%2011%20L22%2020%20L20%2022%20L11%2013%20L8%2020%20Z%22%20fill%3D%22url%28%23g%29%22%20stroke%3D%22%231a0e04%22%20stroke-width%3D%221.6%22%20stroke-linejoin%3D%22round%22/%3E%3Cpath%20d%3D%22M4.5%204.5%20L15%208.5%22%20stroke%3D%22%23fff8e0%22%20stroke-width%3D%221%22%20opacity%3D%22.8%22/%3E%3C/svg%3E") 2 2,auto}
 button,.slot,.node,.tab,.hw-stage,[data-open]{cursor:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%2232%22%20height%3D%2232%22%20viewBox%3D%220%200%2032%2032%22%3E%3Cdefs%3E%3ClinearGradient%20id%3D%22g%22%20x1%3D%220%22%20y1%3D%220%22%20x2%3D%221%22%20y2%3D%221%22%3E%3Cstop%20offset%3D%220%22%20stop-color%3D%22%23ffffff%22/%3E%3Cstop%20offset%3D%22.5%22%20stop-color%3D%22%23ffd87a%22/%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%237a4a12%22/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath%20d%3D%22M2%202%20L20%208%20L13%2011%20L22%2020%20L20%2022%20L11%2013%20L8%2020%20Z%22%20fill%3D%22url%28%23g%29%22%20stroke%3D%22%231a0e04%22%20stroke-width%3D%221.6%22%20stroke-linejoin%3D%22round%22/%3E%3Cpath%20d%3D%22M4.5%204.5%20L15%208.5%22%20stroke%3D%22%23fff8e0%22%20stroke-width%3D%221%22%20opacity%3D%22.8%22/%3E%3C/svg%3E") 2 2,pointer}
 /* survival HUD */
-#survHud{position:absolute;top:calc(8px + var(--safe-t));left:50%;transform:translateX(-50%);width:min(420px,50vw);text-align:center;pointer-events:none}
+#survHud{position:absolute;top:calc(8px + var(--safe-t));left:50%;transform:translateX(-50%);width:min(420px,36vw);text-align:center;pointer-events:none}
 #survHud .sv-time{font:bold 22px var(--serif);color:#ffe08a;text-shadow:0 2px 3px #000,0 0 10px #c88a10}
 #survHud .sv-xp{height:8px;border-radius:4px;background:#0009;border:1px solid #6a3aa0;overflow:hidden;margin:3px 0}#survHud .sv-xp i{display:block;height:100%;background:linear-gradient(90deg,#6ae0ff,#c07bff)}
 #survHud .sv-info{font:600 12px sans-serif;color:#e6dcff;text-shadow:0 1px 2px #000}
@@ -438,6 +452,7 @@ canvas#game{filter:saturate(1.22) contrast(1.08) brightness(1.06)}
 #potMP{background:radial-gradient(circle at 40% 35%,#6aa8ff,#14347a 70%)!important;border-color:#b0d0ff!important;box-shadow:0 0 12px #3a7aff88}
 #btnDodge{background:radial-gradient(circle at 40% 35%,#ffe08a,#8a5a10 70%)!important;border-color:#ffe9b0!important;box-shadow:0 0 12px #ffc23a88}
 #btnDodge svg{stroke:#1a1006!important;stroke-width:3}
+#btnDodge.hint{animation:dodgeHint .28s ease-in-out 4 alternate}@keyframes dodgeHint{to{transform:scale(1.22);box-shadow:0 0 0 4px #fff3,0 0 28px 8px #ffd24a}}   /* П51: напоминание о рывке в бою с боссом */
 #potHP .pcount,#potMP .pcount{font-weight:800;text-shadow:0 1px 2px #000}
 #btnAtk{box-shadow:0 0 0 3px #d8a84a,0 0 22px #d8a84a88!important}
 /* low health: pulsing red vignette + pulsing potion */
@@ -502,7 +517,8 @@ canvas#game{filter:saturate(1.22) contrast(1.08) brightness(1.06)}
 .eq-lv{position:absolute;left:5px;bottom:2px;font:800 11px sans-serif;color:#fff;text-shadow:0 1px 2px #000}
 .eq-up{position:absolute;right:5px;bottom:2px;font:800 11px sans-serif;color:#9fe38e;text-shadow:0 1px 2px #000}
 .eq-ar{position:absolute;right:4px;top:1px;font:900 14px sans-serif;text-shadow:0 1px 2px #000}
-.eq-new{position:absolute;left:4px;top:4px;width:9px;height:9px;border-radius:50%;background:#ffd24a;box-shadow:0 0 8px #ffd24a}
+.eq-new{position:absolute;left:3px;top:3px;padding:1px 4px;border-radius:7px;background:#ffd24a;color:#2a1a00;font:800 9px/12px sans-serif;letter-spacing:.3px;box-shadow:0 0 8px #ffd24a;animation:newp 1.1s ease-in-out infinite alternate}.eq-new.inl{position:static;display:inline-block;animation:none}
+@keyframes newp{from{box-shadow:0 0 3px #ffd24a}to{box-shadow:0 0 12px 2px #ffd24a}}
 .eq-bagh{display:flex;justify-content:space-between;align-items:baseline;margin:12px 2px 6px;font:600 16px var(--serif);color:var(--gold)}
 .eq-tabs{display:flex;gap:6px;overflow-x:auto;margin-bottom:8px}
 .eq-tab{flex:none;padding:6px 12px;border-radius:16px;border:1px solid #4a3a2a;background:#1a1418;color:#cdbf9f;font-size:13px}.eq-tab.on{background:#6a4a1a;color:#fff;border-color:#d8a84a}
@@ -581,7 +597,7 @@ canvas#game{filter:saturate(1.22) contrast(1.08) brightness(1.06)}
 .season-list .sl.mid{border-color:#4a7ab8}.season-list .sl.big{border-color:#d6a548;background:#3a2c12}
 .season-list .sl.open{box-shadow:0 0 8px #d6a54866}.season-list .sl.got{opacity:.5}
 .codex-grid .mg-c{min-height:26px;cursor:default}
-#goalLine{font:600 11px/1.3 sans-serif;color:#ffe2a0;text-shadow:0 1px 2px #000;margin-top:3px}
+#goalLine{font:600 11px/1.3 sans-serif;color:#ffe2a0;text-shadow:0 1px 2px #000;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:min(62vw,420px)}/* сборка 59: одной строкой */
 /* «Охота»: таймер до следующей тревоги / активное чудовище */
 #huntBox{pointer-events:auto;cursor:pointer;font:600 13px var(--serif);color:#e8d9b0;background:#000b;padding:3px 10px;border-radius:12px;border:1px solid #5a4520;white-space:nowrap;text-align:right}
 #huntBox b{color:var(--gold);font-variant-numeric:tabular-nums}
@@ -659,7 +675,7 @@ canvas#game{filter:saturate(1.22) contrast(1.08) brightness(1.06)}
 #carryBar .cb i{display:block;height:100%;width:0;background:linear-gradient(90deg,#d6a548,#e8622a)}
 #carryBar .g{font:400 11px/1.25 sans-serif;color:#cfe3c0;max-height:0;opacity:0;overflow:hidden;transition:opacity .4s,max-height .4s}
 #carryBar .g.show{max-height:60px;opacity:1;margin-top:3px}
-@media (orientation:portrait) and (max-width:760px){#carryBar{top:calc(84px + var(--safe-t));max-width:50vw}}
+@media (orientation:portrait) and (max-width:760px){#carryBar{top:calc(84px + var(--safe-t));max-width:44vw}}
 /* телефон горизонтально (низкий экран): правая колонка — меню и золото в одну строку, охота и задание коротко, кнопки боя чуть меньше */
 @media (orientation:landscape) and (max-height:520px){
   #hudR{gap:4px;max-width:44vw}
@@ -703,7 +719,7 @@ canvas#game{filter:saturate(1.22) contrast(1.08) brightness(1.06)}
 #menu{align-items:center}
 #menu #goldBox{height:30px;align-items:center}
 @media (max-height:500px){#portrait{width:50px;height:50px}#portrait .pt-menu{width:19px;height:19px}#portrait .pt-menu svg{width:11px;height:11px}}
-@media (orientation:landscape) and (max-height:520px){#menu #goldBox{height:26px;font-size:13px;padding:2px 8px}}
+@media (orientation:landscape) and (max-height:520px){#menu #goldBox{height:26px;font-size:13px;padding:2px 15px}#menu #goldBox .ico{height:17px}}
 #title .hero{border-radius:50%;background-size:cover;background-position:center 30%;box-shadow:0 0 0 3px #e8c26a,0 0 0 6px #2a1a08,0 0 0 7px #8a6a2e,0 0 30px #9a4af088;filter:none}
 .class-card img.pt{border:2px solid #e8c26a;box-shadow:0 0 0 3px #2a1a08,0 0 12px #9a4af066}
 .class-card{position:relative}.class-card .cc-save{position:absolute;top:-9px;right:8px;white-space:nowrap;font:600 11px sans-serif;font-style:normal;color:#9fe38e;background:#0008;border:1px solid #3a6a2a;border-radius:8px;padding:1px 7px}
@@ -733,7 +749,7 @@ body.cine-on #ui{opacity:0;transition:opacity .4s}
 #edgeArrow{position:fixed;z-index:70;width:54px;height:54px;margin:-27px 0 0 -27px;pointer-events:none;display:grid;place-items:center;opacity:.95}
 #edgeArrow .ea-g{position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle,#ffd24a55,#ffd24a00 70%)}
 #edgeArrow .ea-a{font-size:30px;color:#ffd96a;text-shadow:0 2px 8px #000,0 0 14px #ffb020}
-#edgeArrow .ea-d{position:absolute;bottom:-4px;left:50%;transform:translateX(-50%);font:700 11px sans-serif;color:#ffe9b0;background:#000a;border-radius:6px;padding:0 4px}
+#edgeArrow .ea-d{position:absolute;bottom:-8px;left:50%;transform:translateX(-50%);font:700 12px sans-serif;color:#ffe9b0;background:#000c;border-radius:6px;padding:1px 5px;white-space:nowrap}
 #btnLead{align-self:flex-end;margin-top:4px;pointer-events:auto;background:linear-gradient(#3a2c12,#1d1509);border:1.5px solid var(--gold);border-radius:10px;color:#ffe9b0;font:600 13px var(--serif);padding:6px 11px;display:flex;gap:5px;align-items:center}
 #btnLead.on{background:linear-gradient(#5a4418,#2d2010);box-shadow:0 0 14px #ffd24a66}
 
@@ -799,6 +815,7 @@ body.photo #hudL,body.photo #hudR,body.photo #pad,body.photo #btnAct,body.photo 
 .art-head.tall{height:clamp(130px,30vh,230px)}
 .art-head img{width:100%;height:100%;object-fit:cover;display:block}
 .art-head::after{content:'';position:absolute;inset:0;background:linear-gradient(transparent 55%,#110d12)}
+@media (max-height:520px){.art-head,.art-head.tall{height:clamp(56px,18vh,96px)}}   /* сборка 59: телефон горизонтально — картинка ниже, кнопки окна видны без прокрутки */
 .boon .bg .art-ic{width:68px;height:68px;display:block;border-radius:10px;box-shadow:0 0 0 1px #0008,0 2px 10px #000a}
 .boon.evo .bg .art-ic{box-shadow:0 0 0 2px #c07bff,0 0 16px #c07bffaa}
 .boon.cursed .bg .art-ic{box-shadow:0 0 0 2px #8a2a3a,0 0 14px #d0304a88}
@@ -810,3 +827,63 @@ body.photo #hudL,body.photo #hudR,body.photo #pad,body.photo #btnAct,body.photo 
 .hw-pano img{width:100%;height:100%;object-fit:cover;display:block}
 .hw-rimg{display:block;width:min(300px,80%);margin:-6px auto -18px;pointer-events:none}
 @media (max-height:500px){.hw-pano{display:none}.hw-rimg{width:180px}}
+/* С4: зона нажатия мелких кнопок не меньше ~44 px — невидимое поле вокруг (сама кнопка того же размера) */
+:where(.btn.sm,.mx,.eq-tab,.pn-btn){position:relative}
+.btn.sm::after,.mx::after,.eq-tab::after,.q-tab::after,.pn-x::after,.pn-btn::after{content:'';position:absolute;inset:-7px}
+.mbtn::before{content:'';position:absolute;inset:-6px}
+.eq-mrg{position:absolute;right:4px;bottom:15px;font:700 12px sans-serif;color:#ffd98a;text-shadow:0 1px 2px #000}
+/* П31: без навыка на ★ большой кнопки удара нет (герой бьёт сам); перезарядка навыка на ней; волны от банки при ≤30% */
+#ui.noatk #btnAtk{display:none}
+#btnAtk .cd{position:absolute;inset:0;border-radius:50%;background:conic-gradient(#000a var(--p,0%),#0000 0);pointer-events:none}
+.potwave{position:absolute;border-radius:50%;pointer-events:none;border:3px solid #ff6a5a;opacity:0;animation:potwave 1.3s ease-out both}
+.potwave.potMP{border-color:#6aa8ff}
+@keyframes potwave{0%{transform:scale(1);opacity:.95}100%{transform:scale(2.3);opacity:0}}
+#pad>.potwave{pointer-events:none}
+.death-help{max-width:420px;padding:8px 12px;border:1px solid #d8a84a88;border-radius:10px;background:#1a1010cc}.death-help p{margin:4px 0 6px}
+.of-pack{display:flex;justify-content:center;gap:10px;margin:8px 0}.of-x{display:flex;flex-direction:column;align-items:center;gap:1px;min-width:64px;padding:6px;border:1px solid #5d4a30;border-radius:10px;background:#1a1418}.of-x img{width:40px;height:40px}.of-x b{color:var(--gold);font-size:14px}.of-x small{font-size:10px;color:#cdbf9f;text-align:center}
+.pn-btn.pn-info{min-width:38px;padding:0}
+.pet-fx{margin:8px 0;padding:8px 10px;border:1px solid #6a5226;border-radius:8px;background:#1e150c}
+/* С26: размер текста — масштаб содержимого окон, панелей NPC, тостов и трекера; «меньше движения» — без бесконечных анимаций */
+.mb>*,.npc-panel>*,#toasts>.toast,#tracker,.ic-box{zoom:var(--fs,1)}
+html.rm *,html.rm *::before,html.rm *::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
+/* сборка 60 (обучение, Летопись, Жатва) */
+.hw-sk{display:flex;flex-wrap:wrap;gap:6px;align-items:center;justify-content:center;margin:4px 0 8px;font-size:13px}.hw-sk .btn small{opacity:.8;font-weight:400}
+.hw-result.up .hw-rt{font-size:26px}
+.hw-lvl{padding:6px 0 4px;margin:-6px -6px 4px}
+.hw-lvl-ic{position:relative;font:bold 54px/1 var(--serif);color:#ffd24a;text-shadow:0 0 18px #ffb040,0 3px 4px #000;animation:petrv 1.6s ease-in-out infinite}
+.hw-lvl-n{position:relative;font:bold 30px var(--serif);color:#ffe9a0;text-shadow:0 0 14px #c88a10}
+.hw-lvl-g{position:relative;color:#9fe38e;font:600 14px var(--serif);margin-top:2px}
+.hw-lvl-e{position:relative;color:#ffd98a;font:600 14px var(--serif);margin-top:4px}
+.hw-xpbar{position:relative;height:16px;margin:8px 10px 2px;border-radius:8px;background:#0008;border:1px solid #5a4a2a;overflow:hidden}
+.hw-xpbar i{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(90deg,#4a8ad8,#8fd0ff);transition:width .8s}
+.hw-xpbar span{position:relative;font:600 11px/16px var(--serif);color:#fff;text-shadow:0 1px 2px #000}
+.lore-how{margin:2px 6px 10px;font:15px/1.5 var(--serif);color:#f0e2c0}.lore-how div{margin:4px 0}
+.rw-skill{margin-top:8px;border-color:#b8903e}.rw-skill canvas{width:64px;height:64px;border-radius:8px}
+@media (max-height:500px){.hw-lvl-ic{font-size:34px}.hw-lvl-n{font-size:22px}.hw-result.up .hw-rimg{display:none}}
+/* правки мамы (М6, М8): строка с одной кнопкой нажимается целиком; кнопка, которую ждёт обучение, пульсирует */
+.pn-row.tap{cursor:pointer}.pn-row.tap:active{background:#2a3a1a88}
+.pn-btn{line-height:1.05}
+.nudge{animation:nudge 1.1s ease-in-out infinite}
+@keyframes nudge{0%,100%{transform:scale(1);box-shadow:0 0 8px #78c05066}50%{transform:scale(1.12);box-shadow:0 0 0 3px #fff8,0 0 22px #ffe070}}
+/* М24: «Веди меня» в начале игры зовёт к себе */
+#btnLead.lure{animation:lure 1.6s ease-in-out infinite}
+@keyframes lure{0%,100%{box-shadow:0 0 0 0 #ffd24a00}50%{box-shadow:0 0 0 4px #ffd24a55,0 0 18px #ffd24a99}}
+/* М21: сегодняшний день календаря — кнопка: пульсирует и нажимается */
+.login-cal .lc.today{cursor:pointer;animation:nudge 1.1s ease-in-out infinite}
+.login-cal .lc .c-shard{font-size:9px}
+/* М2: полоса прокрутки ярче, у края окна — стрелки ▲/▼, пока есть что листать (нажатие листает) */
+.mb,.npc-panel{scrollbar-width:auto;scrollbar-color:#d8a84a #0006}
+.mb::-webkit-scrollbar,.npc-panel::-webkit-scrollbar{width:9px}
+.mb::-webkit-scrollbar-thumb,.npc-panel::-webkit-scrollbar-thumb{background:linear-gradient(#ffd96a,#c08a2a);border-radius:5px;border:1px solid #0008}
+.mb::-webkit-scrollbar-track,.npc-panel::-webkit-scrollbar-track{background:#0005;border-radius:5px}
+.sc-host{position:relative}
+.sc-hint{position:absolute;right:12px;width:34px;height:34px;border-radius:50%;display:grid;place-items:center;font:700 15px sans-serif;color:#2a1a00;background:radial-gradient(#ffe9a0,#d8a84a);box-shadow:0 2px 8px #000c,0 0 12px #ffd24a88;opacity:0;pointer-events:none;transition:opacity .2s;z-index:3}
+.sc-hint.on{opacity:.92;pointer-events:auto}
+.sc-hint.up{top:52px}.sc-hint.dn{bottom:10px;animation:scbob 1.4s ease-in-out infinite}
+@keyframes scbob{0%,100%{transform:translateY(0)}50%{transform:translateY(4px)}}
+.npc-panel.more-dn::after{content:'▼ ещё ниже';position:sticky;bottom:-8px;display:block;margin:4px -8px -8px;padding:4px 0 6px;text-align:center;font:700 12px sans-serif;color:#ffe9a0;background:linear-gradient(#120d1400,#120d14f0 45%);pointer-events:none}
+/* М31: в горизонтальном телефоне окно «Осколок памяти» помещается целиком вместе с «Дальше» */
+@media (max-height:500px){.mem-box .mem-ic{font-size:24px}.mem-box p{font-size:13px;line-height:1.35;margin:3px 0}.mem-seals{margin:4px 0 0}}
+/* М14: полоса загрузки живая — по ней бежит блик, даже когда проценты стоят */
+#loadbar{position:relative}#loadbar::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,#fff0,#ffe9a088,#fff0);width:40%;animation:ldshine 1.3s linear infinite}
+@keyframes ldshine{from{transform:translateX(-100%)}to{transform:translateX(260%)}}

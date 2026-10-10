@@ -3,7 +3,7 @@ import { runFpsTest } from './fpstest.js';
 import { SETS, bonusText } from '../data/sets.js';
 import { setCounts } from '../game/stats.js';
 import { G, bus, inCombat } from '../game/ctx.js';
-import { $, el, esc, fmt } from '../core/util.js';
+import { $, el, esc, fmt, ICO } from '../core/util.js';
 import { SLOTS, SLOT_NAMES, RARITY, WEAPONS, BASE, CLASSES, RARITY_SHORT } from '../data/items.js';
 import { SKILLS, BRANCHES, classSkillOrder, unlockLevel } from '../data/skills.js';
 import { STORY, REPEATABLE, DIALOG, CHAPTER, chapterOf } from '../data/quests.js';
@@ -17,9 +17,9 @@ import { ART, artTag, artHead } from './art.js';
 import { drawMap, seen, seenKey } from './hud.js';
 import { offers, buy, restorePurchases, dailyStatus, claimDaily, chestStatus, chestSkip, openOrderChest, DAILY, LOGIN_DAYS, watchRewarded, offerToken, blessing, blessLeft, BLESS_MIN, BLESS_CAP, BLESS_DAY, blessToday } from '../platform/monetize.js';
 import { PRODUCTS, platform } from '../platform/platform.js';
-import { wallOffer, markShown, streakHelp, helpGiven } from '../platform/offers.js';
+import { wallOffer, markShown, streakHelp, helpGiven, shopGearToday } from '../platform/offers.js';
 import { inCinema } from './cinema.js';
-import { revive, saveNow, loadZone, depthsUnlocked, MAX_REVIVES } from '../game/game.js';
+import { revive, saveNow, loadZone, depthsUnlocked, MAX_REVIVES, inPrologue } from '../game/game.js';
 import { generateFloor, isBossFloor, floorLevel } from '../world/floorgen.js';
 import { REALMS, WILD_QUESTS, wildLevel, isWildBoss, isWildFort, locationName, wildReqLevel, FIELDS_PER_FORT } from '../data/wild.js';
 import { wildState, questProgress, claimQuest } from '../game/wild.js';
@@ -38,11 +38,11 @@ import { MEMORIES, SEALS } from '../data/story.js';
 import { BOONS, BOON_IDS } from '../data/boons.js';
 import { FLOOR_MODS, FLOOR_MOD_IDS, modReward } from '../data/floormods.js';
 import { stats as calcStats } from '../game/stats.js';
-import { particles } from '../game/combat.js';
-import { maybeInterstitial } from '../platform/monetize.js';
-import { petsOf, meetCaravan } from '../game/pets.js';
-import { PETS } from '../data/pets.js';
-import { earlyLock, firstLessonCost, POTION_RESERVE } from '../game/progress.js';
+import { particles, effect } from '../game/combat.js';
+import { maybeInterstitial, offerPreview } from '../platform/monetize.js';
+import { petsOf, meetCaravan, petInfo } from '../game/pets.js';
+import { PETS, TIERS, PET_MAX } from '../data/pets.js';
+import { earlyLock, firstLessonCost, POTION_RESERVE, wildDepthGate } from '../game/progress.js';
 import { platform as PF } from '../platform/platform.js';
 import { wipeLocal, cloudBundle } from '../game/save.js';
 import { setVolumes } from '../core/audio.js';
@@ -50,22 +50,47 @@ import { resize } from '../render/index.js';
 import { zoomRange, zoomNow, setZoom } from '../core/camzoom.js';
 import { hintLog, hintsOn, setHints, MILESTONES, milestones } from './tutorial.js';
 
+// С26: доступность на этом устройстве: fs — масштаб текста окон/панелей/тостов, rm — меньше движения (по умолчанию — как в системе)
+function a11y() { let A = null; try { A = JSON.parse(localStorage.getItem('da_a11y') || 'null'); } catch { } return A || { fs: 1, rm: matchMedia('(prefers-reduced-motion: reduce)').matches }; }
+function setA11y(o) { const A = { ...a11y(), ...o }; try { localStorage.setItem('da_a11y', JSON.stringify(A)); } catch { } applyA11y(A); }
+function applyA11y(A) { document.documentElement.style.setProperty('--fs', A.fs || 1); document.documentElement.classList.toggle('rm', !!A.rm); }
+applyA11y(a11y());
 let cur = null;   // {name, bg, render}
 // сборка 47: окно с lock (первый меч, смерть в Жатве) закрывается только своей кнопкой — closeModal(true).
 // Окна от событий (глава, осколок памяти, босс, итог похода) не вышибают открытое окно, а ждут в очереди.
 const winQ = [];
-export function closeModal(force) { if (!cur || (cur.lock && force !== true)) return; cur.bg.remove(); cur = null; G.atMerchant = false; G.modalOpen = false; G.paused = false; bus.emit('sfx', 'click'); bus.emit('hud'); if (winQ.length) setTimeout(pumpWin, 350); }
-function pumpWin() { if (cur || !winQ.length) return; winQ.shift()(); }
-const later = fn => (...a) => { if (cur) winQ.push(() => fn(...a)); else fn(...a); };
+export function closeModal(force) { if (!cur || (cur.lock && force !== true)) return; cur.bg.remove(); const oc = cur.onClose; cur = null; if (oc) oc(); G.atMerchant = false; G.modalOpen = false; G.paused = false; bus.emit('sfx', 'click'); bus.emit('hud'); if (winQ.length) setTimeout(pumpWin, 350); }
+function pumpWin() { if (busy() || !winQ.length) return; winQ.shift()(); }
+// П11: «занято» — открыто окно, Летопись, панель NPC или облёт камеры; тогда окно от события ждёт (pumpRewards достаёт его, когда освободится)
+const busy = () => !!cur || !!G.cinema || !!G.hwOpen || $('ui').classList.contains('panel-open');   // Летопись (G.hwOpen) — тоже «занято»: окно не всплывает под ней
+const later = fn => (...a) => { if (busy()) winQ.push(() => fn(...a)); else fn(...a); };
 bus.on('closeModal', () => closeModal());
+// М2: на любом окне с прокруткой видно, что его можно листать: яркая полоса прокрутки и стрелки ▲/▼ у края, пока есть что листать
+export function scrollHints(sc, host) {
+  const up = el('div', 'sc-hint up', '▲'), dn = el('div', 'sc-hint dn', '▼'); host.classList.add('sc-host'); host.append(up, dn);
+  const upd = () => { const more = sc.scrollHeight - sc.clientHeight > 6; up.classList.toggle('on', more && sc.scrollTop > 6); dn.classList.toggle('on', more && sc.scrollTop < sc.scrollHeight - sc.clientHeight - 6); };
+  up.onclick = () => sc.scrollBy({ top: -sc.clientHeight * 0.7, behavior: 'smooth' }); dn.onclick = () => sc.scrollBy({ top: sc.clientHeight * 0.7, behavior: 'smooth' });
+  sc.addEventListener('scroll', upd, { passive: true }); new ResizeObserver(upd).observe(sc); new MutationObserver(upd).observe(sc, { childList: true, subtree: true }); setTimeout(upd, 60);
+}
 function modal(title, size, render, opts = {}) {
+  if (G.cinema) { winQ.push(() => modal(title, size, render, opts)); return { bg: document.createElement('div'), body: null }; }   // М31: окно не открывается под облётом камеры — ждёт его конца
   if (cur && cur.lock) { winQ.unshift(() => modal(title, size, render, opts)); return { bg: document.createElement('div'), body: null }; }
-  if (cur) { cur.bg.remove(); } G.atMerchant = false;
+  if (cur) { cur.bg.remove(); if (cur.onClose) cur.onClose(); } G.atMerchant = false;
   const bg = el('div', 'modal-bg'); const m = el('div', 'modal ' + (size || ''));
   const h = el('div', 'mh', `<h2>${esc(title)}</h2>`); const x = el('button', 'mx', '✕'); x.onclick = () => closeModal(); if (!opts.lock) h.appendChild(x);
   const b = el('div', 'mb'); m.append(h, b); bg.appendChild(m);
-  bg.addEventListener('pointerdown', e => { if (e.target === bg && !opts.sticky && !opts.lock) closeModal(); });
+  // П11: тап, начатый ещё по прежнему окну или панели NPC, не закрывает только что всплывшее окно (первые 0,7 с фон не закрывает)
+  const born = performance.now();
+  // правки мамы (М1): в горизонтальном виде окно по центру, а по бокам — затемнённый фон. Палец, ведущий по фону сбоку, тоже листает окно;
+  // поэтому фон закрывает окно не касанием, а коротким нажатием без сдвига (раньше свайп сбоку просто закрывал окно)
+  let drag = null;
+  bg.addEventListener('pointerdown', e => { if (e.target === bg) drag = { id: e.pointerId, y: e.clientY, y0: e.clientY, moved: false }; });
+  bg.addEventListener('pointermove', e => { if (!drag || e.pointerId !== drag.id) return; const dy = e.clientY - drag.y; drag.y = e.clientY;
+    if (Math.abs(e.clientY - drag.y0) > 8) drag.moved = true; if (drag.moved) b.scrollTop -= dy * 1.4; });
+  bg.addEventListener('pointerup', e => { const d = drag; drag = null; if (!d || e.pointerId !== d.id || d.moved || e.target !== bg) return; if (!opts.sticky && !opts.lock && performance.now() - born > 700) closeModal(); });
+  bg.addEventListener('pointercancel', () => { drag = null; });
   document.body.appendChild(bg);
+  scrollHints(b, m);
   // сборка 47: render сохраняет и прокрутку списков внутри окна (путь сезона не прыгает в начало после «Забрать»)
   cur = { lock: !!opts.lock, bg, body: b, render: () => { const st = b.scrollTop, inner = [...b.querySelectorAll('*')].filter(x => x.scrollTop > 0 && x.className).map(x => [x.className, x.scrollTop]); b.innerHTML = ''; render(b); b.scrollTop = st; for (const [c, t] of inner) { const x = b.getElementsByClassName(c)[0]; if (x) x.scrollTop = t; } }, title: h.querySelector('h2') };
   G.modalOpen = true; G.paused = true; cur.render(); return cur;
@@ -79,13 +104,13 @@ export function openWindow(name, arg) {
   bus.emit('sfx', 'click');
   if (TOWN_ONLY[name] && G.zoneId !== 'town') { bus.emit('toast', { text: 'Доступно в деревне', sub: 'Развитие героя — у наставника Элвина', kind: 'warn' }); return; }
   if (name === 'herospath') { openHeroPath(); return; }
-  const f = W[name]; if (f) f(arg);
+  const f = W[name]; if (f) { f(arg); if (cur && !cur.reopen) cur.reopen = () => W[name](arg); }
 }
 bus.on('openNPC', id => { if (id === 'fortune') { openWheel(modal, closeModal); return; } W['npc_' + id](); });
 bus.on('openBoard', () => W.board()); bus.on('openWheel', () => openWheel(modal, closeModal)); bus.on('openHeroPath', () => openHeroPath()); bus.on('openDepths', () => W.depths()); bus.on('openWild', r => W.wild(r)); bus.on('wildCleared', later(r => W.wildResult(r)));
-bus.on('floorResult', r => floorResult(r));
-bus.on('boonChoice', () => boonChoice());
-bus.on('openSurvival', () => W.survival()); bus.on('survLevel', () => survLevel()); bus.on('survEnd', r => survEnd(r)); bus.on('openShrine', () => W.shrine());
+bus.on('floorResult', later(r => floorResult(r)));   // П11: окна от событий ждут, пока закроют открытое
+bus.on('boonChoice', later(() => boonChoice()));
+bus.on('openSurvival', () => W.survival()); bus.on('survLevel', () => survLevel()); bus.on('survEnd', r => survEnd(r)); bus.on('openShrine', () => { W.shrine(); if (cur) cur.reopen = () => W.shrine(); });
 bus.on('showDeath', () => showDeath());
 bus.on('survDeath', () => modal('Вы пали', 'sm', b => {
   b.appendChild(el('p', '', 'Бездна вас одолела. Можно вернуться в бой один раз за забег — или выйти и забрать золото.'));
@@ -98,11 +123,20 @@ bus.on('bossDefeated', later(k => bossReward(k)));
 bus.on('chapterDone', later(n => chapterDone(n)));
 bus.on('memory', later(id => showMemory(id)));
 bus.on('wallOffer', () => showWallOffer());
-bus.on('deathAt', where => setTimeout(() => showStreakHelp(where), 300));
+// П65/П22: подмога Ордена после трёх поражений подряд — теперь внутри экрана гибели (раньше отдельное окно всплывало за 1 с до экрана гибели,
+// пряталось под ним и вылезало уже в деревне). Здесь только запоминаем, что её пора предложить
+let helpWhere = null;
+bus.on('deathAt', where => { helpWhere = streakHelp(where) ? where : null; });
 const rewardQ = [];
-bus.on('reward', r => { rewardQ.push(r); });
+bus.on('reward', r => {   // now — сразу, даже после боя (награда за рекламу)
+  // правки мамы (М22): награда за рекламу или дар дня из открытого окна (Источник силы) показывается сразу поверх него, «Забрать» возвращает в то окно
+  if (r.now && cur && !cur.lock && !G.hwOpen) { r.back = cur.reopen; showReward(r); return; }
+  if (r.now) rewardQ.unshift(r); else rewardQ.push(r); });
 export function pumpRewards() {
-  if (!rewardQ.length || cur || G.player.dead || inCombat() || !G.zoneReady) return;
+  // П11: окно награды ждёт, пока игрок не закроет панель NPC (покупки у Элвина, Миры) и не кончится облёт камеры — не всплывает поверх
+  if (busy() || G.player.dead || !G.zoneReady) return;
+  if (winQ.length) { pumpWin(); return; }
+  if (!rewardQ.length || (inCombat() && !rewardQ[0].now)) return;
   showReward(rewardQ.shift());
 }
 function showReward(r) {
@@ -118,7 +152,7 @@ function showReward(r) {
     for (const en of r.items) {
       const it = en.item;
       const c = el('div', 'rw-card r' + it.rarity, `<div class="slot r${it.rarity}"><img src="${iconURL(iconOf(it))}"></div><div><div class="it-name" style="color:${RARITY[it.rarity].color}">${esc(it.name)}</div><div class="it-type">${RARITY[it.rarity].name} · ${it.wt ? WEAPONS[it.wt].name : SLOT_NAMES[it.slot]}</div>${it.dmg ? `<div class="it-stat">Урон ${it.dmg[0]}–${it.dmg[1]}</div>` : it.armor ? `<div class="it-stat">Защита ${it.armor}</div>` : ''}${it.affixes.slice(0, 3).map(a => `<div class="it-aff">${esc(affixText(a))}</div>`).join('')}${epicOf(it) ? `<div class="it-epic">★ ${esc(epicOf(it).desc)}</div>` : ''}</div>`);
-      if (en.equipped) c.appendChild(el('div', 'rw-eq good', '✔ Надето — слот был пуст'));
+      if (en.equipped) c.appendChild(el('div', 'rw-eq good', '✔ Надето'));
       else if (en.bagged) {
         const rows = (en.cmp || []).map(r => `<div class="cmp ${r.delta > 0 ? 'up' : r.delta < 0 ? 'dn' : ''}"><span>${esc(r.label)}</span><b>${r.before}${r.suf} → ${r.after}${r.suf} ${r.delta > 0 ? '▲' : r.delta < 0 ? '▼' : ''}</b></div>`).join('');
         c.appendChild(el('div', 'rw-eq', `<div class="muted" style="margin:4px 0">Сейчас надето: «${esc(en.old ? en.old.name : '—')}»</div>${rows}`));
@@ -130,10 +164,15 @@ function showReward(r) {
       box.appendChild(c);
     }
     if (r.items.length) b.appendChild(box);
-    const loot = [r.gold && `<span class="goldc">+${fmt(r.gold)} золота</span>`, r.xp && `<span style="color:#b8e3ff">+${r.xp} опыта</span>`, r.potions && `<span style="color:#ff9a9a">+${r.potions} зелья</span>`, r.scrolls && `<span>+${r.scrolls} свитка возврата</span>`, r.skillPts && `<span class="good">+${r.skillPts} очко навыка</span>`, r.shards && `<span class="c-shard">+${r.shards}◆ осколков</span>`].filter(Boolean);
+    if (r.skill && SKILLS[r.skill]) {   // сборка 60 (П3): первое умение — подарок старосты, показываем его в той же награде
+      const sk = SKILLS[r.skill], c = el('div', 'rw-card r2 rw-skill', `<div><div class="it-name goldc">✦ Новое умение: ${esc(sk.name)}</div><div class="it-type">${esc(sk.desc(1))}</div><div class="it-stat good">Кнопка умения — справа внизу${matchMedia('(pointer: coarse)').matches ? '' : ' (клавиша 1)'}. В автобою герой применяет его сам.</div></div>`);
+      c.prepend(skillCanvas(r.skill, 64)); b.appendChild(c);
+    }
+    const loot = [r.gold && `<span class="goldc">+${fmt(r.gold)} золота</span>`, r.xp && `<span style="color:#b8e3ff">+${r.xp} опыта</span>`, r.potions && `<span style="color:#ff9a9a">+${r.potions} зелья здоровья</span>`, r.mp && `<span style="color:#9cc0ff">+${r.mp} зелья маны</span>`, r.scrolls && `<span>+${r.scrolls} свитка возврата</span>`, r.skillPts && `<span class="good">+${r.skillPts} очко навыка</span>`, r.shards && `<span class="c-shard">+${r.shards}◆ осколков</span>`].filter(Boolean);
+    if (r.shards) b.appendChild(el('div', 'rw-pile', ICO.pile));   // П44: горсть осколков — видно, что за награда
     if (loot.length) b.appendChild(el('div', 'rw-loot', loot.join(' · ')));
     const q = Q.current(); if (q) b.appendChild(el('p', 'muted', `Следующее задание: <b class="goldc">${esc(q.title)}</b>`));
-    const row = el('div', 'row'); row.style.justifyContent = 'center'; const ok = el('button', 'btn gold', 'Забрать'); ok.onclick = () => closeModal(); okBtn = ok; if (must) ok.disabled = true; row.appendChild(ok); b.appendChild(row);
+    const row = el('div', 'row'); row.style.justifyContent = 'center'; const ok = el('button', 'btn gold', 'Забрать'); ok.onclick = () => { closeModal(); if (r.back) r.back(); }; okBtn = ok; if (must) ok.disabled = true; row.appendChild(ok); b.appendChild(row);
   }, { lock: must });
   m.bg.classList.add('rw-bg');
 }
@@ -150,6 +189,19 @@ function slotEl(it, ph, cls = '') {
 // сет в карточке: название, сколько надето, бонусы (работающие — зелёные)
 function setHTML(x) { if (!x || !x.set || !SETS[x.set]) return ''; const S = SETS[x.set], c = setCounts(G.profile.gear)[x.set] || 0;
   return `<div class="it-set" style="color:#7ee0a8">◈ Сет «${esc(S.name)}» · надето ${c}/3</div><div class="${c >= 2 ? 'good' : 'muted'}" style="font-size:12px">2 части: ${esc(bonusText(x.set, S.b2))}</div><div class="${c >= 3 ? 'good' : 'muted'}" style="font-size:12px">3 части: ${esc(bonusText(x.set, S.b3))}</div>`; }
+// П47/П52: почему вещь сливается или нет — те же правила, что у кузнеца (EC.mergeGroups): тот же слот + та же редкость, не надета, не 🔒,
+// оружие своего класса, а следующая редкость слиянием открыта уровнем героя. Вид и название вещи не важны.
+function mergeNote(it) {
+  if (!it || it.rarity >= 4) return null;
+  const P = G.profile, what = `${['серых', 'зелёных', 'синих', 'золотых'][it.rarity]} · ${(SLOT_NAMES[it.slot] || '').toLowerCase()}`;
+  if (Object.values(P.gear).includes(it)) return ['muted', 'Надетая вещь в слиянии не участвует'];
+  if (it.locked) return ['muted', '🔒 Закреплена — в слиянии не участвует'];
+  const g = EC.mergeGroups().find(x => x.slot === it.slot && x.rarity === it.rarity);
+  if (!g || !g.list.includes(it)) return ['muted', 'Не для вашего класса — не сливается'];
+  if (g.capLvl) return ['bad', `3 ${what} → 1 ${RARITY_SHORT[it.rarity + 1]}: кузнец сольёт с ${g.capLvl} уровня героя (у вас ${g.n} шт.)`];
+  if (g.can) return ['good', `Можно слить у кузнеца: 3 любых ${what} → 1 ${RARITY_SHORT[it.rarity + 1]} (у вас ${g.n} шт.)`];
+  return ['muted', `Слияние: 3 любых ${what} → 1 ${RARITY_SHORT[it.rarity + 1]}. Есть ${g.n}, нужно ещё ${3 - g.n % 3}`];
+}
 function itemHTML(it, S) {
   const b = BASE[it.base], r = RARITY[it.rarity];
   let h = `<div class="it-name" style="color:${r.color}">${esc(it.name)}${it.upg ? ` <span class="good">+${it.upg}</span>` : ''}<span class="it-pow">⚔ ${itemPower(it)}</span></div>`;
@@ -158,8 +210,8 @@ function itemHTML(it, S) {
   if (it.dmg) h += `<div class="it-stat">Урон: <b>${Math.round(it.dmg[0] * um)}–${Math.round(it.dmg[1] * um)}</b> · Урон в сек.: <b>${Math.round((it.dmg[0] + it.dmg[1]) / 2 * um * WEAPONS[it.wt].aps * 10) / 10}</b> · Скорость: ${WEAPONS[it.wt].aps} уд/с · Дальность: ${WEAPONS[it.wt].range} м</div><div class="it-stat muted" style="font-size:12px">${WEAPONS[it.wt].note}</div>`;
   if (it.armor) h += `<div class="it-stat">Защита: <b>${Math.round(it.armor * um)}</b></div>`;
   if (it.block) h += `<div class="it-stat">Шанс блока: ${Math.round(it.block * 100)}%</div>`;
-  for (const a of it.affixes) h += a.kp ? `<div class="it-aff kp">◆ ${esc(kindPerkText(it))}: ${esc(affixText(a))}</div>` : `<div class="it-aff">${esc(affixText(a))}</div>`;
-  if (it.rarity < 4) h += `<div class="it-stat muted" style="font-size:12px">Слияние у кузнеца: 3 ${RARITY_SHORT[it.rarity]} ${SLOT_NAMES[it.slot] ? SLOT_NAMES[it.slot].toLowerCase() : ''} → 1 ${RARITY_SHORT[it.rarity + 1]}</div>`;
+  for (const a of it.affixes) h += a.kp ? `<div class="it-aff kp">◇ ${esc(kindPerkText(it))}: ${esc(affixText(a))}</div>` : `<div class="it-aff">${esc(affixText(a))}</div>`;
+  { const mn = mergeNote(it); if (mn) h += `<div class="it-stat ${mn[0]}" style="font-size:12px">⚒ ${mn[1]}</div>`; }
   const ep = epicOf(it); if (ep) h += `<div class="it-epic">★ ${esc(ep.desc)}</div>`;
   h += setHTML(it);
   if (it.req) { const ok = meetsReq(G.profile, it, S); h += `<div class="it-stat ${ok ? 'muted' : 'bad'}">Требуется: ${Object.entries(it.req).map(([k, v]) => `${CH.ATTR_NAMES[k]} ${v}`).join(', ')}</div>`; }
@@ -173,25 +225,30 @@ export function originHTML(it) {
   const d = f.t ? new Date(f.t).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }) : '';
   return `<div class="it-stat origin${f.nem ? ' nem' : ''}">${f.nem ? '☠ Трофей немезиса: ' : 'Добыто: '}${esc(f.who || '')}${f.where ? ' · ' + esc(f.where) : ''}${d ? ' · ' + d : ''}</div>`;
 }
+// правки мамы (М23): «запас прочности» было непонятно — пояснение под сравнением и в окне героя
+const EHP_SHORT = '«Запас прочности» — сколько урона герой выдержит, пока не упадёт: здоровье с учётом защиты. Больше — лучше.';
+const EHP_NOTE = EHP_SHORT + ' ' + '▲ зелёное — вещь лучше надетой, ▼ красное — хуже';
 function cmpTable(it, slot) {
   const rows = compare(G.profile, it, slot);
   return `<table class="cmpt"><tr><td class="muted">Показатель</td><td class="muted">Сейчас</td><td class="muted">С этим</td><td></td></tr>` + rows.map(r => {
     const cls = typeof r.delta === 'number' && r.delta !== 0 ? (r.delta > 0 ? 'good' : 'bad') : '';
     const dv = typeof r.delta === 'number' && r.delta !== 0 ? (r.inv ? (r.delta > 0 ? '−' : '+') + Math.abs(r.delta) : (r.delta > 0 ? '+' : '') + (Math.round(r.delta * 100) / 100) + r.suf) : '';
     return `<tr><td>${r.label}</td><td>${r.before}${r.suf}</td><td>${r.after}${r.suf}</td><td class="d ${cls}">${dv}</td></tr>`;
-  }).join('') + '</table>';
+  }).join('') + '</table>' + (rows.some(r => r.label === 'Запас прочности') ? `<p class="muted"><small>${EHP_NOTE}</small></p>` : '');
 }
 const SORTS = { type: (a, b) => a.slot.localeCompare(b.slot) || b.ilvl - a.ilvl, level: (a, b) => b.ilvl - a.ilvl, rarity: (a, b) => b.rarity - a.rarity || b.ilvl - a.ilvl, use: (a, b) => usefulness(G.profile, b) - usefulness(G.profile, a) };
 
 // ---------------------------------------------------------------- windows
 const W = {};
+const ARW = { up: ['good', '▲'], dn: ['bad', '▼'], eq: ['muted', '='], x: ['muted', '✕'] };
 W.inventory = (arg = {}) => {
   const P = G.profile; let filter = W._invFilter || 'all';
   const FILTERS = [['all', 'Всё'], ['weapon', 'Оружие'], ['head', 'Шлем'], ['chest', 'Доспех'], ['amulet', 'Амулет']];
   const m = modal('Герой', 'md', b => {
     const S = G.stats, C = CLASSES[P.cls || 'warrior'];
+    const mrg = new Set(EC.mergeGroups().filter(g => g.can).flatMap(g => g.list));   // П47: что можно слить — значок ⚒
     const cell = (it, slot, arrow) => {
-      const d = el('button', 'eq-slot r' + (it ? it.rarity : 'x'), it ? `<img src="${iconURL(iconOf(it))}"><span class="eq-lv">${it.ilvl}</span>${it.upg ? `<span class="eq-up">+${it.upg}</span>` : ''}${arrow ? `<span class="eq-ar ${arrow > 0 ? 'good' : 'bad'}">${arrow > 0 ? '▲' : '▼'}</span>` : ''}${it.isNew ? '<span class="eq-new"></span>' : ''}` : `<span class="ph">${esc(SLOT_NAMES[slot] || '')}</span>`);
+      const d = el('button', 'eq-slot r' + (it ? it.rarity : 'x'), it ? `<img src="${iconURL(iconOf(it))}"><span class="eq-lv">${it.ilvl}</span>${it.upg ? `<span class="eq-up">+${it.upg}</span>` : ''}${arrow ? `<span class="eq-ar ${ARW[arrow][0]}">${ARW[arrow][1]}</span>` : ''}${it.isNew ? '<span class="eq-new">НОВ</span>' : ''}${mrg && mrg.has(it) ? '<span class="eq-mrg" title="Можно слить у кузнеца">⚒</span>' : ''}` : `<span class="ph">${esc(SLOT_NAMES[slot] || '')}</span>`);
       if (it) d.onclick = () => itemCard(it, slot); return d;
     };
     // ---- кукла героя: четыре ячейки вокруг портрета, подписи под ними
@@ -211,12 +268,13 @@ W.inventory = (arg = {}) => {
     const score = new Map(P.bag.map(it => [it, it.slot === 'weapon' && !CH.canEquip(it).ok ? -999 : usefulness(P, it)]));
     const list = P.bag.filter(it => filter === 'all' || it.slot === filter).sort((x, y) => (score.get(y) > 0.5) - (score.get(x) > 0.5) || y.rarity - x.rarity || score.get(y) - score.get(x));
     if (!list.length) right.appendChild(el('p', 'muted iv-hint', P.bag.length ? 'В этой вкладке пусто.' : 'Сумка пуста. Вещи падают с сильных врагов и из сундуков — каждая что-то да меняет.'));
-    else { const g = el('div', 'eq-grid'); for (const it of list) { const sc = score.get(it); g.appendChild(cell(it, null, sc > 0.5 ? 1 : sc < -0.5 ? -1 : 0)); } right.appendChild(g); }
+    // П33: стрелка у каждой вещи, которую можно надеть (▲ лучше, ▼ хуже, = то же); ✕ — не для вашего класса/уровня
+    else { const g = el('div', 'eq-grid'); for (const it of list) { const sc = score.get(it); g.appendChild(cell(it, null, sc === -999 ? 'x' : sc > 0.05 ? 'up' : sc < -0.05 ? 'dn' : 'eq')); } right.appendChild(g); }
     if (gray.length) { const v = gray.reduce((a, it) => a + sellValue(it), 0); const sb = el('button', 'btn eq-sellgray', `Продать серое: ${gray.length} шт. · +${fmt(v)} зол.`); sb.onclick = () => { EC.sellAllCommon(); rerender(); }; right.appendChild(sb); }
-    right.appendChild(el('p', 'muted iv-hint', '▲ — лучше надетого · ▼ — хуже. Нажмите на вещь, чтобы сравнить.'));
+    right.appendChild(el('p', 'muted iv-hint', '<b class="good">▲</b> лучше надетого · <b class="bad">▼</b> хуже · = так же · ✕ не подходит · <span class="eq-new inl">НОВ</span> новая вещь · ⚒ можно слить у кузнеца. Нажмите на вещь, чтобы сравнить.'));
     if (arg.select) { const it = P.bag.find(x => x.id === arg.select); arg.select = null; if (it) setTimeout(() => itemCard(it, null), 50); }
   });
-  m.live = true;
+  m.live = true; m.onClose = () => { for (const it of P.bag) it.isNew = false; bus.emit('hud'); }; setTimeout(() => bus.emit('invOpened'), 60);   // сборка 60 (П32)   // П33: «НОВ» — до первого просмотра сумки
   function itemCard(it, slot) {
     const inBag = !slot, tslot = CH.slotFor(it), eq = inBag ? P.gear[tslot] : null;
     const ov = el('div', 'ic-ov'); const box = el('div', 'ic-box r' + it.rarity);
@@ -229,7 +287,7 @@ W.inventory = (arg = {}) => {
       <div class="cc-col">${head(it, inBag ? 'Эта вещь' : '')}<div class="iv-slot big r${it.rarity}"><img src="${iconURL(iconOf(it))}"></div><div class="ic-stats">${lines(it)}</div></div>
       ${eq ? `<div class="cc-col dim">${head(eq, 'Надето сейчас')}<div class="ic-stats">${lines(eq)}</div></div>` : ''}</div>
       ${rows.length ? `<div class="ic-cmp"><b>Если надеть:</b>${rows.map(r => `<span class="${r.delta > 0 ? 'good' : 'bad'}">${r.delta > 0 ? '▲' : '▼'} ${r.label} ${r.inv ? `${r.before} → ${r.after}` : `${r.delta > 0 ? '+' : ''}${Math.round(r.delta * 100) / 100}${r.suf}`}</span>`).join('')}</div>` : ''}
-      ${!ok.ok ? `<div class="bad ic-why">${esc(ok.why)}</div>` : ''}`;
+      ${!ok.ok ? `<div class="bad ic-why">${esc(ok.why)}</div>` : ''}${inBag && mergeNote(it) ? `<div class="${mergeNote(it)[0]} ic-why" style="font-size:12px">⚒ ${mergeNote(it)[1]}</div>` : ''}`;
     const btns = el('div', 'ic-btns');
     if (inBag) { const eqb = el('button', 'btn gold', ok.ok ? 'Надеть' : 'Нельзя надеть'); eqb.disabled = !ok.ok; eqb.onclick = () => { CH.equip(it.id); ov.remove(); rerender(); }; btns.appendChild(eqb);
       const sell = el('button', 'btn', `Продать · ${fmt(sellValue(it))} зол.`); sell.onclick = () => { EC.sellItem(it.id); ov.remove(); rerender(); }; btns.appendChild(sell); }
@@ -258,6 +316,7 @@ W.character = (arg = {}) => {
       ['Здоровье', S.maxHP], ['Запас прочности', S.ehp], ['Мана', S.maxMP], ['Восст. маны', S.mpRegen.toFixed(1) + '/с'], ['Здоровье за удар', S.leech], ['Находка золота', '+' + S.goldFind + '%']];
     const core = ['Урон в секунду', 'Здоровье', 'Защита', 'Запас прочности'], mainRows = st.filter(r => core.includes(r[0])), moreRows = st.filter(r => !core.includes(r[0]));
     b.appendChild(el('div', 'stats', mainRows.map(([a, v]) => `<div><span>${a}</span><b>${v}</b></div>`).join('')));
+    b.appendChild(el('p', 'muted', `<small>${EHP_SHORT}</small>`));
     b.appendChild(el('details', 'more', `<summary class="muted" style="cursor:pointer;margin:6px 0">Подробные показатели</summary><div class="stats">${moreRows.map(([a, v]) => `<div><span>${a}</span><b>${v}</b></div>`).join('')}</div>`));
     const s = P.stats;
     b.appendChild(el('h3', '', 'Летопись'));
@@ -343,10 +402,11 @@ function talentInfo(id, P, edit) {
     const cost = CH.skillCost(id); const bt = el('button', 'learn tal-learn' + (can.ok ? ' ok' : ''), `${r ? 'Повысить ранг' : 'Изучить'}<small>${cost ? fmt(cost) + ' зол.' : 'бесплатно'}</small>`); bt.disabled = !can.ok;
     bt.onclick = e => { e.stopPropagation(); if (CH.learn(id, true)) rerender(); }; t.appendChild(bt);
     if (!can.ok) t.appendChild(el('div', 'bad', `<small>${esc(can.why)}</small>`));
+    else if (P.gold < cost) { bt.classList.remove('ok'); t.appendChild(el('div', 'bad', `<small>Не хватает ${fmt(cost - P.gold)} зол. (у вас ${fmt(P.gold)}). Очко навыка не пропадёт — вернитесь с золотом из подземелья или Летописи</small>`)); }   // М5
   } else if (!edit && r < sk.max && can.ok) t.appendChild(el('div', 'muted', '<small>Можно изучить у наставника Элвина в деревне.</small>'));
   if (r && sk.kind === 'active') {
     const sr = el('div', 'slots4');
-    { const bb = el('button', 'btn sm' + (P.bigSkill === id ? ' gold' : ''), '★'); bb.title = 'На большую кнопку'; bb.onclick = e => { e.stopPropagation(); P.bigSkill = P.bigSkill === id ? null : id; bus.emit('toast', { text: P.bigSkill ? `«${sk.name}» — на большой кнопке` : 'Большая кнопка: обычная атака', kind: 'good' }); bus.emit('statsChanged'); rerender(); }; sr.appendChild(bb); }
+    { const bb = el('button', 'btn sm' + (P.bigSkill === id ? ' gold' : ''), '★'); bb.title = 'На большую кнопку'; bb.onclick = e => { e.stopPropagation(); P.bigSkill = P.bigSkill === id ? null : id; bus.emit('toast', { text: P.bigSkill ? `«${sk.name}» — на большой кнопке` : 'Навык снят с большой кнопки', kind: 'good' }); bus.emit('statsChanged'); rerender(); }; sr.appendChild(bb); }
     for (let i = 0; i < 4; i++) { const sb = el('button', 'btn sm' + (P.slots[i] === id ? ' gold' : ''), String(i + 1)); sb.title = 'Кнопка ' + (i + 1); sb.onclick = e => { e.stopPropagation(); CH.setSlot(i, id); bus.emit('toast', { text: `«${sk.name}» — кнопка ${i + 1}`, kind: 'good' }); rerender(); }; sr.appendChild(sb); }
     t.appendChild(el('div', 'muted', '<small>Кнопка в бою:</small>')); t.appendChild(sr);
   }
@@ -477,13 +537,18 @@ W.settings = () => modal('Настройки', 'sm', b => {
     const ph = el('div', 'attr', '<b>Режим съёмки</b> <small class="muted">без кнопок, для скриншотов и роликов. Включите АВТО заранее — герой будет сражаться сам</small>'); const bp = el('button', 'btn sm', 'Включить');
     bp.onclick = () => { closeModal(); photoMode(true); }; ph.appendChild(bp); b.appendChild(ph); }
   const sh = el('div', 'attr', '<b>Тряска камеры</b>'); const bs = el('button', 'btn sm', s.shake ? 'Вкл' : 'Выкл'); bs.onclick = () => { s.shake = !s.shake; rerender(); }; sh.appendChild(bs); b.appendChild(sh);
+  { // С26: размер текста в окнах и подсказках и «меньше движения» — на этом устройстве (localStorage), не в сохранении героя
+    const A = a11y(), ts = el('div', 'attr', '<b>Размер текста</b> <small class="muted">окна, панели, подсказки</small>');
+    for (const [k, n] of [[1, 'Обычный'], [1.15, 'Крупный'], [1.3, 'Очень крупный']]) { const bt = el('button', 'btn sm' + (A.fs === k ? ' gold' : ''), n); bt.onclick = () => { setA11y({ fs: k }); rerender(); }; ts.appendChild(bt); }
+    b.appendChild(ts);
+    const rm = el('div', 'attr', '<b>Меньше движения</b> <small class="muted">без мигания и пульсации кнопок; тряска камеры выключается</small>'); const br = el('button', 'btn sm', A.rm ? 'Вкл' : 'Выкл'); br.onclick = () => { setA11y({ rm: !A.rm }); if (!A.rm) s.shake = false; bus.emit('save'); rerender(); }; rm.appendChild(br); b.appendChild(rm); }
   b.appendChild(el('p', 'muted', `<small>Версия сборки: ${window.__BUILD || ''}</small>`));
   b.appendChild(el('h3', '', 'Управление'));
-  b.appendChild(el('p', 'muted', 'Телефон/планшет: джойстик слева, атака и навыки справа, удерживайте атаку — герой сам подойдёт к врагу. Щипок двумя пальцами — камера ближе/дальше. ПК: WASD/стрелки — движение, колесо мыши — камера ближе/дальше, Пробел — атака, 1–4 — навыки, Shift — уклонение, Q/E — зелья, F — действие, I/C/K/J/M — окна, T — свиток.'));
+  b.appendChild(el('p', 'muted', 'Телефон/планшет: ведите пальцем в любом месте экрана — это джойстик; короткое касание места — герой побежит туда, касание врага — выбрать цель. Навыки, рывок и зелья справа. Герой бьёт сам, когда враг рядом: ваше дело — двигаться, уклоняться и пить зелья. Щипок двумя пальцами — камера ближе/дальше. ПК: WASD/стрелки или зажатая правая кнопка мыши — движение, левая кнопка мыши — удар в точку, колесо мыши — камера ближе/дальше, Пробел — атака, 1–4 — навыки, Shift — уклонение, Q/E — зелья, F — действие, I/C/K/J/M — окна, T — свиток.'));
   const row = el('div', 'row'); row.style.marginTop = '10px';
-  const sv = el('button', 'btn', 'Сохранить'); sv.onclick = () => { saveNow(true); bus.emit('toast', { text: 'Игра сохранена', kind: 'good' }); }; row.appendChild(sv);
+  const sv = el('button', 'btn', 'Сохранить'); sv.onclick = () => { if (saveNow(true)) bus.emit('toast', { text: 'Игра сохранена', kind: 'good' }); else bus.emit('toast', { text: 'Не удалось сохранить', sub: 'Браузер не даёт записать (приватный режим или нет места)', kind: 'warn' }); }; row.appendChild(sv);   // С14
   const rp = el('button', 'btn', 'Восстановить покупки'); rp.onclick = () => restorePurchases(); row.appendChild(rp);
-  const wp = el('button', 'btn', 'Начать заново'); wp.onclick = () => { if (confirm('Удалить сохранение этого героя и начать заново? Это нельзя отменить. Сохранения других героев останутся.')) { wipeLocal(G.profile.cls); G.profile = null; const go = () => location.reload(); if (platform.name !== 'demo' && platform.p && platform.p.cloudSave) platform.p.cloudSave(cloudBundle(null)).finally(go); else go(); } }; row.appendChild(wp);
+  const wp = el('button', 'btn', 'Начать заново'); wp.onclick = () => { if (confirm('Удалить сохранение этого героя и начать заново? Это нельзя отменить. Сохранения других героев останутся.')) { wipeLocal(G.profile.cls); G.profile = null; const go = () => location.reload(); if (platform.name !== 'demo' && platform.p && platform.p.cloudSave && platform.cloudOK) Promise.race([platform.p.cloudSave(cloudBundle(null), true), new Promise(r => setTimeout(r, 8000))]).finally(go); else go(); } }; row.appendChild(wp);   // С12: перезагрузка — после настоящей записи в облако (не дольше 8 с)
   b.appendChild(row);
   b.appendChild(el('p', 'muted', `<small>Версия 2.0 · платформа: ${platform.name}</small>`));
 });
@@ -506,6 +571,7 @@ W.npc_elder = () => {
   else if (q && q.id === 'learn_skill') lines = DIALOG.elder.skill;
   else if (q && q.id === 'meet_merchant') lines = DIALOG.elder.shop;
   else if (q && q.id === 'hw_try') lines = DIALOG.elder.hw;
+  else if (q && DIALOG.elder[q.id] && !Q.isReady()) lines = DIALOG.elder[q.id];
   else if (Q.isReady() && Q.turnNpc(q) !== 'elder') lines = ['Золото собрано? Отнеси его кузнецу Горану — он ждёт у горна.'];
   else if (Q.isReady()) { lines = DIALOG.elder.turnin[q.id] || ['Ты справился. Вот твоя награда.']; fin = true; }
   else if (q && q.id === 'finish') { lines = DIALOG.elder.finish; fin = true; }
@@ -572,7 +638,8 @@ function mergeTab(b) {
     top.append(el('div', 'mrg-t', `<b style="color:${RARITY[G3.rarity + 1].color}">${RARITY[G3.rarity + 1].name}</b> ${SLOT_NAMES[G3.slot].toLowerCase()}`), res, inp);
     const cost = EC.mergeCost(G3.rarity), go = el('button', 'btn gold mrg-go', `Слияние · ${fmt(cost)} зол.`); go.disabled = P.gold < cost;
     go.onclick = () => { lastMerged = EC.mergeOnce(G3.slot, G3.rarity); mergeSel = null; rerender(); }; top.appendChild(go);
-  } else top.appendChild(el('div', 'mrg-empty', 'Нужны <b>три вещи</b> одного слота и одной редкости. Серое → зелёное → синее → золотое → мифическое.<br><small class="muted">Надетые и 🔒 не участвуют.</small>'));
+  } else { const capG = groups.find(g => g.capLvl && g.n >= 3);
+    top.appendChild(el('div', 'mrg-empty', 'Нужны <b>три вещи</b> одного слота (оружие, шлем, доспех, амулет) и <b>одной редкости</b> (цвет рамки). Вид и название не важны: три любых зелёных посоха сольются в синий. Серое → зелёное → синее → золотое → мифическое.<br><small class="muted">Надетые и 🔒 не участвуют.' + (capG ? ` <span class="bad">${RARITY_SHORT[capG.rarity + 1][0].toUpperCase() + RARITY_SHORT[capG.rarity + 1].slice(1)} слиянием — с ${capG.capLvl} уровня героя.</span>` : '') + '</small>')); }
   b.appendChild(top);
   if (lastMerged) { const det = el('div', 'detail'); det.innerHTML = '<div class="muted">Получено:</div>' + itemHTML(lastMerged, G.stats); const eq = el('button', 'btn', 'Надеть'); eq.onclick = () => { CH.equip(lastMerged.id); lastMerged = null; rerender(); }; det.appendChild(eq); b.appendChild(det); }
   const ready = groups.filter(g => g.can).reduce((a, g) => a + g.can, 0);
@@ -587,7 +654,7 @@ function mergeTab(b) {
     d.onclick = () => { if (g.can) { mergeSel = key(g); rerender(); } else if (g.capLvl && g.n >= 3) bus.emit('toast', { text: `Слить в ${RARITY_SHORT[g.rarity + 1]} — с ${g.capLvl} уровня героя`, kind: 'info' }); else bus.emit('toast', { text: `Нужно ещё ${3 - g.n % 3}: ${RARITY_SHORT[g.rarity]} ${SLOT_NAMES[g.slot].toLowerCase()}`, kind: 'info' }); };
     bag.appendChild(d);
   }
-  if (!bag.children.length) bag.appendChild(el('p', 'muted', 'В сумке нет вещей для слияния.'));
+  if (!bag.children.length) { const p0 = el('p', 'muted', 'В сумке нет вещей для слияния.'); p0.style.gridColumn = '1/-1'; bag.appendChild(p0); }   // С5: текст на всю ширину сетки
   b.appendChild(bag);
 }
 // ---------------------------------------------------------------- путь сезона и коллекция (сборка 21)
@@ -650,17 +717,41 @@ W.npc_merchant = () => {
 // сборка 58: Караванщик Кофи. Первая встреча — рассказ и подарок (фенек); дальше — короткая фраза, лавка — в панели у повозки
 W.npc_caravan = () => {
   const first = !petsOf(G.profile).met, a = PETS[petsOf(G.profile).active];
+  // сборка 60 (П15): подарок — только когда староста отправит к Кофи перед катакомбами; раньше Кофи лишь знакомится
+  if (first && earlyLock('pet')) return modal('Караванщик Кофи', 'sm', b => {
+    const dl = dialog(b, 'caravan', 'Караванщик Кофи', ['Мир твоему дому, воин! Я Кофи, караванщик из Пустошей. Мои повозки застряли здесь, когда открылась Бездна.', 'Зверьки мои ещё не отошли с дороги. Загляни, когда староста соберёт тебя в путь, — будет подарок.']);
+    const row = el('div', 'row'); row.style.marginTop = '12px'; const nx = el('button', 'btn gold', 'Далее');
+    nx.onclick = () => { if (dl.next()) { if (dl.last()) nx.textContent = 'Понятно'; return; } closeModal(); }; row.appendChild(nx); b.appendChild(row);
+  }, { sticky: true });
   const lines = first ? ['Мир твоему дому, воин! Я Кофи, караванщик из Пустошей. Мои повозки застряли здесь, когда открылась Бездна.', 'Мои зверьки не боятся тварей Бездны. Бьют они слабо, зато каждый умеет своё: кто жжёт, кто травит, кто лечит.', 'Вот, возьми огненного фенека — это подарок. Остальных отдам за осколки Бездны ◆.']
     : [a ? `Пески любят смелых. ${a.name} рядом с тобой — значит, ты не один.` : 'Пески любят смелых. Кого возьмёшь с собой сегодня?'];
   modal('Караванщик Кофи', 'sm', b => {
     const dl = dialog(b, 'caravan', 'Караванщик Кофи', lines);
     const row = el('div', 'row'); row.style.marginTop = '12px';
     const nx = el('button', 'btn gold', lines.length > 1 ? 'Далее' : 'Понятно');
-    nx.onclick = () => { if (dl.next()) { if (dl.last()) nx.textContent = first ? 'Принять подарок' : 'Понятно'; return; } if (first) meetCaravan(); closeModal(); };
+    nx.onclick = () => { if (dl.next()) { if (dl.last()) nx.textContent = first ? 'Принять подарок' : 'Понятно'; return; } closeModal(); if (first && meetCaravan()) petReveal(); };
     if (lines.length === 1) nx.textContent = 'Понятно';
     row.appendChild(nx); b.appendChild(row);
   }, { sticky: true });
 };
+// сборка 59: первый питомец — торжественно. Вспышка и кольцо там, где он появился, фанфары, через секунду — окно «Новый спутник»
+// с лучами, крупным зверьком, его умением и тем, где брать остальных
+function petReveal() {
+  const p = G.pet, D = p && PETS[p.id]; if (!D) return;
+  particles(p.x, p.y, 46, { c: [255, 170, 60], sp: 3.4, size: 4 }); particles(p.x, p.y, 24, { c: [255, 236, 170], sp: 1.6, size: 3 });
+  effect({ kind: 'ring', x: p.x, y: p.y, r: 2.6, dur: 0.7, c: [255, 200, 110] }); G.cam.kick(0.25);
+  bus.emit('sfx', 'epicDrop'); setTimeout(() => bus.emit('sfx', 'levelup'), 350);
+  bus.emit('float', { x: p.x, y: p.y, text: D.icon + ' ' + D.name, color: '#ffd27a', z: 1.6, life: 1.8, big: 1 });
+  setTimeout(() => {
+    const m = modal('Новый спутник!', 'sm reward', b => {
+      b.appendChild(el('div', 'rw-head pet-rv', `<div class="rw-rays r3"></div><div class="pet-rv-ic">${D.icon}</div><div class="rw-t">${esc(D.name)}</div><div class="pet-rv-tier" style="color:${TIERS[D.tier].color}">${esc(TIERS[D.tier].name)} питомец · подарок Кофи</div>`));
+      b.appendChild(el('p', 'pet-rv-d', `<b>Умение:</b> ${esc(D.desc)}`));
+      b.appendChild(el('p', 'muted pet-rv-d', 'Ходит за вами везде — в подземельях, походах и Цитадели — и сам бьётся рядом. Новых зверьков и улучшения Кофи продаёт за осколки Бездны ◆.'));
+      const r = el('div', 'row'); r.style.justifyContent = 'center'; const ok = el('button', 'btn gold', 'В путь!'); ok.onclick = closeModal; r.appendChild(ok); b.appendChild(r);
+    }, { sticky: true });
+    m.bg.classList.add('rw-bg');
+  }, 1100);
+}
 W.npc_trainer = () => {
   // Глава III: герой вспомнил всё — Элвин объясняется (одной сценой, потом обычное окно наставника)
   { const q = Q.current(), scene = q && { c3_elvin: DIALOG.trainer.confess, c2_stone: DIALOG.trainer.stone }[q.id]; if (scene) { const lines = scene;
@@ -723,7 +814,7 @@ W.board = () => {
 
 // ---------------------------------------------------------------- rewards / shop (monetization hub)
 W.shrine = () => modal('Источник силы', 'md', b => {
-  const P = G.profile, now = Date.now();
+  const P = G.profile, now = Date.now(); if (!P.shrineSeen) { P.shrineSeen = 1; bus.emit('save'); }   // П67
   // 1) благословение — главное предложение алтаря
   { const left = blessLeft(), on = left > 0, full = left > (BLESS_CAP - BLESS_MIN) * 60000;
     const c = el('div', 'bless-card' + (on ? ' on' : ''), `<div class="bl-ic">✦</div><div class="tx"><b>Сила источника</b><div>+25% золота и опыта, +15% к выпадению вещей — ${BLESS_MIN} минут</div><div class="muted">${on ? `Действует ещё <b>${Math.floor(left / 60000)}:${String(Math.floor(left / 1000) % 60).padStart(2, '0')}</b>${full ? ' · предел ' + BLESS_CAP + ' мин' : ' · можно продлить'}` : 'Посмотрите рекламу — и 10 минут всё падает щедрее'}</div></div>`);
@@ -734,13 +825,14 @@ W.shrine = () => modal('Источник силы', 'md', b => {
   b.appendChild(el('h3', '', `Дары источника · день ${cur} из ${LOGIN_DAYS}${ds.streak >= LOGIN_DAYS ? ` · круг ${Math.floor(base / LOGIN_DAYS) + 1}` : ''}`));
   const cal = el('div', 'login-cal');
   DAILY.forEach((r, i) => { const d = i + 1, got = d < cur || (d === cur && !ds.claimable), today = d === cur && ds.claimable, soon = !got && !today && d - cur <= 3;
-    const what = r.item ? (r.item >= 3 ? '◆ золотая вещь' : '◆ синяя вещь') : r.mid ? '✉ свиток' : (r.gold * P.level) + ' зол.';
-    const cell = el('div', 'lc' + (r.big ? ' big' : r.mid ? ' mid' : '') + (got ? ' got' : '') + (today ? ' today' : '') + (soon ? ' soon' : ''), `<i>${d}</i><span>${what}</span>${got ? '<em>✔</em>' : soon ? `<em>${d - cur === 1 ? "завтра" : "через " + (d - cur) + " дн."}</em>` : ''}`);
+    const what = (r.item ? (r.item >= 3 ? '★ золотая вещь' : '★ синяя вещь') : r.mid ? '✉ свиток' : (r.gold * P.level) + ' зол.') + (r.shards ? ` <b class="c-shard">+${r.shards}◆</b>` : '');
+    const cell = el('div', 'lc' + (r.big ? ' big' : r.mid ? ' mid' : '') + (got ? ' got' : '') + (today ? ' today' : '') + (soon ? ' soon' : ''), `<i>${d}</i><span>${what}</span>${got ? '<em>✔</em>' : today ? '<em>забрать</em>' : soon ? `<em>${d - cur === 1 ? "завтра" : "через " + (d - cur) + " дн."}</em>` : ''}`);
+    if (today) cell.onclick = () => { claimDaily(false); rerender(); };   // правки мамы (М21): нажатие на сам день тоже забирает дар
     cal.appendChild(cell); });
   b.appendChild(cal);
   const nb = DAILY.findIndex((r, i) => i + 1 > cur && (r.big || r.mid)), nr = nb >= 0 ? DAILY[nb] : null;
   const dr = el('div', 'row'); dr.style.marginTop = '6px';
-  if (ds.claimable) { const a = el('button', 'btn gold', `Забрать день ${cur}`); a.onclick = () => { claimDaily(false); rerender(); }; const x2 = el('button', 'btn ad', 'Забрать ×1,5'); x2.onclick = () => watchRewarded('daily_double', offerToken('daily_double', 'd' + new Date().toDateString()), () => claimDaily(true)).then(rerender); dr.append(a, x2); }
+  if (ds.claimable) { const a = el('button', 'btn gold nudge', `Забрать день ${cur}`); a.onclick = () => { claimDaily(false); rerender(); }; const x2 = el('button', 'btn ad', 'Забрать ×1,5'); x2.onclick = () => watchRewarded('daily_double', offerToken('daily_double', 'd' + new Date().toDateString()), () => claimDaily(true)).then(rerender); dr.append(a, x2); }
   else dr.appendChild(el('span', 'muted', `Следующий дар — завтра.${nr ? ` Через ${nb + 1 - cur} дн.: <b>${nr.label}</b>` : ''} Пропуск дня не сбрасывает календарь.`));
   b.appendChild(dr);
   dailyBlock(b);
@@ -750,17 +842,75 @@ W.shrine = () => modal('Источник силы', 'md', b => {
   const cb = el('button', 'btn ' + (cs.ready ? 'gold' : 'ad'), cs.ready ? 'Открыть' : 'Открыть сейчас'); cb.onclick = () => { (cs.ready ? Promise.resolve(openOrderChest()) : chestSkip()).then(rerender); }; cr.appendChild(cb); b.appendChild(cr);
   // IAP
   b.appendChild(el('h3', '', 'Лавка Ордена'));
+  b.appendChild(el('p', 'muted', '<small>Снаряжение в лавке меняется каждый день. Синий сет — с начала, золотые вещи — с 15 уровня, мифические — с 22-го.</small>'));   // П67
+  const gearToday = shopGearToday();
   for (const [id, p] of Object.entries(PRODUCTS)) {
     if (!platform.p.hasProduct(id)) continue;
+    if (p.gear && !gearToday.includes(id)) continue;   // П67: из снаряжения — только товары дня, открытые по уровню
     const owned = (p.once && P.iap.tx['once_' + id]) || (!p.consumable && P.iap[{ gold_perk: 'goldPerk', no_ads: 'noAds', bag_big: 'bagBig' }[id]]);
     const o = el('div', 'offer', `<div class="ic">${esc(p.icon || '⛁')}</div><div class="tx"><b>${esc(p.title)}</b><div class="muted">${esc(p.desc)}</div></div>`);
     const pr = platform.p.catalogPrice(id), price = typeof pr === 'string' ? esc(pr) : `${esc(pr.value)} ${pr.img ? `<img class="cur" src="${esc(pr.img)}" alt="${esc(pr.code)}">` : esc(pr.code)}`;
     const bt = el('button', 'btn gold', owned ? 'Куплено' : price); bt.disabled = !!owned; bt.onclick = () => buy(id).then(rerender); o.appendChild(bt); b.appendChild(o);
+    if (!owned && (p.gear || id === 'starter_pack' || id === 'potion_pack')) { const box = el('div', ''), sh = el('button', 'btn sm', 'Что внутри ▾'); sh.onclick = () => { if (box.childElementCount) box.innerHTML = ''; else offerContents(box, id); }; o.querySelector('.tx').appendChild(sh); b.appendChild(box); }   // П24
   }
   if (platform.name === 'demo') b.appendChild(el('p', 'muted', '<small>Демо-режим: реклама и покупки имитируются, деньги не списываются. На Яндекс Играх подключается SDK площадки.</small>'));
 });
 
+// П61: страница питомца — урон (сколько и какой), скорость, дальность, дар с числами, уровень и что даст следующий
+W.petInfo = id => {
+  const D = PETS[id]; if (!D) return;
+  modal(`${D.icon} ${D.name}`, 'sm', b => {
+    const S = petsOf(G.profile), lvl = S.own[id] || 1, I = petInfo(id, lvl), N = lvl < PET_MAX ? petInfo(id, lvl + 1) : null, T0 = TIERS[D.tier];
+    const up = (a, c) => N && a !== c ? ` <span class="good">→ ${c}</span>` : '';
+    b.appendChild(el('p', '', `<span style="color:${T0.color}">${T0.name}</span> · ${S.own[id] ? `уровень <b>${lvl}</b> из ${PET_MAX}` : 'ещё не куплен (показан 1-й уровень)'}${S.active === id ? ' · <b class="good">с вами</b>' : ''}`));
+    b.appendChild(el('div', 'stats', [
+      ['Урон за удар', `${I.dmg}${up(I.dmg, N && N.dmg)}`], ['Урон в секунду', `${I.dps}${up(I.dps, N && N.dps)}`], ['Тип урона', I.type],
+      ['Удар', `раз в ${String(I.cd).replace('.', ',')} с, ${I.reach}`], ['Сила от удара героя', `${I.share}${up(I.share, N && N.share)}`],
+    ].map(([a, v]) => `<div><span>${a}</span><b>${v}</b></div>`).join('')));
+    if (I.fxName) b.appendChild(el('div', 'pet-fx', `<b>✦ ${esc(I.fxName)}</b><div>${esc(I.fxText)}</div>${N && N.fxText !== I.fxText ? `<div class="good" style="font-size:12px">На ${lvl + 1}-м уровне: ${esc(N.fxText)}</div>` : ''}`));
+    b.appendChild(el('p', 'muted', `<small>Урон питомца растёт вместе с уроном героя (это доля его среднего удара) и на +15% за каждый уровень питомца. Улучшать — у Кофи за осколки Бездны ◆.</small>`));
+    const r = el('div', 'row'); r.style.justifyContent = 'center'; const ok = el('button', 'btn gold', 'Понятно'); ok.onclick = () => closeModal(); r.appendChild(ok); b.appendChild(r);
+  });
+};
+// П62: пустая банка. Реклама даёт 2 зелья; подряд — до 10 раз, потом одна попытка восстанавливается раз в 15 минут.
+// Купить — у торговки Миры (в деревне сразу из этого окна, в походе — подсказка, где купить)
+const POT_ADS = 10, POT_AD_MS = 15 * 60e3;
+function potAds() {
+  const P = G.profile, A = P.potAds || (P.potAds = { n: POT_ADS, t: Date.now() }), now = Date.now();
+  if (A.t > now) A.t = now;   // часы переведены назад — не ждать часами
+  if (A.n >= POT_ADS) A.t = now; else { const k = Math.floor((now - A.t) / POT_AD_MS); if (k > 0) { A.n = Math.min(POT_ADS, A.n + k); A.t = A.n >= POT_ADS ? now : A.t + k * POT_AD_MS; } }
+  return A;
+}
+W.potEmpty = k => {
+  const name = k === 'hp' ? 'здоровья' : 'маны';
+  bus.emit('sfx', 'deny');
+  modal(`Зелья ${name} закончились`, 'sm', b => {
+    const P = G.profile, A = potAds(), lock = earlyLock('extra');
+    b.appendChild(el('div', 'of-pack', `<div class="of-x"><img src="${iconURL(k === 'hp' ? 'potion_hp' : 'potion_mp')}" alt=""><b>${P.potions[k]}</b><small>зелий ${name}</small></div>`));
+    const r = el('div', 'row'); r.style.justifyContent = 'center';
+    if (!lock) {
+      const ad = el('button', 'btn ad', A.n > 0 ? `2 зелья за рекламу · осталось ${A.n} из ${POT_ADS}` : `2 зелья за рекламу · через ${Math.ceil((A.t + POT_AD_MS - Date.now()) / 60000)} мин`); ad.disabled = A.n <= 0;
+      ad.onclick = async () => { if (potAds().n <= 0) return; const ok = await watchRewarded('pot_ad', offerToken('pot_ad', String(Date.now())), () => { const A2 = potAds(); if (A2.n >= POT_ADS) A2.t = Date.now(); A2.n--; P.potions[k] += 2; bus.emit('toast', { text: `+2 зелья ${name}`, kind: 'good' }); }); if (ok) closeModal(); else rerender(); };
+      r.appendChild(ad);
+    }
+    if (G.zoneId === 'town') { const pr = EC.potionPrice(k), buyB = el('button', 'btn gold', `Купить у Миры · ${fmt(pr)} зол.`); buyB.disabled = P.gold < pr; buyB.onclick = () => { if (EC.buyConsumable(k)) { bus.emit('sfx', 'coin'); rerender(); } }; r.appendChild(buyB); }
+    else b.appendChild(el('p', 'muted', 'Зелья продаёт торговка Мира в деревне. Свиток возврата перенесёт вас туда.'));
+    b.appendChild(r);
+  });
+};
 // Предложение у «стены» (js/platform/offers.js): один раз, в спокойный момент, с честными бесплатными путями рядом
+// П24: что именно даёт покупка — иконками (золото, зелья) и сами вещи с подписью «сейчас надето» и сравнением.
+// Вещи выпадают заранее (offerPreview) и всегда сильнее надетого; их же выдаёт покупка
+function offerContents(b, id) {
+  const P = G.profile, items = offerPreview(id) || [];
+  const pack = id === 'starter_pack' ? [['gold', 1000, 'золота'], ['potion_hp', 10, 'зелий здоровья'], ['potion_mp', 5, 'зелий маны']] : id === 'potion_pack' ? [['potion_hp', 15, 'зелий здоровья'], ['potion_mp', 10, 'зелий маны']] : [];
+  if (pack.length) b.appendChild(el('div', 'of-pack', pack.map(([ic, n, t]) => `<div class="of-x"><img src="${iconURL(ic)}" alt=""><b>×${fmt(n)}</b><small>${t}</small></div>`).join('')));
+  for (const it of items) {
+    const cur = P.gear[it.slot], rows = compare(P, it, it.slot).filter(r => typeof r.delta === 'number' && r.delta !== 0).slice(0, 4);
+    b.appendChild(el('div', 'rw-card r' + it.rarity, `<div class="slot r${it.rarity}"><img src="${iconURL(iconOf(it))}">${it.upg ? `<span class="up">+${it.upg}</span>` : ''}</div><div><div class="it-name" style="color:${RARITY[it.rarity].color}">${esc(it.name)}</div><div class="it-type">${RARITY[it.rarity].name} · ${it.wt ? WEAPONS[it.wt].name : SLOT_NAMES[it.slot]} · ⚔ ${itemPower(it)}</div>${it.affixes.slice(0, 3).map(a => `<div class="it-aff">${esc(affixText(a))}</div>`).join('')}${epicOf(it) ? `<div class="it-epic">★ ${esc(epicOf(it).desc)}</div>` : ''}
+      <div class="rw-eq"><div class="muted" style="margin:4px 0">Сейчас надето: «${esc(cur ? cur.name : '—')}»${cur ? ` · ⚔ ${itemPower(cur)}` : ''}</div>${rows.map(r => `<div class="cmp ${r.delta > 0 ? 'up' : 'dn'}"><span>${esc(r.label)}</span><b>${r.before}${r.suf} → ${r.after}${r.suf} ${r.delta > 0 ? '▲' : '▼'}</b></div>`).join('')}</div></div>`));
+  }
+}
 export function showWallOffer() {
   const w = wallOffer(); if (!w || G.modalOpen || inCombat() || inCinema()) return false;
   markShown(w.id, w.promo);
@@ -768,6 +918,7 @@ export function showWallOffer() {
   const price = !pr ? '' : typeof pr === 'string' ? esc(pr) : `${esc(pr.value)} ${pr.img ? `<img class="cur" src="${esc(pr.img)}" alt="${esc(pr.code)}">` : esc(pr.code)}`;
   modal(w.product.title, 'sm', b => {
     b.appendChild(el('div', 'offer', `<div class="ic">${esc(w.product.icon || '★')}</div><div class="tx"><b>${esc(w.product.desc)}</b><div class="muted">${esc(w.why)}</div></div>`));
+    offerContents(b, w.id);
     b.appendChild(el('p', 'muted', 'Без покупки игра проходится полностью. Бесплатные пути: прокачаться в уже открытых местах, закалить и слить вещи у кузнеца Горана, пройти этапы Летописи битв.'));
     const r = el('div', 'row');
     const bt = el('button', 'btn gold', price || 'Купить'); bt.onclick = () => { closeModal(); buy(w.id); };
@@ -777,20 +928,24 @@ export function showWallOffer() {
   return true;
 }
 // три поражения подряд в одном месте — бесплатная помощь, чтобы не бросили игру
-export function showStreakHelp(where) {
-  if (!streakHelp(where) || G.modalOpen || inCinema()) return false;
-  modal('Трудное место', 'sm', b => {
-    b.appendChild(el('p', '', 'Третья попытка подряд. Орден даёт подмогу: +15% ко всему урону на 10 минут.'));
-    const r = el('div', 'row');
-    const free = el('button', 'btn gold', 'Взять подмогу'); free.onclick = () => { const P = G.profile; P.boosts.helpUntil = Date.now() + 10 * 60e3; helpGiven(where); bus.emit('statsChanged'); bus.emit('toast', { text: 'Подмога Ордена: +15% урона на 10 минут', kind: 'good' }); closeModal(); };
-    const no = el('button', 'btn', 'Сам справлюсь'); no.onclick = () => { helpGiven(where); closeModal(); };
-    r.append(free, no); b.appendChild(r);
-  });
-  return true;
+// П22: бесплатная «подмога или сам справлюсь» была выбором без цены — отказываться незачем. Теперь:
+// пока идёт обучение (реклама закрыта) — Орден помогает сам, +15% урона на 10 мин; после — честный выбор: подмога сильнее (+30%) за рекламу,
+// или дальше без неё (предложение повторится при следующей гибели в этом же месте)
+function helpBlock(where) {
+  const P = G.profile, give = (k, txt) => { P.boosts.helpUntil = Date.now() + 10 * 60e3; P.boosts.helpK = k; G.stats = stats(P); helpGiven(where); bus.emit('statsChanged'); bus.emit('toast', { text: txt, kind: 'good' }); };
+  const box = el('div', 'death-help', '<b>Трудное место — третья попытка подряд</b>');
+  if (earlyLock('extra')) { give(1.15, 'Подмога Ордена: +15% урона на 10 минут'); box.appendChild(el('p', 'good', 'Орден прислал подмогу: +15% ко всему урону на 10 минут.')); return box; }
+  box.appendChild(el('p', 'muted', 'Орден может прислать подмогу: <b class="good">+30% ко всему урону на 10 минут</b>.'));
+  box.appendChild(adButton('Подмога Ордена · +30% урона', 'order_help', 0, () => give(1.3, 'Подмога Ордена: +30% урона на 10 минут'), () => { box.innerHTML = '<b class="good">✓ Подмога Ордена с вами: +30% урона на 10 минут</b>'; }));
+  return box;
 }
+export function showStreakHelp() { return false; }   // оставлено для старых вызовов: подмога — в экране гибели (helpBlock)
 
 // ---------------------------------------------------------------- death / boss reward / chapter end
+// П66: надпись гибели — только до телепорта: в новой локации (деревня после «В деревню») экран гибели всегда убран
+bus.on('zoneEntered', () => { const d = $('death'); if (d) d.classList.add('hidden'); });
 function showDeath() {
+  if (!G.player || !G.player.dead) return;   // уже воскрес/перенесён, пока ждали 1,3 с
   const d = $('death'); d.classList.remove('hidden'); G.paused = true;
   d.innerHTML = `<h2>Вы погибли</h2><p class="muted">${G.zoneId === 'wild' ? 'Ноша потеряна. Враг запомнил вас — вернитесь и отомстите.' : G.run ? `Этаж ${G.run.floor} не пройден. Собранное золото остаётся у вас.` : 'Нежить торжествует… но Орден даёт второй шанс.'}</p>`;
   { const h = G.lastHit, EL = { fire: 'огнём', cold: 'холодом', light: 'молнией', poison: 'ядом' }, P = G.profile;   // сборка 49: кто убил и что можно было сделать
@@ -800,16 +955,22 @@ function showDeath() {
   const left = Math.max(0, MAX_REVIVES - (G.revives || 0)), canRev = left > 0 && G.zoneId !== 'castle' && G.zoneId !== 'town';
   const ad = el('button', 'btn ad', `Воскреснуть на месте (осталось ${left})`);
   ad.onclick = async () => { const tok = offerToken('revive'); const ok = await watchRewarded('revive', tok, () => { }); if (ok) { d.classList.add('hidden'); G.paused = false; revive(true); } };
+  if (inPrologue()) {   // сборка 59: в прологе — без деревни и без потери золота: склеп начинается заново
+    d.querySelector('p.muted').textContent = 'Склеп пробуждения не пройден. Попробуйте ещё раз: отходите от замахов и бейте первым.';
+    const again = el('button', 'btn gold', 'Ещё раз'); again.onclick = () => { d.classList.add('hidden'); G.paused = false; revive(false); };
+    row.append(again); d.appendChild(row); return;
+  }
   const loss = Math.floor(G.profile.gold * 0.1);
   const town = el('button', 'btn gold', `В деревню (−${loss} зол.)`); town.onclick = () => { G.profile.gold -= loss; d.classList.add('hidden'); G.paused = false; revive(false); };
   if (canRev) row.append(ad); row.append(town); d.appendChild(row);
+  if (helpWhere) { d.appendChild(helpBlock(helpWhere)); helpWhere = null; }
   if (!canRev && G.zoneId !== 'castle' && G.zoneId !== 'town') d.appendChild(el('p', 'bad', 'Воскрешения за этот заход закончились — вернитесь в деревню, подлечитесь и усильтесь.'));
   d.appendChild(el('p', 'muted', '<small>Возвращение стоит 10% золота. Подземелье заселится заново, в том числе элита и босс, если они не побеждены.</small>'));
 }
 function bossReward(k) {
   if (G.player.dead) return;
   modal('Палач Бездны повержен!', 'sm', b => {
-    b.appendChild(el('p', '', 'Золото рассыпано по арене — соберите его. Главная награда ждёт вас в окне задания.'));
+    b.appendChild(el('p', '', k.repeat ? 'Золото и осколки Бездны рассыпаны по арене. Палач вернётся через 30 минут — таймер на месте его гибели.' : 'Золото рассыпано по арене — соберите его. Главная награда ждёт вас в окне задания.'));   // П45
     b.appendChild(el('p', 'good', 'Портал домой открылся в центре арены.'));
     const row = el('div', 'row');
     const ad = el('button', 'btn ad', 'Дополнительный редкий предмет'); ad.onclick = () => offers.bossExtra(k.id, k.x, k.y).then(ok => { if (ok) closeModal(); });
@@ -822,14 +983,17 @@ export function showMemory(id) {
   const S = G.profile.story; S.mem = S.mem || {};
   if (S.mem[id]) return; S.mem[id] = 1; bus.emit('save');
   const seals = SEALS.filter(x => (S.flags || {})['seal_' + x.id]).length;
-  setTimeout(() => modal(M.title, 'sm', b => {
+  // фото мамы (М31): после склепа облёт нового портала («Открыт портал: Разрушенный храм») успевал начаться в эти 1,4 с и шёл поверх окна —
+  // окно резалось чёрными полосами, «Дальше» не нажималась. Теперь облёт ждёт окно (G.memPending), а окно — конец облёта
+  G.memPending = true;
+  setTimeout(function open() { if (G.cinema) return setTimeout(open, 500); G.memPending = false; modal(M.title, 'sm', b => {
     const box = el('div', 'mem-box', `<div class="mem-ic">${M.kind === 'turn' ? '✦' : '◈'}</div><div class="mem-sub">${esc(M.sub || '')}</div>`);
     for (const l of M.lines) box.appendChild(el('p', '', esc(l)));
     box.appendChild(el('div', 'mem-seals', SEALS.map((x, i) => `<i class="${i < seals ? 'on' : ''}" title="${esc(x.name)}"></i>`).join('')));
     box.appendChild(el('div', 'muted', `Печати: ${seals} из ${SEALS.length}`));
     b.appendChild(box);
-    const r = el('div', 'row'); r.style.justifyContent = 'center'; const ok = el('button', 'btn gold', 'Дальше'); ok.onclick = closeModal; r.appendChild(ok); b.appendChild(r);
-  }, { sticky: true }), 1400);
+    const r = el('div', 'row'); r.style.justifyContent = 'center'; const ok = el('button', 'btn gold', 'Дальше'); ok.onclick = () => closeModal(); r.appendChild(ok); b.appendChild(r);
+  }, { sticky: true }); }, 1400);
   bus.emit('sfx', 'levelup');
 }
 const CH_DONE = {
@@ -910,7 +1074,7 @@ W.wild = realm => modal(REALMS[realm].name, 'sm', b => {
   const enter = d => { closeModal(); loadZone('wild', { realm, depth: d }); };
   const need = wildReqLevel(realm, next);
   const go = el('button', 'btn gold', `▶ ${locationName(realm, next)} · глубина ${next}${isWildBoss(next) ? ' · босс' : ''} (ур. врагов ${wildLevel(realm, next)})`);
-  go.style.width = '100%'; if (P.level < need) { go.disabled = true; go.textContent = `Глубина ${next}: нужен уровень ${need}`; } go.onclick = () => enter(next); b.appendChild(go);
+  go.style.width = '100%'; if (P.level < need) { go.disabled = true; go.textContent = `Глубина ${next}: нужен уровень ${need}`; } else if (wildDepthGate(realm, next)) { go.disabled = true; go.textContent = `Глубина ${next}: после победы над Палачом Бездны`; }   /* П37 */ go.onclick = () => enter(next); b.appendChild(go);
   if ((WS.depth || 0) > 1) {
     b.appendChild(el('h3', '', 'Пройденные локации')); const grid = el('div', 'row');
     for (let d = Math.max(1, (WS.depth || 1) - 11); d < WS.depth; d++) { const bt = el('button', 'btn sm', `${d}${isWildFort(d) ? (isWildBoss(d) ? '♛' : '⚑') : ''}`); bt.title = locationName(realm, d); bt.onclick = () => enter(d); grid.appendChild(bt); }
@@ -1101,11 +1265,12 @@ function survEnd(r) {
 // ---------------------------------------------------------------- lore intros (first visit)
 const LORE = {
   depths: ['Глубины катакомб', 'Под катакомбами Ордена нет дна. Каждый пятый этаж охраняет страж, а за стражами — всё более древняя тьма: затопленные склепы, пепельные шахты и, говорят, само Сердце Бездны. Дары Бездны помогут — но только пока вы не повернёте назад.'],
-  survival: ['Жатва Бездны', 'Раз в поколение Бездна распахивается, и мёртвые идут бесконечной рекой. Орден посылает на арену лишь одного — чтобы выстоял до рассвета. Не останавливайтесь: собирайте кристаллы душ, и оружие само запоёт в ваших руках.'],
+  // сборка 60 (П13): вместо легенды — короткая инструкция
+  survival: ['Жатва Бездны · как играть', 'Кнопки боя здесь не нужны.', ['🏃 Только бегайте — герой бьёт сам. Ведите пальцем по экрану.', '💎 С врагов падают синие души — подбегайте к ним, они собираются сами. Набрали полную полоску — новый уровень, выберите новое умение или усилите старое.', '🏹 Уворачивайтесь от стрел и снарядов врагов — отбегайте в сторону.', '⏳ Не стойте в толпе и продержитесь как можно дольше.']],   // правки мамы (М10)
   castle: ['Цитадель Ордена', 'Когда-то здесь жили магистры Ордена. Теперь это ваш дом. Откройте залы: алтарь будет копить золото, пока вы спите, а в Зале испытаний стражи прошлого проверят вашу силу.'],
 };
 bus.on('zoneEntered', id => { const P = G.profile; P.lore = P.lore || {}; const L = LORE[id]; if (!L || P.lore[id] || (id === 'depths' && !(G.run && G.run.floor > 0))) return; P.lore[id] = 1; bus.emit('save');
-  const show = () => { if (cur) { setTimeout(show, 800); return; } modal(L[0], 'sm reward', b => { b.appendChild(artHead(ART.zone(id))); b.appendChild(el('p', 'lore', esc(L[1]))); const r = el('div', 'row'); r.style.justifyContent = 'center'; const ok = el('button', 'btn gold', 'Вперёд'); ok.onclick = closeModal; r.appendChild(ok); b.appendChild(r); }); cur.bg.classList.add('rw-bg'); }; setTimeout(show, 600); });
+  const show = () => { if (cur) { setTimeout(show, 800); return; } modal(L[0], 'sm reward', b => { b.appendChild(artHead(ART.zone(id))); b.appendChild(el('p', 'lore', esc(L[1]))); if (L[2]) b.appendChild(el('div', 'lore-how', L[2].map(x => `<div>${esc(x)}</div>`).join(''))); const r = el('div', 'row'); r.style.justifyContent = 'center'; const ok = el('button', 'btn gold', 'Вперёд'); ok.onclick = closeModal; r.appendChild(ok); b.appendChild(r); }); cur.bg.classList.add('rw-bg'); }; setTimeout(show, 600); });
 
 // ---------------------------------------------------------------- main menu: big labelled tiles instead of a row of tiny icons
 W.menu = () => modal('Меню', 'md', b => {
@@ -1119,9 +1284,10 @@ W.menu = () => modal('Меню', 'md', b => {
   for (const [id, ic, name, sub, badge] of tiles) {
     const locked = TOWN_ONLY[id] && G.zoneId !== 'town';
     const n = badge ? BADGES[badge] || 0 : 0;
-    const t = el('button', 'menu-tile' + (locked ? ' locked' : ''), `<span class="mt-ic">${ic}</span><b>${name}</b><small>${locked ? 'в деревне' : sub}</small>${n ? `<span class="mt-dot">${n}</span>` : ''}`);
+    const t = el('button', 'menu-tile' + (locked ? ' locked' : ''), `<span class="mt-ic">${ic}</span><b>${name}</b><small>${locked ? 'в деревне' : sub}</small>${n ? `<span class="mt-dot">${n}</span>` : ''}`); t.dataset.w = id;
     t.onclick = () => { closeModal(); openWindow(id); };
     g.appendChild(t);
   }
   b.appendChild(g);
+  setTimeout(() => bus.emit('menuOpened'), 60);   // сборка 60 (П32): обучение показывает плитку «Герой»
 });

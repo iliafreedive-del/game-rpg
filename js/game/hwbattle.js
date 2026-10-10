@@ -7,7 +7,40 @@ export const ARENA = { heroX: -5.4, foeX0: 1.6, foeX1: 5.4, zMax: 2.4 };
 const WIDE = { heroX: -5.4, foeX0: 1.6, foeX1: 5.4, zMax: 2.4, halfX: 8.6 }, NARROW = { heroX: -3.4, foeX0: 0.5, foeX1: 2.9, zMax: 2.0, halfX: 5.2 };
 let HALF_X = WIDE.halfX;
 export function setArenaLayout(narrow) { const L = narrow ? NARROW : WIDE; ARENA.heroX = L.heroX; ARENA.foeX0 = L.foeX0; ARENA.foeX1 = L.foeX1; ARENA.zMax = L.zMax; HALF_X = L.halfX; }
+// сборка 59: телефон повернули посреди боя — арена под новый экран, бойцы переносятся пропорционально (герой на своём краю, отряд на своём)
+export const arenaNarrow = () => HALF_X === NARROW.halfX;
+export function relayoutBattle(B, narrow) {
+  if (narrow === arenaNarrow()) return false;
+  const o = narrow ? WIDE : NARROW, n = narrow ? NARROW : WIDE, kx = (n.foeX1 - n.heroX) / (o.foeX1 - o.heroX), kz = n.zMax / o.zMax;
+  const mp = p => { if (p) { p.x = n.heroX + (p.x - o.heroX) * kx; p.z *= kz; } };
+  setArenaLayout(narrow);
+  for (const u of [B.H, ...B.foes]) { mp(u); mp(u.home); if (u.act) { mp(u.act.from); mp(u.act.to); } }
+  return true;
+}
 const RUN = 10, BACK_T = 0.4, PAUSE = 0.15;
+
+// сборка 60 (П9): умение героя в Летописи — то, что выбрано перед боем из выученных активных. fx: smash — удар по цели и брызги вокруг
+// (R 99 — по всем), volley — n снарядов по случайным врагам, ball — снаряд с взрывом (aoe). every — раз в сколько ходов героя.
+// Новые умения добавляются строкой сюда; ранг умения +12% силы за ранг.
+export const HW_SKILLS = {
+  whirlwind: { fx: 'smash', mul: 2.0, splash: 0.9, R: 99, every: 4 },
+  leap: { fx: 'smash', mul: 2.6, splash: 0.9, R: 2.6, every: 4 },
+  warcry: { fx: 'smash', mul: 1.8, splash: 0.7, R: 3, every: 4 },
+  volley: { fx: 'volley', n: 3, mul: 0.95, every: 4 },
+  pierce_shot: { fx: 'volley', n: 1, mul: 2.6, every: 3 },
+  arrow_rain: { fx: 'volley', n: 6, mul: 0.6, every: 5 },
+  fireball: { fx: 'ball', proj: 'fireball', mul: 2.1, aoe: 3, amul: 0.6, every: 4 },
+  meteor: { fx: 'ball', proj: 'fireball', mul: 3.0, aoe: 3.5, amul: 0.9, every: 5 },
+  ice_shard: { fx: 'ball', proj: 'bolt', mul: 1.7, aoe: 0, every: 3 },
+  frost_nova: { fx: 'ball', proj: 'bolt', mul: 1.3, aoe: 99, amul: 1.0, every: 5 },
+  chain: { fx: 'volley', proj: 'bolt', n: 3, mul: 1.2, every: 4 },
+  thunder: { fx: 'ball', proj: 'bolt', mul: 3.4, aoe: 2.5, amul: 1.2, every: 6 },
+};
+const HW_DEFAULT = { warrior: { name: 'Сокрушение', fx: 'smash', mul: 2.2, splash: 0.8, R: 2.6, every: 4 }, archer: { name: 'Залп', fx: 'volley', n: 3, mul: 0.95, every: 4 }, mage: { name: 'Огненный шар', fx: 'ball', proj: 'fireball', mul: 2.1, aoe: 3, amul: 0.6, every: 4 } };
+export function hwSkill(cls, id, rank = 1, name) {
+  const b = (id && HW_SKILLS[id]) || HW_DEFAULT[cls] || HW_DEFAULT.warrior;
+  return { ...b, id: id || null, name: name || b.name || 'Умение', mul: b.mul * (1 + 0.12 * Math.max(0, rank - 1)) };
+}
 
 // расстановка отряда: ближний бой — первая линия, стрелки и маги — вторая; босс — в центре первой линии
 export function formation(foes) {
@@ -31,7 +64,8 @@ export function makeBattle(hero, foes, rnd = Math.random) {
   for (const f of foes) Object.assign(f, { side: 'f', max: f.hp, reach: f.big ? 1.9 : 1.35, ini: rr(0, 0.5), act: null, flash: 0, hitT: 0, dead: false, deadT: 0 });
   formation(foes);
   const all = [H, ...foes];
-  const B = { H, foes, all, ev, time: 0, over: null, pause: 0.6, projs: [], skillEvery: 4, skillIn: 3 };
+  const SK = hero.skill || hwSkill(hero.cls);
+  const B = { H, foes, all, ev, time: 0, over: null, pause: 0.6, projs: [], sk: SK, skillEvery: SK.every, skillIn: SK.every - 1 };
   const alive = () => foes.filter(f => !f.dead);
   const redu = lvl => H.armor / (H.armor + 50 + 10 * lvl);
   const yawTo = (a, b) => Math.atan2(b.x - a.x, b.z - a.z);
@@ -65,7 +99,7 @@ export function makeBattle(hero, foes, rnd = Math.random) {
     if (u === H) { H.n++; if (--B.skillIn <= 0) { skill = true; B.skillIn = B.skillEvery; } }
     const kind = u.ranged ? 'shoot' : 'melee';
     u.act = { kind, skill, tgt, ph: kind === 'melee' ? 'go' : 'aim', t: 0, fired: false, from: { x: u.x, z: u.z } };
-    if (skill) ev.push({ k: 'label', u, s: { warrior: 'Сокрушение', archer: 'Залп', mage: 'Огненный шар' }[H.cls] || 'Умение' });
+    if (skill) ev.push({ k: 'label', u, s: SK.name });
     if (kind === 'melee') {   // встать перед целью, чуть со стороны своего края
       const dir = u.side === 'h' ? -1 : 1, R = (u.reach + (tgt.big ? 0.5 : 0)) * (skill ? 1.1 : 1);
       u.act.to = { x: tgt.x + dir * R, z: tgt.z + (u.side === 'h' ? 0 : rr(-0.25, 0.25)) };
@@ -76,9 +110,9 @@ export function makeBattle(hero, foes, rnd = Math.random) {
   function fire(u) {   // снаряд или удар
     const a = u.act, t = a.tgt;
     if (u === H && a.skill) {
-      if (H.cls === 'warrior') { damage(H, t, 2.2, { sure: true, big: 1 }); splash(H, t, 2.6, 0.8); ev.push({ k: 'boom', x: t.x, z: t.z, c: 'gold' }); }
-      else if (H.cls === 'archer') { const L = alive(); for (let i = 0; i < 3; i++) { const v = L[(i + (rnd() * L.length | 0)) % L.length]; B.projs.push({ k: 'arrow', src: u, tgt: v, x: u.x, z: u.z, t: -i * 0.12, d: 0.42, mul: 0.95 }); } }
-      else B.projs.push({ k: 'fireball', src: u, tgt: t, x: u.x, z: u.z, t: 0, d: 0.55, mul: 2.1 * Math.max(1, H.spell / 1.2), aoe: 3, amul: 0.6 });
+      if (SK.fx === 'smash') { damage(H, t, SK.mul, { sure: true, big: 1 }); splash(H, t, SK.R, SK.splash); ev.push({ k: 'boom', x: t.x, z: t.z, c: 'gold' }); }
+      else if (SK.fx === 'volley') { const L = alive(); for (let i = 0; i < SK.n; i++) { const v = L[(i + (rnd() * L.length | 0)) % L.length]; B.projs.push({ k: SK.proj || 'arrow', src: u, tgt: v, x: u.x, z: u.z, t: -i * 0.12, d: 0.42, mul: SK.mul }); } }
+      else B.projs.push({ k: SK.proj || 'fireball', src: u, tgt: t, x: u.x, z: u.z, t: 0, d: 0.55, mul: SK.mul * Math.max(1, H.spell / 1.2), aoe: SK.aoe, amul: SK.amul });
       return;
     }
     if (a.kind === 'melee') { damage(u, t, u.boss && rnd() < 0.3 ? 1.5 : 1); ev.push({ k: 'slash', u: t, from: u }); return; }

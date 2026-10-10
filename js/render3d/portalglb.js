@@ -5,6 +5,7 @@ import * as THREE from '../vendor/three.module.min.js';
 import { GLTFLoader } from '../vendor/GLTFLoader.js';
 import { toon } from './toon.js';
 import { SKINS } from './glbskin.js';
+import { shared } from './dispose.js';
 
 const URL_ = new URL('../../assets/models/portals.glb', import.meta.url).href;
 const OBJ = new Map();   // имя арки → { geometry, mat }
@@ -21,7 +22,7 @@ export function preloadPortals() {
     g.scene.traverse(o => {
       if (!o.isMesh) return;
       if (!mat) { mat = toon(0xffffff, { rim: 0.25, rimColor: 0xd8d0ff, side: THREE.DoubleSide, ao: 0.7, aoH: 1.2 }); mat.map = o.material.map; if (mat.map) { mat.map.colorSpace = THREE.SRGBColorSpace; mat.map.anisotropy = 4; } }
-      OBJ.set(o.name, { geometry: o.geometry, mat });
+      OBJ.set(o.name, { geometry: shared(o.geometry), mat });
     });
   }))).then(() => (ready = true)).catch(e => { console.warn('portals.glb', e); return false; });
   return wait;

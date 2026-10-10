@@ -13,6 +13,8 @@ const MAX_PARTICLES = 350, MAX_TEXTS = 50, MAX_EFFECTS = 80;
 
 // ------------------------------------------------------------------ VFX helpers (bounded pools)
 export function float(x, y, text, color = '#fff', o = {}) {
+  // сборка 59: одна и та же надпись (не число) в том же месте — не громоздить друг на друга («Уклонение» от трёх ударов разом)
+  if (isNaN(text) && G.texts.some(f => f.text === String(text) && f.t < 0.45 && Math.hypot(f.x - x, f.y - y) < 1.2)) return;
   if (G.texts.length >= MAX_TEXTS) G.texts.shift();
   G.texts.push({ x, y, z: o.z ?? 1.9, text: String(text), color, t: 0, life: o.life || 0.9, big: o.big || 0, dx: rrange(-0.25, 0.25) });
 }
@@ -24,6 +26,8 @@ export function particles(x, y, n, o) {
     G.particles.push({ x, y, z: o.z ?? 0.8, vx: Math.cos(a) * s, vy: Math.sin(a) * s, vz: rrange(o.vzMin ?? 0.5, o.vz ?? 3), g: o.g ?? 6, t: 0, life: rrange(0.35, o.life ?? 0.8), c: o.c || [255, 200, 120], size: o.size ?? 3, add: o.add ?? true });
   }
 }
+// С22: стоп-кадр (hit-stop) — мир замирает на t секунд реального времени (game.js update). Не чаще раза в 0,2 с, чтобы серия ударов не «вязла»
+export function hitStop(t) { if (G.time - (G.hitStopAt ?? -9) < 0.2 && !(t > (G.hitStopT || 0) + 0.03)) return; G.hitStopAt = G.time; G.hitStopT = Math.max(G.hitStopT || 0, t); }
 export function effect(e) { if (G.effects.length >= MAX_EFFECTS) G.effects.shift(); e.t = 0; G.effects.push(e); return e; }
 
 // ------------------------------------------------------------------ targeting
@@ -32,12 +36,20 @@ export function nearestEnemy(x, y, maxD, filter) {
   for (const e of G.enemies) { if (e.dead || (filter && !filter(e))) continue; const d = (e.x - x) ** 2 + (e.y - y) ** 2; if (d < bd) { bd = d; best = e; } }
   return best;
 }
+// правки 2 (П60): «чистый выстрел» — линия видимости по центру и по двум краям полосы шириной 0,4 м. Тонкая линия по центру
+// проходила впритирку к углу стены, а стрела/снаряд задевали угол — стрелок у угла бил в стену, а не во врага
+export function shotClear(ax, ay, bx, by, w = 0.2) {
+  const map = G.zone.map; if (!map.los(ax, ay, bx, by)) return false;
+  const dx = bx - ax, dy = by - ay, l = Math.hypot(dx, dy) || 1, nx = -dy / l * w, ny = dx / l * w;
+  return map.los(ax + nx, ay + ny, bx + nx, by + ny) && map.los(ax - nx, ay - ny, bx - nx, by - ny);
+}
+export const sees = (P, e) => G.stats && G.stats.ranged ? shotClear(P.x, P.y, e.x, e.y) : G.zone.map.los(P.x, P.y, e.x, e.y);
 export function pickTarget(P, range) {
   // prefer enemies in front, within range, with line of sight
   let best = null, bs = 1e9; const [fx, fy] = dirVec(P.face);
   for (const e of G.enemies) {
     if (e.dead) continue; const dx = e.x - P.x, dy = e.y - P.y, d = Math.hypot(dx, dy);
-    if (d > range + e.r) continue; if (!G.zone.map.los(P.x, P.y, e.x, e.y)) continue;
+    if (d > range + e.r) continue; if (!sees(P, e)) continue;
     const front = (dx * fx + dy * fy) / (d || 1);
     const score = d - front * 1.2 + (e.D.boss || e.D.elite ? -0.3 : 0);
     if (score < bs) { bs = score; best = e; }
@@ -58,9 +70,10 @@ export function damageEnemy(e, amount, o = {}) {
   if (S.effects.execute && e.hp < e.maxHP * 0.3 && o.src === 'melee') dmg *= 2;
   dmg = Math.max(1, Math.round(dmg));
   e.hp -= dmg; e.flash = 0.12; G.lastCombat = G.time; e.lastSrc = o.src;
-  if (!e.aggro) { e.aggro = true; bus.emit('aggro', e); }   // попал по врагу — он (и ближайшие соседи) тут же бросаются в бой
+  if (!e.aggro) { e.aggro = true; e.ret = false; bus.emit('aggro', e); }   // попал по врагу — он (и ближайшие соседи) тут же бросаются в бой
   const col = o.elem === 'poison' ? '#9ae66a' : o.src === 'pet' ? '#e8d8b0' : o.elem === 'fire' ? '#ff9a4a' : o.elem === 'cold' ? '#8fdcff' : o.elem === 'light' ? '#d0c2ff' : crit ? '#ffd23a' : '#ffffff';
   if (!o.quiet) float(e.x, e.y, crit ? dmg + '!' : dmg, col, { big: crit ? 1 : 0, z: e.D.boss ? 3.2 : 1.9 });
+  if (o.src === 'melee') hitStop(crit ? 0.06 : 0.03); else if (crit && o.src === 'weapon') hitStop(0.04);
   // life on hit
   if (S.leech && o.src && o.src !== 'dot' && o.src !== 'pet') { G.player.hp = Math.min(S.maxHP, G.player.hp + S.leech); }
   // bleed from crits (sword branch) and axes
@@ -99,13 +112,14 @@ function applyChill(e) {
 }
 export function killEnemy(e, o = {}) {
   e.dead = true; e.hp = 0; e.state = 'dead'; e.setAnim('death', 9); e.teleg = null;
+  if (e.D.boss || e.D.elite || e.champion) { hitStop(e.D.boss ? 0.16 : 0.1); G.cam.kick(e.D.boss ? 0.6 : 0.35); }
   const S = G.stats;
   if (e.st.burn > 0 && R('burn_explode')) { const dmg = (10 + 6 * Math.max(1, R('fireball'))) * S.spellPower * S.elem.fire * 0.8 * PK; explosion(e.x, e.y, 2, dmg, 'fire', true, e); }
   if (e.st.frozen > 0 && R('shatter')) { for (let k = 0; k < 4; k++) { const a = k * Math.PI / 2 + 0.4; spawnProj({ kind: 'shard', x: e.x, y: e.y, vx: Math.cos(a) * 12, vy: Math.sin(a) * 12, owner: 'p', dmg: (9 + 5 * Math.max(1, R('ice_shard'))) * S.spellPower * S.elem.cold * 0.6 * PK, elem: 'cold', range: 5 }); } }
   if (S.effects.bloodShield) G.player.shield = Math.min(S.maxHP * 0.3, G.player.shield + S.maxHP * 0.1);
   if (hasBoon('vitality')) G.player.hp = Math.min(S.maxHP, G.player.hp + S.maxHP * 0.02);
   if (hasBoon('bloodpact')) G.player.hp = Math.min(S.maxHP, G.player.hp + S.maxHP * 0.04);
-  if (hasBoon('boom') && !o.fromBoom) { const d = (S.dmgMin + S.dmgMax) * 0.6; setTimeoutGame(0.08, () => { effect({ kind: 'burst', x: e.x, y: e.y, r: 2, dur: 0.4, c: [255, 170, 90] }); for (const t of G.enemies) if (!t.dead && t !== e && Math.hypot(t.x - e.x, t.y - e.y) < 2 + t.r) damageEnemy(t, d, { elem: 'fire', src: 'spell', fromBoom: true, canCrit: false }); G.cam.shake = Math.max(G.cam.shake, 0.2); bus.emit('sfx', 'boom'); }); }
+  if (hasBoon('boom') && !o.fromBoom) { const d = (S.dmgMin + S.dmgMax) * 0.6; setTimeoutGame(0.08, () => { effect({ kind: 'burst', x: e.x, y: e.y, r: 2, dur: 0.4, c: [255, 170, 90] }); for (const t of G.enemies) if (!t.dead && t !== e && Math.hypot(t.x - e.x, t.y - e.y) < 2 + t.r) damageEnemy(t, d, { elem: 'fire', src: 'spell', fromBoom: true, canCrit: false }); G.cam.kick(0.2); bus.emit('sfx', 'boom'); }); }
   particles(e.x, e.y, 12, { c: e.D.skeleton ? [220, 210, 190] : [120, 20, 20], z: 1, sp: 3, add: false, size: 3 });
   bus.emit('sfx', e.D.skeleton ? 'bones' : 'death');
   bus.emit('kill', e);
@@ -115,7 +129,7 @@ export function explosion(x, y, r, dmg, elem, ignite, except) {
   if (elem === 'fire') { effect({ kind: 'scorch', x, y, r: r * 0.9, dur: 4 }); particles(x, y, 14, { c: [255, 200, 90], z: 0.4, sp: 3, vz: 5, g: 5, size: 5, life: 0.9 }); particles(x, y, 10, { c: [90, 70, 60], z: 0.8, sp: 1.5, vz: 2.5, g: -1, size: 7, life: 1.2, add: false }); }
   particles(x, y, 22, { c: elem === 'fire' ? [255, 150, 50] : [180, 220, 255], z: 0.6, sp: 5, size: 4 });
   for (const t of G.enemies) { if (t.dead || t === except) continue; if (Math.hypot(t.x - x, t.y - y) < r + t.r) { damageEnemy(t, dmg, { elem, src: 'spell' }); if (ignite && !t.dead) applyIgnite(t, dmg); } }
-  bus.emit('sfx', 'boom'); G.cam.shake = Math.max(G.cam.shake, 0.25);
+  bus.emit('sfx', 'boom'); G.cam.kick(0.25);
 }
 export function lightningArc(x1, y1, x2, y2) { effect({ kind: 'bolt', x1, y1, x2, y2, dur: 0.28, seed: rand() * 1000 }); particles(x2, y2, 6, { c: [210, 200, 255], z: 1, sp: 3, size: 2.5, life: 0.35 }); }
 
@@ -151,7 +165,8 @@ export const nearAim = (aim, R) => { let b = null, bd = R * R; for (const e of G
 export function playerAttack(P, aim, force) {
   if (P.dead || P.busy() || P.state === 'hit') return false;
   const S = G.stats, wt = P.weaponType(), W = WEAPONS[wt];
-  const tgt = force || (aim ? nearAim(aim, 1.4) : pickTarget(P, W.projectile ? W.range : W.range + 0.4));
+  // П69: мягкий захват цели в ближнем бою — ищем в 1,2 м за радиусом удара (замах подшагивает к цели, см. updatePlayerAction)
+  const tgt = force || (aim ? nearAim(aim, 1.4) : pickTarget(P, W.projectile ? W.range : W.range + 1.2));
   if (tgt) P.faceTo(tgt.x, tgt.y); else if (aim) P.faceTo(aim.x, aim.y);
   P.dir = P.face;
   const dur = 1 / S.aps;
@@ -199,14 +214,14 @@ export function updatePlayerAction(P, dt) {
   if (a.kind === 'bow') {
     if (a.phase === 'draw' && P.anim.done) {
       a.phase = 'rel'; P.setAnim('bowrel', 3 / (a.dur * 0.32));
-      const t = a.tgt && !a.tgt.dead ? a.tgt : a.aim ? null : pickTarget(P, 9);
+      const t = a.tgt && !a.tgt.dead && (a.aim || shotClear(P.x, P.y, a.tgt.x, a.tgt.y)) ? a.tgt : a.aim ? null : pickTarget(P, 9);   // П60: цель ушла за угол — другая цель с чистым выстрелом
       const ang = t ? Math.atan2(t.y - P.y, t.x - P.x) : a.aim ? Math.atan2(a.aim.y - P.y, a.aim.x - P.x) : P.face * Math.PI / 4;
       fireArrow(P, ang, 1); bus.emit('sfx', 'bow'); a.fired = true;
     } else if (a.phase === 'rel' && P.anim.done) endAction(P);
     return;
   }
   if (a.kind === 'staff' && !a.fired && P.anim.prog >= a.impact) {
-    a.fired = true; const t = a.tgt && !a.tgt.dead ? a.tgt : a.aim ? null : pickTarget(P, 8);
+    a.fired = true; const t = a.tgt && !a.tgt.dead && (a.aim || shotClear(P.x, P.y, a.tgt.x, a.tgt.y)) ? a.tgt : a.aim ? null : pickTarget(P, 8);
     const ang = t ? Math.atan2(t.y - P.y, t.x - P.x) : a.aim ? Math.atan2(a.aim.y - P.y, a.aim.x - P.x) : P.face * Math.PI / 4;
     spawnProj({ kind: 'bolt', x: P.x, y: P.y, vx: Math.cos(ang) * 12, vy: Math.sin(ang) * 12, owner: 'p', dmg: rollWeapon(S), elem: 'magic', range: 8, src: 'weapon' });
     if (hasBoon('split')) for (const da of [-0.22, 0.22]) spawnProj({ kind: 'bolt', x: P.x, y: P.y, vx: Math.cos(ang + da) * 12, vy: Math.sin(ang + da) * 12, owner: 'p', dmg: rollWeapon(S) * 0.6, elem: 'magic', range: 8, src: 'weapon' });
@@ -227,7 +242,7 @@ function meleeImpact(P, a) {
   const cl = R('cleave'); let hitAny = false;
   const opts = { src: 'melee', pierce: W.pierce || 0, axeBleed: !!W.bleed };
   // primary target
-  const prim = a.tgt && !a.tgt.dead && Math.hypot(a.tgt.x - P.x, a.tgt.y - P.y) <= W.range + a.tgt.r + 0.6 ? a.tgt : null;   // по своей цели — с запасом
+  const prim = a.tgt && !a.tgt.dead && Math.hypot(a.tgt.x - P.x, a.tgt.y - P.y) <= W.range + a.tgt.r + 0.9 ? a.tgt : null;   // по своей цели — с запасом (П69: 0,6 → 0,9 м: кружащий зверь не уходит из-под удара)
   for (const e of G.enemies) {
     if (e.dead) continue; const dx = e.x - P.x, dy = e.y - P.y, d = Math.hypot(dx, dy);
     if (e !== prim && d > W.range + e.r + 0.2) continue;
@@ -237,12 +252,12 @@ function meleeImpact(P, a) {
     if (e === prim || (!prim && !hitAny)) m = 1;
     else if (W.cleave) m = 0.85; else if (hasBoon('split')) m = 0.6; else if (cl) m = (0.3 + cl * 0.2) * PK; else if (crush) m = 0.6 * PK; else continue;
     hitAny = true;
-    damageEnemy(e, rollWeapon(S) * mult * m, { ...opts, knock: a.second || crush ? 0.9 : 0, kx: P.x, ky: P.y });
+    damageEnemy(e, rollWeapon(S) * mult * m, { ...opts, knock: a.second || crush ? 0.9 : e.D.elite ? 0 : 0.3, kx: P.x, ky: P.y });   // П69: каждый удар чуть отталкивает рядового врага
     if (crush && !e.dead) e.st.stun = PK;
     if (S.effects.chainHit) { const t = nearestEnemy(e.x, e.y, 3.5, x => x !== e); if (t) { lightningArc(e.x, e.y, t.x, t.y); damageEnemy(t, rollWeapon(S) * 0.5, { src: 'melee' }); } }
   }
-  if (crush) { effect({ kind: 'ring', x: P.x, y: P.y, r: 2, dur: 0.4, c: [255, 220, 150] }); G.cam.shake = 0.35; bus.emit('sfx', 'boom'); }
-  if (hitAny) { bus.emit('sfx', 'hit'); G.cam.shake = Math.max(G.cam.shake, 0.12); }
+  if (crush) { effect({ kind: 'ring', x: P.x, y: P.y, r: 2, dur: 0.4, c: [255, 220, 150] }); G.cam.kick(0.35); bus.emit('sfx', 'boom'); }
+  if (hitAny) { bus.emit('sfx', 'hit'); G.cam.kick(0.12); }
   effect({ kind: 'slash', x: P.x, y: P.y, a: ang0, r: W.range, arc: W.arc, dur: 0.18, second: a.second });
 }
 function fireArrow(P, ang, dmgMul) {
@@ -254,12 +269,15 @@ function fireArrow(P, ang, dmgMul) {
 }
 
 // ------------------------------------------------------------------ player: skills
+// С35: свойства вещей под ветвь навыков — урон, перезарядка, мана (stats.js s.br)
+export const skMana = (sk, S) => Math.round(sk.mana * (1 - ((S && S.br && S.br.brMana[sk.b]) || 0) / 100));
+function brStats(S, b) { const k = 1 + ((S.br && S.br.brDmg[b]) || 0) / 100; return k === 1 ? S : { ...S, dmgMin: S.dmgMin * k, dmgMax: S.dmgMax * k, spellPower: S.spellPower * k }; }
 export function skillUsable(id) {
   const P = G.player, S = G.stats, sk = SKILLS[id]; if (!sk || !R(id)) return { ok: false, why: 'Не изучено' };
   if (sk.weapon === 'bow' && P.weaponType() !== 'bow') return { ok: false, why: 'Нужен лук' };
   if (sk.weapon === 'melee' && WEAPONS[P.weaponType()].projectile) return { ok: false, why: 'Нужно оружие ближнего боя' };
   if ((P.cds[id] || 0) > 0) return { ok: false, why: 'Перезарядка' };
-  if (P.mp < sk.mana) return { ok: false, why: 'Мало маны' };
+  if (P.mp < skMana(sk, S)) return { ok: false, why: 'Мало маны' };
   return { ok: true };
 }
 export function castSkill(id, aim) {
@@ -269,10 +287,10 @@ export function castSkill(id, aim) {
   if (P.busy()) return false;
   if (P.state === 'hit') P.state = 'idle';
   const u = skillUsable(id); if (!u.ok) { float(P.x, P.y, u.why, '#ff9c8a', { z: 2.3 }); bus.emit('sfx', 'deny'); return false; }
-  const sk = SKILLS[id], r = R(id), S = G.stats;
+  const sk = SKILLS[id], r = R(id), S = brStats(G.stats, sk.b);
   const echo = S.effects.echo && sk.elem && rand() < 0.25;
-  if (!echo) P.mp -= sk.mana; else float(P.x, P.y, 'Эхо!', '#d7b7ff', { z: 2.4 });
-  P.cds[id] = sk.cd; G.lastCombat = G.time;
+  if (!echo) P.mp -= skMana(sk, S); else float(P.x, P.y, 'Эхо!', '#d7b7ff', { z: 2.4 });
+  P.cds[id] = sk.cd * (1 - ((S.br && S.br.brCd[sk.b]) || 0) / 100); G.lastCombat = G.time;
   const range = id === 'volley' || id === 'pierce_shot' || id === 'arrow_rain' ? 10 : id === 'leap' ? 8 : 8;
   const tgt = aim ? nearAim(aim, 1.6) : pickTarget(P, range); if (tgt) P.faceTo(tgt.x, tgt.y); else if (aim) P.faceTo(aim.x, aim.y); P.dir = P.face;
   const ang = tgt ? Math.atan2(tgt.y - P.y, tgt.x - P.x) : aim ? Math.atan2(aim.y - P.y, aim.x - P.x) : P.face * Math.PI / 4;
@@ -282,10 +300,10 @@ export function castSkill(id, aim) {
     case 'fireball': fire = () => { spawnProj({ kind: 'fireball', x: P.x, y: P.y, vx: Math.cos(ang) * 11, vy: Math.sin(ang) * 11, owner: 'p', dmg: (7 + r * 4) * sp * S.elem.fire, elem: 'fire', range: 9, aoe: 1.4, ignite: true }); bus.emit('sfx', 'fire'); }; break;
     case 'ice_shard': fire = () => { spawnProj({ kind: 'shard', x: P.x, y: P.y, vx: Math.cos(ang) * 15, vy: Math.sin(ang) * 15, owner: 'p', dmg: (6 + r * 3) * sp * S.elem.cold, elem: 'cold', range: 9, chill: true }); bus.emit('sfx', 'ice'); }; dur = 0.42; break;
     case 'chain': fire = () => { chainLightning(P, tgt, (8 + r * 4) * sp * S.elem.light, 2 + (r >> 1)); }; dur = 0.45; break;
-    case 'thunder': fire = () => { effect({ kind: 'ring', x: P.x, y: P.y, r: 5, dur: 0.5, c: [190, 170, 255] }); setTimeoutGame(0.4, () => { const d = (8 + Math.max(1, R('chain')) * 4) * sp * S.elem.light * 2; for (const e of G.enemies) if (!e.dead && Math.hypot(e.x - G.player.x, e.y - G.player.y) < 5) { lightningArc(e.x - 0.8, e.y - 3, e.x, e.y); damageEnemy(e, d, { elem: 'light', src: 'spell' }); shock(e); } G.cam.shake = 0.5; bus.emit('sfx', 'thunder'); }); }; dur = 0.55; break;
+    case 'thunder': fire = () => { effect({ kind: 'ring', x: P.x, y: P.y, r: 5, dur: 0.5, c: [190, 170, 255] }); setTimeoutGame(0.4, () => { const d = (8 + Math.max(1, R('chain')) * 4) * sp * S.elem.light * 2; for (const e of G.enemies) if (!e.dead && Math.hypot(e.x - G.player.x, e.y - G.player.y) < 5) { lightningArc(e.x - 0.8, e.y - 3, e.x, e.y); damageEnemy(e, d, { elem: 'light', src: 'spell' }); shock(e); } G.cam.kick(0.5); bus.emit('sfx', 'thunder'); }); }; dur = 0.55; break;
     case 'whirlwind': {
       const wt = P.weaponType(); clip = wt === 'greatsword' ? 'sweep2' : 'slash2'; dur = 0.5; impact = 0.5;
-      fire = () => { effect({ kind: 'ring', x: P.x, y: P.y, r: 2.2, dur: 0.35, c: [255, 235, 200] }); for (const e of G.enemies) if (!e.dead && Math.hypot(e.x - P.x, e.y - P.y) < 2.2 + e.r) damageEnemy(e, rollWeapon(S) * (1.4 + r * 0.2), { src: 'melee', knock: 1.2, kx: P.x, ky: P.y, pierce: WEAPONS[wt].pierce || 0 }); bus.emit('sfx', 'whirl'); G.cam.shake = 0.2; };
+      fire = () => { effect({ kind: 'ring', x: P.x, y: P.y, r: 2.2, dur: 0.35, c: [255, 235, 200] }); for (const e of G.enemies) if (!e.dead && Math.hypot(e.x - P.x, e.y - P.y) < 2.2 + e.r) damageEnemy(e, rollWeapon(S) * (1.4 + r * 0.2), { src: 'melee', knock: 1.2, kx: P.x, ky: P.y, pierce: WEAPONS[wt].pierce || 0 }); bus.emit('sfx', 'whirl'); G.cam.kick(0.2); };
       break;
     }
     case 'leap': {
@@ -295,13 +313,13 @@ export function castSkill(id, aim) {
       P.inv = 0.6; bus.emit('dust', { x: P.x, y: P.y });
       // сборка 47: рывок плавный, каждый кадр (было 8 скачков — герой «дёргался»); в 3D в это время играет бег (renderer3d syncPlayer)
       dash = { sx, sy, fx, fy, T: dur * 0.8 };
-      fire = () => { effect({ kind: 'ring', x: P.x, y: P.y, r: 2.6, dur: 0.45, c: [255, 210, 140] }); effect({ kind: 'scorch', x: P.x, y: P.y, r: 1.6, dur: 3 }); bus.emit('dust', { x: P.x, y: P.y }); particles(P.x, P.y, 26, { c: [170, 150, 120], z: 0.2, sp: 4, vz: 3, g: 6, size: 5, add: false }); G.cam.shake = 0.5; bus.emit('sfx', 'heavy');
+      fire = () => { effect({ kind: 'ring', x: P.x, y: P.y, r: 2.6, dur: 0.45, c: [255, 210, 140] }); effect({ kind: 'scorch', x: P.x, y: P.y, r: 1.6, dur: 3 }); bus.emit('dust', { x: P.x, y: P.y }); particles(P.x, P.y, 26, { c: [170, 150, 120], z: 0.2, sp: 4, vz: 3, g: 6, size: 5, add: false }); G.cam.kick(0.5); bus.emit('sfx', 'heavy');
         for (const e of G.enemies) if (!e.dead && Math.hypot(e.x - P.x, e.y - P.y) < 2.6 + e.r) { damageEnemy(e, rollWeapon(S) * (1.8 + r * 0.3), { src: 'melee', knock: 1, kx: P.x, ky: P.y }); if (!e.dead) e.st.stun = 1; } };
       break;
     }
     case 'warcry': {
       dur = 0.5; impact = 0.4;
-      fire = () => { P.warcry = G.time + 8; P.warcryMul = 1.25 + r * 0.05; effect({ kind: 'aura', dur: 1.2 }); effect({ kind: 'ring', x: P.x, y: P.y, r: 5, dur: 0.6, c: [255, 190, 70] }); bus.emit('sfx', 'roar'); G.cam.shake = 0.3;
+      fire = () => { P.warcry = G.time + 8; P.warcryMul = 1.25 + r * 0.05; effect({ kind: 'aura', dur: 1.2 }); effect({ kind: 'ring', x: P.x, y: P.y, r: 5, dur: 0.6, c: [255, 190, 70] }); bus.emit('sfx', 'roar'); G.cam.kick(0.3);
         for (const e of G.enemies) if (!e.dead && Math.hypot(e.x - P.x, e.y - P.y) < 5) { e.st.slow = 0.5; e.st.slowT = 2.5; } float(P.x, P.y, 'Боевой клич!', '#ffcf6a', { big: 1, z: 2.6 }); };
       break;
     }
@@ -309,7 +327,7 @@ export function castSkill(id, aim) {
       const tp = tgt ? { x: tgt.x, y: tgt.y } : aim ? aim : { x: P.x + Math.cos(ang) * 6, y: P.y + Math.sin(ang) * 6 };
       dur = 0.55;
       fire = () => { effect({ kind: 'meteor', x: tp.x, y: tp.y, r: 2.2, dur: 0.75 }); bus.emit('sfx', 'fire');
-        setTimeoutGame(0.75, () => { const d = (22 + r * 10) * sp * S.elem.fire; explosion(tp.x, tp.y, 2.3, d, 'fire', true); G.cam.shake = 0.6; effect({ kind: 'firepool', x: tp.x, y: tp.y, r: 2, dur: 3 });
+        setTimeoutGame(0.75, () => { const d = (22 + r * 10) * sp * S.elem.fire; explosion(tp.x, tp.y, 2.3, d, 'fire', true); G.cam.kick(0.6); effect({ kind: 'firepool', x: tp.x, y: tp.y, r: 2, dur: 3 });
           for (let k = 1; k <= 6; k++) setTimeoutGame(k * 0.5, () => { for (const e of G.enemies) if (!e.dead && Math.hypot(e.x - tp.x, e.y - tp.y) < 2 + e.r) damageEnemy(e, d * 0.12, { elem: 'fire', src: 'dot', canCrit: false, quiet: true }); }); }); };
       break;
     }
@@ -330,7 +348,7 @@ export function castSkill(id, aim) {
     }
     case 'pierce_shot': {
       clip = 'bowrel'; dur = 0.35; impact = 0.05;
-      fire = () => { spawnProj({ kind: 'pierce', x: P.x, y: P.y, vx: Math.cos(ang) * 18, vy: Math.sin(ang) * 18, owner: 'p', dmg: rollWeapon(S) * (2.2 + r * 0.3), elem: 'phys', range: 14, pierce: 99, src: 'weapon' }); bus.emit('sfx', 'bow'); G.cam.shake = 0.15; };
+      fire = () => { spawnProj({ kind: 'pierce', x: P.x, y: P.y, vx: Math.cos(ang) * 18, vy: Math.sin(ang) * 18, owner: 'p', dmg: rollWeapon(S) * (2.2 + r * 0.3), elem: 'phys', range: 14, pierce: 99, src: 'weapon' }); bus.emit('sfx', 'bow'); G.cam.kick(0.15); };
       break;
     }
     case 'volley': {
@@ -372,6 +390,7 @@ export function updateProjectiles(dt) {
     p.t += dt; const sx = p.vx * dt, sy = p.vy * dt; p.x += sx; p.y += sy; p.dist += Math.hypot(sx, sy);
     if (p.split && !p.didSplit && p.t > p.split) { p.didSplit = true; const a = Math.atan2(p.vy, p.vx), s = Math.hypot(p.vx, p.vy); for (const da of [-0.2, 0.2]) spawnProj({ ...p, hit: undefined, vx: Math.cos(a + da) * s, vy: Math.sin(a + da) * s, split: 0, didSplit: true, dist: p.dist }); }
     if (p.kind === 'fireball' && rand() < 0.6) particles(p.x, p.y, 1, { c: [255, 140, 40], z: 1.0, sp: 0.4, vz: 0.5, g: 0, size: 4, life: 0.35 });
+    if ((p.kind === 'rock' || p.kind === 'bone') && rand() < 0.35) particles(p.x, p.y, 1, { c: p.kind === 'rock' ? [150, 135, 115] : [225, 210, 175], z: 0.9, sp: 0.2, vz: 0.2, g: 2, size: 3, life: 0.35, add: false });
     if (p.kind === 'darkbolt' && rand() < 0.5) particles(p.x, p.y, 1, { c: [180, 110, 255], z: 1.1, sp: 0.3, vz: 0.3, g: 0, size: 3, life: 0.3 });
     if (map.blocked(Math.floor(p.x), Math.floor(p.y)) || p.dist > p.range) { projEnd(p, true); continue; }
     if (p.owner === 'p') {
@@ -396,6 +415,7 @@ export function updateProjectiles(dt) {
 function projEnd(p, wall) {
   p.dead = true;
   if (p.aoe && wall) explosion(p.x - p.vx * 0.02, p.y - p.vy * 0.02, p.aoe, p.dmg, p.elem, p.ignite);
+  else if (p.kind === 'rock' || p.kind === 'bone') particles(p.x, p.y, 8, { c: p.kind === 'rock' ? [140, 125, 105] : [230, 215, 180], z: 0.9, sp: 2.2, vz: 2, g: 7, size: 3.5, add: false, life: 0.5 });
   else if (p.kind === 'shard') particles(p.x, p.y, 6, { c: [170, 230, 255], z: 1, sp: 2, size: 3 });
   else if (p.kind === 'bolt' || p.kind === 'darkbolt') particles(p.x, p.y, 6, { c: p.kind === 'bolt' ? [140, 200, 255] : [190, 120, 255], z: 1, sp: 2, size: 3 });
 }
@@ -407,6 +427,9 @@ export function enemyTelegraph(e, kind, P) {
   const spec = e.D.tele && e.D.tele[kind];   // походы: телеграф задан данными моба (data/wild.js)
   if (spec) { tg = { ...spec, a: ang }; if (spec.shape === 'circle') { tg.x = spec.at === 'target' ? P.x : e.x; tg.y = spec.at === 'target' ? P.y : e.y; } }
   else if (kind === 'lunge') tg = { shape: 'line', a: ang, r: 3.6, w: 0.7 };
+  else if (kind === 'breath') tg = { shape: 'cone', a: ang, r: 3.2, arc: 55, elem: 'cold', slow: 1.6, mult: 0.9, fx: 'frost' };   // П21: ледяное дыхание (волк Фьордов)
+  else if (kind === 'pounce') { const d = Math.min(4.2, Math.hypot(P.x - e.x, P.y - e.y)); tg = { shape: 'circle', x: e.x + Math.cos(ang) * d, y: e.y + Math.sin(ang) * d, r: 1.25, mult: 1.2, fx: 'dust' }; }   // прыжок на героя (гиена)
+  else if (kind === 'quake') tg = { shape: 'line', a: ang, r: 4.6, w: 1.0, mult: 1.1, fx: 'stone' };   // каменные шипы по прямой (каменный волк храма)
   else if (kind === 'nova') tg = { shape: 'circle', x: e.x, y: e.y, r: e.D.abil.nova.r };
   else if (kind === 'volley') tg = { shape: 'cone', a: ang, r: 6, arc: e.D.abil.volley.spread * (e.D.abil.volley.n - 1) * 180 / Math.PI + 12 };
   else if (e.D.proj) tg = null;   // ranged shots are never telegraphed
@@ -417,39 +440,83 @@ export function enemyTelegraph(e, kind, P) {
     else if (kind === 'attack2') tg = { shape: 'circle', x: e.x, y: e.y, r: e.D.boss ? 3.1 : 2.5 };
     else if (kind === 'slam') tg = { shape: 'circle', x: P.x, y: P.y, r: 2.0, rift: true };
   }
+  // П21/П18: удары «из земли» и их подсветка — в цвет и материал края: Лес — корни, Храм — каменные шипы, Пустоши — костяные, Фьорды — лёд
+  if (tg && !tg.fx && (tg.rift || (e.D.realm === 'temple' && tg.shape === 'circle'))) tg.fx = REALM_FX[e.D.realm] || (tg.elem === 'cold' ? 'ice' : null);
+  if (tg && tg.fx) tg.col = FX_COL[tg.fx];
+  if (tg && kind === 'lunge') { tg.sheet = 'charge'; tg.realm = e.D.realm; }   // П21: полоса разбега — лист mob_charge_tele (render/fxsheets.js)
   e.teleg = tg; if (tg) { tg.x = tg.x ?? e.x; tg.y = tg.y ?? e.y; tg.t = 0; }
+  // П51: в бою с большим боссом — напоминание про рывок, когда удар идёт по герою (кнопка мигает, над героем «Рывок!»)
+  if (tg && e.D.boss && inShape(tg, P, e)) bus.emit('dodgeHint');
+}
+// П21: удары зверей — не красная дуга, а листы GPT (assets/art/fx/fx_mobs.json): укус — волки и гиены, когти — медведь, лев, скорпион,
+// пещерный зверь, упырь; клыки — кабаны и олень; удар разбега — врезался в стену/героя. Остальные пока бьют прежним эффектом.
+const MOB_FX = { w_wolf: 'bite', f_wolf: 'bite', b_hyena: 'bite', t_hound: 'bite', beast: 'claw', ghoul: 'claw', w_bear: 'claw', t_lion: 'claw', b_scorpid: 'claw', w_boar: 'gore', b_boar: 'gore', t_boar: 'gore', t_stag: 'gore' };
+const SHEET_DUR = { bite: 0.3, claw: 0.3, gore: 0.32, charge_crash: 0.5 };
+export const mobFxOf = e => MOB_FX[e.type];
+// x, y — точка удара (у героя); size — метры (иначе из листа); a — направление удара (для когтей на полу)
+export function mobSheet(e, kind, x, y, o = {}) {
+  return effect({ kind: 'sheet', id: 'mob_' + kind, x, y, a: o.a ?? Math.atan2(y - e.y, x - e.x), ex: e.x, ey: e.y, z: o.z ?? (kind === 'bite' ? 0.45 : 0), size: o.size ?? (kind === 'bite' ? 2.1 : undefined), realm: e.D.realm, dur: SHEET_DUR[kind] });
+}
+// удар зверя по герою (обычный ближний или бросок): лист у героя, если герой в досягаемости, иначе — в конце замаха
+export function mobStrikeFx(e, P, kind = mobFxOf(e)) {
+  if (!kind) return false;
+  const d = Math.hypot(P.x - e.x, P.y - e.y), a = Math.atan2(P.y - e.y, P.x - e.x), r = Math.min(d, e.D.range + 0.3);
+  const x = e.x + Math.cos(a) * r, y = e.y + Math.sin(a) * r;
+  if (kind === 'claw') mobSheet(e, 'claw', e.x + Math.cos(a) * r * 0.75, e.y + Math.sin(a) * r * 0.75, { a, size: 1.5 * (e.D.size || 1) });
+  else mobSheet(e, kind, x, y, kind === 'gore' ? { size: 2.4 * (e.D.size || 1) } : {});
+  return true;
+}
+const PSPEED = { arrow: 11, rock: 9, bone: 10 };   // П18/П21: камень (Храм) и кость (Пустоши) — брошенные, не магия
+const REALM_FX = { forest: 'roots', temple: 'stone', bones: 'bone', fjord: 'ice' };
+const FX_COL = { roots: [110, 230, 70], stone: [255, 150, 60], bone: [255, 225, 140], ice: [150, 215, 255], frost: [150, 215, 255], dust: [255, 120, 60] };   // цвет телеграфа (render/renderer.js)
+// всплеск удара «из земли» по форме телеграфа: шипы/корни по кругу или вдоль линии
+function groundFx(tg) {
+  const st = tg.fx, c = FX_COL[st] || [255, 90, 60];
+  if (st === 'ice') { effect({ kind: 'shatter', x: tg.x, y: tg.y, r: tg.r * 0.7, dur: 0.9, seed: rand() * 6 }); particles(tg.x, tg.y, 14, { c, sp: 3, size: 3 }); return; }
+  if (st === 'frost') { for (let i = 1; i <= 4; i++) { const k = i / 4 * tg.r; effect({ kind: 'shatter', x: tg.x + Math.cos(tg.a) * k, y: tg.y + Math.sin(tg.a) * k, r: 0.3 + i * 0.08, dur: 0.6, seed: rand() * 6 }); } particles(tg.x + Math.cos(tg.a) * 1.5, tg.y + Math.sin(tg.a) * 1.5, 18, { c, sp: 3, size: 3, z: 0.9 }); return; }
+  if (st === 'dust') { effect({ kind: 'ring', x: tg.x, y: tg.y, r: tg.r, dur: 0.35, c: [210, 180, 140] }); particles(tg.x, tg.y, 14, { c: [170, 150, 120], z: 0.1, sp: 2.5, vz: 2, g: 5, size: 4, add: false }); return; }
+  if (tg.shape === 'line') { const n = Math.max(3, Math.round(tg.r / 0.7)); for (let i = 0; i < n; i++) { const k = (i + 0.6) / n * tg.r; setTimeoutGame(i * 0.04, () => effect({ kind: 'spikes', x: tg.x + Math.cos(tg.a) * k, y: tg.y + Math.sin(tg.a) * k, r: tg.w * 0.6, dur: 0.7, style: st, seed: rand() * 6, n: 3 })); } }
+  else effect({ kind: 'spikes', x: tg.x, y: tg.y, r: tg.r, dur: 0.8, style: st, seed: rand() * 6, n: Math.round(5 + tg.r * 3) });
+  particles(tg.x, tg.y, 12, { c: st === 'roots' ? [90, 150, 60] : [150, 135, 115], z: 0.1, sp: 2, vz: 2.5, g: 6, size: 4, add: false });
 }
 export function updateEnemyAttack(e, dt, P) {
   const a = e.atk; a.t += dt; if (e.teleg) e.teleg.t += dt;
+  if (a.kind === 'pounce' && !a.hit && e.teleg) {   // прыжок: вторая половина замаха — полёт к точке приземления
+    const k = clamp((e.anim.prog / a.impact - 0.45) / 0.55, 0, 1), tg = e.teleg;
+    if (k > 0) { a.sx ??= e.x; a.sy ??= e.y; const tx = a.sx + (tg.x - a.sx) * k, ty = a.sy + (tg.y - a.sy) * k; [e.x, e.y] = G.zone.map.move(e.x, e.y, tx - e.x, ty - e.y, e.r); }
+  }
   if (!a.hit && e.anim.prog >= a.impact) {
     a.hit = true; const D = e.D; const tg = e.teleg;
     if (a.kind === 'lunge') { const ang = tg.a; e.lunge = { vx: Math.cos(ang), vy: Math.sin(ang), t: 0, hit: false }; e.teleg = null; e.state = 'lunge'; return; }
     if (a.kind === 'nova') {   // hunt mini-boss: ring blast around itself
       const N = D.abil.nova, c = N.c || [255, 80, 40];
       effect({ kind: 'ring', x: e.x, y: e.y, r: N.r, dur: 0.5, c }); particles(e.x, e.y, 26, { c, sp: 4.5, size: 4 });
-      G.cam.shake = Math.max(G.cam.shake, 0.35); bus.emit('sfx', N.elem === 'fire' ? 'fire' : 'heavy');
+      G.cam.kick(0.35); bus.emit('sfx', N.elem === 'fire' ? 'fire' : 'heavy');
       if (Math.hypot(P.x - e.x, P.y - e.y) < N.r + P.r) enemyHitsPlayer(e, N.mult || 1.3, N.elem || 'phys');
     } else if (a.kind === 'volley') {   // hunt mini-boss: fan of projectiles
-      const V = D.abil.volley, ang = tg ? tg.a : Math.atan2(P.y - e.y, P.x - e.x), sp = D.proj === 'arrow' ? 11 : 7.5;
+      const V = D.abil.volley, ang = tg ? tg.a : Math.atan2(P.y - e.y, P.x - e.x), sp = PSPEED[D.proj] || 7.5;
       for (let i = 0; i < V.n; i++) { const a2 = ang + (i - (V.n - 1) / 2) * V.spread; spawnProj({ kind: D.proj, x: e.x, y: e.y, vx: Math.cos(a2) * sp, vy: Math.sin(a2) * sp, owner: 'e', dmg: rrange(D.dmg[0], D.dmg[1]) * e.dmgMul * 0.8, elem: D.elem || 'phys', range: 11, src: e }); }
       bus.emit('sfx', D.proj === 'arrow' ? 'bow' : 'cast');
-    } else if (a.kind === 'roar') { effect({ kind: 'ring', x: e.x, y: e.y, r: 4, dur: 0.6, c: [200, 100, 255] }); G.cam.shake = 0.5; bus.emit('sfx', 'roar'); }
+    } else if (a.kind === 'roar') { effect({ kind: 'ring', x: e.x, y: e.y, r: 4, dur: 0.6, c: [200, 100, 255] }); G.cam.kick(0.5); bus.emit('sfx', 'roar'); }
     else if (D.proj) {
       const ang = Math.atan2(P.y - e.y, P.x - e.x);
-      const sp = D.proj === 'arrow' ? 11 : 7.5;
+      const sp = PSPEED[D.proj] || 7.5;
       spawnProj({ kind: D.proj, x: e.x, y: e.y, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp, owner: 'e', dmg: rrange(D.dmg[0], D.dmg[1]) * e.dmgMul, elem: D.elem || 'phys', range: 11, src: e });
-      bus.emit('sfx', D.proj === 'arrow' ? 'bow' : 'cast');
+      bus.emit('sfx', D.proj === 'arrow' ? 'bow' : PSPEED[D.proj] ? 'swingE' : 'cast');
     } else if (tg) {
       const inside = inShape(tg, P, e);
-      if (tg.shape === 'circle' && tg.rift) { const cc = tg.elem === 'cold' ? [150, 215, 255] : D.realm === 'forest' ? [110, 200, 90] : D.realm === 'bones' ? [255, 140, 60] : [180, 80, 255]; effect({ kind: 'burst', x: tg.x, y: tg.y, r: tg.r, dur: 0.5, c: cc }); particles(tg.x, tg.y, 20, { c: cc, sp: 4, size: 4 }); }
+      if (tg.fx) groundFx(tg);
+      else if (tg.shape === 'circle' && tg.rift) { const cc = tg.elem === 'cold' ? [150, 215, 255] : D.realm === 'forest' ? [110, 200, 90] : D.realm === 'bones' ? [255, 140, 60] : [180, 80, 255]; effect({ kind: 'burst', x: tg.x, y: tg.y, r: tg.r, dur: 0.5, c: cc }); particles(tg.x, tg.y, 20, { c: cc, sp: 4, size: 4 }); }
+      else if (tg.shape === 'cone' && mobFxOf(e) === 'claw') mobSheet(e, 'claw', e.x + Math.cos(tg.a) * tg.r * 0.55, e.y + Math.sin(tg.a) * tg.r * 0.55, { a: tg.a, size: tg.r * 1.15 });   // П21: веер когтей вместо дуги
       else effect({ kind: tg.shape === 'cone' ? 'slash' : 'ring', x: e.x, y: e.y, a: tg.a, r: tg.r, arc: tg.arc || 360, dur: 0.3, c: [255, 90, 60], enemy: true });
-      G.cam.shake = Math.max(G.cam.shake, D.boss ? 0.45 : 0.3); bus.emit('sfx', 'heavy');
+      G.cam.kick(D.boss ? 0.45 : 0.3); bus.emit('sfx', 'heavy');
       if (inside) { enemyHitsPlayer(e, tg.mult ?? (a.kind === 'slam' ? 1.3 : a.kind === 'attack2' ? 0.9 : 1.1), tg.elem === 'cold' ? 'cold' : tg.elem ? tg.elem : tg.rift && !D.realm ? 'fire' : 'phys'); if (tg.slow && !P.dead) P.slowT = Math.max(P.slowT || 0, tg.slow); }
       if (D.boss && e.phase === 3 && a.kind === 'slam') setTimeoutGame(0.35, () => shockwave(e));
     } else {
       // regular melee: hit if still in reach & roughly in front
       const d = Math.hypot(P.x - e.x, P.y - e.y);
       if (d <= D.range + P.r + 0.45) enemyHitsPlayer(e, 1, 'phys');
+      mobStrikeFx(e, P);   // П21: укус / когти / клыки
       bus.emit('sfx', 'swingE');
     }
     e.teleg = null;
@@ -466,12 +533,14 @@ function inShape(tg, P, e) {
   const dx = P.x - tg.x, dy = P.y - tg.y, d = Math.hypot(dx, dy);
   if (tg.shape === 'circle') return d < tg.r + P.r;
   if (tg.shape === 'cone') return d < tg.r + P.r && Math.abs(angDiff(tg.a, Math.atan2(dy, dx))) < (tg.arc / 2 + 12) * Math.PI / 180;
+  if (tg.shape === 'line') { const ca = Math.cos(tg.a), sa = Math.sin(tg.a), al = dx * ca + dy * sa, pp = Math.abs(-dx * sa + dy * ca); return al > -P.r && al < tg.r + P.r && pp < tg.w / 2 + P.r; }
   return false;
 }
 export function enemyHitsPlayer(e, mult, elem) {
   const P = G.player; if (P.dead) return;
   if (P.inv > 0) { float(P.x, P.y, 'Уклонение', '#bfe8ff', { z: 2.2 }); return; }
   hurtPlayer(e, rrange(e.D.dmg[0], e.D.dmg[1]) * e.dmgMul * mult, elem);
+  if (e.D.boss || e.D.elite) hitStop(e.D.boss ? 0.07 : 0.05);
   // ice armor / thorns react to melee attackers
   if (Math.hypot(P.x - e.x, P.y - e.y) < 3) {
     if (R('ice_armor') && !e.dead && rand() < PK) applyChill(e);

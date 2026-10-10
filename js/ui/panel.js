@@ -1,7 +1,7 @@
 // Proximity panels: walk into an NPC/room circle → the panel opens by itself; walk away → it closes.
 // The game keeps running (no pause). Everything shows the price and the effect up front.
 import { G, bus } from '../game/ctx.js';
-import { $, el, esc, fmt } from '../core/util.js';
+import { $, el, esc, fmt, ICO } from '../core/util.js';
 import { UPGRADES, upgCost, upgHave, ROOMS, DECOR } from '../data/upgrades.js';
 import { REPEATABLE } from '../data/quests.js';
 import { REALMS } from '../data/wild.js';
@@ -18,13 +18,15 @@ import { startTrial } from '../game/game.js';
 import { adButton } from './adbtn.js';
 import { stats } from '../game/stats.js';
 import { earlyLock } from '../game/progress.js';
-import { PETS, TIERS, PET_MAX, GIFT_PET } from '../data/pets.js';
+import { PETS, TIERS, PET_MAX, GIFT_PET, TRAIN, TRAIN_MAX, TRAIN_STEP } from '../data/pets.js';
 import * as PT from '../game/pets.js';
 
 let target = null, box = null, lastSig = '', dismissed = null;
 export function initPanel() {
-  box = el('div', 'npc-panel hidden'); box.id = 'npcPanel'; $('ui').appendChild(box);
-  bus.on('panel', t => { if (!t) dismissed = null; target = t; lastSig = ''; render(true); });
+  box = el('div', 'npc-panel hidden'); box.id = 'npcPanel'; $('ui').appendChild(box); box.addEventListener('scroll', moreDn, { passive: true });
+  // правки мамы (М30): выполненное задание сдаётся сразу, как подошли к жителю (кузнец, Мира, Элвин, Кофи) — раньше только после второго подхода
+  // или открытия его окна, и стрелка всё вела к нему
+  bus.on('panel', t => { if (!t) dismissed = null; target = t; lastSig = ''; if (t && t.id && Q.isReady() && Q.turnNpc(Q.current()) === t.id) Q.talked(t.id); render(true); });
   // tap anywhere on the game field outside the panel → close it until you walk away and come back
   const hide = e => { if (!target || box.classList.contains('hidden') || box.contains(e.target)) return; dismissed = target; render(true); };
   for (const id of ['game', 'joyZone']) { const n = $(id); if (n) n.addEventListener('pointerdown', hide, true); }
@@ -35,16 +37,21 @@ const coin = n => `<span class="c-gold">${fmt(n)}</span>`;
 const shard = n => `<span class="c-shard">${n}◆</span>`;
 function row(icon, title, sub, btnText, ok, onClick, extraCls = '') {
   const r = el('div', 'pn-row ' + extraCls, `<div class="pn-ic">${icon}</div><div class="pn-tx"><b>${title}</b><small>${sub}</small></div>`);
-  if (btnText != null) { const b = el('button', 'pn-btn' + (ok ? ' ok' : ''), btnText); b.disabled = !ok; b.onpointerdown = e => { e.stopPropagation(); onClick(); bus.emit('sfx', 'click'); render(true); }; r.appendChild(b); }
+  if (btnText != null) { const b = el('button', 'pn-btn' + (ok ? ' ok' : ''), btnText); b.disabled = !ok; b.onpointerdown = e => { e.stopPropagation(); onClick(); bus.emit('sfx', 'click'); render(true); }; r.appendChild(b);
+    // правки мамы (М6): нажатие на саму строку («Зелье здоровья») тоже покупает — раньше срабатывала только зелёная кнопка справа.
+    // Строку жмём коротким касанием (click), чтобы прокрутка списка пальцем ничего не покупала
+    if (ok) { r.classList.add('tap'); r.onclick = e => { if (e.target.closest('button')) return; onClick(); bus.emit('sfx', 'click'); render(true); }; } }
   return r;
 }
+// правки мамы (М2): внизу панели «▼ ещё ниже», пока список не долистан
+const moreDn = () => box && box.classList.toggle('more-dn', box.scrollHeight - box.clientHeight - box.scrollTop > 8);
 function render(force) {
   if (!box) return;
   const showing = !(!target || target === dismissed || G.modalOpen || G.player.dead); $('ui').classList.toggle('panel-open', showing);
   if (!showing) { box.classList.add('hidden'); return; }
   const P = G.profile; const sig = [target.id, P.gold, P.shards, P.level, P.attrPts, P.skillPts, JSON.stringify(P.upg), JSON.stringify(P.castle), JSON.stringify(P.pets), P.potions.hp, Math.floor(Date.now() / 1000)].join('|');
   if (!force && sig === lastSig) return; lastSig = sig;
-  const st = box.scrollTop; box.innerHTML = ''; box.classList.remove('hidden');
+  const st = box.scrollTop; box.innerHTML = ''; box.classList.remove('hidden'); setTimeout(moreDn, 0);
   const head = (t, s) => { const h = el('div', 'pn-head', `<b>${t}</b>${s ? `<small>${s}</small>` : ''}`); const x = el('button', 'pn-x', '✕'); x.onpointerdown = e => { e.stopPropagation(); dismissed = target; render(true); }; h.appendChild(x); box.appendChild(h); };
   const bal = () => box.appendChild(el('div', 'pn-bal', `${coin(P.gold)} зол. · ${shard(P.shards || 0)}`));
   const T = target;
@@ -57,15 +64,24 @@ function render(force) {
     box.appendChild(el('div', 'pn-sub', 'Усиления'));
     const upLock = earlyLock('upg');   // сборка 47: усиления — после первой Летописи битв
     if (upLock) box.appendChild(el('div', 'pn-tip', '🔒 Усиления откроются, когда испытаете себя в <b>Летописи битв</b> и вернётесь с золотом.'));
-    else if (Q.current() && (Q.current().id === 'hw_elvin' || Q.current().id === 'surv_elvin')) box.appendChild(el('div', 'pn-tip', '💡 Золото — сюда. Купите <b>Силу удара</b> или <b>Крепость</b>: герой станет сильнее.'));
+    // правки мамы (М8): было непонятно, что значит «усилить героя» — умение или усиления. Засчитывается любое из двух — так и пишем,
+    // и то, на что хватает золота, пульсирует
+    const elvStep = !upLock && Q.current() && (Q.current().id === 'hw_elvin' || Q.current().id === 'surv_elvin');
+    const rankOk = elvStep && P.skillPts > 0 && Object.keys(P.skills || {}).some(id => P.skills[id] && CH.canLearn(id).ok && P.gold >= CH.skillCost(id));
+    if (elvStep) box.appendChild(el('div', 'pn-tip', `💡 Потратьте золото на любое из двух: ${P.skillPts > 0 ? '<b>✦ Навыки</b> — повысить ранг умения (есть очко навыка) или ' : ''}усиление ниже — <b>Сила удара</b> или <b>Крепость</b>. Задание засчитается сразу после покупки.`));
+    if (rankOk) sk.classList.add('nudge');
+    let nudged = rankOk;
     for (const [id, U] of Object.entries(UPGRADES)) {
-      const l = (P.upg && P.upg[id]) || 0, max = l >= U.max, cost = upgCost(id, l);
-      box.appendChild(row(U.icon, `${U.name} <span class="lv">ур. ${l}</span>`, max ? U.fmt(l) + ' · максимум' : `${U.fmt(l)} → <span class="good">${U.fmt(l + 1)}</span>`, max ? '—' : upLock ? '🔒' : U.shards ? `${cost}◆` : `${fmt(cost)}`, !upLock && !max && upgHave(P, id) >= cost, () => buyUpg(id)));
+      const l = (P.upg && P.upg[id]) || 0, max = l >= U.max, cost = upgCost(id, l), can = !upLock && !max && upgHave(P, id) >= cost;
+      const r = row(U.icon, `${U.name} <span class="lv">ур. ${l}</span>`, max ? U.fmt(l) + ' · максимум' : `${U.fmt(l)} → <span class="good">${U.fmt(l + 1)}</span>`, max ? '—' : upLock ? '🔒' : U.shards ? `${cost}◆` : `${fmt(cost)}`, can, () => buyUpg(id));
+      if (elvStep && can && !nudged && !U.shards) { r.querySelector('.pn-btn').classList.add('nudge'); r.classList.add('hot'); nudged = true; }
+      box.appendChild(r);
     }
   } else if (T.id === 'smith') {
     head('Кузнец Горан', 'Слияние: три вещи → одна лучше. Закалка: +10% за уровень.'); bal();
     { const ready = EC.mergeGroups().reduce((a, g) => a + g.can, 0);   // сборка 38: слияние на виду, первой кнопкой
-      const m = el('button', 'btn pn-merge ' + (ready ? 'gold' : ''), `⚒ Слияние 3 → 1${ready ? ` · готово ${ready}` : ''}`); m.onclick = () => W.npc_smith('merge'); box.appendChild(m); }
+      const m = el('button', 'btn pn-merge ' + (ready ? 'gold' : ''), `⚒ Слияние 3 → 1${ready ? ` · готово ${ready}` : ''}`); m.onclick = () => W.npc_smith('merge'); box.appendChild(m);
+      if (!ready) box.appendChild(el('div', 'pn-tip', '💡 <b>Слияние</b> — три одинаковые вещи (один вид и один цвет, например три зелёных шлема) кузнец переплавит в одну сильнее. Пока сливать нечего: вещи падают с врагов и из сундуков.')); }   // М30: «что такое слияние — непонятно»
     box.appendChild(el('div', 'pn-sub', 'Закалка надетого'));
     for (const slot of ['weapon', 'head', 'chest', 'amulet']) {
       const it = P.gear[slot]; if (!it) continue; const u = it.upg || 0, c = upgradeCost(it);
@@ -74,9 +90,13 @@ function render(force) {
     const b = el('button', 'btn sm', 'Закалка вещей из сумки'); b.onclick = () => W.npc_smith('upg'); box.appendChild(b);
   } else if (T.id === 'merchant') {
     head('Торговка Мира'); bal();
-    if (Q.current() && Q.current().id === 'meet_merchant') box.appendChild(el('div', 'pn-tip', '💡 Купите <b>Зелье здоровья</b>. В бою нажмите красную кнопку зелья — оно лечит. Кнопка <b>Q</b> на ПК.'));
+    const potStep = Q.current() && Q.current().id === 'meet_merchant';
+    if (potStep) box.appendChild(el('div', 'pn-tip', '💡 Купите <b>Зелье здоровья</b>: нажмите зелёную кнопку «Купить» в его строке. В бою нажмите красную кнопку зелья — оно лечит. Кнопка <b>Q</b> на ПК.'));
     for (const [k, n, ic] of [['hp', 'Зелье здоровья', 'potion_hp'], ['mp', 'Зелье маны', 'potion_mp'], ['scroll', 'Свиток возврата', 'scroll']]) {
-      const pr = EC.potionPrice(k); box.appendChild(row(`<img src="${iconURL(ic)}">`, n, `есть: ${k === 'scroll' ? P.scrolls : P.potions[k]}`, fmt(pr), P.gold >= pr, () => EC.buyConsumable(k)));
+      const pr = EC.potionPrice(k), r = row(`<img src="${iconURL(ic)}">`, n, `есть: ${k === 'scroll' ? P.scrolls : P.potions[k]}`, `Купить<br>${fmt(pr)}`, P.gold >= pr, () => EC.buyConsumable(k), potStep && k === 'hp' ? 'hot' : '');
+      box.appendChild(r);
+      // М6: на шаге «Купить зелье» кнопка покупки пульсирует (панель перерисовывается раз в секунду — палец бы пропадал)
+      if (potStep && k === 'hp' && P.gold >= pr) r.querySelector('.pn-btn').classList.add('nudge');
     }
     const b = el('button', 'btn sm', 'Товары дня для класса'); b.onclick = () => W.npc_merchant(); box.appendChild(b);
   } else if (T.id === 'caravan') {
@@ -90,8 +110,9 @@ function render(force) {
     const btn = (r, text, ok, fn, cls = '') => { const b = el('button', 'pn-btn' + (ok ? ' ok' : '') + cls, text); b.disabled = !ok; b.onpointerdown = e => { e.stopPropagation(); fn(); render(true); }; r.appendChild(b); };
     for (const [id, D] of Object.entries(PETS)) {
       const lvl = S.own[id] || 0, c = PT.petCan(id), T0 = TIERS[D.tier], on = S.active === id;
-      const sub = `<span style="color:${T0.color}">${T0.name}</span> · ${D.desc}`;
+      const sub = `<span style="color:${T0.color}">${T0.name}</span> · ⚔ ${PT.petInfo(id, lvl || 1).dps}/с · ${D.desc}`;
       const r = row(D.icon, `${esc(D.name)}${lvl ? ` <span class="lv">ур. ${lvl}</span>` : ''}`, sub, null, false, null, on ? 'hot' : '');
+      { const ib = el('button', 'pn-btn ok pn-info', 'ℹ'); ib.title = 'Урон и дар питомца'; ib.onpointerdown = e => { e.stopPropagation(); W.petInfo(id); }; r.appendChild(ib); }   // П61
       if (!lvl) btn(r, c.why ? '🔒 ' + c.why : `${c.cost}◆`, c.ok, () => PT.buyPet(id));
       else {
         btn(r, on ? '✔ С вами' : 'Взять', !on, () => PT.choosePet(id));
@@ -99,7 +120,19 @@ function render(force) {
       }
       box.appendChild(r);
     }
-    box.appendChild(el('p', 'muted', '<small>Осколки Бездны ◆ дают стражи, боссы, чемпионы, сундуки, Жатва и недельные задания. Улучшение: +15% силы питомца за уровень.</small>'));
+    // П29 (правки 2): дрессировка за золото — физический и магический урон всех питомцев; короткое обучение при первом заходе
+    if (S.met) {
+      box.appendChild(el('div', 'pn-sub', 'Дрессировка (для всех питомцев)'));
+      if (!S.tut) {
+        const tip = el('div', 'pn-tip', '<b>Как растёт питомец</b><br>1. <b>Уровень</b> зверька (▲ за осколки ◆) — +15% ко всей его силе, до 5-го.<br>2. <b>Дрессировка</b> за золото — у всех питомцев сразу: 🗡 физический урон (укус, когти, иглы) и ✦ магический (огонь, яд, искры, лечение, щит). +10% за ступень.<br>3. Смените зверька — выучка останется.');
+        const ok = el('button', 'btn gold', 'Понятно'); ok.onpointerdown = e => { e.stopPropagation(); S.tut = 1; bus.emit('save'); render(true); }; tip.appendChild(ok); box.appendChild(tip);
+      }
+      for (const [k, T] of Object.entries(TRAIN)) {
+        const c = PT.trainCan(k), r = row(T.icon, `${esc(T.name)} <span class="lv">${c.lvl}/${TRAIN_MAX}</span>`, `+${Math.round(c.lvl * TRAIN_STEP * 100)}% · ${esc(T.txt)}`, null, false, null, '');
+        if (!c.max) btn(r, `▲ ${fmt(c.cost)} зол.`, c.ok, () => PT.trainPet(k), ' up'); box.appendChild(r);
+      }
+    }
+    box.appendChild(el('p', 'muted pn-shards', ICO.pile + '<small>Осколки Бездны ◆ дают стражи, боссы, чемпионы, сундуки, Жатва и недельные задания. Улучшение: +15% силы питомца за уровень.</small>'));
   } else if (T.id === 'board') {
     head('Доска заданий', 'Ежедневные · недельные · долгие контракты');
     box.appendChild(el('div', 'pn-sub', 'Ежедневные'));

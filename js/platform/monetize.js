@@ -34,7 +34,7 @@ export async function watchRewarded(kind, token, apply) {
   if (P.ads.used[token]) { bus.emit('toast', { text: 'Эта награда уже получена', kind: 'warn' }); return false; }
   // в открытом окне на паузе (Летопись битв и т. п.) время мира стоит — «недавний бой» там не считается
   const wasPaused = G.paused, frozen = wasPaused && G.modalOpen;
-  if (!frozen && inCombat() && kind !== 'revive' && kind !== 'boss_extra') { bus.emit('toast', { text: 'Реклама недоступна во время боя', kind: 'warn' }); return false; }
+  if (!frozen && inCombat() && kind !== 'revive' && kind !== 'boss_extra' && kind !== 'order_help') { bus.emit('toast', { text: 'Реклама недоступна во время боя', kind: 'warn' }); return false; }
   busy = true; G.paused = true; bus.emit('audioPause', true); gameplay(false);
   let ok = false;
   try { ok = await platform.p.showRewarded(); } catch { ok = false; }
@@ -50,7 +50,8 @@ function pruneTokens() { const u = G.profile.ads.used; const ks = Object.keys(u)
 export const offers = {
   xpBoost() { return watchRewarded('xp_boost', offerToken('xp_boost', 'w' + Math.floor(Date.now() / (15 * MIN))), () => { const P = G.profile; P.boosts.xpUntil = Math.max(Date.now(), P.boosts.xpUntil) + 15 * MIN; bus.emit('toast', { text: 'Сила опыта', sub: '+50% опыта на 15 минут', kind: 'good' }); }); },
   goldBoost() { return watchRewarded('gold_boost', offerToken('gold_boost', 'w' + Math.floor(Date.now() / (15 * MIN))), () => { const P = G.profile; P.boosts.goldUntil = Math.max(Date.now(), P.boosts.goldUntil) + 15 * MIN; bus.emit('toast', { text: 'Сила золота', sub: '+50% золота на 15 минут', kind: 'good' }); }); },
-  bossExtra(killId, x, y) { return watchRewarded('boss_extra', offerToken('boss_extra', killId), () => { const r = autoEquip(makeItem({ slot: 'weapon', cls: G.profile.cls, ilvl: G.profile.level + 1, rarity: 2 })); bus.emit('toast', { text: r.equipped ? 'Новое оружие надето: ' + r.item.name : 'Бонус: +' + r.sold + ' зол.', kind: 'good' }); }); },
+  bossExtra(killId, x, y) { return watchRewarded('boss_extra', offerToken('boss_extra', killId), () => { const r = autoEquip(makeItem({ slot: 'weapon', cls: G.profile.cls, ilvl: G.profile.level + 1, rarity: 2 }));
+    bus.emit('reward', { title: 'Дополнительный предмет', sub: 'Награда за просмотр', gold: 0, xp: 0, potions: 0, scrolls: 0, skillPts: 0, items: [r], now: true }); }); },   // П68: окно с полученной вещью и сравнением, а не молча в сумку
   shopRefresh(onDone) { return watchRewarded('shop_refresh', offerToken('shop_refresh', 'lv' + G.profile.level + '_' + Math.floor(Date.now() / (30 * MIN))), onDone); },
 };
 
@@ -69,10 +70,10 @@ export async function maybeInterstitial(reason) {
   // сборка 54: частота меняется флагами в консоли Яндекса без новой версии: inter_gap_min (минут между показами), inter_first_sec (не раньше, сек игры)
   const F = platform.flags || {}, gap = +F.inter_gap_min > 0 ? +F.inter_gap_min : 4, first = +F.inter_first_sec >= 0 && F.inter_first_sec != null ? +F.inter_first_sec : 180;
   if (Date.now() - lastInter < gap * MIN || P.stats.playTime < first) return false;
-  lastInter = Date.now(); G.paused = true; bus.emit('audioPause', true); gameplay(false);
+  lastInter = Date.now(); const wasPaused = G.paused; G.paused = true; bus.emit('audioPause', true); gameplay(false);   // правки по скилам: окно, открытое до рекламы, остаётся на паузе
   try { await platform.p.showInterstitial(); } catch { }
   track('ad_inter', { reason: reason || '' });
-  G.paused = false; bus.emit('audioPause', false); return true;
+  G.paused = wasPaused; bus.emit('audioPause', false); return true;
 }
 
 // ---- IAP
@@ -81,14 +82,35 @@ export async function buy(productId) {
   if (earlyLock('extra')) { lockToast('extra'); return false; }   // сборка 47: покупки — после обучения
   if (def.once && P.iap.tx['once_' + productId]) { bus.emit('toast', { text: 'Этот набор уже куплен', kind: 'warn' }); return false; }
   if (!def.consumable && P.iap[flagOf(productId)]) { bus.emit('toast', { text: 'Уже куплено', kind: 'warn' }); return false; }
-  G.paused = true; gameplay(false); const r = await platform.p.purchase(productId); G.paused = false;
+  const wasPaused = G.paused; G.paused = true; gameplay(false); const r = await platform.p.purchase(productId); G.paused = wasPaused;
   track(r.ok ? 'buy_ok' : 'buy_cancel', { id: productId });
   if (!r.ok) return false;
   return grantPurchase(productId, r.token);
 }
 // Лестница снаряжения: платная вещь на одну редкость выше того, что игрок добывает сам, уровня «герой + 3».
 // Через 2–3 вечера враги дорастают, и вещь становится обычной — её можно закалять и сливать дальше.
-function grantGear(def) {
+function grantGear(def, pre) {
+  const out = (pre || rollGear(def)).map(it => autoEquip(it, true));
+  return out;
+}
+// П24: вещи покупки выпадают заранее — окно предложения показывает именно их (иконка, статы, сравнение с надетым), покупка выдаёт их же.
+// Если надетое стало лучше превью — превью перебрасывается, так что предложенная вещь всегда сильнее надетой
+export function offerPreview(id) {
+  const P = G.profile, def = PRODUCTS[id]; if (!P || !def || (id !== 'starter_pack' && !def.gear)) return null;
+  P.iap.preview = P.iap.preview || {};
+  let pre = P.iap.preview[id];
+  if (pre && pre.lvl === P.level && pre.items.every(it => !P.gear[it.slot] || itemPower(it) > itemPower(P.gear[it.slot]))) return pre.items;
+  const items = id === 'starter_pack' ? [starterItem()] : rollGear(def);
+  P.iap.preview[id] = { lvl: P.level, items }; bus.emit('save'); return items;
+}
+function takePreview(id) { const P = G.profile, pre = P.iap.preview && P.iap.preview[id]; if (pre) delete P.iap.preview[id]; return pre && pre.items; }
+// синее оружие набора искателя: всегда заметно сильнее надетого (закалка до +20% силы)
+function starterItem() {
+  const P = G.profile, it = makeItem({ ilvl: Math.max(3, P.level), rarity: 2, slot: 'weapon', cls: P.cls }); delete it.req;
+  const cur = P.gear.weapon; let k = 0; if (cur) while (itemPower(it) < itemPower(cur) * 1.2 && k++ < MAX_UPG) it.upg = (it.upg || 0) + 1;
+  return it;
+}
+function rollGear(def) {
   const P = G.profile, cls = P.cls || 'warrior', ilvl = P.level + 3, g = def.gear, out = [];
   // сборка 47: купленная вещь всегда заметно лучше надетой (жалоба: набор за 99 ₽ слабее своих зелёных) — редкость не ниже надетой +1, закалка до +20% силы
   const fix = it => { delete it.req; it.ilvl = ilvl; const cur = P.gear[it.slot];
@@ -96,11 +118,11 @@ function grantGear(def) {
     return it; };
   if (g.kind === 'set') {
     const setId = Object.keys(SETS).filter(k => SETS[k].branch && SETS[k].cls.includes(cls))[0] || pickSet(cls);
-    for (const slot of ['head', 'chest', 'amulet']) { const it = makeSetItem(setId, slot, ilvl, cls); it.rarity = g.rarity; out.push(autoEquip(fix(it), true)); }
+    for (const slot of ['head', 'chest', 'amulet']) { const it = makeSetItem(setId, slot, ilvl, cls); it.rarity = g.rarity; out.push(fix(it)); }
   } else if (g.kind === 'epic' || g.kind === 'mythic') {
     const it = makeItem({ epic: pickEpic(cls), ilvl, cls, noClamp: true });
     if (g.kind === 'mythic') it.rarity = 4;
-    out.push(autoEquip(fix(it), true));
+    out.push(fix(it));
   }
   return out;
 }
@@ -110,10 +132,11 @@ export async function grantPurchase(productId, token) {
   if (P.iap.tx[token]) { await platform.p.consume(token); return false; }   // already granted — just finish the transaction
   P.iap.tx[token] = Date.now();
   switch (productId) {
-    case 'starter_pack': P.gold += 1000; P.potions.hp += 10; P.potions.mp += 5; { const it = makeItem({ ilvl: Math.max(3, P.level), rarity: 2, slot: 'weapon', cls: P.cls }); delete it.req; autoEquip(it); } P.iap.tx['once_starter_pack'] = 1; break;
+    case 'starter_pack': { P.gold += 1000; P.potions.hp += 10; P.potions.mp += 5; const items = (takePreview('starter_pack') || [starterItem()]).map(it => autoEquip(it, true)); P.iap.tx['once_starter_pack'] = 1;
+      bus.emit('reward', { title: PRODUCTS[productId].title, sub: 'Покупка получена', gold: 1000, xp: 0, potions: 10, mp: 5, scrolls: 0, skillPts: 0, items }); break; }   // П24: окно с тем, что получено
     case 'gold_small': P.gold += 600; break;
     case 'guard_armor': case 'seal_blade': case 'magister_plate': case 'order_weapon': case 'abyss_set': {
-      const items = grantGear(PRODUCTS[productId]); P.iap.tx['once_' + productId] = 1;
+      const items = grantGear(PRODUCTS[productId], takePreview(productId)); P.iap.tx['once_' + productId] = 1;
       bus.emit('reward', { title: PRODUCTS[productId].title, sub: 'Покупка получена', gold: 0, xp: 0, potions: 0, scrolls: 0, skillPts: 0, items });
       break; }
     case 'season_pass': P.seasonPass = P.seasonPass || {}; P.seasonPass[new Date().getFullYear() + '-' + (new Date().getMonth() + 1)] = 1; break;
@@ -138,8 +161,9 @@ export async function restorePurchases() {
 // Каждый 3-й день награда больше (свиток, зелья), 7/14/21/28 — крупная (вещь). Видно, что будет через 1–3 дня.
 export const LOGIN_DAYS = 28;
 export function loginReward(d) {   // d — день календаря 1..28
-  if (d % 7 === 0) return { big: true, gold: 120, potions: 3, scrolls: 1, item: d >= 21 ? 3 : 2, label: d >= 21 ? 'Золотая вещь' : 'Синяя вещь' };
-  if (d % 3 === 0) return { mid: true, gold: 70, potions: 3, scrolls: 1, label: 'Свиток и зелья' };
+  // правки мамы (М21): награда была «примитивной» — только золото. Теперь каждый 3-й день ещё и осколки Бездны ◆ (они по-настоящему ценные), в большие дни — больше
+  if (d % 7 === 0) return { big: true, gold: 120, potions: 3, scrolls: 1, shards: d >= 21 ? 5 : 3, item: d >= 21 ? 3 : 2, label: d >= 21 ? 'Золотая вещь' : 'Синяя вещь' };
+  if (d % 3 === 0) return { mid: true, gold: 70, potions: 3, scrolls: 1, shards: 1, label: 'Свиток, зелья и ◆' };
   return { gold: 35, potions: d % 2 ? 1 : 0, label: 'Золото' };
 }
 export const DAILY = Array.from({ length: LOGIN_DAYS }, (_, i) => loginReward(i + 1));
@@ -156,9 +180,13 @@ export function claimDaily(double) {
   if (r.gold) P.gold += Math.round(r.gold * m * P.level);
   if (r.potions) P.potions.hp += Math.round(r.potions * m);
   if (r.scrolls) P.scrolls += Math.round(r.scrolls * m);
-  if (r.item) for (let i = 0; i < 1; i++) { const it = makeItem({ ilvl: P.level, rarity: r.item, cls: P.cls }); delete it.req; autoEquip(it); }
+  if (r.shards) P.shards = (P.shards || 0) + Math.round(r.shards * m);
+  const items = [];
+  if (r.item) for (let i = 0; i < 1; i++) { const it = makeItem({ ilvl: P.level, rarity: r.item, cls: P.cls }); delete it.req; items.push(autoEquip(it)); }
   P.daily.last = dayKey(Date.now()); P.daily.streak = s.streak + 1; bus.emit('loginClaimed');
-  bus.emit('toast', { text: `Дар источника — день ${s.day} из ${LOGIN_DAYS}`, sub: r.big ? 'Большая награда!' : r.mid ? 'Награда каждого 3-го дня' : '', kind: 'good' }); bus.emit('sfx', 'quest'); bus.emit('hud'); bus.emit('save'); return true;
+  // М22: после рекламы (и без неё) — окно с тем, что получено, а не мимолётная строка
+  bus.emit('reward', { title: `Дар источника — день ${s.day} из ${LOGIN_DAYS}`, sub: double ? 'Награда за просмотр ×1,5' : r.big ? 'Большая награда!' : 'Ежедневный дар', gold: r.gold ? Math.round(r.gold * m * P.level) : 0, xp: 0, potions: r.potions ? Math.round(r.potions * m) : 0, scrolls: r.scrolls ? Math.round(r.scrolls * m) : 0, shards: r.shards ? Math.round(r.shards * m) : 0, skillPts: 0, items, now: true });
+  bus.emit('sfx', 'quest'); bus.emit('hud'); bus.emit('save'); return true;
 }
 
 // ---- благословение богини за рекламу: +25% золота и опыта, +15% к выпадению вещей (сборка 47; было +50% / +25%); 10 минут за просмотр, не больше 30 подряд
@@ -186,8 +214,9 @@ export function chestStatus() { const P = G.profile; P.orderChest = P.orderChest
 export function openOrderChest(viaAd) {
   const P = G.profile; const s = chestStatus();
   if (!s.ready && !viaAd) return false;
-  { const it = makeItem({ ilvl: P.level + 1, rarity: Math.random() < 0.25 ? 2 : 1, cls: P.cls }); delete it.req; autoEquip(it); }   // сборка 47: обычно зелёная, синяя — 1 из 4
+  let got; { const it = makeItem({ ilvl: P.level + 1, rarity: Math.random() < 0.25 ? 2 : 1, cls: P.cls }); delete it.req; got = autoEquip(it); }   // сборка 47: обычно зелёная, синяя — 1 из 4
   P.gold += 40 * P.level; P.orderChest.readyAt = Date.now() + CHEST_TIME;
-  bus.emit('toast', { text: 'Сундук Ордена открыт!', sub: 'Вещь (надета, если лучше) + золото', kind: 'good' }); bus.emit('sfx', 'chest'); bus.emit('hud'); bus.emit('save'); return true;
+  bus.emit('reward', { title: 'Сундук Ордена открыт!', sub: viaAd ? 'Награда за просмотр' : 'Сундук Ордена', gold: 40 * P.level, xp: 0, potions: 0, scrolls: 0, skillPts: 0, items: [got], now: true });   // М22: окно с вещью и сравнением
+  bus.emit('sfx', 'chest'); bus.emit('hud'); bus.emit('save'); return true;
 }
 export function chestSkip() { const s = chestStatus(); if (s.ready) return openOrderChest(); return watchRewarded('chest_skip', offerToken('chest_skip', String(G.profile.orderChest.readyAt)), () => openOrderChest(true)); }

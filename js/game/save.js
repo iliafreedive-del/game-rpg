@@ -17,7 +17,7 @@ export function newProfile(cls = 'warrior') {
     skills: {}, slots: [null, null, null, null],
     gear: {}, bag: [], bagSize: 40,
     potions: { hp: 3, mp: 1 }, scrolls: 1,
-    story: { stage: 0, counters: {}, flags: {}, done: [], flow38: true, flow43: true, flow47: true, flowDepths: true, flow55: true },
+    story: { stage: 0, counters: {}, flags: {}, done: [], flow38: true, flow43: true, flow47: true, flowDepths: true, flow55: true, flow60: true },
     repeat: {},            // id -> {accepted, base, completions}
     stats: { kills: 0, skeletons: 0, elites: 0, chests: 0, meters: 0, gold: 0, bossKills: 0, deaths: 0, bossNoDeath: 0, playTime: 0 },
     world: { opened: {}, lastZone: 'town' },   // persistent story objects (key sarcophagus, secret wall, gate…)
@@ -142,11 +142,20 @@ export function migrate(p) {
     const done = new Set(p.story.done || []); let st = 0; while (st < STORY.length && done.has(STORY[st].id)) st++; p.story.stage = st;
     p.story.flow55 = true;
   }
+  // сборка 60: вставлены «Осмотреть снаряжение» (после старосты) и «Заглянуть к Кофи» (перед порталом) — у тех, кто уже дальше, они позади
+  if (p.story && !p.story.flow60) {
+    const done = new Set(p.story.done || []), add = id => { if (!done.has(id)) { p.story.done.push(id); done.add(id); } };
+    if (done.has('meet_merchant') || done.has('hw_try') || done.has('elder_task')) add('hero_gear');
+    if (done.has('find_portal') || done.has('enter')) add('meet_kofi');
+    p.story.flow60 = true;   // номер шага не пересчитываем: шаг ведётся по id (quests.js syncStory)
+  }
   // fill any fields added later with defaults (forward-compatible)
   const d = newProfile();
   for (const k in d) if (!(k in p)) p[k] = d[k];
-  for (const k of ['stats', 'story', 'world', 'boosts', 'ads', 'iap', 'settings', 'potions', 'shop', 'tutorial'])
+  for (const k of ['stats', 'story', 'world', 'boosts', 'ads', 'iap', 'settings', 'potions', 'shop', 'tutorial']) {
+    if (!p[k] || typeof p[k] !== 'object') p[k] = d[k];   // правки по скилам: shop: null и т. п. роняли загрузку — слот выглядел пустым
     for (const kk in d[k]) if (!(kk in p[k])) p[k][kk] = d[k][kk];
+  }
   p.bagSize = Math.max(p.bagSize || 30, 40 + (p.iap && p.iap.bagBig ? 20 : 0));   // сборка 20: сумка 40 (больше серого — сырьё для слияния)
   // сборка 20: «свойство вида» у синих и выше — для вещей из старых сохранений
   for (const it of [...Object.values(p.gear || {}), ...(p.bag || [])]) if (it && it.affixes && it.rarity >= 2 && !it.affixes.some(a => a.kp)) applyKindPerk(it);
@@ -174,11 +183,23 @@ function moveOldSave() {
     if (from === SAVE_KEY) { localStorage.setItem(SAVE_KEY + '_old', raw); localStorage.removeItem(SAVE_KEY); }
   } catch (e) { console.warn('save move failed', e); }
 }
+// правки по скилам (save-systems): проверка после миграции — без этого битый профиль падал уже в игре
+export const validSave = p => !!p && typeof p === 'object' && Number.isFinite(p.level) && p.level >= 1 && Number.isFinite(p.gold) && Array.isArray(p.bag) && !!p.gear && typeof p.gear === 'object';
+// сохранение из более новой версии игры (v больше нашей) один раз откладывается в <ключ>_newer — старая сборка не затрёт его бесследно
+const readSlot = (key, c) => { const r = localStorage.getItem(key); if (!r) return null; const raw = JSON.parse(r); if (raw && raw.v > SAVE_VERSION && !localStorage.getItem(key + '_newer')) localStorage.setItem(key + '_newer', r); const p = migrate(raw); if (!validSave(p)) throw new Error('invalid save'); p.cls = c; return p; };
 // все слоты: { slots: { warrior: профиль, … }, last: 'mage' }
+// Не прочиталось основное сохранение — сырая строка остаётся в <ключ>_bad (её не затрёт новая игра), герой грузится из <ключ>_bak (прошлая запись)
 export function loadSlots() {
   moveOldSave();
   const slots = {};
-  for (const c of CLASS_IDS) { try { const r = localStorage.getItem(slotKey(c)); if (r) { const p = migrate(JSON.parse(r)); if (p) { p.cls = c; slots[c] = p; } } } catch (e) { console.warn('save load failed', c, e); } }
+  for (const c of CLASS_IDS) {
+    try { const p = readSlot(slotKey(c), c); if (p) slots[c] = p; }
+    catch (e) {
+      console.warn('save load failed', c, e);
+      try { const raw = localStorage.getItem(slotKey(c)); if (raw && localStorage.getItem(slotKey(c) + '_bad') !== raw) localStorage.setItem(slotKey(c) + '_bad', raw); } catch { }
+      try { const b = readSlot(slotKey(c) + '_bak', c); if (b) { b.fromBak = 1; slots[c] = b; } } catch (e2) { console.warn('backup load failed', c, e2); }
+    }
+  }
   let last = null; try { last = localStorage.getItem(LAST_KEY); } catch { }
   if (!slots[last]) last = Object.values(slots).sort((a, b) => (b.saved || 0) - (a.saved || 0)).map(p => p.cls)[0] || null;
   return { slots, last };
@@ -188,13 +209,15 @@ export function cloudBundle(cur) {
   const slots = {};
   for (const c of CLASS_IDS) { try { const r = localStorage.getItem(slotKey(c)); if (r) slots[c] = JSON.parse(r); } catch { } }
   if (cur) slots[cur.cls] = cur;
+  for (const c of CLASS_IDS) if (slots[c] && !validSave(slots[c])) delete slots[c];   // битый слот не уносим в облако
   return { multi: 1, last: cur ? cur.cls : null, slots };
 }
 export function mergeCloud(local, cloud) {
   if (!cloud) return local;
   const list = cloud.multi ? Object.values(cloud.slots || {}) : [cloud];
   for (const raw of list) {
-    const p = migrate(raw); if (!p) continue; const c = CLASS_IDS.includes(p.cls) ? p.cls : 'warrior'; p.cls = c;
+    let p = null; try { p = migrate(raw); } catch (e) { console.warn('cloud slot', e); } if (!validSave(p)) continue; const c = CLASS_IDS.includes(p.cls) ? p.cls : 'warrior'; p.cls = c;
+    if ((p.saved || 0) <= wipedAt(c)) continue;   // герой удалён «Начать заново» позже этой облачной записи — не воскрешать
     if (!local.slots[c] || (p.saved || 0) > (local.slots[c].saved || 0)) { local.slots[c] = p; saveLocal(p, true); }
   }
   if (cloud.multi && cloud.last && local.slots[cloud.last]) {
@@ -204,9 +227,21 @@ export function mergeCloud(local, cloud) {
   return local;
 }
 export function loadLocal() { const { slots, last } = loadSlots(); return last ? slots[last] : null; }
+// правки по скилам: перед записью прошлое сохранение копируется в <ключ>_bak (если новое не прочитается — loadSlots возьмёт его)
 export function saveLocal(p, keepTime) {
-  try { if (!keepTime) p.saved = Date.now(); const c = CLASS_IDS.includes(p.cls) ? p.cls : 'warrior'; localStorage.setItem(slotKey(c), JSON.stringify(p)); if (!keepTime) localStorage.setItem(LAST_KEY, c); return true; }
+  try {
+    if (!keepTime) p.saved = Date.now(); const c = CLASS_IDS.includes(p.cls) ? p.cls : 'warrior', k = slotKey(c);
+    try { const old = !p.fromBak && localStorage.getItem(k); if (old) localStorage.setItem(k + '_bak', old); } catch { try { localStorage.removeItem(k + '_bak'); } catch { } }   // места мало — копия уступает основному
+    delete p.fromBak;
+    localStorage.setItem(k, JSON.stringify(p)); if (!keepTime) localStorage.setItem(LAST_KEY, c); return true;
+  }
   catch (e) { console.warn('save failed', e); return false; }
 }
-// удалить сохранение одного героя (остальные два не трогаем)
-export function wipeLocal(cls) { try { localStorage.removeItem(slotKey(cls || 'warrior')); localStorage.removeItem(LAST_KEY); } catch { } }
+// удалить сохранение одного героя (остальные два не трогаем); метка времени удаления — чтобы облако его не вернуло (mergeCloud)
+const WIPED_KEY = 'dark_ascent_wiped';
+function wipedAt(c) { try { return (JSON.parse(localStorage.getItem(WIPED_KEY)) || {})[c] || 0; } catch { return 0; } }
+export function wipeLocal(cls) {
+  const c = cls || 'warrior';
+  try { for (const x of ['', '_bak', '_bad']) localStorage.removeItem(slotKey(c) + x); localStorage.removeItem(LAST_KEY); } catch { }
+  try { const w = JSON.parse(localStorage.getItem(WIPED_KEY)) || {}; w[c] = Date.now(); localStorage.setItem(WIPED_KEY, JSON.stringify(w)); } catch { }
+}

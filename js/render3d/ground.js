@@ -5,6 +5,7 @@ import { U, toon, HFOG_F, hfogTex } from './toon.js';
 import { rng, fbm, noise, paint, merge } from './geo.js';
 import { noiseTex, grassTex, dirtTex, mossTex, flagTex } from './textures.js';
 import { GRASS, GRASS_K, SHADOW } from './style.js';
+import { shared, disposeObject } from './dispose.js';
 
 const GRASS_VS = /* glsl */`
 #include <common>
@@ -221,55 +222,66 @@ function portalSpots(zone) {
 export function buildGround(scene, zone, opts = {}) {
   hfogTex(); const m = zone.map, W = m.w, H = m.h, MARGIN = opts.margin ?? 3, STEP = 0.5, kOf = opts.kindOf || kindOf, snow = !!opts.snow, steppe = !!opts.steppe;
   // за краем карты: обычно лесная подстилка; в деревне — продолжение крайнего тайла (луг за рекой не обрывается тёмной полосой)
-  const vil = !!zone.json.village, tile = (tx, ty) => (tx < 0 || ty < 0 || tx >= W || ty >= H) ? (vil ? kOf(m.rows[Math.max(0, Math.min(H - 1, ty))][Math.max(0, Math.min(W - 1, tx))]) : 'f') : kOf(m.rows[ty][tx]);
+  // походы-острова (правки 2, П55): 'v' — пропасть: земля круто уходит вниз, а в глубине сетки нет — сквозь неё видна бездна
+  const isl = !!opts.islands, vil = !!zone.json.village, tile = (tx, ty) => (tx < 0 || ty < 0 || tx >= W || ty >= H) ? (isl ? 'v' : vil ? kOf(m.rows[Math.max(0, Math.min(H - 1, ty))][Math.max(0, Math.min(W - 1, tx))]) : 'f') : kOf(m.rows[ty][tx]);
   // вес типа в точке: билинейная интерполяция «one-hot» поля по центрам тайлов
   const weights = (x, y) => {
-    const fx = x - 0.5, fy = y - 0.5, x0 = Math.floor(fx), y0 = Math.floor(fy), u = fx - x0, v = fy - y0, w = { g: 0, p: 0, c: 0, f: 0, w: 0, s: 0 };
+    const fx = x - 0.5, fy = y - 0.5, x0 = Math.floor(fx), y0 = Math.floor(fy), u = fx - x0, v = fy - y0, w = { g: 0, p: 0, c: 0, f: 0, w: 0, s: 0, v: 0 };
     w[tile(x0, y0)] += (1 - u) * (1 - v); w[tile(x0 + 1, y0)] += u * (1 - v); w[tile(x0, y0 + 1)] += (1 - u) * v; w[tile(x0 + 1, y0 + 1)] += u * v;
     if (vil) { w.g += w.f * 0.6; w.f *= 0.4; }   // деревня: подстилка в лесу по краям — травянистая, без чёрных провалов между деревьями
     return w;
   };
   // сборка 46: сетка земли для той же карты считается один раз за запуск (деревня — ≈34 тыс. вершин, секунды на слабом телефоне)
-  const gkey = m.rows.join('\n') + '|' + MARGIN + '|' + vil + '|' + (opts.kindOf ? 'k' : '-');
+  const gkey = m.rows.join('\n') + '|' + MARGIN + '|' + vil + '|' + (opts.kindOf ? 'k' : '-') + (isl ? 'i' : '');
   let GC = vil ? GROUND_CACHE.get(gkey) : null;   // походы каждый раз новые — их не храним
   if (!GC) {
     const x0 = -MARGIN, nx = Math.round((W + 2 * MARGIN) / STEP), ny = Math.round((H + 2 * MARGIN) / STEP);
-    const nv = (nx + 1) * (ny + 1), pos = new Float32Array(nv * 3), col = new Float32Array(nv * 4), kind = new Float32Array(nv * 4), pathF = new Float32Array(nv), idx = [];
+    const nv = (nx + 1) * (ny + 1), pos = new Float32Array(nv * 3), col = new Float32Array(nv * 4), kind = new Float32Array(nv * 4), pathF = new Float32Array(nv), idx = [], vd = isl ? new Float32Array(nv) : null;
     const bank = new THREE.Color(0x3a4a3a);
     for (let j = 0; j <= ny; j++) for (let i = 0; i <= nx; i++) {
       const x = x0 + i * STEP, z = x0 + j * STEP, k = j * (nx + 1) + i, w = weights(x, z), n = fbm(x * 0.5, z * 0.5);
-      pos[k * 3] = x; pos[k * 3 + 1] = -0.2 * w.w + (n - 0.5) * 0.08 * (1 - w.c) - 0.04 * w.p; pos[k * 3 + 2] = z;
-      const ww = Math.min(1, w.w * 1.6);   // берег темнеет к воде
-      col.set([1 + (bank.r - 1) * ww, 1 + (bank.g - 1) * ww, 1 + (bank.b - 1) * ww, 1], k * 4);
-      kind.set([w.g, w.p + w.s * 0.85, w.c, w.f], k * 4);
+      const cv = isl ? Math.min(1, Math.max(0, (w.v - 0.5) / 0.45)) : 0, dv = cv * cv * (3 - 2 * cv);   // обрыв начинается ровно на границе клеток: по краю можно стоять
+      if (vd) vd[k] = w.v;
+      pos[k * 3] = x; pos[k * 3 + 1] = -0.2 * w.w + (n - 0.5) * 0.08 * (1 - w.c) - 0.04 * w.p - 11 * dv + (n - 0.5) * 1.6 * dv; pos[k * 3 + 2] = z;
+      const ww = Math.min(1, w.w * 1.6), dk = 1 - 0.88 * dv;   // берег темнеет к воде; стенка обрыва темнеет книзу
+      col.set([(1 + (bank.r - 1) * ww) * dk, (1 + (bank.g - 1) * ww) * dk, (1 + (bank.b - 1) * ww) * dk * (1 + 0.25 * dv), 1], k * 4);
+      kind.set([w.g, w.p + w.s * 0.85, w.c, w.f + w.v], k * 4);
       let pf = 0; for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) pf += weights(x + a * 0.8, z + b * 0.8).p; pathF[k] = pf / 9 - w.s * 2;   // размытое поле тропы: контуры дают колеи; пашня — отрицательная (борозды)
     }
-    for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) { const a = j * (nx + 1) + i, b2 = a + 1, c2 = a + nx + 1, d2 = c2 + 1; idx.push(a, c2, b2, b2, c2, d2); }
+    for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) { const a = j * (nx + 1) + i, b2 = a + 1, c2 = a + nx + 1, d2 = c2 + 1; if (vd && vd[a] > 0.999 && vd[b2] > 0.999 && vd[c2] > 0.999 && vd[d2] > 0.999) continue; idx.push(a, c2, b2, b2, c2, d2); }   // в глубине пропасти сетки нет
     const g0 = new THREE.BufferGeometry();
     g0.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g0.setAttribute('color', new THREE.BufferAttribute(col, 4)); g0.setAttribute('aKind', new THREE.BufferAttribute(kind, 4)); g0.setAttribute('aPath', new THREE.BufferAttribute(pathF, 1));
     g0.setIndex(idx); g0.computeVertexNormals();
-    GC = g0; if (vil) { GROUND_CACHE.clear(); GROUND_CACHE.set(gkey, GC); }
+    GC = g0; if (vil) { for (const g of GROUND_CACHE.values()) g.dispose(); GROUND_CACHE.clear(); GROUND_CACHE.set(gkey, shared(GC)); }
   }
   const geo = GC;
   const ground = new THREE.Mesh(geo, groundMaterial(snow, !!opts.forest, zone.json.village ? 0 : 1, steppe, vil ? portalSpots(zone) : [])); ground.userData.noOutline = true; ground.receiveShadow = true; scene.add(ground);
   // подложка до горизонта: тёмный мох, чтобы за краем карты не было пустоты
   // походы (сборка 45): вместо плоской подложки — остров над звёздной бездной (см. abyss ниже)
-  const far = opts.abyss ? abyss(W, H, MARGIN, opts.abyss) : new THREE.Mesh(new THREE.PlaneGeometry(400, 400).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: opts.farColor ?? 0x0f2418 }));
+  const far = opts.abyss ? abyss(W, H, MARGIN, opts.abyss, isl) : new THREE.Mesh(new THREE.PlaneGeometry(400, 400).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: opts.farColor ?? 0x0f2418 }));
   if (!opts.abyss) far.position.set(W / 2, -0.4, H / 2); scene.add(far);
 
   // вода: плоскость над впадиной; видна только там, где земля провалилась ниже -0.08, поэтому берег получается плавным
-  let water = null; const wt = [];
+  let water = null, distTex = null; const wt = [];
   for (let ty = 0; ty < H; ty++) for (let tx = 0; tx < W; tx++) if (m.rows[ty][tx] === '~') wt.push([tx, ty]);
   if (wt.length) {
     let x0w = Math.min(...wt.map(t => t[0])) - 1, x1w = Math.max(...wt.map(t => t[0])) + 2, y0w = Math.min(...wt.map(t => t[1])) - 1, y1w = Math.max(...wt.map(t => t[1])) + 2;
     if (vil) { if (y0w < 0) y0w = -MARGIN; if (y1w > H) y1w = H + MARGIN; if (x0w < 0) x0w = -MARGIN; if (x1w > W) x1w = W + MARGIN; }   // деревня: ручей уходит за край карты, а не обрывается
-    water = new THREE.Mesh(new THREE.PlaneGeometry(x1w - x0w, y1w - y0w).rotateX(-Math.PI / 2).translate((x0w + x1w) / 2, -0.08, (y0w + y1w) / 2), waterMaterial(x0w, y0w, x1w, y1w, snow));
+    let wgeo;
+    if (isl) {   // острова: вода только над своими клетками (и на полклетки под берег), не над пропастью
+      const P = [], isV = (x, y) => x < 0 || y < 0 || x >= W || y >= H || m.rows[y][x] === 'v' || m.rows[y][x] === 'h';
+      for (let ty = 0; ty < H; ty++) for (let tx = 0; tx < W; tx++) { const c = m.rows[ty][tx]; if (c !== '~' && c !== 'b') continue;
+        const a = isV(tx - 1, ty) ? 0 : 0.5, b = isV(tx + 1, ty) ? 0 : 0.5, cN = isV(tx, ty - 1) ? 0 : 0.5, cS = isV(tx, ty + 1) ? 0 : 0.5, X0 = tx - a, X1 = tx + 1 + b, Z0 = ty - cN, Z1 = ty + 1 + cS;
+        P.push(X0, -0.08, Z0, X0, -0.08, Z1, X1, -0.08, Z0, X1, -0.08, Z0, X0, -0.08, Z1, X1, -0.08, Z1); }
+      wgeo = new THREE.BufferGeometry(); wgeo.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); wgeo.computeBoundingSphere();
+    } else wgeo = new THREE.PlaneGeometry(x1w - x0w, y1w - y0w).rotateX(-Math.PI / 2).translate((x0w + x1w) / 2, -0.08, (y0w + y1w) / 2);
+    water = new THREE.Mesh(wgeo, waterMaterial(x0w, y0w, x1w, y1w, snow));
     water.material.uniforms.uTime = U.uTime; water.material.uniforms.tNoise.value = noiseTex(); Object.assign(water.material.uniforms, { uHFog: U.uHFog, uHFogCol: U.uHFogCol, tHNoise: U.tHNoise, uHTime: U.uTime, uHFogC: U.uHFogC }); hfogTex();
-    if (zone.json.village) {   // ручей деревни: глубина — по расстоянию до берега (текстура W×H), а не по эллипсу вокруг центра
+    if (zone.json.village || isl) {   // ручей деревни (и ручьи островов): глубина — по расстоянию до берега (текстура W×H), а не по эллипсу вокруг центра
       const d = new Float32Array(W * H).fill(0), isW = (x, y) => x < 0 || y < 0 || x >= W || y >= H ? (m.rows[Math.max(0, Math.min(H - 1, y))][Math.max(0, Math.min(W - 1, x))] === '~') : m.rows[y][x] === '~' || m.rows[y][x] === 'b';
       for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (isW(x, y)) { let r = 9; for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) if (!isW(x + dx, y + dy)) r = Math.min(r, Math.hypot(dx, dy)); d[y * W + x] = Math.min(1, (r - 0.5) / 1.6); }
       const px = new Uint8Array(W * H * 4); for (let i = 0; i < W * H; i++) { px[i * 4] = d[i] * 255; px[i * 4 + 3] = 255; }
-      const tx = new THREE.DataTexture(px, W, H); tx.magFilter = tx.minFilter = THREE.LinearFilter; tx.needsUpdate = true;
+      const tx = distTex = new THREE.DataTexture(px, W, H); tx.magFilter = tx.minFilter = THREE.LinearFilter; tx.needsUpdate = true;
       Object.assign(water.material.uniforms, { tDist: { value: tx }, uDist: { value: 1 }, uSize: { value: new THREE.Vector2(W, H) } });
     }
     water.userData.noOutline = true; scene.add(water);
@@ -301,7 +313,9 @@ export function buildGround(scene, zone, opts = {}) {
   Object.assign(gmat.uniforms, grassU);
   const blade = clumpGeometry(), CS = 8, grass = [], MAXP = 270, RG = rng(23), mm = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), s = new THREE.Vector3(), p = new THREE.Vector3();
   // сборка 46: расстановка травы и пшеницы деревни тоже хранится между заходами (ключ — карта и препятствия)
-  const sig = vil ? gkey + '|' + (m.circles || []).map(c => c.x.toFixed(1) + ',' + c.y.toFixed(1)).join(';') + '|' + (m.rects || []).map(b => b.x0.toFixed(1) + ',' + b.y0.toFixed(1)).join(';') : null;
+  // трава не прорастает сквозь ковры (ковёр Кофи и др.): круг на половину диагонали ковра 1,6×2,4 м
+  const rugs = (zone.statics || []).filter(d => d.model === 'rug' || (d.spr === 'rug' && !d.model)), onRug = (x, z) => rugs.some(d => (x - d.x) ** 2 + (z - d.y) ** 2 < 2.1);
+  const sig = vil ? gkey + '|' + rugs.map(d => d.x.toFixed(1) + ',' + d.y.toFixed(1)).join(';') + '|' + (m.circles || []).map(c => c.x.toFixed(1) + ',' + c.y.toFixed(1)).join(';') + '|' + (m.rects || []).map(b => b.x0.toFixed(1) + ',' + b.y0.toFixed(1)).join(';') : null;
   const GR = sig && GRASS_CACHE.sig === sig ? GRASS_CACHE.list : null, rec = sig && !GR ? [] : null;
   const rankArr = n => Float32Array.from({ length: n }, (_, i) => (i + 0.5) / n);   // доля экземпляра в чанке — для плавного LOD
   const fromRec = (r, geo0, mat) => { const im = new THREE.InstancedMesh(geo0.clone(), mat, r.n); im.instanceMatrix.array.set(r.m); im.geometry.setAttribute('aRand', new THREE.InstancedBufferAttribute(r.rnd, 1)); im.geometry.setAttribute('aRank', new THREE.InstancedBufferAttribute(rankArr(r.n), 1)); im.userData.wheat = !!r.wheat;
@@ -314,8 +328,8 @@ export function buildGround(scene, zone, opts = {}) {
       const x = (cx + RG()) * CS, z = (cz + RG()) * CS, w = weights(x, z);
       // гуще у краёв троп (трава нависает) и пятнами в поле; на тропе и площади — нет
       const edge = w.g * (w.p + w.c) * 4, patch = Math.min(1, Math.max(0, (fbm(x * 0.12 + 9, z * 0.12) - 0.32) * 3));
-      const dens = (w.g * (0.25 + 0.75 * patch) + w.f * 0.45 + edge * 0.8) * (1 - Math.min(1, (w.p + w.c + w.s) * 1.6)) * (1 - w.w);
-      if (RG() > dens * (snow ? 0.3 : 1) * (opts.grassK ?? 1) || (m.free && !m.free(x, z, 0.05))) continue;
+      const dens = (w.g * (0.25 + 0.75 * patch) + w.f * 0.45 + edge * 0.8) * (1 - Math.min(1, (w.p + w.c + w.s) * 1.6)) * (1 - w.w) * (1 - Math.min(1, w.v * 2));
+      if (RG() > dens * (snow ? 0.3 : 1) * (opts.grassK ?? 1) || (m.free && !m.free(x, z, 0.05)) || onRug(x, z)) continue;
       const tall = 0.22 + Math.pow(fbm(x * 0.21, z * 0.21), 2) * 0.35 + edge * 0.08, sc = 0.8 + RG() * 0.7;
       mm.compose(p.set(x, -0.02, z), q.setFromAxisAngle(up, RG() * 6.283), s.set(sc, tall * (0.7 + RG() * 0.6), sc)); im.setMatrixAt(n, mm); rnd[n] = RG(); n++;
     }
@@ -369,7 +383,7 @@ export function buildGround(scene, zone, opts = {}) {
       if (on) { grassU.uShadowMap.value = sm.map.texture; grassU.uShadowMat.value.copy(sm.matrix); grassU.uShadowTexel.value.set(1 / sm.mapSize.x, 1 / sm.mapSize.y); }
     },
     update(blobs) { for (let i = 0; i < 12; i++) { const b = blobs[i], v = grassU.uBlobs.value[i]; if (b) v.set(b.x, b.z, b.r, b.w ?? 1); else v.set(999, 999, 0.5, 0); } },
-    dispose() { if (far.userData.parts) for (const o of far.userData.parts) o.geometry.dispose(); for (const o of [ground, far, water, cob, ...grass]) if (o) { o.removeFromParent(); o.geometry.dispose(); } },
+    dispose() { for (const o of [ground, far, water, cob, ...grass]) disposeObject(o); if (distTex) distTex.dispose(); },   // сетка деревни (GROUND_CACHE) и трава из GRASS_CACHE — shared
   };
 }
 
@@ -383,7 +397,7 @@ const ABYSS = {
   bones: { sky: 0x12060c, neb: 0x8a3020, neb2: 0x5a2a6a, rock: 0x7a3a22, rim: 0xb0703a },
   temple: { sky: 0x0a0a10, neb: 0x6a5a3a, neb2: 0x3a5a4a, rock: 0x6a6252, rim: 0xb0a484 },   // Разрушенный храм: светлый камень острова
 };
-function abyss(W, H, M, realm) {
+function abyss(W, H, M, realm, isl = false) {
   const P = ABYSS[realm] || ABYSS.forest, col = c => new THREE.Color(c), grp = new THREE.Group();
   const tn = noiseTex(); tn.wrapS = tn.wrapT = THREE.RepeatWrapping;
   // дно: звёзды по сетке 2,5 м (одна на клетку, если повезёт) + туманность из двух выборок шума
@@ -428,7 +442,7 @@ function abyss(W, H, M, realm) {
       }`,
     side: THREE.DoubleSide,
   }));
-  grp.add(sky, cliff); grp.userData.parts = [sky, cliff]; grp.userData.noOutline = true; sky.userData.noOutline = cliff.userData.noOutline = true;
+  if (isl) { cliff.geometry.dispose(); cliff.material.dispose(); grp.add(sky); grp.userData.parts = [sky]; } else { grp.add(sky, cliff); grp.userData.parts = [sky, cliff]; }   // острова: обрывы — сама земля по краю пропасти grp.userData.noOutline = true; sky.userData.noOutline = cliff.userData.noOutline = true;
   grp.geometry = { dispose() { } };   // общий dispose() земли ждёт у каждого объекта geometry
   return grp;
 }

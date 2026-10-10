@@ -22,7 +22,7 @@ export function generateCastle(opened) {
   o.push({ t: 'castle_portal', x: 17, y: 26 }, { t: 'castle_guide', x: 17, y: 20.6 });
   for (const [x, y] of [[13.5, 19.5], [20.5, 19.5], [13.5, 26.5], [20.5, 26.5]]) o.push({ t: 'pillar', x, y });
   o.push({ t: 'brazier', x: 14.6, y: 19.2 }, { t: 'brazier', x: 19.4, y: 19.2 });
-  for (const [id, [x, y]] of Object.entries(gates)) o.push({ t: 'roomgate', id, x: x + 0.5 + side[id][0] * 0.5, y: y + 0.5 + side[id][1] * 0.5 });
+  for (const [id, [x, y]] of Object.entries(gates)) o.push({ t: 'roomgate', id, x: x + 0.5 + side[id][0] * 0.5, y: y + 0.5 + side[id][1] * 0.5, flip: !!side[id][1] });   // flip — проход вдоль X (дверь в стене по Y)
   // room furniture
   o.push({ t: 'castle_altar', x: 5.5, y: 22.5 }, { t: 'candles', x: 3.5, y: 19.5 }, { t: 'candles', x: 8, y: 25.5 }, { t: 'brazier', x: 3, y: 25 });
   // сборка 47: зал испытаний — клетки x 24–31, y 18–26; алтарь и колонны стояли за восточной стеной (x 36), до алтаря было не дойти

@@ -41,7 +41,7 @@ export function doorArch(kit, def, { open = false, span = 2, square = false } = 
     const piv = new THREE.Group(); piv.position.set(xh, 0, 0); piv.add(new THREE.Mesh(merge(L), mat)); root.add(piv);
     return piv;
   };
-  const leaves = [leaf(-1), leaf(1)], OPEN = 1.5;
+  const leaves = [leaf(-1), leaf(1)], OPEN = 1.2;   // правки 2 (П50): створки открываются на 80 % (было 1,5 рад — почти настежь)
   if (!open) return { root };
   // открытая: распахивается при появлении (дверь только что отперли); при повторном заходе в зону — та же короткая анимация
   let t0 = null;

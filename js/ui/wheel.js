@@ -17,7 +17,9 @@ const PRIZES = [
   { t: '★ вещь', c: '#3a6ec8', w: 8, give: P => { const it = makeItem({ slot: ['weapon', 'head', 'chest', 'amulet'][Math.floor(Math.random() * 4)], ilvl: P.level + 1, rarity: Math.random() < 0.25 ? 2 : 1, cls: P.cls }); delete it.req; autoEquip(it); return 'Вещь: ' + it.name; }   /* сборка 47: обычно зелёная */ },
 ];
 const FREE_MS = 8 * 3600e3;
-export const wheelReady = () => { const P = G.profile; return !P.wheelFree || Date.now() - P.wheelFree >= FREE_MS; };
+export const wheelReady = () => { const P = G.profile; if (P.wheelFree > Date.now()) P.wheelFree = Date.now();   /* С15: часы переведены назад */ return !P.wheelFree || Date.now() - P.wheelFree >= FREE_MS; };
+
+const SHARD = new Image(); SHARD.src = 'assets/art/gpt/ui/shard_64.png';
 
 export function openWheel(modal, closeModal) {
   let spinning = false, angle = 0;
@@ -29,7 +31,11 @@ export function openWheel(modal, closeModal) {
       const a0 = i / n * Math.PI * 2 - Math.PI / 2 - Math.PI / n, a1 = a0 + Math.PI * 2 / n;
       x.fillStyle = PRIZES[i].c; x.beginPath(); x.moveTo(280, 280); x.arc(280, 280, R, a0, a1); x.closePath(); x.fill();
       x.strokeStyle = '#1a1008'; x.lineWidth = 4; x.stroke();
-      x.save(); x.translate(280, 280); x.rotate((a0 + a1) / 2); x.fillStyle = '#fff'; x.font = 'bold 34px Georgia'; x.textAlign = 'right'; x.shadowColor = '#000'; x.shadowBlur = 6; x.fillText(PRIZES[i].t, R - 22, 12); x.restore();
+      x.save(); x.translate(280, 280); x.rotate((a0 + a1) / 2); x.fillStyle = '#fff'; x.font = 'bold 34px Georgia'; x.textAlign = 'right'; x.shadowColor = '#000'; x.shadowBlur = 6;
+      const t = PRIZES[i].t;   // П44: «◆ 2» — картинка осколка и число (пока картинка не загрузилась — прежний текст)
+      if (t[0] === '◆' && SHARD.complete && SHARD.naturalWidth) { const v = t.slice(2), w = x.measureText(v).width; x.fillText(v, R - 22, 12); x.shadowBlur = 0; x.drawImage(SHARD, R - 22 - w - 50, -23, 46, 46); }
+      else x.fillText(t, R - 22, 12);
+      x.restore();
     }
     x.lineWidth = 12; x.strokeStyle = '#d8a84a'; x.beginPath(); x.arc(280, 280, R, 0, 7); x.stroke();
     x.fillStyle = '#2a1a08'; x.beginPath(); x.arc(280, 280, 46, 0, 7); x.fill(); x.strokeStyle = '#ffd24a'; x.lineWidth = 6; x.stroke();

@@ -22,7 +22,7 @@ export const PERKS = {
   haste:  { name: 'Спешка', max: 5, passive: 1, icon: '⚡', desc: () => 'Оружие срабатывает на 8% чаще' },
   area:   { name: 'Размах', max: 5, passive: 1, icon: '◎', desc: () => '+12% к площади атак' },
   swift:  { name: 'Лёгкие сапоги', max: 5, passive: 1, icon: '»', desc: () => '+8% к скорости бега' },
-  magnet: { name: 'Притяжение душ', max: 5, passive: 1, icon: '◆', desc: () => '+40% к радиусу сбора кристаллов' },
+  magnet: { name: 'Притяжение душ', max: 5, passive: 1, icon: '◇', desc: () => '+40% к радиусу сбора кристаллов' },
   vigor:  { name: 'Жизненная сила', max: 5, passive: 1, icon: '♥', desc: () => '+20% здоровья и восстановление' },
   // сборка 47: больше пассивок — выбор разнообразнее (как в Vampire Survivors)
   plate:  { name: 'Латы душ', max: 5, passive: 1, icon: '⛨', desc: () => '−8% получаемого урона' },
@@ -96,7 +96,7 @@ export function startRun() {
   const intro = !(G.profile.story && G.profile.story.flags && G.profile.story.flags.bossKilled);
   const S = G.surv = { t: 0, kills: 0, lvl: 1, xp: 0, next: 12, swarm: [], gems: [], projs: [], eprojs: [], pools: [], w: { main: 1 }, p: {}, evo: {}, cd: {}, spawnT: 0, eliteT: 150, bossT: 600, bossKills: 0, gold: 0, over: false, hp0: G.stats.maxHP, ach: {}, orbit: 0, pending: 0, intro, rerolls: 0 };
   G.player.hp = G.stats.maxHP; G.auto = false;
-  bus.emit('toast', { text: 'Жатва Бездны', sub: intro ? 'Староста держит портал 3 минуты: бегайте, герой бьёт сам. Каждый уровень забега — опыт герою' : 'Только бегайте — герой бьёт сам. Каждый уровень забега даёт опыт герою.', kind: 'quest' });
+  setTimeout(() => bus.emit('toast', { text: 'Жатва Бездны', sub: intro ? 'Староста держит портал 3 минуты: бегайте, герой бьёт сам. Каждый уровень забега — опыт герою' : 'Только бегайте — герой бьёт сам. Каждый уровень забега даёт опыт герою.', kind: 'quest' }), 400);   // сборка 59: когда табло Жатвы уже на экране — тост встаёт под ним, а не под «Сдаться»
   return S;
 }
 const might = () => (1 + (G.surv.p.might || 0) * 0.12) * (1 + (G.surv.p.fury || 0) * 0.06);
@@ -163,6 +163,7 @@ export function updateSurvival(dt) {
   for (const e of S.swarm) if (e.hp <= 0 && !e.dead) {
     e.dead = true; S.kills++; G.profile.stats.kills++;
     S.gems.push({ x: e.x, y: e.y, v: e.xp, big: e.xp >= 4 });
+    if (!S.gemTip && !(G.profile.tutorial && G.profile.tutorial.tips && G.profile.tutorial.tips.survGem)) { S.gemTip = S.gems[S.gems.length - 1]; bus.emit('survGemTip'); }   // сборка 60 (П13): первая синяя душа — стрелка и короткая пауза
     if (rand() < 0.03) S.gems.push({ x: e.x + 0.3, y: e.y, gold: 3 + (mins | 0) });
     if (e.boss) { S.bossKills++; for (let k = 0; k < 3; k++) S.pending++; bus.emit('toast', { text: 'Палач повержен!', sub: '+3 выбора перков', kind: 'good' }); }
     C.particles(e.x, e.y, 5, { c: [200, 140, 255], z: 0.8, sp: 2, size: 3, life: 0.4 });
@@ -173,7 +174,7 @@ export function updateSurvival(dt) {
   for (const g of S.gems) {
     const dx = pl.x - g.x, dy = pl.y - g.y, d = Math.hypot(dx, dy);
     if (d < mag || g.pull) { g.pull = true; const k = Math.min(1, dt * 10 / Math.max(0.2, d)); g.x += dx * k; g.y += dy * k; }
-    if (d < 0.5) { g.taken = true; if (g.gold) { S.gold += g.gold; bus.emit('sfx', 'coin'); } else { S.xp += g.v * (1 + (S.p.growth || 0) * 0.12); bus.emit('sfx', 'pickup'); } }
+    if (d < 0.5) { g.taken = true; if (g === S.gemTip) S.gemTip = null; if (g.gold) { S.gold += g.gold; bus.emit('sfx', 'coin'); } else { S.xp += g.v * (1 + (S.p.growth || 0) * 0.12); bus.emit('sfx', 'pickup'); } }
   }
   S.gems = S.gems.filter(g => !g.taken);
   if (S.gems.length > 400) S.gems.splice(0, S.gems.length - 400);
@@ -327,10 +328,23 @@ export function drawSurvivalFx(ctx, cam) {
     ctx.restore();
   }
   for (const p of S.eprojs || []) {   // снаряды стрелков — крупные и яркие, чтобы было видно, откуда летит
+    if (p.kind === 'arrow') {   // сборка 60 (П14/П13): у лучника — стрела (светлое древко с оперением), а не огненный шар; магия — у колдунов позже
+      const [x, y] = cam.toScreen(p.x, p.y, 1.0), [x2, y2] = cam.toScreen(p.x - p.vx * 0.09, p.y - p.vy * 0.09, 1.0), a = Math.atan2(y - y2, x - x2), L = Math.hypot(x - x2, y - y2) || 1;
+      ctx.save(); ctx.globalCompositeOperation = 'source-over'; ctx.translate(x, y); ctx.rotate(a); ctx.lineCap = 'round';
+      ctx.strokeStyle = 'rgba(0,0,0,0.75)'; ctx.lineWidth = 5 * Math.max(0.8, z); ctx.beginPath(); ctx.moveTo(-L, 0); ctx.lineTo(0, 0); ctx.stroke();
+      ctx.strokeStyle = '#f2e2b8'; ctx.lineWidth = 2.5 * Math.max(0.8, z); ctx.beginPath(); ctx.moveTo(-L, 0); ctx.lineTo(0, 0); ctx.stroke();
+      const k = 7 * Math.max(0.8, z); ctx.fillStyle = '#d8dde8'; ctx.beginPath(); ctx.moveTo(k * 1.2, 0); ctx.lineTo(-k * 0.3, -k * 0.55); ctx.lineTo(-k * 0.3, k * 0.55); ctx.fill();
+      ctx.fillStyle = '#c84a3a'; ctx.fillRect(-L, -k * 0.45, k * 0.9, k * 0.9); ctx.restore(); ctx.globalCompositeOperation = 'lighter'; continue;
+    }
     const [x, y] = cam.toScreen(p.x, p.y, 1.0), r = (p.kind === 'orb' ? 14 : 10) * Math.max(0.8, z);
     const g = ctx.createRadialGradient(x, y, 0, x, y, r); g.addColorStop(0, 'rgba(255,255,230,1)'); g.addColorStop(0.4, p.kind === 'orb' ? 'rgba(255,90,200,0.95)' : 'rgba(255,170,60,0.95)'); g.addColorStop(1, 'rgba(255,60,60,0)');
     ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill();
     const [x2, y2] = cam.toScreen(p.x - p.vx * 0.12, p.y - p.vy * 0.12, 1.0); ctx.strokeStyle = p.kind === 'orb' ? 'rgba(255,90,200,0.55)' : 'rgba(255,190,90,0.6)'; ctx.lineWidth = r * 0.6; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x2, y2); ctx.stroke();
+  }
+  if (S.gemTip && !S.gemTip.taken) {   // сборка 60 (П13): над первой душой — прыгающая стрелка
+    const g = S.gemTip, [x, y] = cam.toScreen(g.x, g.y, 0.25), b = Math.abs(Math.sin(G.time * 4)) * 10;
+    ctx.save(); ctx.globalCompositeOperation = 'source-over'; ctx.translate(x, y - 22 - b); ctx.fillStyle = '#7ae0ff'; ctx.strokeStyle = '#06222c'; ctx.lineWidth = 3; ctx.shadowColor = '#7ae0ff'; ctx.shadowBlur = 12;
+    ctx.beginPath(); ctx.moveTo(-12, -16); ctx.lineTo(12, -16); ctx.lineTo(0, 4); ctx.closePath(); ctx.stroke(); ctx.fill(); ctx.restore(); ctx.globalCompositeOperation = 'lighter';
   }
   if (S.bladePts) for (const [bx, by, a] of S.bladePts) { const [x, y] = cam.toScreen(bx, by, 0.9); ctx.save(); ctx.translate(x, y); ctx.rotate(a * 3); const g = ctx.createRadialGradient(0, 0, 0, 0, 0, 20 * z); g.addColorStop(0, 'rgba(255,255,255,0.95)'); g.addColorStop(0.4, 'rgba(200,190,255,0.5)'); g.addColorStop(1, 'rgba(120,90,255,0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(0, 0, 20 * z, 5 * z, 0, 0, 7); ctx.fill(); ctx.restore(); }
   ctx.globalCompositeOperation = 'source-over';

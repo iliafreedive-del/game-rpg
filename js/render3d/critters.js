@@ -7,6 +7,7 @@
 import * as THREE from '../vendor/three.module.min.js';
 import { toon, outline } from './toon.js';
 import { OUTLINE } from './style.js';
+import { shared, disposeObject } from './dispose.js';
 
 // Курица из Meshy на прежнем риге: кости = те же группы (тело в начале координат, голова (0; 0,4; 0,2), ноги (±0,07; 0,18; 0)), веса — по положению вершины
 const CH_GEO = new Map();
@@ -23,7 +24,7 @@ function chickenGeo(kit, name) {
     si.set([0, 1, 2, 3], i * 4); sw.set([1 - wh - wl, wh, wl * (1 - sr), wl * sr], i * 4);
   }
   g.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(si, 4)); g.setAttribute('skinWeight', new THREE.Float32BufferAttribute(sw, 4));
-  g.computeBoundingSphere(); const r = { geometry: g, map: d.map }; CH_GEO.set(name, r); return r;
+  g.computeBoundingSphere(); const r = { geometry: shared(g), map: d.map }; CH_GEO.set(name, r); return r;
 }
 const glbChicken = (kit, v) => kit.mob && kit.skin.SKINS.on && kit.mob.mobLoaded(v ? 'chicken_red' : 'chicken_white');
 function chickenGlb(kit, v) {
@@ -176,17 +177,20 @@ export class Critters {
       const sw = Math.sin(a.ph) * a.v;
       // хвост: виляет, только когда герой рядом (плавно включается и затихает)
       if (dog) a.wag = (a.wag || 0) + ((dP < 3.5 ? 1 : 0) - (a.wag || 0)) * Math.min(1, dt * 4);
+      // сборка 59: фаза хвоста — своя. Раньше она шла от a.ph (фаза шага), и пока собака бежала к герою, хвост «трясся» ~10 раз в секунду.
+      // Теперь: подходит — спокойно, ~1 взмах в секунду; дошла до героя — чаще и шире, радостно
+      if (dog) { const joy = dP < 2.1 && !sp ? 1 : 0; a.joy = (a.joy || 0) + (joy - (a.joy || 0)) * Math.min(1, dt * 2.5); a.wt = (a.wt || 0) + dt * (6 + 9 * a.joy); }
       if (dog && m.glb) {
         // ходьба и покой — анимации модели; «села» — легла на живот, голова к герою — поворотом всего зверя (уже выше)
         const sit = a.st === 'sit' ? 1 : 0; a.sit = (a.sit || 0) + (sit - (a.sit || 0)) * Math.min(1, dt * 3);
         // сборка 55: поведение как у первой собаки — садится (а не ложится «замертво»), в покое оглядывается по сторонам
-        const A = { t: t + a.ph, dt, speed: sp, k: a.sit, wag: a.wag, look: a.st === 'idle' || a.st === 'sit' ? 0.4 : 0.12 };
+        const A = { t: t + a.ph, dt, speed: sp, k: a.sit, wag: a.wag * (1 + 0.45 * a.joy), wt: a.wt, look: a.st === 'idle' || a.st === 'sit' ? 0.4 : 0.12 };
         if (a.sit > 0.02) m.glb.anims.sit(A); else if (sp) m.glb.anims.walk(A); else m.glb.anims.idle(A);
       } else if (dog) {
         const sit = a.st === 'sit' ? 1 : 0; a.sit = (a.sit || 0) + (sit - (a.sit || 0)) * Math.min(1, dt * 5);
         m.body.rotation.x = -0.42 * a.sit; m.body.position.y = -0.1 * a.sit; m.body.position.z = -0.12 * a.sit;
         m.legs[0].rotation.x = sw * 0.6 + 0.4 * a.sit; m.legs[3].rotation.x = sw * 0.6 - 1.2 * a.sit; m.legs[1].rotation.x = -sw * 0.6 + 0.4 * a.sit; m.legs[2].rotation.x = -sw * 0.6 - 1.2 * a.sit;
-        m.tail.rotation.y = Math.sin(t * 6 + a.ph) * 0.45 * a.wag; m.tail.rotation.x = -0.3 + a.sit * 0.6;
+        m.tail.rotation.y = Math.sin(a.wt) * 0.45 * a.wag * (1 + 0.45 * a.joy); m.tail.rotation.x = -0.3 + a.sit * 0.6;
         m.head.rotation.x = 0.2 * a.sit + Math.sin(t * 1.3 + a.ph) * 0.06; m.head.rotation.y = a.st === 'idle' ? Math.sin(t * 0.6 + a.ph) * 0.4 : 0;
       } else {
         m.legs[0].rotation.x = sw * 0.7; m.legs[1].rotation.x = -sw * 0.7; m.body.position.y = Math.abs(Math.sin(a.ph)) * 0.03 * a.v;
@@ -196,5 +200,5 @@ export class Critters {
       }
     }
   }
-  dispose() { for (const a of this.list) a.m.root.removeFromParent(); this.list = []; }
+  dispose() { for (const a of this.list) disposeObject(a.m.root); this.list = []; }
 }

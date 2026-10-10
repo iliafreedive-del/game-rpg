@@ -37,10 +37,10 @@ export function enemyLoot(e) {
   // Items come only from quests, contracts and the shop (design decision: fewer, meaningful rewards).
   const D = e.D, L = e.lvl;
   const piles = D.boss ? 6 : D.elite ? 4 : e.champion ? 2 : (rand() < 0.6 ? 1 : 0);
-  for (let i = 0; i < piles; i++) dropGold(e.x, e.y, rint(D.gold[0], D.gold[1]) * (1 + 0.12 * (L - 1)) * 0.75 / (D.boss || D.elite ? piles / 2 : 1));   // сборка 47: золота −25%
+  for (let i = 0; i < piles; i++) dropGold(e.x, e.y, rint(D.gold[0], D.gold[1]) * (1 + 0.12 * (L - 1)) * 0.75 / (D.boss || D.elite ? piles / 2 : 1) * (e.repeat ? 0.5 : 1));   // П45: повторная победа над возродившимся боссом — золота вдвое меньше   // сборка 47: золота −25%
   if (rand() < (D.boss ? 1 : D.elite ? 0.35 : e.champion ? 0.2 : 0.015)) dropPotion(e.x, e.y, rand() < 0.7 ? 'hp' : 'mp');
   // вещи: редкие и заметные. Рядовой враг почти никогда, чемпион — иногда, страж и босс — всегда
-  const ch = (D.boss ? 1 : D.elite ? 0.5 : e.champion ? 0.12 : G.zoneId === 'wild' ? 0.03 : 0.025) / (e.respawned ? 3 : 1) * (G.profile.boosts.blessUntil > Date.now() ? BLESS_ITEMS : 1) * rm('items') * (1 + 0.05 * ((G.run && G.run.circle) || 0));
+  const ch = (D.boss ? 1 : D.elite ? 0.5 : e.champion ? 0.12 : G.zoneId === 'wild' ? 0.03 : 0.025) / (e.respawned ? 3 : 1) * (e.repeat ? 0.5 : 1) * (G.profile.boosts.blessUntil > Date.now() ? BLESS_ITEMS : 1) * rm('items') * (1 + 0.05 * ((G.run && G.run.circle) || 0));
   // сборка 20: серого больше — сырьё для слияния у кузнеца. Благословение — +15% вещей; «Орда» недели — ×2; возрождённые (respawn.js) — втрое реже; круг Бездны — +5% за круг
   // таблицы: серый / зелёный / синий / золотой. Сборка 47: вещей втрое меньше, зелёные — редкость (жалоба «шмота как грязи»)
   // сборка 49, защита от неудач: без вещи 70 убийств подряд — следующий враг роняет вещь наверняка (возрождённые не в счёт)
@@ -109,6 +109,14 @@ export function updatePickups(dt) {
   for (let i = G.pickups.length - 1; i >= 0; i--) if (G.pickups[i].taken) G.pickups.splice(i, 1);
 }
 
+// С16: смена зоны — вещи, ждавшие места в полной сумке, не пропадают молча: продаются по цене лавки, золото — герою
+export function flushPickups() {
+  const prof = G.profile; let n = 0, v = 0;
+  for (const p of G.pickups) if (!p.taken && p.kind === 'item' && p.wait) { n++; v += sellValue(p.item); }
+  if (!n) return; prof.gold += v; prof.stats.gold += v; bus.emit('gold', v);
+  bus.emit('toast', { text: `Сумка была полна: продано вещей — ${n}`, sub: `+${v} зол.`, kind: 'info' });
+}
+
 // ------------------------------------------------------------------ XP & levels
 import { GROWTH } from '../data/items.js';
 export function autoGrow(P, n = 1) { const g = GROWTH[P.cls || 'warrior']; for (const k in g) P.attrs[k] += g[k] * n; }
@@ -128,4 +136,6 @@ export function gainXP(n, x, y) {
 // Враги идут на уровень выше героя, пока не упрутся в потолок зоны (progress.js bandLevel) — перекачавшись, герой здесь почти не растёт
 const OVER = [1, 0.8, 0.55, 0.3, 0.15, 0.05];
 export const overPenalty = (hero, mob) => OVER[Math.min(OVER.length - 1, Math.max(0, hero - mob))];
-export function killXP(e) { return Math.round(e.D.xp * scaleXP(e.lvl) * (e.champion ? 2.5 : 1) * overPenalty(G.profile.level, e.lvl)); }
+// П57: опыт за врагов ×0,8 — «прокачка слишком быстрая»
+export const KILL_XP_K = 0.8;
+export function killXP(e) { return Math.round(e.D.xp * scaleXP(e.lvl) * (e.champion ? 2.5 : 1) * overPenalty(G.profile.level, e.lvl) * KILL_XP_K * (e.repeat ? 0.5 : 1)); }

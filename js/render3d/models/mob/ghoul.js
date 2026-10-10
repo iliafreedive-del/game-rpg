@@ -55,6 +55,9 @@ const def = {
     };
     const legL = mkLeg(0.13), legR = mkLeg(-0.13);
 
+    // правки (мама, сборка 60): походка и удар — прежние, процедурного упыря (локти согнуты, руки качаются в такт шагу).
+    // У модели ghoul_m покой прямой, а процедурный упырь сутулый сам по себе — шкуре добавляем сутулость, голову держим прямо
+    const ST = kit.skin && kit.skin.SKINS.on && kit.skin.skinLoaded('ghoul_m') ? 0.3 : 0;
     let gp = Math.random();
     function solve(a, sp, wu, lu, hurt = 0) {
       const w = clamp(sp / 1.6), cyc = clamp(sp / (SP.cyc * 3.2), 0, 1);
@@ -67,8 +70,8 @@ const def = {
         dz += (i === 0 ? 0.18 : -0.1) * wu + (i === 0 ? 0.25 : -0.15) * lu;
         lg.position.y = hipY; legIK(lg, lg.knee, lg.foot, SP.L1, SP.L2, hipY - SP.ankle, dz, lift, ft.pitch * w);
       });
-      body.rotation.set(0.6 + 0.08 * w + wu * 0.4 - lu * 0.5 - hurt * 0.4, Math.cos(th) * 0.2 * w, Math.sin(th) * 0.12 * w); body.position.y = hipY + 0.02 - wu * 0.08;
-      head.rotation.set(-0.45 - wu * 0.2 + hurt * 0.3, -body.rotation.y * 0.5, Math.sin(a.t * 2.4) * 0.08);
+      body.rotation.set(0.6 + ST + 0.08 * w + wu * 0.4 - lu * 0.5 - hurt * 0.4, Math.cos(th) * 0.2 * w, Math.sin(th) * 0.12 * w); body.position.y = hipY + 0.02 - wu * 0.08;
+      head.rotation.set(-0.45 - ST - wu * 0.2 + hurt * 0.3, -body.rotation.y * 0.5, Math.sin(a.t * 2.4) * 0.08);
       armL.rotation.set(-s * 0.8 * w - 0.4 - wu * 1.3 + lu * 1.9, 0, 0.2 + wu * 0.25); armR.rotation.set(s * 0.8 * w - 0.4 - wu * 1.3 + lu * 1.9, 0, -0.2 - wu * 0.25);
       elL.rotation.x = elR.rotation.x = -0.5 - 0.4 * w - wu * 0.5 + lu * 0.7;
       spin.rotation.set(0, 0, 0); spin.position.y = 0.5;

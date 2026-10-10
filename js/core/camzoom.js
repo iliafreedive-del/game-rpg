@@ -38,18 +38,20 @@ export function initCamZoom(canvas) {
   // почти всю левую часть экрана, и раньше палец, попавший на неё, включал джойстик, а щипок не работал.
   // Щипок начинается, когда расстояние между пальцами изменилось на 28+ px и хотя бы один палец, кроме джойстика, сдвинулся:
   // так бег джойстиком + касание экрана для удара в точку не превращаются в зум. С началом щипка джойстик отпускается.
-  const pts = new Map(); let base = 0, z0 = 1, on = false;
+  // Правки по скилам (С6): бег джойстиком + второй палец, ведущий прицел, принимались за щипок (герой вставал, камера наезжала).
+  // Теперь щипок — только если оба пальца коснулись экрана почти одновременно (до 250 мс): у бега с прицелом второй палец приходит позже
+  const pts = new Map(); let base = 0, z0 = 1, on = false, pair = false;
   const gap = () => { const [a, b] = [...pts.values()]; return Math.hypot(a.x - b.x, a.y - b.y); };
   const ours = t => t && t.closest && t.closest('#game, #game3d, #joyZone');
   const joyId = () => joyPointer();
   addEventListener('pointerdown', e => {
     if (e.pointerType === 'mouse' || !ours(e.target)) return;
-    pts.set(e.pointerId, { x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY });
-    if (pts.size === 2) { base = gap(); z0 = zoomNow(); on = false; }
+    pts.set(e.pointerId, { x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY, t: e.timeStamp });
+    if (pts.size === 2) { base = gap(); z0 = zoomNow(); on = false; const [a, b] = [...pts.values()]; pair = Math.abs(a.t - b.t) < 250; }
   }, true);
   addEventListener('pointermove', e => {
     const p = pts.get(e.pointerId); if (!p) return; p.x = e.clientX; p.y = e.clientY;
-    if (pts.size !== 2 || base < 30 || G.modalOpen) return;
+    if (pts.size !== 2 || !pair || base < 30 || G.modalOpen) return;
     const g = gap();
     if (!on) {
       const moved = [...pts.entries()].some(([id, q]) => id !== joyId() && Math.hypot(q.x - q.sx, q.y - q.sy) > 12);
@@ -60,4 +62,7 @@ export function initCamZoom(canvas) {
     setZoom(z0 * base / Math.max(1, g));   // пальцы разводятся — камера ближе
   }, true);
   for (const ev of ['pointerup', 'pointercancel']) addEventListener(ev, e => { pts.delete(e.pointerId); if (pts.size < 2) { base = 0; on = false; } }, true);
+  // С33: ушли со страницы посреди касания — pointerup может не прийти, и «залипший» палец ломал следующий щипок
+  const clear = () => { pts.clear(); base = 0; on = false; };
+  addEventListener('blur', clear); addEventListener('pagehide', clear); document.addEventListener('visibilitychange', () => { if (document.hidden) clear(); });
 }

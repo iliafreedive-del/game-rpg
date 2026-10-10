@@ -4,12 +4,17 @@ import { STORY, REPEATABLE } from '../data/quests.js';
 import { gainXP, pickEpic } from './loot.js';
 import { makeItem, makeSetItem } from './items.js';
 import { SETS } from '../data/sets.js';
-import { autoEquip } from './character.js';
+import { autoEquip, grantSkill } from './character.js';
+import { classSkillOrder } from '../data/skills.js';
+import { xpToNext } from './stats.js';
 import { rint } from '../core/util.js';
 import { hasSkill } from './progress.js';
 import { SEALS } from '../data/story.js';
 
+// П57: крупные награды заданий опытом ×0,6 (+250 за задание — слишком быстро). Мелкие шаги обучения (до 100) — как были
+export const questXP = x => x >= 100 ? Math.round(x * 0.6) : x;
 export const current = () => STORY[G.profile.story.stage] || null;
+const s0 = () => G.profile.story;
 export const storyDone = () => G.profile.story.stage >= STORY.length;
 
 export function progressOf(q) {
@@ -38,8 +43,10 @@ function complete() {
   const P = G.profile, s = P.story, q = current(); if (!q) return;
   delete s.ready; s.done.push(q.id); s.stage++;
   while (STORY[s.stage] && s.done.includes(STORY[s.stage].id)) s.stage++;   // сборка 47: шаги переставлены — уже пройденные пропускаем
+  s.cur = STORY[s.stage] ? STORY[s.stage].id : null;
   bus.emit('questComplete', q); bus.emit('sfx', 'quest');
   grant(q.reward, q.title, { sub: 'Задание выполнено' });
+  if (q.id === 'kill20') setTimeout(() => bus.emit('toast', { text: 'Кузнецу Горану нужно серебро', sub: 'Долгий контракт на доске объявлений: добыть в бою 5000 золота — награда синее оружие', kind: 'quest' }), 4000);   // П34
   bus.emit('save');
   const n = current(), ch = q.chapter || 1;
   if (!n || (n.chapter || 1) !== ch) bus.emit('chapterDone', ch);   // глава закончилась — окно и переход к следующей
@@ -56,7 +63,10 @@ export function grant(r, title, opts = {}) {
     const it0 = rewardItem(spec); const entry = autoEquip(it0);   // выбор — в окне награды: надеть или оставить в сумке
     got.items.push(entry);
   }
-  if (r.xp) { gainXP(r.xp); got.xp = r.xp; }
+  // сборка 60 (П3): первое умение — подарок старосты: тратит стартовое очко навыка (раньше урок Элвина его не тратил, и к Летописи копилось 2 очка без денег)
+  if (r.skill && !hasSkill()) { const id = classSkillOrder(P.cls || 'warrior')[0]; P.tutorial.trainerGift = id; if (P.skillPts > 0) P.skillPts--; if (!s0().done.includes('learn_skill')) s0().done.push('learn_skill'); grantSkill(id); got.skill = id; }
+  // до Летописи опыт заданий не переводит на 2-й уровень: уровень 2 — праздник в Летописи (П10), а не тихо в деревне (П3)
+  if (r.xp) { let x = opts.rawXP ? r.xp : questXP(r.xp); if (P.level === 1 && P.story.stage <= STORY.findIndex(q => q.id === 'hw_try')) x = Math.max(0, Math.min(x, xpToNext(1) - 1 - P.xp)); gainXP(x); got.xp = x; }
   bus.emit('reward', got); bus.emit('hud'); bus.emit('save');
 }
 const TIER = {
@@ -72,7 +82,7 @@ function rewardItem(spec) {
   else if (spec.set) { const own = Object.keys(SETS).filter(k => SETS[k].branch && SETS[k].cls.includes(cls)); it = makeSetItem(own[0], spec.slot, lvl + 1, cls); }   // Глава II собирает первый сет своей ветви
   else {
     const base = spec.slot === 'weapon' ? TIER[cls].weapon[spec.tier || 1] : ARMOR[spec.slot][spec.tier || 1];
-    it = makeItem({ base, ilvl: lvl + (spec.tier || 1) - 1, rarity: spec.rarity ?? 1, cls });
+    it = makeItem({ base, ilvl: lvl + (spec.tier || 1) - 1, rarity: spec.rarity ?? 1, cls, noClamp: !!spec.noClamp });   // noClamp: редкость не урезается уровнем героя (награда «5000 золота»)
     if (spec.names) it.name = spec.names[cls];
   }
   delete it.req;   // story rewards are always wearable
@@ -84,7 +94,9 @@ export function check() {
   const s = G.profile.story, o = q.obj;
   if (q.turnIn && s.ready === q.id) return;
   if (o.skill && hasSkill()) return complete();
-  if (o.hwTry && (s.flags.hwLost || ((G.profile.hw && G.profile.hw.top) || 1) > 3)) { bus.emit('toast', { text: 'Сил пока маловато', sub: 'Развивайтесь: идите к наставнику Элвину за усилением', kind: 'quest' }); return complete(); }   // сборка 47: дальше 3-го этапа в начале не пускаем
+  // сборка 60 (П8): шаг кончается поражением, отступлением («Сбежать» с 3-го боя) или выходом из Летописи после трёх побед; засчитывается после закрытия Летописи
+  if (o.hwTry && !G.hwOpen && (s.flags.hwLost || s.flags.hwFled || ((G.profile.hw && G.profile.hw.top) || 1) > 3)) { bus.emit('toast', G.profile.level >= 2 ? { text: 'Новый уровень — к Элвину!', sub: 'Очко навыка и золото из Летописи — наставнику Элвину', kind: 'quest' } : { text: 'Сил пока маловато', sub: 'Развивайтесь: идите к наставнику Элвину за усилением', kind: 'quest' }); return complete(); }
+  if (o.kofi && G.profile.pets && G.profile.pets.met) return complete();   // сборка 60 (П15): подарок Кофи получен
   if (o.flag && s.flags[o.flag]) return q.turnIn ? markReady(q) : complete();
   if (o.count && (s.counters[q.id] || 0) >= o.n) return q.turnIn ? markReady(q) : complete();
   if (o.enter && G.zoneId === o.enter && G.zoneReady) return complete();
@@ -115,12 +127,31 @@ function count(kind, n) {
   const s = G.profile.story; s.counters[q.id] = (s.counters[q.id] || 0) + n; bus.emit('hud'); check();
 }
 // ---- event wiring
+// Правки 2: шаги сюжета вставлены (лес) и убраны («100 золота») — номер шага в сохранении больше не надёжен.
+// Текущий шаг запоминается по id (story.cur); у старых сохранений id берётся по номеру из списка сборки 59.
+const IDS_59 = ['talk_elder', 'learn_skill', 'meet_merchant', 'hw_try', 'hw_elvin', 'surv_try', 'surv_elvin', 'elder_task', 'find_portal', 'enter', 'kill20', 'gold100', 'medallion', 'reach_gate', 'open_gate', 'boss', 'return', 'finish', 'c2_stone', 'c2_depths_portal', 'c2_depths3', 'c2_forest_fort', 'c2_fjord_portal', 'c2_fjord3', 'c2_depths5', 'c2_hw10', 'c2_depths10', 'c2_fjord_fort', 'c2_finish', 'c3_portal', 'c3_fields3', 'c3_scorpid', 'c3_depths15', 'c3_fort', 'c3_boss', 'c3_elvin', 'c4_castle', 'c4_hw30', 'c4_depths20', 'c4_trial', 'c4_finish'];
+export function syncStory(P = G.profile) {
+  const s = P.story; if (!s) return;
+  if (s.cur === undefined) s.cur = s.stage >= IDS_59.length ? null : IDS_59[s.stage] || null;   // сохранение до правок 2
+  if (s.cur === null) { s.stage = STORY.length; return; }
+  let i = STORY.findIndex(q => q.id === s.cur);
+  if (i < 0) {   // шаг убран: следующий за ним из старого списка, которого ещё нет в пройденных
+    const k = IDS_59.indexOf(s.cur); if (s.ready === s.cur) delete s.ready;
+    for (let j = k + 1; j < IDS_59.length && i < 0; j++) i = STORY.findIndex(q => q.id === IDS_59[j]);
+    if (i < 0) i = STORY.length;
+  }
+  while (STORY[i] && s.done.includes(STORY[i].id)) i++;
+  s.stage = i; s.cur = STORY[i] ? STORY[i].id : null;
+}
 export function initQuests() {
+  syncStory();
   bus.on('kill', e => {
     const st = G.profile.stats; st.kills++;
     if (e.D.skeleton && !e.D.elite) { st.skeletons++; count('skeletons', 1); }
     if (e.D.elite || e.champion) st.elites++;
     if (e.story === 'elite') setFlag('eliteKilled');
+    if (e.story === 'fquest') setFlag('forestBear');   // П37: Шатун-людоед Старого Леса
+    if (e.type === 'w_wolf' && !e.summoned) count('wolves', 1);
     if (e.story === 'wildboss' && G.wild) sealDown(G.wild.realm);
     if (e.story === 'boss') { st.bossKills++; if (!G.diedThisRun) st.bossNoDeath++; const first = !G.profile.story.flags.bossKilled; setFlag('bossKilled'); if (first) sealDown('catacombs'); if (first) setTimeout(() => bus.emit('toast', { text: 'Открыты Глубины катакомб!', sub: 'Синий портал в деревне: бесконечные этажи, дары и рекорды', kind: 'quest' }), 5000); }
     repeatTick();
@@ -128,12 +159,17 @@ export function initQuests() {
   bus.on('gold', n => { if (G.zoneId !== 'town') count('gold', n); repeatTick(); });
   bus.on('chest', () => { G.profile.stats.chests++; repeatTick(); });
   bus.on('zoneEntered', () => check());
-  bus.on('hwLost', () => { G.profile.story.flags.hwLost = true; });   // засчитается, когда окно Летописи закроется (игровой цикл зовёт check)
+  bus.on('hwLost', () => { G.profile.story.flags.hwLost = true; });
+  bus.on('hwFled', () => { G.profile.story.flags.hwFled = true; });
+  bus.on('invOpened', () => { const q = current(); if (q && q.id === 'hero_gear') setFlag('invSeen'); });   // сборка 60 (П32): окно «Герой» открыто
+  // сборка 60: «Усилить героя у Элвина» засчитывает и новый ранг умения (очко навыка из Летописи), а не только усиление
+  bus.on('skillsChanged', () => { const q = current(); if (!q) return; if (q.id === 'hw_elvin') setFlag('upgBought'); else if (q.id === 'surv_elvin') setFlag('upgBought2'); });   // засчитается, когда окно Летописи закроется (игровой цикл зовёт check)
 }
 
 // ---- repeatables: progress = stat now − stat at acceptance
 export function repState(r) {
   const R = G.profile.repeat[r.id]; const st = G.profile.stats;
+  if (r.once && R && R.completions) return { accepted: true, cur: r.n, done: false, finished: true, completions: R.completions };   // разовый контракт уже выполнен
   if (!R || !R.accepted) { G.profile.repeat[r.id] = { ...(R || {}), accepted: true, base: st[r.stat] || 0 }; return repState(r); }
   const cur = Math.min(r.n, Math.floor((st[r.stat] || 0) - R.base));
   return { accepted: true, cur, done: cur >= r.n, completions: R.completions || 0 };

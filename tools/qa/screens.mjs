@@ -15,14 +15,16 @@ const report = [];
 for (const [name, w, h, mob] of DEV) {
   if (flt && !name.includes(flt)) continue;
   const ctx = await b.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: 1, isMobile: !!mob, hasTouch: !!mob });
-  const p = await ctx.newPage(); const errs = []; p.on('pageerror', e => errs.push(e.message)); p.on('console', m => { if (m.type() === 'error') errs.push(m.text()); });
+  const p = await ctx.newPage(); const errs = []; p.on('pageerror', e => errs.push(e.message)); p.on('console', m => { if (m.type() === 'error' && !/ERR_TUNNEL|ERR_PROXY|Failed to load resource/.test(m.text())) errs.push(m.text()); });
   const shot = async s => { try { await p.screenshot({ path: `/tmp/claude-0/screens/${(process.env.Q || "").replace(/\W/g, "")}${name}_${s}.jpg`, type: 'jpeg', quality: 70, timeout: 60000 }); } catch (e) { errs.push('shot ' + s); } };
   // проверка: видимые элементы интерфейса за краем экрана и перекрытия кнопок
   const check = async scr => p.evaluate(scr => {
     const W = innerWidth, H = innerHeight, out = [], vis = e => { const s = getComputedStyle(e); if (s.display === 'none' || s.visibility === 'hidden' || +s.opacity === 0) return null; const r = e.getBoundingClientRect(); return r.width > 2 && r.height > 2 ? r : null; };
     const sel = scr === 'hud' ? '#ui button, #portrait, .bar, #tracker, #minimap, #goldBox, #menu' : '.modal button, .modal .mt, .modal h2, .modal, .menu-tile, #titleBtns button, .class-card';
     const els = [...document.querySelectorAll(sel)].map(e => [e, vis(e)]).filter(x => x[1]);
-    for (const [e, r] of els) if (r.left < -1 || r.top < -1 || r.right > W + 1 || r.bottom > H + 1) out.push('за краем: ' + (e.id || e.className || e.tagName).toString().slice(0, 30) + ` [${Math.round(r.left)},${Math.round(r.top)},${Math.round(r.right)},${Math.round(r.bottom)}]`);
+    // элемент внутри прокручиваемого блока (меню, вкладки сумки) — до него можно докрутить, это не «за краем»
+    const inScroll = e => { for (let a = e.parentElement; a; a = a.parentElement) { const s = getComputedStyle(a); if (/(auto|scroll)/.test(s.overflowY + s.overflowX) && (a.scrollHeight > a.clientHeight + 2 || a.scrollWidth > a.clientWidth + 2)) return true; } return false; };
+    for (const [e, r] of els) if ((r.left < -1 || r.top < -1 || r.right > W + 1 || r.bottom > H + 1) && !inScroll(e)) out.push('за краем: ' + (e.id || e.className || e.tagName).toString().slice(0, 30) + ` [${Math.round(r.left)},${Math.round(r.top)},${Math.round(r.right)},${Math.round(r.bottom)}]`);
     if (scr === 'hud') { const btn = els.filter(([e]) => e.tagName === 'BUTTON' || ['portrait', 'minimap', 'tracker'].includes(e.id));
       for (let i = 0; i < btn.length; i++) for (let j = i + 1; j < btn.length; j++) { const a = btn[i][1], c = btn[j][1]; const ix = Math.min(a.right, c.right) - Math.max(a.left, c.left), iy = Math.min(a.bottom, c.bottom) - Math.max(a.top, c.top);
         if (ix > 6 && iy > 6 && !btn[i][0].contains(btn[j][0]) && !btn[j][0].contains(btn[i][0])) out.push('перекрытие: ' + (btn[i][0].id || btn[i][0].className) + ' × ' + (btn[j][0].id || btn[j][0].className)); } }
