@@ -394,7 +394,7 @@ function updateCamera(dt) {
 // k ближайших к P (по x, y) из list, прошедших ok, ближе sqrt(r2): вставкой в готовый массив out — без выделений памяти в кадре (С39)
 const _near = [], _nd = [], _want = [];
 function nearest(list, P, k, ok, r2, out) {
-  out.length = 0;
+  out.length = 0; if (k <= 0) return out;
   for (const e of list) {
     if (!ok(e)) continue; const d = (e.x - P.x) ** 2 + (e.y - P.y) ** 2; if (d >= r2) continue;
     let i = out.length; if (i === k && d >= _nd[k - 1]) continue; if (i === k) i--;
