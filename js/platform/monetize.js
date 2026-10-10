@@ -69,10 +69,10 @@ export async function maybeInterstitial(reason) {
   // сборка 54: частота меняется флагами в консоли Яндекса без новой версии: inter_gap_min (минут между показами), inter_first_sec (не раньше, сек игры)
   const F = platform.flags || {}, gap = +F.inter_gap_min > 0 ? +F.inter_gap_min : 4, first = +F.inter_first_sec >= 0 && F.inter_first_sec != null ? +F.inter_first_sec : 180;
   if (Date.now() - lastInter < gap * MIN || P.stats.playTime < first) return false;
-  lastInter = Date.now(); G.paused = true; bus.emit('audioPause', true); gameplay(false);
+  lastInter = Date.now(); const wasPaused = G.paused; G.paused = true; bus.emit('audioPause', true); gameplay(false);   // правки по скилам: окно, открытое до рекламы, остаётся на паузе
   try { await platform.p.showInterstitial(); } catch { }
   track('ad_inter', { reason: reason || '' });
-  G.paused = false; bus.emit('audioPause', false); return true;
+  G.paused = wasPaused; bus.emit('audioPause', false); return true;
 }
 
 // ---- IAP
@@ -81,7 +81,7 @@ export async function buy(productId) {
   if (earlyLock('extra')) { lockToast('extra'); return false; }   // сборка 47: покупки — после обучения
   if (def.once && P.iap.tx['once_' + productId]) { bus.emit('toast', { text: 'Этот набор уже куплен', kind: 'warn' }); return false; }
   if (!def.consumable && P.iap[flagOf(productId)]) { bus.emit('toast', { text: 'Уже куплено', kind: 'warn' }); return false; }
-  G.paused = true; gameplay(false); const r = await platform.p.purchase(productId); G.paused = false;
+  const wasPaused = G.paused; G.paused = true; gameplay(false); const r = await platform.p.purchase(productId); G.paused = wasPaused;
   track(r.ok ? 'buy_ok' : 'buy_cancel', { id: productId });
   if (!r.ok) return false;
   return grantPurchase(productId, r.token);

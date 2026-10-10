@@ -2233,5 +2233,19 @@
  "Двери арены захлопнулись": "The arena doors slammed shut",
  "Откроются, когда Палач падёт": "They will open when the Executioner falls",
  "Рывок!": "Dodge!",
- "Рывок — Shift!": "Dodge — Shift!"
+ "Рывок — Shift!": "Dodge — Shift!",
+ "Пробел или левая кнопка мыши — удар": "Space or left mouse button — attack",
+ "Сохранение не прочиталось": "Save could not be read",
+ "Загружена предыдущая копия": "The previous copy was loaded",
+ "Ноша из похода сохранена: +{0} зол.": "Expedition loot saved: +{0} gold",
+ "Игра закрылась посреди похода": "The game closed in the middle of an expedition",
+ "Пауза": "Paused",
+ "Установите игру — она будет запускаться с иконки на весь экран, без строки браузера. ": "Install the game — it will launch from an icon in full screen, without the browser bar. ",
+ "Установить": "Install",
+ "Игра разворачивается на весь экран при касании. Чтобы запускать с иконки: меню браузера <b>⋮</b> → <b>«Добавить на главный экран»</b>.": "The game goes full screen when you tap. To launch it from an icon: browser menu <b>⋮</b> → <b>“Add to Home screen”</b>.",
+ "На весь экран: клавиша <b>F11</b> или ": "Full screen: press <b>F11</b> or ",
+ "⛶ На весь экран": "⛶ Full screen",
+ "Не удалось сохранить": "Could not save",
+ "Браузер не даёт записать (приватный режим или нет места)": "The browser does not allow saving (private mode or no space)",
+ "Телефон/планшет: джойстик слева, атака и навыки справа, удерживайте атаку — герой сам подойдёт к врагу. Щипок двумя пальцами — камера ближе/дальше. ПК: WASD/стрелки или зажатая правая кнопка мыши — движение, левая кнопка мыши — удар в точку, колесо мыши — камера ближе/дальше, Пробел — атака, 1–4 — навыки, Shift — уклонение, Q/E — зелья, F — действие, I/C/K/J/M — окна, T — свиток.": "Phone/tablet: joystick on the left, attack and skills on the right; hold attack and the hero will approach the enemy. Pinch with two fingers to zoom the camera. PC: WASD/arrows or hold the right mouse button — move, left mouse button — strike at a point, mouse wheel — zoom, Space — attack, 1–4 — skills, Shift — dodge, Q/E — potions, F — interact, I/C/K/J/M — windows, T — scroll."
 }

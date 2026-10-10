@@ -2233,5 +2233,19 @@
  "Двери арены захлопнулись": "Pintu arena terbanting menutup",
  "Откроются, когда Палач падёт": "Akan terbuka saat Algojo tumbang",
  "Рывок!": "Menghindar!",
- "Рывок — Shift!": "Menghindar — Shift!"
+ "Рывок — Shift!": "Menghindar — Shift!",
+ "Пробел или левая кнопка мыши — удар": "Spasi atau tombol kiri mouse — serang",
+ "Сохранение не прочиталось": "Simpanan tidak dapat dibaca",
+ "Загружена предыдущая копия": "Salinan sebelumnya dimuat",
+ "Ноша из похода сохранена: +{0} зол.": "Jarahan ekspedisi diamankan: +{0} emas",
+ "Игра закрылась посреди похода": "Game tertutup di tengah ekspedisi",
+ "Пауза": "Jeda",
+ "Установите игру — она будет запускаться с иконки на весь экран, без строки браузера. ": "Pasang game — game akan dibuka dari ikon dalam layar penuh, tanpa bilah browser. ",
+ "Установить": "Pasang",
+ "Игра разворачивается на весь экран при касании. Чтобы запускать с иконки: меню браузера <b>⋮</b> → <b>«Добавить на главный экран»</b>.": "Game menjadi layar penuh saat disentuh. Untuk membukanya dari ikon: menu browser <b>⋮</b> → <b>“Tambahkan ke layar utama”</b>.",
+ "На весь экран: клавиша <b>F11</b> или ": "Layar penuh: tombol <b>F11</b> atau ",
+ "⛶ На весь экран": "⛶ Layar penuh",
+ "Не удалось сохранить": "Gagal menyimpan",
+ "Браузер не даёт записать (приватный режим или нет места)": "Browser tidak mengizinkan penyimpanan (mode pribadi atau ruang penuh)",
+ "Телефон/планшет: джойстик слева, атака и навыки справа, удерживайте атаку — герой сам подойдёт к врагу. Щипок двумя пальцами — камера ближе/дальше. ПК: WASD/стрелки или зажатая правая кнопка мыши — движение, левая кнопка мыши — удар в точку, колесо мыши — камера ближе/дальше, Пробел — атака, 1–4 — навыки, Shift — уклонение, Q/E — зелья, F — действие, I/C/K/J/M — окна, T — свиток.": "Ponsel/tablet: joystick di kiri, serangan dan skill di kanan; tahan serangan dan pahlawan akan mendekati musuh. Cubit dua jari untuk zoom kamera. PC: WASD/panah atau tahan tombol kanan mouse — gerak, tombol kiri mouse — serang ke titik, roda mouse — zoom, Spasi — serang, 1–4 — skill, Shift — menghindar, Q/E — ramuan, F — interaksi, I/C/K/J/M — jendela, T — gulungan."
 }

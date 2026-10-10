@@ -195,6 +195,7 @@ async function fight(s) {
     ctx.globalCompositeOperation = 'lighter'; const rg = ctx.createRadialGradient(x, y, 0, x, y, r * 2.2); rg.addColorStop(0, '#fff8e0'); rg.addColorStop(0.35, c); rg.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = rg; ctx.beginPath(); ctx.arc(x, y, r * 2.2, 0, 7); ctx.fill(); ctx.globalCompositeOperation = 'source-over';
   }
   function frame(now) {
+    if (G.awayPause) { last = now; raf = requestAnimationFrame(frame); return; }   // правки 2 (П12): вкладка свёрнута — бой Летописи ждёт «Продолжить» (main.js)
     const dt = Math.min(0.05, (now - last) / 1000) * speed; last = now; time += dt;
     if (cv.clientWidth * dpr !== cv.width || cv.clientHeight * dpr !== cv.height) resize();
     B.step(dt); if (Hu.hp <= 0) Hu.deadT = (Hu.deadT || 0) + dt;

@@ -2233,5 +2233,19 @@
  "Двери арены захлопнулись": "Les portes de l'arène se sont refermées",
  "Откроются, когда Палач падёт": "Elles s’ouvriront quand le Bourreau tombera",
  "Рывок!": "Esquive !",
- "Рывок — Shift!": "Esquive — Shift !"
+ "Рывок — Shift!": "Esquive — Shift !",
+ "Пробел или левая кнопка мыши — удар": "Espace ou clic gauche — frapper",
+ "Сохранение не прочиталось": "Impossible de lire la sauvegarde",
+ "Загружена предыдущая копия": "La copie précédente a été chargée",
+ "Ноша из похода сохранена: +{0} зол.": "Butin de l'expédition sauvé : +{0} or",
+ "Игра закрылась посреди похода": "Le jeu s'est fermé en pleine expédition",
+ "Пауза": "Pause",
+ "Установите игру — она будет запускаться с иконки на весь экран, без строки браузера. ": "Installez le jeu : il se lancera depuis une icône en plein écran, sans la barre du navigateur. ",
+ "Установить": "Installer",
+ "Игра разворачивается на весь экран при касании. Чтобы запускать с иконки: меню браузера <b>⋮</b> → <b>«Добавить на главный экран»</b>.": "Le jeu passe en plein écran au toucher. Pour le lancer depuis une icône : menu du navigateur <b>⋮</b> → <b>« Ajouter à l'écran d'accueil »</b>.",
+ "На весь экран: клавиша <b>F11</b> или ": "Plein écran : touche <b>F11</b> ou ",
+ "⛶ На весь экран": "⛶ Plein écran",
+ "Не удалось сохранить": "Échec de la sauvegarde",
+ "Браузер не даёт записать (приватный режим или нет места)": "Le navigateur n'autorise pas l'enregistrement (mode privé ou plus d'espace)",
+ "Телефон/планшет: джойстик слева, атака и навыки справа, удерживайте атаку — герой сам подойдёт к врагу. Щипок двумя пальцами — камера ближе/дальше. ПК: WASD/стрелки или зажатая правая кнопка мыши — движение, левая кнопка мыши — удар в точку, колесо мыши — камера ближе/дальше, Пробел — атака, 1–4 — навыки, Shift — уклонение, Q/E — зелья, F — действие, I/C/K/J/M — окна, T — свиток.": "Téléphone/tablette : joystick à gauche, attaque et compétences à droite ; maintenez l'attaque et le héros ira vers l'ennemi. Pincez à deux doigts pour zoomer. PC : WASD/flèches ou clic droit maintenu — déplacement, clic gauche — frapper un point, molette — zoom, Espace — attaque, 1–4 — compétences, Maj — esquive, Q/E — potions, F — interagir, I/C/K/J/M — fenêtres, T — parchemin."
 }

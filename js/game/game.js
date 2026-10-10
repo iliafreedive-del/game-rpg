@@ -11,7 +11,7 @@ import * as C from './combat.js';
 import * as L from './loot.js';
 import * as Q from './quests.js';
 import { REPEATABLE } from '../data/quests.js';
-import { saveLocal, cloudBundle } from './save.js';
+import { saveLocal, cloudBundle, mergeCloud, loadSlots } from './save.js';
 import { loadJSON, loadGroup } from '../core/assets.js';
 import { loadFloor, buildFloorCanvas } from '../render/index.js';
 import { widen } from '../world/widen.js';
@@ -52,14 +52,26 @@ let saveTimer = 0, saveQueued = false, meterAcc = 0, questT = 0;
 const ZONES = { town: 'maps/village.json', catacombs: 'maps/catacombs.json' };
 
 export function requestSave() { saveQueued = true; }
-let cloudAt = 0;
+let cloudAt = 0, cloudTry = 0;
+// правки по скилам (С11): облако на старте не ответило (platform.cloudOK не true) — не пишем в него, пока не прочитаем: иначе запись
+// с одним героем затёрла бы в облаке остальных. Пробуем прочитать не чаще раза в 30 с, прочитали — сливаем и пишем
+async function cloudRetry() {
+  if (Date.now() - cloudTry < 30000) return; cloudTry = Date.now();
+  let c; try { c = await platform.p.cloudLoad(); } catch { return; } if (c && c.error) return;
+  try { mergeCloud(loadSlots(), c); } catch (e) { console.warn(e); } platform.cloudOK = true; saveNow(true);
+}
+// возвращает true, если запись на устройство удалась (С14); force — облако сразу и с немедленной отправкой (сворачивание, кнопка «Сохранить»)
 export function saveNow(force) {
-  const P = G.profile; if (!P) return;
+  const P = G.profile; if (!P) return false;
   if (G.player && !G.player.dead) { P.hpFrac = G.player.hp / G.stats.maxHP; }
   P.world.lastZone = 'town'; if (G.dozorChecked) P.dozorAt = Date.now();   // always resume in the village (safe start, no mid-fight restore)
-  saveLocal(P); saveQueued = false; saveTimer = 0;
+  P.pendingCarry = G.wild && G.wild.carry > 0 ? G.wild.carry : 0;   // С32: игру закрыли посреди похода — ноша не пропадёт, её выдадут при следующем входе (main.js)
+  const ok = saveLocal(P); saveQueued = false; saveTimer = 0;
   // сборка 44: в облаке все три героя. Облако — не чаще раза в 15 с (лимит Яндекса: 100 записей за 5 мин), при сворачивании — сразу
-  if (platform.p && platform.p.cloudSave && platform.name !== 'demo' && (force || Date.now() - cloudAt > 15000)) { cloudAt = Date.now(); platform.p.cloudSave(cloudBundle(P)); }
+  if (platform.p && platform.p.cloudSave && platform.name !== 'demo' && (force || Date.now() - cloudAt > 15000)) {
+    if (!platform.cloudOK) cloudRetry(); else { cloudAt = Date.now(); platform.p.cloudSave(cloudBundle(P), !!force); }
+  }
+  return ok;
 }
 bus.on('save', requestSave);
 
@@ -433,8 +445,8 @@ function tutorialTick() {
   const T = G.tut || (G.tut = { step: 0, t: 0 }); T.t += G.dt || 0.016;
   const say = (text, sub) => bus.emit('toast', { text, sub, kind: 'quest' });
   const point = (sel, text) => bus.emit('tutHand', { sel, text, time: 10 });
-  if (T.step === 0 && G.time - G.run.t0 > 0.8) { T.step = 1; point('joyZone', touch() ? 'Ведите палец по левой половине экрана' : 'Идите: WASD или зажмите мышь'); }
-  else if (T.step === 1 && G.enemies.some(e => e.aggro)) { T.step = 2; point('btnAtk', touch() ? 'Держите большую кнопку — удар' : 'Пробел — удар'); }
+  if (T.step === 0 && G.time - G.run.t0 > 0.8) { T.step = 1; point('joyZone', touch() ? 'Ведите палец по левой половине экрана' : 'Идите: WASD или зажмите правую кнопку мыши'); }
+  else if (T.step === 1 && G.enemies.some(e => e.aggro)) { T.step = 2; point('btnAtk', touch() ? 'Держите большую кнопку — удар' : 'Пробел или левая кнопка мыши — удар'); }
   else if (T.step === 2 && G.run.kills >= 1) { T.step = 3; say('Отлично! Добейте остальных');
     // сборка 49 («новое — без настоящей угрозы»): оставшийся скелет — учитель: медленный подсвеченный замах, удар почти без урона.
     // Его замах открывает кнопку рывка с пальцем (revealTick в tutorial.js) — рывок учится не под настоящим ударом.
