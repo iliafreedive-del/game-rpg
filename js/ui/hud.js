@@ -171,7 +171,7 @@ export function updateHUD(dt) {
   tick = 0; lastHud = 0.25;
   $('lvl').textContent = P.level; $('lvl').classList.toggle('up', P.attrPts > 0 || P.skillPts > 0);
   setBar('xpBar', P.xp / xpToNext(P.level));
-  $('gold').textContent = fmt(P.gold) + ' зол.'; $('shards').textContent = (P.shards || 0) + '◆'; $('torchN').textContent = '⚡' + CS.torches().n;
+  $('gold').textContent = fmt(P.gold); $('shards').textContent = P.shards || 0; $('torchV').textContent = CS.torches().n;   // П44: подписи «зол.», «◆», «⚡» — картинки в index.html
   autoTick(); $('btnAuto').classList.toggle('on', !!G.auto); dot('dotHW', G.zoneId === 'town' && hwReady() ? 1 : 0);
   $('hpCount').textContent = P.potions.hp; $('mpCount').textContent = P.potions.mp; $('scrollCount').textContent = P.scrolls;
   $('btnScroll').classList.toggle('hidden', !scrollZone());   // П48/П64: и в походах, и в Глубинах
