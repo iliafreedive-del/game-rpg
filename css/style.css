@@ -827,3 +827,4 @@ body.photo #hudL,body.photo #hudR,body.photo #pad,body.photo #btnAct,body.photo 
 .potwave.potMP{border-color:#6aa8ff}
 @keyframes potwave{0%{transform:scale(1);opacity:.95}100%{transform:scale(2.3);opacity:0}}
 #pad>.potwave{pointer-events:none}
+.death-help{max-width:420px;padding:8px 12px;border:1px solid #d8a84a88;border-radius:10px;background:#1a1010cc}.death-help p{margin:4px 0 6px}

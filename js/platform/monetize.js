@@ -34,7 +34,7 @@ export async function watchRewarded(kind, token, apply) {
   if (P.ads.used[token]) { bus.emit('toast', { text: 'Эта награда уже получена', kind: 'warn' }); return false; }
   // в открытом окне на паузе (Летопись битв и т. п.) время мира стоит — «недавний бой» там не считается
   const wasPaused = G.paused, frozen = wasPaused && G.modalOpen;
-  if (!frozen && inCombat() && kind !== 'revive' && kind !== 'boss_extra') { bus.emit('toast', { text: 'Реклама недоступна во время боя', kind: 'warn' }); return false; }
+  if (!frozen && inCombat() && kind !== 'revive' && kind !== 'boss_extra' && kind !== 'order_help') { bus.emit('toast', { text: 'Реклама недоступна во время боя', kind: 'warn' }); return false; }
   busy = true; G.paused = true; bus.emit('audioPause', true); gameplay(false);
   let ok = false;
   try { ok = await platform.p.showRewarded(); } catch { ok = false; }

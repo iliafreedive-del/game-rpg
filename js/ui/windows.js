@@ -55,8 +55,10 @@ let cur = null;   // {name, bg, render}
 // Окна от событий (глава, осколок памяти, босс, итог похода) не вышибают открытое окно, а ждут в очереди.
 const winQ = [];
 export function closeModal(force) { if (!cur || (cur.lock && force !== true)) return; cur.bg.remove(); const oc = cur.onClose; cur = null; if (oc) oc(); G.atMerchant = false; G.modalOpen = false; G.paused = false; bus.emit('sfx', 'click'); bus.emit('hud'); if (winQ.length) setTimeout(pumpWin, 350); }
-function pumpWin() { if (cur || !winQ.length) return; winQ.shift()(); }
-const later = fn => (...a) => { if (cur) winQ.push(() => fn(...a)); else fn(...a); };
+function pumpWin() { if (busy() || !winQ.length) return; winQ.shift()(); }
+// П11: «занято» — открыто окно, панель NPC или облёт камеры; тогда окно от события ждёт (pumpRewards достаёт его, когда освободится)
+const busy = () => !!cur || !!G.cinema || $('ui').classList.contains('panel-open');
+const later = fn => (...a) => { if (busy()) winQ.push(() => fn(...a)); else fn(...a); };
 bus.on('closeModal', () => closeModal());
 function modal(title, size, render, opts = {}) {
   if (cur && cur.lock) { winQ.unshift(() => modal(title, size, render, opts)); return { bg: document.createElement('div'), body: null }; }
@@ -64,7 +66,9 @@ function modal(title, size, render, opts = {}) {
   const bg = el('div', 'modal-bg'); const m = el('div', 'modal ' + (size || ''));
   const h = el('div', 'mh', `<h2>${esc(title)}</h2>`); const x = el('button', 'mx', '✕'); x.onclick = () => closeModal(); if (!opts.lock) h.appendChild(x);
   const b = el('div', 'mb'); m.append(h, b); bg.appendChild(m);
-  bg.addEventListener('pointerdown', e => { if (e.target === bg && !opts.sticky && !opts.lock) closeModal(); });
+  // П11: тап, начатый ещё по прежнему окну или панели NPC, не закрывает только что всплывшее окно (первые 0,7 с фон не закрывает)
+  const born = performance.now();
+  bg.addEventListener('pointerdown', e => { if (e.target === bg && !opts.sticky && !opts.lock && performance.now() - born > 700) closeModal(); });
   document.body.appendChild(bg);
   // сборка 47: render сохраняет и прокрутку списков внутри окна (путь сезона не прыгает в начало после «Забрать»)
   cur = { lock: !!opts.lock, bg, body: b, render: () => { const st = b.scrollTop, inner = [...b.querySelectorAll('*')].filter(x => x.scrollTop > 0 && x.className).map(x => [x.className, x.scrollTop]); b.innerHTML = ''; render(b); b.scrollTop = st; for (const [c, t] of inner) { const x = b.getElementsByClassName(c)[0]; if (x) x.scrollTop = t; } }, title: h.querySelector('h2') };
@@ -83,8 +87,8 @@ export function openWindow(name, arg) {
 }
 bus.on('openNPC', id => { if (id === 'fortune') { openWheel(modal, closeModal); return; } W['npc_' + id](); });
 bus.on('openBoard', () => W.board()); bus.on('openWheel', () => openWheel(modal, closeModal)); bus.on('openHeroPath', () => openHeroPath()); bus.on('openDepths', () => W.depths()); bus.on('openWild', r => W.wild(r)); bus.on('wildCleared', later(r => W.wildResult(r)));
-bus.on('floorResult', r => floorResult(r));
-bus.on('boonChoice', () => boonChoice());
+bus.on('floorResult', later(r => floorResult(r)));   // П11: окна от событий ждут, пока закроют открытое
+bus.on('boonChoice', later(() => boonChoice()));
 bus.on('openSurvival', () => W.survival()); bus.on('survLevel', () => survLevel()); bus.on('survEnd', r => survEnd(r)); bus.on('openShrine', () => W.shrine());
 bus.on('showDeath', () => showDeath());
 bus.on('survDeath', () => modal('Вы пали', 'sm', b => {
@@ -98,11 +102,17 @@ bus.on('bossDefeated', later(k => bossReward(k)));
 bus.on('chapterDone', later(n => chapterDone(n)));
 bus.on('memory', later(id => showMemory(id)));
 bus.on('wallOffer', () => showWallOffer());
-bus.on('deathAt', where => setTimeout(() => showStreakHelp(where), 300));
+// П65/П22: подмога Ордена после трёх поражений подряд — теперь внутри экрана гибели (раньше отдельное окно всплывало за 1 с до экрана гибели,
+// пряталось под ним и вылезало уже в деревне). Здесь только запоминаем, что её пора предложить
+let helpWhere = null;
+bus.on('deathAt', where => { helpWhere = streakHelp(where) ? where : null; });
 const rewardQ = [];
 bus.on('reward', r => { rewardQ.push(r); });
 export function pumpRewards() {
-  if (!rewardQ.length || cur || G.player.dead || inCombat() || !G.zoneReady) return;
+  // П11: окно награды ждёт, пока игрок не закроет панель NPC (покупки у Элвина, Миры) и не кончится облёт камеры — не всплывает поверх
+  if (busy() || G.player.dead || !G.zoneReady) return;
+  if (winQ.length) { pumpWin(); return; }
+  if (!rewardQ.length || inCombat()) return;
   showReward(rewardQ.shift());
 }
 function showReward(r) {
@@ -813,20 +823,24 @@ export function showWallOffer() {
   return true;
 }
 // три поражения подряд в одном месте — бесплатная помощь, чтобы не бросили игру
-export function showStreakHelp(where) {
-  if (!streakHelp(where) || G.modalOpen || inCinema()) return false;
-  modal('Трудное место', 'sm', b => {
-    b.appendChild(el('p', '', 'Третья попытка подряд. Орден даёт подмогу: +15% ко всему урону на 10 минут.'));
-    const r = el('div', 'row');
-    const free = el('button', 'btn gold', 'Взять подмогу'); free.onclick = () => { const P = G.profile; P.boosts.helpUntil = Date.now() + 10 * 60e3; helpGiven(where); bus.emit('statsChanged'); bus.emit('toast', { text: 'Подмога Ордена: +15% урона на 10 минут', kind: 'good' }); closeModal(); };
-    const no = el('button', 'btn', 'Сам справлюсь'); no.onclick = () => { helpGiven(where); closeModal(); };
-    r.append(free, no); b.appendChild(r);
-  });
-  return true;
+// П22: бесплатная «подмога или сам справлюсь» была выбором без цены — отказываться незачем. Теперь:
+// пока идёт обучение (реклама закрыта) — Орден помогает сам, +15% урона на 10 мин; после — честный выбор: подмога сильнее (+30%) за рекламу,
+// или дальше без неё (предложение повторится при следующей гибели в этом же месте)
+function helpBlock(where) {
+  const P = G.profile, give = (k, txt) => { P.boosts.helpUntil = Date.now() + 10 * 60e3; P.boosts.helpK = k; helpGiven(where); bus.emit('statsChanged'); bus.emit('toast', { text: txt, kind: 'good' }); };
+  const box = el('div', 'death-help', '<b>Трудное место — третья попытка подряд</b>');
+  if (earlyLock('extra')) { give(1.15, 'Подмога Ордена: +15% урона на 10 минут'); box.appendChild(el('p', 'good', 'Орден прислал подмогу: +15% ко всему урону на 10 минут.')); return box; }
+  box.appendChild(el('p', 'muted', 'Орден может прислать подмогу: <b class="good">+30% ко всему урону на 10 минут</b>.'));
+  box.appendChild(adButton('Подмога Ордена · +30% урона', 'order_help', 0, () => give(1.3, 'Подмога Ордена: +30% урона на 10 минут'), () => { box.innerHTML = '<b class="good">✓ Подмога Ордена с вами: +30% урона на 10 минут</b>'; }));
+  return box;
 }
+export function showStreakHelp() { return false; }   // оставлено для старых вызовов: подмога — в экране гибели (helpBlock)
 
 // ---------------------------------------------------------------- death / boss reward / chapter end
+// П66: надпись гибели — только до телепорта: в новой локации (деревня после «В деревню») экран гибели всегда убран
+bus.on('zoneEntered', () => { const d = $('death'); if (d) d.classList.add('hidden'); });
 function showDeath() {
+  if (!G.player || !G.player.dead) return;   // уже воскрес/перенесён, пока ждали 1,3 с
   const d = $('death'); d.classList.remove('hidden'); G.paused = true;
   d.innerHTML = `<h2>Вы погибли</h2><p class="muted">${G.zoneId === 'wild' ? 'Ноша потеряна. Враг запомнил вас — вернитесь и отомстите.' : G.run ? `Этаж ${G.run.floor} не пройден. Собранное золото остаётся у вас.` : 'Нежить торжествует… но Орден даёт второй шанс.'}</p>`;
   { const h = G.lastHit, EL = { fire: 'огнём', cold: 'холодом', light: 'молнией', poison: 'ядом' }, P = G.profile;   // сборка 49: кто убил и что можно было сделать
@@ -844,6 +858,7 @@ function showDeath() {
   const loss = Math.floor(G.profile.gold * 0.1);
   const town = el('button', 'btn gold', `В деревню (−${loss} зол.)`); town.onclick = () => { G.profile.gold -= loss; d.classList.add('hidden'); G.paused = false; revive(false); };
   if (canRev) row.append(ad); row.append(town); d.appendChild(row);
+  if (helpWhere) { d.appendChild(helpBlock(helpWhere)); helpWhere = null; }
   if (!canRev && G.zoneId !== 'castle' && G.zoneId !== 'town') d.appendChild(el('p', 'bad', 'Воскрешения за этот заход закончились — вернитесь в деревню, подлечитесь и усильтесь.'));
   d.appendChild(el('p', 'muted', '<small>Возвращение стоит 10% золота. Подземелье заселится заново, в том числе элита и босс, если они не побеждены.</small>'));
 }
