@@ -169,14 +169,14 @@ function setHTML(x) { if (!x || !x.set || !SETS[x.set]) return ''; const S = SET
 // оружие своего класса, а следующая редкость слиянием открыта уровнем героя. Вид и название вещи не важны.
 function mergeNote(it) {
   if (!it || it.rarity >= 4) return null;
-  const P = G.profile, what = `${RARITY_SHORT[it.rarity]} ${(SLOT_NAMES[it.slot] || '').toLowerCase()}`;
+  const P = G.profile, what = `${['серых', 'зелёных', 'синих', 'золотых'][it.rarity]} · ${(SLOT_NAMES[it.slot] || '').toLowerCase()}`;
   if (Object.values(P.gear).includes(it)) return ['muted', 'Надетая вещь в слиянии не участвует'];
   if (it.locked) return ['muted', '🔒 Закреплена — в слиянии не участвует'];
   const g = EC.mergeGroups().find(x => x.slot === it.slot && x.rarity === it.rarity);
   if (!g || !g.list.includes(it)) return ['muted', 'Не для вашего класса — не сливается'];
-  if (g.capLvl) return ['bad', `3 × ${what} → ${RARITY_SHORT[it.rarity + 1]}: кузнец сольёт с ${g.capLvl} уровня героя (у вас ${g.n} шт.)`];
-  if (g.can) return ['good', `Можно слить у кузнеца: ${g.n} шт. — 3 любые ${what} → 1 ${RARITY_SHORT[it.rarity + 1]}`];
-  return ['muted', `Слияние: 3 × ${what} (любого вида) → 1 ${RARITY_SHORT[it.rarity + 1]}. Есть ${g.n}, нужно ещё ${3 - g.n % 3}`];
+  if (g.capLvl) return ['bad', `3 ${what} → 1 ${RARITY_SHORT[it.rarity + 1]}: кузнец сольёт с ${g.capLvl} уровня героя (у вас ${g.n} шт.)`];
+  if (g.can) return ['good', `Можно слить у кузнеца: 3 любых ${what} → 1 ${RARITY_SHORT[it.rarity + 1]} (у вас ${g.n} шт.)`];
+  return ['muted', `Слияние: 3 любых ${what} → 1 ${RARITY_SHORT[it.rarity + 1]}. Есть ${g.n}, нужно ещё ${3 - g.n % 3}`];
 }
 function itemHTML(it, S) {
   const b = BASE[it.base], r = RARITY[it.rarity];
