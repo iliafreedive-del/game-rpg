@@ -77,7 +77,7 @@ export function damageEnemy(e, amount, o = {}) {
   if (S.effects.execute && e.hp < e.maxHP * 0.3 && o.src === 'melee') dmg *= 2;
   dmg = Math.max(1, Math.round(dmg));
   e.hp -= dmg; e.flash = 0.12; G.lastCombat = G.time; e.lastSrc = o.src;
-  if (!e.aggro) { e.aggro = true; e.ret = false; bus.emit('aggro', e); }   // попал по врагу — он (и ближайшие соседи) тут же бросаются в бой
+  if (!e.aggro || e.ret) { e.aggro = true; e.ret = false; bus.emit('aggro', e); }   // сборка 62: и того, кто шёл «домой» с флагом агро (раньше не реагировал на удары)   // попал по врагу — он (и ближайшие соседи) тут же бросаются в бой
   const col = o.elem === 'poison' ? '#9ae66a' : o.src === 'pet' ? '#e8d8b0' : o.elem === 'fire' ? '#ff9a4a' : o.elem === 'cold' ? '#8fdcff' : o.elem === 'light' ? '#d0c2ff' : crit ? '#ffd23a' : '#ffffff';
   if (!o.quiet) float(e.x, e.y, crit ? dmg + '!' : dmg, col, { big: crit ? 1 : 0, z: e.D.boss ? 3.2 : 1.9 });
   if (o.src === 'melee' || (crit && o.src === 'weapon')) sheet(crit ? 'hit_crit' : 'hit_spark', e.x, e.y, { z: 0.55 * (e.D.size || 1), ex: G.player.x, ey: G.player.y });   // сборка 61: искра удара / крит
