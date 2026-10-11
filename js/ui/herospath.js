@@ -14,10 +14,13 @@ import { CODEX } from '../data/story.js';
 import { gate } from '../game/progress.js';
 import { paintScene } from './hwscenes.js';
 import { ART, artImg } from './art.js';
-import { makeBattle, stageFoes, arenaView, setArenaLayout, relayoutBattle, hwSkill } from '../game/hwbattle.js';
+import { drawSheetAt } from '../render/fxsheets.js';
+import { makeBattle, stageFoes, arenaView, setArenaLayout, relayoutBattle, hwSkill, HW_MAGE_K } from '../game/hwbattle.js';
 import { current as curQuest } from '../game/quests.js';
 import { xpToNext } from '../game/stats.js';
-import { SKILLS } from '../data/skills.js';
+import { SKILLS, MASTERY_STEP } from '../data/skills.js';
+import { petsOf, petPower } from '../game/pets.js';
+import { PETS } from '../data/pets.js';
 
 // сборка 60: первая Летопись — шаг обучения «Испытать себя» (П8, П10)
 const tut = () => { const q = G.profile && G.profile.story && curQuest(); return !!(q && q.id === 'hw_try'); };
@@ -37,6 +40,7 @@ const CHAPTERS = [
   { name: 'Пепельные скалы', pool: ['elite_guard', 'beast', 'skel_mage', 'ghoul'] },
 ];
 export const PER_CH = 30, STAGES = PER_CH * CHAPTERS.length;
+export const TEN_GOLD = 1000;   // правки 3: награда за ряд из 10 этапов на ★★★
 const chOf = s => Math.min(CHAPTERS.length - 1, Math.floor((s - 1) / PER_CH));
 // враг-«лицо» этапа для карты: босс ряда или первый в отряде
 const stageEnemy = s => { const L = stageFoes(s), b = L.find(f => f.boss); return b ? { ...b, boss: true } : { ...L[0], boss: false }; };
@@ -69,14 +73,29 @@ function header(title) {
   root.appendChild(bar);
   if (title) root.appendChild(el('div', 'hw-title', title));
 }
+// правки 3: десятка этапов пройдена на все три звезды — 1000 золота (один раз за десятку; уже набранные звёзды тоже считаются)
+const tenOf = s => Math.floor((s - 1) / 10);
+const tenStars = t => { const st = HW().stars; let n = 0; for (let s = t * 10 + 1; s <= t * 10 + 10; s++) n += st[s] || 0; return n; };
+function payTens() {
+  const h = HW(); h.ten = h.ten || {};
+  for (let t = 0; t < STAGES / 10; t++) if (!h.ten[t] && tenStars(t) >= 30) {
+    h.ten[t] = 1; G.profile.gold += TEN_GOLD; bus.emit('sfx', 'quest'); bus.emit('hud'); bus.emit('save');
+    bus.emit('toast', { text: `Этапы ${t * 10 + 1}–${t * 10 + 10} — все звёзды!`, sub: `+${fmt(TEN_GOLD)} золота`, kind: 'good' });
+  }
+}
 function showMap() {
-  cancelAnimationFrame(raf); disposeStage(); root.innerHTML = ''; header();
+  cancelAnimationFrame(raf); disposeStage(); root.innerHTML = ''; payTens(); header();
   const h = HW(), ch = CHAPTERS[page];
   const card = el('div', 'hw-map', `<div class="hw-pano"><img src="${ART.banner(page + 1)}" alt="" onerror="this.parentNode.remove()"></div><div class="hw-banner">Летопись битв · ${esc(ch.name)}</div><div class="hw-sub">Бой идёт сам. Ваш герой, его вещи, закалка и улучшения — те же, что в подземелье.</div>`);
+  // правки 3: этапы по десяткам — у каждой десятки своя строка: звёзды десятки, награда за все 30 ★ и почему закрыта
   const grid = el('div', 'hw-grid');
   for (let i = 1; i <= PER_CH; i++) {
-    const s = page * PER_CH + i, st = h.stars[s] || 0, locked = s > h.top || !!gate('hw', s), E = stageEnemy(s);
-    const b = el('button', 'hw-stage' + (locked ? ' locked' : '') + (E.boss ? ' boss' : '') + (s === h.top ? ' cur' : ''), `<div class="hw-stars">${[0, 1, 2].map(k => `<i class="${k < st ? 'on' : ''}">★</i>`).join('')}</div><div class="hw-num">${locked ? '🔒' : s}</div>${E.boss ? '<div class="hw-tag">босс</div>' : ''}`);
+    const s = page * PER_CH + i, st = h.stars[s] || 0, g0 = gate('hw', s), locked = s > h.top || !!g0, E = stageEnemy(s);
+    if ((i - 1) % 10 === 0) {
+      const t = tenOf(s), got = tenStars(t), paid = (h.ten || {})[t];
+      grid.appendChild(el('div', 'hw-ten' + (paid ? ' paid' : ''), `<b>Этапы ${s}–${s + 9}</b><span class="hw-ten-st">★ ${got}/30</span><span class="hw-ten-rw">${paid ? '✔ Награда получена' : `Все ★★★ — ${ICO.gold}${fmt(TEN_GOLD)}`}</span>${g0 && s <= h.top + 1 ? `<span class="hw-ten-lock">🔒 ${esc(g0.sub || g0.text)}</span>` : ''}`));
+    }
+    const b = el('button', 'hw-stage' + (locked ? ' locked' : '') + (E.boss ? ' boss' : '') + (s === h.top && !g0 ? ' cur' : ''), `<div class="hw-stars">${[0, 1, 2].map(k => `<i class="${k < st ? 'on' : ''}">★</i>`).join('')}</div><div class="hw-num">${locked ? '🔒' : s}</div>${E.boss ? '<div class="hw-tag">босс</div>' : ''}`);
     b.onclick = () => { const g = gate('hw', s); if (g) { bus.emit('toast', { ...g, kind: 'warn' }); return; } if (s > h.top) { bus.emit('toast', { text: 'Этап закрыт', sub: `Сначала победите на этапе ${h.top}`, kind: 'warn' }); return; } showPrefight(s); };
     grid.appendChild(b);
   }
@@ -94,8 +113,11 @@ function hwSkillPick() {
   const id = list.includes(P.hwSkill) ? P.hwSkill : (P.slots || []).find(k => list.includes(k)) || list[0] || null;
   return { id, list };
 }
+// правки 3: питомец в Летописи — бьёт вместе с героем на каждом его ходу (удар и эффект из окна характеристик питомца)
+function hwPet() { const S = petsOf(G.profile), id = S.active; if (!id || !PETS[id]) return null; const pw = petPower(id); return { id, icon: PETS[id].icon, dmg: (pw.phys || 0) + (pw.mag || 0), ranged: !!PETS[id].ranged }; }
 function heroSummary() {
-  const S = G.stats; const cls = G.profile.cls || 'warrior', sid = hwSkillPick().id; return { skill: hwSkill(cls, sid, sid ? G.profile.skills[sid] : 1, sid ? SKILLS[sid].name : null), hp: S.maxHP, dmg: (S.dmgMin + S.dmgMax) / 2 * (cls === 'mage' ? Math.max(1, S.spellPower * 0.85) : 1), aps: Math.min(2.2, S.aps), crit: S.critChance, critMult: S.critMult, armor: S.armor, spell: S.spellPower };
+  const S = G.stats; const cls = G.profile.cls || 'warrior', sid = hwSkillPick().id; const skill = hwSkill(cls, sid, sid ? G.profile.skills[sid] : 1, sid ? SKILLS[sid].name : null); if (sid && G.profile.mastery && G.profile.mastery[sid]) skill.mul *= 1 + MASTERY_STEP * G.profile.mastery[sid];   // перед релизом: мастерство
+  return { skill, hp: S.maxHP, dmg: (S.dmgMin + S.dmgMax) / 2 * (cls === 'mage' ? HW_MAGE_K : 1), aps: Math.min(2.2, S.aps), crit: S.critChance, critMult: S.critMult, armor: S.armor, spell: S.spellPower , pet: hwPet() };
 }
 const power = (hp, dmg, aps) => Math.round(dmg * aps * 10 + hp);
 function showPrefight(s) {
@@ -106,7 +128,7 @@ function showPrefight(s) {
   const names = {}; for (const f of L) names[f.name] = (names[f.name] || 0) + 1;
   const list = Object.entries(names).map(([n, k]) => esc(n) + (k > 1 ? ' ×' + k : '')).join('<br>');
   const card = el('div', 'hw-map hw-pre', `<div class="hw-banner">Этап ${s}${L.some(f => f.boss) ? ' · босс' : ''}</div>
-    <div class="hw-vs"><div><b>Вы · ур. ${G.profile.level}</b><span>Сила ${fmt(me)}</span><span>♥ ${fmt(H.hp)} · ⚔ ${Math.round(H.dmg)}</span></div><div class="hw-vsx">VS</div><div><b>Врагов: ${L.length}</b><span>Сила ${fmt(Math.round(foe))}</span><span style="font-size:12px">${list}</span></div></div>
+    <div class="hw-vs"><div><b>Вы · ур. ${G.profile.level}</b><span>Сила ${fmt(me)}</span><span>♥ ${fmt(H.hp)} · ⚔ ${Math.round(H.dmg)}</span></div><div class="hw-vsx">VS</div><div><b>Врагов: ${L.length}</b><span>Сила ${fmt(Math.round(foe))}</span><span class="hw-foes">${list}</span></div></div>
     <p class="${me >= foe ? 'good' : 'bad'}" style="text-align:center">${me >= foe * 1.3 ? 'Лёгкий бой' : me >= foe * 0.85 ? 'Равный бой' : 'Враг сильнее — прокачайтесь в катакомбах, улучшите вещи у кузнеца'}</p>`);
   // П9: выбор умения перед боем (их будет несколько) и как часто оно срабатывает
   { const pk = hwSkillPick(), box = el('div', 'hw-sk', `<b>Умение в бою:</b>`);
@@ -130,7 +152,7 @@ function showPrefight(s) {
 async function fight(s) {
   bus.emit('music', 'battle');   // сборка 60: боевая тема Летописи
   disposeStage(); cancelAnimationFrame(raf); root.innerHTML = ''; header();
-  const stack = el('div', 'hw-stack'), bgcv = document.createElement('canvas'), glcv = document.createElement('canvas'), cv = document.createElement('canvas');
+  const stack = el('div', 'hw-stack'), bgcv = document.createElement('canvas'), cv = document.createElement('canvas'); let glcv = document.createElement('canvas');
   stack.append(bgcv, glcv, cv); root.appendChild(stack);
   const ctx = cv.getContext('2d'), bctx = bgcv.getContext('2d'); const dpr = Math.min(2, devicePixelRatio || 1);
   let stage = null, view = null;
@@ -150,7 +172,7 @@ async function fight(s) {
   const artWait = new Promise(r => { const a = artImg(ART.arena(chOf(s) + 1, 'abc'[Math.min(2, Math.floor(((s - 1) % PER_CH) / 10))], stack.clientWidth < stack.clientHeight)); if (a.ok || a.bad) r(); else { a.wait.push(() => r()); a.im.addEventListener('error', () => r(), { once: true }); setTimeout(r, 1500); } });
   try {   // 3D-бойцы; если WebGL нет или он упал — прежние спрайты
     const M = await import('../render3d/hwstage.js');
-    if (M.webglOK() && !(new URLSearchParams(location.search).get('render') === '2d')) { stage = M.createStage(glcv, { cls, wt, foes, ci }); curStage = stage; resize(); }
+    if (M.webglOK() && !(new URLSearchParams(location.search).get('render') === '2d')) { stage = M.createStage({ cls, wt, foes, ci, pet: B.pet && Hu.pet.id }); curStage = stage; glcv.replaceWith(stage.canvas); glcv = stage.canvas; resize(); }
   } catch (e) { console.warn('[hw] 3D недоступно, спрайты', e); stage = null; }
   await artWait;
   if (!root || !root.contains(stack)) { disposeStage(); return; }
@@ -228,10 +250,12 @@ async function fight(s) {
     ctx.restore();
   }
   const PROJ = { arrow: ['#f4e6c0', 3], bolt: ['#7fd0ff', 7], fireball: ['#ff8a2a', 13], shadow: ['#b070ff', 8] };
+  const PSHEET = { arrow: [['hw_arrow', 'proj_arrow'], 1.6], bolt: [['hw_bolt', 'proj_star_bolt'], 1.5], fireball: [['hw_fireball', 'proj_fireball'], 2.0], shadow: [['hw_shadow', 'ct_darkbolt'], 1.8] };
   function drawProj(p) {
     if (p.t < 0) return; const [c, r] = PROJ[p.k] || PROJ.bolt;
     const sx = p.src.x, sz = p.src.z, k = p.k01 || 0, arc = Math.sin(k * Math.PI) * (p.k === 'arrow' ? 0.8 : 0.3);
     const [x, y] = P(p.x, 1.15 + arc, p.z), [x0, y0] = P(sx + (p.x - sx) * Math.max(0, k - 0.12), 1.15 + Math.sin(Math.max(0, k - 0.12) * Math.PI) * (p.k === 'arrow' ? 0.8 : 0.3), sz + (p.z - sz) * Math.max(0, k - 0.12));
+    { const ids = PSHEET[p.k]; if (ids && drawSheetAt(ctx, ids[0], time * 2.5, x, y, view.pxPerM * ids[1], { ang: Math.atan2(y - y0, x - x0), anchor: [0.62, 0.5] })) return; }   // правки 3: снаряд — лист
     if (p.k === 'arrow') { ctx.strokeStyle = c; ctx.lineWidth = r; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x, y); ctx.stroke(); return; }
     const g = ctx.createLinearGradient(x0, y0, x, y); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, c); ctx.strokeStyle = g; ctx.lineWidth = r * 1.3; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x, y); ctx.stroke();
     ctx.globalCompositeOperation = 'lighter'; const rg = ctx.createRadialGradient(x, y, 0, x, y, r * 2.2); rg.addColorStop(0, '#fff8e0'); rg.addColorStop(0.35, c); rg.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = rg; ctx.beginPath(); ctx.arc(x, y, r * 2.2, 0, 7); ctx.fill(); ctx.globalCompositeOperation = 'source-over';
@@ -251,8 +275,8 @@ async function fight(s) {
     const W = cv.width / dpr, Hh = cv.height / dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); bctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, Hh);
     drawBg(W, Hh);
     bctx.fillStyle = 'rgba(0,0,0,0.33)';   // тени под бойцами — на слое фона
-    for (const u of [Hu, ...foes]) { const [x, y] = P(u.x, 0, u.z), r = view.pxPerM * (u.type === 'boss' ? 1.1 : u.big ? 0.85 : 0.6); bctx.beginPath(); bctx.ellipse(x, y, r, r * 0.38, 0, 0, 7); bctx.fill(); }
-    if (stage) stage.draw(dt, state(Hu), foes.map(state));
+    for (const u of [Hu, ...foes, ...(B.pet ? [B.pet] : [])]) { const [x, y] = P(u.x, 0, u.z), r = view.pxPerM * (u === B.pet ? 0.35 : u.type === 'boss' ? 1.1 : u.big ? 0.85 : 0.6); bctx.beginPath(); bctx.ellipse(x, y, r, r * 0.38, 0, 0, 7); bctx.fill(); }
+    if (stage) stage.draw(dt, state(Hu), foes.map(state), B.pet && { x: B.pet.x, z: B.pet.z, yaw: B.pet.yaw, ...(B.pet.act ? { clip: 'attack', k: B.pet.act.t / B.pet.act.dur } : {}) });
     else {   // без WebGL: спрайты из атласов в тех же точках арены
       const sc = view.pxPerM / 70, units = [Hu, ...foes].sort((a, b) => a.z - b.z);
       for (const u of units) {
@@ -265,6 +289,9 @@ async function fight(s) {
     // удары, взрывы, снаряды
     for (let i = fx.length - 1; i >= 0; i--) {
       const q = fx[i]; q.t += dt; const D = q.k === 'boom' ? 0.5 : 0.25; if (q.t > D) { fx.splice(i, 1); continue; } const p = q.t / D;
+      // правки 3: удары и взрывы — нарисованные листы (hw_* из промта для GPT, пока их нет — общие листы ударов героя), иначе прежние дуги
+      if (q.k === 'slash' && q.u) { const [x, y] = P(q.u.x, 0, q.u.z); if (drawSheetAt(ctx, q.u === Hu ? ['hw_slash_foe', 'mob_bite'] : ['hw_slash_hero', 'hit_spark'], p, x, y, view.pxPerM * 2.4, { flip: q.dir < 0 })) continue; }
+      if (q.k === 'boom') { const [x, y] = P(q.x, 0, q.z); if (drawSheetAt(ctx, q.c === 'gold' ? ['hw_crush', 'hit_crit'] : ['hw_boom_fire', 'hit_fire_explosion'], p, x, y, view.pxPerM * (q.c === 'gold' ? 4.5 : 4))) continue; }
       if (q.k === 'slash') { if (!q.u) continue; const [x, y] = P(q.u.x, 1.1, q.u.z), R = view.pxPerM * 0.8; ctx.save(); ctx.globalAlpha = 1 - p; ctx.strokeStyle = q.u === Hu ? '#ff9a8a' : '#fff3c0'; ctx.lineWidth = 6 * (1 - p) + 1; ctx.lineCap = 'round'; ctx.beginPath(); ctx.arc(x, y, R, q.dir > 0 ? -2.4 + p * 0.6 : -0.7 - p * 0.6, q.dir > 0 ? -0.4 + p * 0.6 : 1.3 - p * 0.6); ctx.stroke(); ctx.restore(); }
       else { const [x, y] = P(q.x, 0.2, q.z), R = view.pxPerM * (0.6 + 2.2 * p); ctx.save(); ctx.globalCompositeOperation = 'lighter'; const g = ctx.createRadialGradient(x, y, 0, x, y, R); g.addColorStop(0, `rgba(255,240,180,${0.9 * (1 - p)})`); g.addColorStop(0.4, q.c === 'gold' ? `rgba(255,200,80,${0.6 * (1 - p)})` : `rgba(255,110,30,${0.7 * (1 - p)})`); g.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(x, y, R, R * 0.6, 0, 0, 7); ctx.fill(); ctx.restore(); }
     }
@@ -314,7 +341,7 @@ async function fight(s) {
       if (h.bonus) { gold *= 2; h.bonus = 0; bonus = true; }   // П49: «Зов Летописи» — первая победа после напоминания с двойным золотом
       if (foes.some(f => f.boss) && first) shards = foes.some(f => f.type === 'boss') ? 5 : 3; else if (rand() < 0.1) shards = 1;
       P.gold += gold; gainXP(xp); if (shards) addShards(shards); bus.emit('hwWin');
-      h.stars[s] = Math.max(h.stars[s] || 0, stars); if (first) { h.top = Math.min(STAGES, s + 1); codexPage(s); }
+      h.stars[s] = Math.max(h.stars[s] || 0, stars); if (first) { h.top = Math.min(STAGES, s + 1); codexPage(s); } payTens();
     }
     bus.emit('save');
     const up = P.level > lvl0;

@@ -1,12 +1,13 @@
 // Gold upgrades bought from NPCs (endless gold sink, «Разрыв»-style small visible steps).
 // сборка 47: дороже (герой к 8-му уровню успевал взять +17 силы удара), Меткость (крит) — только за осколки Бездны ◆
 export const UPGRADES = {
-  dmg:  { name: 'Сила удара', icon: '⚔', step: 4, unit: '%', max: 40, base: 60, mul: 1.24, fmt: l => `+${l * 4}% урона (оружия и заклинаний)` },
-  hp:   { name: 'Крепость', icon: '♥', step: 12, unit: '', max: 40, base: 45, mul: 1.22, fmt: l => `+${l * 12} здоровья` },
+  dmg:  { name: 'Сила удара', icon: '⚔', step: 4, unit: '%', max: 40, base: 60, mul: 1.168, fmt: l => `+${l * 4}% урона (оружия и заклинаний)` },
+  hp:   { name: 'Крепость', icon: '♥', step: 12, unit: '', max: 40, base: 45, mul: 1.154, fmt: l => `+${l * 12} здоровья` },
   crit: { name: 'Меткость', icon: '✷', step: 0.6, unit: '%', max: 25, shards: true, fmt: l => `+${(l * 0.6).toFixed(1)}% шанса крита` },
-  mp:   { name: 'Запас маны', icon: '✦', step: 10, unit: '', max: 30, base: 50, mul: 1.21, fmt: l => `+${l * 10} маны и +${(l * 0.1).toFixed(1)} маны/с` },   // П27: мана за золото, растёт по уровням
-  aps:  { name: 'Проворство', icon: '⚡', step: 2, unit: '%', max: 20, base: 150, mul: 1.26, fmt: l => `+${l * 2}% скорости атаки` },
+  mp:   { name: 'Запас маны', icon: '✦', step: 10, unit: '', max: 30, base: 50, mul: 1.147, fmt: l => `+${l * 10} маны и +${(l * 0.1).toFixed(1)} маны/с` },   // П27: мана за золото, растёт по уровням
+  aps:  { name: 'Проворство', icon: '⚡', step: 2, unit: '%', max: 20, base: 150, mul: 1.182, fmt: l => `+${l * 2}% скорости атаки` },
 };
+// после правок 3 (тред «перед релизом»): рост цены за ступень на 30% ниже (×1,24 → ×1,168 и т. д.) — «Сила удара» до 40 стоит ≈180 тыс. вместо 1,36 млн
 // цена уровня: золото, у Меткости — осколки Бездны (2, 3, 4… за уровень)
 export const upgCost = (id, l) => UPGRADES[id].shards ? 2 + l : Math.round(UPGRADES[id].base * Math.pow(UPGRADES[id].mul, l));
 export const upgHave = (P, id) => UPGRADES[id].shards ? (P.shards || 0) : P.gold;

@@ -58,7 +58,7 @@ export const WILD_MOBS = {
 
 export const REALMS = {
   fjord: {
-    id: 'fjord', name: 'Фьорды Скъёльда', short: 'Фьорды', portalColor: [150, 210, 255], portal: 'portal_spire', reqLevel: 5, baseLevel: 5,
+    id: 'fjord', name: 'Фьорды Скъёльда', short: 'Фьорды', portalColor: [150, 210, 255], portal: 'portal_spire', reqLevel: 25, baseLevel: 25,   // правки 3: Фьорды — третья локация (были второй, 5/5)
     blurb: 'Снежные берега, замёрзшие заливы и крепости ётунов. Драугры, ледяные волки и снежные ведьмы держат захваченные форты.',
     pool: [['f_draugr', 1], ['f_wolf', 1], ['f_berserk', 1], ['f_hag', 2], ['f_jotun', 3]],   // [тип, с какой глубины]
     commander: 'f_jarl', boss: 'f_boss', fortName: 'Захваченный форт',
@@ -81,7 +81,7 @@ export const REALMS = {
     ],
   },
   bones: {
-    id: 'bones', name: 'Костяные пустоши', short: 'Пустоши', portalColor: [255, 150, 70], portal: 'portal_bone', reqLevel: 12, baseLevel: 12,   // сборка 45: пустоши — Глава III, после форта Фьордов (уровни подняты с временных 2/3)
+    id: 'bones', name: 'Костяные пустоши', short: 'Пустоши', portalColor: [255, 150, 70], portal: 'portal_bone', reqLevel: 15, baseLevel: 15,   // правки 3: пустоши — вторая локация, после острога Леса (были 12/12)
     blurb: 'Красная полупустыня среди костей древних великанов. Клыкастые дикари живут в хижинах из шкур и рёбер, в балках — гиены, кабаны и скорпионы. За полями — руины древних.',
     pool: [['b_raider', 1], ['b_hyena', 1], ['b_boar', 1], ['b_thrower', 1], ['b_shaman', 2], ['b_scorpid', 3]],
     commander: 'b_chief', boss: 'b_boss', fortName: 'Древние руины',
@@ -158,3 +158,12 @@ export const WILD_QUESTS = {
     { id: 'fr_boss', title: 'Хозяин Чащи', text: 'Победите Хозяина Чащи (форт-босс, глубина 12).', stat: 'bosses', n: 1, reward: { xp: 520, gold: 350, items: [{ slot: 'weapon', epic: true }] } },
   ],
 };
+
+// правки 3: замедляющие мобы (корни, лёд на ударе) — в стае не больше одного, остальные — другой породы из того же списка
+export const slows = t => { const M = WILD_MOBS[t]; return !!M && (M.ai === 'root' || M.onHit === 'slow'); };
+export function packSpawns(spawns, t, x, y, n, r, lvl, pool, R) {
+  if (n <= 1 || !slows(t)) { spawns.push([t, x, y, n, r, lvl]); return; }
+  const alt = pool.filter(a => !slows(a) && WILD_MOBS[a].ai !== 'giant');
+  spawns.push([t, x, y, 1, r, lvl]);
+  if (alt.length) spawns.push([alt[Math.floor(R() * alt.length)], x, y, n - 1, r, lvl]);
+}

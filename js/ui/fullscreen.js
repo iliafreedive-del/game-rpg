@@ -15,6 +15,15 @@ const iPhone = () => /iPhone|iPod/.test(navigator.userAgent);
 const android = () => /Android/i.test(navigator.userAgent);
 const framed = () => { try { return window.top !== window.self; } catch { return true; } };
 
+// П4-14: iPhone, игра с экрана «Домой» (полоса состояния black-translucent) — iOS отдаёт окну высоту экрана минус полосу
+// состояния, и внизу остаётся чёрная полоса. Окно там всегда во весь экран, поэтому высоту берём у экрана; кнопки внизу
+// по-прежнему отступают на env(safe-area-inset-bottom). Вызывается из resize рендерера (js/render/renderer.js).
+export function appH() {
+  const de = document.documentElement; let h = 0;
+  if (iPhone() && standalone()) { const full = innerHeight >= innerWidth ? Math.max(screen.width, screen.height) : Math.min(screen.width, screen.height); if (full > innerHeight && full - innerHeight < 120) h = full; }
+  de.classList.toggle('ios-pwa', !!h); if (h) de.style.setProperty('--app-h', h + 'px');
+  return h;
+}
 function requestFs() {
   const d = document.documentElement, req = d.requestFullscreen || d.webkitRequestFullscreen;
   try { const r = req.call(d, { navigationUI: 'hide' }); if (r && r.catch) r.catch(() => { }); } catch (e) { }
@@ -39,7 +48,18 @@ function androidHint() {
   } else hint('Игра разворачивается на весь экран при касании. Чтобы запускать с иконки: меню браузера <b>⋮</b> → <b>«Добавить на главный экран»</b>.');
 }
 
+// правки 3: на ПК кнопка «На весь экран» всегда на виду — рядом с «АВТО» (про F11 на титульном экране забывают, а в полном экране FPS ровнее)
+function hudButton() {
+  if (coarse() || standalone() || !canFs()) return;
+  const menu = document.getElementById('menu'), auto = document.getElementById('btnAuto'); if (!menu || document.getElementById('btnFs')) return;
+  const b = document.createElement('button'); b.id = 'btnFs'; b.className = 'mbtn';
+  const upd = () => { const on = isFs(); b.textContent = on ? '⛶ Окно' : '⛶ Весь экран'; b.title = on ? 'Выйти из полного экрана (Esc)' : 'На весь экран — игра идёт плавнее (F11)'; b.classList.toggle('on', on); };
+  b.onclick = e => { e.stopPropagation(); if (isFs()) { const x = document.exitFullscreen || document.webkitExitFullscreen; try { const r = x.call(document); if (r && r.catch) r.catch(() => { }); } catch { } } else requestFs(); };
+  for (const ev of ['fullscreenchange', 'webkitfullscreenchange']) document.addEventListener(ev, upd);
+  upd(); if (auto && auto.nextSibling) menu.insertBefore(b, auto.nextSibling); else menu.appendChild(b);
+}
 export function initFullscreen() {
+  hudButton();
   addEventListener('pointerup', goFullscreen, { passive: true });
   addEventListener('touchend', goFullscreen, { passive: true });
   if (standalone()) return;

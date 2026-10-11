@@ -6,6 +6,7 @@ import { dirOf, dirVec } from '../core/iso.js';
 import { rand, rrange, clamp, angDiff } from '../core/util.js';
 import * as C from './combat.js';
 import { makeWildAI } from './wildai.js';
+import { boonN } from './stats.js';
 
 export class Anim {
   constructor() { this.clip = 'idle'; this.t = 0; this.fps = 6; this.loop = true; this.nf = 4; this.done = false; }
@@ -66,7 +67,7 @@ export class Player {
     // movement
     const mag = input.mag;
     if (mag > 0.12) {   // удар по герою не сбивает шаг (сборка 19)
-      const run = mag > 0.55; const sp = (run ? 5.4 : 3.2 * Math.min(1, 0.35 + (mag - 0.12) * 3.6)) *   /* С33: у края мёртвой зоны шаг набирает скорость плавно (35 % → 100 % к 30 % наклона), а не рывком */ (this.S.moveMul || 1) * (G.surv ? 1 + (G.surv.p.swift || 0) * 0.08 : 1) * (this.slowT > 0 ? 0.6 : 1) * (G.wild ? G.wild.slow : 1) * (G.run && G.run.boons && G.run.boons.includes('haste') ? 1.12 : 1);
+      const run = mag > 0.55; const sp = (run ? 5.4 : 3.2 * Math.min(1, 0.35 + (mag - 0.12) * 3.6)) *   /* С33: у края мёртвой зоны шаг набирает скорость плавно (35 % → 100 % к 30 % наклона), а не рывком */ (this.S.moveMul || 1) * (G.surv ? 1 + (G.surv.p.swift || 0) * 0.08 : 1) * (this.slowT > 0 ? 0.6 : 1) * (G.wild ? G.wild.slow : 1) * (1 + 0.012 * boonN('haste'));
       const ox = this.x, oy = this.y;
       [this.x, this.y] = G.zone.map.move(this.x, this.y, input.wx * sp * dt, input.wy * sp * dt, this.r);
       const moved = Math.hypot(this.x - ox, this.y - oy); this.meters += moved;
@@ -81,7 +82,7 @@ export class Player {
   dodge(wx, wy) {
     if (this.dead || this.state === 'dodge' || (this.cds.dodge > 0)) return false;
     const d = (Math.hypot(wx, wy) > 0.1) ? dirOf(wx, wy) : this.face;
-    this.dodgeDir = d; this.face = d; this.dir = d; this.state = 'dodge'; this.stateT = 0; this.inv = 0.32; this.cds.dodge = G.run && G.run.boons && G.run.boons.includes('haste') ? 0.65 : 0.9;
+    this.dodgeDir = d; this.face = d; this.dir = d; this.state = 'dodge'; this.stateT = 0; this.inv = 0.32; this.cds.dodge = 0.9 - 0.025 * boonN('haste');
     this.setAnim('dodge', 5 / 0.42); bus.emit('sfx', 'dodge'); this.trail = []; this.trailT = 0;
     bus.emit('dust', { x: this.x, y: this.y }); return true;
   }
@@ -136,13 +137,15 @@ export class Enemy {
     this.cd -= dt;
     const dx = P.x - this.x, dy = P.y - this.y, d = Math.hypot(dx, dy);
     const map = G.zone.map;
-    if (!this.aggro && this.wakeT !== undefined) { this.wakeT -= dt; this.dir = dirOf(dx, dy); if (this.anim.clip !== 'idle') this.setAnim('idle', 5, true); if (this.wakeT <= 0) { this.aggro = true; this.woken = true; bus.emit('aggro', this); } return; }
+    if (!this.aggro && this.wakeT !== undefined) { this.wakeT -= dt; this.dir = dirOf(dx, dy); if (this.anim.clip !== 'idle') this.setAnim('idle', 5, true); if (this.wakeT <= 0) { this.aggro = true; this.ret = false; this.woken = true; bus.emit('aggro', this); } return; }   // сборка 62: ret = false — разбуженный по дороге домой больше не уходит «домой» с агро, не замечая героя
     if (this.ret) {   // возвращается на место
       // правки 2 (П2): раны не заживают — раньше моб на обратном пути лечился 30 %/с и приходил целым, и стрелку с магом не было смысла
       // держать дистанцию. П25: герой снова подошёл близко (и моб уже не у края поводка) — агро сразу возвращается, без «приглядывания»
       const hd = Math.hypot(this.hx - this.x, this.hy - this.y);
       if (!P.dead && d < 5 && hd < 13 && map.los(this.x, this.y, P.x, P.y)) { this.ret = false; this.aggro = true; this.cd = Math.min(this.cd, 0.4); bus.emit('aggro', this); }
-      else if (hd > 0.7) { this.moveToward(this.hx, this.hy, dt, 1.3); return; }
+      // сборка 62: не дошёл до места за 6 с (упёрся в стену, пропс или своих) — здесь и новый дом; раньше стоял так до следующей волны мобов
+      else if (hd > 0.7 && (this.retT = (this.retT || 0) + dt) < 6) { this.moveToward(this.hx, this.hy, dt, 1.3); return; }
+      else if (hd > 0.7) { this.hx = this.x; this.hy = this.y; this.ret = false; this.retT = 0; this.setAnim('idle', 5, true); return; }
       else { this.ret = false; this.setAnim('idle', 5, true); return; }
     }
     if (!this.aggro) {
@@ -157,7 +160,7 @@ export class Enemy {
       else { if (this.alertT !== undefined && d > R + 1.5) this.alertT = undefined; if (this.anim.clip !== 'idle') this.setAnim('idle', 5, true); return; }
     }
     // поводок: герой ушёл далеко или моб утащился от своего места — теряет интерес и идёт обратно (сборка 47: паки за героем не собираются)
-    if (this.aggro && !this.D.boss && (!this.story || this.story === 'hunt') && !this.summoned) { const hd = Math.hypot(this.x - this.hx, this.y - this.hy); if (d > 12 || hd > 16 || (d > 8 && !map.los(this.x, this.y, P.x, P.y))) { this.leashT = (this.leashT || 0) + dt; if (this.leashT > (hd > 16 ? 0.5 : 2)) { this.aggro = false; this.leashT = 0; this.alertT = undefined; this.wakeT = undefined; this.state = 'idle'; this.cd = 1.5; this.ret = true; this.teleg = null; this.lunge = null; this.atk = null; } } else this.leashT = 0; }
+    if (this.aggro && !this.D.boss && (!this.story || this.story === 'hunt') && !this.summoned) { const hd = Math.hypot(this.x - this.hx, this.y - this.hy); if (d > 12 || hd > 16 || (d > 8 && !map.los(this.x, this.y, P.x, P.y))) { this.leashT = (this.leashT || 0) + dt; if (this.leashT > (hd > 16 ? 0.5 : 2)) { this.aggro = false; this.leashT = 0; this.alertT = undefined; this.wakeT = undefined; this.state = 'idle'; this.cd = 1.5; this.ret = true; this.retT = 0; this.teleg = null; this.lunge = null; this.atk = null; } } else this.leashT = 0; }
     if (P.dead) { if (this.state !== 'attack') { this.setAnim('idle', 5, true); this.state = 'idle'; } return; }
     if (this.state === 'attack') { C.updateEnemyAttack(this, dt, P); return; }
     // правки 2 (П69): «очередь на удар», как в экшенах: одновременно замахиваются не больше трёх рядовых бойцов ближнего боя,
@@ -238,6 +241,9 @@ const AI = {
     AI.melee(e, dt, P, d);
   },
   elite(e, dt, P, d) {
+    // сборка 61: Хранитель амулета (катакомбы) — в зале больше нет мобов; как Палач, на 80/60/40 % HP зовёт подмогу, магов среди неё нет
+    if (e.story === 'elite') { const f = e.hp / e.maxHP; e.callN = e.callN || 0;
+      if (e.callN < 3 && f <= [0.8, 0.6, 0.4][e.callN]) { e.callN++; bus.emit('summon', { x: e.x, y: e.y, n: e.callN === 3 ? 3 : 2, lvl: e.lvl, types: ['skel_warrior', 'skel_archer', 'bone_wolf', 'ghoul'], master: e }); bus.emit('float', { x: e.x, y: e.y, text: 'Стража, ко мне!', color: '#c9a0ff', big: 1, z: 3.4 }); bus.emit('sfx', 'roar'); } }
     if (!e.enraged && e.hp < e.maxHP * 0.5) { e.enraged = true; bus.emit('float', { x: e.x, y: e.y, text: 'ЯРОСТЬ!', color: '#ff5040', big: 1 }); bus.emit('sfx', 'roar'); }
     if (d <= e.D.range + P.r + 0.2 && e.cd <= 0) { e.startAttack(rand() < 0.45 ? 'attack2' : 'attack', P); e.cd = e.D.cd * (e.enraged ? 0.7 : 1); return; }
     if (d > e.D.range + P.r) e.moveToward(P.x, P.y, dt); else e.setAnim('idle', 5, true, e.anim.clip !== 'idle');

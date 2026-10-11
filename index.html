@@ -10,9 +10,15 @@
 <meta name="apple-mobile-web-app-title" content="Dark Ascent">
 <meta name="description" content="DARK ASCENT — мрачная изометрическая ролевая игра в духе классики: катакомбы, нежить, добыча и прокачка героя прямо в браузере.">
 <title>DARK ASCENT — Пробуждение под катакомбами</title>
-<link rel="icon" href="assets/sprites/icon_app.png">
+<link rel="icon" href="assets/sprites/icon_64.png">
 <link rel="apple-touch-icon" href="assets/art/gpt/store/icon_180.png">
 <link rel="manifest" href="manifest.webmanifest">
+<!-- сборка 63: фоны и портреты первого экрана — первыми, раньше модулей игры (медленный мобильный интернет) -->
+<link rel="preload" as="image" href="assets/art/gpt/start/loading_port.jpg" media="(orientation:portrait)" fetchpriority="high">
+<link rel="preload" as="image" href="assets/art/gpt/start/title_port.jpg" media="(orientation:portrait)" fetchpriority="low">
+<link rel="preload" as="image" href="assets/art/gpt/start/loading_land.jpg" media="(orientation:landscape)" fetchpriority="high">
+<link rel="preload" as="image" href="assets/art/gpt/start/title_land.jpg" media="(orientation:landscape)" fetchpriority="low">
+<link rel="preload" as="image" href="assets/sprites/pick_warrior.jpg"><link rel="preload" as="image" href="assets/sprites/pick_archer.jpg"><link rel="preload" as="image" href="assets/sprites/pick_mage.jpg">
 <!-- П42 (сборка 60): сторож загрузки. Файлы игры не приходят (сеть режет хостинг, файл 404, ошибка модуля) — вместо вечной
      загрузки показываем причину. Стоит до стилей: пока css/style.css не пришёл, браузер не рисует страницу вообще.
      Русские тексты — в data-атрибутах (их не трогает tools/i18n), английские — в самом скрипте. -->

@@ -8,6 +8,7 @@ import { autoEquip } from './character.js';
 import { mergeGroups, mergeCost } from './economy.js';
 import { BASES, CLASSES, RARITY } from '../data/items.js';
 import { platform } from '../platform/platform.js';
+import { floorForLevel } from '../world/floorgen.js';
 
 // ---------------------------------------------------------------- путь сезона
 export const SEASON_LEVELS = 30;
@@ -71,7 +72,7 @@ export const WEEKLY_RULES = [
 export const weekNo = () => Math.floor((Date.now() / 864e5 + 3) / 7);   // неделя с понедельника
 export const weeklyRule = () => WEEKLY_RULES[weekNo() % WEEKLY_RULES.length];
 export function weeklyState() { const P = G.profile, w = weekNo(); if (!P.weekly || P.weekly.week !== w) P.weekly = { week: w, best: 0, done: false }; return P.weekly; }
-export const weeklyFloor = lvl => Math.max(2, Math.round((lvl - 1) / 0.85));   // этаж, уровень врагов которого ≈ уровню героя
+export const weeklyFloor = lvl => floorForLevel(lvl);   // этаж, уровень врагов которого ≈ уровню героя
 // Круги Бездны (сборка 45, после Главы IV): выбранный круг делает Глубины злее и богаче.
 // Круг 0 — как раньше. Множители на круг k: HP ×1,45^k, урон ×1,28^k, золото и опыт ×(1 + 0,55k), +5k% к шансу вещи.
 export const CIRCLE_MAX = 10;

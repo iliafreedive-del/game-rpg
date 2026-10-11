@@ -74,7 +74,7 @@ mb_swamp_hag: {
   trophy: { slot: 'amulet', name: 'Глаз Карги' } },
 ```
 
-- `place`: `forest`, `graveyard`, `catacombs` (тогда ещё `rooms: ['cave', 'cross']`) или `depths`.
+- `place`: `catacombs` (тогда ещё `rooms: ['cave', 'cross']`), `depths` (этаж — случайный из последних пройденных) или `wild` (П4-8: поход, где герой уже был, — Лес, Пустоши, Фьорды, Храм; глубина случайная из последних четырёх пройденных, без фортов). `forest`/`graveyard` — только для старых сохранений.
 - `trophy.slot`: `weapon`, `head`, `chest` или `amulet`. Для оружия имя можно задать по классам: `name: { warrior: '…', archer: '…', mage: '…' }`.
 
 **Шаг 3. (по желанию) Новое место** — добавьте его в `PLACES`. Для места в деревне укажите точку `at: [x, y]` (клетки карты `assets/maps/village.json`) и подсказки `steps`.

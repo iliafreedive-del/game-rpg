@@ -46,6 +46,7 @@ export function prepareRender() {
   return R3.prepare();
 }
 export function render() {
+  if (G.hwOpen) return;   // Летопись закрывает экран целиком (непрозрачный фон): мир под ней не рисуем — видеокарта занята только боем
   const z = G.zone, use3 = !!(R3 && z && G.player && R3.supports(z, G.profile));
   if (use3 !== on3) {   // переключение 3D ⇄ 2D при смене зоны
     on3 = use3; R3.show(use3); if (!use3) R2.clearOverlay(); R2.resize();

@@ -20,7 +20,7 @@ const PROP = {
   puddle: { spr: 'puddle', flat: 1 }, mushrooms: { spr: 'mushrooms', light: { r: 2.5, c: [90, 230, 220], flicker: 0.2 } },
   stalagmite: { spr: 'stalagmite', r: 0.3, tall: 1 }, lavarock: { spr: 'lavarock', r: 0.45, light: { r: 3, c: [255, 110, 40], flicker: 0.5 } },
   crystals: { spr: 'crystals', r: 0.3, light: { r: 3.2, c: [190, 120, 255], flicker: 0.3 } },
-  banner: { spr: 'banner', r: 0.15, tall: 1 }, bookshelf: { spr: 'bookshelf', box: [0.55, 0.2] }, weapon_rack: { spr: 'weapon_rack', box: [0.6, 0.18] },
+  banner: { spr: 'banner', r: 0.15, tall: 1 }, bookshelf: { spr: 'bookshelf', box: [0.55, 0.2] }, weapon_rack: { spr: 'weapon_rack', box: [0.6, 0.18] }, weapon_rack_bow: { spr: 'weapon_rack', box: [0.6, 0.18], model: 'weapon_rack_bow' }, weapon_rack_staff: { spr: 'weapon_rack', box: [0.6, 0.18], model: 'weapon_rack_staff' }, cabinet: { spr: 'bookshelf', box: [0.52, 0.24], model: 'cabinet' },
   statue: { spr: 'statue', r: 0.42, tall: 1 }, throne: { spr: 'throne', r: 0.55 }, rug: { spr: 'rug', flat: 1 }, deadroot: { spr: 'deadtree', r: 0.25, tall: 1 }, deadtree: { spr: 'deadtree', r: 0.25, tall: 1 },
   board_dungeon: { spr: 'board', r: 0.3 },
   well: { spr: 'well', r: 0.62 },
@@ -161,6 +161,10 @@ export class Zone {
           this.inter.push({ id: 'castle_guide', type: 'castleguide', x: o.x, y: o.y, r: 1.8, panel: true, plate: 'Карта цитадели' });
           break;
         }
+        case 'castle_rift': {   // правки 3: Разлом Бездны в Цитадели (js/game/citadel.js) — кольцо Глубин в фиолетовом свете
+          const d = this.add({ x: o.x, y: o.y, spr: 'portal_ring', anim: 'portal' }); const L = this.addLight(o.x, o.y, { r: 5.5, c: [190, 90, 255], flicker: 0.6, z: 1.2 });
+          this.inter.push({ id: 'castle_rift', type: 'rift', x: o.x, y: o.y, r: 1.7, label: 'Закрыть разлом', draw: d, light: L, plate: 'Разлом Бездны' }); break;
+        }
         case 'chest_rich_d': this.add({ x: o.x, y: o.y, spr: 'chest_rich' }); this.map.circles.push({ x: o.x, y: o.y, r: 0.35 }); break;
         case 'sarcophagus_d': this.add({ x: o.x, y: o.y, spr: 'sarcophagus' }); this.map.rects.push({ x0: o.x - 0.45, y0: o.y - 0.9, x1: o.x + 0.45, y1: o.y + 0.9 }); break;
         case 'floor_exit': {
@@ -177,6 +181,7 @@ export class Zone {
           break;
         }
         case 'stash': {   // бочка/ящик, как в походе: подойти и обыскать (катакомбы, Глубины)
+          if (o.keep) { const d = this.prop({ x: o.x, y: o.y, t: o.kind, rot: o.rot }); this.inter.push({ id, type: 'stash', keep: true, x: o.x, y: o.y, r: 1.3, label: 'Обыскать', draw: d }); break; }   // правки 3: стойки и шкафы обыскивают, но они остаются на месте
           const d = this.add({ x: o.x, y: o.y, spr: o.kind, hidden: false });   // hidden задан — 3D держит тайник «живым» и прячет, когда обыскали this.map.circles.push({ x: o.x, y: o.y, r: 0.3 });
           this.inter.push({ id, type: 'stash', x: o.x, y: o.y, r: 1.3, label: 'Обыскать', draw: d }); break;
         }
@@ -256,7 +261,7 @@ export class Zone {
       } else if (o.t === 'castle') {
         const d = this.add({ x: o.x, y: o.y, spr: J.village ? 'portal_sun' : 'portal_crown', anim: 'portal' });   // сборка 47: в 3D-деревне — каменная арка с солнцем (бывший лесной)
         this.addLight(o.x, o.y, { r: 5, c: [255, 200, 110], flicker: 0.3, z: 1.2 });
-        this.inter.push({ id: 'portal_castle', type: 'portal', to: 'castle', x: o.x, y: o.y, r: 1.8, label: 'Цитадель Ордена', draw: d, reqLevel: 3, plate: 'Цитадель' });
+        this.inter.push({ id: 'portal_castle', type: 'portal', to: 'castle', x: o.x, y: o.y, r: 1.8, label: 'Цитадель Ордена', draw: d, reqLevel: 40, plate: 'Цитадель' });
         this.map.circles.push({ x: o.x, y: o.y - 0.1, r: 0.2 });
       } else if (o.t === 'swordportal' || o.t === 'handsportal') {   // портал с мечами (сборка 44) и с руками (сборка 46): пока только стоят, никуда не ведут
         this.add({ x: o.x, y: o.y, spr: o.t === 'handsportal' ? 'portal_hands' : 'portal_swords', anim: 'portal' });
@@ -272,7 +277,7 @@ export class Zone {
       } else if (o.t === 'depths') {
         const d = this.add({ x: o.x, y: o.y, spr: 'portal_ring', anim: 'portal' }); if (o.rot !== undefined) { d.model = 'portal_ring'; d.rot = o.rot; }   // сборка 47: лицом к своей дороге
         this.addLight(o.x, o.y, { r: 5, c: [120, 200, 255], flicker: 0.3, z: 1.2 });
-        this.inter.push({ id: 'portal_depths', type: 'depths', x: o.x, y: o.y, r: 1.8, label: 'Глубины катакомб', draw: d, reqLevel: 6, plate: 'Глубины' });
+        this.inter.push({ id: 'portal_depths', type: 'depths', x: o.x, y: o.y, r: 1.8, label: 'Глубины катакомб', draw: d, reqLevel: 8, plate: 'Глубины' });
         this.map.circles.push({ x: o.x, y: o.y - 0.1, r: 0.2 });
       } else if (o.t === 'wildportal') {
         const RL = REALMS[o.realm]; const d = this.add({ x: o.x, y: o.y, spr: (J.village && VILLAGE_PORTAL[o.realm]) || RL.portal, anim: 'portal' });

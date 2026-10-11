@@ -1,11 +1,12 @@
 // Combat: player attacks & skills, damage formulas, status effects, enemy attacks, projectiles, VFX spawning.
 import { G, bus } from './ctx.js';
 import { WEAPONS } from '../data/items.js';
-import { SKILLS, PASSIVE_K as PK } from '../data/skills.js';
-import { effRank, damageReduction, hasBoon } from './stats.js';
+import { SKILLS, PASSIVE_K as PK, MASTERY_STEP } from '../data/skills.js';
+import { effRank, damageReduction, hasBoon, boonN } from './stats.js';
 import { getAtlas } from '../core/assets.js';
 import { dirOf, dirVec } from '../core/iso.js';
 import { rand, rrange, rint, clamp, angDiff } from '../core/util.js';
+import { fxReady, fxMeta } from '../render/fxsheets.js';
 
 export const atlasOf = n => getAtlas(n);
 const R = id => effRank(G.profile, id);
@@ -13,10 +14,13 @@ const MAX_PARTICLES = 350, MAX_TEXTS = 50, MAX_EFFECTS = 80;
 
 // ------------------------------------------------------------------ VFX helpers (bounded pools)
 export function float(x, y, text, color = '#fff', o = {}) {
+  // правки 3: «-8.6480000000001» — дробный урон (щит съел часть удара) больше не выводится с хвостом знаков: числа в надписях целые
+  text = typeof text === 'number' ? Math.round(text) : String(text).replace(/-?\d+\.\d{2,}/g, m => String(Math.round(+m)));
   // сборка 59: одна и та же надпись (не число) в том же месте — не громоздить друг на друга («Уклонение» от трёх ударов разом)
   if (isNaN(text) && G.texts.some(f => f.text === String(text) && f.t < 0.45 && Math.hypot(f.x - x, f.y - y) < 1.2)) return;
   if (G.texts.length >= MAX_TEXTS) G.texts.shift();
-  G.texts.push({ x, y, z: o.z ?? 1.9, text: String(text), color, t: 0, life: o.life || 0.9, big: o.big || 0, dx: rrange(-0.25, 0.25) });
+  text = String(text).replace(/\d+\.\d{3,}/g, m => String(Math.round(+m)));   // правки 3: никаких 14 знаков после запятой во всплывающих числах
+  G.texts.push({ x, y, z: o.z ?? 1.9, text, color, t: 0, life: o.life || 0.9, big: o.big || 0, dx: rrange(-0.25, 0.25) });
 }
 bus.on('float', f => float(f.x, f.y, f.text, f.color, f));
 export function particles(x, y, n, o) {
@@ -29,6 +33,12 @@ export function particles(x, y, n, o) {
 // С22: стоп-кадр (hit-stop) — мир замирает на t секунд реального времени (game.js update). Не чаще раза в 0,2 с, чтобы серия ударов не «вязла»
 export function hitStop(t) { if (G.time - (G.hitStopAt ?? -9) < 0.2 && !(t > (G.hitStopT || 0) + 0.03)) return; G.hitStopAt = G.time; G.hitStopT = Math.max(G.hitStopT || 0, t); }
 export function effect(e) { if (G.effects.length >= MAX_EFFECTS) G.effects.shift(); e.t = 0; G.effects.push(e); return e; }
+// сборка 61: эффект-лист GPT (render/fxsheets.js), если лист уже загружен; иначе false — вызывающий рисует прежний эффект.
+// o: a — угол (листы «на полу»), size — метры, z — высота, ex/ey — откуда удар (разворот «объёмных»), dur — иначе из листа
+export function sheet(id, x, y, o = {}) {
+  if (!fxReady(id)) return false; const m = fxMeta(id);
+  effect({ kind: 'sheet', id, x, y, ...o, dur: o.dur ?? m.dur ?? 0.3 }); return true;
+}
 
 // ------------------------------------------------------------------ targeting
 export function nearestEnemy(x, y, maxD, filter) {
@@ -62,6 +72,7 @@ export function rollWeapon(S) { return rrange(S.dmgMin, S.dmgMax + 0.999) | 0; }
 export function damageEnemy(e, amount, o = {}) {
   if (e.dead) return 0;
   const S = G.stats; let dmg = amount; let crit = false, weakHit = false;
+  if (G.profile.cheat && G.profile.cheat.oneHit) dmg = e.maxHP * 10;   // правки 3: админка — убивать с одного удара
   if (o.canCrit !== false) { const cc = S.critChance + (o.critBonus || 0); if (rand() < cc) { crit = true; dmg *= S.critMult; } }
   if (!o.elem || o.elem === 'phys') { const red = damageReduction(e.armor * (1 - (o.pierce || 0)), G.profile.level) * 0.9; dmg *= 1 - red; }
   if (e.st.shock > 0) dmg *= 1 + e.st.shockAmp;
@@ -70,9 +81,10 @@ export function damageEnemy(e, amount, o = {}) {
   if (S.effects.execute && e.hp < e.maxHP * 0.3 && o.src === 'melee') dmg *= 2;
   dmg = Math.max(1, Math.round(dmg));
   e.hp -= dmg; e.flash = 0.12; G.lastCombat = G.time; e.lastSrc = o.src;
-  if (!e.aggro) { e.aggro = true; e.ret = false; bus.emit('aggro', e); }   // попал по врагу — он (и ближайшие соседи) тут же бросаются в бой
+  if (!e.aggro || e.ret) { e.aggro = true; e.ret = false; bus.emit('aggro', e); }   // сборка 62: и того, кто шёл «домой» с флагом агро (раньше не реагировал на удары)   // попал по врагу — он (и ближайшие соседи) тут же бросаются в бой
   const col = o.elem === 'poison' ? '#9ae66a' : o.src === 'pet' ? '#e8d8b0' : o.elem === 'fire' ? '#ff9a4a' : o.elem === 'cold' ? '#8fdcff' : o.elem === 'light' ? '#d0c2ff' : crit ? '#ffd23a' : '#ffffff';
   if (!o.quiet) float(e.x, e.y, crit ? dmg + '!' : dmg, col, { big: crit ? 1 : 0, z: e.D.boss ? 3.2 : 1.9 });
+  if (o.src === 'melee' || (crit && o.src === 'weapon')) sheet(crit ? 'hit_crit' : 'hit_spark', e.x, e.y, { z: 0.55 * (e.D.size || 1), ex: G.player.x, ey: G.player.y });   // сборка 61: искра удара / крит
   if (o.src === 'melee') hitStop(crit ? 0.06 : 0.03); else if (crit && o.src === 'weapon') hitStop(0.04);
   // life on hit
   if (S.leech && o.src && o.src !== 'dot' && o.src !== 'pet') { G.player.hp = Math.min(S.maxHP, G.player.hp + S.leech); }
@@ -116,16 +128,17 @@ export function killEnemy(e, o = {}) {
   const S = G.stats;
   if (e.st.burn > 0 && R('burn_explode')) { const dmg = (10 + 6 * Math.max(1, R('fireball'))) * S.spellPower * S.elem.fire * 0.8 * PK; explosion(e.x, e.y, 2, dmg, 'fire', true, e); }
   if (e.st.frozen > 0 && R('shatter')) { for (let k = 0; k < 4; k++) { const a = k * Math.PI / 2 + 0.4; spawnProj({ kind: 'shard', x: e.x, y: e.y, vx: Math.cos(a) * 12, vy: Math.sin(a) * 12, owner: 'p', dmg: (9 + 5 * Math.max(1, R('ice_shard'))) * S.spellPower * S.elem.cold * 0.6 * PK, elem: 'cold', range: 5 }); } }
+  e.st.frozen = 0; e.st.stun = 0;   // сборка 62: убитый во льду/оглушении стоял статуей навсегда (смерть не проигрывалась, труп не убирался, удары проходили насквозь)
   if (S.effects.bloodShield) G.player.shield = Math.min(S.maxHP * 0.3, G.player.shield + S.maxHP * 0.1);
-  if (hasBoon('vitality')) G.player.hp = Math.min(S.maxHP, G.player.hp + S.maxHP * 0.02);
-  if (hasBoon('bloodpact')) G.player.hp = Math.min(S.maxHP, G.player.hp + S.maxHP * 0.04);
+  if (hasBoon('vitality')) G.player.hp = Math.min(S.maxHP, G.player.hp + S.maxHP * 0.002 * boonN('vitality'));
+  if (hasBoon('bloodpact')) G.player.hp = Math.min(S.maxHP, G.player.hp + S.maxHP * 0.004 * boonN('bloodpact'));
   if (hasBoon('boom') && !o.fromBoom) { const d = (S.dmgMin + S.dmgMax) * 0.6; setTimeoutGame(0.08, () => { effect({ kind: 'burst', x: e.x, y: e.y, r: 2, dur: 0.4, c: [255, 170, 90] }); for (const t of G.enemies) if (!t.dead && t !== e && Math.hypot(t.x - e.x, t.y - e.y) < 2 + t.r) damageEnemy(t, d, { elem: 'fire', src: 'spell', fromBoom: true, canCrit: false }); G.cam.kick(0.2); bus.emit('sfx', 'boom'); }); }
   particles(e.x, e.y, 12, { c: e.D.skeleton ? [220, 210, 190] : [120, 20, 20], z: 1, sp: 3, add: false, size: 3 });
   bus.emit('sfx', e.D.skeleton ? 'bones' : 'death');
   bus.emit('kill', e);
 }
-export function explosion(x, y, r, dmg, elem, ignite, except) {
-  effect({ kind: 'burst', x, y, r, dur: 0.55, c: elem === 'fire' ? [255, 140, 40] : elem === 'cold' ? [140, 220, 255] : [200, 180, 255] });
+export function explosion(x, y, r, dmg, elem, ignite, except, fx) {
+  if (!(elem === 'fire' && sheet(fx || 'hit_fire_explosion', x, y, { size: r * (fx ? 2.2 : 2.3) }))) effect({ kind: 'burst', x, y, r, dur: 0.55, c: elem === 'fire' ? [255, 140, 40] : elem === 'cold' ? [140, 220, 255] : [200, 180, 255] });
   if (elem === 'fire') { effect({ kind: 'scorch', x, y, r: r * 0.9, dur: 4 }); particles(x, y, 14, { c: [255, 200, 90], z: 0.4, sp: 3, vz: 5, g: 5, size: 5, life: 0.9 }); particles(x, y, 10, { c: [90, 70, 60], z: 0.8, sp: 1.5, vz: 2.5, g: -1, size: 7, life: 1.2, add: false }); }
   particles(x, y, 22, { c: elem === 'fire' ? [255, 150, 50] : [180, 220, 255], z: 0.6, sp: 5, size: 4 });
   for (const t of G.enemies) { if (t.dead || t === except) continue; if (Math.hypot(t.x - x, t.y - y) < r + t.r) { damageEnemy(t, dmg, { elem, src: 'spell' }); if (ignite && !t.dead) applyIgnite(t, dmg); } }
@@ -150,7 +163,7 @@ export function tickStatus(e, dt) {
     if (s.burn <= 0) s.burnDps = 0;
   }
   if (s.bleed > 0) { s.bleed -= dt; s.bleedAcc = (s.bleedAcc || 0) + s.bleedDps * dt; if ((s.bleedT = (s.bleedT || 0) + dt) >= 0.6) { s.bleedT = 0; const d = Math.round(s.bleedAcc); s.bleedAcc = 0; if (d > 0) damageEnemy(e, d, { src: 'dot', canCrit: false, elem: 'bleed' }); } if (s.bleed <= 0) s.bleedDps = 0; }
-  if (s.poisonT > 0) { s.poisonT -= dt; if ((s.poisonTick = (s.poisonTick || 0) + dt) >= 0.5) { s.poisonTick = 0; const d = Math.round(s.poisonDps * s.poison * 0.5); if (d > 0) damageEnemy(e, d, { src: 'dot', canCrit: false, elem: 'poison' }); } if (s.poisonT <= 0) { s.poison = 0; s.poisonDps = 0; } }   // яд скорпида (питомец)
+  if (s.poisonT > 0) { s.poisonT -= dt; s.poisonAcc = (s.poisonAcc || 0) + s.poisonDps * s.poison * dt; if ((s.poisonTick = (s.poisonTick || 0) + dt) >= 0.5) { s.poisonTick = 0; const d = Math.floor(s.poisonAcc); s.poisonAcc -= d; if (d > 0) damageEnemy(e, d, { src: 'dot', canCrit: false, elem: 'poison' }); } if (s.poisonT <= 0) { s.poison = 0; s.poisonDps = 0; s.poisonAcc = 0; } }   // яд скорпида (питомец); правки 3: дробный урон копится, а не округляется до нуля — каждый заряд заметно добавляет
   if (s.slowT > 0) { s.slowT -= dt; if (s.slowT <= 0) s.slow = 0; }
   if (s.chillT > 0) { s.chillT -= dt; if (s.chillT <= 0) s.chill = 0; }
   if (s.frozen > 0) s.frozen -= dt;
@@ -195,7 +208,7 @@ function dummyHit(P, wt, W, dur) {
   if (!d) return; const o = d[0]; P.faceTo(o.x, o.y); P.dir = P.face;
   setTimeout(() => {
     const S = G.stats; if (!S || G.zoneId !== 'town') return;
-    let v = S.dmgMin + Math.random() * (S.dmgMax - S.dmgMin); if (wt === 'staff') v *= S.spellPower;
+    let v = S.dmgMin + Math.random() * (S.dmgMax - S.dmgMin); if (wt === 'staff') v *= 1 + (WEAPONS.staff.spell || 0);   // правки 3: интеллект уже в уроне посоха — второй раз не умножаем
     const crit = Math.random() < S.critChance; if (crit) v *= S.critMult;
     float(o.x, o.y, Math.round(v) + (crit ? '!' : ''), crit ? '#ffd23a' : '#fff', { z: 2.1, big: crit ? 1 : 0, life: 0.9 });
     bus.emit('sfx', 'hit');
@@ -256,9 +269,11 @@ function meleeImpact(P, a) {
     if (crush && !e.dead) e.st.stun = PK;
     if (S.effects.chainHit) { const t = nearestEnemy(e.x, e.y, 3.5, x => x !== e); if (t) { lightningArc(e.x, e.y, t.x, t.y); damageEnemy(t, rollWeapon(S) * 0.5, { src: 'melee' }); } }
   }
-  if (crush) { effect({ kind: 'ring', x: P.x, y: P.y, r: 2, dur: 0.4, c: [255, 220, 150] }); G.cam.kick(0.35); bus.emit('sfx', 'boom'); }
+  if (crush) { if (!sheet('sk_crush_wave', P.x, P.y, { size: 4.5 })) effect({ kind: 'ring', x: P.x, y: P.y, r: 2, dur: 0.4, c: [255, 220, 150] }); G.cam.kick(0.35); bus.emit('sfx', 'boom'); }
   if (hitAny) { bus.emit('sfx', 'hit'); G.cam.kick(0.12); }
-  effect({ kind: 'slash', x: P.x, y: P.y, a: ang0, r: W.range, arc: W.arc, dur: 0.18, second: a.second });
+  // сборка 61: дуга удара — лист GPT (тяжёлая — у двуручного и на втором ударе серии), иначе прежняя рисованная дуга
+  const sw = W.cleave || a.second || P.weaponType() === 'greatsword' ? 'hit_slash_heavy' : 'hit_slash_sword', sr = W.range + 0.4;
+  if (!sheet(sw, P.x + Math.cos(ang0) * sr * 0.45, P.y + Math.sin(ang0) * sr * 0.45, { a: ang0, size: sr * 2.2, dur: 0.2 })) effect({ kind: 'slash', x: P.x, y: P.y, a: ang0, r: W.range, arc: W.arc, dur: 0.18, second: a.second });
 }
 function fireArrow(P, ang, dmgMul) {
   const S = G.stats; const pierce = rand() < PK ? R('pierce') : 0;
@@ -271,7 +286,7 @@ function fireArrow(P, ang, dmgMul) {
 // ------------------------------------------------------------------ player: skills
 // С35: свойства вещей под ветвь навыков — урон, перезарядка, мана (stats.js s.br)
 export const skMana = (sk, S) => Math.round(sk.mana * (1 - ((S && S.br && S.br.brMana[sk.b]) || 0) / 100));
-function brStats(S, b) { const k = 1 + ((S.br && S.br.brDmg[b]) || 0) / 100; return k === 1 ? S : { ...S, dmgMin: S.dmgMin * k, dmgMax: S.dmgMax * k, spellPower: S.spellPower * k }; }
+function brStats(S, b, id) { const k = (1 + ((S.br && S.br.brDmg[b]) || 0) / 100) * (1 + MASTERY_STEP * ((id && G.profile.mastery && G.profile.mastery[id]) || 0)); return k === 1 ? S : { ...S, dmgMin: S.dmgMin * k, dmgMax: S.dmgMax * k, spellPower: S.spellPower * k }; }   // перед релизом: + мастерство умения
 export function skillUsable(id) {
   const P = G.player, S = G.stats, sk = SKILLS[id]; if (!sk || !R(id)) return { ok: false, why: 'Не изучено' };
   if (sk.weapon === 'bow' && P.weaponType() !== 'bow') return { ok: false, why: 'Нужен лук' };
@@ -287,7 +302,7 @@ export function castSkill(id, aim) {
   if (P.busy()) return false;
   if (P.state === 'hit') P.state = 'idle';
   const u = skillUsable(id); if (!u.ok) { float(P.x, P.y, u.why, '#ff9c8a', { z: 2.3 }); bus.emit('sfx', 'deny'); return false; }
-  const sk = SKILLS[id], r = R(id), S = brStats(G.stats, sk.b);
+  const sk = SKILLS[id], r = R(id), S = brStats(G.stats, sk.b, id);
   const echo = S.effects.echo && sk.elem && rand() < 0.25;
   if (!echo) P.mp -= skMana(sk, S); else float(P.x, P.y, 'Эхо!', '#d7b7ff', { z: 2.4 });
   P.cds[id] = sk.cd * (1 - ((S.br && S.br.brCd[sk.b]) || 0) / 100); G.lastCombat = G.time;
@@ -303,23 +318,23 @@ export function castSkill(id, aim) {
     case 'thunder': fire = () => { effect({ kind: 'ring', x: P.x, y: P.y, r: 5, dur: 0.5, c: [190, 170, 255] }); setTimeoutGame(0.4, () => { const d = (8 + Math.max(1, R('chain')) * 4) * sp * S.elem.light * 2; for (const e of G.enemies) if (!e.dead && Math.hypot(e.x - G.player.x, e.y - G.player.y) < 5) { lightningArc(e.x - 0.8, e.y - 3, e.x, e.y); damageEnemy(e, d, { elem: 'light', src: 'spell' }); shock(e); } G.cam.kick(0.5); bus.emit('sfx', 'thunder'); }); }; dur = 0.55; break;
     case 'whirlwind': {
       const wt = P.weaponType(); clip = wt === 'greatsword' ? 'sweep2' : 'slash2'; dur = 0.5; impact = 0.5;
-      fire = () => { effect({ kind: 'ring', x: P.x, y: P.y, r: 2.2, dur: 0.35, c: [255, 235, 200] }); for (const e of G.enemies) if (!e.dead && Math.hypot(e.x - P.x, e.y - P.y) < 2.2 + e.r) damageEnemy(e, rollWeapon(S) * (1.4 + r * 0.2), { src: 'melee', knock: 1.2, kx: P.x, ky: P.y, pierce: WEAPONS[wt].pierce || 0 }); bus.emit('sfx', 'whirl'); G.cam.kick(0.2); };
+      fire = () => { if (!sheet('sk_whirlwind', P.x, P.y, { size: 5.2 })) effect({ kind: 'ring', x: P.x, y: P.y, r: 2.2, dur: 0.35, c: [255, 235, 200] }); for (const e of G.enemies) if (!e.dead && Math.hypot(e.x - P.x, e.y - P.y) < 2.2 + e.r) damageEnemy(e, rollWeapon(S) * (1.4 + r * 0.2), { src: 'melee', knock: 1.2, kx: P.x, ky: P.y, pierce: WEAPONS[wt].pierce || 0 }); bus.emit('sfx', 'whirl'); G.cam.kick(0.2); };
       break;
     }
     case 'leap': {
       const dest = tgt ? { x: tgt.x - Math.cos(ang) * 0.8, y: tgt.y - Math.sin(ang) * 0.8 } : aim ? aim : { x: P.x + Math.cos(ang) * 5, y: P.y + Math.sin(ang) * 5 };
       clip = 'dodge'; dur = 0.55; impact = 0.85;
       const sx = P.x, sy = P.y, [fx, fy] = G.zone.map.nearestFree(dest.x, dest.y, P.r);
-      P.inv = 0.6; bus.emit('dust', { x: P.x, y: P.y });
+      P.inv = 0.6; bus.emit('dust', { x: P.x, y: P.y }); sheet('sk_leap_launch', P.x, P.y, { ex: fx, ey: fy });
       // сборка 47: рывок плавный, каждый кадр (было 8 скачков — герой «дёргался»); в 3D в это время играет бег (renderer3d syncPlayer)
       dash = { sx, sy, fx, fy, T: dur * 0.8 };
-      fire = () => { effect({ kind: 'ring', x: P.x, y: P.y, r: 2.6, dur: 0.45, c: [255, 210, 140] }); effect({ kind: 'scorch', x: P.x, y: P.y, r: 1.6, dur: 3 }); bus.emit('dust', { x: P.x, y: P.y }); particles(P.x, P.y, 26, { c: [170, 150, 120], z: 0.2, sp: 4, vz: 3, g: 6, size: 5, add: false }); G.cam.kick(0.5); bus.emit('sfx', 'heavy');
+      fire = () => { if (sheet('sk_leap_impact', P.x, P.y, { size: 6 })) sheet('sk_leap_flash', P.x, P.y, { size: 6 }); else effect({ kind: 'ring', x: P.x, y: P.y, r: 2.6, dur: 0.45, c: [255, 210, 140] }); effect({ kind: 'scorch', x: P.x, y: P.y, r: 1.6, dur: 3 }); bus.emit('dust', { x: P.x, y: P.y }); particles(P.x, P.y, 26, { c: [170, 150, 120], z: 0.2, sp: 4, vz: 3, g: 6, size: 5, add: false }); G.cam.kick(0.5); bus.emit('sfx', 'heavy');
         for (const e of G.enemies) if (!e.dead && Math.hypot(e.x - P.x, e.y - P.y) < 2.6 + e.r) { damageEnemy(e, rollWeapon(S) * (1.8 + r * 0.3), { src: 'melee', knock: 1, kx: P.x, ky: P.y }); if (!e.dead) e.st.stun = 1; } };
       break;
     }
     case 'warcry': {
       dur = 0.5; impact = 0.4;
-      fire = () => { P.warcry = G.time + 8; P.warcryMul = 1.25 + r * 0.05; effect({ kind: 'aura', dur: 1.2 }); effect({ kind: 'ring', x: P.x, y: P.y, r: 5, dur: 0.6, c: [255, 190, 70] }); bus.emit('sfx', 'roar'); G.cam.kick(0.3);
+      fire = () => { P.warcry = G.time + 8; P.warcryMul = 1.25 + r * 0.05 + 0.02 * ((G.profile.mastery && G.profile.mastery.warcry) || 0); if (!sheet('sk_warcry_ring', P.x, P.y, { size: 10.5 })) { effect({ kind: 'aura', dur: 1.2 }); effect({ kind: 'ring', x: P.x, y: P.y, r: 5, dur: 0.6, c: [255, 190, 70] }); } bus.emit('sfx', 'roar'); G.cam.kick(0.3);
         for (const e of G.enemies) if (!e.dead && Math.hypot(e.x - P.x, e.y - P.y) < 5) { e.st.slow = 0.5; e.st.slowT = 2.5; } float(P.x, P.y, 'Боевой клич!', '#ffcf6a', { big: 1, z: 2.6 }); };
       break;
     }
@@ -341,8 +356,8 @@ export function castSkill(id, aim) {
     case 'arrow_rain': {
       const tp = tgt ? { x: tgt.x, y: tgt.y } : aim ? aim : { x: P.x + Math.cos(ang) * 6, y: P.y + Math.sin(ang) * 6 };
       clip = 'bowrel'; dur = 0.4; impact = 0.1;
-      fire = () => { effect({ kind: 'rain', x: tp.x, y: tp.y, r: 3, dur: 1.7 }); bus.emit('sfx', 'bow');
-        for (let k = 0; k < 10; k++) setTimeoutGame(0.2 + k * 0.15, () => { for (let j = 0; j < 3; j++) { const a = rand() * 6.283, rr = Math.sqrt(rand()) * 3; const x = tp.x + Math.cos(a) * rr, y = tp.y + Math.sin(a) * rr; particles(x, y, 3, { c: [255, 220, 150], z: 0.1, sp: 1, vz: 2, g: 6, size: 2.5, life: 0.3 }); effect({ kind: 'bolt', x1: x - 0.3, y1: y - 2.5, x2: x, y2: y, dur: 0.12, seed: rand() * 999 }); }
+      fire = () => { if (!sheet('sk_arrow_rain_zone', tp.x, tp.y, { size: 6.5, dur: 1.7, fade: true })) effect({ kind: 'rain', x: tp.x, y: tp.y, r: 3, dur: 1.7 }); bus.emit('sfx', 'bow');
+        for (let k = 0; k < 10; k++) setTimeoutGame(0.2 + k * 0.15, () => { for (let j = 0; j < 3; j++) { const a = rand() * 6.283, rr = Math.sqrt(rand()) * 3; const x = tp.x + Math.cos(a) * rr, y = tp.y + Math.sin(a) * rr; particles(x, y, 3, { c: [255, 220, 150], z: 0.1, sp: 1, vz: 2, g: 6, size: 2.5, life: 0.3 }); if (j || !sheet('sk_arrow_rain_drop', x, y)) effect({ kind: 'bolt', x1: x - 0.3, y1: y - 2.5, x2: x, y2: y, dur: 0.12, seed: rand() * 999 }); }
           for (const e of G.enemies) if (!e.dead && Math.hypot(e.x - tp.x, e.y - tp.y) < 3 + e.r) damageEnemy(e, rollWeapon(S) * (0.4 + r * 0.08), { src: 'weapon', quiet: k % 2 === 1 }); }); };
       break;
     }
@@ -353,7 +368,7 @@ export function castSkill(id, aim) {
     }
     case 'volley': {
       clip = 'bowrel'; dur = 0.35; impact = 0.05;
-      fire = () => { const n = 5 + (r >> 1); for (let i = 0; i < n; i++) { const a = ang + (i - (n - 1) / 2) * 0.13; fireArrow(P, a, 0.6 + r * 0.1); } bus.emit('sfx', 'bow'); };
+      fire = () => { sheet('sk_volley_flash', P.x + Math.cos(ang) * 1.2, P.y + Math.sin(ang) * 1.2, { a: ang, size: 3.6 }); const n = 5 + (r >> 1); for (let i = 0; i < n; i++) { const a = ang + (i - (n - 1) / 2) * 0.13; fireArrow(P, a, 0.6 + r * 0.1); } bus.emit('sfx', 'bow'); };
       break;
     }
   }
@@ -399,9 +414,10 @@ export function updateProjectiles(dt) {
         if ((e.x - p.x) ** 2 + (e.y - p.y) ** 2 < (e.r + 0.25) ** 2) {
           p.hit.add(e);
           if (p.aoe) { explosion(p.x, p.y, p.aoe, p.dmg, p.elem, p.ignite); p.dead = true; break; }
-          damageEnemy(e, p.dmg, { elem: p.elem === 'magic' ? 'phys' : p.elem, src: p.src || 'spell', pierce: p.elem === 'magic' ? 1 : 0 });
+          damageEnemy(e, p.dmg, { elem: p.elem === 'magic' ? 'phys' : p.elem, src: p.src || 'spell', pierce: p.elem === 'magic' ? 1 : 0 }); projHitFx(p, e.x, e.y, 0.9 * (e.D.size || 1));
           if (p.chill && !e.dead) applyChill(e);
-          if (p.explosive && rand() < 0.25 * PK) explosion(p.x, p.y, 1.8, p.dmg * 0.7, 'fire', false);
+          if (p.petSlow && !e.dead) { const s = e.st, k = e.D.boss ? 0.5 : 1; s.slow = Math.min(0.32 * k, (s.slowT > 0 ? s.slow : 0) + 0.08 * k); s.slowT = 1.5; }   // правки 3: ледяная стрела костяного пса — замедление копится понемногу
+          if (p.explosive && rand() < 0.25 * PK) explosion(p.x, p.y, 1.8, p.dmg * 0.7, 'fire', false, null, 'sk_explosive_arrow');
           if ((p.pierce || 0) > 0) { p.pierce--; continue; }
           projEnd(p, false); break;
         }
@@ -412,8 +428,17 @@ export function updateProjectiles(dt) {
   }
   for (let i = G.projectiles.length - 1; i >= 0; i--) if (G.projectiles[i].dead) G.projectiles.splice(i, 1);
 }
+// сборка 61: снаряды и попадания — листы GPT. Снаряд врага — по его краю (стрела скелета костяная, браконьера — с оперением леса)
+export function projSheetOf(p) {
+  if (p.owner === 'p') return p.src === 'pet' ? null : { arrow: 'proj_arrow', bolt: 'proj_star_bolt', fireball: 'proj_fireball', pierce: 'proj_pierce_shot' }[p.kind] || null;
+  const realm = p.src && p.src.D && p.src.D.realm;
+  return { arrow: realm === 'forest' ? 'fr_poacher_arrow' : realm ? null : 'ct_bone_arrow', darkbolt: 'ct_darkbolt', rock: 'tm_rock_throw', bone: 'bn_bone_javelin', shard: 'fj_icicle' }[p.kind] || null;
+}
+const PROJ_HIT = { proj_arrow: 'hit_arrow', proj_star_bolt: 'hit_star_bolt', proj_pierce_shot: 'hit_pierce_shot', fr_poacher_arrow: 'fr_arrow_hit', ct_bone_arrow: 'hit_arrow', ct_darkbolt: 'ct_darkbolt_hit', tm_rock_throw: 'tm_rock_impact', fj_icicle: 'fj_icicle_hit' };
+function projHitFx(p, x, y, z = 0.9) { const h = PROJ_HIT[projSheetOf(p)]; return !!h && sheet(h, x, y, { z: z * 0.6, ex: x - p.vx, ey: y - p.vy }); }
 function projEnd(p, wall) {
   p.dead = true;
+  if ((wall || p.owner !== 'p') && !p.aoe && projHitFx(p, p.x, p.y)) return;
   if (p.aoe && wall) explosion(p.x - p.vx * 0.02, p.y - p.vy * 0.02, p.aoe, p.dmg, p.elem, p.ignite);
   else if (p.kind === 'rock' || p.kind === 'bone') particles(p.x, p.y, 8, { c: p.kind === 'rock' ? [140, 125, 105] : [230, 215, 180], z: 0.9, sp: 2.2, vz: 2, g: 7, size: 3.5, add: false, life: 0.5 });
   else if (p.kind === 'shard') particles(p.x, p.y, 6, { c: [170, 230, 255], z: 1, sp: 2, size: 3 });
@@ -443,7 +468,9 @@ export function enemyTelegraph(e, kind, P) {
   // П21/П18: удары «из земли» и их подсветка — в цвет и материал края: Лес — корни, Храм — каменные шипы, Пустоши — костяные, Фьорды — лёд
   if (tg && !tg.fx && (tg.rift || (e.D.realm === 'temple' && tg.shape === 'circle'))) tg.fx = REALM_FX[e.D.realm] || (tg.elem === 'cold' ? 'ice' : null);
   if (tg && tg.fx) tg.col = FX_COL[tg.fx];
-  if (tg && kind === 'lunge') { tg.sheet = 'charge'; tg.realm = e.D.realm; }   // П21: полоса разбега — лист mob_charge_tele (render/fxsheets.js)
+  if (tg && kind === 'lunge') { tg.sheet = 'charge'; tg.realm = e.D.realm; }
+  if (tg) { const T = ATK_FX[e.type] && ATK_FX[e.type].tele, ts = T && T[kind]; if (ts && fxReady(ts)) tg.teleSheet = ts; tg.realm ??= e.D.realm; }
+  { const id = atkFxId(e, kind); if (id) fxReady(id); }   // лист удара грузится, пока идёт замах   // сборка 61: метка-лист (корни лешего, вихрь, ледяные колья)   // П21: полоса разбега — лист mob_charge_tele (render/fxsheets.js)
   e.teleg = tg; if (tg) { tg.x = tg.x ?? e.x; tg.y = tg.y ?? e.y; tg.t = 0; }
   // П51: в бою с большим боссом — напоминание про рывок, когда удар идёт по герою (кнопка мигает, над героем «Рывок!»)
   if (tg && e.D.boss && inShape(tg, P, e)) bus.emit('dodgeHint');
@@ -452,6 +479,46 @@ export function enemyTelegraph(e, kind, P) {
 // пещерный зверь, упырь; клыки — кабаны и олень; удар разбега — врезался в стену/героя. Остальные пока бьют прежним эффектом.
 const MOB_FX = { w_wolf: 'bite', f_wolf: 'bite', b_hyena: 'bite', t_hound: 'bite', beast: 'claw', ghoul: 'claw', w_bear: 'claw', t_lion: 'claw', b_scorpid: 'claw', w_boar: 'gore', b_boar: 'gore', t_boar: 'gore', t_stag: 'gore' };
 const SHEET_DUR = { bite: 0.3, claw: 0.3, gore: 0.32, charge_crash: 0.5 };
+// сборка 61: приёмы мобов по краям — листы GPT (assets/art/fx/fx_mobs.json). attack/attack2/slam — приём с телеграфом (data/wild.js),
+// hit — обычный удар вблизи, roar — рёв смены фазы, nova — волна босса, tele — лист-метка вместо круга, rage — ярость (цикл на мобе)
+const MB = { attack: 'tm_rune_cone', attack2: 'tm_rune_stomp' };
+const ATK_FX = {
+  skel_warrior: { hit: 'ct_rust_slash' }, ghoul: { hit: 'ct_ghoul_claws' }, beast: { hit: 'ct_beast_maul' },
+  elite_guard: { attack: 'ct_guard_cleave', attack2: 'ct_abyss_slam', slam: 'ct_abyss_slam' },
+  boss: { attack: 'ct_exec_axe', attack2: 'ct_abyss_slam', slam: 'ct_abyss_slam', roar: 'ct_abyss_roar', nova: 'ct_abyss_nova' },
+  w_leshy: { attack: 'fr_roots_erupt', tele: { attack: 'fr_roots_tele' }, root: 1 },
+  w_bear: { attack: 'fr_bear_swipe', attack2: 'fr_bear_slam' }, w_ataman: { attack: 'fr_axe_cleave', attack2: 'fr_shield_stomp' },
+  w_boss: { attack: 'fr_boss_club', attack2: 'fr_thicket_slam', slam: 'fr_roots_erupt', roar: 'fr_boss_roar', nova: 'fr_spore_nova' },
+  t_warden: { hit: 'tm_stone_slash' }, t_priest: { attack: 'tm_wind_tornado', tele: { attack: 'tm_wind_tele' } },
+  t_golem: { attack: 'tm_golem_punch', attack2: 'tm_stone_spikes' },
+  t_mb_gate: MB, t_mb_relic: MB, t_mb_paladin: MB, t_mb_hierophant: MB, t_mb_sentinel: MB, t_lord: MB,
+  t_boss: { attack: 'tm_rune_cone', attack2: 'tm_rune_stomp', slam: 'tm_god_slam', roar: 'tm_god_roar', nova: 'tm_sand_nova' },
+  f_draugr: { hit: 'fj_frost_slash' }, f_berserk: { hit: 'fj_frost_slash', rage: 'fj_berserk_rage' },
+  f_jotun: { attack: 'fj_jotun_swing', attack2: 'fj_ice_spikes', tele: { attack2: 'fj_ice_tele' } }, f_jarl: { attack: 'fj_frost_slash', attack2: 'fj_jarl_stomp' },
+  f_boss: { attack: 'fj_jotun_swing', attack2: 'fj_jarl_stomp', slam: 'fj_glacier_slam', roar: 'fj_frost_roar', nova: 'fj_blizzard_nova' },
+  b_shaman: { attack: 'bn_bone_spikes' }, b_scorpid: { attack2: 'bn_scorpid_strike' }, b_chief: { attack2: 'bn_war_stomp' },
+  b_boss: { attack2: 'bn_war_stomp', slam: 'bn_bone_spikes' },
+};
+const DEPTH_SLAM = { flooded: 'dp_water_geyser', ash: 'dp_lava_burst', abyss: 'dp_abyss_crystals' };   // Глубины: разлом — по облику этажа
+function atkFxId(e, kind) {
+  const id = ATK_FX[e.type] && ATK_FX[e.type][kind]; if (id !== 'ct_abyss_slam' || G.zoneId !== 'depths') return id || null;
+  return DEPTH_SLAM[G.zone.biome && G.zone.biome.id] || id;
+}
+// сборка 61: заранее заказать листы мобов, что уже стоят на карте (на телефоне листы края грузятся только так и по первому удару)
+export function preloadMobFx() {
+  const done = new Set();
+  for (const e of G.enemies) { if (done.has(e.type)) continue; done.add(e.type); const F = ATK_FX[e.type];
+    if (F) for (const k of ['hit', 'attack', 'attack2', 'slam', 'roar', 'nova', 'rage']) { const id = atkFxId(e, k); if (id) fxReady(id); }
+    if (F && F.tele) Object.values(F.tele).forEach(fxReady);
+    if (e.D.proj) { const s = projSheetOf({ owner: 'e', kind: e.D.proj, src: e }); if (s) { fxReady(s); fxReady(PROJ_HIT[s] || s); } } }
+}
+bus.on('zoneEntered', () => preloadMobFx());
+export const mobRageFx = e => (e.enraged && ATK_FX[e.type] && ATK_FX[e.type].rage) || null;
+function mobAtkFx(e, kind, tg) {
+  const id = atkFxId(e, kind); if (!id) return false;
+  if (tg.shape === 'cone') return sheet(id, e.x + Math.cos(tg.a) * tg.r * 0.5, e.y + Math.sin(tg.a) * tg.r * 0.5, { a: tg.a, size: tg.r * 2.1, ex: e.x, ey: e.y });
+  return sheet(id, tg.x, tg.y, { a: tg.a, size: tg.r * 2.3, ex: e.x, ey: e.y });
+}
 export const mobFxOf = e => MOB_FX[e.type];
 // x, y — точка удара (у героя); size — метры (иначе из листа); a — направление удара (для когтей на полу)
 export function mobSheet(e, kind, x, y, o = {}) {
@@ -459,8 +526,9 @@ export function mobSheet(e, kind, x, y, o = {}) {
 }
 // удар зверя по герою (обычный ближний или бросок): лист у героя, если герой в досягаемости, иначе — в конце замаха
 export function mobStrikeFx(e, P, kind = mobFxOf(e)) {
+  const d = Math.hypot(P.x - e.x, P.y - e.y), a = Math.atan2(P.y - e.y, P.x - e.x), r = Math.min(d, e.D.range + 0.3), hs = atkFxId(e, 'hit');
+  if (hs && sheet(hs, e.x + Math.cos(a) * r * 0.6, e.y + Math.sin(a) * r * 0.6, { a, size: (fxMeta(hs).meters || 3.5) * (e.D.size || 1), ex: e.x, ey: e.y })) return true;
   if (!kind) return false;
-  const d = Math.hypot(P.x - e.x, P.y - e.y), a = Math.atan2(P.y - e.y, P.x - e.x), r = Math.min(d, e.D.range + 0.3);
   const x = e.x + Math.cos(a) * r, y = e.y + Math.sin(a) * r;
   if (kind === 'claw') mobSheet(e, 'claw', e.x + Math.cos(a) * r * 0.75, e.y + Math.sin(a) * r * 0.75, { a, size: 1.5 * (e.D.size || 1) });
   else mobSheet(e, kind, x, y, kind === 'gore' ? { size: 2.4 * (e.D.size || 1) } : {});
@@ -497,7 +565,7 @@ export function updateEnemyAttack(e, dt, P) {
       const V = D.abil.volley, ang = tg ? tg.a : Math.atan2(P.y - e.y, P.x - e.x), sp = PSPEED[D.proj] || 7.5;
       for (let i = 0; i < V.n; i++) { const a2 = ang + (i - (V.n - 1) / 2) * V.spread; spawnProj({ kind: D.proj, x: e.x, y: e.y, vx: Math.cos(a2) * sp, vy: Math.sin(a2) * sp, owner: 'e', dmg: rrange(D.dmg[0], D.dmg[1]) * e.dmgMul * 0.8, elem: D.elem || 'phys', range: 11, src: e }); }
       bus.emit('sfx', D.proj === 'arrow' ? 'bow' : 'cast');
-    } else if (a.kind === 'roar') { effect({ kind: 'ring', x: e.x, y: e.y, r: 4, dur: 0.6, c: [200, 100, 255] }); G.cam.kick(0.5); bus.emit('sfx', 'roar'); }
+    } else if (a.kind === 'roar') { const rid = atkFxId(e, 'roar'); if (!(rid && sheet(rid, e.x, e.y, { size: 6 * (e.D.size || 1), ex: P.x, ey: P.y }))) effect({ kind: 'ring', x: e.x, y: e.y, r: 4, dur: 0.6, c: [200, 100, 255] }); G.cam.kick(0.5); bus.emit('sfx', 'roar'); }
     else if (D.proj) {
       const ang = Math.atan2(P.y - e.y, P.x - e.x);
       const sp = PSPEED[D.proj] || 7.5;
@@ -505,7 +573,8 @@ export function updateEnemyAttack(e, dt, P) {
       bus.emit('sfx', D.proj === 'arrow' ? 'bow' : PSPEED[D.proj] ? 'swingE' : 'cast');
     } else if (tg) {
       const inside = inShape(tg, P, e);
-      if (tg.fx) groundFx(tg);
+      if (mobAtkFx(e, a.kind, tg)) { if (inside && tg.slow && ATK_FX[e.type].root) P.rootedT = G.time + tg.slow; }   // сборка 61: лист приёма края
+      else if (tg.fx) groundFx(tg);
       else if (tg.shape === 'circle' && tg.rift) { const cc = tg.elem === 'cold' ? [150, 215, 255] : D.realm === 'forest' ? [110, 200, 90] : D.realm === 'bones' ? [255, 140, 60] : [180, 80, 255]; effect({ kind: 'burst', x: tg.x, y: tg.y, r: tg.r, dur: 0.5, c: cc }); particles(tg.x, tg.y, 20, { c: cc, sp: 4, size: 4 }); }
       else if (tg.shape === 'cone' && mobFxOf(e) === 'claw') mobSheet(e, 'claw', e.x + Math.cos(tg.a) * tg.r * 0.55, e.y + Math.sin(tg.a) * tg.r * 0.55, { a: tg.a, size: tg.r * 1.15 });   // П21: веер когтей вместо дуги
       else effect({ kind: tg.shape === 'cone' ? 'slash' : 'ring', x: e.x, y: e.y, a: tg.a, r: tg.r, arc: tg.arc || 360, dur: 0.3, c: [255, 90, 60], enemy: true });
@@ -525,7 +594,7 @@ export function updateEnemyAttack(e, dt, P) {
 }
 function shockwave(e) {
   const cold = e.D.novaElem === 'cold';
-  effect({ kind: 'wave', x: e.x, y: e.y, r: 6, dur: 0.8, c: cold ? [150, 215, 255] : e.D.realm ? [110, 200, 90] : [200, 90, 255] });
+  const nid = atkFxId(e, 'nova'); if (!(nid && sheet(nid, e.x, e.y, { size: 13 }))) effect({ kind: 'wave', x: e.x, y: e.y, r: 6, dur: 0.8, c: cold ? [150, 215, 255] : e.D.realm ? [110, 200, 90] : [200, 90, 255] });
   const P = G.player; const d = Math.hypot(P.x - e.x, P.y - e.y);
   setTimeoutGame(d / 7.5, () => { if (Math.abs(Math.hypot(P.x - e.x, P.y - e.y) - d) < 1.6 && !P.dead) enemyHitsPlayer(e, 0.6, cold ? 'cold' : e.D.realm ? 'phys' : 'fire'); });
 }
@@ -548,16 +617,17 @@ export function enemyHitsPlayer(e, mult, elem) {
   }
 }
 export function hurtPlayer(src, raw, elem) {
+  if (G.profile.cheat && G.profile.cheat.god) return;   // правки 3: админка — бессмертие
   const P = G.player, S = G.stats; if (P.dead) return;
   G.lastCombat = G.time;
   const lvl = src && src.lvl ? src.lvl : G.profile.level;
   let dmg = raw;
   if (!elem || elem === 'phys') {
-    if (S.block > 0 && rand() < S.block) { float(P.x, P.y, 'Блок', '#e6d7a8', { z: 2.2 }); bus.emit('sfx', 'block'); return; }
+    if (S.block > 0 && rand() < S.block) { float(P.x, P.y, 'Блок', '#e6d7a8', { z: 2.2 }); bus.emit('sfx', 'block'); sheet('hit_block', P.x, P.y, { z: 0.6 }); return; }
     dmg *= 1 - damageReduction(S.armor, lvl);
   }
   dmg = Math.max(1, Math.round(dmg));
-  if (P.shield > 0) { const ab = Math.min(P.shield, dmg); P.shield -= ab; dmg -= ab; }
+  if (P.shield > 0) { const ab = Math.min(P.shield, dmg); P.shield -= ab; dmg = Math.round(dmg - ab); }   // правки 3: щит дробный — без «-8.648000000001»
   if (src && src.D && src.D.onHit === 'slow') P.slowT = Math.max(P.slowT || 0, 1.6);   // мороз: замедление героя
   P.hp -= dmg; P.flash = 0.15; bus.emit('hurt', { dmg, src: src && src.type ? src.type : src && src.src && src.src.type ? src.src.type : String(src && src.kind || 'proj') });
   float(P.x, P.y, '-' + dmg, '#ff5a4a', { z: 2.1 });

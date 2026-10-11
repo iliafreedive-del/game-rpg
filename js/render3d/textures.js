@@ -466,3 +466,14 @@ export function flagTex() {
   }
   const t = tex(c, false); cache.set('flag', t); return t;
 }
+
+// Телефон (iOS Safari выгружает вкладку при нехватке памяти — игра «вылетала» на выбор героя): текстуры моделей мобов и жителей
+// 1024² → 512² (видеопамять 5,3 → 1,3 МБ на модель); фигура на экране телефона меньше 512 точек, разница не видна. Герой — без изменений.
+export const PHONE = typeof matchMedia !== 'undefined' && matchMedia('(pointer: coarse)').matches;
+export function fitPhone(t, max = 512) {
+  const im = t && t.image; if (!PHONE || !im || !im.width || Math.max(im.width, im.height) <= max) return t;
+  const k = max / Math.max(im.width, im.height), c = document.createElement('canvas');
+  c.width = Math.round(im.width * k); c.height = Math.round(im.height * k);
+  c.getContext('2d').drawImage(im, 0, 0, c.width, c.height);
+  t.image = c; t.needsUpdate = true; return t;
+}

@@ -1,6 +1,6 @@
 // Economy: merchant (consumables, rotating stock, buy-back by selling), smith (upgrade/reforge), trainer (respec, spell lesson).
 import { G, bus } from './ctx.js';
-import { makeItem, sellValue, upgradeCost, reforgeCost, MAX_UPG, rollAffix, mergeItems, itemPower, mergeCapFor, mergeCapLevel } from './items.js';
+import { makeItem, sellValue, upgradeCost, reforgeCost, priceK, MAX_UPG, rollAffix, mergeItems, itemPower, mergeCapFor, mergeCapLevel } from './items.js';
 import { AFFIXES, AFFIX_GROUP, CLASSES } from '../data/items.js';
 import { stats } from './stats.js';
 import { autoEquip } from './character.js';
@@ -16,7 +16,7 @@ export const stockRefreshPrice = () => 40 * G.profile.level;
 export const STOCK_MS = 6 * 3600e3;   // П67: товар Миры сам обновляется раз в 6 часов
 export const respecSkillPrice = () => 100 * G.profile.level;
 export const respecAttrPrice = () => 80 * G.profile.level;
-export const buyPrice = it => Math.round((sellValue(it) * 4 + 20) * Math.pow(1.1, it.ilvl - 1));   // сборка 20: +10% за уровень вещи
+export const buyPrice = it => Math.round((sellValue(it) * 4 + 20) * priceK(it.ilvl));   // перед релизом: после 20 ур. — линейно (items.js priceK)   // сборка 20: +10% за уровень вещи
 
 function pay(n, potion = false) { const P = G.profile; if (!potion && potionReserve(n)) return false; if (P.gold < n) { bus.emit('toast', { text: 'Недостаточно золота', kind: 'warn' }); bus.emit('sfx', 'deny'); return false; } P.gold -= n; bus.emit('sfx', 'coin'); bus.emit('hud'); return true; }
 const recalc = () => { G.stats = stats(G.profile); bus.emit('statsChanged'); bus.emit('hud'); bus.emit('save'); };
@@ -29,8 +29,9 @@ export function ensureStock(force) {
   const slots = ['weapon', 'head', 'chest', 'amulet'];
   // П67 (правки 2): лавка Миры — без серого хлама: до 10 ур. зелёные и серые, с 10-го одна вещь всегда синяя (выпадают синие тоже с 10-го);
   // золота у Миры нет — оно из слияния у кузнеца (с 15 ур.), боссов и лавки Ордена (с 15 ур.). Товар обновляется каждые 6 часов и с уровнем
-  const blue = P.level >= 10 ? rint(0, 3) : -1;
-  slots.forEach((slot, i) => S.stock.push(makeItem({ slot, cls: P.cls || 'warrior', ilvl: P.level + rint(0, 1), rarity: i === blue ? 2 : weighted(P.level >= 10 ? [[1, 75], [2, 25]] : [[0, 45], [1, 55]]) })));
+  // правки 3: лавка идёт по той же лестнице, что и добыча: до 8 ур. серое, с 8-го серое и зелёное, с 20-го зелёное и одна синяя
+  const blue = P.level >= 20 ? rint(0, 3) : -1;
+  slots.forEach((slot, i) => S.stock.push(makeItem({ slot, cls: P.cls || 'warrior', ilvl: P.level + rint(0, 1), rarity: i === blue ? 2 : weighted(P.level >= 20 ? [[1, 75], [2, 25]] : P.level >= 8 ? [[0, 60], [1, 40]] : [[0, 1]]) })));
   for (const it of S.stock) delete it.req;
 }
 export function refreshStock(free) { if (!free && !pay(stockRefreshPrice())) return false; ensureStock(true); bus.emit('save'); return true; }
@@ -91,7 +92,7 @@ export function respecAttrs() {
 // ---- слияние у кузнеца (сборка 20): три вещи одного слота и редкости из сумки → одна следующей редкости
 // Надетые и закреплённые (🔒) вещи не участвуют. Основа — самая сильная из трёх.
 const MERGE_SLOTS = ['weapon', 'head', 'chest', 'amulet'];
-export const mergeCost = r => Math.round([40, 200, 900, 4000][r] * Math.pow(1.1, Math.max(0, G.profile.level - 1)));
+export const mergeCost = r => Math.round([40, 200, 900, 4000][r] * priceK(G.profile.level));
 export function mergeGroups() {
   const P = G.profile, out = [];
   for (const slot of MERGE_SLOTS) for (let r = 0; r < 4; r++) {

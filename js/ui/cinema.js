@@ -3,7 +3,7 @@
 // Пока идёт облёт, game.update зовёт cineTick и больше ничего не делает (мир не живёт, герой стоит).
 import { G, bus } from '../game/ctx.js';
 import { $, el, esc } from '../core/util.js';
-import { gate } from '../game/progress.js';
+import { gate, lvlOk } from '../game/progress.js';
 
 const ease = t => t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2;
 // shots: [{ x, y, zoom = 1.6, move = 1.6, hold = 2.2, text, sub }]
@@ -53,7 +53,7 @@ export function introShots() {
 // порталы деревни: открыт ли сейчас (те же замки, что при входе)
 const PORTALS = ['portal_town', 'portal_temple', 'portal_forest', 'portal_fjord', 'portal_bones', 'portal_depths', 'portal_castle', 'portal_survival'];
 function portalOpen(it) {
-  const P = G.profile; if (it.reqLevel && P.level < it.reqLevel) return false;
+  const P = G.profile; if (!lvlOk(it.reqLevel)) return false;
   const g = it.id === 'portal_town' ? 'catacombs' : it.id === 'portal_survival' ? 'survival' : it.id === 'portal_depths' ? 'depths' : it.type === 'wildportal' ? it.realm : '';
   return !gate(g);
 }

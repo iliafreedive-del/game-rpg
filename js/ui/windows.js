@@ -5,9 +5,9 @@ import { setCounts } from '../game/stats.js';
 import { G, bus, inCombat } from '../game/ctx.js';
 import { $, el, esc, fmt, ICO } from '../core/util.js';
 import { SLOTS, SLOT_NAMES, RARITY, WEAPONS, BASE, CLASSES, RARITY_SHORT } from '../data/items.js';
-import { SKILLS, BRANCHES, classSkillOrder, unlockLevel } from '../data/skills.js';
+import { SKILLS, BRANCHES, classSkillOrder, unlockLevel, MASTERY_MAX, MASTERY_STEP } from '../data/skills.js';
 import { STORY, REPEATABLE, DIALOG, CHAPTER, chapterOf } from '../data/quests.js';
-import { stats, compare, usefulness, meetsReq, xpToNext, effRank } from '../game/stats.js';
+import { stats, compare, usefulness, meetsReq, xpToNext, effRank, damageReduction } from '../game/stats.js';
 import { iconOf, affixText, epicOf, sellValue, upgradeCost, reforgeCost, MAX_UPG, itemPower, kindPerkText, upgMult, heroPower } from '../game/items.js';
 import * as CH from '../game/character.js';
 import * as EC from '../game/economy.js';
@@ -15,7 +15,7 @@ import * as Q from '../game/quests.js';
 import { iconURL, skillCanvas, branchImg } from './icons.js';
 import { ART, artTag, artHead } from './art.js';
 import { drawMap, seen, seenKey } from './hud.js';
-import { offers, buy, restorePurchases, dailyStatus, claimDaily, chestStatus, chestSkip, openOrderChest, DAILY, LOGIN_DAYS, watchRewarded, offerToken, blessing, blessLeft, BLESS_MIN, BLESS_CAP, BLESS_DAY, blessToday } from '../platform/monetize.js';
+import { offers, buy, restorePurchases, dailyStatus, claimDaily, chestStatus, chestSkip, chestSkipsLeft, openOrderChest, DAILY, LOGIN_DAYS, watchRewarded, offerToken, blessing, blessLeft, BLESS_MIN, BLESS_CAP, BLESS_DAY, blessToday } from '../platform/monetize.js';
 import { PRODUCTS, platform } from '../platform/platform.js';
 import { wallOffer, markShown, streakHelp, helpGiven, shopGearToday } from '../platform/offers.js';
 import { inCinema } from './cinema.js';
@@ -35,14 +35,15 @@ import * as SE from '../game/season.js';
 import * as HU from '../game/hunts.js';
 import { huntReward } from '../data/hunts.js';
 import { MEMORIES, SEALS } from '../data/story.js';
-import { BOONS, BOON_IDS } from '../data/boons.js';
+import { BOONS, BOON_IDS, BOON_MAX } from '../data/boons.js';
 import { FLOOR_MODS, FLOOR_MOD_IDS, modReward } from '../data/floormods.js';
 import { stats as calcStats } from '../game/stats.js';
+import { gainXP } from '../game/loot.js';
 import { particles, effect } from '../game/combat.js';
 import { maybeInterstitial, offerPreview } from '../platform/monetize.js';
 import { petsOf, meetCaravan, petInfo } from '../game/pets.js';
 import { PETS, TIERS, PET_MAX } from '../data/pets.js';
-import { earlyLock, firstLessonCost, POTION_RESERVE, wildDepthGate } from '../game/progress.js';
+import { earlyLock, firstLessonCost, POTION_RESERVE, wildDepthGate, lvlOk } from '../game/progress.js';
 import { platform as PF } from '../platform/platform.js';
 import { wipeLocal, cloudBundle } from '../game/save.js';
 import { setVolumes } from '../core/audio.js';
@@ -59,7 +60,7 @@ let cur = null;   // {name, bg, render}
 // сборка 47: окно с lock (первый меч, смерть в Жатве) закрывается только своей кнопкой — closeModal(true).
 // Окна от событий (глава, осколок памяти, босс, итог похода) не вышибают открытое окно, а ждут в очереди.
 const winQ = [];
-export function closeModal(force) { if (!cur || (cur.lock && force !== true)) return; cur.bg.remove(); const oc = cur.onClose; cur = null; if (oc) oc(); G.atMerchant = false; G.modalOpen = false; G.paused = false; bus.emit('sfx', 'click'); bus.emit('hud'); if (winQ.length) setTimeout(pumpWin, 350); }
+export function closeModal(force) { if (!cur || (cur.lock && force !== true)) return; cur.bg.remove(); const oc = cur.onClose; cur = null; if (oc) oc(); G.atMerchant = false; G.modalOpen = false; G.paused = false; bus.emit('sfx', 'click'); bus.emit('hud'); if (winQ.length || rewardQ.length) setTimeout(pumpRewards, 350); }
 function pumpWin() { if (busy() || !winQ.length) return; winQ.shift()(); }
 // П11: «занято» — открыто окно, Летопись, панель NPC или облёт камеры; тогда окно от события ждёт (pumpRewards достаёт его, когда освободится)
 const busy = () => !!cur || !!G.cinema || !!G.hwOpen || $('ui').classList.contains('panel-open');   // Летопись (G.hwOpen) — тоже «занято»: окно не всплывает под ней
@@ -135,9 +136,9 @@ bus.on('reward', r => {   // now — сразу, даже после боя (н�
 export function pumpRewards() {
   // П11: окно награды ждёт, пока игрок не закроет панель NPC (покупки у Элвина, Миры) и не кончится облёт камеры — не всплывает поверх
   if (busy() || G.player.dead || !G.zoneReady) return;
-  if (winQ.length) { pumpWin(); return; }
-  if (!rewardQ.length || (inCombat() && !rewardQ[0].now)) return;
-  showReward(rewardQ.shift());
+  // правки 3: сначала награда (вещь за задание), потом окна событий («Глава пройдена») — одно за другим, а не поверх
+  if (rewardQ.length && !(inCombat() && !rewardQ[0].now)) { showReward(rewardQ.shift()); return; }
+  if (winQ.length) pumpWin();
 }
 function showReward(r) {
   bus.emit('sfx', r.items.some(i => i.item.rarity >= 3) ? 'epicDrop' : 'levelup');
@@ -171,6 +172,7 @@ function showReward(r) {
     const loot = [r.gold && `<span class="goldc">+${fmt(r.gold)} золота</span>`, r.xp && `<span style="color:#b8e3ff">+${r.xp} опыта</span>`, r.potions && `<span style="color:#ff9a9a">+${r.potions} зелья здоровья</span>`, r.mp && `<span style="color:#9cc0ff">+${r.mp} зелья маны</span>`, r.scrolls && `<span>+${r.scrolls} свитка возврата</span>`, r.skillPts && `<span class="good">+${r.skillPts} очко навыка</span>`, r.shards && `<span class="c-shard">+${r.shards}◆ осколков</span>`].filter(Boolean);
     if (r.shards) b.appendChild(el('div', 'rw-pile', ICO.pile));   // П44: горсть осколков — видно, что за награда
     if (loot.length) b.appendChild(el('div', 'rw-loot', loot.join(' · ')));
+    if (r.note) b.appendChild(el('p', 'muted', esc(r.note)));
     const q = Q.current(); if (q) b.appendChild(el('p', 'muted', `Следующее задание: <b class="goldc">${esc(q.title)}</b>`));
     const row = el('div', 'row'); row.style.justifyContent = 'center'; const ok = el('button', 'btn gold', 'Забрать'); ok.onclick = () => { closeModal(); if (r.back) r.back(); }; okBtn = ok; if (must) ok.disabled = true; row.appendChild(ok); b.appendChild(row);
   }, { lock: must });
@@ -257,7 +259,18 @@ W.inventory = (arg = {}) => {
     const side = (slot, cls) => { const w = el('div', 'eq-w ' + cls); w.append(cell(P.gear[slot], slot), el('small', '', SLOT_NAMES[slot])); return w; };
     doll.append(side('weapon', 'a'), side('head', 'b'), el('div', 'eq-pt', `<div class="iv-pt" style="background-image:url(assets/sprites/${(P.cls || 'warrior') === 'warrior' ? 'portrait' : 'portrait_' + P.cls}.png)"></div><b>${esc(C.name)}<br><span class="it-pow" style="float:none">⚔ сила ${heroPower(P)}</span></b><small>Уровень ${P.level}</small>`), side('chest', 'c'), side('amulet', 'd'));
     left.appendChild(doll);
-    left.appendChild(el('div', 'iv-stats', `<span class="st-atk">⚔ Урон/с <b>${S.dps}</b></span><span class="st-hp">♥ Здоровье <b>${S.maxHP}</b></span><span class="st-def">🛡 Защита <b>${S.armor}</b></span>`));
+    // правки 3: нажатие на показатель — пояснение, что это и как работает
+    { const red = Math.round(damageReduction(S.armor, (P.level || 1) + 1) * 100);
+      const TIPS = { atk: `<b>Урон в секунду</b> — сколько урона герой наносит обычными атаками за секунду: урон оружия × скорость атаки, с учётом силы, крита и улучшений. Умения бьют сверх этого.`,
+        hp: `<b>Здоровье</b> — сколько урона герой выдержит. На нуле — гибель. Растёт с уровнем, Крепостью у Элвина и вещами; лечат зелья и «здоровье за удар».`,
+        mp: `<b>Мана</b> — тратится на умения (кнопки справа внизу). Восстанавливается сама: ${S.mpRegen.toFixed(1)} в секунду. Кончилась — умение не сработает, выпейте синее зелье.`,
+        def: `<b>Защита</b> — снижает физический урон по герою. Сейчас против врага вашего уровня: −${red}% урона. Чем выше уровень врага, тем меньше она режет. Магию (огонь, яд, мороз) не снижает.`,
+        ehp: `<b>Запас прочности</b> — сколько урона герой выдержит, пока не упадёт: здоровье с учётом защиты (${fmt(S.maxHP)} здоровья и −${red}% урона ≈ ${fmt(S.ehp)}). Больше — лучше.` };
+      const st = el('div', 'iv-stats', `<button class="st-atk" data-k="atk">⚔ Урон/с <b>${S.dps}</b></button><button class="st-hp" data-k="hp">♥ Здоровье <b>${S.maxHP}</b></button><button class="st-mp" data-k="mp">✦ Мана <b>${S.maxMP}</b></button><button class="st-def" data-k="def">🛡 Защита <b>${S.armor}</b></button><button class="st-ehp" data-k="ehp">◈ Запас прочности <b>${fmt(S.ehp)}</b></button>`);
+      const tip = el('div', 'iv-tip hidden'); let on = W._statTip || null;
+      const show = k => { on = W._statTip = k; tip.innerHTML = k ? TIPS[k] : ''; tip.classList.toggle('hidden', !k); for (const x of st.children) x.classList.toggle('on', x.dataset.k === k); };
+      for (const x of st.children) x.onclick = () => show(on === x.dataset.k ? null : x.dataset.k);
+      left.append(st, tip); show(on); }
     // ---- сумка
     const full = P.bag.length >= P.bagSize;
     const gray = P.bag.filter(it => it.rarity === 0 && !it.locked);
@@ -286,16 +299,20 @@ W.inventory = (arg = {}) => {
     box.innerHTML = `<div class="ic-top"><button class="ic-x" aria-label="Закрыть">✕</button></div><div class="cc ${eq ? 'two' : ''}">
       <div class="cc-col">${head(it, inBag ? 'Эта вещь' : '')}<div class="iv-slot big r${it.rarity}"><img src="${iconURL(iconOf(it))}"></div><div class="ic-stats">${lines(it)}</div></div>
       ${eq ? `<div class="cc-col dim">${head(eq, 'Надето сейчас')}<div class="ic-stats">${lines(eq)}</div></div>` : ''}</div>
-      ${rows.length ? `<div class="ic-cmp"><b>Если надеть:</b>${rows.map(r => `<span class="${r.delta > 0 ? 'good' : 'bad'}">${r.delta > 0 ? '▲' : '▼'} ${r.label} ${r.inv ? `${r.before} → ${r.after}` : `${r.delta > 0 ? '+' : ''}${Math.round(r.delta * 100) / 100}${r.suf}`}</span>`).join('')}</div>` : ''}
+      ${rows.length ? `<div class="ic-cmp"><b>Если надеть:</b>${rows.map(r => `<span class="${r.delta > 0 ? 'good' : 'bad'}">${r.delta > 0 ? '▲' : '▼'} ${r.label} ${r.inv ? `${r.before} → ${r.after}` : `${r.delta > 0 ? '+' : ''}${Math.round(r.delta * 100) / 100}${r.suf}`}</span>`).join('')}</div>${rows.some(r => r.label === 'Запас прочности') ? `<p class="muted ic-why"><small>${EHP_SHORT}</small></p>` : ''}` : ''}
       ${!ok.ok ? `<div class="bad ic-why">${esc(ok.why)}</div>` : ''}${inBag && mergeNote(it) ? `<div class="${mergeNote(it)[0]} ic-why" style="font-size:12px">⚒ ${mergeNote(it)[1]}</div>` : ''}`;
     const btns = el('div', 'ic-btns');
     if (inBag) { const eqb = el('button', 'btn gold', ok.ok ? 'Надеть' : 'Нельзя надеть'); eqb.disabled = !ok.ok; eqb.onclick = () => { CH.equip(it.id); ov.remove(); rerender(); }; btns.appendChild(eqb);
       const sell = el('button', 'btn', `Продать · ${fmt(sellValue(it))} зол.`); sell.onclick = () => { EC.sellItem(it.id); ov.remove(); rerender(); }; btns.appendChild(sell); }
     else { const un = el('button', 'btn', 'Снять'); un.onclick = () => { CH.unequip(slot); ov.remove(); rerender(); }; btns.appendChild(un); }
     box.appendChild(btns);
-    const xb = box.querySelector('.ic-x'); const shut = e => { e.preventDefault(); e.stopPropagation(); ov.remove(); };
+    // крестик закрывал карточку на pointerup, и следом «click» того же касания попадал в слот под ним (амулет, доспех) — открывалась
+    // другая вещь, будто крестик не работает. Теперь карточка сперва гаснет, но ещё ~0,4 с ловит касание сама, и только потом убирается
+    const close = () => { if (ov.dataset.gone) return; ov.dataset.gone = 1; ov.style.opacity = '0'; setTimeout(() => ov.remove(), 400); };
+    const xb = box.querySelector('.ic-x'); const shut = e => { e.preventDefault(); e.stopPropagation(); close(); };
     xb.addEventListener('pointerup', shut); xb.addEventListener('click', shut); xb.addEventListener('pointerdown', e => e.stopPropagation());
-    ov.addEventListener('pointerdown', e => { if (e.target === ov) ov.remove(); });
+    ov.addEventListener('pointerdown', e => { if (e.target === ov) close(); });
+    ov.addEventListener('click', e => { if (ov.dataset.gone) { e.preventDefault(); e.stopPropagation(); } }, true);
     ov.appendChild(box); cur.bg.appendChild(ov);
   }
 };
@@ -378,7 +395,7 @@ function talentBranch(cls, ids, P, onPick, sel) {
     const [x, y] = pos(id);
     const n = el('button', `tal tal-${st}${sk.kind === 'active' ? ' act' : ''}${sel === id ? ' sel' : ''}`); n.style.left = x + 'px'; n.style.top = y + 'px';
     n.title = sk.name; n.appendChild(skillCanvas(id, 96, !r && !can.ok));
-    n.appendChild(el('span', 'tal-r', `${r}/${sk.max}`));
+    { const m = CH.masteryOf(P, id); n.appendChild(el('span', 'tal-r', `${r}/${sk.max}${m ? ' +' + m : ''}`)); }
     if (sk.kind === 'active') n.appendChild(el('span', 'tal-a', '⚔'));
     if (can.ok) n.appendChild(el('span', 'tal-plus', '+'));
     else if (!r && P.level < lv) n.appendChild(el('span', 'tal-lv', `ур. ${lv}`));
@@ -404,6 +421,15 @@ function talentInfo(id, P, edit) {
     if (!can.ok) t.appendChild(el('div', 'bad', `<small>${esc(can.why)}</small>`));
     else if (P.gold < cost) { bt.classList.remove('ok'); t.appendChild(el('div', 'bad', `<small>Не хватает ${fmt(cost - P.gold)} зол. (у вас ${fmt(P.gold)}). Очко навыка не пропадёт — вернитесь с золотом из подземелья или Летописи</small>`)); }   // М5
   } else if (!edit && r < sk.max && can.ok) t.appendChild(el('div', 'muted', '<small>Можно изучить у наставника Элвина в деревне.</small>'));
+  if (r >= sk.max && sk.kind === 'active' && sk.max >= 5) {   // перед релизом: мастерство после полного ранга
+    const m = CH.masteryOf(P, id), mc = CH.canMaster(id), bonus = id === 'warcry' ? `+${m * 2}% к усилению` : `+${Math.round(m * MASTERY_STEP * 100)}% урона`;
+    t.appendChild(el('div', 'ti-d', `<b>Мастерство:</b> ${m}/${MASTERY_MAX} · ${bonus}${m < MASTERY_MAX ? ` <span class="good">→ ${id === 'warcry' ? `+${(m + 1) * 2}%` : `+${Math.round((m + 1) * MASTERY_STEP * 100)}%`}</span>` : ''}`));
+    if (edit && m < MASTERY_MAX) {
+      const cost = mc.free ? 0 : CH.masteryCost(), bt = el('button', 'learn tal-learn' + (mc.ok ? ' ok' : ''), `Мастерство +1<small>${cost ? fmt(cost) + ' зол. и очко навыка' : 'бесплатно'}</small>`); bt.disabled = !mc.ok;
+      bt.onclick = e => { e.stopPropagation(); if (CH.master(id)) rerender(); }; t.appendChild(bt);
+      if (!mc.ok) t.appendChild(el('div', 'bad', `<small>${esc(mc.why)}</small>`));
+    }
+  }
   if (r && sk.kind === 'active') {
     const sr = el('div', 'slots4');
     { const bb = el('button', 'btn sm' + (P.bigSkill === id ? ' gold' : ''), '★'); bb.title = 'На большую кнопку'; bb.onclick = e => { e.stopPropagation(); P.bigSkill = P.bigSkill === id ? null : id; bus.emit('toast', { text: P.bigSkill ? `«${sk.name}» — на большой кнопке` : 'Навык снят с большой кнопки', kind: 'good' }); bus.emit('statsChanged'); rerender(); }; sr.appendChild(bb); }
@@ -419,16 +445,16 @@ W.journal = (arg = {}) => {
   const m = modal('Задания', 'md', b => {
     const P = G.profile, st = P.story.stage;
     const dq = DQ.dailyQuests(), wq = DQ.weeklyQuests();
-    const cnt = { hunt: HU.current() ? 1 : 0, daily: dq.filter(q => q.done && !q.claimed).length, weekly: wq.filter(q => q.done && !q.claimed).length, contracts: REPEATABLE.filter(r => Q.repState(r).done).length };
+    const cnt = { hunt: HU.current() ? 1 : 0, daily: dq.filter(q => q.done && !q.claimed).length, weekly: wq.filter(q => q.done && !q.claimed).length, contracts: Q.repList().filter(r => Q.repState(r).done).length };
     const tabs = el('div', 'q-tabs');
     for (const [id, name] of [['story', 'Сюжет'], ['hunt', 'Охота'], ['daily', 'Ежедневные'], ['weekly', 'Недельные'], ['contracts', 'Контракты']]) {
       const t = el('button', 'q-tab' + (tab === id ? ' on' : ''), `${name}${cnt[id] ? `<i>${cnt[id]}</i>` : ''}`); t.onclick = () => { tab = W._qtab = id; rerender(); }; tabs.appendChild(t);
     }
     b.appendChild(tabs);
     const chips = r => `<div class="q-rw">${r.gold ? `<span class="chip g">💰 ${fmt(r.gold)}</span>` : ''}${r.shards ? `<span class="chip s">◆ ${r.shards}</span>` : ''}${r.potions ? `<span class="chip p">❤ ${r.potions}</span>` : ''}${r.xp ? `<span class="chip x">✦ ${r.xp} опыта</span>` : ''}${r.item ? `<span class="chip i">★ вещь</span>` : ''}${r.skillPts ? `<span class="chip k">+${r.skillPts} навык</span>` : ''}</div>`;
-    const card = (title, cur, max, rw, state, onClaim) => {
+    const card = (title, cur, max, rw, state, onClaim, next) => {
       const d = el('div', 'q-card' + (state === 'done' ? ' hot' : state === 'claimed' ? ' claimed' : ''), `<div class="q-t">${esc(title)}</div><div class="q-prog"><div class="pbar"><i style="width:${Math.min(100, cur / max * 100)}%"></i></div><span>${cur}/${max}</span></div>${chips(rw)}`);
-      const btn = el('button', 'btn sm ' + (state === 'done' ? 'gold' : ''), state === 'done' ? 'Забрать' : state === 'claimed' ? '✔ Получено' : 'Перейти');
+      const btn = el('button', 'btn sm ' + (state === 'done' ? 'gold' : ''), state === 'done' ? 'Забрать' : state === 'claimed' ? claimedTxt(next) : 'Перейти');
       btn.disabled = state === 'claimed'; btn.onclick = () => { if (state === 'done') { onClaim(); rerender(); } else closeModal(); };
       d.appendChild(btn); return d;
     };
@@ -465,14 +491,14 @@ W.journal = (arg = {}) => {
       if (hs.done) b.appendChild(el('p', 'muted', `<small>Завершено охот: ${hs.done}</small>`));
       b.appendChild(el('p', 'muted', `<small>Таймер — справа вверху под золотом. Награда: золото, опыт, осколки Бездны ◆ и именной трофей.</small>`));
     } else if (tab === 'daily') {
-      const r = DQ.dqReward(); for (const q of dq) b.appendChild(card(q.title, q.cur, q.n, { gold: r.gold, potions: r.potions }, q.claimed ? 'claimed' : q.done ? 'done' : 'go', () => DQ.claimDaily(q.id)));
-      b.appendChild(el('p', 'muted', '<small>Все три — «Сундук дня» с редкой вещью. Новые задания каждый день.</small>'));
+      const r = DQ.dqReward(); nextNote(b, dq); for (const q of dq.filter(q => !q.claimed)) b.appendChild(card(q.title, q.cur, q.n, { gold: r.gold, potions: r.potions }, q.claimed ? 'claimed' : q.done ? 'done' : 'go', () => DQ.claimDaily(q.id), q.next));
+      b.appendChild(el('p', 'muted', '<small>Выполненное задание уходит — через час на его месте новое. Три за сутки — «Сундук дня» с редкой вещью.</small>'));
     } else if (tab === 'weekly') {
-      const r = DQ.wqReward(); for (const q of wq) b.appendChild(card(q.title, q.cur, q.n, { gold: r.gold, shards: r.shards }, q.claimed ? 'claimed' : q.done ? 'done' : 'go', () => DQ.claimWeekly(q.id)));
-      b.appendChild(el('p', 'muted', '<small>Обновляются каждую неделю. Дают осколки Бездны для Цитадели.</small>'));
+      const r = DQ.wqReward(); nextNote(b, wq); for (const q of wq.filter(q => !q.claimed)) b.appendChild(card(q.title, q.cur, q.n, { gold: r.gold, shards: r.shards }, q.claimed ? 'claimed' : q.done ? 'done' : 'go', () => DQ.claimWeekly(q.id), q.next));
+      b.appendChild(el('p', 'muted', '<small>Трудные задания: выполненное уходит, новое — через сутки. Дают осколки Бездны для Цитадели.</small>'));
     } else {
-      for (const rr of REPEATABLE) { const s = Q.repState(rr); b.appendChild(card(rr.title, s.cur, rr.n, rr.reward || { gold: rr.gold }, s.done ? 'done' : 'go', () => Q.claimRep(rr.id))); }
-      b.appendChild(el('p', 'muted', '<small>Контракты повторяются бесконечно — прогресс идёт сам.</small>'));
+      for (const rr of Q.repList()) { const s = Q.repState(rr); b.appendChild(card(rr.title, s.cur, rr.n, rr.reward || { gold: rr.gold }, s.done ? 'done' : 'go', () => Q.claimRep(rr.id))); }
+      b.appendChild(el('p', 'muted', `<small>Самые трудные: счёт идёт с начала игры. Сданный контракт возвращается через двое суток.${coolNote()}</small>`));
     }
   });
   m.live = true;
@@ -542,9 +568,29 @@ W.settings = () => modal('Настройки', 'sm', b => {
     for (const [k, n] of [[1, 'Обычный'], [1.15, 'Крупный'], [1.3, 'Очень крупный']]) { const bt = el('button', 'btn sm' + (A.fs === k ? ' gold' : ''), n); bt.onclick = () => { setA11y({ fs: k }); rerender(); }; ts.appendChild(bt); }
     b.appendChild(ts);
     const rm = el('div', 'attr', '<b>Меньше движения</b> <small class="muted">без мигания и пульсации кнопок; тряска камеры выключается</small>'); const br = el('button', 'btn sm', A.rm ? 'Вкл' : 'Выкл'); br.onclick = () => { setA11y({ rm: !A.rm }); if (!A.rm) s.shake = false; bus.emit('save'); rerender(); }; rm.appendChild(br); b.appendChild(rm); }
-  b.appendChild(el('p', 'muted', `<small>Версия сборки: ${window.__BUILD || ''}</small>`));
+  { // правки 3: админка для тестов; сборка 62: вход по кнопке и паролю (до перезапуска игры)
+    const on = adminOK;
+    b.appendChild(el('p', 'muted', `<small>Версия сборки: ${window.__BUILD || ''}</small>`));
+    if (!on) {
+      const ad = el('div', 'attr', '<b>Админка</b>'), pw = document.createElement('input');
+      pw.type = 'password'; pw.inputMode = 'numeric'; pw.placeholder = 'Пароль'; pw.style.cssText = 'width:110px;margin:0 6px;font-size:16px';
+      const go = el('button', 'btn sm', 'Войти');
+      go.onclick = () => { if (pw.value.trim() === '12345') { adminOK = true; rerender(); } else { pw.value = ''; bus.emit('toast', { text: 'Неверный пароль', kind: 'warn' }); } };
+      pw.onkeydown = e => { if (e.key === 'Enter') go.onclick(); };
+      ad.appendChild(pw); ad.appendChild(go); b.appendChild(ad);
+    }
+    if (on) {
+      const C = P.cheat || (P.cheat = {}), ad = el('div', 'attr', '<b>Админка (тест)</b>');
+      const tg = (k, n) => { const bt = el('button', 'btn sm' + (C[k] ? ' gold' : ''), n); bt.onclick = () => { C[k] = !C[k]; bus.emit('save'); rerender(); }; ad.appendChild(bt); };
+      const act = (n, f) => { const bt = el('button', 'btn sm', n); bt.onclick = () => { f(); G.stats = calcStats(P); bus.emit('statsChanged'); bus.emit('hud'); bus.emit('save'); bus.emit('toast', { text: n, kind: 'good' }); }; ad.appendChild(bt); };
+      tg('oneHit', 'С одного удара'); tg('god', 'Бессмертие'); tg('open', 'Все порталы открыты'); tg('skills', 'Навыки без уровня и очков');
+      act('+100 000 золота', () => { P.gold += 100000; }); act('+1000 осколков', () => { CS.addShards(1000); });
+      act('+1 уровень', () => gainXP(Math.max(1, xpToNext(P.level) - P.xp), null, null, true)); act('+10 уровней', () => { for (let i = 0; i < 10; i++) gainXP(Math.max(1, xpToNext(P.level) - P.xp), null, null, true); });
+      b.appendChild(ad);
+    }
+  }
   b.appendChild(el('h3', '', 'Управление'));
-  b.appendChild(el('p', 'muted', 'Телефон/планшет: ведите пальцем в любом месте экрана — это джойстик; короткое касание места — герой побежит туда, касание врага — выбрать цель. Навыки, рывок и зелья справа. Герой бьёт сам, когда враг рядом: ваше дело — двигаться, уклоняться и пить зелья. Щипок двумя пальцами — камера ближе/дальше. ПК: WASD/стрелки или зажатая правая кнопка мыши — движение, левая кнопка мыши — удар в точку, колесо мыши — камера ближе/дальше, Пробел — атака, 1–4 — навыки, Shift — уклонение, Q/E — зелья, F — действие, I/C/K/J/M — окна, T — свиток.'));
+  b.appendChild(el('p', 'muted', 'Телефон/планшет: ведите пальцем в любом месте экрана — это джойстик; касание врага — выбрать цель и подбежать к нему, касание сундука или саркофага — подбежать и открыть. Навыки, рывок и зелья справа. Герой бьёт сам, когда враг рядом: ваше дело — двигаться, уклоняться и пить зелья. Щипок двумя пальцами — камера ближе/дальше. ПК: WASD/стрелки или зажатая правая кнопка мыши — движение, левая кнопка мыши — удар в точку, колесо мыши — камера ближе/дальше, Пробел — атака, 1–4 — навыки, Shift — уклонение, Q/E — зелья, F — действие, I/C/K/J/M — окна, T — свиток.'));
   const row = el('div', 'row'); row.style.marginTop = '10px';
   const sv = el('button', 'btn', 'Сохранить'); sv.onclick = () => { if (saveNow(true)) bus.emit('toast', { text: 'Игра сохранена', kind: 'good' }); else bus.emit('toast', { text: 'Не удалось сохранить', sub: 'Браузер не даёт записать (приватный режим или нет места)', kind: 'warn' }); }; row.appendChild(sv);   // С14
   const rp = el('button', 'btn', 'Восстановить покупки'); rp.onclick = () => restorePurchases(); row.appendChild(rp);
@@ -554,6 +600,7 @@ W.settings = () => modal('Настройки', 'sm', b => {
 });
 
 // ---------------------------------------------------------------- NPCs
+let adminOK = false;   // сборка 62: админка открыта паролем до перезапуска
 const FACES = ['elder', 'smith', 'merchant', 'trainer', 'fortune'];   // сборка 47: портреты из 3D-моделей NPC (tools/qa/scenarios/npc_faces.js)
 function dialog(b, id, name, lines, img) {
   const d = el('div', 'dlg');
@@ -729,7 +776,7 @@ W.npc_caravan = () => {
     const dl = dialog(b, 'caravan', 'Караванщик Кофи', lines);
     const row = el('div', 'row'); row.style.marginTop = '12px';
     const nx = el('button', 'btn gold', lines.length > 1 ? 'Далее' : 'Понятно');
-    nx.onclick = () => { if (dl.next()) { if (dl.last()) nx.textContent = first ? 'Принять подарок' : 'Понятно'; return; } closeModal(); if (first && meetCaravan()) petReveal(); };
+    nx.onclick = () => { if (dl.next()) { if (dl.last()) { nx.textContent = first ? '🎁 Забрать подарок' : 'Понятно'; if (first) nx.classList.add('pet-gift'); } return; } closeModal(); if (first && meetCaravan()) petReveal(); };
     if (lines.length === 1) nx.textContent = 'Понятно';
     row.appendChild(nx); b.appendChild(row);
   }, { sticky: true });
@@ -742,16 +789,24 @@ function petReveal() {
   effect({ kind: 'ring', x: p.x, y: p.y, r: 2.6, dur: 0.7, c: [255, 200, 110] }); G.cam.kick(0.25);
   bus.emit('sfx', 'epicDrop'); setTimeout(() => bus.emit('sfx', 'levelup'), 350);
   bus.emit('float', { x: p.x, y: p.y, text: D.icon + ' ' + D.name, color: '#ffd27a', z: 1.6, life: 1.8, big: 1 });
+  // правки к сборке 60: поздравление на весь экран — «Хе-хе, поздравляем! Вот тебе питомец!» (было небольшое окно «Новый спутник»)
   setTimeout(() => {
-    const m = modal('Новый спутник!', 'sm reward', b => {
-      b.appendChild(el('div', 'rw-head pet-rv', `<div class="rw-rays r3"></div><div class="pet-rv-ic">${D.icon}</div><div class="rw-t">${esc(D.name)}</div><div class="pet-rv-tier" style="color:${TIERS[D.tier].color}">${esc(TIERS[D.tier].name)} питомец · подарок Кофи</div>`));
-      b.appendChild(el('p', 'pet-rv-d', `<b>Умение:</b> ${esc(D.desc)}`));
-      b.appendChild(el('p', 'muted pet-rv-d', 'Ходит за вами везде — в подземельях, походах и Цитадели — и сам бьётся рядом. Новых зверьков и улучшения Кофи продаёт за осколки Бездны ◆.'));
-      const r = el('div', 'row'); r.style.justifyContent = 'center'; const ok = el('button', 'btn gold', 'В путь!'); ok.onclick = closeModal; r.appendChild(ok); b.appendChild(r);
+    const m = modal('Новый спутник!', 'pet-full', b => {
+      b.appendChild(el('div', 'pf-rays'));
+      b.appendChild(el('div', 'pf-hehe', '«Хе-хе!» — Кофи'));
+      b.appendChild(el('div', 'pf-t', 'Поздравляем!'));
+      b.appendChild(el('div', 'pf-s', 'Вот тебе питомец!'));
+      b.appendChild(el('div', 'pf-ic', D.icon));
+      b.appendChild(el('div', 'pf-n', `${esc(D.name)} <span style="color:${TIERS[D.tier].color}">· ${esc(TIERS[D.tier].name)}</span>`));
+      b.appendChild(el('p', 'pf-d', `<b>Умение:</b> ${esc(D.desc)}`));
+      b.appendChild(el('p', 'pf-d muted', 'Ходит за вами везде и сам бьётся рядом. Новых зверьков Кофи продаёт за осколки Бездны ◆.'));
+      const ok = el('button', 'btn gold pf-ok', 'В путь!'); ok.onclick = closeModal; b.appendChild(ok);
     }, { sticky: true });
-    m.bg.classList.add('rw-bg');
-  }, 1100);
+    m.bg.classList.add('rw-bg', 'pet-full-bg');
+  }, 900);
 }
+W.petReveal = petReveal;
+bus.on('petBought', () => { closeModal(); setTimeout(petReveal, 200); });   // правки 3: покупка питомца — тот же праздник, что и первый
 W.npc_trainer = () => {
   // Глава III: герой вспомнил всё — Элвин объясняется (одной сценой, потом обычное окно наставника)
   { const q = Q.current(), scene = q && { c3_elvin: DIALOG.trainer.confess, c2_stone: DIALOG.trainer.stone }[q.id]; if (scene) { const lines = scene;
@@ -776,7 +831,7 @@ W.npc_trainer = () => {
     }
     b.appendChild(el('h3', '', 'Услуги'));
     const r1 = el('div', 'row');
-        const sk = el('button', 'btn ' + (P.skillPts ? 'gold' : ''), `Навыки${P.skillPts ? ` (+${P.skillPts})` : ''}`); sk.onclick = () => W.skills({ npc: true }); r1.appendChild(sk); b.appendChild(r1);
+        const sk = el('button', 'btn ' + (CH.canLearnNow() ? 'gold' : ''), `Навыки${P.skillPts ? ` (+${P.skillPts})` : ''}`); sk.onclick = () => W.skills({ npc: true }); r1.appendChild(sk); b.appendChild(r1);
     const r2 = el('div', 'row'); r2.style.marginTop = '8px';
     const rs = el('button', 'btn', `Сбросить навыки — ${EC.respecSkillPrice()} зол.`); rs.disabled = P.gold < EC.respecSkillPrice(); rs.onclick = () => { if (confirm('Сбросить все навыки и вернуть очки?')) { EC.respecSkills(); rerender(); } }; r2.appendChild(rs);
     b.appendChild(r2);
@@ -785,9 +840,15 @@ W.npc_trainer = () => {
 };
 // Доска объявлений: ежедневные, недельные (крупнее) и долгие контракты (самые трудные, повторяются бесконечно)
 const qChips = r => `<div class="q-rw">${r.gold ? `<span class="chip g">💰 ${fmt(r.gold)}</span>` : ''}${r.shards ? `<span class="chip s">◆ ${r.shards}</span>` : ''}${r.potions ? `<span class="chip p">❤ ${r.potions}</span>` : ''}${r.xp ? `<span class="chip x">✦ ${r.xp} опыта</span>` : ''}${r.item ? `<span class="chip i">★ вещь</span>` : ''}${r.skillPts ? `<span class="chip k">+${r.skillPts} навык</span>` : ''}</div>`;
-function qCard(title, cur, max, rw, state, onClaim, onGo) {
+// правки 3: выполненное задание уходит — на его месте новое через час (ежедневное) / сутки (недельное) / двое суток (долгий контракт)
+const leftTxt = ms => { const m = Math.ceil(ms / 60000); return m >= 60 ? `${Math.floor(m / 60)} ч${m % 60 ? ' ' + (m % 60) + ' мин' : ''}` : `${m} мин`; };
+const claimedTxt = next => next ? `✔ Новое через ${leftTxt(next)}` : '✔ Получено';
+const coolNote = () => { const c = Q.repCooling(); return c.length ? ` Сданных контрактов: ${c.length} — ближайший вернётся через ${leftTxt(Math.min(...c))}.` : ''; };
+// П4-6: сданные задания не висят в списке — только строка, когда придёт новое
+const nextNote = (b, list) => { const c = list.filter(q => q.claimed && q.next); if (c.length) b.appendChild(el('p', 'good', `<small>${claimedTxt(Math.min(...c.map(q => q.next)))}</small>`)); };
+function qCard(title, cur, max, rw, state, onClaim, onGo, next) {
   const d = el('div', 'q-card' + (state === 'done' ? ' hot' : state === 'claimed' ? ' claimed' : ''), `<div class="q-t">${esc(title)}</div><div class="q-prog"><div class="pbar"><i style="width:${Math.min(100, cur / max * 100)}%"></i></div><span>${cur}/${max}</span></div>${qChips(rw)}`);
-  const btn = el('button', 'btn sm ' + (state === 'done' ? 'gold' : ''), state === 'done' ? 'Забрать' : state === 'claimed' ? '✔ Получено' : 'Перейти');
+  const btn = el('button', 'btn sm ' + (state === 'done' ? 'gold' : ''), state === 'done' ? 'Забрать' : state === 'claimed' ? claimedTxt(next) : 'Перейти');
   btn.disabled = state === 'claimed'; btn.onclick = () => { if (state === 'done') { onClaim(); rerender(); } else onGo(); };
   d.appendChild(btn); return d;
 }
@@ -795,19 +856,19 @@ W.board = () => {
   let tab = W._boardTab || 'daily';
   modal('Доска объявлений', 'md', b => {
     const dq = DQ.dailyQuests(), wq = DQ.weeklyQuests();
-    const cnt = { daily: dq.filter(q => q.done && !q.claimed).length, weekly: wq.filter(q => q.done && !q.claimed).length, contracts: REPEATABLE.filter(r => Q.repState(r).done).length };
+    const cnt = { daily: dq.filter(q => q.done && !q.claimed).length, weekly: wq.filter(q => q.done && !q.claimed).length, contracts: Q.repList().filter(r => Q.repState(r).done).length };
     const tabs = el('div', 'q-tabs');
     for (const [id, name] of [['daily', 'Ежедневные'], ['weekly', 'Недельные'], ['contracts', 'Долгие']]) { const t = el('button', 'q-tab' + (tab === id ? ' on' : ''), `${name}${cnt[id] ? `<i>${cnt[id]}</i>` : ''}`); t.onclick = () => { tab = W._boardTab = id; rerender(); }; tabs.appendChild(t); }
     b.appendChild(tabs);
     if (tab === 'daily') {
-      const r = DQ.dqReward(); for (const q of dq) b.appendChild(qCard(q.title, q.cur, q.n, { gold: r.gold, potions: r.potions }, q.claimed ? 'claimed' : q.done ? 'done' : 'go', () => DQ.claimDaily(q.id), closeModal));
-      b.appendChild(el('p', 'muted', '<small>Три задания на день. Выполните все — получите «Сундук дня». Обновляются каждые сутки.</small>'));
+      const r = DQ.dqReward(); nextNote(b, dq); for (const q of dq.filter(q => !q.claimed)) b.appendChild(qCard(q.title, q.cur, q.n, { gold: r.gold, potions: r.potions }, q.claimed ? 'claimed' : q.done ? 'done' : 'go', () => DQ.claimDaily(q.id), closeModal, q.next));
+      b.appendChild(el('p', 'muted', '<small>Выполненное задание уходит — через час на его месте новое. Три за сутки — «Сундук дня».</small>'));
     } else if (tab === 'weekly') {
-      const r = DQ.wqReward(); for (const q of wq) b.appendChild(qCard(q.title, q.cur, q.n, { gold: r.gold, shards: r.shards }, q.claimed ? 'claimed' : q.done ? 'done' : 'go', () => DQ.claimWeekly(q.id), closeModal));
-      b.appendChild(el('p', 'muted', '<small>Крупные цели на неделю: больше золота и осколки Бездны для Цитадели.</small>'));
+      const r = DQ.wqReward(); nextNote(b, wq); for (const q of wq.filter(q => !q.claimed)) b.appendChild(qCard(q.title, q.cur, q.n, { gold: r.gold, shards: r.shards }, q.claimed ? 'claimed' : q.done ? 'done' : 'go', () => DQ.claimWeekly(q.id), closeModal, q.next));
+      b.appendChild(el('p', 'muted', '<small>Крупные цели: выполненное уходит, новое — через сутки. Золото и осколки Бездны для Цитадели.</small>'));
     } else {
-      for (const rr of REPEATABLE) { const s = Q.repState(rr); b.appendChild(qCard(rr.title, s.cur, rr.n, rr.reward || { gold: rr.gold }, s.done ? 'done' : 'go', () => Q.claimRep(rr.id), closeModal)); }
-      b.appendChild(el('p', 'muted', '<small>Самые трудные и долгие задания. Прогресс идёт сам; после награды контракт начинается заново.</small>'));
+      for (const rr of Q.repList()) { const s = Q.repState(rr); b.appendChild(qCard(rr.title, s.cur, rr.n, rr.reward || { gold: rr.gold }, s.done ? 'done' : 'go', () => Q.claimRep(rr.id), closeModal)); }
+      b.appendChild(el('p', 'muted', `<small>Самые трудные: счёт идёт с начала игры. Сданный контракт возвращается через двое суток.${coolNote()}</small>`));
     }
   }).live = true;
 };
@@ -838,8 +899,10 @@ W.shrine = () => modal('Источник силы', 'md', b => {
   dailyBlock(b);
   // order chest
   const cs = chestStatus(); b.appendChild(el('h3', '', 'Сундук Ордена'));
-  const cr = el('div', 'offer', `<div class="ic">▣</div><div class="tx"><b>Редкий + магический предмет и золото</b><div class="muted">${cs.ready ? 'Готов к открытию!' : 'Откроется через ' + Math.ceil(cs.left / 60000) + ' мин'}</div></div>`);
-  const cb = el('button', 'btn ' + (cs.ready ? 'gold' : 'ad'), cs.ready ? 'Открыть' : 'Открыть сейчас'); cb.onclick = () => { (cs.ready ? Promise.resolve(openOrderChest()) : chestSkip()).then(rerender); }; cr.appendChild(cb); b.appendChild(cr);
+  // правки 3: «что делает сундук» — понятно из подписи; часы и минуты вместо «240 мин»; раньше срока за рекламу — раз в день
+  const csl = chestSkipsLeft(), cm = Math.ceil(cs.left / 60000), cleft = cm >= 60 ? `${Math.floor(cm / 60)} ч ${cm % 60} мин` : `${cm} мин`;
+  const cr = el('div', 'offer', `<div class="ic">▣</div><div class="tx"><b>Вещь для вашего класса и золото — раз в 4 часа</b><div class="muted">${cs.ready ? 'Готов к открытию!' : `Откроется сам через ${cleft}.${csl ? ' Раньше — за рекламу, раз в день.' : ' За рекламу сегодня уже открывали.'}`}</div></div>`);
+  const cb = el('button', 'btn ' + (cs.ready ? 'gold' : 'ad'), cs.ready ? 'Открыть' : 'Открыть сейчас'); cb.disabled = !cs.ready && !csl; cb.onclick = () => { chestSkip().then(rerender); }; cr.appendChild(cb); b.appendChild(cr);
   // IAP
   b.appendChild(el('h3', '', 'Лавка Ордена'));
   b.appendChild(el('p', 'muted', '<small>Снаряжение в лавке меняется каждый день. Синий сет — с начала, золотые вещи — с 15 уровня, мифические — с 22-го.</small>'));   // П67
@@ -969,11 +1032,11 @@ function showDeath() {
 }
 function bossReward(k) {
   if (G.player.dead) return;
-  modal('Палач Бездны повержен!', 'sm', b => {
+  const m = modal('Палач Бездны повержен!', 'sm', b => {
     b.appendChild(el('p', '', k.repeat ? 'Золото и осколки Бездны рассыпаны по арене. Палач вернётся через 30 минут — таймер на месте его гибели.' : 'Золото рассыпано по арене — соберите его. Главная награда ждёт вас в окне задания.'));   // П45
     b.appendChild(el('p', 'good', 'Портал домой открылся в центре арены.'));
     const row = el('div', 'row');
-    const ad = el('button', 'btn ad', 'Дополнительный редкий предмет'); ad.onclick = () => offers.bossExtra(k.id, k.x, k.y).then(ok => { if (ok) closeModal(); });
+    const ad = el('button', 'btn ad', 'Дополнительный редкий предмет'); ad.onclick = () => offers.bossExtra(k.id, k.x, k.y).then(ok => { if (ok && cur === m) closeModal(); });   // правки 3: окно с вещью за рекламу встаёт на место этого — раньше его тут же закрывали
     const ok = el('button', 'btn gold', 'Собрать добычу'); ok.onclick = closeModal; row.append(ad, ok); b.appendChild(row);
   });
 }
@@ -986,7 +1049,7 @@ export function showMemory(id) {
   // фото мамы (М31): после склепа облёт нового портала («Открыт портал: Разрушенный храм») успевал начаться в эти 1,4 с и шёл поверх окна —
   // окно резалось чёрными полосами, «Дальше» не нажималась. Теперь облёт ждёт окно (G.memPending), а окно — конец облёта
   G.memPending = true;
-  setTimeout(function open() { if (G.cinema) return setTimeout(open, 500); G.memPending = false; modal(M.title, 'sm', b => {
+  setTimeout(function open() { if (G.cinema) return setTimeout(open, 500); if (busy()) { winQ.push(open); return; } G.memPending = false; modal(M.title, 'sm', b => {
     const box = el('div', 'mem-box', `<div class="mem-ic">${M.kind === 'turn' ? '✦' : '◈'}</div><div class="mem-sub">${esc(M.sub || '')}</div>`);
     for (const l of M.lines) box.appendChild(el('p', '', esc(l)));
     box.appendChild(el('div', 'mem-seals', SEALS.map((x, i) => `<i class="${i < seals ? 'on' : ''}" title="${esc(x.name)}"></i>`).join('')));
@@ -997,8 +1060,8 @@ export function showMemory(id) {
   bus.emit('sfx', 'levelup');
 }
 const CH_DONE = {
-  1: ['Первая печать снова цела — Палач Бездны пал.', 'Начинается Глава II «Тени за порогом». Печатей четыре: вторая в Старом Лесу, третья во Фьордах. Первое задание — найти ледяной портал на северо-востоке деревни. Катакомбы растут вместе с вами, Палача можно побеждать снова.'],
-  2: ['Вторая и третья печати устояли: Хозяин Чащи и ётун Скъёльд повержены.', 'Начинается Глава III «Кости великанов». Умирающий ётун сказал, где четвёртая печать: Костяные пустоши, портал из черепов в левой части деревни. Там же — тот, кто ломает печати.'],
+  1: ['Первая печать снова цела — Палач Бездны пал.', 'Начинается Глава II «Тени за порогом». Печатей четыре: вторая в Старом Лесу, третья в Костяных пустошах. Портал из черепов — в левой части деревни. Катакомбы растут вместе с вами, Палача можно побеждать снова.'],
+  2: ['Вторая и третья печати устояли: Хозяин Чащи и Костяной исполин повержены.', 'Начинается Глава III «Льды ётунов». Исполин сказал, где четвёртая печать: Фьорды Скъёльда, ледяной портал на северо-востоке деревни. Там же — тот, кто ломает печати.'],
   3: ['Четвёртая печать цела, и память вернулась целиком.', 'Начинается Глава IV «Цитадель Морвена» — финал. Цитадель открыта, Морвен ждёт в зале испытаний. Перед этим стоит окрепнуть: Глубины, Летопись битв, сеты у кузнеца.'],
   4: ['Бездна закрыта, Морвен повержен. История Тихого Брода окончена.', 'Открыты Круги Бездны: в окне Глубин выберите круг — чем он выше, тем злее враги, больше золота и выше шанс золотых и мифических вещей. А ещё остаются рекорды Глубин, Жатва Бездны, форты походов, Летопись и контракты доски.'],
 };
@@ -1009,11 +1072,12 @@ function chapterDone(n = 1) {
   if (n === 3) bus.emit('memory', 'elvin');
   if (n === 4) bus.emit('memory', 'final');
   const roman = ['', 'I', 'II', 'III', 'IV'][n] || n;
-  setTimeout(() => modal(`Глава ${roman} пройдена!`, 'sm', b => {
+  // правки 3: окно главы ждёт, пока закроют открытое (награда старосты с вещью перекрывалась «Глава пройдена» через 1,2 с)
+  setTimeout(later(() => modal(`Глава ${roman} пройдена!`, 'sm', b => {
     const t = CH_DONE[n] || CH_DONE[4];
     b.appendChild(el('p', '', t[0])); b.appendChild(el('p', 'muted', t[1]));
     const r = el('div', 'row'); const ok = el('button', 'btn gold', 'Продолжить'); ok.onclick = closeModal; r.appendChild(ok); b.appendChild(r);
-  }), 1200);
+  })), 1200);
 }
 export { W };
 
@@ -1051,7 +1115,7 @@ W.depths = () => modal('Глубины катакомб', 'sm', b => {
   }
   const next = P.depths.best + 1;
   const go = el('button', 'btn gold', `▶ Этаж ${next}${isBossFloor(next) ? ' · страж' : ''}${HU.huntFloor() === next ? ' · ⚠ охота' : ''} (ур. врагов ${floorLevel(next)})`);
-  go.style.width = '100%'; go.disabled = P.level < floorLevel(next) - 1; if (go.disabled) go.textContent = `Этаж ${next}: нужен уровень ${floorLevel(next) - 1}`; go.onclick = () => enter(next);
+  go.style.width = '100%'; go.onclick = () => enter(next);   // сборка 62: без порога по уровню — проходишь, сколько сможешь
   b.appendChild(go);
   if (P.depths.best) {
     b.appendChild(el('h3', '', 'Пройденные этажи'));
@@ -1073,11 +1137,12 @@ W.wild = realm => modal(REALMS[realm].name, 'sm', b => {
   b.appendChild(el('p', 'muted', `Пять разных открытых локаций подряд: в конце каждой — портал «Вглубь», следующая локация требует уровня. Шестая — ${RL.fortName.toLowerCase()}: перебейте зверей вокруг, чтобы открылись ворота, и отбейте форт. Глубже — снова поля, каждый второй форт — босс. Дальше всего вы дошли до глубины <b class="goldc">${WS.depth || 0}</b>.`));
   const enter = d => { closeModal(); loadZone('wild', { realm, depth: d }); };
   const need = wildReqLevel(realm, next);
-  const go = el('button', 'btn gold', `▶ ${locationName(realm, next)} · глубина ${next}${isWildBoss(next) ? ' · босс' : ''} (ур. врагов ${wildLevel(realm, next)})`);
-  go.style.width = '100%'; if (P.level < need) { go.disabled = true; go.textContent = `Глубина ${next}: нужен уровень ${need}`; } else if (wildDepthGate(realm, next)) { go.disabled = true; go.textContent = `Глубина ${next}: после победы над Палачом Бездны`; }   /* П37 */ go.onclick = () => enter(next); b.appendChild(go);
+  const hd = HU.huntWild(realm); if (hd) b.appendChild(el('p', 'bad', `⚠ Охота: ${esc(HU.bossOf(HU.current()).name)} — глубина ${hd}`));   // П4-8
+  const go = el('button', 'btn gold', `▶ ${locationName(realm, next)} · глубина ${next}${isWildBoss(next) ? ' · босс' : ''}${hd === next ? ' · ⚠ охота' : ''} (ур. врагов ${wildLevel(realm, next)})`);
+  go.style.width = '100%'; if (!lvlOk(need)) { go.disabled = true; go.textContent = `Глубина ${next}: нужен уровень ${need}`; } else if (wildDepthGate(realm, next)) { go.disabled = true; go.textContent = `Глубина ${next}: после победы над Палачом Бездны`; }   /* П37 */ go.onclick = () => enter(next); b.appendChild(go);
   if ((WS.depth || 0) > 1) {
     b.appendChild(el('h3', '', 'Пройденные локации')); const grid = el('div', 'row');
-    for (let d = Math.max(1, (WS.depth || 1) - 11); d < WS.depth; d++) { const bt = el('button', 'btn sm', `${d}${isWildFort(d) ? (isWildBoss(d) ? '♛' : '⚑') : ''}`); bt.title = locationName(realm, d); bt.onclick = () => enter(d); grid.appendChild(bt); }
+    for (let d = Math.max(1, (WS.depth || 1) - 11); d < WS.depth; d++) { const bt = el('button', 'btn sm' + (hd === d ? ' gold' : ''), `${hd === d ? '⚠' : ''}${d}${isWildFort(d) ? (isWildBoss(d) ? '♛' : '⚑') : ''}`); bt.title = locationName(realm, d); bt.onclick = () => enter(d); grid.appendChild(bt); }
     b.appendChild(grid);
   }
   const NS = nemState(), foes = NS.list.filter(n => n.alive && n.realm === realm && (n.rank > 0 || n.defeats || n.fled)), tro = NS.trophies.filter(t => t.realm === realm);
@@ -1127,7 +1192,7 @@ function floorResult(r) {
       const nx = el('button', 'btn gold', `Этаж ${r.floor + (r.first ? 1 : 0) + (r.first ? 0 : 1)} ▶`);
       const next = Math.max(r.floor + 1, 1);
       nx.textContent = `Этаж ${next} ▶`;
-      nx.onclick = async () => { const keepBoons = true; if (G.profile.level < floorLevel(next) - 1) { bus.emit('toast', { text: `Этаж ${next} — с ${floorLevel(next) - 1} уровня`, sub: 'Фармите опыт на пройденных этажах', kind: 'warn' }); return; } const free = next > (G.profile.depths.best || 0); if (!free && !CS.spendTorch()) { bus.emit('toast', { text: 'Нет энергии ⚡', sub: '+1 за 20 минут или «Получить энергию»', kind: 'warn' }); bus.emit('openEnergy'); return; } closeModal(); await maybeInterstitial('floor'); loadZone('depths', { floor: next, keepBoons, free, fullHeal: r.boss }); };   // сборка 49: после босса — передышка, следующий этаж с полным здоровьем
+      nx.onclick = async () => { const keepBoons = true; const free = next > (G.profile.depths.best || 0); if (!free && !CS.spendTorch()) { bus.emit('toast', { text: 'Нет энергии ⚡', sub: '+1 за 20 минут или «Получить энергию»', kind: 'warn' }); bus.emit('openEnergy'); return; } closeModal(); await maybeInterstitial('floor'); loadZone('depths', { floor: next, keepBoons, free, fullHeal: r.boss }); };   // сборка 49: после босса — передышка, следующий этаж с полным здоровьем
       const home = el('button', 'btn', 'В деревню');
       home.onclick = async () => { closeModal(); await maybeInterstitial('floor'); loadZone('town', { from: 'depths' }); };
       if (r.weekly) { nx.textContent = 'Ещё раз ▶'; nx.onclick = () => { closeModal(); loadZone('depths', { floor: r.floor, weekly: true }); }; }   // испытание недели: повтор на время, а не следующий этаж
@@ -1179,7 +1244,8 @@ export { dailyBlock };
 function boonChoice() {
   const r = G.run; if (!r || r.done || G.player.dead) return;
   if (cur) { setTimeout(boonChoice, 600); return; }
-  const pool = BOON_IDS.filter(id => !r.boons.includes(id)).sort(() => Math.random() - 0.5).slice(0, 3);
+  const nOf = id => r.boons.filter(x => x === id).length;   // правки 3: числовые дары — до 3 уровней
+  const pool = BOON_IDS.filter(id => BOONS[id].stack ? nOf(id) < BOON_MAX : !r.boons.includes(id)).sort(() => Math.random() - 0.5).slice(0, 3);
   if (!pool.length) return;
   bus.emit('sfx', 'rareDrop');
   modal('Дар Бездны', 'md reward', b => {
@@ -1188,7 +1254,7 @@ function boonChoice() {
     let blood = false; const tags = [];
     for (const id of pool) {
       const B = BOONS[id];
-      const c = el('button', 'boon' + (B.minus ? ' cursed' : ''), `<div class="bg" style="color:${B.color};text-shadow:0 0 18px ${B.color}">${artTag(ART.boon(id), B.glyph)}</div><b>${esc(B.name)}</b><span>${esc(B.desc)}${B.minus ? `<em class="minus">${esc(B.minus)}</em>` : ''}</span><small class="lv">▶ за рекламу</small>`);
+      const c = el('button', 'boon' + (B.minus ? ' cursed' : ''), `<div class="bg" style="color:${B.color};text-shadow:0 0 18px ${B.color}">${artTag(ART.boon(id), B.glyph)}</div><b>${esc(B.name)}${B.stack ? ` · ${nOf(id) + 1}/${BOON_MAX}` : ''}</b><span>${esc(B.desc)}${B.minus ? `<em class="minus">${esc(B.minus)}</em>` : ''}</span><small class="lv">▶ за рекламу</small>`);
       tags.push(c.querySelector('.lv'));
       const give = () => { r.boons.push(id); G.stats = calcStats(G.profile); bus.emit('statsChanged'); bus.emit('toast', { text: 'Дар: ' + B.name, kind: 'good' }); bus.emit('sfx', 'learn'); closeModal(); };
       c.onclick = async () => {
@@ -1214,15 +1280,30 @@ const mmssT = t => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(
 W.survival = () => modal('Жатва Бездны', 'md', b => {
   const P = G.profile; P.surv = P.surv || { best: 0, ach: {}, runs: 0 };
   b.appendChild(artHead(ART.harvest('intro'), 'tall'));   // сборка 58: староста Эдрик держит портал Жатвы
-  b.appendChild(el('p', '', 'Бескрайняя арена Бездны и бесконечные волны. <b>Нужно только бегать</b> — герой атакует сам. Собирайте кристаллы душ, растите в уровне, выбирайте перки и пробуждайте оружие. Цель — продержаться 20 минут. Враги крепнут каждую минуту. <b>Каждый уровень забега даёт герою 2,5% опыта уровня</b> (до 75% за забег).'));
+  b.appendChild(el('p', '', 'Бескрайняя арена Бездны и бесконечные волны. <b>Нужно только бегать</b> — герой атакует сам. Собирайте кристаллы душ, растите в уровне, выбирайте перки, собирайте билды и пробуждайте оружие. Выберите длину забега: 10 минут, 20 минут или целый час. Враги крепнут каждую минуту. <b>Каждый уровень забега даёт герою 2,5% опыта уровня</b> (до 75% за забег).'));
   const row = el('div', 'row'); row.style.cssText = 'justify-content:center;margin:10px 0'; const intro = !(P.story.flags && P.story.flags.bossKilled);
-  const go = el('button', 'btn gold', intro ? '▶ Знакомство · 3 минуты' : `▶ В бой · ${SV.RUN_COST} ⚡`); go.style.width = '100%'; go.onclick = () => { if (!intro && !CS.spendEnergy(SV.RUN_COST)) { bus.emit('toast', { text: `Нужно ${SV.RUN_COST} ⚡ энергии`, kind: 'warn' }); bus.emit('openEnergy', rerender); return; } closeModal(); loadZone('survival'); }; row.appendChild(go); b.appendChild(row);   // кнопка вверху: не нужно листать список
+  if (intro) { const go = el('button', 'btn gold', '▶ Знакомство · 3 минуты'); go.style.width = '100%'; go.onclick = () => { closeModal(); G.survMode = 'std'; loadZone('survival'); }; row.appendChild(go); }
+  else { row.style.flexDirection = 'column'; row.style.gap = '6px';   // правки 3: три длины забега
+    for (const [id, M] of Object.entries(SV.MODES)) { const go = el('button', 'btn' + (id === 'std' ? ' gold' : ''), `▶ ${M.name} · ${M.min === 60 ? '1 час' : M.min + ' мин'} · ${M.cost} ⚡`); go.style.width = '100%'; go.onclick = () => survGo(id, rerender); row.appendChild(go); } }
+  b.appendChild(row);   // кнопки вверху: не нужно листать список
   b.appendChild(el('div', 'stats', `<div><span>Рекорд</span><b>${mmssT(P.surv.best)}</b></div><div><span>Забегов</span><b>${P.surv.runs}</b></div>`));
+  // правки 3: свои задания Жатвы на день — новые каждый день, не связаны с доской объявлений деревни
+  b.appendChild(el('h3', '', 'Задания Жатвы на сегодня'));
+  { const r = SV.sdqReward(); for (const q of SV.survDaily()) { const d = el('div', 'q' + (q.claimed ? ' done' : ''), `<div class="qt">${q.claimed ? '✓ ' : q.done ? '★ ' : '○ '}${esc(q.title)}</div><div class="muted">${q.cur} / ${q.n} · +${r.gold} зол. · +${r.shards}◆</div>`);
+    if (q.done && !q.claimed) { const c = el('button', 'btn gold sm', 'Забрать'); c.onclick = () => { if (SV.claimSurvDaily(q.id)) rerender(); }; d.appendChild(c); } b.appendChild(d); }
+    b.appendChild(el('div', 'muted', 'Новые задания — каждый день. Счёт идёт только в Жатве.')); }
   b.appendChild(el('h3', '', 'Достижения'));
   for (const a of SV.ACH) b.appendChild(el('div', 'q' + (P.surv.ach[a.id] ? ' done' : ''), `<div class="qt">${P.surv.ach[a.id] ? '🏆 ' : '○ '}${esc(a.name)}</div><div class="muted">+${a.gold} зол. · +${a.shards}◆</div>`));
+  b.appendChild(el('h3', '', 'Билды'));
+  b.appendChild(el('div', 'muted', SV.BUILDS.map(B => `<b>${esc(B.name)}</b>: ${B.need.map(id => esc(SV.PERKS[id].name)).join(' + ')} — ${esc(B.desc)}`).join('<br>')));
   b.appendChild(el('h3', '', 'Пробуждения оружия'));
   b.appendChild(el('div', 'muted', SV.EVOS.map(e => `<b>${esc(e.name)}</b>: ${esc(SV.PERKS[e.from].name)} 5 ур. + ${esc(SV.PERKS[e.need].name)}`).join('<br>')));
 });
+// правки 3: забег выбранной длины (10 / 20 / 60 мин) — энергия по длине
+function survGo(mode, back) {
+  const M = SV.MODES[mode]; if (!CS.spendEnergy(M.cost)) { bus.emit('toast', { text: `Нужно ${M.cost} ⚡ энергии`, kind: 'warn' }); bus.emit('openEnergy', back); return; }
+  closeModal(); G.survMode = mode; loadZone('survival');
+}
 function survLevel() {
   const S = G.surv; if (!S || S.over) return;
   if (cur) { setTimeout(survLevel, 500); return; }
@@ -1238,8 +1319,8 @@ function survLevel() {
         card.onclick = async () => { const ok = await watchRewarded('surv_extra', offerToken('surv_extra', String(Date.now())), () => {}); if (ok) { extra = true; rerender(); } };
         row.appendChild(card); return;
       }
-      const title = c.evo ? '⚡ ' + c.evo.name : c.gold ? 'Золото' : c.P.name, desc = c.evo ? c.evo.desc : c.gold ? '+50 золота' : c.P.desc(c.lvl), lv = c.evo ? 'ПРОБУЖДЕНИЕ' : c.gold ? '' : c.lvl ? `ур. ${c.lvl} → ${c.lvl + 1}` : 'новое';
-      const card = el('button', 'boon' + (c.evo ? ' evo' : ''), `<div class="bg">${c.evo ? artTag(ART.evo(c.evo.id), '✹') : c.gold ? '⛁' : artTag(ART.perk(c.id), c.P.icon || '⚔')}</div><b>${esc(title)}</b><small class="lv">${lv}</small><span>${esc(desc)}</span>`);
+      const title = c.evo ? '⚡ ' + c.evo.name : c.rep ? (c.rep === 'power' ? 'Сила Бездны' : 'Стойкость') : c.gold ? 'Золото' : c.P.name, desc = c.evo ? c.evo.desc : c.rep ? (c.rep === 'power' ? '+10% урона забега (можно брать снова)' : '+10% здоровья и полное лечение (можно брать снова)') : c.gold ? '+50 золота' : c.P.desc(c.lvl), lv = c.evo ? 'ПРОБУЖДЕНИЕ' : c.gold || c.rep ? '' : c.lvl ? `ур. ${c.lvl} → ${c.lvl + 1}` : 'новое';
+      const card = el('button', 'boon' + (c.evo ? ' evo' : ''), `<div class="bg">${c.evo ? artTag(ART.evo(c.evo.id), '✹') : c.rep ? (c.rep === 'power' ? '✹' : '♥') : c.gold ? '⛁' : artTag(ART.perk(c.id), c.P.icon || '⚔')}</div><b>${esc(title)}</b><small class="lv">${lv}</small><span>${esc(desc)}</span>${c.tag ? `<small class="lv" style="color:#ffd45a">★ ${esc(c.tag)}</small>` : ''}`);
       card.onclick = () => { SV.take(c); closeModal(); };
       row.appendChild(card);
     });
@@ -1251,12 +1332,13 @@ function survEnd(r) {
   setTimeout(() => modal(r.win ? 'Вы выжили!' : 'Жатва окончена', 'sm reward', b => {
     b.appendChild(artHead(ART.harvest(r.win ? 'victory' : 'defeat'), 'tall'));   // сборка 58: рассвет над ареной / волна мертвецов
     b.appendChild(el('div', 'rw-head', `<div class="rw-rays r${r.win ? 3 : 1}"></div><div class="rw-t">${mmssT(r.t)}${r.record ? ' · рекорд!' : ''}</div>`));
-    b.appendChild(el('div', 'stats', `<div><span>Убито</span><b>${r.kills}</b></div><div><span>Уровень забега</span><b>${r.lvl}</b></div>`));
+    b.appendChild(el('div', 'stats', `<div><span>Убито</span><b>${r.kills}</b></div><div><span>Стражей</span><b>${r.guards || 0}</b></div><div><span>Уровень забега</span><b>${r.lvl}</b></div>`));
+    if (r.dayDone) b.appendChild(el('p', 'goldc', '★ Задание Жатвы на сегодня выполнено — награда в окне портала Жатвы'));
     b.appendChild(el('div', 'rw-loot', `<span class="goldc">+${r.gold} золота</span>${r.heroXP ? ` · <span style="color:#b8e3ff">+${r.heroXP} опыта герою</span>` : ''}${r.shards ? ` · <span class="c-shard">+${r.shards}◆</span>` : ''}`));
     if (r.intro) b.appendChild(el('p', 'goldc', 'Староста Эдрик: «Больше портал не удержать — сил не хватает. Наберите золота, загляните к наставнику Элвину за усилением. Жатва откроется снова, когда падёт Палач Бездны».'));
     if (r.newAch.length) b.appendChild(el('p', 'goldc', '🏆 ' + r.newAch.map(esc).join(' · ')));
     const row = el('div', 'row'); row.style.justifyContent = 'center';
-    const again = el('button', 'btn gold', `Ещё раз · ${SV.RUN_COST} ⚡`); again.onclick = () => { if (!CS.spendEnergy(SV.RUN_COST)) { bus.emit('toast', { text: `Нужно ${SV.RUN_COST} ⚡ энергии`, kind: 'warn' }); bus.emit('openEnergy'); return; } closeModal(); loadZone('survival'); };
+    const md = G.survMode && SV.MODES[G.survMode] ? G.survMode : 'std', again = el('button', 'btn gold', `Ещё раз · ${SV.MODES[md].cost} ⚡`); again.onclick = () => survGo(md);
     const home = el('button', 'btn', 'В деревню'); home.onclick = () => { closeModal(); loadZone('town', { from: 'survival' }); };
     if (!r.intro) row.append(again); row.append(home); b.appendChild(row);
   }, { sticky: true }), 700);

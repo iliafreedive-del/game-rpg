@@ -53,15 +53,31 @@ export function dailyQuests() {
     P.dq = { day: today, bonus: false, list: list.map(q => { const n = q.n[0] + Math.floor(R() * (q.n[1] - q.n[0] + 1)); return { id: q.id, stat: q.stat, n, base: P.stats[q.stat] || 0, claimed: false }; }) };
     bus.emit('save');
   }
-  return P.dq.list.map(q => { const def = POOL.find(p => p.id === q.id) || LOC.find(p => p.id === q.id); const cur = Math.min(q.n, Math.floor((G.profile.stats[q.stat] || 0) - q.base)); return { ...q, title: def.t(q.n), cur, done: cur >= q.n }; });
+  refill(P.dq.list, [...LOC, ...POOL], DQ_NEXT, d => d.n[0] + Math.floor(Math.random() * (d.n[1] - d.n[0] + 1)));
+  return P.dq.list.map(q => { const def = POOL.find(p => p.id === q.id) || LOC.find(p => p.id === q.id); const cur = Math.min(q.n, Math.floor((G.profile.stats[q.stat] || 0) - q.base)); return { ...q, title: def.t(q.n), cur, done: cur >= q.n, next: nextIn(q, DQ_NEXT) }; });
+}
+// правки 3: выполненное задание не висит «получено» до конца суток и не начинается заново — уходит, а на его месте через время новое:
+// ежедневное (простое) — через час, недельное (трудное) — через сутки. Долгие контракты — через двое суток (quests.js REP_NEXT)
+export const DQ_NEXT = 60 * 60e3, WQ_NEXT = 24 * 3600e3;
+const nextIn = (q, ms) => q.claimed ? Math.max(0, (q.at || Date.now()) + ms - Date.now()) : 0;
+const fam = st => st === 'kills' || st.startsWith('k_') ? 'kill' : st.startsWith('fort') ? 'fort' : st;
+function refill(list, defs, ms, nOf) {
+  const P = G.profile, ok = d => !d.need || d.need(P); let ch = false;
+  for (let i = 0; i < list.length; i++) { const q = list[i]; if (!q.claimed) continue; if (!q.at) { q.at = Date.now(); ch = true; continue; }
+    if (Date.now() - q.at < ms) continue;
+    // П4-6: новое не похоже на сданное — другой вид дела (не «убить» после «убить», не «золото» после «золота»), по возможности и на соседние
+    const free = defs.filter(d => ok(d) && !list.some(x => x.id === d.id) && fam(d.stat) !== fam(q.stat));
+    const fresh = free.filter(d => !list.some(x => fam(x.stat) === fam(d.stat))), pool = fresh.length ? fresh : free; if (!pool.length) continue;
+    const d = pool[Math.floor(Math.random() * pool.length)]; list[i] = { id: d.id, stat: d.stat, n: nOf(d), base: P.stats[d.stat] || 0, claimed: false }; ch = true; }
+  if (ch) bus.emit('save');
 }
 export const dqReward = () => ({ gold: 40 + G.profile.level * 20, potions: 1 });
 export function claimDaily(id) {
   const P = G.profile; const list = dailyQuests(); const q = list.find(x => x.id === id); if (!q || !q.done || q.claimed) return false;
-  P.dq.list.find(x => x.id === id).claimed = true; bus.emit('dailyClaimed');
+  { const x = P.dq.list.find(x => x.id === id); x.claimed = true; x.at = Date.now(); } P.dq.claims = (P.dq.claims || 0) + 1; bus.emit('dailyClaimed');
   const r = dqReward(); P.gold += r.gold; P.potions.hp += r.potions;
   bus.emit('toast', { text: 'Ежедневное задание выполнено', sub: `+${r.gold} зол. · +${r.potions} зелье`, kind: 'good' }); bus.emit('sfx', 'quest');
-  if (P.dq.list.every(x => x.claimed) && !P.dq.bonus) {
+  if ((P.dq.claims >= 3 || P.dq.list.every(x => x.claimed)) && !P.dq.bonus) {   // «Сундук дня» — за три выполненных за сутки
     P.dq.bonus = true; bus.emit('dailyAllDone'); const it = makeItem({ ilvl: P.level + 1, rarity: 1, cls: P.cls }); delete it.req;
     const e = autoEquip(it); P.gold += 100 * P.level;
     bus.emit('reward', { title: 'Сундук дня', sub: 'Все ежедневные задания выполнены', gold: 100 * P.level, xp: 0, potions: 0, scrolls: 0, skillPts: 0, items: [e] });
@@ -107,10 +123,11 @@ export function weeklyQuests() {
   const P = G.profile, wk = weekKey();
   if (P.wq && P.wq.week > 100000) P.wq.week = wk;   // С18: старый формат ключа — неделю не сбрасываем
   if (!P.wq || P.wq.week !== wk) { const R = seeded(wk), ok = q => !q.need || q.need(P), all = [...WPOOL].sort(() => R() - 0.5).filter(ok); const picks = [...all.filter(q => q.loc).slice(0, 1), ...all.filter(q => !q.loc)].slice(0, 3); P.wq = { week: wk, list: picks.map(q => ({ id: q.id, stat: q.stat, n: q.n, base: P.stats[q.stat] || 0, claimed: false })) }; }
-  return P.wq.list.map(q => { const def = WPOOL.find(p => p.id === q.id); const cur = Math.min(q.n, Math.floor((P.stats[q.stat] || 0) - q.base)); return { ...q, title: def.t(q.n), cur, done: cur >= q.n }; });
+  refill(P.wq.list, WPOOL, WQ_NEXT, d => d.n);
+  return P.wq.list.map(q => { const def = WPOOL.find(p => p.id === q.id); const cur = Math.min(q.n, Math.floor((P.stats[q.stat] || 0) - q.base)); return { ...q, title: def.t(q.n), cur, done: cur >= q.n, next: nextIn(q, WQ_NEXT) }; });
 }
 export function claimWeekly(id) {
   const P = G.profile, q = weeklyQuests().find(x => x.id === id); if (!q || !q.done || q.claimed) return false;
-  P.wq.list.find(x => x.id === id).claimed = true; bus.emit('weeklyClaimed'); const r = wqReward(); P.gold += r.gold; P.shards = (P.shards || 0) + r.shards;
+  { const x = P.wq.list.find(x => x.id === id); x.claimed = true; x.at = Date.now(); } bus.emit('weeklyClaimed'); const r = wqReward(); P.gold += r.gold; P.shards = (P.shards || 0) + r.shards;
   bus.emit('toast', { text: 'Недельное задание выполнено', sub: `+${r.gold} зол. · +${r.shards}◆`, kind: 'good' }); bus.emit('sfx', 'quest'); bus.emit('hud'); bus.emit('save'); return true;
 }

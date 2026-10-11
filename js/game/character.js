@@ -1,9 +1,9 @@
 // Character management: equipment, attribute points, skill tree learning & slots.
 import { G, bus } from './ctx.js';
 import { WEAPONS, CLASSES, SLOTS } from '../data/items.js';
-import { SKILLS, BRANCHES, rankLevel, prevNode, inClassTree } from '../data/skills.js';
+import { SKILLS, BRANCHES, rankLevel, prevNode, inClassTree, classSkillOrder, MASTERY_MAX } from '../data/skills.js';
 import { stats, meetsReq, usefulness, compare } from './stats.js';
-import { sellValue } from './items.js';
+import { sellValue, priceK } from './items.js';
 import { firstLessonCost, potionReserve } from './progress.js';
 
 const recalc = () => { const P = G.profile; const old = G.stats; G.stats = stats(P); if (G.player && old) { G.player.hp = Math.min(G.stats.maxHP, G.player.hp * G.stats.maxHP / old.maxHP); G.player.mp = Math.min(G.stats.maxMP, G.player.mp); } bus.emit('statsChanged'); bus.emit('hud'); bus.emit('save'); };
@@ -44,7 +44,7 @@ export const skillCost = id => {
   if (!r) return n === 0 ? firstLessonCost() : Math.round(25 * Math.pow(2, n - 1));
   // правки мамы (М5): второй ранг стоил 50 золота, а после Летописи у игрока ~40 — очко навыка есть, а потратить нельзя.
   // Первое повышение ранга теперь 30·1,1^(ур.−1) (33 на 2-м уровне), дальше как было
-  return Math.round(30 * (r === 1 ? 1 : Math.pow(1.5, r)) * Math.pow(1.1, P.level - 1));
+  return Math.round(30 * (r === 1 ? 1 : Math.pow(1.5, Math.min(5, r))) * priceK(P.level));   // перед релизом: после 20 ур. цена растёт линейно (items.js priceK)
 };
 export function addAttr(k, n = 1, pay = false) {
   const P = G.profile; n = Math.min(n, P.attrPts); if (n <= 0) return false;
@@ -66,15 +66,36 @@ export function canLearn(id) {
   const P = G.profile, s = SKILLS[id], r = P.skills[id] || 0;
   if (!inClassTree(cls(), id)) return { ok: false, why: 'Недоступно вашему классу' };
   if (r >= s.max) return { ok: false, why: 'Максимальный ранг' };
+  if (P.cheat && P.cheat.skills) return { ok: true };   // перед релизом: админка — навыки без уровня, прошлого узла и очков
   const miss = skillReqs(id).find(q => !q.ok); if (miss) return { ok: false, why: miss.lvl ? `Нужен ${miss.text.toLowerCase()}` : `Сначала изучите ${miss.text}` };
   if (P.skillPts <= 0) return { ok: false, why: 'Нет очков навыков — получите новый уровень' };
   return { ok: true };
 }
+// правки к сборке 60: «Навыки» у Элвина мигают, только если умение можно изучить прямо сейчас (уровень, прошлый узел, золото) — одного очка мало
+export const canLearnNow = () => G.profile.skillPts > 0 && classSkillOrder(cls()).some(id => (canLearn(id).ok && G.profile.gold >= skillCost(id)) || (canMaster(id).ok && G.profile.gold >= masteryCost()));
 export function learn(id, pay = false, first = false) {
   const c = first ? (G.profile.skillPts > 0 ? { ok: true } : { ok: false, why: 'Нет очков навыков' }) : canLearn(id); if (!c.ok) { bus.emit('toast', { text: c.why, kind: 'warn' }); bus.emit('sfx', 'deny'); return false; }
   const P = G.profile;
-  if (pay) { const cost = skillCost(id); if (Object.keys(P.skills).length && potionReserve(cost)) return false; if (P.gold < cost) { bus.emit('toast', { text: `Урок стоит ${cost} золота`, sub: 'Соберите золото в катакомбах', kind: 'warn' }); bus.emit('sfx', 'deny'); return false; } P.gold -= cost; } P.skills[id] = (P.skills[id] || 0) + 1; P.skillPts--;
+  const free = !!(P.cheat && P.cheat.skills); if (free) pay = false;
+  if (pay) { const cost = skillCost(id); if (Object.keys(P.skills).length && potionReserve(cost)) return false; if (P.gold < cost) { bus.emit('toast', { text: `Урок стоит ${cost} золота`, sub: 'Соберите золото в катакомбах', kind: 'warn' }); bus.emit('sfx', 'deny'); return false; } P.gold -= cost; } P.skills[id] = (P.skills[id] || 0) + 1; if (!free) P.skillPts--;
   if (SKILLS[id].kind === 'active' && !P.slots.includes(id)) { const e = P.slots.indexOf(null); if (e >= 0) { P.slots[e] = id; setTimeout(() => bus.emit('skillSlotted', { id, i: e }), 0); } }
+  bus.emit('sfx', 'learn'); recalc(); bus.emit('skillsChanged'); return true;
+}
+// ---- перед релизом: мастерство (очко навыка + золото как за ранг 5) для активного умения, изученного до конца
+export const masteryOf = (P, id) => (P.mastery && P.mastery[id]) || 0;
+export const masteryCost = () => Math.round(30 * Math.pow(1.5, 5) * priceK(G.profile.level));
+export function canMaster(id) {
+  const P = G.profile, s = SKILLS[id], r = P.skills[id] || 0, m = masteryOf(P, id), free = !!(P.cheat && P.cheat.skills);
+  if (!s || s.kind !== 'active' || s.max < 5 || !inClassTree(cls(), id)) return { ok: false, why: 'Мастерство — только для активных умений' };
+  if (r < s.max) return { ok: false, why: `Сначала ${s.max}-й ранг` };
+  if (m >= MASTERY_MAX) return { ok: false, why: 'Мастерство на пределе' };
+  if (!free && P.skillPts <= 0) return { ok: false, why: 'Нет очков навыков — получите новый уровень' };
+  return { ok: true, free };
+}
+export function master(id) {
+  const P = G.profile, c = canMaster(id); if (!c.ok) { bus.emit('toast', { text: c.why, kind: 'warn' }); bus.emit('sfx', 'deny'); return false; }
+  if (!c.free) { const cost = masteryCost(); if (P.gold < cost) { bus.emit('toast', { text: `Мастерство стоит ${cost} золота`, kind: 'warn' }); bus.emit('sfx', 'deny'); return false; } P.gold -= cost; P.skillPts--; }
+  P.mastery = P.mastery || {}; P.mastery[id] = masteryOf(P, id) + 1;
   bus.emit('sfx', 'learn'); recalc(); bus.emit('skillsChanged'); return true;
 }
 export function grantSkill(id) {   // free lesson from the trainer: bypasses prerequisites

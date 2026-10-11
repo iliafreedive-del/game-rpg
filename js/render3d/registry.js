@@ -12,6 +12,7 @@ import skel_archer from './models/mob/skel_archer.js';
 import skel_mage from './models/mob/skel_mage.js';
 import beast from './models/mob/beast.js';
 import elite_guard from './models/mob/elite_guard.js';
+import { survGuard, survBrute } from './models/mob/surv_guard.js';
 import elite_warlord from './models/mob/elite_warlord.js';
 import bone_wolf from './models/mob/bone_wolf.js';
 import { STONE_MOBS } from './models/mob/_stone.js';
@@ -77,6 +78,7 @@ import tree_autumn from './models/prop/tree_autumn.js';
 import tree_elm from './models/prop/tree_elm.js';
 import tree_pine_tall from './models/prop/tree_pine_tall.js';
 import tree_fir_blue from './models/prop/tree_fir_blue.js';
+import { FIR_SNOW } from './models/prop/tree_fir_snow.js';
 import deadtree from './models/prop/deadtree.js';
 import house_0 from './models/prop/house_0.js';
 import house_1 from './models/prop/house_1.js';
@@ -97,6 +99,9 @@ import altar from './models/prop/altar.js';
 import banner from './models/prop/banner.js';
 import statue from './models/prop/statue.js';
 import weapon_rack from './models/prop/weapon_rack.js';
+import weapon_rack_bow from './models/prop/weapon_rack_bow.js';
+import weapon_rack_staff from './models/prop/weapon_rack_staff.js';
+import cabinet from './models/prop/cabinet.js';
 import crystals from './models/prop/crystals.js';
 import portal from './models/prop/portal.js';
 import fern from './models/prop/fern.js';
@@ -185,13 +190,13 @@ import anvil from './models/prop/anvil.js';
 
 const by = (...l) => Object.fromEntries(l.map(m => [m.id, m]));
 export const HEROES = by(warrior, archer, mage);                       // ключ — класс героя
-export const MOBS = by(skel_warrior, ghoul, skel_archer, skel_mage, beast, elite_guard, elite_warlord, bone_wolf, boss, f_draugr, f_berserk, f_hag, mb_grave_weeper, f_jotun, f_jarl, w_poacher, w_leshy, w_ataman, f_wolf, w_wolf, w_boar, w_bear, f_boss, w_boss, b_raider, b_thrower, b_hyena, b_boar, b_shaman, b_scorpid, b_chief, b_boss, ...STONE_MOBS);             // ключ — тип врага (ENEMIES)
+export const MOBS = by(skel_warrior, ghoul, skel_archer, skel_mage, beast, elite_guard, elite_warlord, survGuard, survBrute, bone_wolf, boss, f_draugr, f_berserk, f_hag, mb_grave_weeper, f_jotun, f_jarl, w_poacher, w_leshy, w_ataman, f_wolf, w_wolf, w_boar, w_bear, f_boss, w_boss, b_raider, b_thrower, b_hyena, b_boar, b_shaman, b_scorpid, b_chief, b_boss, ...STONE_MOBS);             // ключ — тип врага (ENEMIES)
 export const NPCS = by(npc_fortune, npc_elder, npc_smith, npc_merchant, npc_trainer, npc_caravan);
 export const WEAPONS = by(bow_hunter, staff_mage, axe_hand, club_giant, staff_ice, staff_root, sword_iron, shield_round, sword_rust, shield_bone, bow_bone, staff_bone, axe_great);
-export const PROPS = by(fort_door_i, fort_door_w, chronicle, fort_wall, palisade, fort_tower, watchtower, fort_gate_i, fort_gate_w, fort_hall_i, fort_hall_w, tent_i, tent_w, tree_0, tree_1, tree_birch, tree_autumn, tree_elm, tree_pine_tall, tree_fir_blue, deadtree, house_0, house_1, house_2, rocks, grave, fence_x, fence_y, barrel, crate, hay, lamp, runebed, forge, stall, board, altar, banner, statue, weapon_rack, crystals, portal,
+export const PROPS = by(fort_door_i, fort_door_w, chronicle, fort_wall, palisade, fort_tower, watchtower, fort_gate_i, fort_gate_w, fort_hall_i, fort_hall_w, tent_i, tent_w, tree_0, tree_1, tree_birch, tree_autumn, tree_elm, tree_pine_tall, tree_fir_blue, ...FIR_SNOW, deadtree, house_0, house_1, house_2, rocks, grave, fence_x, fence_y, barrel, crate, hay, lamp, runebed, forge, stall, board, altar, banner, statue, weapon_rack, crystals, portal,
   fern, flowers, pebbles, mushrooms, bush, sacks, logpile, stump, tree_poplar, tree_oakwide, tree_sapling, ...DEAD_VARIANTS, ...ROCK_VARIANTS, ...PORTAL_VARIANTS, market_tent, goddess_altar, ...STEPPE_PROPS, ...GIANT_PROPS, ...CAMP_PROPS, ...TEMPLE_PROPS,
   church, tavern, shop, smithy, cottage_a, cottage_b, cottage_c, bridge, barricade, vine_row, garden_bed, scarecrow, dummy, target, bench, table, reeds, fortune_tent, mill_ruin, cart, cart_load, signpost, barrel_stack, log_stack, plank_pile, clothesline, pumpkins, tool_stand, anvil, caravan_wagon,
-  dwall_hi, dwall_lo, dwall_buttress, dwall_niche, wall_block, torch_sconce, pillar, brazier, bones, skulls, rubble, candles, chest, chest_open, chest_rich, chest_rich_open, sarcophagus, sarcophagus_open, door, door_open, door_arch, door_arch_open, door_square, door_square_open, gate_sealed, altar_medallion, stalagmite, lavarock, puddle, rug, bookshelf, throne, well);   // подземелье (стены dwall_* ставит dungeon.js по тайлам)   // последние восемь — декор земли и хлам у домов (js/render3d/props.js, scatterDecor), в картах не стоят
+  dwall_hi, dwall_lo, dwall_buttress, dwall_niche, wall_block, torch_sconce, pillar, brazier, bones, skulls, rubble, candles, chest, chest_open, chest_rich, chest_rich_open, weapon_rack_bow, weapon_rack_staff, cabinet, sarcophagus, sarcophagus_open, door, door_open, door_arch, door_arch_open, door_square, door_square_open, gate_sealed, altar_medallion, stalagmite, lavarock, puddle, rug, bookshelf, throne, well);   // подземелье (стены dwall_* ставит dungeon.js по тайлам)   // последние восемь — декор земли и хлам у домов (js/render3d/props.js, scatterDecor), в картах не стоят
 
 // какая модель оружия соответствует типу оружия игры (wt); недостающие пока подменяются мечом
 export const WEAPON_MODEL = { sword: 'sword_iron', greatsword: 'sword_iron', axe: 'sword_iron', bow: 'bow_hunter', staff: 'staff_mage' };
@@ -206,6 +211,6 @@ export const TREE_KINDS = {
   tree_0: [['tree_0', 3], ['tree_elm', 3], ['tree_birch', 2.5], ['tree_autumn', 1.4], ['tree_oakwide', 2], ['tree_poplar', 1.6], ['tree_sapling', 1.6], ['tree_1', 1]],
   tree_1: [['tree_1', 3], ['tree_pine_tall', 2.5], ['tree_fir_blue', 1.5], ['tree_elm', 1.2], ['tree_birch', 0.8], ['tree_poplar', 0.8], ['tree_sapling', 0.8], ['tree_autumn', 0.7]],
 };
-for (const id of [...TREE_KINDS.tree_0, ...TREE_KINDS.tree_1].map(k => k[0]).concat(['tree_acacia', 'tree_acacia_b', 'tree_acacia_c'])) {
+for (const id of [...TREE_KINDS.tree_0, ...TREE_KINDS.tree_1].map(k => k[0]).concat(['tree_acacia', 'tree_acacia_b', 'tree_acacia_c'], FIR_SNOW.map(d => d.id))) {
   const d = PROPS[id]; PROPS[id + '_far'] = { ...d, id: id + '_far', density: d.leaf === 'pine' ? 0.6 : Math.max(5, Math.round(d.density * 0.3)) };
 }

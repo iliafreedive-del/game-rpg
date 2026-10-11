@@ -19,6 +19,7 @@ export const wildState = (realm, P = G.profile) => {
 const bump = (realm, k, n = 1) => { const S = wildState(realm).stat; S[k] = (S[k] || 0) + n; return S[k]; };
 
 // Спавн мобов поля. Лагерь кладётся вокруг точки; командир/босс получают метку и своё имя.
+const MINI_BIG = 1.5;
 export function spawnWild(zone) {
   applyFieldMemory(zone.json);
   for (const [type, x, y, n, spread, lvl, tag] of zone.json.spawns) {
@@ -29,7 +30,8 @@ export function spawnWild(zone) {
       const e = new Enemy(type, px, py, bandLevel(lvl, lvl + 3, !!tag && tag !== 'fortguard'), { story: tag || null, champion: !tag && rand() < 0.04 + zone.json.wild.depth * 0.01 });   // сборка 47: герой +1 в пределах поле..поле+3
       if (tag === 'wildkeep') applyNemesis(e, pickNemesis(zone.json.wild.realm));
       if (tag === 'wildboss') e.name = `${WILD_MOBS[type].name} · глубина ${zone.json.wild.depth}`;
-      if (tag === 'wildmini') { e.champion = true; e.maxHP = Math.round(e.maxHP * 2.6); e.hp = e.maxHP; e.dmgMul *= 1.2; e.name = 'Вожак поля: ' + WILD_MOBS[type].name; }   // П20: охраняет «Вглубь», не возрождается
+      if (tag === 'wildmini') { e.champion = true; e.maxHP = Math.round(e.maxHP * 2.6); e.hp = e.maxHP; e.dmgMul *= 1.2; e.name = 'Вожак поля: ' + WILD_MOBS[type].name;
+        if (WILD_MOBS[type].ai !== 'giant' && !WILD_MOBS[type].elite) { e.bigMul = MINI_BIG; e.r *= 1.3; e.maxHP = Math.round(e.maxHP * 1.3); e.hp = e.maxHP; } }   // правки 3: волк, кабан, берсерк — вожак заметно крупнее своих   // П20: охраняет «Вглубь», не возрождается
       G.enemies.push(e);
     }
   }
@@ -114,7 +116,7 @@ bus.on('wildSummon', ({ e, n, text }) => {
 
 // Тайник (бочка/ящик в походе, катакомбах, Глубинах): почти всегда немного золота, реже зелье, очень редко вещь.
 export function openStash(it) {
-  it.done = true; it.draw.hidden = true; bus.emit('sfx', 'chest');
+  it.done = true; if (!it.keep) it.draw.hidden = true; bus.emit('sfx', 'chest');
   const lvl = G.zone.json.level || 1; for (let i = 0; i < 2; i++) L.dropGold(it.x, it.y + 0.6, rint(2, 5) * (1 + 0.15 * (lvl - 1)));
   if (rand() < (G.zone.json.wild?.pity ? 0.55 : 0.25)) L.dropPotion(it.x, it.y + 0.6, rand() < 0.7 ? 'hp' : 'mp');
   if (rand() < 0.05) { const n0 = G.pickups.length; L.dropItem(it.x, it.y + 0.8, makeItem({ rarity: 0, ilvl: Math.max(G.profile.level, lvl), cls: G.profile.cls || 'warrior' })); for (let i = n0; i < G.pickups.length; i++) G.pickups[i].fly = true; }

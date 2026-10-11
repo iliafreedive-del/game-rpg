@@ -1,5 +1,9 @@
 // Перенос рига готового зверя (скелет, веса, анимации) на статичную модель из Meshy Image to 3D:
-//   node tools/art/rig_transfer.mjs <ригнутый донор.glb> <статичная.glb> <выход.glb> [--yaw градусы] [--flip]
+//   node tools/art/rig_transfer.mjs <ригнутый донор.glb> <статичная.glb> <выход.glb> [--yaw градусы] [--flip] [--skip кость,кость]
+// --skip — вершины донора, принадлежащие этим костям, не участвуют в переносе весов (правки 4, П4-1: опущенный хвост волка лежит
+// рядом с его левой задней лапой, и голень оленя доставалась хвосту — нога моталась с хвостом назад). Олень:
+//   node tools/art/rig_transfer.mjs assets/models/wolf_grey.glb assets/models/t_stag.glb assets/models/t_stag.glb --skip tail1,tail2,tail3
+// (статичной моделью может быть и ригнутая GLB — берётся её сетка в позе привязки)
 // Пример: node tools/art/rig_transfer.mjs assets/models/wolf_grey.glb art_meshy/raw/dog_town.glb assets/models/dog_town.glb
 // Как работает (скинning glTF считается в мировых координатах, узел меша не влияет):
 //  1. статичная модель ставится как донор: вверх +Y, длина тела — по оси донора (голова туда же, куда у донора),
@@ -15,7 +19,7 @@ import fs from 'fs';
 
 const args = process.argv.slice(2), flag = k => { const i = args.indexOf(k); if (i < 0) return null; const v = args[i + 1]; args.splice(i, 2); return v; };
 const flip = args.includes('--flip'); if (flip) args.splice(args.indexOf('--flip'), 1);
-const yawExtra = +(flag('--yaw') || 0) * Math.PI / 180;
+const yawExtra = +(flag('--yaw') || 0) * Math.PI / 180, skipBones = (flag('--skip') || '').split(',').filter(Boolean);
 const [donorPath, targetPath, outPath] = args;
 if (!outPath) { console.log('node tools/art/rig_transfer.mjs <донор.glb> <статичная.glb> <выход.glb> [--yaw град] [--flip]'); process.exit(1); }
 
@@ -57,7 +61,7 @@ const S = readGlb(targetPath), sj = S.j;
 const P = [], N = [], UV = [], IDX = []; let material = null;
 (sj.nodes || []).forEach((n, ni) => {
   if (n.mesh == null) return;
-  const W = S.world(ni), Nm = new T.Matrix3().getNormalMatrix(W);
+  const W = n.skin != null ? new T.Matrix4() : S.world(ni), Nm = new T.Matrix3().getNormalMatrix(W);   // сетка со скином уже в мировых координатах привязки
   for (const pr of sj.meshes[n.mesh].primitives) {
     if (pr.mode != null && pr.mode !== 4) continue;
     const base = P.length / 3, p = S.acc(pr.attributes.POSITION), nr = pr.attributes.NORMAL != null ? S.acc(pr.attributes.NORMAL) : null, uv = pr.attributes.TEXCOORD_0 != null ? S.acc(pr.attributes.TEXCOORD_0) : null;
@@ -101,7 +105,8 @@ const toD = (x, y, z) => [(x - sBox.min.x) / sS.x * dS.x + dBox.min.x, (y - sBox
 
 // ---- веса: 6 ближайших вершин донора (сетка-решётка для поиска), 1/d² , потом сглаживание по рёбрам
 const cell = Math.max(dS.x, dS.y, dS.z) / 40, grid = new Map(), key = (a, b, c) => a + ',' + b + ',' + c;
-for (let i = 0; i < dN; i++) { const g = key(Math.floor(dPos[i * 3] / cell), Math.floor(dPos[i * 3 + 1] / cell), Math.floor(dPos[i * 3 + 2] / cell)); (grid.get(g) || grid.set(g, []).get(g)).push(i); }
+const skipJ = new Set(skipBones.map(byName).filter(q => q >= 0)), domJ = i => { let b = 0; for (let t = 1; t < 4; t++) if (dW[i * 4 + t] > dW[i * 4 + b]) b = t; return dJ[i * 4 + b]; };
+for (let i = 0; i < dN; i++) { if (skipJ.has(domJ(i))) continue; const g = key(Math.floor(dPos[i * 3] / cell), Math.floor(dPos[i * 3 + 1] / cell), Math.floor(dPos[i * 3 + 2] / cell)); (grid.get(g) || grid.set(g, []).get(g)).push(i); }
 const nJ = joints.length, WT = new Float32Array(sN * nJ);
 for (let i = 0; i < sN; i++) {
   const [x, y, z] = toD(P[i * 3], P[i * 3 + 1], P[i * 3 + 2]), gx = Math.floor(x / cell), gy = Math.floor(y / cell), gz = Math.floor(z / cell);

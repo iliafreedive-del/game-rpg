@@ -4,7 +4,7 @@
 import * as THREE from '../vendor/three.module.min.js';
 import { G, bus } from '../game/ctx.js';
 import { PX_PER_M } from '../core/iso.js';
-import { U, setSmoothFade } from './toon.js';
+import { U, setSmoothFade, outline } from './toon.js';
 import { makeKit, preloadModels } from './kit.js';
 import { Actor, setOutlinesVisible } from './actor.js';
 import { preloadBones, bonesReady, preloadBoneTrees } from './bonesglb.js';
@@ -27,6 +27,7 @@ import { Sparks } from './sparks.js';
 import { FORGE_HIT } from './models/npc/npc_smith.js';
 import { sfx } from '../core/audio.js';
 import { disposeObject } from './dispose.js';
+import { gemSprites } from '../game/survival.js';
 
 const params = new URLSearchParams(location.search);
 const SQ = Math.SQRT1_2;
@@ -53,7 +54,7 @@ export const proj = {
 };
 
 export function webglAvailable() {
-  try { const c = document.createElement('canvas'); return !!(c.getContext('webgl2') || c.getContext('webgl')); } catch { return false; }
+  try { const c = document.createElement('canvas'), gl = c.getContext('webgl2') || c.getContext('webgl'); const x = gl && gl.getExtension('WEBGL_lose_context'); if (x) x.loseContext(); return !!gl; } catch { return false; }   // проверочный контекст сразу освобождаем (у iOS лимит контекстов)
 }
 // что умеет 3D-срез прямо сейчас: деревня и герой-воин (остальное рисует 2D-рендерер)
 // что умеет 3D: деревня и все подземелья (катакомбы, глубины, цитадель, арена) для героя-воина; лучник и маг пока идут в 2D
@@ -282,7 +283,7 @@ function syncEnemies(dt) {
   for (const e of G.enemies) {
     let def = MOBS[e.model || e.type] || MOBS[e.D && e.D.model3d];   // e.model — свой вид при том же типе (Страж глубин, сборка 57); model3d — чужая модель на время (мобы храма)
     if (!def) { if (!warned.has(e.type)) { warned.add(e.type); console.warn('[3D] нет модели моба «' + e.type + '» — показан скелет-воин'); } def = MOBS.skel_warrior; }
-    const scale = (e.champion ? 1.25 : 1) * (def === MOBS[e.model || e.type] || (e.D && def === MOBS[e.D.model3d]) ? 1 : e.r / 0.34);
+    const scale = (e.champion ? 1.25 : 1) * (e.bigMul || 1) * (def === MOBS[e.model || e.type] || (e.D && def === MOBS[e.D.model3d]) ? 1 : e.r / 0.34);
     let a = enemyActor(e, def, scale); a.seen = fn;
     // правки 2 (П17–18): моб собран запасной моделью, пока его модель грузилась, — пересобрать, когда догрузилась
     if (def.ready && SKINS.on) { if (a.fb === undefined) a.fb = !def.ready(kit); else if (a.fb && def.ready(kit)) { a.dispose(); actors.delete(e); a = getActor(e, def, { scale }); a.isEnemy = true; a.def = def; a.seen = fn; a.fb = false; } }
@@ -344,11 +345,26 @@ function syncPet(dt) {
   const skin = 'pet_' + p.id; kit.skin.preloadSkin(skin);
   const was = actors.get(p); if (was && !was.model.skin && kit.skin.skinLoaded(skin) && kit.skin.SKINS.on) { was.dispose(); actors.delete(p); }
   const a = getActor(p, PET_MODELS[p.id]); a.isPet = true; a.turnRate = 12;
+  if (!a.petGlow) { petGlow(a); a.root.scale.setScalar(PET_SCALE); }
   a.place(p.x, p.y); a.faceAngle(Math.PI / 2 - p.ang);
   a.update(dt, p.act ? { clip: 'attack', k: Math.min(1, p.act.t / p.act.dur) } : p.speed > 0.4 ? { clip: 'walk', speed: p.speed } : { clip: 'idle' }, env);
+  // правки к сборке 60: питомец ярче — светящийся силуэт (тёплая обводка дышит) и лёгкий подсвет тела.
+  // Дёшево для iPhone: та же обводка, что была (только другой цвет и толщина), без новых проходов и источников света
+  // правки 3: без белёсого подсвета тела (a.flash) — он и делал зверьков блеклыми; цвет сочнее в самой текстуре (pets_meshy.webp)
+  const k = 0.5 + 0.5 * Math.sin(U.uTime.value * 3.2); PET_GLOW.color.setRGB(1.6 + 0.8 * k, 0.55 + 0.35 * k, 0.05);   // выше 1 — подхватывает bloom (ореол без своего прохода)
+}
+// светящаяся обводка питомца: одна общая на всех зверьков, подменяет тёмную обводку модели.
+// Правки 3: питомцы на 20 % крупнее, обводка на 30 % тоньше (толщина в единицах модели — делим на масштаб: 0,03 × 0,7 / 1,2)
+const PET_SCALE = 1.2;
+const PET_GLOW = outline({ width: 0.03 * 0.7 / PET_SCALE, color: 0xffa020 }); PET_GLOW.fog = false;
+function petGlow(a) {
+  a.petGlow = true;
+  a.root.traverse(o => { if (o.isMesh && o.userData.isOutline) o.material = PET_GLOW; });
 }
 let sparks = null;   // искры кузни (sparks.js) — создаются при первом ударе
 // «Жатва Бездны»: рой — настоящие 3D-модели (по типу врага), берутся из пула и возвращаются в него после гибели
+// рой Жатвы (до 80+ моделей): без отбрасываемой тени — под каждым круглая тень, а проход карты теней не удваивает отрисовки роя
+const noCast = a => { a.root.traverse(o => { o.castShadow = false; }); return a; };
 function syncSwarm(dt) {
   const S = G.surv, fn = frameNo;
   if (S) for (const e of S.swarm) { const a = actors.get(e); if (a) a.seen = fn; }
@@ -357,14 +373,31 @@ function syncSwarm(dt) {
   for (const e of S.swarm) {
     let a = actors.get(e);
     if (!a) {
-      const def = MOBS[e.type] || MOBS.skel_warrior, pool = swarmPool.get(e.type);
-      a = pool && pool.length ? pool.pop() : new Actor(def, kit, scene); a.isSwarm = true; a.seen = fn; a.swType = e.type; a.root.visible = true;
-      a.root.scale.setScalar(e.boss ? 1.4 : e.elite ? 1.2 : 1); actors.set(e, a);
+      const mk = e.model || e.type, def = MOBS[mk] || MOBS.skel_warrior, pool = swarmPool.get(mk);   // правки 3: стражи Жатвы — своя модель (e.model) при общем типе
+      a = pool && pool.length ? pool.pop() : noCast(new Actor(def, kit, scene)); a.isSwarm = true; a.seen = fn; a.swType = mk; a.root.visible = true;
+      a.root.scale.setScalar(e.scale || (e.boss ? 1.4 : e.elite ? 1.2 : 1)); actors.set(e, a);
     }
     const c = measure(a, e, dt);
     a.place(e.x, e.y); a.faceAngle(yawOfDir(e.dir));
-    const hitting = e.hitCd > 0.6; a.update(dt, hitting ? { clip: 'attack', k: (0.9 - e.hitCd) / 0.3 } : { clip: 'walk', speed: Math.max(1.2, c.v) }, env); a.flash(e.flash > 0 ? Math.min(1, e.flash * 8) : 0, 0xffffff);
+    const hitting = e.hitCd > 0.6; a.update(dt, e.act ? { clip: 'attack', k: Math.min(1, e.act.t / e.act.dur) } : hitting ? { clip: 'attack', k: (0.9 - e.hitCd) / 0.3 } : { clip: 'walk', speed: Math.max(1.2, c.v) }, env);   // e.act — приём стража (замах перед рывком/ударом) a.flash(e.flash > 0 ? Math.min(1, e.flash * 8) : 0, 0xffffff);
   }
+}
+// правки 3: души и золото Жатвы — в сцене у самой земли, с проверкой глубины: мобы и герой их заслоняют
+// (на 2D-оверлее кристаллы висели поверх всех). Три облака точек (голубые, розовые «жирные», золото), одна отрисовка на каждое
+const GEM_N = 800, GEM_PX = 36;   // спрайт с сиянием в px, как был на оверлее (60) минус 40 %; «жирные» вдвое
+let gemPts = null;
+function syncGems() {
+  const S = G.surv;
+  if (!gemPts) { if (!S) return; const sp = gemSprites();
+    gemPts = ['blue', 'pink', 'gold'].map(k => { const g = new THREE.BufferGeometry(), a = new THREE.BufferAttribute(new Float32Array(GEM_N * 3), 3); a.setUsage(THREE.DynamicDrawUsage); g.setAttribute('position', a);
+      const t = new THREE.CanvasTexture(sp[k]); t.colorSpace = THREE.SRGBColorSpace;
+      const p = new THREE.Points(g, new THREE.PointsMaterial({ map: t, size: 1, sizeAttenuation: false, transparent: true, depthWrite: false, fog: false, toneMapped: false })); p.frustumCulled = false; p.renderOrder = 4; scene.add(p); return p; }); }
+  const n = [0, 0, 0];
+  if (S) { const b = Math.sin(G.time * 3) * 0.07, px = G.player.x, py = G.player.y;
+    for (const g of S.gems) { if (Math.abs(g.x - px) > 30 || Math.abs(g.y - py) > 30) continue; const k = g.gold ? 2 : g.big ? 1 : 0; if (n[k] >= GEM_N) continue;
+      const P = gemPts[k].geometry.attributes.position.array, j = n[k]++ * 3; P[j] = g.x; P[j + 1] = (k === 1 ? 0.6 : 0.35) + b * (k === 1 ? 1.5 : 1); P[j + 2] = g.y; } }
+  const sz = GEM_PX * Math.max(0.8, G.cam.zoom || 1);   // размер в пикселях экрана, как у прежнего спрайта (survival.js SOUL_PX)
+  gemPts.forEach((p, k) => { p.visible = n[k] > 0; p.geometry.setDrawRange(0, n[k]); p.geometry.attributes.position.needsUpdate = n[k] > 0; p.material.size = sz * (k === 1 ? 2 : 1); });
 }
 const env = { wind: new THREE.Vector2() };
 // «Жатва» (сборка 50): мир сдвинулся на плитку — пол подставляет тот же рисунок, у моделей не бывает рывка скорости
@@ -481,7 +514,7 @@ export function render() {
   if (Z !== zone) setZone(Z);
   applyQuality();
   updateCamera(dt); updateLights(tAll, dt);
-  { const adt = dt * (G.timeScale ?? 1); syncPlayer(adt); syncEnemies(adt); syncSwarm(adt); syncNpcs(dt); syncPet(adt); } cullActors();   // С22: в стоп-кадре удара анимации тоже замирают
+  { const adt = dt * (G.timeScale ?? 1); syncPlayer(adt); syncEnemies(adt); syncSwarm(adt); syncGems(); syncNpcs(dt); syncPet(adt); } cullActors();   // С22: в стоп-кадре удара анимации тоже замирают
   world.props.cull(camera); world.props.update(tAll);
   if (world.atmo) world.atmo.update(dt, tAll, G.cam.x, G.cam.y, G.player.x, G.player.y);
   if (world.critters) world.critters.update(dt, tAll, G.player, G.cam.x, G.cam.y);

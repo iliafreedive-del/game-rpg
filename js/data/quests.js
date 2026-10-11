@@ -1,7 +1,7 @@
 // Chapter I «Пробуждение под катакомбами». Objectives are checked by game/quests.js
 // against real counters/flags — nothing is credited for actions the player did not perform.
 export const CHAPTER = 'Глава I. Последний страж печати';
-export const CHAPTERS = { 1: CHAPTER, 2: 'Глава II. Тени за порогом', 3: 'Глава III. Кости великанов', 4: 'Глава IV. Цитадель Морвена' };
+export const CHAPTERS = { 1: CHAPTER, 2: 'Глава II. Тени за порогом', 3: 'Глава III. Льды ётунов', 4: 'Глава IV. Цитадель Морвена' };
 export const chapterOf = q => CHAPTERS[(q && q.chapter) || 1];
 export const STORY = [
   // сборка 60 (П3): первое умение дарит староста (свиток приёма Ордена) — бесплатно, за стартовое очко навыка. Второго уровня до Летописи нет:
@@ -44,20 +44,21 @@ export const STORY = [
   { id: 'c2_depths_portal', chapter: 2, title: 'Найти синий портал', text: 'Элвин: «Это ключ-камень Глубин — старой шахты Ордена под катакомбами. Синий портал в деревне спал сто лет, но камень его разбудит». Идите по стрелке.', obj: { near: 'portal_depths' }, reward: { xp: 60, potions: 1 }, where: 'town', target: 'portal_depths' },
   { id: 'c2_depths3', chapter: 2, title: 'Спуститься на 3-й этаж Глубин', text: 'Палач поднялся снизу, из Глубин. Узнайте, насколько глубоко ушла Бездна: пройдите три этажа. Новые этажи — без факела, пока побеждаете.', obj: { depths: 3 }, reward: { xp: 300, gold: 200 }, where: 'town', target: 'portal_depths' },
   { id: 'c2_forest_fort', chapter: 2, title: 'Отбить форт Старого Леса', text: 'Пять полей Старого Леса, шестое — форт. Перебейте лагеря, откройте ворота, победите командира и пройдите «Вглубь».', obj: { wild: { realm: 'forest', n: 7 } }, reward: { xp: 450, gold: 450, shards: 5 }, where: 'town', target: 'portal_forest' },
-  { id: 'c2_fjord_portal', chapter: 2, title: 'Найти ледяной портал', text: 'Портал во Фьорды Скъёльда — на северо-востоке деревни, за виноградником, у ручья. Идите по стрелке.', obj: { near: 'portal_fjord' }, reward: { xp: 60, gold: 80, potions: 2 }, where: 'town', target: 'portal_fjord' },
-  { id: 'c2_fjord3', chapter: 2, title: 'Пройти три поля Фьордов', text: 'Войдите в ледяной портал и пройдите три поля подряд (через порталы «Вглубь»).', obj: { wild: { realm: 'fjord', n: 4 } }, reward: { xp: 260, gold: 260, shards: 3 }, where: 'town', target: 'portal_fjord' },
+  // правки 3: id заданий прежние (сохранения), а содержимое переставлено: глава II ведёт в Пустоши, глава III — во Фьорды
+  { id: 'c2_fjord_portal', chapter: 2, title: 'Найти костяной портал', text: 'Портал в Костяные пустоши — из черепов и рёбер, в левой части деревни. Идите по стрелке.', obj: { near: 'portal_bones' }, reward: { xp: 60, gold: 80, potions: 2 }, where: 'town', target: 'portal_bones' },
+  { id: 'c2_fjord3', chapter: 2, title: 'Пройти три поля пустошей', text: 'Красная степь, долина черепов, колючие балки. Пройдите три поля подряд через порталы «Вглубь».', obj: { wild: { realm: 'bones', n: 4 } }, reward: { xp: 260, gold: 260, shards: 3 }, where: 'town', target: 'portal_bones' },
   { id: 'c2_depths5', chapter: 2, title: 'Спуститься на 5-й этаж Глубин', text: 'Синий портал в деревне. Новые этажи — без факела, пока побеждаете.', obj: { depths: 5 }, reward: { xp: 300, gold: 300, items: [{ slot: 'amulet', set: 1 }] }, where: 'town', target: 'portal_depths' },
   { id: 'c2_hw10', chapter: 2, title: 'Летопись битв: 10 этапов', text: 'Арка «Летопись битв» на площади. Бой идёт сам: ваш герой против отряда из 2–4 врагов, каждый бой — 1 ⚡.', obj: { hw: 10 }, reward: { xp: 350, gold: 350, items: [{ slot: 'head', set: 1 }] }, where: 'town', target: 'herospath' },
   { id: 'c2_depths10', chapter: 2, title: 'Спуститься на 10-й этаж Глубин', text: 'После 8-го этажа враги крепнут быстрее — улучшите героя у наставника и закалите вещи у кузнеца.', obj: { depths: 10 }, reward: { xp: 600, gold: 600, shards: 8 }, where: 'town', target: 'portal_depths' },
-  { id: 'c2_fjord_fort', chapter: 2, title: 'Отбить форт Фьордов', text: 'Ледяной форт ярла за пятью полями Фьордов: лагеря вокруг, ворота, командир.', obj: { wild: { realm: 'fjord', n: 7 } }, reward: { xp: 800, gold: 800, items: [{ slot: 'weapon', tier: 3, rarity: 2 }] }, where: 'town', target: 'portal_fjord' },
-  { id: 'c2_finish', chapter: 2, title: 'Рассказать старосте', text: 'Эдрик ждёт вестей о Фьордах и Лесе.', obj: { talk: 'elder' }, reward: { xp: 900, gold: 1000, shards: 10, items: [{ slot: 'chest', set: 1 }] }, where: 'town', target: 'elder' },
-  // ---- Глава III «Кости великанов» (сборка 45): четвёртая печать в Костяных пустошах
-  { id: 'c3_portal', chapter: 3, title: 'Найти костяной портал', text: 'Умирающий ётун сказал: четвёртая печать — в пустошах. Портал из черепов и рёбер стоит в левой части деревни.', obj: { near: 'portal_bones' }, reward: { xp: 700, gold: 400, potions: 3 }, where: 'town', target: 'portal_bones' },
-  { id: 'c3_fields3', chapter: 3, title: 'Пройти три поля пустошей', text: 'Красная степь, долина черепов, колючие балки. Идите через порталы «Вглубь».', obj: { wild: { realm: 'bones', n: 4 } }, reward: { xp: 900, gold: 700, shards: 5 }, where: 'town', target: 'portal_bones' },
-  { id: 'c3_scorpid', chapter: 3, title: 'Убить трёх скорпионов-панцирников', text: 'Панцирники водятся в балках с глубины 3. Их хитин нужен кузнецу Горану.', obj: { wildStat: { realm: 'bones', key: 'k_b_scorpid', n: 3 } }, turnIn: true, turnTo: 'smith', reward: { xp: 900, gold: 600, items: [{ slot: 'head', tier: 3, rarity: 2 }] }, where: 'town' },
+  { id: 'c2_fjord_fort', chapter: 2, title: 'Отбить Древние руины', text: 'За пятью полями пустошей — руины с вождём Кровавым Клыком. Перебейте лагеря, откройте ворота, победите вождя.', obj: { wild: { realm: 'bones', n: 7 } }, reward: { xp: 800, gold: 800, items: [{ slot: 'weapon', tier: 3, rarity: 2 }] }, where: 'town', target: 'portal_bones' },
+  { id: 'c2_finish', chapter: 2, title: 'Рассказать старосте', text: 'Эдрик ждёт вестей о Пустошах и Лесе.', obj: { talk: 'elder' }, reward: { xp: 900, gold: 1000, shards: 10, items: [{ slot: 'chest', set: 1 }] }, where: 'town', target: 'elder' },
+  // ---- Глава III «Льды ётунов» (правки 3; была «Кости великанов»): четвёртая печать во Фьордах
+  { id: 'c3_portal', chapter: 3, title: 'Найти ледяной портал', text: 'Костяной исполин сказал: четвёртая печать — во фьордах. Ледяной портал — на северо-востоке деревни, за виноградником, у ручья.', obj: { near: 'portal_fjord' }, reward: { xp: 700, gold: 400, potions: 3 }, where: 'town', target: 'portal_fjord' },
+  { id: 'c3_fields3', chapter: 3, title: 'Пройти три поля Фьордов', text: 'Войдите в ледяной портал и пройдите три поля подряд (через порталы «Вглубь»).', obj: { wild: { realm: 'fjord', n: 4 } }, reward: { xp: 900, gold: 700, shards: 5 }, where: 'town', target: 'portal_fjord' },
+  { id: 'c3_scorpid', chapter: 3, title: 'Убить трёх ётунов-великанов', text: 'Ётуны бродят во Фьордах с глубины 3. Их ледяные кости нужны кузнецу Горану.', obj: { wildStat: { realm: 'fjord', key: 'k_f_jotun', n: 3 } }, turnIn: true, turnTo: 'smith', reward: { xp: 900, gold: 600, items: [{ slot: 'head', tier: 3, rarity: 2 }] }, where: 'town' },
   { id: 'c3_depths15', chapter: 3, title: 'Спуститься на 15-й этаж Глубин', text: 'Печать держится на силе стража. Наберитесь её в Глубинах.', obj: { depths: 15 }, reward: { xp: 1200, gold: 1000, shards: 8 }, where: 'town', target: 'portal_depths' },
-  { id: 'c3_fort', chapter: 3, title: 'Отбить Древние руины', text: 'За пятью полями пустошей — руины с вождём Кровавым Клыком. Перебейте лагеря, откройте ворота, победите вождя.', obj: { wild: { realm: 'bones', n: 7 } }, reward: { xp: 1600, gold: 1400, items: [{ slot: 'weapon', set: 1 }] }, where: 'town', target: 'portal_bones' },
-  { id: 'c3_boss', chapter: 3, title: 'Победить Костяного исполина', text: 'Четвёртую печать сторожит Пробуждённый Костяной исполин — он ждёт в глубине пустошей (каждая 12-я локация).', obj: { flag: 'seal_bones' }, reward: { xp: 2400, gold: 2000, shards: 12, items: [{ slot: 'weapon', epic: true }] }, where: 'town', target: 'portal_bones' },
+  { id: 'c3_fort', chapter: 3, title: 'Отбить форт Фьордов', text: 'Ледяной форт ярла за пятью полями Фьордов: лагеря вокруг, ворота, командир.', obj: { wild: { realm: 'fjord', n: 7 } }, reward: { xp: 1600, gold: 1400, items: [{ slot: 'weapon', set: 1 }] }, where: 'town', target: 'portal_fjord' },
+  { id: 'c3_boss', chapter: 3, title: 'Победить ётуна Скъёльда', text: 'Четвёртую печать сторожит ётун Скъёльд — он ждёт в глубине Фьордов (каждая 12-я локация).', obj: { flag: 'seal_fjord' }, reward: { xp: 2400, gold: 2000, shards: 12, items: [{ slot: 'weapon', epic: true }] }, where: 'town', target: 'portal_fjord' },
   { id: 'c3_elvin', chapter: 3, title: 'Поговорить с наставником Элвином', text: 'Память вернулась целиком. Элвин должен объясниться.', obj: { talk: 'trainer' }, reward: { xp: 1200, gold: 800, skillPts: 1 }, where: 'town', target: 'trainer' },
   // ---- Глава IV «Цитадель Морвена»: финал
   { id: 'c4_castle', chapter: 4, title: 'Войти в Цитадель Ордена', text: 'Морвен открыл Цитадель. Портал — в левой части деревни.', obj: { enter: 'castle' }, reward: { xp: 1200, gold: 800, potions: 5 }, where: 'town', target: 'portal_castle' },
@@ -71,11 +72,11 @@ export const STORY = [
 export const REPEATABLE = [
   { id: 'r_kill100', title: 'Уничтожить 300 монстров', stat: 'kills', n: 300, reward: { gold: 700, xp: 900 } },
   { id: 'r_walk1000', title: 'Пройти 4000 метров', stat: 'meters', n: 4000, reward: { gold: 400, potions: 5 } },
-  { id: 'r_gold1000', title: 'Собрать 4000 золота', stat: 'gold', n: 4000, reward: { gold: 700, xp: 600 } },
+  { id: 'r_gold1000', after: 'r_gold5000', title: 'Собрать 4000 золота', stat: 'gold', n: 4000, reward: { gold: 700, xp: 600 } },
   { id: 'r_elite5', title: 'Убить 15 элитных противников', stat: 'elites', n: 15, reward: { gold: 900, items: [{ slot: 'weapon', tier: 2, rarity: 2 }] } },
   { id: 'r_chest10', title: 'Открыть 30 сундуков', stat: 'chests', n: 30, reward: { gold: 500, potions: 5 } },
   // П34 (правки 2): кузнецу на серебро — 5000 золота, только добытого в бою (подобранного с врагов и сундуков и вынесенного из похода; не реклама, не покупки, не награды)
-  { id: 'r_gold5000', once: true, title: 'Серебро для Горана: добыть 5000 золота', stat: 'gold', n: 5000, reward: { gold: 1500, xp: 1500, shards: 5, items: [{ slot: 'weapon', tier: 2, rarity: 2, noClamp: true, names: { warrior: 'Посеребрённый клинок Горана', archer: 'Посеребрённый лук Горана', mage: 'Посеребрённый посох Горана' } }] } },
+  { id: 'r_gold5000', once: true, title: 'Серебро для Горана: добыть 5000 золота', stat: 'gold', n: 5000, reward: { gold: 1500, xp: 1500, shards: 5, items: [{ slot: 'weapon', tier: 2, rarity: 2, names: { warrior: 'Посеребрённый клинок Горана', archer: 'Посеребрённый лук Горана', mage: 'Посеребрённый посох Горана' } }] } },
   { id: 'r_boss', title: 'Победить босса без смерти', stat: 'bossNoDeath', n: 1, reward: { gold: 600, xp: 600, items: [{ slot: 'weapon', epic: true }] } },
 ];
 
@@ -96,7 +97,7 @@ export const DIALOG = {
            'Элвин тебя усилил, у Миры есть зелья — теперь ты готов. Но сил всё ещё маловато: надо качаться.',
            'Спустись в катакомбы Ордена — портал на северо-западе, за мельницей. Там первая печать, и там же узнаешь, кто её ломает.',
            'Но сперва загляни к караванщику Кофи — его фургон у развилки. Он обещал тебе подарок в дорогу: в катакомбах спутник не помешает.',
-           'Снова запечатаешь — откроется путь к остальным трём: лес, фьорды, пустоши.'],
+           'Снова запечатаешь — откроется путь к остальным трём: лес, пустоши, фьорды.'],
     // сборка 59: шаги обучения между Летописью и катакомбами — раньше староста говорил про катакомбы, где герой ещё не был
     hw_elvin: ['Летопись показала, где ты слаб. Золото оттуда отнеси наставнику Элвину — он продаст усиление.'],
     surv_try: ['Я приоткрыл портал Жатвы Бездны — иди по золотой стрелке. Долго его не удержу: минуты три.', 'Там герой бьёт сам. Твоё дело — бегать и собирать кристаллы. Продержись сколько сможешь.'],
@@ -114,7 +115,7 @@ export const DIALOG = {
     },
     finish: ['Ты вернулся, и тьма под деревней стихла. Палач Бездны пал, первая печать снова цела!',
              'И камень в твоей оправе засветился. Значит, правда: ты тот самый страж.',
-             'Печатей ещё три — в лесу, во фьордах и в пустошах. А доска объявлений у площади всегда найдёт тебе работу.',
+             'Печатей ещё три — в лесу, в пустошах и во фьордах. А доска объявлений у площади всегда найдёт тебе работу.',
              'И ещё: из праха Палача ты вынес синий камень? Покажи его Элвину — он знает знаки Ордена.'],
     done: ['Четыре печати целы, Бездна закрыта, Морвен повержен. Тихий Брод в долгу перед тобой навсегда.', 'Доска объявлений ждёт героев, а Круги Бездны — тех, кому мало.'],
   },

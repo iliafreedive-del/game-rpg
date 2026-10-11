@@ -21,7 +21,7 @@ import { weeklyRule, weekNo, finishWeekly, codexScan, circle, circleHP, circleDm
 import { FLOOR_MODS, modReward } from '../data/floormods.js';
 const clean = J => (declutter(J), J), WILD_DECOR = new Set(['rocks']);   // сборка 47: предметы не входят друг в друга и в стены (world/declutter.js)
 const ROOMY = 1.5;   // «простор» (сборка 18): подземелья в 3D растянуты в 1,5 раза — шире комнаты и коридоры
-import { generateFloor, isBossFloor, parTime, generateCatacombs } from '../world/floorgen.js';
+import { generateFloor, isBossFloor, parTime, generateCatacombs, floorLevel } from '../world/floorgen.js';
 import { generateWild } from '../world/wildgen.js';
 import { repairReach } from '../world/reach.js';
 import { prepareWildAtlases, setPropsPalette, buildWildFloor } from '../world/wildfloor.js';
@@ -34,6 +34,7 @@ import { generateCastle } from '../world/castlegen.js';
 import { wheelReady } from '../ui/wheel.js';
 import { ROOMS, DECOR } from '../data/upgrades.js';
 import * as CS from './castle.js';
+import * as CT from './citadel.js';
 import * as SV from './survival.js';
 import * as DQ from './daily.js';
 import { resize as rResize, prepareRender } from '../render/index.js';
@@ -43,7 +44,8 @@ import { SKILLS } from '../data/skills.js';
 import { rand, rrange } from '../core/util.js';
 import { pollMove, input, mouse, tapAim, tapMove } from '../core/input.js';
 import { elvinBuy } from '../ui/tutorial.js';
-import { gate, BOSS_LEVEL, nextStep, earlyLock, lockToast, bandLevel, CATA_MAX, wildDepthGate } from './progress.js';
+import { canLearnNow } from './character.js';
+import { gate, BOSS_LEVEL, nextStep, earlyLock, lockToast, bandLevel, CATA_MAX, wildDepthGate, lvlOk } from './progress.js';
 import { platform } from '../platform/platform.js';
 import { cineTick, inCinema, cinema, portalShots, newPortalShots } from '../ui/cinema.js';
 import { CAMERA } from '../render3d/style.js';
@@ -102,6 +104,7 @@ export async function loadZone(id, how = {}) {
       json.objects.push({ t: 'nem_wall', x: 14.8, y: 19.2, plate: tr.length || lv ? `Стена врагов: ${tr.length} трофеев${lv ? ' · ☠ ' + lv : ''}` : 'Стена врагов' });
       const slots = [[22.8, 10.4], [24.6, 10.4], [26.4, 10.4], [28.2, 10.4], [23.8, 4.9], [26, 4.9], [28.2, 4.9]];
       tr.slice(0, slots.length).forEach((t, i) => json.objects.push({ t: t.rank >= 3 ? 'statue' : 'skulls', x: slots[i][0], y: slots[i][1] })); }
+    if (CT.riftOpen()) json.objects.push({ t: 'castle_rift', x: CT.RIFT_POS[0], y: CT.RIFT_POS[1] });   // правки 3: Разлом Бездны (js/game/citadel.js)
     zone = new Zone('castle', G.render3d ? clean(widen(json, ROOMY)) : json, P); zone.dark = false;   // bright, readable citadel
     await buildFloorCanvas(zone);
   } else if (id === 'wild') {
@@ -155,7 +158,7 @@ export async function loadZone(id, how = {}) {
   } else if (id === 'castle') {
     [pl.x, pl.y] = zone.start; pl.face = pl.dir = 5; G.trial = null;
   } else if (id === 'wild') {
-    [pl.x, pl.y] = zone.start; pl.face = pl.dir = 1; spawnWild(zone); spawnQuestBeast(zone, how.realm); G.diedThisRun = false;
+    [pl.x, pl.y] = zone.start; pl.face = pl.dir = 1; spawnWild(zone); spawnQuestBeast(zone, how.realm); HU.spawnFor(zone); G.diedThisRun = false;
     { const gt = zone.wildGate; if (gt) for (const [tx, ty] of gt.tiles) zone.map.setSolid(tx, ty, 0); const [sx, sy] = zone.map.nearestFree(pl.x, pl.y, 0.47); repairReach(zone, G.enemies, sx, sy); if (gt) for (const [tx, ty] of gt.tiles) zone.map.setSolid(tx, ty, 1); }   // правки 2: всё на поле достижимо и с учётом предметов
     const WS = wildState(how.realm); WS.depth = Math.max(WS.depth || 0, how.depth);
     G.wild = { realm: how.realm, depth: how.depth, done: false, t0: G.time, carry: 0, greed: 0, slow: 1, noise: 1, refresh: refreshCarry }; refreshCarry();
@@ -250,12 +253,13 @@ function spawnFloor(zone) {
       let px = x, py = y;
       for (let k = 0; k < 10; k++) { const tx = x + rrange(-spread, spread), ty = y + rrange(-spread, spread); if (zone.map.free(tx, ty, 0.4)) { px = tx; py = ty; break; } }
       const rr = ({ boss: 0.8, elite_guard: 0.55, beast: 0.5 })[type] || 0.35; [px, py] = zone.map.nearestFree(px, py, rr);
-      const e = new Enemy(type, px, py, tag ? lvl : bandLevel(lvl, lvl + 3), { story: tag || null, champion: !tag && rand() < 0.05 + zone.json.floorN * 0.01 });   // сборка 47: герой +1 в пределах этаж..этаж+3; страж — ровно уровня этажа (был «герой +1» всегда — прокачка не помогала)
+      const e = new Enemy(type, px, py, tag ? lvl : bandLevel(lvl, lvl + 3), { story: tag || null, champion: !tag && rand() < Math.min(0.3, 0.05 + zone.json.floorN * 0.01) });   // сборка 62: не больше 30% чемпионов (на 100-м этаже были бы все)   // сборка 47: герой +1 в пределах этаж..этаж+3; страж — ровно уровня этажа (был «герой +1» всегда — прокачка не помогала)
       if (tag === 'floorboss') e.name = type === 'boss' ? `Палач Глубин · этаж ${zone.json.floorN}` : `Страж глубин · этаж ${zone.json.floorN}`;
       if (tag === 'floorboss') {   // страж: HP ×1,8 и урон ×1,3 за 5 этажей от стража 5-го (раньше уровень² и Палач (база ×3,2) на 10/20/… давали ×9 за 5 этажей)
-        const k = (zone.json.floorN - 5) / 5, boss = type === 'boss';
-        e.maxHP = Math.round(e.maxHP * 1.8 ** k * scaleHP(6) / scaleHP(lvl) * (boss ? 0.31 : 1)); e.hp = e.maxHP;
-        e.dmgMul *= 1.3 ** k * scaleDmg(6) / scaleDmg(lvl) * (boss ? 0.78 : 1);
+        // сборка 62: ×1,8 за 5 этажей — только до 10-го (дальше росло как 1,8^k: стена на 15–20-м, к 100-му — ×70 000); глубже страж растёт с уровнем этажа
+        const k = Math.min(1, (zone.json.floorN - 5) / 5), boss = type === 'boss', L = zone.json.floorN > 10 ? floorLevel(10) + 1 : lvl;   // L — уровень, к которому приводим (раньше — всегда lvl)
+        e.maxHP = Math.round(e.maxHP * 1.8 ** k * scaleHP(6) / scaleHP(L) * (boss ? 0.31 : 1)); e.hp = e.maxHP;
+        e.dmgMul *= 1.3 ** k * scaleDmg(6) / scaleDmg(L) * (boss ? 0.78 : 1);
       }
       if (tag === 'floorboss' && type === 'elite_guard') e.model = 'elite_warlord';   // сборка 57: свой вид (полководец с секирой)
       G.enemies.push(e);
@@ -271,7 +275,7 @@ function spawnElite(zone) {
 // ------------------------------------------------------------------ events
 bus.on('kill', e => {
   if (e.story === 'trial') { const t = G.trial; G.trial = null; if (t) { if (t.id === 't4') Q.setFlag('morven'); setTimeout(() => CS.trialReward(t), 1200); } }
-  L.gainXP(L.killXP(e), e.x, e.y); if (e.story !== 'trial') L.enemyLoot(e);
+  L.gainXP(L.killXP(e), e.x, e.y); if (e.story !== 'trial' && e.story !== 'rift') L.enemyLoot(e);   // разлом платит в конце (citadel.js)
   if (G.run && !e.summoned && !e.respawned) {
     G.run.kills++;
     const r = G.run; if (r.floor > 0 && !r.done) { r.boonAt = r.boonAt || [Math.ceil(r.total * 0.5)]; if (r.boonAt.length && r.kills >= r.boonAt[0]) { r.boonAt.shift(); setTimeout(() => bus.emit('boonChoice'), 350); } }
@@ -279,6 +283,7 @@ bus.on('kill', e => {
   if (G.zoneId === 'depths' && G.run && G.run.floor > 0 && G.enemies.every(x => x.dead || x.summoned || x.respawned)) {
     const ex = G.zone.inter.find(i => i.id === 'floor_exit'); if (ex && ex.hidden) { ex.hidden = false; ex.draw.hidden = false; ex.light.on = true; C.particles(ex.x, ex.y, 30, { c: [140, 210, 255], sp: 3, size: 4 }); bus.emit('toast', { text: 'Этаж зачищен!', sub: 'Портал выхода открыт', kind: 'good' }); bus.emit('sfx', 'portal'); }
   }
+  if (e.story === 'elite') for (const o of G.enemies) if (!o.dead && o.master === e) C.killEnemy(o, { quiet: true });   // сборка 61: подмога Хранителя рассыпается с ним
   if (e.D.boss && G.zoneId === 'catacombs') {
     G.profile.world.opened.bossPortal = true; G.profile.world.bossPortal = true;
     const it = G.zone.inter.find(i => i.id === 'portal_return');
@@ -299,19 +304,24 @@ bus.on('dust', ({ x, y }) => C.particles(x, y, 10, { c: [150, 135, 115], z: 0.1,
 bus.on('aggro', e => {   // соседи просыпаются с задержкой, близко и по видимости; не больше одного-двух, цепочки нет (разбуженный не будит дальше)
   if (e.woken) return;
   const lim = G.zoneId === 'wild' ? 1 : 2, R = G.zoneId === 'wild' ? 3.2 : 4.5, cand = [];
-  for (const o of G.enemies) { if (o.aggro || o.dead || o.D.boss || o.wakeT !== undefined) continue; const d = Math.hypot(o.x - e.x, o.y - e.y); if (d < R && G.zone.map.los(o.x, o.y, e.x, e.y)) cand.push([d, o]); }
-  cand.sort((a, b) => a[0] - b[0]); for (const [d, o] of cand.slice(0, lim)) o.wakeT = 0.6 + d * 0.25 + rand() * 0.7;
+  // сборка 62: в Глубинах просыпается вся комната (как в Archero) — раньше 1–2 соседа, остальные стояли, пока их не разбудит новая волна
+  const room = G.zoneId === 'depths' && G.run && G.run.floor > 0 && G.zone.roomAt(e.x, e.y);
+  for (const o of G.enemies) { if (o.aggro || o.dead || o.D.boss || o.wakeT !== undefined) continue; const d = Math.hypot(o.x - e.x, o.y - e.y);
+    if (room ? G.zone.roomAt(o.x, o.y) === room : d < R && G.zone.map.los(o.x, o.y, e.x, e.y)) cand.push([d, o]); }
+  cand.sort((a, b) => a[0] - b[0]); for (const [d, o] of room ? cand : cand.slice(0, lim)) o.wakeT = 0.6 + Math.min(d, 8) * 0.25 + rand() * 0.7;
 });
 bus.on('kill', e => {   // «Взрывной» чемпион: взрыв через 0.6 с после смерти
   if (e.affix !== 'volatile') return;
   C.effect({ kind: 'ring', x: e.x, y: e.y, r: 2.6, dur: 0.6, c: [255, 120, 60] });
   setTimeout(() => { const pl = G.player; if (pl && !pl.dead && G.zone && Math.hypot(pl.x - e.x, pl.y - e.y) < 2.6) C.hurtPlayer({ lvl: e.lvl }, 10 * e.dmgMul * (1 + e.lvl * 0.1), 'fire'); C.particles(e.x, e.y, 24, { c: [255, 150, 60], sp: 3, size: 4 }); bus.emit('sfx', 'fire'); }, 600);
 });
-bus.on('summon', ({ x, y, n, lvl }) => {
+bus.on('summon', ({ x, y, n, lvl, types, master }) => {
   for (let i = 0; i < n; i++) {
-    const a = rand() * 6.28, r = rrange(2, 3.5); const px = x + Math.cos(a) * r, py = y + Math.sin(a) * r;
-    if (!G.zone.map.free(px, py, 0.35)) continue;
-    const e = new Enemy(rand() < 0.3 ? 'skel_archer' : 'skel_warrior', px, py, Math.max(1, lvl - 1)); e.aggro = true; e.summoned = true;
+    let px = 0, py = 0, ok = false;   // сборка 61: до 6 попыток найти свободное место (в тесном зале подмога иногда не появлялась)
+    for (let k = 0; k < 6 && !ok; k++) { const a = rand() * 6.28, r = rrange(2, 3.5); px = x + Math.cos(a) * r; py = y + Math.sin(a) * r; ok = G.zone.map.free(px, py, 0.35); }
+    if (!ok) continue;
+    const t = types ? types[Math.floor(rand() * types.length)] : rand() < 0.3 ? 'skel_archer' : 'skel_warrior';
+    const e = new Enemy(t, px, py, Math.max(1, lvl - 1)); e.aggro = true; e.summoned = true; if (master) e.master = master;
     C.particles(px, py, 14, { c: [170, 90, 255], sp: 2, size: 3 }); G.enemies.push(e);
   }
 });
@@ -345,7 +355,7 @@ export function interact(it) {
   switch (it.type) {
     case 'portal':
       if (it.hidden) return;
-      if (it.reqLevel && P.level < it.reqLevel) { bus.emit('toast', { text: `Портал откроется с ${it.reqLevel} уровня`, sub: 'Фармите золото и опыт в катакомбах', kind: 'warn' }); bus.emit('sfx', 'deny'); return; }
+      if (!lvlOk(it.reqLevel)) { bus.emit('toast', { text: `Портал откроется с ${it.reqLevel} уровня`, sub: 'Фармите золото и опыт в катакомбах', kind: 'warn' }); bus.emit('sfx', 'deny'); return; }
       { const g = gate(it.to === 'catacombs' ? 'catacombs' : ''); if (g) { bus.emit('toast', { ...g, kind: 'warn' }); bus.emit('sfx', 'deny'); return; } }
       bus.emit('sfx', 'portal');
       if (it.to === 'castle') { loadZone('castle'); return; }
@@ -354,18 +364,19 @@ export function interact(it) {
       return;
     case 'npc': { if ((it.id === 'fortune' && earlyLock('extra')) || (it.id === 'merchant' && earlyLock('shop'))) { lockToast('extra'); return; } const n = G.npcs.find(x => x.id === it.id); if (n) n.talkT = 4; bus.emit('openNPC', it.id); return; }
     case 'board': bus.emit('openBoard'); return;
-    case 'herospath': { if (P.level < 2 && !(Q.current() && Q.current().id === 'hw_try')) { bus.emit('toast', { text: 'Летопись битв — со 2 уровня', sub: 'Сначала пройдите пролог и немного прокачайтесь', kind: 'warn' }); bus.emit('sfx', 'deny'); return; } const g = gate('hw', 1); if (g) { bus.emit('toast', { ...g, kind: 'warn' }); bus.emit('sfx', 'deny'); return; } bus.emit('openHeroPath'); return; }
+    case 'rift': CT.startRift(it); return;
+    case 'herospath': { if (!lvlOk(2) && !(Q.current() && Q.current().id === 'hw_try')) { bus.emit('toast', { text: 'Летопись битв — со 2 уровня', sub: 'Сначала пройдите пролог и немного прокачайтесь', kind: 'warn' }); bus.emit('sfx', 'deny'); return; } const g = gate('hw', 1); if (g) { bus.emit('toast', { ...g, kind: 'warn' }); bus.emit('sfx', 'deny'); return; } bus.emit('openHeroPath'); return; }
     case 'wheel': if (earlyLock('extra')) { lockToast('extra'); return; } bus.emit('openWheel'); return;
-    case 'survival': if (Q.current() && Q.current().id === 'surv_try') { bus.emit('openSurvival'); return; } { const g = gate('survival'); if (g) { bus.emit('toast', { ...g, kind: 'warn' }); bus.emit('sfx', 'deny'); return; } } if (P.level < SV.REQ_LEVEL) { bus.emit('toast', { text: `Жатва Бездны открывается с ${SV.REQ_LEVEL} уровня`, kind: 'warn' }); bus.emit('sfx', 'deny'); return; } bus.emit('openSurvival'); return;
-    case 'depths': { const g = gate('depths'); if (g) { bus.emit('toast', { ...g, kind: 'warn' }); bus.emit('sfx', 'deny'); return; } } if (it.reqLevel && P.level < it.reqLevel) { bus.emit('toast', { text: `Глубины открываются с ${it.reqLevel} уровня`, kind: 'warn' }); bus.emit('sfx', 'deny'); return; } bus.emit('openDepths'); return;
+    case 'survival': if (Q.current() && Q.current().id === 'surv_try') { bus.emit('openSurvival'); return; } { const g = gate('survival'); if (g) { bus.emit('toast', { ...g, kind: 'warn' }); bus.emit('sfx', 'deny'); return; } } if (!lvlOk(SV.REQ_LEVEL)) { bus.emit('toast', { text: `Жатва Бездны открывается с ${SV.REQ_LEVEL} уровня`, kind: 'warn' }); bus.emit('sfx', 'deny'); return; } bus.emit('openSurvival'); return;
+    case 'depths': { const g = gate('depths'); if (g) { bus.emit('toast', { ...g, kind: 'warn' }); bus.emit('sfx', 'deny'); return; } } if (!lvlOk(it.reqLevel)) { bus.emit('toast', { text: `Глубины открываются с ${it.reqLevel} уровня`, kind: 'warn' }); bus.emit('sfx', 'deny'); return; } bus.emit('openDepths'); return;
     case 'exit': if (!it.hidden) finishFloor(); else bus.emit('toast', { text: 'Портал запечатан', sub: 'Убейте всех врагов на этаже', kind: 'warn' }); return;
     case 'shrine': if (earlyLock('extra')) { lockToast('extra'); return; } bus.emit('openShrine'); return;
-    case 'wildportal': { const g = gate(it.realm); if (g) { bus.emit('toast', { ...g, kind: 'warn' }); bus.emit('sfx', 'deny'); return; } } if (it.reqLevel && P.level < it.reqLevel) { bus.emit('toast', { text: `${REALMS[it.realm].name} — с ${it.reqLevel} уровня`, sub: 'Набирайтесь сил в катакомбах', kind: 'warn' }); bus.emit('sfx', 'deny'); return; } bus.emit('openWild', it.realm); return;
+    case 'wildportal': { const g = gate(it.realm); if (g) { bus.emit('toast', { ...g, kind: 'warn' }); bus.emit('sfx', 'deny'); return; } } if (!lvlOk(it.reqLevel)) { bus.emit('toast', { text: `${REALMS[it.realm].name} — с ${it.reqLevel} уровня`, sub: 'Набирайтесь сил в катакомбах', kind: 'warn' }); bus.emit('sfx', 'deny'); return; } bus.emit('openWild', it.realm); return;
     case 'wildnext': {
       if (it.hidden || it.sealed || !G.wild) { bus.emit('toast', it.sealed ? { text: 'Портал «Вглубь» запечатан', sub: G.wild && G.wild.realm === 'temple' ? 'Победите стража святилища в центре храма — стрелка ведёт к нему' : 'Победите вожака поля — стрелка ведёт к нему', kind: 'warn' } : { text: 'Портал запечатан', sub: 'Сначала отбейте форт', kind: 'warn' }); bus.emit('sfx', 'deny'); return; }
       const nd = G.wild.depth + 1, need = wildReqLevel(G.wild.realm, nd);
       { const g = wildDepthGate(G.wild.realm, nd); if (g) { bus.emit('toast', { ...g, kind: 'warn' }); bus.emit('sfx', 'deny'); return; } }   // П37: до ноши и тоста «прошли через портал» (loadZone всё равно не пустит)
-      if (P.level < need) { bus.emit('toast', { text: `Дальше — с ${need} уровня`, sub: `У вас ${P.level}. Наберитесь сил на этом поле или в катакомбах`, kind: 'warn' }); bus.emit('sfx', 'deny'); return; }
+      if (!lvlOk(need)) { bus.emit('toast', { text: `Дальше — с ${need} уровня`, sub: `У вас ${P.level}. Наберитесь сил на этом поле или в катакомбах`, kind: 'warn' }); bus.emit('sfx', 'deny'); return; }
       bankCarry('Вы прошли через портал «Вглубь»'); bus.emit('wildField'); bus.emit('sfx', 'portal'); loadZone('wild', { realm: G.wild.realm, depth: nd }); return;
     }
     case 'stash': openStash(it); return;
@@ -456,21 +467,38 @@ function autoTick(inp) {
     if (d > 0.9) { const g = map.guideDir(pl.x, pl.y, goal.x, goal.y) || [(goal.x - pl.x) / d, (goal.y - pl.y) / d]; { const [sx, sy] = steer(pl, map, g[0], g[1]); inp.wx = sx; inp.wy = sy; } inp.mag = 0.8; A.wanted = true; A.wx = g[0]; A.wy = g[1]; }
   }
 }
-// правки мамы (М27): короткое касание экрана — герой бежит в эту точку; ткнули во врага — он становится целью (как раньше).
-// Джойстик, «Веди меня», автобой, окно или 6 с в пути — бег к точке отменяется
+// правки мамы (М27) → сборка 61: касание пустого места больше никуда не ведёт (мимо кнопки «Открыть» герой убегал не туда) —
+// ходят джойстиком в любом месте экрана. Ткнули во врага — он цель, герой бежит к нему до дистанции удара/выстрела и бьёт сам;
+// ткнули в сундук/саркофаг/тайник — бежит к нему и открывает. Джойстик, «Веди меня», автобой, окно или 8 с в пути — отмена
+const LOOT_TAP = new Set(['chest', 'sarc', 'stash', 'cache', 'rift']);
+function tapTarget(sx, sy) {
+  // 3D: касание приходится на тело/крышку над землёй — проверяем точки чуть ниже пальца (к ногам)
+  let best = null, bd = 1e9;
+  for (const off of [20, 45, 75]) {
+    const [wx, wy] = G.cam.toWorld(sx, sy + off);
+    for (const e of G.enemies) { if (e.dead || e.hidden) continue; const d = Math.hypot(e.x - wx, e.y - wy) - 1.4 - (e.r || 0.4); if (d < 0 && d < bd) { bd = d; best = e; } }
+    for (const it of G.zone.inter) { if (it.done || it.hidden || !LOOT_TAP.has(it.type)) continue; const d = Math.hypot(it.x - wx, it.y - wy) - 1.1; if (d < 0 && d < bd) { bd = d; best = it; } }
+  }
+  return best;
+}
 let tapSeen = 0;
 function moveToTick(inp) {
   const pl = G.player, map = G.zone.map;
   if (tapMove.t !== tapSeen) { tapSeen = tapMove.t;
     if (!G.modalOpen && !pl.dead && G.zoneId !== 'survival') {
-      const [wx, wy] = G.cam.toWorld(tapMove.x, tapMove.y + 20), e = C.nearAim({ x: wx, y: wy }, 1.6);
-      if (e) { pl.focus = e; G.moveTo = null; }
-      else if (map.free(wx, wy, pl.r * 0.8)) { G.moveTo = { x: wx, y: wy, t: G.time }; if (G.lead) { G.lead = false; bus.emit('hud'); } }
-      else { const [fx, fy] = map.nearestFree(wx, wy, pl.r); G.moveTo = { x: fx, y: fy, t: G.time }; }
+      const t = tapTarget(tapMove.x, tapMove.y);
+      if (t) {
+        if (G.enemies.includes(t)) pl.focus = t;
+        G.moveTo = { x: t.x, y: t.y, t: G.time, to: t }; if (G.lead) { G.lead = false; bus.emit('hud'); }
+      }
     } }
   const m = G.moveTo; if (!m) return;
-  const d = Math.hypot(m.x - pl.x, m.y - pl.y);
-  if (inp.mag >= 0.12 || G.auto || G.lead || G.modalOpen || pl.dead || d < 0.5 || G.time - m.t > 6) { G.moveTo = null; return; }
+  const T = m.to, foe = T && G.enemies.includes(T);
+  if (T) { m.x = T.x; m.y = T.y; }
+  const d = Math.hypot(m.x - pl.x, m.y - pl.y), W = G.stats;
+  const arrived = foe ? (d <= (W.ranged ? W.range * 0.8 : W.range + 0.2) + T.r && C.sees(pl, T)) : T ? d < Math.min(1.2, T.r - 0.3) : d < 0.5;
+  if (inp.mag >= 0.12 || G.auto || G.lead || G.modalOpen || pl.dead || (T && (T.dead || T.done || T.hidden)) || G.time - m.t > 8) { G.moveTo = null; return; }
+  if (arrived) { G.moveTo = null; if (T && !foe && LOOT_TAP.has(T.type)) interact(T); return; }
   if (pl.busy()) return;
   const g = map.guideDir(pl.x, pl.y, m.x, m.y) || [(m.x - pl.x) / d, (m.y - pl.y) / d];
   const [sx, sy] = steer(pl, map, g[0], g[1]); inp.wx = sx; inp.wy = sy; inp.mag = Math.min(1, 0.5 + d * 0.25);
@@ -499,7 +527,7 @@ function tutorialTick() {
   const T = G.tut || (G.tut = { step: 0, t: 0 }); T.t += G.dt || 0.016;
   const say = (text, sub) => bus.emit('toast', { text, sub, kind: 'quest' });
   const point = (sel, text) => bus.emit('tutHand', { sel, text, time: 10 });
-  if (T.step === 0 && G.time - G.run.t0 > 0.8) { T.step = 1; point('joyZone', touch() ? 'Ведите пальцем по экрану — герой пойдёт. Коснитесь места — побежит туда' : 'Идите: WASD или зажмите правую кнопку мыши'); }
+  if (T.step === 0 && G.time - G.run.t0 > 0.8) { T.step = 1; point('joyZone', touch() ? 'Ведите пальцем в любом месте экрана — герой пойдёт. Коснитесь врага или сундука — побежит к нему' : 'Идите: WASD или зажмите правую кнопку мыши'); }
   else if (T.step === 1 && G.enemies.some(e => e.aggro)) { T.step = 2; point(null, 'Подойдите к врагу — герой бьёт сам. Ваше дело — двигаться и уклоняться'); }   // П31: без кнопки удара
   else if (T.step === 2 && G.run.kills >= 1) { T.step = 3; say('Отлично! Добейте остальных');
     // сборка 49 («новое — без настоящей угрозы»): оставшийся скелет — учитель: медленный подсвеченный замах, удар почти без урона.
@@ -594,7 +622,7 @@ export function update(dt) {
     else { const near = C.nearestEnemy(pl.x, pl.y, W.ranged ? 7 : 4.2, e => G.zone.map.los(pl.x, pl.y, e.x, e.y)); if (near) { const dx = near.x - pl.x, dy = near.y - pl.y, l = Math.hypot(dx, dy); inp.wx = dx / l; inp.wy = dy / l; inp.mag = 0.7; } else C.playerAttack(pl); }
   }
   // автоатака стоя: выбранная цель, иначе ближайший напавший (или любой при автобое); воин — в радиусе удара
-  if (canAct && !moving && !input.attackHeld && G.zoneId !== 'town' && G.zoneId !== 'castle') {
+  if (canAct && !moving && !input.attackHeld && !calmZone()) {
     const t = inRange(pl.focus) ? pl.focus : C.nearestEnemy(pl.x, pl.y, rng + 1, e => (e.aggro || G.auto) && inRange(e));
     if (t && C.playerAttack(pl, null, t) && pl.act) pl.act.auto = true;
     // воин: враг почти вплотную (на шаг за радиусом удара) — короткий шаг к нему и удар. Сборка 47: было до 4,6 м — воин сам бегал к мобам,
@@ -607,7 +635,7 @@ export function update(dt) {
     }
   }
   // стоя без дела — лицом к ближайшему напавшему (разворот сразу, а не только в момент удара)
-  if (canAct && !moving && inp.mag < 0.12 && pl.state === 'idle' && G.zoneId !== 'town' && G.zoneId !== 'castle') {
+  if (canAct && !moving && inp.mag < 0.12 && pl.state === 'idle' && !calmZone()) {
     const n = pl.focus && !pl.focus.dead ? pl.focus : C.nearestEnemy(pl.x, pl.y, 8, e => e.aggro || G.auto);
     if (n) pl.faceTo(n.x, n.y);
   }
@@ -656,7 +684,7 @@ export function update(dt) {
   if (best && best.type === 'door') best.label = G.profile.world.hasKey ? 'Отпереть дверь ключом' : 'Дверь заперта';
   if (best !== G.focus) { G.focus = best; bus.emit('focus', best); }
   // quest checks for proximity objectives
-  if ((questT += dt) > 0.3) { questT = 0; Q.check(); HU.tick(); updateMarkers(); }
+  if ((questT += dt) > 0.3) { questT = 0; Q.check(); HU.tick(); updateMarkers(); CT.tick(); }
   // autosave
   saveTimer += dt; if ((saveQueued && saveTimer > 1.5 && !inCombat()) || saveTimer > 15) saveNow();
 }
@@ -670,6 +698,8 @@ function separate(list, map) {
       const dd2 = Math.sqrt(dd), push = Math.min(0.05, (rr - dd2) * 0.5), nx = dx / dd2 * push, ny = dy / dd2 * push;
       [a.x, a.y] = map.move(a.x, a.y, -nx, -ny, a.r * 0.9); [b.x, b.y] = map.move(b.x, b.y, nx, ny, b.r * 0.9); } }
 }
+// без автоатаки стоя — деревня и спокойная Цитадель; в испытании и в Разломе Бездны (правки 3) герой бьёт сам, как в подземелье
+const calmZone = () => G.zoneId === 'town' || (G.zoneId === 'castle' && !G.trial && !G.rift);
 function arenaTick() {
   const Z = G.zone; if (G.zoneId !== 'catacombs' || !Z.rooms.arena) return;
   const gate = Z.bossGate || (Z.bossGate = Z.inter.find(i => i.type === 'gate')); if (!gate || !gate.done) return;
@@ -703,6 +733,7 @@ function updateMarkers() {
     const mini = !fort && G.zone.inter.some(i => i.id === 'wild_next' && i.sealed) ? G.enemies.find(e => (e.story === 'wildmini' || e.story === 'minib') && !e.dead) : null;   // П20: пока «Вглубь» запечатан — стрелка к вожаку
     t = G.enemies.find(e => e.story === 'fquest' && !e.dead) || outside || G.enemies.find(e => (e.story === 'wildkeep' || e.story === 'wildboss') && !e.dead) || mini || (G.wild && G.wild.done ? next || home : fort ? null : next) || null;
   }
+  if (G.zoneId === 'castle' && !G.rift && !G.trial && !(q && Q.isReady())) t = CT.callTarget() || t;   // П4-11: «!» над аркой звал сюда — стрелка к делу, а не обратно к выходу
   G.guide = t; G.huntGuide = HU.guideTarget();
   for (const n of G.npcs) n.marker = n.id === Q.turnNpc(q) && Q.isReady() ? '?' : q && q.target === n.id ? (q.id === 'finish' ? '?' : '!') : null;
   const eld = G.npcs.find(n => n.id === 'elder'); if (eld && HU.readyToTurnIn()) eld.marker = '?';   // hunt to hand in
@@ -714,7 +745,7 @@ function updateMarkers() {
   const wh = G.zone.inter.find(i => i.id === 'wheel'); if (wh) wh.marker = !xl && wheelReady() ? '!' : null;
   const fn = G.npcs.find(n => n.id === 'fortune'); if (fn) fn.marker = !xl && wheelReady() ? '!' : null;
   const kv = G.npcs.find(n => n.id === 'caravan'); if (kv && !kv.marker) kv.marker = (G.profile.pets && G.profile.pets.met) || earlyLock('pet') ? null : '!';   // сборка 60 (П15): Кофи зовёт, когда староста отправит к нему   // сборка 58: Кофи ждёт с подарком
-  const bd = G.zone.inter.find(i => i.id === 'board'); if (bd) bd.marker = (REPEATABLE.some(r => Q.repState(r).done) || DQ.dailyReady() || DQ.weeklyQuests().some(q => q.done && !q.claimed)) ? '?' : null;
-  const P = G.profile; const tr = G.npcs.find(n => n.id === 'trainer'); if (tr && !tr.marker && (P.attrPts || P.skillPts || elvinBuy())) tr.marker = '+';   // М19: «+» над Элвином и когда золота хватает на усиление
+  const bd = G.zone.inter.find(i => i.id === 'board'); if (bd) bd.marker = (Q.repList().some(r => Q.repState(r).done) || DQ.dailyReady() || DQ.weeklyQuests().some(q => q.done && !q.claimed)) ? '?' : null;
+  const P = G.profile; const tr = G.npcs.find(n => n.id === 'trainer'); if (tr && !tr.marker && (P.attrPts || canLearnNow() || elvinBuy())) tr.marker = '+';   // М19: «+» над Элвином и когда золота хватает на усиление
 }
 export { Q };

@@ -291,9 +291,15 @@ def write(out, name, P, N, UV, T, SI, SW, bones, extra):
     return len(buf)
 
 
+def enhance(img):
+    """правки 3: питомцы блеклые рядом с цветными рисунками — сочнее цвет и светлее (как на картинках-образцах)"""
+    from PIL import ImageEnhance
+    return ImageEnhance.Contrast(ImageEnhance.Brightness(ImageEnhance.Color(img).enhance(1.6)).enhance(1.15)).enhance(1.08)
+
+
 def build(src, out, only=None):
     P0, N0, UV0, T0, img, comp = load(src)
-    img.resize((1024, 1024), Image.LANCZOS).save(f'{out}/pets_meshy.webp', quality=76, method=6)
+    enhance(img.resize((1024, 1024), Image.LANCZOS)).save(f'{out}/pets_meshy.webp', quality=80, method=6)
     res = {}
     for name in RIGS:
         if only and name not in only: continue

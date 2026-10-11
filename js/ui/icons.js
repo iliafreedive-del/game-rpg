@@ -1,10 +1,11 @@
 // Icon helpers: atlas item icons → cached data URLs; procedural skill icons in the same palette.
 import { getAtlas } from '../core/assets.js';
 import { SKILLS, BRANCHES } from '../data/skills.js';
-import { ART, ITEM_ART, artImg, withArt } from './art.js';
+import { ART, ITEM_ART, GOLD_ICO, artImg, withArt } from './art.js';
 
 const cache = new Map();
 export function iconURL(name, size = 96) {
+  if (name === 'gold') return GOLD_ICO;
   if (ITEM_ART[name]) { const r = artImg(ART.item(ITEM_ART[name])); if (r.ok) return ART.item(ITEM_ART[name]); }   // сборка 58: нарисованные зелья и свиток (пока грузятся — значок из атласа)
   const k = name + '@' + size; if (cache.has(k)) return cache.get(k);
   const A = getAtlas('icons'); if (!A || !A.frames[name]) return '';
@@ -16,6 +17,7 @@ export function iconURL(name, size = 96) {
 export function drawIcon(canvas, name) {
   const A = getAtlas('icons'); const x = canvas.getContext('2d'); x.clearRect(0, 0, canvas.width, canvas.height);
   canvas.dataset.ic = name;
+  if (name === 'gold') { const r = artImg(GOLD_ICO); if (r.ok) { const S = canvas.width; x.drawImage(r.im, S * 0.1, S * 0.1, S * 0.8, S * 0.8); } else withArt(GOLD_ICO, () => { if (canvas.dataset.ic === name) drawIcon(canvas, name); }); return; }
   if (ITEM_ART[name]) { const r = artImg(ART.item(ITEM_ART[name])); if (r.ok) { const S = canvas.width; x.drawImage(r.im, S * 0.02, S * 0.02, S * 0.96, S * 0.96); return; } withArt(ART.item(ITEM_ART[name]), () => { if (canvas.dataset.ic === name) drawIcon(canvas, name); }); }
   if (!A || !A.frames[name]) return;
   const [si, sx, sy, w, h] = A.frames[name]; const S = canvas.width; const s = Math.min(S / w, S / h) * 0.95;

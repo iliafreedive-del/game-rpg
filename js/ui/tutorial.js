@@ -8,7 +8,7 @@ import { $, el, esc, ICO } from '../core/util.js';
 import { STORY } from '../data/quests.js';
 import { once as anOnce } from '../platform/analytics.js';
 import { UPGRADES, upgCost } from '../data/upgrades.js';
-import { skillCost, canLearn } from '../game/character.js';
+import { skillCost, canLearn, canLearnNow } from '../game/character.js';
 import { earlyLock } from '../game/progress.js';
 
 const touch = () => matchMedia('(pointer:coarse)').matches;
@@ -38,7 +38,14 @@ export function hideHand() { if (hand) { hand.remove(); hand = null; } if (line)
 // показать палец над элементом (или просто строку, если элемента нет)
 // кнопка только что открылась: подождать кадр, пока HUD её покажет, иначе «палец» не найдёт место
 export const pointSoon = (sel, text, o) => setTimeout(() => pointAt(sel, text, o), 150);
-export function pointAt(sel, text, { key = null, time = 9, mid = false, force = false, win = false } = {}) {
+// сборка 61: пока идёт «Загрузка…» (шторка смены зоны), палец и строка не показываются — подсказка ждёт, пока зона откроется
+const loading = () => !G.zoneReady || !!document.querySelector('#zoneVeil.on');
+let pend = null;
+bus.on('zoneLoading', () => hideHand());
+bus.on('zoneEntered', () => setTimeout(() => { const q = pend; pend = null; if (q && !loading()) pointAt(...q); }, 700));
+export function pointAt(sel, text, opt = {}) {
+  const { key = null, time = 9, mid = false, force = false, win = false } = opt;
+  if (loading()) { pend = [sel, text, opt]; return false; }
   const t = T(); if (t.off && !force) return false;
   if (force && (hand || line)) return false;   // напоминание не перебивает подсказку обучения
   if (key && t.tips[key]) return false;
@@ -48,7 +55,7 @@ export function pointAt(sel, text, { key = null, time = 9, mid = false, force = 
   logHint(text);
   hideHand();
   if (r) { hand = el('div', 'hand'); hand._sel = sel; placeHand(r); document.body.appendChild(hand); }
-  line = el('div', 'hint-line ' + (mid || !r ? 'mid' : 'bot'), (key === 'shards' ? ICO.big : '') + text); document.body.appendChild(line);   // П44: крупный осколок в подсказке про осколки
+  line = el('div', 'hint-line ' + (mid || !r ? 'mid' : 'bot'), (key === 'shards' ? ICO.big : '') + text); document.body.appendChild(line); placeLine();   // П44: крупный осколок в подсказке про осколки
   handKey = key || sel || text; handUntil = performance.now() + time * 1000; handWin = win && sel ? (typeof sel === 'string' ? $(sel) : sel) : null;
   bus.emit('sfx', 'quest');
   return true;
@@ -56,14 +63,22 @@ export function pointAt(sel, text, { key = null, time = 9, mid = false, force = 
 // правки мамы (М16): палец ставился один раз и оставался на месте, когда кнопка уезжала (поворот телефона, вырез Android, появился трекер) —
 // и показывал на золото с кристаллами. Теперь палец следует за своей кнопкой
 function placeHand(r) { hand.style.left = (r.left + r.width / 2) + 'px'; hand.style.top = (r.top + r.height / 2) + 'px'; }
-function followHand() { if (!hand || !hand._sel) return; const r = rectOf(hand._sel); if (r) placeHand(r); }
+// П4-15: строка подсказки внизу не наезжает на кнопку действия и кнопки боя — встаёт над ними (и над пальцем, если он внизу)
+function placeLine() {
+  if (!line || !line.classList.contains('bot')) return;
+  if (line._def == null) line._def = parseFloat(getComputedStyle(line).bottom) || 150;
+  let top = Infinity; const H = innerHeight;
+  for (const e of [$('btnAct'), ...document.querySelectorAll('#pad > *'), hand]) { const r = e && (e === hand ? e.getBoundingClientRect() : rectOf(e)); if (r && r.top > H * 0.45) top = Math.min(top, r.top); }
+  line.style.bottom = Math.max(line._def, top < Infinity ? H - top + 10 : 0) + 'px';
+}
+function followHand() { placeLine(); if (!hand || !hand._sel) return; const r = rectOf(hand._sel); if (r) placeHand(r); }
 addEventListener('resize', () => setTimeout(followHand, 120));
 // подсказка исчезает сама: по времени, по нажатию нужной кнопки или по событию
 function handTick() {
   if (!hand && !line) return;
   followHand();
   // сборка 60: подсказка внутри окна (win) не гаснет от самого окна — гаснет, когда её кнопка исчезла; строка о зуме гаснет, как только открыто окно или панель NPC (П7)
-  if (performance.now() > handUntil || G.cinema || (handWin ? !handWin.isConnected : G.modalOpen) || (zoomLine && G.panelTarget)) hideHand();
+  if (performance.now() > handUntil || G.cinema || loading() || (handWin ? !handWin.isConnected : G.modalOpen) || (zoomLine && G.panelTarget)) hideHand();
 }
 
 // ---------------------------------------------------------------- что и когда открывать
@@ -152,7 +167,7 @@ export async function intro() {
   const t = T(); if (t.introDone) return; t.introDone = true; bus.emit('save');
   // первые секунды в склепе: только движение. Остальному учим по ходу.
   if (G.run && G.run.floor === 0) return;   // сборка 49: в склепе это говорит пролог (tutorialTick в game.js) — без повтора
-  pointAt('joyZone', touch() ? 'Ведите пальцем по экрану — герой пойдёт. Коснитесь места — побежит туда' : 'Идите: WASD или зажмите правую кнопку мыши', { time: 10 });
+  pointAt('joyZone', touch() ? 'Ведите пальцем в любом месте экрана — герой пойдёт. Коснитесь врага или сундука — побежит к нему' : 'Идите: WASD или зажмите правую кнопку мыши', { time: 10 });
 }
 
 export function initTutorial() {
@@ -174,11 +189,19 @@ export function initTutorial() {
     if (newPot) pointSoon('potHP', touch() ? 'Красная кнопка — зелье здоровья. Нажмите в бою, когда мало жизни' : 'Зелье здоровья: кнопка Q или красная кнопка. Пейте в бою, когда мало жизни', { time: 7 });
     if (newDodge) setTimeout(() => pointAt('btnDodge', touch() ? 'Рывок! Нажмите, чтобы отпрыгнуть от удара врага (красный круг)' : 'Рывок: Shift — отпрыгнуть от удара врага (красный круг)', { key: 'dodge2', time: 8 }), newPot ? 8000 : 300);
   });
-  bus.on('panel', it => { if (!it || it.id !== 'trainer') return; setTimeout(() => { if (G.profile.skillPts > 0) pointAt('tBtnSkills', 'Нажмите «Навыки» — там изучают умения', { key: 'tbtn' }); }, 400); });
+  bus.on('panel', it => { if (!it || it.id !== 'trainer') return; setTimeout(() => { if (canLearnNow()) pointAt('tBtnSkills', 'Нажмите «Навыки» — там изучают умения', { key: 'tbtn' }); }, 400); });
   // сборка 60 (П32): окно героя — портрет → «Герой» → сумка и сравнение. Учим на шаге «Осмотреть снаряжение»
   const gearStep = () => { const q = G.profile && STORY[G.profile.story.stage]; return q && q.id === 'hero_gear'; };
   const portraitHint = () => { if (gearStep() && !G.modalOpen) pointAt('portrait', 'Нажмите на портрет — это окно героя', { time: 12 }); };
   bus.on('questNew', q => { if (q && q.id === 'hero_gear') setTimeout(function again(n = 0) { if (G.modalOpen && n < 30) return setTimeout(() => again(n + 1), 700); portraitHint(); }, 900); });
+  // сборка 61: задание «Осмотреть снаряжение» висит, а куда жать — не видно. Пока оно не выполнено: портрет (а в меню — плитка «Герой»)
+  // мигает золотом, и палец повторяется раз в 20 с, если игрок его пропустил
+  let gearAt = 0;
+  setInterval(() => { const on = !!(G.profile && G.zoneReady && !loading() && !G.cinema && gearStep());
+    const tile = document.querySelector('.menu-tile[data-w="inventory"]'), pt = $('portrait');
+    if (pt) pt.classList.toggle('gear-hint', on && !G.modalOpen); if (tile) tile.classList.toggle('gear-hint', on);
+    if (!on || G.modalOpen || hand || line) { gearAt = performance.now(); return; }
+    if (performance.now() - gearAt > 20000) { gearAt = performance.now(); portraitHint(); } }, 500);
   bus.on('menuOpened', () => { T().tips.hero = 1; if (gearStep()) pointAt(document.querySelector('.menu-tile[data-w="inventory"]'), '«Герой» — надетые вещи и сумка', { time: 12, win: true }); });
   bus.on('invOpened', () => {
     if (!hintsOn()) return; const t = T(); if (t.tips.inv1) return; t.tips.inv1 = 1; bus.emit('save');

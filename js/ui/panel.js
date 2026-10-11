@@ -9,6 +9,7 @@ import * as CH from '../game/character.js';
 import * as EC from '../game/economy.js';
 import * as Q from '../game/quests.js';
 import * as CS from '../game/castle.js';
+import * as CT from '../game/citadel.js';
 import * as DQ from '../game/daily.js';
 import { upgradeCost, MAX_UPG, iconOf } from '../game/items.js';
 import { iconURL } from './icons.js';
@@ -26,7 +27,11 @@ export function initPanel() {
   box = el('div', 'npc-panel hidden'); box.id = 'npcPanel'; $('ui').appendChild(box); box.addEventListener('scroll', moreDn, { passive: true });
   // правки мамы (М30): выполненное задание сдаётся сразу, как подошли к жителю (кузнец, Мира, Элвин, Кофи) — раньше только после второго подхода
   // или открытия его окна, и стрелка всё вела к нему
-  bus.on('panel', t => { if (!t) dismissed = null; target = t; lastSig = ''; if (t && t.id && Q.isReady() && Q.turnNpc(Q.current()) === t.id) Q.talked(t.id); render(true); });
+  bus.on('panel', t => { if (!t) dismissed = null; target = t; lastSig = ''; if (t && t.id && Q.isReady() && Q.turnNpc(Q.current()) === t.id) Q.talked(t.id);
+    // правки 3: задание «Показать камень Палача Элвину» (поговорить с жителем) не засчитывалось: подошёл — открылась панель покупок, а разговор
+    // был только по кнопке действия. Теперь у жителя с «!» сначала открывается его разговор
+    else if (t && t.id && Q.current() && Q.current().obj.talk === t.id && W['npc_' + t.id] && !G.modalOpen) { W['npc_' + t.id](); return; }
+    render(true); });
   // tap anywhere on the game field outside the panel → close it until you walk away and come back
   const hide = e => { if (!target || box.classList.contains('hidden') || box.contains(e.target)) return; dismissed = target; render(true); };
   for (const id of ['game', 'joyZone']) { const n = $(id); if (n) n.addEventListener('pointerdown', hide, true); }
@@ -58,7 +63,7 @@ function render(force) {
   if (T.id === 'trainer') {
     head('Наставник Элвин', 'Здесь изучают умения. Ниже — усиления за золото (Меткость — за осколки Бездны ◆).'); bal();
     const b2 = el('div', 'pn-tabs');
-    const sk = el('button', 'pn-tab' + (P.skillPts ? ' hot' : ''), `<span>✦</span><b>Навыки</b>${P.skillPts ? `<i>+${P.skillPts}</i>` : ''}`); sk.id = 'tBtnSkills'; sk.onclick = () => W.skills({ npc: true });
+    const sk = el('button', 'pn-tab' + (CH.canLearnNow() ? ' hot' : ''), `<span>✦</span><b>Навыки</b>${P.skillPts ? `<i>+${P.skillPts}</i>` : ''}`); sk.id = 'tBtnSkills'; sk.onclick = () => W.skills({ npc: true });
     b2.append(sk); box.appendChild(b2);
     if (P.skillPts && !Object.values(P.skills || {}).some(Boolean)) box.appendChild(el('div', 'pn-tip', '💡 Сначала изучите <b>активное умение</b> — оно появится кнопкой справа внизу и сильно упростит бои.'));
     box.appendChild(el('div', 'pn-sub', 'Усиления'));
@@ -74,6 +79,7 @@ function render(force) {
     for (const [id, U] of Object.entries(UPGRADES)) {
       const l = (P.upg && P.upg[id]) || 0, max = l >= U.max, cost = upgCost(id, l), can = !upLock && !max && upgHave(P, id) >= cost;
       const r = row(U.icon, `${U.name} <span class="lv">ур. ${l}</span>`, max ? U.fmt(l) + ' · максимум' : `${U.fmt(l)} → <span class="good">${U.fmt(l + 1)}</span>`, max ? '—' : upLock ? '🔒' : U.shards ? `${cost}◆` : `${fmt(cost)}`, can, () => buyUpg(id));
+      r.querySelector('.pn-btn').classList.add('cost');   // крупная цена и осколок на всю кнопку (а не мелкая цифра посреди пустой кнопки)
       if (elvStep && can && !nudged && !U.shards) { r.querySelector('.pn-btn').classList.add('nudge'); r.classList.add('hot'); nudged = true; }
       box.appendChild(r);
     }
@@ -103,9 +109,12 @@ function render(force) {
     // сборка 58: Караванщик Кофи — питомцы за осколки Бездны (js/data/pets.js, js/game/pets.js)
     const S = PT.petsOf(P);
     head('Караванщик Кофи', 'Зверьки из Пустошей. С вами ходит один: бьёт слабо, зато у каждого свой дар.'); bal();
-    if (!S.met) {
+    // правки к сборке 60: подарок здесь брали в обход старосты (шаг «Заглянуть к Кофи» потом засчитывался сам) и без поздравления.
+    // До этого шага — только обещание; на шаге — крупная мигающая кнопка и праздник на весь экран (W.petReveal)
+    if (!S.met && earlyLock('pet')) box.appendChild(el('div', 'pn-tip', '🎁 У Кофи для вас подарок — заберёте, когда староста Эдрик отправит вас к нему.'));
+    else if (!S.met) {
       box.appendChild(el('div', 'pn-tip', `🎁 Подарок от Кофи: <b>${PETS[GIFT_PET].name}</b>. ${PETS[GIFT_PET].desc}`));
-      const g = el('button', 'btn gold', 'Принять подарок'); g.onpointerdown = e => { e.stopPropagation(); PT.meetCaravan(); bus.emit('sfx', 'rareDrop'); render(true); }; box.appendChild(g);
+      const g = el('button', 'btn gold pet-gift', '🎁 Забрать подарок'); g.onpointerdown = e => { e.stopPropagation(); if (PT.meetCaravan()) { dismissed = target; render(true); W.petReveal(); } }; box.appendChild(g);
     }
     const btn = (r, text, ok, fn, cls = '') => { const b = el('button', 'pn-btn' + (ok ? ' ok' : '') + cls, text); b.disabled = !ok; b.onpointerdown = e => { e.stopPropagation(); fn(); render(true); }; r.appendChild(b); };
     for (const [id, D] of Object.entries(PETS)) {
@@ -113,10 +122,10 @@ function render(force) {
       const sub = `<span style="color:${T0.color}">${T0.name}</span> · ⚔ ${PT.petInfo(id, lvl || 1).dps}/с · ${D.desc}`;
       const r = row(D.icon, `${esc(D.name)}${lvl ? ` <span class="lv">ур. ${lvl}</span>` : ''}`, sub, null, false, null, on ? 'hot' : '');
       { const ib = el('button', 'pn-btn ok pn-info', 'ℹ'); ib.title = 'Урон и дар питомца'; ib.onpointerdown = e => { e.stopPropagation(); W.petInfo(id); }; r.appendChild(ib); }   // П61
-      if (!lvl) btn(r, c.why ? '🔒 ' + c.why : `${c.cost}◆`, c.ok, () => PT.buyPet(id));
+      if (!lvl) btn(r, c.why ? '🔒 ' + c.why : `${c.cost}◆`, c.ok, () => PT.buyPet(id), c.why ? '' : ' cost');
       else {
         btn(r, on ? '✔ С вами' : 'Взять', !on, () => PT.choosePet(id));
-        if (lvl < PET_MAX) btn(r, `▲ ${c.cost}◆`, c.ok, () => PT.upgradePet(id), ' up');
+        if (lvl < PET_MAX) btn(r, `▲ ${c.cost}◆`, c.ok, () => PT.upgradePet(id), ' up cost');
       }
       box.appendChild(r);
     }
@@ -135,12 +144,12 @@ function render(force) {
     box.appendChild(el('p', 'muted pn-shards', ICO.pile + '<small>Осколки Бездны ◆ дают стражи, боссы, чемпионы, сундуки, Жатва и недельные задания. Улучшение: +15% силы питомца за уровень.</small>'));
   } else if (T.id === 'board') {
     head('Доска заданий', 'Ежедневные · недельные · долгие контракты');
-    box.appendChild(el('div', 'pn-sub', 'Ежедневные'));
-    for (const q of DQ.dailyQuests()) box.appendChild(row('☀', esc(q.title), q.claimed ? 'получено' : `${q.cur}/${q.n}`, q.done && !q.claimed ? 'Забрать' : null, q.done && !q.claimed, () => DQ.claimDaily(q.id), q.done && !q.claimed ? 'hot' : ''));
-    box.appendChild(el('div', 'pn-sub', 'Недельные (крупнее)'));
-    for (const q of DQ.weeklyQuests()) box.appendChild(row('☾', esc(q.title), q.claimed ? 'получено' : `${q.cur}/${q.n}`, q.done && !q.claimed ? 'Забрать' : null, q.done && !q.claimed, () => DQ.claimWeekly(q.id), q.done && !q.claimed ? 'hot' : ''));
+    // П4-6: выполненные и сданные задания уходят из списка; когда придёт новое — в строке раздела
+    const sec = (name, list) => { const h = el('div', 'pn-sub', name), c = list.filter(q => q.claimed && q.next); if (c.length) { const ms = Math.min(...c.map(q => q.next)); h.appendChild(el('small', 'pn-next', `✔ новое через ${Math.ceil(ms / 60000) >= 60 ? Math.ceil(ms / 3600000) + ' ч' : Math.ceil(ms / 60000) + ' мин'}`)); } box.appendChild(h); return list.filter(q => !q.claimed); };
+    for (const q of sec('Ежедневные', DQ.dailyQuests())) box.appendChild(row('☀', esc(q.title), `${q.cur}/${q.n}`, q.done ? 'Забрать' : null, q.done, () => DQ.claimDaily(q.id), q.done ? 'hot' : ''));
+    for (const q of sec('Недельные (крупнее)', DQ.weeklyQuests())) box.appendChild(row('☾', esc(q.title), `${q.cur}/${q.n}`, q.done ? 'Забрать' : null, q.done, () => DQ.claimWeekly(q.id), q.done ? 'hot' : ''));
     box.appendChild(el('div', 'pn-sub', 'Долгие контракты (трудные)'));
-    for (const r of REPEATABLE) { const s = Q.repState(r); box.appendChild(row(s.done ? '✔' : '•', esc(r.title), `${s.cur}/${r.n}`, s.done ? 'Забрать' : null, s.done, () => Q.claimRep(r.id), s.done ? 'hot' : '')); }
+    for (const r of Q.repList()) { const s = Q.repState(r); box.appendChild(row(s.done ? '✔' : '•', esc(r.title), `${s.cur}/${r.n}`, s.done ? 'Забрать' : null, s.done, () => Q.claimRep(r.id), s.done ? 'hot' : '')); }
   } else if (T.type === 'roomgate') {
     const R = ROOMS[T.room]; const c = CS.canUnlock(T.room);
     head(R.name, R.desc); bal();
@@ -149,6 +158,12 @@ function render(force) {
     box.appendChild(el('p', 'muted', '<small>Осколки Бездны выпадают случайно: с элиты, чемпионов, стражей, боссов и из сундуков.</small>'));
   } else if (T.type === 'castleguide') {
     head('Карта цитадели', 'Нажмите «Перейти» — окажетесь у входа в комнату.'); bal();
+    { // правки 3: поручение Цитадели и Разлом Бездны (js/game/citadel.js)
+      const q = CT.cqCurrent(), i = CT.CQ.indexOf(q);
+      if (q) box.appendChild(el('div', 'pn-big', `<small>Поручение Цитадели ${i + 1}/${CT.CQ.length}</small><br><b>${esc(q.title)}</b><br><small>${P.level >= q.lvl ? esc(q.text) : `Откроется с ${q.lvl} уровня`}</small><br><small class="good">Награда: ${[q.reward.gold ? fmt(q.reward.gold) + ' зол.' : '', q.reward.shards ? q.reward.shards + '◆' : ''].filter(Boolean).join(' · ')}</small>`));
+      else box.appendChild(el('p', 'muted', '<small>Все поручения Цитадели выполнены.</small>'));
+      box.appendChild(el('p', CT.riftOpen() ? 'good' : 'muted', `<small>${CT.riftOpen() ? '⚠ Разлом Бездны открыт — северный проход. Три волны, в конце осколки и золото.' : P.level < CT.RIFT_LVL ? `Разлом Бездны — с ${CT.RIFT_LVL} уровня.` : `Разлом Бездны снова прорвётся через ${Math.ceil(CT.riftIn() / 60e3)} мин.`}</small>`));
+    }
     const rooms = G.zone.json.rooms;
     for (const [id, R] of Object.entries(ROOMS)) {
       const open = P.castle[id]; const gate = G.zone.inter.find(i => i.type === 'roomgate' && i.room === id);

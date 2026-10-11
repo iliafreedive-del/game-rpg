@@ -11,13 +11,13 @@ const WALLS = [
   { id: 'starter_pack', when: P => (P.stats.deaths || 0) >= 1 || P.level >= 2, why: P => (P.stats.deaths || 0) >= 1 ? 'Первая смерть — самое время усилиться' : 'Начало пути — самое время усилиться' },   // сборка 59: про смерть — только тем, кто погибал
   { id: 'guard_armor', when: P => P.level >= 6 && !P.story.flags.bossKilled, why: 'Печать к Палачу Бездны не поддаётся: нужен 7 уровень и крепкие вещи' },
   { id: 'seal_blade', when: P => gearOpen(P, 'seal_blade') && ((P.depths && P.depths.best >= 8) || forts(P, 'forest') >= 1), why: 'Дальше 8-го этажа Глубин и в фортах враги растут быстрее' },
-  { id: 'magister_plate', when: P => gearOpen(P, 'magister_plate') && (forts(P, 'fjord') >= 1 || P.level >= 16), why: 'Костяные пустоши — четвёртая печать, и враги там на 12 уровне' },
+  { id: 'magister_plate', when: P => gearOpen(P, 'magister_plate') && (forts(P, 'bones') >= 1 || P.level >= 25), why: 'Фьорды Скъёльда — четвёртая печать, и враги там на 12 уровне' },
   { id: 'order_weapon', when: P => gearOpen(P, 'order_weapon'), why: 'Морвен в Цитадели сильнее всего, что было до него' },
   { id: 'abyss_set', when: P => !!P.storyDone, why: 'Круги Бездны: каждый круг — враги крепче в полтора раза' },
 ];
 // П67 (правки 2): золото и мифика в лавке — не раньше, чем их можно добыть в игре (items.js: золотые слиянием с 15 ур., выпадают с 18-го;
 // мифические — слиянием с 22-го). До этого лавка предлагает синий сет. Редкость товара → минимальный уровень героя:
-const GEAR_LVL = { guard_armor: 1, seal_blade: 15, magister_plate: 15, order_weapon: 22, abyss_set: 22 };
+const GEAR_LVL = { guard_armor: 1, seal_blade: 25, magister_plate: 25, order_weapon: 45, abyss_set: 45 };   // правки 3: за деньги — на ступень раньше, чем добывается (золото с 40, мифик с 60)
 export const gearOpen = (P, id) => P.level >= (GEAR_LVL[id] || 1) && (id !== 'abyss_set' || !!P.storyDone);
 // Снаряжение лавки меняется каждый день: из открытых по уровню и ещё не купленных — два товара дня (синий сет, пока он не куплен, — всегда)
 export function shopGearToday(P = G.profile) {

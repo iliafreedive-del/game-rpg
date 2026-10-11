@@ -5,9 +5,13 @@ import { getAtlas, drawFrame, loadImage, loadJSON } from '../core/assets.js';
 import { PX_PER_M, Z_PX } from '../core/iso.js';
 import { RARITY } from '../data/items.js';
 import { iconOf } from '../game/items.js';
+import { lvlOk } from '../game/progress.js';
 import { BIOMES } from '../data/biomes.js';
 import * as SV from '../game/survival.js';
-import { drawFxSheet, drawChargeTele, preloadFxSheets } from './fxsheets.js';
+import { drawFxSheet, drawChargeTele, preloadFxSheets, drawProjSheet, drawStatusSheet, telePattern, fxReady, zoneRealm } from './fxsheets.js';
+import { projSheetOf, mobRageFx } from '../game/combat.js';
+import { GOLD_ICO, artImg } from '../ui/art.js';
+import { appH } from '../ui/fullscreen.js';
 
 let cv, ctx, lightCv, lctx, W = 0, H = 0, DPR = 1;
 const floorImgs = new Map();
@@ -24,7 +28,7 @@ export function resize() {
   const q = G.profile ? G.profile.settings.quality : 'auto';
   const maxDpr = q === 'low' ? 1 : q === 'high' ? 2 : Math.min(2, (innerWidth * innerHeight > 1.3e6 ? 1.25 : 2));
   DPR = Math.min(devicePixelRatio || 1, maxDpr);
-  W = document.documentElement.clientWidth || innerWidth; H = document.documentElement.clientHeight || innerHeight;
+  W = document.documentElement.clientWidth || innerWidth; H = appH() || document.documentElement.clientHeight || innerHeight;   // П4-14: iPhone с экрана «Домой» — до низа экрана
   cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR);
   lightCv.width = Math.ceil(W / 2); lightCv.height = Math.ceil(H / 2);
   const cam = G.cam; cam.w = W; cam.h = H; G.zoomMul = G.zoomMul || 1;
@@ -158,7 +162,7 @@ export function render() {
   // ---- lighting
   if (Z.dark) darkness(); else dusk();
   drawProjectiles(true);
-  drawEffects(); drawParticles(); drawBlades();
+  drawEffects(); drawStatusFx(); drawParticles(); drawBlades();
   placed.length = 0; drawBars(); drawPlates(); drawPickupLabels(); drawBubbles(); drawTexts(); drawInteractMarker();
 }
 // С1/С27: подпись в мире не рисуем, если она легла на блок интерфейса (полосы, трекер, кнопки, тосты) или на уже нарисованную подпись.
@@ -205,7 +209,7 @@ export function renderOverlay() {
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0); ctx.clearRect(0, 0, W, H);
   drawGroundFx(); drawTelegraphs(); drawGuide(); drawPickupsGround();
   drawProjectiles(false); drawProjectiles(true);
-  drawEffects(); drawParticles(); drawBlades(); if (G.surv) SV.drawSurvivalFx(ctx, G.cam);
+  drawEffects(); drawStatusFx(); drawParticles(); drawBlades(); if (G.surv) SV.drawSurvivalFx(ctx, G.cam);
   placed.length = 0; drawBars(); drawNpcPlates(); drawPlates(); drawPickupLabels(); drawBubbles(); drawTexts(); drawInteractMarker();   // С27: важные подписи первыми
 }
 export function clearOverlay() { if (ctx) { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height); } }
@@ -343,6 +347,7 @@ function drawTelegraphs() {
     const tg = e.teleg; if (!tg || e.dead) continue;
     const p = Math.min(1, e.anim.prog / (e.atk ? e.atk.impact : 1));
     if (tg.sheet === 'charge' && drawChargeTele(ctx, cam, tg, p, tg.realm)) continue;   // П21: разбег — полоса шевронов вместо красной
+    if (tg.teleSheet && drawFxSheet(ctx, cam, { id: tg.teleSheet, x: tg.x, y: tg.y, t: p * 0.999, dur: 1, size: tg.r * 2.2 })) continue;   // сборка 61: метка-лист (корни, вихрь, колья)
     ctx.save(); const [x, y] = cam.toScreen(tg.x, tg.y);
     ctx.translate(x, y); ctx.scale(1, 0.5);
     const R = tg.r * 32 * z * Math.SQRT2;   // world metre → screen along iso diagonal
@@ -351,6 +356,9 @@ function drawTelegraphs() {
     ctx.fillStyle = `rgba(${tc},${tg.col ? 0.26 : tg.rift ? 0.18 : 0.16})`; ctx.strokeStyle = `rgba(${sc},${tg.col ? 1 : 0.85})`; ctx.lineWidth = tg.col ? 3 : 2.5; if (tg.fx === 'stone' || tg.fx === 'bone') ctx.setLineDash([7, 4]);
     const isoA = a => Math.atan2(Math.sin(a) + Math.cos(a), Math.cos(a) - Math.sin(a)); // world angle → screen angle (pre-scale)
     ctx.beginPath();
+    const pat = tg.shape !== 'line' && telePattern(ctx, tg.realm);   // сборка 61: опасная зона залита узором края (тайл GPT)
+    if (pat) { if (tg.shape === 'circle') ctx.arc(0, 0, R, 0, 7); else { const a = isoA(tg.a), h = tg.arc / 2 * Math.PI / 180; ctx.moveTo(0, 0); ctx.arc(0, 0, R, a - h, a + h); ctx.closePath(); }
+      ctx.save(); ctx.clip(); const k = pat.m * 32 * z * Math.SQRT2 / pat.px; ctx.scale(k, k); ctx.globalAlpha = 0.35 + 0.4 * p; ctx.fillStyle = pat.p; ctx.fillRect(-R / k, -R / k, 2 * R / k, 2 * R / k); ctx.restore(); ctx.beginPath(); }
     if (tg.shape === 'circle') { ctx.arc(0, 0, R, 0, 7); ctx.fill(); ctx.stroke(); ctx.beginPath(); ctx.arc(0, 0, R * p, 0, 7); ctx.fillStyle = fill2; ctx.fill(); }
     else if (tg.shape === 'cone') { const a = isoA(tg.a), h = tg.arc / 2 * Math.PI / 180; ctx.moveTo(0, 0); ctx.arc(0, 0, R, a - h, a + h); ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, R * p, a - h, a + h); ctx.closePath(); ctx.fillStyle = fill2; ctx.fill(); }
     else if (tg.shape === 'line') { const a = isoA(tg.a); ctx.rotate(a); ctx.fillRect(0, -tg.w * 16 * z, R * p, tg.w * 32 * z); ctx.strokeRect(0, -tg.w * 16 * z, R, tg.w * 32 * z); }
@@ -364,6 +372,8 @@ function drawProjectiles(emissive) {
     const [x, y] = cam.toScreen(p.x, p.y, pz);
     const [x2, y2] = cam.toScreen(p.x - p.vx * 0.035, p.y - p.vy * 0.035, pz);
     const ang = Math.atan2(y - y2, x - x2);
+    const sid = projSheetOf(p);   // сборка 61: снаряд — лист GPT (стрела, искра, огненный шар, камень, дротик, игла), пока не загрузился — прежний рисунок
+    if (sid && fxReady(sid)) { if (emissive) drawProjSheet(ctx, cam, sid, p.x, p.y, pz, ang, p.dist / 12); continue; }
     if (p.kind === 'arrow') {
       if (emissive) { if (p.owner === 'p') { ctx.globalCompositeOperation = 'lighter'; const [tx, ty] = cam.toScreen(p.x - p.vx * 0.09, p.y - p.vy * 0.09, pz); const g = ctx.createLinearGradient(tx, ty, x, y); g.addColorStop(0, 'rgba(255,200,90,0)'); g.addColorStop(1, 'rgba(255,220,130,0.8)'); ctx.strokeStyle = g; ctx.lineWidth = 5 * z; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(x, y); ctx.stroke(); ctx.globalCompositeOperation = 'source-over'; } continue; }
       ctx.save(); ctx.translate(x, y); ctx.rotate(ang);
@@ -492,27 +502,60 @@ function drawEffects() {
     }
   }
 }
+// сборка 61: состояния на существах — оглушение над головой, кровотечение, ярость берсерка; на герое — боевой клич и корни лешего
+function drawStatusFx() {
+  const cam = G.cam;
+  for (const e of G.enemies) {
+    if (e.dead) continue; const s = e.D.size || 1;
+    if (e.st.stun > 0) drawStatusSheet(ctx, cam, 'st_stun', e.x, e.y, (e.D.boss ? 3 : 1.9) * s, 1.2 * s);
+    if (e.st.bleed > 0) drawStatusSheet(ctx, cam, 'st_bleed', e.x, e.y, 0.2, 1.4 * s, 0.85);
+    const rg = mobRageFx(e); if (rg) drawStatusSheet(ctx, cam, rg, e.x, e.y, 0, 1.9 * s, 0.9);
+  }
+  const P = G.player; if (!P || P.dead) return;
+  if (P.warcry > G.time) drawStatusSheet(ctx, cam, 'st_warcry_buff', P.x, P.y, 0, 2, 0.8);
+  if (P.rootedT > G.time && zoneRealm() === 'forest') drawStatusSheet(ctx, cam, 'st_rooted', P.x, P.y, 0, 1.5);
+}
+// правки 4 (П4-7): частица — мягкая круглая точка (радиальный градиент её цвета), а не квадрат fillRect. Спрайт на цвет кешируется (цветов — пара десятков)
+const DOTS = new Map();
+function dotOf(c) {
+  const k = c.join(); let d = DOTS.get(k); if (d) return d;
+  d = document.createElement('canvas'); d.width = d.height = 16; const x = d.getContext('2d'), g = x.createRadialGradient(8, 8, 0, 8, 8, 8);
+  g.addColorStop(0, `rgba(${c[0]},${c[1]},${c[2]},1)`); g.addColorStop(0.45, `rgba(${c[0]},${c[1]},${c[2]},0.85)`); g.addColorStop(1, `rgba(${c[0]},${c[1]},${c[2]},0)`);
+  x.fillStyle = g; x.fillRect(0, 0, 16, 16); DOTS.set(k, d); return d;
+}
 function drawParticles() {
   const cam = G.cam, z = cam.zoom;
   for (const p of G.particles) {
     const [x, y] = cam.toScreen(p.x, p.y, p.z); const a = 1 - p.t / p.life;
     if (p.add) ctx.globalCompositeOperation = 'lighter';
-    ctx.fillStyle = `rgba(${p.c[0]},${p.c[1]},${p.c[2]},${a})`; const s = p.size * z * (p.add ? a * 0.7 + 0.3 : 1);
-    ctx.fillRect(x - s / 2, y - s / 2, s, s);
+    ctx.globalAlpha = a; const s = p.size * z * (p.add ? a * 0.7 + 0.3 : 1) * 1.6;   // ×1,6: край градиента прозрачный — видимое пятно того же размера, что был квадрат
+    ctx.drawImage(dotOf(p.c), x - s / 2, y - s / 2, s, s);
     if (p.add) ctx.globalCompositeOperation = 'source-over';
   }
+  ctx.globalAlpha = 1;
+}
+// цвет уровня врага относительно героя, как в WoW: серый — переросли (мало опыта), зелёный, жёлтый — ровня, оранжевый, красный — опасно
+export const lvlColor = l => { const d = l - ((G.profile && G.profile.level) || 1); return d <= -5 ? '#9a9a9a' : d <= -2 ? '#6fd36f' : d <= 1 ? '#f2e05a' : d <= 4 ? '#ff9a3c' : '#ff4a3a'; };
+function lvlTag(e, x, y, z) {
+  if (!e.lvl) return; ctx.font = `700 ${Math.round(11 * Math.min(1.2, z))}px sans-serif`; ctx.textAlign = 'right';
+  ctx.strokeStyle = '#000'; ctx.lineWidth = 3; ctx.strokeText(String(e.lvl), x, y); ctx.fillStyle = lvlColor(e.lvl); ctx.fillText(String(e.lvl), x, y);
 }
 function drawBars() {
   const cam = G.cam, z = cam.zoom;
   for (const e of G.enemies) {
     if (e.dead || e.D.boss) continue;
-    const show = e.hp < e.maxHP || e.D.elite || e.champion; if (!show) continue;
+    const show = e.hp < e.maxHP || e.D.elite || e.champion;
     const [x, y] = cam.toScreen(e.x, e.y, e.D.mini ? 1.9 * (e.D.scale || 1) + 0.3 : e.D.elite ? 2.6 : 2.05); const w = (e.D.elite || e.champion ? 60 : 38) * Math.min(1.2, z);
+    lvlTag(e, x - w / 2 - 3, y + 4, z);   // правки 3: уровень у каждого моба, цвет — насколько он сильнее героя
+    if (!show) continue;
     ctx.fillStyle = 'rgba(0,0,0,0.7)'; ctx.fillRect(x - w / 2 - 1, y - 1, w + 2, 6);
     ctx.fillStyle = e.D.mini ? '#e0302a' : e.D.elite ? '#e8a42a' : e.champion ? '#5aa0ff' : '#c8302a'; ctx.fillRect(x - w / 2, y, w * e.hp / e.maxHP, 4);
     if (e.D.elite || e.champion) { ctx.font = `600 ${Math.round(11 * Math.min(1.2, z))}px Georgia, serif`; ctx.textAlign = 'center'; ctx.fillStyle = e.D.mini ? '#ff8a70' : e.D.elite ? '#f0c060' : '#9cc4ff'; ctx.strokeStyle = '#000'; ctx.lineWidth = 3; ctx.strokeText(e.name, x, y - 5); ctx.fillText(e.name, x, y - 5); }
     let sx = x - w / 2; const st = e.st; ctx.font = `${Math.round(10 * z)}px sans-serif`; ctx.textAlign = 'left';
-    for (const [on, c] of [[st.burn > 0, '#ff8a3c'], [st.frozen > 0 || st.slowT > 0, '#8fdcff'], [st.shock > 0, '#c8b4ff'], [st.bleed > 0, '#d02020'], [st.stun > 0, '#ffe070']]) if (on) { ctx.fillStyle = c; ctx.fillRect(sx, y + 6, 6, 3); sx += 8; }
+    for (const [on, c] of [[st.burn > 0, '#ff8a3c'], [st.poisonT > 0 && st.poison > 0, '#5ae03a'], [st.frozen > 0 || st.slowT > 0, '#8fdcff'], [st.shock > 0, '#c8b4ff'], [st.bleed > 0, '#d02020'], [st.stun > 0, '#ffe070']]) if (on) {
+      ctx.fillStyle = c; ctx.fillRect(sx, y + 6, 6, 3); sx += 8;
+      if (c === '#5ae03a' && st.poison > 1) { ctx.font = `700 ${Math.round(8 * z)}px sans-serif`; ctx.fillText('×' + st.poison, sx - 1, y + 6 + 7 * z); sx += Math.round(12 * z); }   // правки 3: яд скорпида — зелёная точка рядом с огнём и число зарядов (до 5)
+    }
   }
 }
 function drawPickupsGround() {
@@ -527,6 +570,8 @@ function drawPickupsGround() {
         ctx.globalCompositeOperation = 'lighter'; const g = ctx.createLinearGradient(x, y - 90 * z, x, y); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, col + '88'); ctx.fillStyle = g; ctx.fillRect(x - 5 * z, y - 90 * z, 10 * z, 90 * z); ctx.globalCompositeOperation = 'source-over';
       }
       if (icons) drawFrame(ctx, icons, iconOf(p.item), x - 16 * z, y - 26 * z, 32 * z / 96 * 1.0);
+    } else if (p.kind === 'gold' && artImg(GOLD_ICO).ok) {   // П4-2: стопка монет вместо «пузырьков» атласа
+      const s = Math.min(30, 16 + p.amount * 0.3) * z; ctx.drawImage(artImg(GOLD_ICO).im, x - s / 2, y - s * 0.8, s, s);
     } else if (icons) {
       const n = p.kind === 'gold' ? 'gold' : p.potion === 'hp' ? 'potion_hp' : 'potion_mp';
       const s = (p.kind === 'gold' ? Math.min(30, 16 + p.amount * 0.3) : 26) * z;
@@ -626,7 +671,7 @@ function drawPlates() {
     const p = 0.5 + Math.sin(G.time * 3) * 0.2;
     ctx.strokeStyle = `rgba(255,205,90,${p})`; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(0, 0, 46 * z, 0, 7); ctx.stroke(); ctx.restore();
     ctx.globalCompositeOperation = 'source-over';
-    const locked = (it.reqLevel && G.profile.level < it.reqLevel) || it.locked;
+    const locked = !lvlOk(it.reqLevel) || it.locked;
     // сборка 47: табличка не закрывает порталы и алтари — она лежит под светящимся кругом, у земли, мельче и полупрозрачная.
     // Подробности (уровень, «выберите навык») — только когда герой рядом (до 5 м); издалека — одно название
     const P = G.player, near = P && Math.hypot(P.x - it.x, P.y - it.y) < 5;
