@@ -158,3 +158,12 @@ export const WILD_QUESTS = {
     { id: 'fr_boss', title: 'Хозяин Чащи', text: 'Победите Хозяина Чащи (форт-босс, глубина 12).', stat: 'bosses', n: 1, reward: { xp: 520, gold: 350, items: [{ slot: 'weapon', epic: true }] } },
   ],
 };
+
+// правки 3: замедляющие мобы (корни, лёд на ударе) — в стае не больше одного, остальные — другой породы из того же списка
+export const slows = t => { const M = WILD_MOBS[t]; return !!M && (M.ai === 'root' || M.onHit === 'slow'); };
+export function packSpawns(spawns, t, x, y, n, r, lvl, pool, R) {
+  if (n <= 1 || !slows(t)) { spawns.push([t, x, y, n, r, lvl]); return; }
+  const alt = pool.filter(a => !slows(a) && WILD_MOBS[a].ai !== 'giant');
+  spawns.push([t, x, y, 1, r, lvl]);
+  if (alt.length) spawns.push([alt[Math.floor(R() * alt.length)], x, y, n - 1, r, lvl]);
+}

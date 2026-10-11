@@ -124,9 +124,9 @@ export function petInfo(id, lvl) {
   const D = PETS[id], S = G.stats || {}, hp = S.maxHP || 100, dmg = dmgOf({ id, lvl }), mag = D.fx === 'heal';
   const fx = {
     burn: ['Поджог', `${n1(dmg * 0.35)} урона огнём в секунду, 3 с (маг.)`],
-    poison: ['Яд', `${n1(dmg * 0.15)} в секунду за каждый заряд, до 5 зарядов, 4 с (маг.)`],
+    poison: ['Яд', `${n1(dmg * 0.4)} в секунду за каждый заряд, до 5 зарядов, 4 с (маг.)`],
     heal: ['Лечение героя', `+${Math.round(hp * (0.03 + 0.005 * (lvl - 1)))} здоровья раз в 5 с (${pc(0.03 + 0.005 * (lvl - 1))} от максимума)`],
-    needle: ['Иглы издалека', `бьёт цели до ${D.reach} м`],
+    needle: ['Ледяные стрелы', `бьёт цели до ${D.reach} м; каждое попадание замедляет врага ещё на 8% (до 32%, 1,5 с)`],
     stun: ['Оглушение', `шанс ${pc(0.15 + 0.02 * (lvl - 1))} за укус: 0,6 с (элита 0,4 с, босс 0,25 с)`],
     leech: ['Вампиризм', '60% нанесённого урона лечит героя'],
     shield: ['Каменный щит', `раз в 8 с в бою: щит ${Math.round(hp * (0.06 + 0.01 * (lvl - 1)))} (${pc(0.06 + 0.01 * (lvl - 1))} здоровья, не больше 30%)`],
@@ -143,7 +143,9 @@ function strike(p, e) {
   const D = PETS[p.id], base = dmgOf(p), lv = p.lvl, mag = base * trainMul('mag'), dmg = D.ranged && D.fx !== 'needle' ? mag : base * trainMul('phys');   // П29: физ. — удар и иглы, маг. — искры и эффекты
   if (D.ranged) {
     const dx = e.x - p.x, dy = e.y - p.y, l = Math.hypot(dx, dy) || 1, sp = D.fx === 'needle' ? 14 : 10;
-    C.spawnProj({ kind: D.fx === 'needle' ? 'shard' : 'bolt', x: p.x, y: p.y, z: 1.1, vx: dx / l * sp, vy: dy / l * sp, owner: 'p', dmg, elem: D.fx === 'needle' ? 'phys' : 'light', src: 'pet', range: D.reach + 2 });
+    // правки 3: ледяная стрела пса вылетает из пасти (впереди морды, чуть ниже головы), а не над ним; попадание копит замедление
+    const dog = D.fx === 'needle', ox = dog ? dx / l * 0.6 : 0, oy = dog ? dy / l * 0.6 : 0;
+    C.spawnProj({ kind: dog ? 'shard' : 'bolt', x: p.x + ox, y: p.y + oy, z: dog ? 0.85 : 1.1, vx: dx / l * sp, vy: dy / l * sp, owner: 'p', dmg, elem: dog ? 'phys' : 'light', src: 'pet', range: D.reach + 2, petSlow: dog });
     bus.emit('sfx', 'click'); return;
   }
   if (Math.hypot(e.x - p.x, e.y - p.y) > D.reach + e.r + 0.7) return;
@@ -152,7 +154,7 @@ function strike(p, e) {
   const s = e.st;
   switch (D.fx) {
     case 'burn': s.burn = 3; s.burnDps = Math.max(s.burnDps || 0, mag * 0.35); break;
-    case 'poison': s.poison = Math.min(5, (s.poison || 0) + 1); s.poisonT = 4; s.poisonDps = Math.max(s.poisonDps || 0, mag * 0.15); break;
+    case 'poison': s.poison = Math.min(5, (s.poison || 0) + 1); s.poisonT = 4; s.poisonDps = Math.max(s.poisonDps || 0, mag * 0.4); break;   // правки 3: яд сильнее (был 0,15 за заряд — на 5 зарядах почти не чувствовался)
     case 'stun': if (rand() < 0.15 + 0.02 * (lv - 1)) { s.stun = Math.max(s.stun, e.D.boss ? 0.25 : e.D.elite ? 0.4 : 0.6); C.float(e.x, e.y, 'Оглушён', '#f0e08a'); } break;
     case 'leech': { const S = G.stats, h = Math.round(done * 0.6 * trainMul('mag')); if (h > 0 && pl().hp < S.maxHP) { pl().hp = Math.min(S.maxHP, pl().hp + h); C.float(pl().x, pl().y, '+' + h, '#7ef07a', { z: 2.3 }); } break; }
   }

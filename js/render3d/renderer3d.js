@@ -282,7 +282,7 @@ function syncEnemies(dt) {
   for (const e of G.enemies) {
     let def = MOBS[e.model || e.type] || MOBS[e.D && e.D.model3d];   // e.model — свой вид при том же типе (Страж глубин, сборка 57); model3d — чужая модель на время (мобы храма)
     if (!def) { if (!warned.has(e.type)) { warned.add(e.type); console.warn('[3D] нет модели моба «' + e.type + '» — показан скелет-воин'); } def = MOBS.skel_warrior; }
-    const scale = (e.champion ? 1.25 : 1) * (def === MOBS[e.model || e.type] || (e.D && def === MOBS[e.D.model3d]) ? 1 : e.r / 0.34);
+    const scale = (e.champion ? 1.25 : 1) * (e.bigMul || 1) * (def === MOBS[e.model || e.type] || (e.D && def === MOBS[e.D.model3d]) ? 1 : e.r / 0.34);
     let a = enemyActor(e, def, scale); a.seen = fn;
     // правки 2 (П17–18): моб собран запасной моделью, пока его модель грузилась, — пересобрать, когда догрузилась
     if (def.ready && SKINS.on) { if (a.fb === undefined) a.fb = !def.ready(kit); else if (a.fb && def.ready(kit)) { a.dispose(); actors.delete(e); a = getActor(e, def, { scale }); a.isEnemy = true; a.def = def; a.seen = fn; a.fb = false; } }
@@ -344,16 +344,18 @@ function syncPet(dt) {
   const skin = 'pet_' + p.id; kit.skin.preloadSkin(skin);
   const was = actors.get(p); if (was && !was.model.skin && kit.skin.skinLoaded(skin) && kit.skin.SKINS.on) { was.dispose(); actors.delete(p); }
   const a = getActor(p, PET_MODELS[p.id]); a.isPet = true; a.turnRate = 12;
-  if (!a.petGlow) petGlow(a);
+  if (!a.petGlow) { petGlow(a); a.root.scale.setScalar(PET_SCALE); }
   a.place(p.x, p.y); a.faceAngle(Math.PI / 2 - p.ang);
   a.update(dt, p.act ? { clip: 'attack', k: Math.min(1, p.act.t / p.act.dur) } : p.speed > 0.4 ? { clip: 'walk', speed: p.speed } : { clip: 'idle' }, env);
   // правки к сборке 60: питомец ярче — светящийся силуэт (тёплая обводка дышит) и лёгкий подсвет тела.
   // Дёшево для iPhone: та же обводка, что была (только другой цвет и толщина), без новых проходов и источников света
+  // правки 3: без белёсого подсвета тела (a.flash) — он и делал зверьков блеклыми; цвет сочнее в самой текстуре (pets_meshy.webp)
   const k = 0.5 + 0.5 * Math.sin(U.uTime.value * 3.2); PET_GLOW.color.setRGB(1.6 + 0.8 * k, 0.55 + 0.35 * k, 0.05);   // выше 1 — подхватывает bloom (ореол без своего прохода)
-  a.flash(0.12, 0xfff2cc);
 }
-// светящаяся обводка питомца: одна общая на всех зверьков, подменяет тёмную обводку модели
-const PET_GLOW = outline({ width: 0.03, color: 0xffa020 }); PET_GLOW.fog = false;
+// светящаяся обводка питомца: одна общая на всех зверьков, подменяет тёмную обводку модели.
+// Правки 3: питомцы на 20 % крупнее, обводка на 30 % тоньше (толщина в единицах модели — делим на масштаб: 0,03 × 0,7 / 1,2)
+const PET_SCALE = 1.2;
+const PET_GLOW = outline({ width: 0.03 * 0.7 / PET_SCALE, color: 0xffa020 }); PET_GLOW.fog = false;
 function petGlow(a) {
   a.petGlow = true;
   a.root.traverse(o => { if (o.isMesh && o.userData.isOutline) o.material = PET_GLOW; });

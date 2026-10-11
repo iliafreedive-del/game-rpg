@@ -135,6 +135,7 @@ function twist(b, s, ang) {
   q.setFromAxisAngle({ x: d.x / m, y: d.y / m, z: d.z / m }, s * ang);   // ось плеча — к локтю
   b.quaternion.multiply(q);
 }
+const FLY_PITCH = 0.52;
 function flyer(B, a, st, o, bat) {
   const t = a.t, walk = a.mode === 'walk', f = bat ? (walk ? 4.4 : 3.6) : (walk ? 3.0 : 2.4);
   // ворон: взмахи сериями, между ними — парение (крылья чуть приподняты); мышь машет без пауз
@@ -164,7 +165,8 @@ function flyer(B, a, st, o, bat) {
     R(B, 'ear' + sf, 0, 0, -s * 0.1 * Math.max(0, w));
   }
   P(B, o.root, 0, o.lift - 0.03 * amp * w + 0.05 * Math.sin(t * 1.3), 0);
-  R(B, o.root, walk ? 0.3 : 0.08 * Math.sin(t * 0.9), 0, 0.05 * Math.sin(t * 0.7));
+  // правки 3: ворон и мышь смотрели сильно вверх (модель стоит «столбиком») — корпус наклонён к земле на ~30°, в полёте ещё ниже
+  R(B, o.root, FLY_PITCH + (walk ? 0.3 : 0.08 * Math.sin(t * 0.9)), 0, 0.05 * Math.sin(t * 0.7));
   R(B, 'head', walk ? -0.25 : 0.1 * Math.sin(t * 0.8), (bat ? 0.08 : 0.25) * Math.sin(t * 0.5) * (walk ? 0.2 : 1), 0);
   R(B, 'tail1', -0.1 * w * amp + (walk ? -0.2 : 0)); R(B, 'tail2', 0.05 * Math.sin(t * 2));
   if (a.mode === 'attack') { const k = bite(a.k); P(B, o.root, 0, -0.25 * k, 0.15 * k); R(B, o.root, 0.4 * k); R(B, 'head', 0.15 * k); }

@@ -532,7 +532,10 @@ function drawBars() {
     ctx.fillStyle = e.D.mini ? '#e0302a' : e.D.elite ? '#e8a42a' : e.champion ? '#5aa0ff' : '#c8302a'; ctx.fillRect(x - w / 2, y, w * e.hp / e.maxHP, 4);
     if (e.D.elite || e.champion) { ctx.font = `600 ${Math.round(11 * Math.min(1.2, z))}px Georgia, serif`; ctx.textAlign = 'center'; ctx.fillStyle = e.D.mini ? '#ff8a70' : e.D.elite ? '#f0c060' : '#9cc4ff'; ctx.strokeStyle = '#000'; ctx.lineWidth = 3; ctx.strokeText(e.name, x, y - 5); ctx.fillText(e.name, x, y - 5); }
     let sx = x - w / 2; const st = e.st; ctx.font = `${Math.round(10 * z)}px sans-serif`; ctx.textAlign = 'left';
-    for (const [on, c] of [[st.burn > 0, '#ff8a3c'], [st.frozen > 0 || st.slowT > 0, '#8fdcff'], [st.shock > 0, '#c8b4ff'], [st.bleed > 0, '#d02020'], [st.stun > 0, '#ffe070']]) if (on) { ctx.fillStyle = c; ctx.fillRect(sx, y + 6, 6, 3); sx += 8; }
+    for (const [on, c] of [[st.burn > 0, '#ff8a3c'], [st.poisonT > 0 && st.poison > 0, '#5ae03a'], [st.frozen > 0 || st.slowT > 0, '#8fdcff'], [st.shock > 0, '#c8b4ff'], [st.bleed > 0, '#d02020'], [st.stun > 0, '#ffe070']]) if (on) {
+      ctx.fillStyle = c; ctx.fillRect(sx, y + 6, 6, 3); sx += 8;
+      if (c === '#5ae03a' && st.poison > 1) { ctx.font = `700 ${Math.round(8 * z)}px sans-serif`; ctx.fillText('×' + st.poison, sx - 1, y + 6 + 7 * z); sx += Math.round(12 * z); }   // правки 3: яд скорпида — зелёная точка рядом с огнём и число зарядов (до 5)
+    }
   }
 }
 function drawPickupsGround() {

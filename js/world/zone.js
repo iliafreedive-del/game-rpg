@@ -20,7 +20,7 @@ const PROP = {
   puddle: { spr: 'puddle', flat: 1 }, mushrooms: { spr: 'mushrooms', light: { r: 2.5, c: [90, 230, 220], flicker: 0.2 } },
   stalagmite: { spr: 'stalagmite', r: 0.3, tall: 1 }, lavarock: { spr: 'lavarock', r: 0.45, light: { r: 3, c: [255, 110, 40], flicker: 0.5 } },
   crystals: { spr: 'crystals', r: 0.3, light: { r: 3.2, c: [190, 120, 255], flicker: 0.3 } },
-  banner: { spr: 'banner', r: 0.15, tall: 1 }, bookshelf: { spr: 'bookshelf', box: [0.55, 0.2] }, weapon_rack: { spr: 'weapon_rack', box: [0.6, 0.18] },
+  banner: { spr: 'banner', r: 0.15, tall: 1 }, bookshelf: { spr: 'bookshelf', box: [0.55, 0.2] }, weapon_rack: { spr: 'weapon_rack', box: [0.6, 0.18] }, weapon_rack_bow: { spr: 'weapon_rack', box: [0.6, 0.18], model: 'weapon_rack_bow' }, weapon_rack_staff: { spr: 'weapon_rack', box: [0.6, 0.18], model: 'weapon_rack_staff' }, cabinet: { spr: 'bookshelf', box: [0.52, 0.24], model: 'cabinet' },
   statue: { spr: 'statue', r: 0.42, tall: 1 }, throne: { spr: 'throne', r: 0.55 }, rug: { spr: 'rug', flat: 1 }, deadroot: { spr: 'deadtree', r: 0.25, tall: 1 }, deadtree: { spr: 'deadtree', r: 0.25, tall: 1 },
   board_dungeon: { spr: 'board', r: 0.3 },
   well: { spr: 'well', r: 0.62 },
@@ -177,6 +177,7 @@ export class Zone {
           break;
         }
         case 'stash': {   // бочка/ящик, как в походе: подойти и обыскать (катакомбы, Глубины)
+          if (o.keep) { const d = this.prop({ x: o.x, y: o.y, t: o.kind, rot: o.rot }); this.inter.push({ id, type: 'stash', keep: true, x: o.x, y: o.y, r: 1.3, label: 'Обыскать', draw: d }); break; }   // правки 3: стойки и шкафы обыскивают, но они остаются на месте
           const d = this.add({ x: o.x, y: o.y, spr: o.kind, hidden: false });   // hidden задан — 3D держит тайник «живым» и прячет, когда обыскали this.map.circles.push({ x: o.x, y: o.y, r: 0.3 });
           this.inter.push({ id, type: 'stash', x: o.x, y: o.y, r: 1.3, label: 'Обыскать', draw: d }); break;
         }

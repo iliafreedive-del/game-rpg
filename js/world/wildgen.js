@@ -2,7 +2,9 @@
 // Раскладка своя при каждом заходе (сид — третий аргумент generateWild).
 // Символы: '.' земля · ',' двор форта · 'x' чаща/скалы · '~' вода · 'D' стена форта · 'v' пропасть · 'h' мост над пропастью · 'b' мост над водой.
 import { generateTemple } from './templegen.js';
-import { REALMS, WILD_MOBS, moodOf, wildLevel, isWildBoss, isWildFort, fieldVariant, locationName } from '../data/wild.js';
+import { REALMS, WILD_MOBS, moodOf, wildLevel, isWildBoss, isWildFort, fieldVariant, locationName, packSpawns, slows } from '../data/wild.js';
+// правки 3: кто бывает вожаком поля в каждом краю (перебираются, а не один и тот же ётун)
+const MINI_KINDS = { fjord: ['f_jotun', 'f_berserk', 'f_wolf', 'f_draugr'], forest: ['w_bear', 'w_boar', 'w_wolf'], bones: ['b_boar', 'b_hyena', 'b_raider', 'b_scorpid'] };
 
 function rng(seed) { let s = seed >>> 0; return () => { s = (s + 0x6D2B79F5) >>> 0; let t = s; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
 export const WILD_SIZE = 96;   // П55: поле больше (было 64), но это острова над бездной — суши примерно вдвое меньше площади карты
@@ -268,8 +270,8 @@ function build(RL, mood, depth, boss, seed, attempt, force) {
     if (!p) return false; camps++; placed.push([p[0], p[1], wide ? 8 : 6.5]); campPts.push(p);
     const t = bigPool[ri(0, bigPool.length - 1)], MT = WILD_MOBS[t];
     const n = MT.ai === 'giant' ? 1 : Math.min(4, ri(isFort ? 1 : 2, isFort ? 2 : 3) + (depth >= 6 ? 1 : 0));
-    spawns.push([t, p[0], p[1], n, 2.2, lvl]);
-    if (MT.ai !== 'giant' && depth >= 4 && R() < 0.3) { const t2 = bigPool[ri(0, bigPool.length - 1)]; if (WILD_MOBS[t2].ai !== 'giant') spawns.push([t2, p[0], p[1], 1, 2.5, lvl]); }
+    packSpawns(spawns, t, p[0], p[1], n, 2.2, lvl, bigPool, R);
+    if (MT.ai !== 'giant' && depth >= 4 && R() < 0.3) { const t2 = bigPool[ri(0, bigPool.length - 1)]; if (WILD_MOBS[t2].ai !== 'giant' && !(slows(t) && slows(t2))) spawns.push([t2, p[0], p[1], 1, 2.5, lvl]); }
     // лагерная обстановка и сундук
     objects.push({ t: realm === 'fjord' ? 'brazier' : bn ? 'bonfire' : 'rocks', x: p[0] + 1.6, y: p[1] - 1.2 });
     if (bn) {   // стоянка дикарей: хижина из шкур на рёбрах, тотем или знамя, рама со шкурой
@@ -291,12 +293,15 @@ function build(RL, mood, depth, boss, seed, attempt, force) {
   const miniV = live.find(v => role.get(v) === 'mini');
   let miniAt = null;
   if (!isFort) {
-    const strong = bigPool.filter(t => WILD_MOBS[t].ai === 'giant'), melee = bigPool.filter(t => ['charge', 'melee'].includes(WILD_MOBS[t].ai)), mt = strong.length && depth >= 3 ? strong[ri(0, strong.length - 1)] : melee.length ? melee[ri(0, melee.length - 1)] : bigPool[bigPool.length - 1];
+    // правки 3: вожак поля — не только ётун: исполинский берсерк, огромный волк, кабан крупнее обычного… (крупнее — wild.js, MINI_BIG)
+    const strong = bigPool.filter(t => WILD_MOBS[t].ai === 'giant'), melee = bigPool.filter(t => ['charge', 'melee'].includes(WILD_MOBS[t].ai));
+    const vary = (MINI_KINDS[realm] || []).filter(t => WILD_MOBS[t] && (WILD_MOBS[t].ai !== 'giant' || depth >= 3));
+    const mt = vary.length ? vary[ri(0, vary.length - 1)] : strong.length && depth >= 3 ? strong[ri(0, strong.length - 1)] : melee.length ? melee[ri(0, melee.length - 1)] : bigPool[bigPool.length - 1];
     const v = miniV || E, p = pickIn(v, (x, y) => free(x, y, 1) && dist(x, y, exit[0], exit[1]) > 5 && dist(x, y, start[0], start[1]) > 10 && !near(x, y, 3), 120, 0.55) || pick((x, y) => free(x, y, 1) && dist(x, y, start[0], start[1]) > 14);
     if (p) {
       miniAt = p; placed.push([p[0], p[1], 6]);
       spawns.push([mt, p[0], p[1], 1, 0, lvl + 1, 'wildmini']);
-      const gd = bigPool.filter(t => WILD_MOBS[t].ai !== 'giant'); if (gd.length) spawns.push([gd[ri(0, gd.length - 1)], p[0], p[1], depth >= 4 ? 3 : 2, 2.4, lvl]);
+      const gd = bigPool.filter(t => WILD_MOBS[t].ai !== 'giant'); if (gd.length) packSpawns(spawns, gd[ri(0, gd.length - 1)], p[0], p[1], depth >= 4 ? 3 : 2, 2.4, lvl, gd, R);
       objects.push({ t: bn ? 'war_banner' : 'banner', x: p[0] + 2.2, y: p[1] - 1.6 }, { t: bn ? 'bonfire' : 'brazier', x: p[0] - 2.2, y: p[1] - 1.4 });
     }
   }
