@@ -186,6 +186,14 @@ export function initTutorial() {
   const gearStep = () => { const q = G.profile && STORY[G.profile.story.stage]; return q && q.id === 'hero_gear'; };
   const portraitHint = () => { if (gearStep() && !G.modalOpen) pointAt('portrait', 'Нажмите на портрет — это окно героя', { time: 12 }); };
   bus.on('questNew', q => { if (q && q.id === 'hero_gear') setTimeout(function again(n = 0) { if (G.modalOpen && n < 30) return setTimeout(() => again(n + 1), 700); portraitHint(); }, 900); });
+  // сборка 61: задание «Осмотреть снаряжение» висит, а куда жать — не видно. Пока оно не выполнено: портрет (а в меню — плитка «Герой»)
+  // мигает золотом, и палец повторяется раз в 20 с, если игрок его пропустил
+  let gearAt = 0;
+  setInterval(() => { const on = !!(G.profile && G.zoneReady && !loading() && !G.cinema && gearStep());
+    const tile = document.querySelector('.menu-tile[data-w="inventory"]'), pt = $('portrait');
+    if (pt) pt.classList.toggle('gear-hint', on && !G.modalOpen); if (tile) tile.classList.toggle('gear-hint', on);
+    if (!on || G.modalOpen || hand || line) { gearAt = performance.now(); return; }
+    if (performance.now() - gearAt > 20000) { gearAt = performance.now(); portraitHint(); } }, 500);
   bus.on('menuOpened', () => { T().tips.hero = 1; if (gearStep()) pointAt(document.querySelector('.menu-tile[data-w="inventory"]'), '«Герой» — надетые вещи и сумка', { time: 12, win: true }); });
   bus.on('invOpened', () => {
     if (!hintsOn()) return; const t = T(); if (t.tips.inv1) return; t.tips.inv1 = 1; bus.emit('save');
