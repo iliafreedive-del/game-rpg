@@ -3,6 +3,8 @@
 (размах поворотов 49/54/142° против 36/31/107°) — волочится и вытягивается назад. Движение левой задней ноги
 заменено зеркальной копией правой со сдвигом на полцикла. Файл правится на месте (размер буфера не меняется).
 python3 tools/art/stag_leg_fix.py [assets/models/t_stag.glb]"""
+(Правки 4: настоящая причина — веса: голень левой задней ноги была привязана к хвосту волка; исправлено переносом рига
+с --skip tail1,tail2,tail3, см. rig_transfer.mjs; к новому t_stag.glb этот скрипт не применялся.)
 import sys, json, struct, numpy as np
 f = sys.argv[1] if len(sys.argv) > 1 else 'assets/models/t_stag.glb'
 raw = bytearray(open(f, 'rb').read()); jl = struct.unpack('<I', raw[12:16])[0]; j = json.loads(raw[20:20 + jl]); B0 = 20 + jl + 8
