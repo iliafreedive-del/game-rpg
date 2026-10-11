@@ -5,7 +5,7 @@ import { G, bus } from './ctx.js';
 import { makeItem, sellValue, makeSetItem, pickSet } from './items.js';
 import { EPICS } from '../data/items.js';
 import { ENEMIES, scaleXP } from '../data/enemies.js';
-import { xpToNext, stats, MAX_LEVEL } from './stats.js';
+import { xpToNext, stats, MAX_LEVEL, powerQuarter } from './stats.js';
 import { rand, rint, weighted, pick, uid } from '../core/util.js';
 import { float, particles } from './combat.js';
 
@@ -122,6 +122,7 @@ import { GROWTH } from '../data/items.js';
 export function autoGrow(P, n = 1) { const g = GROWTH[P.cls || 'warrior']; for (const k in g) P.attrs[k] += g[k] * n; }
 export function gainXP(n, x, y) {
   const P = G.profile; n = Math.round(n * xpMul()); if (n <= 0) return;
+  const q0 = powerQuarter(P), l0 = P.level;
   P.xp += n; if (x != null) float(x, y, '+' + n + ' опыта', '#b8e3ff', { z: 2.6, life: 0.8 });
   let up = 0;
   while (P.xp >= xpToNext(P.level) && P.level < MAX_LEVEL) { P.xp -= xpToNext(P.level); P.level++; autoGrow(P); P.skillPts += 1; up++; }
@@ -129,6 +130,9 @@ export function gainXP(n, x, y) {
     G.stats = stats(P); G.player.hp = G.stats.maxHP; G.player.mp = G.stats.maxMP;
     particles(G.player.x, G.player.y, 30, { c: [255, 220, 120], z: 0.2, sp: 1.2, vz: 4, g: 1, size: 4, life: 1.2 });
     bus.emit('levelUp', P.level); bus.emit('sfx', 'levelup');
+  } else if (P.level === l0 && powerQuarter(P) > q0) {   // сборка 62: четверть полосы опыта — маленькая прибавка мощи
+    G.stats = stats(P); bus.emit('statsChanged');
+    bus.emit('toast', { text: 'Мощь растёт: +0,75% здоровья, +0,5% урона', sub: 'Каждая четверть полосы опыта с 10-го уровня', kind: 'good' });
   }
   bus.emit('hud');
 }

@@ -2483,5 +2483,7 @@
  "Ходит за вами везде и сам бьётся рядом. Новых зверьков Кофи продаёт за осколки Бездны ◆.": "It follows you everywhere and fights by your side. Kofi sells new critters for Abyss shards ◆.",
  "<div class=\"hb-t ok\">✔ {0}</div><div class=\"hb-d\">Сдайте старосте Эдрику</div>": "<div class=\"hb-t ok\">✔ {0}</div><div class=\"hb-d\">Turn it in to Elder Edric</div>",
  "2026-10-11 · сборка 61": "2026-10-11 · build 61",
- "+5 характеристик · +1 навык · +3% здоровья и +2% урона": "+5 attributes · +1 skill · +3% health and +2% damage"
+ "+5 характеристик · +1 навык · +3% здоровья и +2% урона": "+5 attributes · +1 skill · +3% health and +2% damage",
+ "Мощь растёт: +0,75% здоровья, +0,5% урона": "Power grows: +0.75% health, +0.5% damage",
+ "Каждая четверть полосы опыта с 10-го уровня": "Every quarter of the XP bar from level 10"
 }

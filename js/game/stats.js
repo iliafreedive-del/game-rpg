@@ -16,7 +16,10 @@ const xpOld = l => Math.round(75 * Math.pow(l, 1.75) * Math.pow(1.1, l - 1) * (l
 export const xpToNext = l => l <= 10 ? xpOld(l) : Math.round(xpOld(10) * Math.pow(l / 10, 0.6) * (1 + 0.25 * l) / 3.5);
 // сборка 62: «мощь уровня» — с 11-го уровня каждый уровень даёт +3% здоровья и +2% урона сверх очков характеристик,
 // чтобы рост был заметен и герой не отставал от урона врагов (раньше к 80 ур. враг убивал за 4 удара вместо 24 на 10-м)
-export const levelPower = l => { const k = Math.max(0, (l || 1) - 10); return { hp: 1 + 0.03 * k, dmg: 1 + 0.02 * k }; };
+// Как очки совершенствования в Diablo 4 (очко за каждую четверть полосы опыта): с 10-го уровня мощь растёт и внутри уровня —
+// каждая четверть полосы даёт четверть прибавки (+0,75% здоровья, +0,5% урона), чтобы рост чувствовался каждые 10–35 минут игры
+export const powerQuarter = p => p.level >= 10 && p.level < MAX_LEVEL ? Math.min(3, Math.floor((p.xp || 0) / xpToNext(p.level) * 4)) : 0;
+export const levelPower = (l, q = 0) => { const k = Math.max(0, (l || 1) - 10 + q / 4); return { hp: 1 + 0.03 * k, dmg: 1 + 0.02 * k }; };
 export const rank = (p, id) => p.skills[id] || 0;
 
 export function branchBonus(p, branch) {
@@ -102,7 +105,7 @@ export function stats(p, gearOverride) {
     if (hasBoon('glass')) { s.dmgMin = Math.round(s.dmgMin * 1.4); s.dmgMax = Math.round(s.dmgMax * 1.4); s.spellPower *= 1.4; s.maxHP = Math.round(s.maxHP * 0.7); }   // проклятый дар: урон ценой здоровья
     if (hasBoon('bloodpact')) { s.aps = +(s.aps * 1.25).toFixed(2); s.hpRegen = 0; }   // проклятый дар: скорость ценой лечения
   }
-  { const LP = levelPower(p.level); s.maxHP = Math.round(s.maxHP * LP.hp); s.dmgMin = Math.round(s.dmgMin * LP.dmg); s.dmgMax = Math.round(s.dmgMax * LP.dmg); s.spellPower *= LP.dmg; s.lvlPower = LP; }
+  { const LP = levelPower(p.level, powerQuarter(p)); s.maxHP = Math.round(s.maxHP * LP.hp); s.dmgMin = Math.round(s.dmgMin * LP.dmg); s.dmgMax = Math.round(s.dmgMax * LP.dmg); s.spellPower *= LP.dmg; s.lvlPower = LP; }
   s.block = Math.min(0.5, s.block); s.helpOn = help > 1;
   // сборка 49: «запас прочности» (EHP = здоровье / (1 − снижение урона)) — броня и здоровье в одних единицах; враги на 1 уровень выше героя
   s.ehp = Math.round(s.maxHP / (1 - damageReduction(s.armor, (p.level || 1) + 1)));

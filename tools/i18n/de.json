@@ -2483,5 +2483,7 @@
  "Ходит за вами везде и сам бьётся рядом. Новых зверьков Кофи продаёт за осколки Бездны ◆.": "Es folgt dir überallhin und kämpft an deiner Seite. Neue Tierchen verkauft Kofi für Abgrundsplitter ◆.",
  "<div class=\"hb-t ok\">✔ {0}</div><div class=\"hb-d\">Сдайте старосте Эдрику</div>": "<div class=\"hb-t ok\">✔ {0}</div><div class=\"hb-d\">Bei Dorfältestem Edric abgeben</div>",
  "2026-10-11 · сборка 61": "2026-10-11 · Build 61",
- "+5 характеристик · +1 навык · +3% здоровья и +2% урона": "+5 Attribute · +1 Fertigkeit · +3% Leben und +2% Schaden"
+ "+5 характеристик · +1 навык · +3% здоровья и +2% урона": "+5 Attribute · +1 Fertigkeit · +3% Leben und +2% Schaden",
+ "Мощь растёт: +0,75% здоровья, +0,5% урона": "Macht wächst: +0,75 % Leben, +0,5 % Schaden",
+ "Каждая четверть полосы опыта с 10-го уровня": "Jedes Viertel der EP-Leiste ab Stufe 10"
 }
