@@ -27,7 +27,7 @@ import { iconURL } from './ui/icons.js';
 import { initFullscreen } from './ui/fullscreen.js';
 import { qa, initQA } from './core/qa.js';
 
-export const BUILD = '2026-10-11 · сборка 62';   // видно на титульном экране и в настройках: так проверяют, что загрузилась свежая версия
+export const BUILD = '2026-10-11 · сборка 64';   // видно на титульном экране и в настройках: так проверяют, что загрузилась свежая версия
 const CORE = ['props', 'icons'];
 // hero sheets are big (HD): load only the chosen class
 export const CLASS_ATLAS = { warrior: ['hero_body', 'hero_sword', 'hero_axe', 'hero_greatsword', 'hero_shield'], archer: ['hero_archer_body', 'hero_archer_bow'], mage: ['hero_mage_body', 'hero_mage_staff'] };
@@ -44,7 +44,7 @@ async function boot() {
   await initPlatform();
   prog(0.1, 'Загрузка героя и мира…');
   await loadGroup(CORE, f => prog(0.1 + f * 0.6, 'Загрузка героя и мира…'));
-  $('titleHero').style.backgroundImage = 'url(assets/sprites/portrait.png)';
+  // сборка 63: портрет над названием скрыт (css #title .hero) — не качаем его зря
   // save: local, or cloud if newer (Yandex)
   // сборка 44: три сохранения — по одному на класс; облако (Яндекс) — если там новее
   let saves = loadSlots();
@@ -112,11 +112,14 @@ function pickClass(box, cb, saved = {}, askOverwrite = () => true) {
   const row = el('div', 'classes');
   for (const [id, C] of Object.entries(CLASSES)) {
     const has = saved[id];
-    const c = el('button', 'class-card', `<picture><source media="(min-width:900px) and (min-height:600px)" srcset="assets/art/gpt/heroes/${id}.png"><img class="pt" src="assets/sprites/${id === 'warrior' ? 'portrait' : 'portrait_' + id}.png" alt="" onerror="this.src='${iconURL(C.icon)}'"></picture><b>${esc(C.name)}</b><span>${esc(C.desc)}</span>${has ? `<em class="cc-save">есть сохранение · ур. ${has.level}</em>` : ''}`);
+    const c = el('button', 'class-card', `<picture><source media="(min-width:900px) and (min-height:600px)" srcset="assets/art/gpt/heroes/${id}.png"><img class="pt" src="assets/sprites/pick_${id}.jpg" alt="" onerror="this.src='${iconURL(C.icon)}'"></picture><b>${esc(C.name)}</b><span>${esc(C.desc)}</span>${has ? `<em class="cc-save">есть сохранение · ур. ${has.level}</em>` : ''}`);
     c.onpointerdown = () => { c._down = true; };
     c.onclick = e => { if (box._picked || (e.detail && !c._down)) return; if (has && !askOverwrite(id)) return; box._picked = true; sfx('click'); cb(id); }; row.appendChild(c);
   }
   box.appendChild(row);
+  // сборка 63: на медленной сети карточки ждут портреты (до 2,5 с), чтобы не было пустых чёрных кругов
+  const imgs = [...row.querySelectorAll('img.pt')].filter(i => !i.complete);
+  if (imgs.length) { row.style.opacity = '0'; const show = () => { row.style.transition = 'opacity .25s'; row.style.opacity = ''; }; Promise.race([Promise.all(imgs.map(i => i.decode().catch(() => { }))), new Promise(r => setTimeout(r, 2500))]).then(show); }
 }
 let last = performance.now(), fpsAcc = 0, fpsN = 0;
 function loop(now) {

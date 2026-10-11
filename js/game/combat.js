@@ -286,7 +286,7 @@ function fireArrow(P, ang, dmgMul) {
 // ------------------------------------------------------------------ player: skills
 // С35: свойства вещей под ветвь навыков — урон, перезарядка, мана (stats.js s.br)
 export const skMana = (sk, S) => Math.round(sk.mana * (1 - ((S && S.br && S.br.brMana[sk.b]) || 0) / 100));
-function brStats(S, b, id) { const k = (1 + ((S.br && S.br.brDmg[b]) || 0) / 100) * (1 + MASTERY_STEP * ((id && G.profile.mastery && G.profile.mastery[id]) || 0));   // перед релизом: + мастерство умения return k === 1 ? S : { ...S, dmgMin: S.dmgMin * k, dmgMax: S.dmgMax * k, spellPower: S.spellPower * k }; }
+function brStats(S, b, id) { const k = (1 + ((S.br && S.br.brDmg[b]) || 0) / 100) * (1 + MASTERY_STEP * ((id && G.profile.mastery && G.profile.mastery[id]) || 0)); return k === 1 ? S : { ...S, dmgMin: S.dmgMin * k, dmgMax: S.dmgMax * k, spellPower: S.spellPower * k }; }   // перед релизом: + мастерство умения
 export function skillUsable(id) {
   const P = G.player, S = G.stats, sk = SKILLS[id]; if (!sk || !R(id)) return { ok: false, why: 'Не изучено' };
   if (sk.weapon === 'bow' && P.weaponType() !== 'bow') return { ok: false, why: 'Нужен лук' };

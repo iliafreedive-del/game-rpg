@@ -2658,5 +2658,17 @@
  "Закрыть разлом": "裂け目を閉じる",
  "Разлом Бездны": "深淵の裂け目",
  "2026-10-11 · сборка 62": "2026-10-11 · ビルド62",
- "uniform float uTime; uniform sampler2D tNoise; uniform vec3 uCol; varying vec2 vU;\n      void main(){\n        float s = texture2D(tNoise, vec2(vU.x * 0.9, vU.y * 0.08 - uTime * 0.55)).r, s2 = texture2D(tNoise, vec2(vU.x * 2.3 + 0.4, vU.y * 0.15 - uTime * 0.9)).g;\n        float streak = smoothstep(0.45, 0.8, s * 0.6 + s2 * 0.5), lip = 1.0 - smoothstep(0.0, 0.7, vU.y);\n        vec3 c = mix(uCol, vec3(0.92, 0.97, 1.0), clamp(streak * 0.7 + lip * 0.6, 0.0, 1.0));\n        float a = (0.72 + streak * 0.25) * (1.0 - smoothstep(5.0, 11.5, vU.y));   // внизу тает в дымке бездны\n        gl_FragColor = vec4(c, a);\n      }": "uniform float uTime; uniform sampler2D tNoise; uniform vec3 uCol; varying vec2 vU;\n      void main(){\n        float s = texture2D(tNoise, vec2(vU.x * 0.9, vU.y * 0.08 - uTime * 0.55)).r, s2 = texture2D(tNoise, vec2(vU.x * 2.3 + 0.4, vU.y * 0.15 - uTime * 0.9)).g;\n        float streak = smoothstep(0.45, 0.8, s * 0.6 + s2 * 0.5), lip = 1.0 - smoothstep(0.0, 0.7, vU.y);\n        vec3 c = mix(uCol, vec3(0.92, 0.97, 1.0), clamp(streak * 0.7 + lip * 0.6, 0.0, 1.0));\n        float a = (0.72 + streak * 0.25) * (1.0 - smoothstep(5.0, 11.5, vU.y));   // внизу тает в дымке бездны\n        gl_FragColor = vec4(c, a);\n      }"
+ "uniform float uTime; uniform sampler2D tNoise; uniform vec3 uCol; varying vec2 vU;\n      void main(){\n        float s = texture2D(tNoise, vec2(vU.x * 0.9, vU.y * 0.08 - uTime * 0.55)).r, s2 = texture2D(tNoise, vec2(vU.x * 2.3 + 0.4, vU.y * 0.15 - uTime * 0.9)).g;\n        float streak = smoothstep(0.45, 0.8, s * 0.6 + s2 * 0.5), lip = 1.0 - smoothstep(0.0, 0.7, vU.y);\n        vec3 c = mix(uCol, vec3(0.92, 0.97, 1.0), clamp(streak * 0.7 + lip * 0.6, 0.0, 1.0));\n        float a = (0.72 + streak * 0.25) * (1.0 - smoothstep(5.0, 11.5, vU.y));   // внизу тает в дымке бездны\n        gl_FragColor = vec4(c, a);\n      }": "uniform float uTime; uniform sampler2D tNoise; uniform vec3 uCol; varying vec2 vU;\n      void main(){\n        float s = texture2D(tNoise, vec2(vU.x * 0.9, vU.y * 0.08 - uTime * 0.55)).r, s2 = texture2D(tNoise, vec2(vU.x * 2.3 + 0.4, vU.y * 0.15 - uTime * 0.9)).g;\n        float streak = smoothstep(0.45, 0.8, s * 0.6 + s2 * 0.5), lip = 1.0 - smoothstep(0.0, 0.7, vU.y);\n        vec3 c = mix(uCol, vec3(0.92, 0.97, 1.0), clamp(streak * 0.7 + lip * 0.6, 0.0, 1.0));\n        float a = (0.72 + streak * 0.25) * (1.0 - smoothstep(5.0, 11.5, vU.y));   // внизу тает в дымке бездны\n        gl_FragColor = vec4(c, a);\n      }",
+ "2026-10-11 · сборка 64": "2026-10-11 · ビルド64",
+ "Мастерство — только для активных умений": "熟練はアクティブスキル専用",
+ "Сначала {0}-й ранг": "先にランク{0}へ",
+ "Мастерство на пределе": "熟練は最大です",
+ "Мастерство стоит {0} золота": "熟練には{0}ゴールド必要",
+ "60% нанесённого урона лечит героя (не больше 1,5% здоровья за укус, больше — с дрессировкой)": "与えたダメージの60%で主人公を回復（1回の噛みつきで最大HPの1.5%まで、訓練で増加）",
+ "+{0}% к усилению": "強化+{0}%",
+ "<b>Мастерство:</b> {0}/{1} · {2}{3}": "<b>熟練：</b>{0}/{1} · {2}{3}",
+ " зол. и очко навыка": "ゴールドとスキルポイント1",
+ "Мастерство +1<small>{0}</small>": "熟練+1<small>{0}</small>",
+ "Навыки без уровня и очков": "レベル・ポイント不要でスキル習得",
+ "Закалка: +10% к урону или защите за уровень (до +10), без риска поломки. Закалять вещи можно только здесь, у кузнеца. Закалка остаётся в слоте: надели новую вещь — она получает закалку прежней.": "鍛錬：レベルごとにダメージか防御+10%（最大+10）、壊れる心配なし。装備の鍛錬はここ、鍛冶屋でしかできません。鍛錬はスロットに残り、新しい装備に付け替えると前の鍛錬を引き継ぎます。"
 }
