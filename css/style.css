@@ -133,6 +133,7 @@ p{margin:6px 0}
 /* character */
 .attr{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #2a2226}
 .attr b{flex:1;font:600 15px var(--serif)} .attr .v{font:bold 16px sans-serif;min-width:34px;text-align:right}
+@media (max-width:560px){.attr{flex-wrap:wrap}.attr b{flex:1 1 auto}.attr:has(>.btn:nth-of-type(3)) b{flex-basis:100%}.attr>small{order:9;flex:1 1 100%;margin-top:-4px}}   /* телефон вертикально: название и кнопки — одной строкой, пояснение — под ними во всю ширину, а не столбиком в пару слов; не влезли кнопки — переносятся строкой ниже целиком */
 .attr .plus{width:34px;height:34px;border-radius:6px;border:1px solid #6a5226;background:linear-gradient(#5a4220,#2a1d10);color:var(--gold);font:bold 18px sans-serif}
 .stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:2px 16px;font-size:13px}
 .stats div{display:flex;justify-content:space-between;border-bottom:1px dotted #2d2428;padding:3px 0}
@@ -163,7 +164,7 @@ p{margin:6px 0}
 .card .slot{width:48px;flex:none}
 .offer{display:flex;gap:10px;align-items:center;border:1px solid #3a2e30;border-radius:8px;padding:10px;background:#1a1418;margin-bottom:8px}
 .offer .ic{width:42px;height:42px;border-radius:8px;background:linear-gradient(#3b2d48,#1d1426);display:grid;place-items:center;font:bold 18px var(--serif);color:#e7d0ff;flex:none}
-.offer .tx{flex:1}
+.offer{flex-wrap:wrap;row-gap:6px}.offer .tx{flex:1 1 150px}.offer>.btn{margin-left:auto}   /* широкая кнопка не зажимает текст в узкий столбик: если не помещается — уходит строкой ниже, вправо */
 /* title & overlays */
 #title{position:fixed;inset:0;z-index:30;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:radial-gradient(ellipse at 50% 40%,#2a1830,#07050a 70%);text-align:center;padding:20px}
 #title h1{margin:0;font:bold clamp(38px,9vw,78px)/1 var(--serif);letter-spacing:.08em;color:#e9c46a;text-shadow:0 0 30px #9a4af0aa,0 4px 0 #3a2410,0 6px 12px #000}
@@ -557,6 +558,8 @@ canvas#game{filter:saturate(1.22) contrast(1.08) brightness(1.06)}
 .bless-card.on{box-shadow:0 0 14px #3ae8d877}
 .bless-card .bl-ic{font-size:30px;color:#ffe08a;text-shadow:0 0 10px #5ae8d8}
 .bless-card .tx{flex:1;font-size:13px;line-height:1.35}
+/* узкое окно (телефон вертикально): текст карточки на всю ширину, «Сегодня: 0 из 3» и кнопка — строкой под ним, без пустых полей по бокам */
+.bless-card{flex-wrap:wrap;row-gap:6px}.bless-card .tx{flex:1 1 220px}.bless-card>.muted{white-space:nowrap}.bless-card>.btn{margin-left:auto}
 .login-cal{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
 .login-cal .lc{position:relative;padding:4px 2px 3px;border-radius:5px;background:#221c30;border:1px solid #3a3150;text-align:center;font-size:10px;line-height:1.15;min-height:42px;color:#cfc6e6}
 .login-cal .lc i{display:block;font-style:normal;font-weight:700;font-size:12px;color:#fff}
