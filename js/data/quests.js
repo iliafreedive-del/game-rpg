@@ -76,7 +76,7 @@ export const REPEATABLE = [
   { id: 'r_elite5', title: 'Убить 15 элитных противников', stat: 'elites', n: 15, reward: { gold: 900, items: [{ slot: 'weapon', tier: 2, rarity: 2 }] } },
   { id: 'r_chest10', title: 'Открыть 30 сундуков', stat: 'chests', n: 30, reward: { gold: 500, potions: 5 } },
   // П34 (правки 2): кузнецу на серебро — 5000 золота, только добытого в бою (подобранного с врагов и сундуков и вынесенного из похода; не реклама, не покупки, не награды)
-  { id: 'r_gold5000', once: true, title: 'Серебро для Горана: добыть 5000 золота', stat: 'gold', n: 5000, reward: { gold: 1500, xp: 1500, shards: 5, items: [{ slot: 'weapon', tier: 2, rarity: 2, noClamp: true, names: { warrior: 'Посеребрённый клинок Горана', archer: 'Посеребрённый лук Горана', mage: 'Посеребрённый посох Горана' } }] } },
+  { id: 'r_gold5000', once: true, title: 'Серебро для Горана: добыть 5000 золота', stat: 'gold', n: 5000, reward: { gold: 1500, xp: 1500, shards: 5, items: [{ slot: 'weapon', tier: 2, rarity: 2, names: { warrior: 'Посеребрённый клинок Горана', archer: 'Посеребрённый лук Горана', mage: 'Посеребрённый посох Горана' } }] } },
   { id: 'r_boss', title: 'Победить босса без смерти', stat: 'bossNoDeath', n: 1, reward: { gold: 600, xp: 600, items: [{ slot: 'weapon', epic: true }] } },
 ];
 
