@@ -10,7 +10,7 @@ export function mobSkin(kit, m, name, o = {}) {
   if (!(S && S.SKINS.on && S.skinLoaded(name))) return m;
   const { bow, restDown, regrip, ...so } = o;
   m = S.attachSkin(kit, m, name, { noEquip: ['handR', 'handL'], rim: 0.6, rimColor: kit.MOB.rimColor.skel, bodyPos: true, ...so });
-  if (m.skin && regrip) {
+  if (m.skin && regrip) for (const regrip of [].concat(o.regrip)) {   // правки 4: можно списком — у Рубаки два топора
     let sk = null; m.root.traverse(x => { if (x.isSkinnedMesh && !x.userData.isOutline) sk = x.skeleton; });
     const wb = sk && sk.getBoneByName(regrip.bone), J = S.skinMeta(name).bones.find(b => b[0] === regrip.bone);
     if (wb && J) {
