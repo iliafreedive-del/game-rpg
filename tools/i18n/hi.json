@@ -2659,5 +2659,15 @@
  "Разлом Бездны": "पाताल की दरार",
  "2026-10-11 · сборка 62": "2026-10-11 · बिल्ड 62",
  "uniform float uTime; uniform sampler2D tNoise; uniform vec3 uCol; varying vec2 vU;\n      void main(){\n        float s = texture2D(tNoise, vec2(vU.x * 0.9, vU.y * 0.08 - uTime * 0.55)).r, s2 = texture2D(tNoise, vec2(vU.x * 2.3 + 0.4, vU.y * 0.15 - uTime * 0.9)).g;\n        float streak = smoothstep(0.45, 0.8, s * 0.6 + s2 * 0.5), lip = 1.0 - smoothstep(0.0, 0.7, vU.y);\n        vec3 c = mix(uCol, vec3(0.92, 0.97, 1.0), clamp(streak * 0.7 + lip * 0.6, 0.0, 1.0));\n        float a = (0.72 + streak * 0.25) * (1.0 - smoothstep(5.0, 11.5, vU.y));   // внизу тает в дымке бездны\n        gl_FragColor = vec4(c, a);\n      }": "uniform float uTime; uniform sampler2D tNoise; uniform vec3 uCol; varying vec2 vU;\n      void main(){\n        float s = texture2D(tNoise, vec2(vU.x * 0.9, vU.y * 0.08 - uTime * 0.55)).r, s2 = texture2D(tNoise, vec2(vU.x * 2.3 + 0.4, vU.y * 0.15 - uTime * 0.9)).g;\n        float streak = smoothstep(0.45, 0.8, s * 0.6 + s2 * 0.5), lip = 1.0 - smoothstep(0.0, 0.7, vU.y);\n        vec3 c = mix(uCol, vec3(0.92, 0.97, 1.0), clamp(streak * 0.7 + lip * 0.6, 0.0, 1.0));\n        float a = (0.72 + streak * 0.25) * (1.0 - smoothstep(5.0, 11.5, vU.y));   // внизу тает в дымке бездны\n        gl_FragColor = vec4(c, a);\n      }",
- "2026-10-11 · сборка 63": "2026-10-11 · बिल्ड 63"
+ "2026-10-11 · сборка 64": "2026-10-11 · बिल्ड 64",
+ "Мастерство — только для активных умений": "महारत सिर्फ़ सक्रिय कौशलों के लिए है",
+ "Сначала {0}-й ранг": "पहले रैंक {0}",
+ "Мастерство на пределе": "महारत पूरी हो चुकी है",
+ "Мастерство стоит {0} золота": "महारत की कीमत {0} सोना",
+ "60% нанесённого урона лечит героя (не больше 1,5% здоровья за укус, больше — с дрессировкой)": "किए गए नुकसान का 60% हीरो को ठीक करता है (हर काट पर अधिकतम 1.5% जीवन, प्रशिक्षण से ज़्यादा)",
+ "+{0}% к усилению": "बढ़त में +{0}%",
+ "<b>Мастерство:</b> {0}/{1} · {2}{3}": "<b>महारत:</b> {0}/{1} · {2}{3}",
+ " зол. и очко навыка": " सोना और एक कौशल अंक",
+ "Мастерство +1<small>{0}</small>": "महारत +1<small>{0}</small>",
+ "Навыки без уровня и очков": "बिना लेवल और अंकों के कौशल"
 }

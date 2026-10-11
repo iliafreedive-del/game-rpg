@@ -1,7 +1,7 @@
 // Combat: player attacks & skills, damage formulas, status effects, enemy attacks, projectiles, VFX spawning.
 import { G, bus } from './ctx.js';
 import { WEAPONS } from '../data/items.js';
-import { SKILLS, PASSIVE_K as PK } from '../data/skills.js';
+import { SKILLS, PASSIVE_K as PK, MASTERY_STEP } from '../data/skills.js';
 import { effRank, damageReduction, hasBoon, boonN } from './stats.js';
 import { getAtlas } from '../core/assets.js';
 import { dirOf, dirVec } from '../core/iso.js';
@@ -286,7 +286,7 @@ function fireArrow(P, ang, dmgMul) {
 // ------------------------------------------------------------------ player: skills
 // С35: свойства вещей под ветвь навыков — урон, перезарядка, мана (stats.js s.br)
 export const skMana = (sk, S) => Math.round(sk.mana * (1 - ((S && S.br && S.br.brMana[sk.b]) || 0) / 100));
-function brStats(S, b) { const k = 1 + ((S.br && S.br.brDmg[b]) || 0) / 100; return k === 1 ? S : { ...S, dmgMin: S.dmgMin * k, dmgMax: S.dmgMax * k, spellPower: S.spellPower * k }; }
+function brStats(S, b, id) { const k = (1 + ((S.br && S.br.brDmg[b]) || 0) / 100) * (1 + MASTERY_STEP * ((id && G.profile.mastery && G.profile.mastery[id]) || 0)); return k === 1 ? S : { ...S, dmgMin: S.dmgMin * k, dmgMax: S.dmgMax * k, spellPower: S.spellPower * k }; }   // перед релизом: + мастерство умения
 export function skillUsable(id) {
   const P = G.player, S = G.stats, sk = SKILLS[id]; if (!sk || !R(id)) return { ok: false, why: 'Не изучено' };
   if (sk.weapon === 'bow' && P.weaponType() !== 'bow') return { ok: false, why: 'Нужен лук' };
@@ -302,7 +302,7 @@ export function castSkill(id, aim) {
   if (P.busy()) return false;
   if (P.state === 'hit') P.state = 'idle';
   const u = skillUsable(id); if (!u.ok) { float(P.x, P.y, u.why, '#ff9c8a', { z: 2.3 }); bus.emit('sfx', 'deny'); return false; }
-  const sk = SKILLS[id], r = R(id), S = brStats(G.stats, sk.b);
+  const sk = SKILLS[id], r = R(id), S = brStats(G.stats, sk.b, id);
   const echo = S.effects.echo && sk.elem && rand() < 0.25;
   if (!echo) P.mp -= skMana(sk, S); else float(P.x, P.y, 'Эхо!', '#d7b7ff', { z: 2.4 });
   P.cds[id] = sk.cd * (1 - ((S.br && S.br.brCd[sk.b]) || 0) / 100); G.lastCombat = G.time;
@@ -334,7 +334,7 @@ export function castSkill(id, aim) {
     }
     case 'warcry': {
       dur = 0.5; impact = 0.4;
-      fire = () => { P.warcry = G.time + 8; P.warcryMul = 1.25 + r * 0.05; if (!sheet('sk_warcry_ring', P.x, P.y, { size: 10.5 })) { effect({ kind: 'aura', dur: 1.2 }); effect({ kind: 'ring', x: P.x, y: P.y, r: 5, dur: 0.6, c: [255, 190, 70] }); } bus.emit('sfx', 'roar'); G.cam.kick(0.3);
+      fire = () => { P.warcry = G.time + 8; P.warcryMul = 1.25 + r * 0.05 + 0.02 * ((G.profile.mastery && G.profile.mastery.warcry) || 0); if (!sheet('sk_warcry_ring', P.x, P.y, { size: 10.5 })) { effect({ kind: 'aura', dur: 1.2 }); effect({ kind: 'ring', x: P.x, y: P.y, r: 5, dur: 0.6, c: [255, 190, 70] }); } bus.emit('sfx', 'roar'); G.cam.kick(0.3);
         for (const e of G.enemies) if (!e.dead && Math.hypot(e.x - P.x, e.y - P.y) < 5) { e.st.slow = 0.5; e.st.slowT = 2.5; } float(P.x, P.y, 'Боевой клич!', '#ffcf6a', { big: 1, z: 2.6 }); };
       break;
     }

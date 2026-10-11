@@ -11,7 +11,7 @@ const WALLS = [
   { id: 'starter_pack', when: P => (P.stats.deaths || 0) >= 1 || P.level >= 2, why: P => (P.stats.deaths || 0) >= 1 ? 'Первая смерть — самое время усилиться' : 'Начало пути — самое время усилиться' },   // сборка 59: про смерть — только тем, кто погибал
   { id: 'guard_armor', when: P => P.level >= 6 && !P.story.flags.bossKilled, why: 'Печать к Палачу Бездны не поддаётся: нужен 7 уровень и крепкие вещи' },
   { id: 'seal_blade', when: P => gearOpen(P, 'seal_blade') && ((P.depths && P.depths.best >= 8) || forts(P, 'forest') >= 1), why: 'Дальше 8-го этажа Глубин и в фортах враги растут быстрее' },
-  { id: 'magister_plate', when: P => gearOpen(P, 'magister_plate') && (forts(P, 'bones') >= 1 || P.level >= 16), why: 'Фьорды Скъёльда — четвёртая печать, и враги там на 12 уровне' },
+  { id: 'magister_plate', when: P => gearOpen(P, 'magister_plate') && (forts(P, 'bones') >= 1 || P.level >= 25), why: 'Фьорды Скъёльда — четвёртая печать, и враги там на 12 уровне' },
   { id: 'order_weapon', when: P => gearOpen(P, 'order_weapon'), why: 'Морвен в Цитадели сильнее всего, что было до него' },
   { id: 'abyss_set', when: P => !!P.storyDone, why: 'Круги Бездны: каждый круг — враги крепче в полтора раза' },
 ];

@@ -45,7 +45,7 @@ import { rand, rrange } from '../core/util.js';
 import { pollMove, input, mouse, tapAim, tapMove } from '../core/input.js';
 import { elvinBuy } from '../ui/tutorial.js';
 import { canLearnNow } from './character.js';
-import { gate, BOSS_LEVEL, nextStep, earlyLock, lockToast, bandLevel, CATA_MAX, wildDepthGate } from './progress.js';
+import { gate, BOSS_LEVEL, nextStep, earlyLock, lockToast, bandLevel, CATA_MAX, wildDepthGate, lvlOk } from './progress.js';
 import { platform } from '../platform/platform.js';
 import { cineTick, inCinema, cinema, portalShots, newPortalShots } from '../ui/cinema.js';
 import { CAMERA } from '../render3d/style.js';
@@ -355,7 +355,7 @@ export function interact(it) {
   switch (it.type) {
     case 'portal':
       if (it.hidden) return;
-      if (it.reqLevel && P.level < it.reqLevel) { bus.emit('toast', { text: `Портал откроется с ${it.reqLevel} уровня`, sub: 'Фармите золото и опыт в катакомбах', kind: 'warn' }); bus.emit('sfx', 'deny'); return; }
+      if (!lvlOk(it.reqLevel)) { bus.emit('toast', { text: `Портал откроется с ${it.reqLevel} уровня`, sub: 'Фармите золото и опыт в катакомбах', kind: 'warn' }); bus.emit('sfx', 'deny'); return; }
       { const g = gate(it.to === 'catacombs' ? 'catacombs' : ''); if (g) { bus.emit('toast', { ...g, kind: 'warn' }); bus.emit('sfx', 'deny'); return; } }
       bus.emit('sfx', 'portal');
       if (it.to === 'castle') { loadZone('castle'); return; }
@@ -365,18 +365,18 @@ export function interact(it) {
     case 'npc': { if ((it.id === 'fortune' && earlyLock('extra')) || (it.id === 'merchant' && earlyLock('shop'))) { lockToast('extra'); return; } const n = G.npcs.find(x => x.id === it.id); if (n) n.talkT = 4; bus.emit('openNPC', it.id); return; }
     case 'board': bus.emit('openBoard'); return;
     case 'rift': CT.startRift(it); return;
-    case 'herospath': { if (P.level < 2 && !(Q.current() && Q.current().id === 'hw_try')) { bus.emit('toast', { text: 'Летопись битв — со 2 уровня', sub: 'Сначала пройдите пролог и немного прокачайтесь', kind: 'warn' }); bus.emit('sfx', 'deny'); return; } const g = gate('hw', 1); if (g) { bus.emit('toast', { ...g, kind: 'warn' }); bus.emit('sfx', 'deny'); return; } bus.emit('openHeroPath'); return; }
+    case 'herospath': { if (!lvlOk(2) && !(Q.current() && Q.current().id === 'hw_try')) { bus.emit('toast', { text: 'Летопись битв — со 2 уровня', sub: 'Сначала пройдите пролог и немного прокачайтесь', kind: 'warn' }); bus.emit('sfx', 'deny'); return; } const g = gate('hw', 1); if (g) { bus.emit('toast', { ...g, kind: 'warn' }); bus.emit('sfx', 'deny'); return; } bus.emit('openHeroPath'); return; }
     case 'wheel': if (earlyLock('extra')) { lockToast('extra'); return; } bus.emit('openWheel'); return;
-    case 'survival': if (Q.current() && Q.current().id === 'surv_try') { bus.emit('openSurvival'); return; } { const g = gate('survival'); if (g) { bus.emit('toast', { ...g, kind: 'warn' }); bus.emit('sfx', 'deny'); return; } } if (P.level < SV.REQ_LEVEL) { bus.emit('toast', { text: `Жатва Бездны открывается с ${SV.REQ_LEVEL} уровня`, kind: 'warn' }); bus.emit('sfx', 'deny'); return; } bus.emit('openSurvival'); return;
-    case 'depths': { const g = gate('depths'); if (g) { bus.emit('toast', { ...g, kind: 'warn' }); bus.emit('sfx', 'deny'); return; } } if (it.reqLevel && P.level < it.reqLevel) { bus.emit('toast', { text: `Глубины открываются с ${it.reqLevel} уровня`, kind: 'warn' }); bus.emit('sfx', 'deny'); return; } bus.emit('openDepths'); return;
+    case 'survival': if (Q.current() && Q.current().id === 'surv_try') { bus.emit('openSurvival'); return; } { const g = gate('survival'); if (g) { bus.emit('toast', { ...g, kind: 'warn' }); bus.emit('sfx', 'deny'); return; } } if (!lvlOk(SV.REQ_LEVEL)) { bus.emit('toast', { text: `Жатва Бездны открывается с ${SV.REQ_LEVEL} уровня`, kind: 'warn' }); bus.emit('sfx', 'deny'); return; } bus.emit('openSurvival'); return;
+    case 'depths': { const g = gate('depths'); if (g) { bus.emit('toast', { ...g, kind: 'warn' }); bus.emit('sfx', 'deny'); return; } } if (!lvlOk(it.reqLevel)) { bus.emit('toast', { text: `Глубины открываются с ${it.reqLevel} уровня`, kind: 'warn' }); bus.emit('sfx', 'deny'); return; } bus.emit('openDepths'); return;
     case 'exit': if (!it.hidden) finishFloor(); else bus.emit('toast', { text: 'Портал запечатан', sub: 'Убейте всех врагов на этаже', kind: 'warn' }); return;
     case 'shrine': if (earlyLock('extra')) { lockToast('extra'); return; } bus.emit('openShrine'); return;
-    case 'wildportal': { const g = gate(it.realm); if (g) { bus.emit('toast', { ...g, kind: 'warn' }); bus.emit('sfx', 'deny'); return; } } if (it.reqLevel && P.level < it.reqLevel) { bus.emit('toast', { text: `${REALMS[it.realm].name} — с ${it.reqLevel} уровня`, sub: 'Набирайтесь сил в катакомбах', kind: 'warn' }); bus.emit('sfx', 'deny'); return; } bus.emit('openWild', it.realm); return;
+    case 'wildportal': { const g = gate(it.realm); if (g) { bus.emit('toast', { ...g, kind: 'warn' }); bus.emit('sfx', 'deny'); return; } } if (!lvlOk(it.reqLevel)) { bus.emit('toast', { text: `${REALMS[it.realm].name} — с ${it.reqLevel} уровня`, sub: 'Набирайтесь сил в катакомбах', kind: 'warn' }); bus.emit('sfx', 'deny'); return; } bus.emit('openWild', it.realm); return;
     case 'wildnext': {
       if (it.hidden || it.sealed || !G.wild) { bus.emit('toast', it.sealed ? { text: 'Портал «Вглубь» запечатан', sub: G.wild && G.wild.realm === 'temple' ? 'Победите стража святилища в центре храма — стрелка ведёт к нему' : 'Победите вожака поля — стрелка ведёт к нему', kind: 'warn' } : { text: 'Портал запечатан', sub: 'Сначала отбейте форт', kind: 'warn' }); bus.emit('sfx', 'deny'); return; }
       const nd = G.wild.depth + 1, need = wildReqLevel(G.wild.realm, nd);
       { const g = wildDepthGate(G.wild.realm, nd); if (g) { bus.emit('toast', { ...g, kind: 'warn' }); bus.emit('sfx', 'deny'); return; } }   // П37: до ноши и тоста «прошли через портал» (loadZone всё равно не пустит)
-      if (P.level < need) { bus.emit('toast', { text: `Дальше — с ${need} уровня`, sub: `У вас ${P.level}. Наберитесь сил на этом поле или в катакомбах`, kind: 'warn' }); bus.emit('sfx', 'deny'); return; }
+      if (!lvlOk(need)) { bus.emit('toast', { text: `Дальше — с ${need} уровня`, sub: `У вас ${P.level}. Наберитесь сил на этом поле или в катакомбах`, kind: 'warn' }); bus.emit('sfx', 'deny'); return; }
       bankCarry('Вы прошли через портал «Вглубь»'); bus.emit('wildField'); bus.emit('sfx', 'portal'); loadZone('wild', { realm: G.wild.realm, depth: nd }); return;
     }
     case 'stash': openStash(it); return;

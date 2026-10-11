@@ -5,6 +5,7 @@ import { getAtlas, drawFrame, loadImage, loadJSON } from '../core/assets.js';
 import { PX_PER_M, Z_PX } from '../core/iso.js';
 import { RARITY } from '../data/items.js';
 import { iconOf } from '../game/items.js';
+import { lvlOk } from '../game/progress.js';
 import { BIOMES } from '../data/biomes.js';
 import * as SV from '../game/survival.js';
 import { drawFxSheet, drawChargeTele, preloadFxSheets, drawProjSheet, drawStatusSheet, telePattern, fxReady, zoneRealm } from './fxsheets.js';
@@ -657,7 +658,7 @@ function drawPlates() {
     const p = 0.5 + Math.sin(G.time * 3) * 0.2;
     ctx.strokeStyle = `rgba(255,205,90,${p})`; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(0, 0, 46 * z, 0, 7); ctx.stroke(); ctx.restore();
     ctx.globalCompositeOperation = 'source-over';
-    const locked = (it.reqLevel && G.profile.level < it.reqLevel) || it.locked;
+    const locked = !lvlOk(it.reqLevel) || it.locked;
     // сборка 47: табличка не закрывает порталы и алтари — она лежит под светящимся кругом, у земли, мельче и полупрозрачная.
     // Подробности (уровень, «выберите навык») — только когда герой рядом (до 5 м); издалека — одно название
     const P = G.player, near = P && Math.hypot(P.x - it.x, P.y - it.y) < 5;
