@@ -293,9 +293,13 @@ W.inventory = (arg = {}) => {
       const sell = el('button', 'btn', `Продать · ${fmt(sellValue(it))} зол.`); sell.onclick = () => { EC.sellItem(it.id); ov.remove(); rerender(); }; btns.appendChild(sell); }
     else { const un = el('button', 'btn', 'Снять'); un.onclick = () => { CH.unequip(slot); ov.remove(); rerender(); }; btns.appendChild(un); }
     box.appendChild(btns);
-    const xb = box.querySelector('.ic-x'); const shut = e => { e.preventDefault(); e.stopPropagation(); ov.remove(); };
+    // крестик закрывал карточку на pointerup, и следом «click» того же касания попадал в слот под ним (амулет, доспех) — открывалась
+    // другая вещь, будто крестик не работает. Теперь карточка сперва гаснет, но ещё ~0,4 с ловит касание сама, и только потом убирается
+    const close = () => { if (ov.dataset.gone) return; ov.dataset.gone = 1; ov.style.opacity = '0'; setTimeout(() => ov.remove(), 400); };
+    const xb = box.querySelector('.ic-x'); const shut = e => { e.preventDefault(); e.stopPropagation(); close(); };
     xb.addEventListener('pointerup', shut); xb.addEventListener('click', shut); xb.addEventListener('pointerdown', e => e.stopPropagation());
-    ov.addEventListener('pointerdown', e => { if (e.target === ov) ov.remove(); });
+    ov.addEventListener('pointerdown', e => { if (e.target === ov) close(); });
+    ov.addEventListener('click', e => { if (ov.dataset.gone) { e.preventDefault(); e.stopPropagation(); } }, true);
     ov.appendChild(box); cur.bg.appendChild(ov);
   }
 };
