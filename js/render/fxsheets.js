@@ -17,13 +17,36 @@ export function preloadFxSheets() {
   loadJSON('art/fx/fx_mobs.json').then(add, () => console.warn('[fx] missing fx_mobs.json'));
   loadJSON('art/fx/fx.json').then(add, () => console.warn('[fx] missing fx.json'));
 }
+// правки 3: эти листы героя GPT нарисовал сеткой 4×4 (16 кадров), а в fx.json записано 3×3 — в кадр попадали куски
+// четырёх соседних картинок («экран с повторяющимися картинками» в квадратной рамке). Сетка — здесь, json пересобирает fx_pack.py
+const GRID4 = new Set(['hit_slash_sword', 'hit_slash_heavy', 'hit_spark', 'hit_crit', 'hit_arrow', 'hit_star_bolt', 'hit_block', 'sk_leap_launch', 'sk_leap_flash', 'sk_volley_flash', 'hit_pierce_shot']);
 const real = id => (META[id] && META[id].same) || id;   // sk_cleave -> hit_slash_heavy
 function want(id) {
-  id = real(id); const m = META[id]; if (!m || sheets.has(id) || pending.has(id)) return;
+  id = real(id); let m = META[id]; if (!m || sheets.has(id) || pending.has(id)) return;
+  if (GRID4.has(id)) m = { ...m, cols: 4, rows: 4, frames: 16 };
   const im = new Image(); im.decoding = 'async'; pending.set(id, im);
-  im.onload = () => { if (pending.get(id) !== im) return; pending.delete(id); sheets.set(id, { ...m, img: im, C: m.cols ? im.naturalWidth / m.cols : 0 }); };   // кадр — по картинке: ПК 192, телефон 128
+  im.onload = () => { if (pending.get(id) !== im) return; pending.delete(id); const C = m.cols ? im.naturalWidth / m.cols : 0; sheets.set(id, { ...m, img: C ? softCells(im, { ...m, id }, C, ROUND.has(id)) : im, C }); };   // кадр — по картинке: ПК 192, телефон 128
   im.onerror = () => { pending.delete(id); console.warn('[fx] missing sheet', id); };
   im.src = BASE + (PHONE ? m.file.replace(/^assets\/art\/fx\//, 'art/fx/m/') : m.file.replace(/^assets\//, ''));
+}
+// правки 3: у многих листов GPT рисунок доходит до края кадра (вспышки, удары, вихрь) — в игре и Летописи был виден
+// жёсткий квадрат. Один раз при загрузке каждый кадр гасится к краям: мягкая рамка ~12 % кадра у всех листов,
+// у круглых листов «на полу» (вихрь воина) — ещё и круг (до 0.3 кадра как нарисовано, к 0.49 — в ноль)
+const ROUND = new Set(['sk_whirlwind', 'sv_main_warrior', 'fj_blizzard_nova', 'sk_leap_flash', 'sk_leap_impact', 'fj_jarl_stomp']);   // список здесь, а не в fx.json: json пересобирает tools/art/fx_pack.py
+const SEAM = new Set(['hit_spark', 'hit_crit', 'hit_arrow', 'hit_star_bolt', 'hit_block', 'hit_pierce_shot']);
+function softCells(im, m, C, round) {
+  const W = im.naturalWidth, H = im.naturalHeight, n = Math.max(1, Math.round(C)), e = n * 0.12;
+  const cm = document.createElement('canvas'); cm.width = cm.height = n; const y = cm.getContext('2d'); y.fillStyle = '#000'; y.fillRect(0, 0, n, n);
+  y.globalCompositeOperation = 'destination-out';
+  for (const [x0, y0, x1, y1] of [[0, 0, e, 0], [n, 0, n - e, 0], [0, 0, 0, e], [0, n, 0, n - e]]) { const g = y.createLinearGradient(x0, y0, x1, y1); g.addColorStop(0, 'rgba(0,0,0,1)'); g.addColorStop(1, 'rgba(0,0,0,0)'); y.fillStyle = g; y.fillRect(0, 0, n, n); }
+  if (round) { const cx = (m.anchor ? m.anchor[0] : 0.5) * n, cy = (m.anchor ? m.anchor[1] : 0.5) * n, g = y.createRadialGradient(cx, cy, 0, cx, cy, n * 0.49);
+    g.addColorStop(0, '#000'); g.addColorStop(0.3 / 0.49, '#000'); g.addColorStop(1, 'rgba(0,0,0,0)'); y.globalCompositeOperation = 'destination-in'; y.fillStyle = g; y.fillRect(0, 0, n, n); }
+  const c = document.createElement('canvas'); c.width = W; c.height = H; const x = c.getContext('2d');
+  for (let r = 0; r * C < H - 1; r++) for (let k = 0; k * C < W - 1; k++) x.drawImage(cm, k * C, r * C, C, C);
+  if (SEAM.has(m.id)) { x.globalCompositeOperation = 'destination-out'; const h = H * 0.035;   // склейка GPT на 1/3 и 2/3 высоты: жёсткий срез рисунка — гасим полосой
+    for (const yy of [H / 3, H * 2 / 3]) { const g = x.createLinearGradient(0, yy - h, 0, yy + h); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(0.5, 'rgba(0,0,0,1)'); g.addColorStop(1, 'rgba(0,0,0,0)'); x.fillStyle = g; x.fillRect(0, yy - h, W, h * 2); }
+    x.globalCompositeOperation = 'source-over'; }
+  x.globalCompositeOperation = 'source-in'; x.drawImage(im, 0, 0); return c;
 }
 // лист готов к рисованию? (если нет — заказать загрузку; вызывающий рисует прежний эффект)
 export const fxMeta = id => META[real(id)];
@@ -50,7 +73,7 @@ function scope(pfxs) {
 }
 bus.on('zoneEntered', id => {
   tinted.clear(); patterns.clear();
-  const r = zoneRealm(); scope(r ? (r === 'forest' ? ['fr_', 'st_rooted'] : [REALM_PFX[r]]) : id === 'town' ? ['hw_'] : id === 'survival' ? ['sv_', 'proj_', 'hit_', 'beam_', 'gr_', 'sk_whirlwind', 'ct_abyss_nova', 'fj_blizzard_nova'] : id === 'depths' ? ['ct_', 'dp_'] : ['ct_']);   // деревня — листы по первому удару (и листы Летописи hw_, когда будут); правки 3: Жатва — листы своего оружия (sv_ из промта) и запасные
+  const r = zoneRealm(); scope(r ? (r === 'forest' ? ['fr_', 'st_rooted'] : [REALM_PFX[r]]) : id === 'town' ? ['hw_'] : id === 'survival' ? ['sv_', 'proj_', 'hit_', 'beam_', 'gr_', 'sk_whirlwind', 'sk_arrow_rain_', 'ct_abyss_nova', 'fj_blizzard_nova'] : id === 'depths' ? ['ct_', 'dp_'] : ['ct_']);   // деревня — листы по первому удару (и листы Летописи hw_, когда будут); правки 3: Жатва — листы своего оружия (sv_ из промта) и запасные
 });
 
 // подкраска общих листов зверей под край (промт: «игра подкрашивает под локацию»); катакомбы — как нарисовано
@@ -75,7 +98,7 @@ const ppmAt = (cam, x, y, z) => { const [gx, gy] = cam.toScreen(x, y, z), [hx, h
 export function drawFxSheet(ctx, cam, fx, alpha = 1) {
   const id = real(fx.id), S = sheets.get(id); if (!S) return false;
   const k = fx.t / fx.dur, [sx, sy] = cellOf(S, k), img = imgOf(S, id, fx.realm), m = fx.size || S.meters, C = S.C;
-  ctx.save(); ctx.globalAlpha = alpha;   // листы с чёрным фоном переведены в альфу (blend 'add' в json): обычное наложение — сложение на светлой траве выцветало до белого
+  ctx.save(); ctx.globalAlpha = alpha; if (fx.add) ctx.globalCompositeOperation = 'lighter';   // правки 3: add — сложением цветов (Жатва: ярко на тёмной арене)   // листы с чёрным фоном переведены в альфу (blend 'add' в json): обычное наложение — сложение на светлой траве выцветало до белого
   if (S.view === 'ground') { groundBasis(ctx, cam, fx.x, fx.y, fx.a || 0); ctx.drawImage(img, sx, sy, C, C, -m * S.anchor[0], -m * S.anchor[1], m, m); }
   else {   // «объём»: стоит вертикально, повёрнут к герою лицом; нарисован «вправо» — разворачиваем, если удар идёт справа налево
     const [gx, gy, ppm] = ppmAt(cam, fx.x, fx.y, fx.z || 0), w = m * ppm;

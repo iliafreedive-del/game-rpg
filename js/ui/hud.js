@@ -157,7 +157,7 @@ export function updateHUD(dt) {
   ui.classList.toggle('lowhp', G.player && !G.player.dead && G.player.hp < G.stats.maxHP * 0.3);
   ui.classList.toggle('surv', !!G.surv);
   if (G.surv) { const S = G.surv; let sh = $('survHud'); if (!sh) { sh = el('div', '', ''); sh.id = 'survHud'; ui.appendChild(sh); sh.innerHTML = '<div class="sv-time"></div><div class="sv-xp"><i></i></div><div class="sv-info"></div><button class="sv-quit">Сдаться</button>'; sh.querySelector('.sv-quit').onclick = () => { if (confirm('Завершить забег? Награда будет начислена.')) SV.endRun(false); }; }
-    sh.querySelector('.sv-time').textContent = `${Math.floor(S.t / 60)}:${String(Math.floor(S.t % 60)).padStart(2, '0')} / 20:00`; sh.querySelector('.sv-xp i').style.width = (S.xp / S.next * 100) + '%'; sh.querySelector('.sv-info').textContent = `ур. ${S.lvl} · убито ${S.kills}`; }
+    sh.querySelector('.sv-time').textContent = `${Math.floor(S.t / 60)}:${String(Math.floor(S.t % 60)).padStart(2, '0')} / ${Math.floor(S.goal / 60)}:00`; sh.querySelector('.sv-xp i').style.width = (S.xp / S.next * 100) + '%'; sh.querySelector('.sv-info').textContent = `ур. ${S.lvl} · убито ${S.kills}`; }
   else { const sh = $('survHud'); if (sh) sh.remove(); }
   // кнопки боя скрыты, пока не понадобились впервые (обучение)
   for (const k of ['dodge', 'pot', 'potMP', 'sk', 'auto', 'scroll']) ui.classList.toggle('lk-' + k, !tutUn(k));

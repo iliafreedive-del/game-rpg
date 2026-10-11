@@ -16,9 +16,11 @@ G.zone = { map: { w: 120, h: 120, blocked: () => false, free: () => true } };
 // камера как на телефоне в 3D: видно примерно 12×22 м вокруг героя
 G.render3d = true; G.cam = { x: 60, y: 60, w: 400, h: 800, toScreen(x, y) { return [(x - this.x) * 34 + 200, (y - this.y) * 34 + 400]; } };
 let modal = 0; bus.on('survLevel', () => { modal++; });
-const PRI = ['main', 'shards', 'nova', 'chain', 'blades', 'knives', 'pool', 'might', 'haste', 'area', 'vigor', 'swift', 'magnet', 'fury', 'plate', 'eye', 'growth', 'greed'];
-const S = SV.startRun();
-let elites = 0, bosses = 0, deaths = 0; const total = +minS * 60, dt = 1 / 30;
+// PRI=meteor,nova,pool,... — свой порядок (проверка билдов); MODE=short|std|long — длина забега
+const PRI = process.env.PRI ? process.env.PRI.split(',') : ['main', 'shards', 'nova', 'chain', 'blades', 'knives', 'pool', 'might', 'haste', 'area', 'vigor', 'swift', 'magnet', 'fury', 'plate', 'eye', 'growth', 'greed'];
+const rank = id => { const i = PRI.indexOf(id); return i < 0 ? 99 : i; };
+const S = SV.startRun(process.env.MODE || 'std');
+let elites = 0, bosses = 0, deaths = 0; const total = Math.min(+minS * 60, S.goal), dt = 1 / 30;
 let next = 60, ang = 0;
 const ahead = () => { let n = 0; const a = Math.atan2(Math.sin(ang), Math.cos(ang)); for (const e of S.swarm) { const d = Math.hypot(e.x - pl.x, e.y - pl.y); const da = Math.abs(Math.atan2(Math.sin(Math.atan2(e.y - pl.y, e.x - pl.x) - a), Math.cos(Math.atan2(e.y - pl.y, e.x - pl.x) - a))); if (d < 14 && da < 0.8) n++; } return n; };
 console.log(`${cls} ур.${P.level} HP ${G.stats.maxHP} урон ${G.stats.dmgMin}–${G.stats.dmgMax} сила закл. ${G.stats.spellPower.toFixed(2)} режим ${mode}`);
@@ -39,8 +41,8 @@ while (S.t < total && !S.over) {
   SV.updateSurvival(dt);
   for (const e of el) if (e.dead) { if (e.boss) bosses++; else elites++; }
   if (pl.dead || pl.hp <= 0) { deaths++; pl.dead = false; pl.hp = G.stats.maxHP; S.asking = false; }
-  while (modal > 0) { modal--; const c = SV.choices(); c.sort((a, b) => (a.evo ? -1 : b.evo ? 1 : PRI.indexOf(a.id) - PRI.indexOf(b.id))); SV.take(c[0]); }
+  while (modal > 0) { modal--; const c = SV.choices(); c.sort((a, b) => (a.evo ? -1 : b.evo ? 1 : rank(a.id) - rank(b.id))); SV.take(c[0]); }
   G.particles.length = 0; G.texts.length = 0; G.effects.length = 0;
   if (S.t >= next) { next += 60; console.log([String(Math.round(S.t / 60)).padEnd(5), String(S.kills).padEnd(7), String(S.lvl).padEnd(11), String(Math.round(pl.hp / G.stats.maxHP * 100)).padEnd(5), String(elites).padEnd(8), String(bosses).padEnd(8), String(S.swarm.length + '/' + S.swarm.filter(e => e.elite).length).padEnd(7), String(ahead()).padEnd(9), deaths].join('')); }
 }
-console.log('оружие', JSON.stringify(S.w), 'пассивки', JSON.stringify(S.p), 'пробуждения', Object.keys(S.evo).join(','));
+console.log('оружие', JSON.stringify(S.w), 'пассивки', JSON.stringify(S.p), 'пробуждения', Object.keys(S.evo).join(','), 'билды', Object.keys(S.builds).join(','), 'итог', S.over ? 'конец' : 'жив', Math.round(S.t / 60) + ' мин');
