@@ -158,7 +158,7 @@ export async function loadZone(id, how = {}) {
   } else if (id === 'castle') {
     [pl.x, pl.y] = zone.start; pl.face = pl.dir = 5; G.trial = null;
   } else if (id === 'wild') {
-    [pl.x, pl.y] = zone.start; pl.face = pl.dir = 1; spawnWild(zone); spawnQuestBeast(zone, how.realm); G.diedThisRun = false;
+    [pl.x, pl.y] = zone.start; pl.face = pl.dir = 1; spawnWild(zone); spawnQuestBeast(zone, how.realm); HU.spawnFor(zone); G.diedThisRun = false;
     { const gt = zone.wildGate; if (gt) for (const [tx, ty] of gt.tiles) zone.map.setSolid(tx, ty, 0); const [sx, sy] = zone.map.nearestFree(pl.x, pl.y, 0.47); repairReach(zone, G.enemies, sx, sy); if (gt) for (const [tx, ty] of gt.tiles) zone.map.setSolid(tx, ty, 1); }   // правки 2: всё на поле достижимо и с учётом предметов
     const WS = wildState(how.realm); WS.depth = Math.max(WS.depth || 0, how.depth);
     G.wild = { realm: how.realm, depth: how.depth, done: false, t0: G.time, carry: 0, greed: 0, slow: 1, noise: 1, refresh: refreshCarry }; refreshCarry();
@@ -733,6 +733,7 @@ function updateMarkers() {
     const mini = !fort && G.zone.inter.some(i => i.id === 'wild_next' && i.sealed) ? G.enemies.find(e => (e.story === 'wildmini' || e.story === 'minib') && !e.dead) : null;   // П20: пока «Вглубь» запечатан — стрелка к вожаку
     t = G.enemies.find(e => e.story === 'fquest' && !e.dead) || outside || G.enemies.find(e => (e.story === 'wildkeep' || e.story === 'wildboss') && !e.dead) || mini || (G.wild && G.wild.done ? next || home : fort ? null : next) || null;
   }
+  if (G.zoneId === 'castle' && !G.rift && !G.trial && !(q && Q.isReady())) t = CT.callTarget() || t;   // П4-11: «!» над аркой звал сюда — стрелка к делу, а не обратно к выходу
   G.guide = t; G.huntGuide = HU.guideTarget();
   for (const n of G.npcs) n.marker = n.id === Q.turnNpc(q) && Q.isReady() ? '?' : q && q.target === n.id ? (q.id === 'finish' ? '?' : '!') : null;
   const eld = G.npcs.find(n => n.id === 'elder'); if (eld && HU.readyToTurnIn()) eld.marker = '?';   // hunt to hand in

@@ -144,10 +144,10 @@ function render(force) {
     box.appendChild(el('p', 'muted pn-shards', ICO.pile + '<small>Осколки Бездны ◆ дают стражи, боссы, чемпионы, сундуки, Жатва и недельные задания. Улучшение: +15% силы питомца за уровень.</small>'));
   } else if (T.id === 'board') {
     head('Доска заданий', 'Ежедневные · недельные · долгие контракты');
-    box.appendChild(el('div', 'pn-sub', 'Ежедневные'));
-    for (const q of DQ.dailyQuests()) box.appendChild(row('☀', esc(q.title), q.claimed ? (q.next ? `✔ новое через ${Math.ceil(q.next / 60000) >= 60 ? Math.ceil(q.next / 3600000) + ' ч' : Math.ceil(q.next / 60000) + ' мин'}` : 'получено') : `${q.cur}/${q.n}`, q.done && !q.claimed ? 'Забрать' : null, q.done && !q.claimed, () => DQ.claimDaily(q.id), q.done && !q.claimed ? 'hot' : ''));
-    box.appendChild(el('div', 'pn-sub', 'Недельные (крупнее)'));
-    for (const q of DQ.weeklyQuests()) box.appendChild(row('☾', esc(q.title), q.claimed ? (q.next ? `✔ новое через ${Math.ceil(q.next / 60000) >= 60 ? Math.ceil(q.next / 3600000) + ' ч' : Math.ceil(q.next / 60000) + ' мин'}` : 'получено') : `${q.cur}/${q.n}`, q.done && !q.claimed ? 'Забрать' : null, q.done && !q.claimed, () => DQ.claimWeekly(q.id), q.done && !q.claimed ? 'hot' : ''));
+    // П4-6: выполненные и сданные задания уходят из списка; когда придёт новое — в строке раздела
+    const sec = (name, list) => { const h = el('div', 'pn-sub', name), c = list.filter(q => q.claimed && q.next); if (c.length) { const ms = Math.min(...c.map(q => q.next)); h.appendChild(el('small', 'pn-next', `✔ новое через ${Math.ceil(ms / 60000) >= 60 ? Math.ceil(ms / 3600000) + ' ч' : Math.ceil(ms / 60000) + ' мин'}`)); } box.appendChild(h); return list.filter(q => !q.claimed); };
+    for (const q of sec('Ежедневные', DQ.dailyQuests())) box.appendChild(row('☀', esc(q.title), `${q.cur}/${q.n}`, q.done ? 'Забрать' : null, q.done, () => DQ.claimDaily(q.id), q.done ? 'hot' : ''));
+    for (const q of sec('Недельные (крупнее)', DQ.weeklyQuests())) box.appendChild(row('☾', esc(q.title), `${q.cur}/${q.n}`, q.done ? 'Забрать' : null, q.done, () => DQ.claimWeekly(q.id), q.done ? 'hot' : ''));
     box.appendChild(el('div', 'pn-sub', 'Долгие контракты (трудные)'));
     for (const r of Q.repList()) { const s = Q.repState(r); box.appendChild(row(s.done ? '✔' : '•', esc(r.title), `${s.cur}/${r.n}`, s.done ? 'Забрать' : null, s.done, () => Q.claimRep(r.id), s.done ? 'hot' : '')); }
   } else if (T.type === 'roomgate') {

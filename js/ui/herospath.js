@@ -114,7 +114,7 @@ function hwSkillPick() {
   return { id, list };
 }
 // правки 3: питомец в Летописи — бьёт вместе с героем на каждом его ходу (удар и эффект из окна характеристик питомца)
-function hwPet() { const S = petsOf(G.profile), id = S.active; if (!id || !PETS[id]) return null; const pw = petPower(id); return { icon: PETS[id].icon, dmg: (pw.phys || 0) + (pw.mag || 0) }; }
+function hwPet() { const S = petsOf(G.profile), id = S.active; if (!id || !PETS[id]) return null; const pw = petPower(id); return { id, icon: PETS[id].icon, dmg: (pw.phys || 0) + (pw.mag || 0), ranged: !!PETS[id].ranged }; }
 function heroSummary() {
   const S = G.stats; const cls = G.profile.cls || 'warrior', sid = hwSkillPick().id; const skill = hwSkill(cls, sid, sid ? G.profile.skills[sid] : 1, sid ? SKILLS[sid].name : null); if (sid && G.profile.mastery && G.profile.mastery[sid]) skill.mul *= 1 + MASTERY_STEP * G.profile.mastery[sid];   // перед релизом: мастерство
   return { skill, hp: S.maxHP, dmg: (S.dmgMin + S.dmgMax) / 2 * (cls === 'mage' ? HW_MAGE_K : 1), aps: Math.min(2.2, S.aps), crit: S.critChance, critMult: S.critMult, armor: S.armor, spell: S.spellPower , pet: hwPet() };
@@ -172,7 +172,7 @@ async function fight(s) {
   const artWait = new Promise(r => { const a = artImg(ART.arena(chOf(s) + 1, 'abc'[Math.min(2, Math.floor(((s - 1) % PER_CH) / 10))], stack.clientWidth < stack.clientHeight)); if (a.ok || a.bad) r(); else { a.wait.push(() => r()); a.im.addEventListener('error', () => r(), { once: true }); setTimeout(r, 1500); } });
   try {   // 3D-бойцы; если WebGL нет или он упал — прежние спрайты
     const M = await import('../render3d/hwstage.js');
-    if (M.webglOK() && !(new URLSearchParams(location.search).get('render') === '2d')) { stage = M.createStage({ cls, wt, foes, ci }); curStage = stage; glcv.replaceWith(stage.canvas); glcv = stage.canvas; resize(); }
+    if (M.webglOK() && !(new URLSearchParams(location.search).get('render') === '2d')) { stage = M.createStage({ cls, wt, foes, ci, pet: B.pet && Hu.pet.id }); curStage = stage; glcv.replaceWith(stage.canvas); glcv = stage.canvas; resize(); }
   } catch (e) { console.warn('[hw] 3D недоступно, спрайты', e); stage = null; }
   await artWait;
   if (!root || !root.contains(stack)) { disposeStage(); return; }
@@ -275,8 +275,8 @@ async function fight(s) {
     const W = cv.width / dpr, Hh = cv.height / dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); bctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, Hh);
     drawBg(W, Hh);
     bctx.fillStyle = 'rgba(0,0,0,0.33)';   // тени под бойцами — на слое фона
-    for (const u of [Hu, ...foes]) { const [x, y] = P(u.x, 0, u.z), r = view.pxPerM * (u.type === 'boss' ? 1.1 : u.big ? 0.85 : 0.6); bctx.beginPath(); bctx.ellipse(x, y, r, r * 0.38, 0, 0, 7); bctx.fill(); }
-    if (stage) stage.draw(dt, state(Hu), foes.map(state));
+    for (const u of [Hu, ...foes, ...(B.pet ? [B.pet] : [])]) { const [x, y] = P(u.x, 0, u.z), r = view.pxPerM * (u === B.pet ? 0.35 : u.type === 'boss' ? 1.1 : u.big ? 0.85 : 0.6); bctx.beginPath(); bctx.ellipse(x, y, r, r * 0.38, 0, 0, 7); bctx.fill(); }
+    if (stage) stage.draw(dt, state(Hu), foes.map(state), B.pet && { x: B.pet.x, z: B.pet.z, yaw: B.pet.yaw, ...(B.pet.act ? { clip: 'attack', k: B.pet.act.t / B.pet.act.dur } : {}) });
     else {   // без WebGL: спрайты из атласов в тех же точках арены
       const sc = view.pxPerM / 70, units = [Hu, ...foes].sort((a, b) => a.z - b.z);
       for (const u of units) {

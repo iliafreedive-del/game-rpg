@@ -15,6 +15,15 @@ const iPhone = () => /iPhone|iPod/.test(navigator.userAgent);
 const android = () => /Android/i.test(navigator.userAgent);
 const framed = () => { try { return window.top !== window.self; } catch { return true; } };
 
+// П4-14: iPhone, игра с экрана «Домой» (полоса состояния black-translucent) — iOS отдаёт окну высоту экрана минус полосу
+// состояния, и внизу остаётся чёрная полоса. Окно там всегда во весь экран, поэтому высоту берём у экрана; кнопки внизу
+// по-прежнему отступают на env(safe-area-inset-bottom). Вызывается из resize рендерера (js/render/renderer.js).
+export function appH() {
+  const de = document.documentElement; let h = 0;
+  if (iPhone() && standalone()) { const full = innerHeight >= innerWidth ? Math.max(screen.width, screen.height) : Math.min(screen.width, screen.height); if (full > innerHeight && full - innerHeight < 120) h = full; }
+  de.classList.toggle('ios-pwa', !!h); if (h) de.style.setProperty('--app-h', h + 'px');
+  return h;
+}
 function requestFs() {
   const d = document.documentElement, req = d.requestFullscreen || d.webkitRequestFullscreen;
   try { const r = req.call(d, { navigationUI: 'hide' }); if (r && r.catch) r.catch(() => { }); } catch (e) { }

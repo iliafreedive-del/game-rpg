@@ -8,6 +8,7 @@ import { HEROES, MOBS, WEAPONS, WEAPON_MODEL, OFFHAND_MODEL } from './registry.j
 import { U } from './toon.js';
 import { HERO } from './style.js';
 import { arenaView } from '../game/hwbattle.js';
+import { PET_MODELS } from './models/pet/pets.js';
 
 // освещение по главе: подземелье — холодное с тёплым факелом, лес — солнечное, снега — холодный день, скалы — закат
 const LIGHTS = [
@@ -29,7 +30,7 @@ function sharedRenderer() {
   return (shared = r);
 }
 
-export function createStage({ cls, wt, foes, ci }) {
+export function createStage({ cls, wt, foes, ci, pet }) {
   const renderer = sharedRenderer(), canvas = renderer.domElement;
   const scene = new THREE.Scene(), kit = makeKit(scene), L = LIGHTS[ci] || LIGHTS[0];
   scene.add(new THREE.HemisphereLight(L.sky, L.ground, L.hi * 0.8));
@@ -42,6 +43,7 @@ export function createStage({ cls, wt, foes, ci }) {
   { const wm = WEAPONS[WEAPON_MODEL[wt] || 'sword_iron'], off = OFFHAND_MODEL[cls] ? WEAPONS[OFFHAND_MODEL[cls]] : null;
     if (wt === 'bow') { H.a.equip('handL', wm); } else { H.a.equip('handR', wm); H.a.equip('handL', off); } }
   const F = foes.map(f => { const S = mk(MOBS[f.type] || MOBS.skel_warrior, f.type === 'boss' ? 0.72 : f.type === 'elite_guard' && !f.boss ? 0.85 : 1); for (const [slot, id] of Object.entries(S.a.model.defaultWeapons || {})) S.a.equip(slot, WEAPONS[id]); return S; });
+  const PT = pet && PET_MODELS[pet] ? mk(PET_MODELS[pet], 1.2) : null;   // П4-3: питомец рядом с героем (тот же масштаб, что в деревне)
   let W = 0, Hh = 0, view = null, t = 0;
   function resize(w, h) {
     W = w; Hh = h; renderer.setPixelRatio(Math.min(2, devicePixelRatio || 1)); renderer.setSize(w, h, false);
@@ -61,11 +63,11 @@ export function createStage({ cls, wt, foes, ci }) {
   return {
     resize, get view() { return view; },
     height: i => (i < 0 ? H : F[i]).a.size * (i < 0 ? H : F[i]).scale,
-    draw(dt, hero, foeStates) {
+    draw(dt, hero, foeStates, petState) {
       t += dt; U.uTime.value = t; U.uCam.value.copy(cam.position); U.uFocus.value.set(0, -50, 0); for (const v of U.uFoc.value) v.w = 0;
-      drive(H, hero, dt); foeStates.forEach((d, i) => drive(F[i], d, dt)); renderer.render(scene, cam);
+      drive(H, hero, dt); foeStates.forEach((d, i) => drive(F[i], d, dt)); if (PT && petState) drive(PT, petState, dt); renderer.render(scene, cam);
     },
     canvas,
-    dispose() { H.a.dispose(); for (const S of F) S.a.dispose(); renderer.renderLists.dispose(); renderer.clear(); },   // контекст остаётся для следующего боя
+    dispose() { H.a.dispose(); if (PT) PT.a.dispose(); for (const S of F) S.a.dispose(); renderer.renderLists.dispose(); renderer.clear(); },   // контекст остаётся для следующего боя
   };
 }

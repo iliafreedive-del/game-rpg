@@ -55,7 +55,7 @@ export function pointAt(sel, text, opt = {}) {
   logHint(text);
   hideHand();
   if (r) { hand = el('div', 'hand'); hand._sel = sel; placeHand(r); document.body.appendChild(hand); }
-  line = el('div', 'hint-line ' + (mid || !r ? 'mid' : 'bot'), (key === 'shards' ? ICO.big : '') + text); document.body.appendChild(line);   // П44: крупный осколок в подсказке про осколки
+  line = el('div', 'hint-line ' + (mid || !r ? 'mid' : 'bot'), (key === 'shards' ? ICO.big : '') + text); document.body.appendChild(line); placeLine();   // П44: крупный осколок в подсказке про осколки
   handKey = key || sel || text; handUntil = performance.now() + time * 1000; handWin = win && sel ? (typeof sel === 'string' ? $(sel) : sel) : null;
   bus.emit('sfx', 'quest');
   return true;
@@ -63,7 +63,15 @@ export function pointAt(sel, text, opt = {}) {
 // правки мамы (М16): палец ставился один раз и оставался на месте, когда кнопка уезжала (поворот телефона, вырез Android, появился трекер) —
 // и показывал на золото с кристаллами. Теперь палец следует за своей кнопкой
 function placeHand(r) { hand.style.left = (r.left + r.width / 2) + 'px'; hand.style.top = (r.top + r.height / 2) + 'px'; }
-function followHand() { if (!hand || !hand._sel) return; const r = rectOf(hand._sel); if (r) placeHand(r); }
+// П4-15: строка подсказки внизу не наезжает на кнопку действия и кнопки боя — встаёт над ними (и над пальцем, если он внизу)
+function placeLine() {
+  if (!line || !line.classList.contains('bot')) return;
+  if (line._def == null) line._def = parseFloat(getComputedStyle(line).bottom) || 150;
+  let top = Infinity; const H = innerHeight;
+  for (const e of [$('btnAct'), ...document.querySelectorAll('#pad > *'), hand]) { const r = e && (e === hand ? e.getBoundingClientRect() : rectOf(e)); if (r && r.top > H * 0.45) top = Math.min(top, r.top); }
+  line.style.bottom = Math.max(line._def, top < Infinity ? H - top + 10 : 0) + 'px';
+}
+function followHand() { placeLine(); if (!hand || !hand._sel) return; const r = rectOf(hand._sel); if (r) placeHand(r); }
 addEventListener('resize', () => setTimeout(followHand, 120));
 // подсказка исчезает сама: по времени, по нажатию нужной кнопки или по событию
 function handTick() {

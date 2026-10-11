@@ -10,6 +10,8 @@ import { BIOMES } from '../data/biomes.js';
 import * as SV from '../game/survival.js';
 import { drawFxSheet, drawChargeTele, preloadFxSheets, drawProjSheet, drawStatusSheet, telePattern, fxReady, zoneRealm } from './fxsheets.js';
 import { projSheetOf, mobRageFx } from '../game/combat.js';
+import { GOLD_ICO, artImg } from '../ui/art.js';
+import { appH } from '../ui/fullscreen.js';
 
 let cv, ctx, lightCv, lctx, W = 0, H = 0, DPR = 1;
 const floorImgs = new Map();
@@ -26,7 +28,7 @@ export function resize() {
   const q = G.profile ? G.profile.settings.quality : 'auto';
   const maxDpr = q === 'low' ? 1 : q === 'high' ? 2 : Math.min(2, (innerWidth * innerHeight > 1.3e6 ? 1.25 : 2));
   DPR = Math.min(devicePixelRatio || 1, maxDpr);
-  W = document.documentElement.clientWidth || innerWidth; H = document.documentElement.clientHeight || innerHeight;
+  W = document.documentElement.clientWidth || innerWidth; H = appH() || document.documentElement.clientHeight || innerHeight;   // П4-14: iPhone с экрана «Домой» — до низа экрана
   cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR);
   lightCv.width = Math.ceil(W / 2); lightCv.height = Math.ceil(H / 2);
   const cam = G.cam; cam.w = W; cam.h = H; G.zoomMul = G.zoomMul || 1;
@@ -513,15 +515,24 @@ function drawStatusFx() {
   if (P.warcry > G.time) drawStatusSheet(ctx, cam, 'st_warcry_buff', P.x, P.y, 0, 2, 0.8);
   if (P.rootedT > G.time && zoneRealm() === 'forest') drawStatusSheet(ctx, cam, 'st_rooted', P.x, P.y, 0, 1.5);
 }
+// правки 4 (П4-7): частица — мягкая круглая точка (радиальный градиент её цвета), а не квадрат fillRect. Спрайт на цвет кешируется (цветов — пара десятков)
+const DOTS = new Map();
+function dotOf(c) {
+  const k = c.join(); let d = DOTS.get(k); if (d) return d;
+  d = document.createElement('canvas'); d.width = d.height = 16; const x = d.getContext('2d'), g = x.createRadialGradient(8, 8, 0, 8, 8, 8);
+  g.addColorStop(0, `rgba(${c[0]},${c[1]},${c[2]},1)`); g.addColorStop(0.45, `rgba(${c[0]},${c[1]},${c[2]},0.85)`); g.addColorStop(1, `rgba(${c[0]},${c[1]},${c[2]},0)`);
+  x.fillStyle = g; x.fillRect(0, 0, 16, 16); DOTS.set(k, d); return d;
+}
 function drawParticles() {
   const cam = G.cam, z = cam.zoom;
   for (const p of G.particles) {
     const [x, y] = cam.toScreen(p.x, p.y, p.z); const a = 1 - p.t / p.life;
     if (p.add) ctx.globalCompositeOperation = 'lighter';
-    ctx.fillStyle = `rgba(${p.c[0]},${p.c[1]},${p.c[2]},${a})`; const s = p.size * z * (p.add ? a * 0.7 + 0.3 : 1);
-    ctx.fillRect(x - s / 2, y - s / 2, s, s);
+    ctx.globalAlpha = a; const s = p.size * z * (p.add ? a * 0.7 + 0.3 : 1) * 1.6;   // ×1,6: край градиента прозрачный — видимое пятно того же размера, что был квадрат
+    ctx.drawImage(dotOf(p.c), x - s / 2, y - s / 2, s, s);
     if (p.add) ctx.globalCompositeOperation = 'source-over';
   }
+  ctx.globalAlpha = 1;
 }
 // цвет уровня врага относительно героя, как в WoW: серый — переросли (мало опыта), зелёный, жёлтый — ровня, оранжевый, красный — опасно
 export const lvlColor = l => { const d = l - ((G.profile && G.profile.level) || 1); return d <= -5 ? '#9a9a9a' : d <= -2 ? '#6fd36f' : d <= 1 ? '#f2e05a' : d <= 4 ? '#ff9a3c' : '#ff4a3a'; };
@@ -559,6 +570,8 @@ function drawPickupsGround() {
         ctx.globalCompositeOperation = 'lighter'; const g = ctx.createLinearGradient(x, y - 90 * z, x, y); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, col + '88'); ctx.fillStyle = g; ctx.fillRect(x - 5 * z, y - 90 * z, 10 * z, 90 * z); ctx.globalCompositeOperation = 'source-over';
       }
       if (icons) drawFrame(ctx, icons, iconOf(p.item), x - 16 * z, y - 26 * z, 32 * z / 96 * 1.0);
+    } else if (p.kind === 'gold' && artImg(GOLD_ICO).ok) {   // П4-2: стопка монет вместо «пузырьков» атласа
+      const s = Math.min(30, 16 + p.amount * 0.3) * z; ctx.drawImage(artImg(GOLD_ICO).im, x - s / 2, y - s * 0.8, s, s);
     } else if (icons) {
       const n = p.kind === 'gold' ? 'gold' : p.potion === 'hp' ? 'potion_hp' : 'potion_mp';
       const s = (p.kind === 'gold' ? Math.min(30, 16 + p.amount * 0.3) : 26) * z;

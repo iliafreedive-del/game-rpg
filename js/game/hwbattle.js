@@ -15,7 +15,7 @@ export function relayoutBattle(B, narrow) {
   const o = narrow ? WIDE : NARROW, n = narrow ? NARROW : WIDE, kx = (n.foeX1 - n.heroX) / (o.foeX1 - o.heroX), kz = n.zMax / o.zMax;
   const mp = p => { if (p) { p.x = n.heroX + (p.x - o.heroX) * kx; p.z *= kz; } };
   setArenaLayout(narrow);
-  for (const u of [B.H, ...B.foes]) { mp(u); mp(u.home); if (u.act) { mp(u.act.from); mp(u.act.to); } }
+  for (const u of [B.H, ...B.foes, ...(B.pet ? [B.pet] : [])]) { mp(u); mp(u.home); if (u.act) { mp(u.act.from); mp(u.act.to); } }
   return true;
 }
 const RUN = 10, BACK_T = 0.4, PAUSE = 0.15;
@@ -72,7 +72,9 @@ export function makeBattle(hero, foes, rnd = Math.random) {
   formation(foes);
   const all = [H, ...foes];
   const SK = hero.skill || hwSkill(hero.cls);
-  const B = { H, foes, all, ev, time: 0, over: null, pause: 0.6, projs: [], sk: SK, skillEvery: SK.every, skillIn: SK.every - 1 };
+  // П4-3: питомец стоит на поле рядом с героем (чуть впереди и за ним — не закрывает полосу здоровья), в ход героя прыгает к врагу и кусает (дальний — стреляет)
+  const PT = hero.pet ? { side: 'p', x: ARENA.heroX + 1.1, z: -1.2, home: { x: ARENA.heroX + 1.1, z: -1.2 }, yaw: Math.PI / 2, act: null, ranged: !!hero.pet.ranged } : null;
+  const B = { H, foes, all, ev, time: 0, over: null, pause: 0.6, projs: [], sk: SK, skillEvery: SK.every, skillIn: SK.every - 1, pet: PT };
   const alive = () => foes.filter(f => !f.dead);
   const redu = lvl => H.armor / (H.armor + 50 + 10 * lvl);
   const yawTo = (a, b) => Math.atan2(b.x - a.x, b.z - a.z);
@@ -91,6 +93,13 @@ export function makeBattle(hero, foes, rnd = Math.random) {
     ev.push({ k: 'num', u: dst, s: crit ? d + ' Крит' : String(d), c: dst === H ? '#ff6a5a' : crit ? '#ffd24a' : '#fff', big: crit ? 2 : o.big ? 1 : 0 });
     ev.push({ k: 'sfx', id: dst === H ? 'hurt' : crit ? 'heavy' : 'hit' });
     if (dst.hp <= 0) { dst.hp = 0; if (dst !== H) { dst.dead = true; dst.deadT = 0; ev.push({ k: 'sfx', id: 'bones' }); } }
+  }
+  function petHit(v) { if (v.dead) v = alive()[0]; if (!v) return; ev.push({ k: 'label', u: v, s: H.pet.icon || '🐾' }); damage(H, v, 1, { pet: 1, sure: true }); if (!PT.ranged) ev.push({ k: 'slash', u: v, from: PT }); }
+  function stepPet(dt) {   // П4-3: ближний — прыжок к цели и обратно, дальний — снаряд со своего места
+    const a = PT.act; a.t += dt; const k = Math.min(1, a.t / a.dur), v = a.tgt; PT.yaw = yawTo(PT, v);
+    if (!a.hit && k >= 0.5) { a.hit = true; if (PT.ranged) B.projs.push({ k: 'bolt', src: PT, tgt: v.dead ? alive()[0] || v : v, x: PT.x, z: PT.z, t: 0, d: 0.35, pet: 1 }); else petHit(v); }
+    if (!PT.ranged) { const g = k < 0.5 ? k * 2 : 2 - k * 2, e = g * g * (3 - 2 * g), tx = v.x - 1.1, tz = v.z; PT.x = PT.home.x + (tx - PT.home.x) * e; PT.z = PT.home.z + (tz - PT.home.z) * e; }
+    if (k >= 1) { PT.act = null; PT.x = PT.home.x; PT.z = PT.home.z; PT.yaw = Math.PI / 2; }
   }
   const splash = (src, c, R, mul) => { for (const f of alive()) if (f !== c && Math.hypot(f.x - c.x, f.z - c.z) < R) damage(src, f, mul, { sure: true }); };
 
@@ -117,7 +126,7 @@ export function makeBattle(hero, foes, rnd = Math.random) {
 
   function fire(u) {   // снаряд или удар
     const a = u.act, t = a.tgt;
-    if (u === H && H.pet && H.pet.dmg > 0) { const L = alive(), v = L.length ? L[rnd() * L.length | 0] : null; if (v) { ev.push({ k: 'label', u: v, s: H.pet.icon || '🐾' }); damage(H, v, 1, { pet: 1, sure: true }); } }   // правки 3: питомец бьёт вместе с героем
+    if (u === H && PT && H.pet.dmg > 0) { const L = alive(), v = L.length ? L[rnd() * L.length | 0] : null; if (v) { if (PT.act && !PT.act.hit) petHit(PT.act.tgt); PT.act = { t: 0, dur: 0.5, tgt: v, hit: false }; } }   // правки 3: питомец бьёт вместе с героем (П4-3: удар — когда долетит)
     if (u === H && a.skill) {
       if (SK.fx === 'smash') { damage(H, t, SK.mul, { sure: true, big: 1 }); splash(H, t, SK.R, SK.splash); ev.push({ k: 'boom', x: t.x, z: t.z, c: 'gold' }); }
       else if (SK.fx === 'volley') { const L = alive(); for (let i = 0; i < SK.n; i++) { const v = L[(i + (rnd() * L.length | 0)) % L.length]; B.projs.push({ k: SK.proj || 'arrow', src: u, tgt: v, x: u.x, z: u.z, t: -i * 0.12, d: 0.42, mul: SK.mul }); } }
@@ -160,12 +169,14 @@ export function makeBattle(hero, foes, rnd = Math.random) {
       const k = Math.min(1, p.t / p.d); p.x = p.src.x + (p.tgt.x - p.src.x) * k; p.z = p.src.z + (p.tgt.z - p.src.z) * k; p.k01 = k;
       if (k >= 1) {
         B.projs.splice(i, 1);
+        if (p.pet) { petHit(p.tgt); continue; }
         if (!p.tgt.dead) damage(p.src, p.tgt, p.mul, { big: !!p.aoe, sure: !!p.aoe });
         if (p.aoe) { splash(p.src, p.tgt, p.aoe, p.amul); ev.push({ k: 'boom', x: p.tgt.x, z: p.tgt.z, c: 'fire' }); }
       }
     }
-    const busy = all.find(u => u.act);
-    if (busy) stepAct(busy, dt);
+    if (PT && PT.act) stepPet(dt);
+    const busy = all.find(u => u.act) || (PT && PT.act);
+    if (busy && busy !== PT) stepAct(busy, dt);
     else if (!B.projs.length) {
       B.pause -= dt;
       if (B.pause <= 0 && H.hp > 0 && alive().length) {
