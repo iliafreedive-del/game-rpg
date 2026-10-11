@@ -2480,5 +2480,7 @@
  "«Хе-хе!» — Кофи": "„Hehe!“ — Kofi",
  "Поздравляем!": "Glückwunsch!",
  "Вот тебе питомец!": "Hier ist dein Haustier!",
- "Ходит за вами везде и сам бьётся рядом. Новых зверьков Кофи продаёт за осколки Бездны ◆.": "Es folgt dir überallhin und kämpft an deiner Seite. Neue Tierchen verkauft Kofi für Abgrundsplitter ◆."
+ "Ходит за вами везде и сам бьётся рядом. Новых зверьков Кофи продаёт за осколки Бездны ◆.": "Es folgt dir überallhin und kämpft an deiner Seite. Neue Tierchen verkauft Kofi für Abgrundsplitter ◆.",
+ "<div class=\"hb-t ok\">✔ {0}</div><div class=\"hb-d\">Сдайте старосте Эдрику</div>": "<div class=\"hb-t ok\">✔ {0}</div><div class=\"hb-d\">Bei Dorfältestem Edric abgeben</div>",
+ "2026-10-11 · сборка 61": "2026-10-11 · Build 61"
 }

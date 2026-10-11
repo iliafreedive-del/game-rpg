@@ -2480,5 +2480,7 @@
  "«Хе-хе!» — Кофи": "«Eh eh!» — Kofi",
  "Поздравляем!": "Congratulazioni!",
  "Вот тебе питомец!": "Ecco a te un compagno!",
- "Ходит за вами везде и сам бьётся рядом. Новых зверьков Кофи продаёт за осколки Бездны ◆.": "Ti segue ovunque e combatte al tuo fianco. Kofi vende nuove creature in cambio di frammenti dell'Abisso ◆."
+ "Ходит за вами везде и сам бьётся рядом. Новых зверьков Кофи продаёт за осколки Бездны ◆.": "Ti segue ovunque e combatte al tuo fianco. Kofi vende nuove creature in cambio di frammenti dell'Abisso ◆.",
+ "<div class=\"hb-t ok\">✔ {0}</div><div class=\"hb-d\">Сдайте старосте Эдрику</div>": "<div class=\"hb-t ok\">✔ {0}</div><div class=\"hb-d\">Consegnalo all'anziano Edric</div>",
+ "2026-10-11 · сборка 61": "2026-10-11 · build 61"
 }

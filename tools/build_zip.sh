@@ -16,5 +16,14 @@ from PIL import Image
 p = sys.argv[1]; im = Image.open(p)
 if im.mode == 'RGBA': im.quantize(256, method=Image.Quantize.FASTOCTREE, dither=Image.Dither.NONE).save(p, optimize=True)
 PY
+# сборка 61: JPGQ=75 — нарисованные фоны (assets/art/gpt/**/*.jpg, 1920×1080) пережимаются в архиве: −8 МБ, чтобы архив влез в лимит GitHub 100 МБ
+if [ -n "${JPGQ:-}" ]; then python3 - "$STAGE/assets/art/gpt" "$JPGQ" <<'PY'
+import sys, glob, os, io
+from PIL import Image
+for f in glob.glob(sys.argv[1] + '/**/*.jpg', recursive=True):
+    b = io.BytesIO(); Image.open(f).save(b, 'JPEG', quality=int(sys.argv[2]), optimize=True, progressive=True)
+    if len(b.getvalue()) < os.path.getsize(f): open(f, 'wb').write(b.getvalue())
+PY
+fi
 rm -f "$OUT"; (cd "$STAGE" && zip -qr - .) > "$OUT"
 echo "$STAGE"; ls -l "$OUT"

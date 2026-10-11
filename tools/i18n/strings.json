@@ -5520,7 +5520,7 @@
   "w": "js/game/wildmem.js"
  },
  {
-  "k": "2026-10-09 · сборка 59",
+  "k": "2026-10-11 · сборка 61",
   "w": "js/main.js"
  },
  {
@@ -6532,11 +6532,7 @@
   "w": "js/ui/hud.js"
  },
  {
-  "k": "<div class=\"hb-t ok\">✔ Охота: {0}</div><div class=\"hb-d\">Сдайте охоту старосте Эдрику</div>",
-  "w": "js/ui/hud.js"
- },
- {
-  "k": "<div class=\"hb-t\">⚠ Охота: {0}</div><div class=\"hb-d\">{1}</div>",
+  "k": "<div class=\"hb-t ok\">✔ {0}</div><div class=\"hb-d\">Сдайте старосте Эдрику</div>",
   "w": "js/ui/hud.js"
  },
  {

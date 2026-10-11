@@ -2480,5 +2480,7 @@
  "«Хе-хе!» — Кофи": "«He-he!» — Kofi",
  "Поздравляем!": "Tebrikler!",
  "Вот тебе питомец!": "İşte sana bir evcil hayvan!",
- "Ходит за вами везде и сам бьётся рядом. Новых зверьков Кофи продаёт за осколки Бездны ◆.": "Seni her yere takip eder ve yanında savaşır. Kofi yeni hayvanları Uçurum parçaları ◆ karşılığında satar."
+ "Ходит за вами везде и сам бьётся рядом. Новых зверьков Кофи продаёт за осколки Бездны ◆.": "Seni her yere takip eder ve yanında savaşır. Kofi yeni hayvanları Uçurum parçaları ◆ karşılığında satar.",
+ "<div class=\"hb-t ok\">✔ {0}</div><div class=\"hb-d\">Сдайте старосте Эдрику</div>": "<div class=\"hb-t ok\">✔ {0}</div><div class=\"hb-d\">Muhtar Edric’e teslim edin</div>",
+ "2026-10-11 · сборка 61": "2026-10-11 · sürüm 61"
 }
