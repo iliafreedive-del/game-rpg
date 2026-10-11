@@ -9,6 +9,8 @@ import { BIOMES } from '../data/biomes.js';
 import * as SV from '../game/survival.js';
 import { drawFxSheet, drawChargeTele, preloadFxSheets, drawProjSheet, drawStatusSheet, telePattern, fxReady, zoneRealm } from './fxsheets.js';
 import { projSheetOf, mobRageFx } from '../game/combat.js';
+import { GOLD_ICO, artImg } from '../ui/art.js';
+import { appH } from '../ui/fullscreen.js';
 
 let cv, ctx, lightCv, lctx, W = 0, H = 0, DPR = 1;
 const floorImgs = new Map();
@@ -25,7 +27,7 @@ export function resize() {
   const q = G.profile ? G.profile.settings.quality : 'auto';
   const maxDpr = q === 'low' ? 1 : q === 'high' ? 2 : Math.min(2, (innerWidth * innerHeight > 1.3e6 ? 1.25 : 2));
   DPR = Math.min(devicePixelRatio || 1, maxDpr);
-  W = document.documentElement.clientWidth || innerWidth; H = document.documentElement.clientHeight || innerHeight;
+  W = document.documentElement.clientWidth || innerWidth; H = appH() || document.documentElement.clientHeight || innerHeight;   // П4-14: iPhone с экрана «Домой» — до низа экрана
   cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR);
   lightCv.width = Math.ceil(W / 2); lightCv.height = Math.ceil(H / 2);
   const cam = G.cam; cam.w = W; cam.h = H; G.zoomMul = G.zoomMul || 1;
@@ -567,6 +569,8 @@ function drawPickupsGround() {
         ctx.globalCompositeOperation = 'lighter'; const g = ctx.createLinearGradient(x, y - 90 * z, x, y); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, col + '88'); ctx.fillStyle = g; ctx.fillRect(x - 5 * z, y - 90 * z, 10 * z, 90 * z); ctx.globalCompositeOperation = 'source-over';
       }
       if (icons) drawFrame(ctx, icons, iconOf(p.item), x - 16 * z, y - 26 * z, 32 * z / 96 * 1.0);
+    } else if (p.kind === 'gold' && artImg(GOLD_ICO).ok) {   // П4-2: стопка монет вместо «пузырьков» атласа
+      const s = Math.min(30, 16 + p.amount * 0.3) * z; ctx.drawImage(artImg(GOLD_ICO).im, x - s / 2, y - s * 0.8, s, s);
     } else if (icons) {
       const n = p.kind === 'gold' ? 'gold' : p.potion === 'hp' ? 'potion_hp' : 'potion_mp';
       const s = (p.kind === 'gold' ? Math.min(30, 16 + p.amount * 0.3) : 26) * z;

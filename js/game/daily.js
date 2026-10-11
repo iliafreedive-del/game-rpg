@@ -60,11 +60,14 @@ export function dailyQuests() {
 // ежедневное (простое) — через час, недельное (трудное) — через сутки. Долгие контракты — через двое суток (quests.js REP_NEXT)
 export const DQ_NEXT = 60 * 60e3, WQ_NEXT = 24 * 3600e3;
 const nextIn = (q, ms) => q.claimed ? Math.max(0, (q.at || Date.now()) + ms - Date.now()) : 0;
+const fam = st => st === 'kills' || st.startsWith('k_') ? 'kill' : st.startsWith('fort') ? 'fort' : st;
 function refill(list, defs, ms, nOf) {
   const P = G.profile, ok = d => !d.need || d.need(P); let ch = false;
   for (let i = 0; i < list.length; i++) { const q = list[i]; if (!q.claimed) continue; if (!q.at) { q.at = Date.now(); ch = true; continue; }
     if (Date.now() - q.at < ms) continue;
-    const pool = defs.filter(d => ok(d) && !list.some(x => x.id === d.id)); if (!pool.length) continue;
+    // П4-6: новое не похоже на сданное — другой вид дела (не «убить» после «убить», не «золото» после «золота»), по возможности и на соседние
+    const free = defs.filter(d => ok(d) && !list.some(x => x.id === d.id) && fam(d.stat) !== fam(q.stat));
+    const fresh = free.filter(d => !list.some(x => fam(x.stat) === fam(d.stat))), pool = fresh.length ? fresh : free; if (!pool.length) continue;
     const d = pool[Math.floor(Math.random() * pool.length)]; list[i] = { id: d.id, stat: d.stat, n: nOf(d), base: P.stats[d.stat] || 0, claimed: false }; ch = true; }
   if (ch) bus.emit('save');
 }

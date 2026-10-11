@@ -2,7 +2,7 @@
 import { streak } from '../game/streak.js';
 import { earlyLock } from '../game/progress.js';
 import { G, bus, inCombat } from '../game/ctx.js';
-import { $, el, esc, fmt } from '../core/util.js';
+import { $, el, esc, fmt, fmtShort } from '../core/util.js';
 import { input, resetBase, mouse } from '../core/input.js';
 import { xpToNext } from '../game/stats.js';
 import { SKILLS } from '../data/skills.js';
@@ -175,7 +175,7 @@ export function updateHUD(dt) {
   tick = 0; lastHud = 0.25;
   $('lvl').textContent = P.level; $('lvl').classList.toggle('up', P.attrPts > 0 || P.skillPts > 0);
   setBar('xpBar', P.xp / xpToNext(P.level));
-  $('gold').textContent = fmt(P.gold); $('shards').textContent = P.shards || 0; $('torchV').textContent = CS.torches().n;
+  $('gold').textContent = fmtShort(P.gold); $('shards').textContent = fmtShort(P.shards || 0); $('torchV').textContent = CS.torches().n;
   // правки 3: в походе подобранное золото копится в ноше 🎒 и в кошелёк уходит на выходе / в схроне — видно рядом с кошельком, сколько несёте
   { let c = $('carryG'); if (!c) { c = el('small', 'carry-g hidden'); c.id = 'carryG'; c.title = 'Ноша: золото похода. Уйдёт в кошелёк, когда выйдете или сдадите в схрон; если падёте — пропадёт'; $('gold').after(c); }
     const n = G.zoneId === 'wild' && G.wild ? G.wild.carry || 0 : 0; c.classList.toggle('hidden', !n); if (n) c.textContent = `+${fmt(n)} 🎒`; }   // П44: подписи «зол.», «◆», «⚡» — картинки в index.html
