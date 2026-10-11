@@ -2738,5 +2738,6 @@
  "<b>Мастерство:</b> {0}/{1} · {2}{3}": "<b>Maîtrise :</b> {0}/{1} · {2}{3}",
  " зол. и очко навыка": " or et un point de compétence",
  "Мастерство +1<small>{0}</small>": "Maîtrise +1<small>{0}</small>",
- "Навыки без уровня и очков": "Compétences sans niveau ni points"
+ "Навыки без уровня и очков": "Compétences sans niveau ni points",
+ "2026-10-11 · сборка 65": "2026-10-11 · version 65"
 }

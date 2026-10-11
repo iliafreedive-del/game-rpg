@@ -2738,5 +2738,6 @@
  "<b>Мастерство:</b> {0}/{1} · {2}{3}": "<b>Ustalık:</b> {0}/{1} · {2}{3}",
  " зол. и очко навыка": " altın ve bir yetenek puanı",
  "Мастерство +1<small>{0}</small>": "Ustalık +1<small>{0}</small>",
- "Навыки без уровня и очков": "Seviye ve puan olmadan yetenekler"
+ "Навыки без уровня и очков": "Seviye ve puan olmadan yetenekler",
+ "2026-10-11 · сборка 65": "2026-10-11 · sürüm 65"
 }

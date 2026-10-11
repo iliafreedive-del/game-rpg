@@ -2738,5 +2738,6 @@
  "<b>Мастерство:</b> {0}/{1} · {2}{3}": "<b>Mastery:</b> {0}/{1} · {2}{3}",
  " зол. и очко навыка": " gold and a skill point",
  "Мастерство +1<small>{0}</small>": "Mastery +1<small>{0}</small>",
- "Навыки без уровня и очков": "Skills without level or points"
+ "Навыки без уровня и очков": "Skills without level or points",
+ "2026-10-11 · сборка 65": "2026-10-11 · build 65"
 }
