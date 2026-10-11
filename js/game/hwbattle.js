@@ -195,12 +195,14 @@ const KIND = {   // множители к «обычному врагу» эта
 };
 const COUNT = [2, 2, 3, 3, 2, 3, 3, 4, 4, 3];
 // сборка 47: первые 10 этапов круче (новичок не проходит дальше 3–4-го без наставника), дальше — прежний темп
-export const HW_TUNE = { hp0: 20, hpK: 1.15, dmg0: 3.6, dmgK: 1.12, hpE: 1.45, dmgE: 1.32, hpM: 1.2, dmgM: 1.14 };
+// сборка 62 (кривая до 80 уровня): этапы 11–30 — +12% здоровья и +10% урона за этап (было 15/12, стена на 17–23-м у героя 10 ур.),
+// с 31-го — +5% / +4,2% (было 9,5/7,5: глава 2 закрывалась навсегда). Симуляция типичного героя: ур. 10 → этап ~18, 20 → 29, 40 → 69, 60 → 89, 80 → 99–117
+export const HW_TUNE = { hp0: 20, hpK: 1.12, dmg0: 3.6, dmgK: 1.10, hpE: 1.45, dmgE: 1.32, hpM: 1.2, dmgM: 1.14, hpC: 1.05, dmgC: 1.042 };
 export function stageFoes(s) {
   const ci = Math.min(CHAPTER_POOLS.length - 1, Math.floor((s - 1) / 30)), pool = CHAPTER_POOLS[ci], k = (s - 1) % 10;
   const a = Math.min(s, 30) - 1, b = Math.max(0, s - 30), T = HW_TUNE;
   const e = Math.min(s, 4) - 1, m = Math.max(0, Math.min(s, 10) - 4), a2 = Math.max(0, a - 9);   // 1–4: резкий рост, 5–10: средний, дальше — прежний
-  const hpM = T.hp0 * Math.pow(T.hpE, e) * Math.pow(T.hpM, m) * Math.pow(T.hpK, a2) * Math.pow(1.095, b), dmgM = T.dmg0 * Math.pow(T.dmgE, e) * Math.pow(T.dmgM, m) * Math.pow(T.dmgK, a2) * Math.pow(1.075, b);
+  const hpM = T.hp0 * Math.pow(T.hpE, e) * Math.pow(T.hpM, m) * Math.pow(T.hpK, a2) * Math.pow(T.hpC, b), dmgM = T.dmg0 * Math.pow(T.dmgE, e) * Math.pow(T.dmgM, m) * Math.pow(T.dmgK, a2) * Math.pow(T.dmgC, b);
   const kinds = [];
   if (k === 4) kinds.push('guard_boss'); if (k === 9) kinds.push('boss');
   for (let i = kinds.length; i < COUNT[k]; i++) kinds.push(pool[(s + i * 3) % pool.length]);

@@ -2482,5 +2482,6 @@
  "Вот тебе питомец!": "Voici un compagnon pour toi !",
  "Ходит за вами везде и сам бьётся рядом. Новых зверьков Кофи продаёт за осколки Бездны ◆.": "Il vous suit partout et se bat à vos côtés. Kofi vend d'autres bestioles contre des éclats de l'Abîme ◆.",
  "<div class=\"hb-t ok\">✔ {0}</div><div class=\"hb-d\">Сдайте старосте Эдрику</div>": "<div class=\"hb-t ok\">✔ {0}</div><div class=\"hb-d\">Remettez-le à l'Ancien Edric</div>",
- "2026-10-11 · сборка 61": "2026-10-11 · version 61"
+ "2026-10-11 · сборка 61": "2026-10-11 · version 61",
+ "+5 характеристик · +1 навык · +3% здоровья и +2% урона": "+5 attributs · +1 compétence · +3 % de vie et +2 % de dégâts"
 }

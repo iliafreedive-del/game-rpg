@@ -5,7 +5,7 @@ import { G, bus } from './ctx.js';
 import { makeItem, sellValue, makeSetItem, pickSet } from './items.js';
 import { EPICS } from '../data/items.js';
 import { ENEMIES, scaleXP } from '../data/enemies.js';
-import { xpToNext, stats } from './stats.js';
+import { xpToNext, stats, MAX_LEVEL } from './stats.js';
 import { rand, rint, weighted, pick, uid } from '../core/util.js';
 import { float, particles } from './combat.js';
 
@@ -124,7 +124,7 @@ export function gainXP(n, x, y) {
   const P = G.profile; n = Math.round(n * xpMul()); if (n <= 0) return;
   P.xp += n; if (x != null) float(x, y, '+' + n + ' опыта', '#b8e3ff', { z: 2.6, life: 0.8 });
   let up = 0;
-  while (P.xp >= xpToNext(P.level) && P.level < 50) { P.xp -= xpToNext(P.level); P.level++; autoGrow(P); P.skillPts += 1; up++; }
+  while (P.xp >= xpToNext(P.level) && P.level < MAX_LEVEL) { P.xp -= xpToNext(P.level); P.level++; autoGrow(P); P.skillPts += 1; up++; }
   if (up) {
     G.stats = stats(P); G.player.hp = G.stats.maxHP; G.player.mp = G.stats.maxMP;
     particles(G.player.x, G.player.y, 30, { c: [255, 220, 120], z: 0.2, sp: 1.2, vz: 4, g: 1, size: 4, life: 1.2 });
