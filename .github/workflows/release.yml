@@ -1,10 +1,10 @@
 # Архив сборки для скачивания на iPhone — в релиз GitHub (файл до 2 ГБ, без лимита 100 МБ, как у файлов в ветке).
-# Запуск: отправить метку build-<номер> (git tag build-62 && git push origin build-62) или вручную во вкладке Actions.
+# Запуск: записать номер сборки в release.txt и отправить коммит в любую ветку (или вручную во вкладке Actions).
 # Итог: релиз «Сборка <номер>» с dark_ascent_build<номер>.zip — все 11 языков, модели с WebP-текстурами, картинки без пережатия.
 name: Архив сборки
 on:
   push:
-    tags: ['build-*']
+    paths: ['release.txt']
   workflow_dispatch:
     inputs:
       build:
@@ -26,7 +26,7 @@ jobs:
           pip install pillow
       - name: Языки и архив
         run: |
-          N="${{ github.event.inputs.build }}"; [ -n "$N" ] || N="${GITHUB_REF_NAME#build-}"
+          N="${{ github.event.inputs.build }}"; [ -n "$N" ] || N=$(tr -dc '0-9' < release.txt)
           echo "N=$N" >> "$GITHUB_ENV"
           node tools/i18n/build_langs.mjs dist/langs
           GT=/opt/node-tools/node_modules/.bin/gltf-transform SRC=$PWD/dist/langs OUT=$PWD/dist/dark_ascent_build$N.zip tools/build_zip.sh
