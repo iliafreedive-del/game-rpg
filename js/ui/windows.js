@@ -1268,9 +1268,12 @@ const mmssT = t => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(
 W.survival = () => modal('Жатва Бездны', 'md', b => {
   const P = G.profile; P.surv = P.surv || { best: 0, ach: {}, runs: 0 };
   b.appendChild(artHead(ART.harvest('intro'), 'tall'));   // сборка 58: староста Эдрик держит портал Жатвы
-  b.appendChild(el('p', '', 'Бескрайняя арена Бездны и бесконечные волны. <b>Нужно только бегать</b> — герой атакует сам. Собирайте кристаллы душ, растите в уровне, выбирайте перки и пробуждайте оружие. Цель — продержаться 20 минут. Враги крепнут каждую минуту. <b>Каждый уровень забега даёт герою 2,5% опыта уровня</b> (до 75% за забег).'));
+  b.appendChild(el('p', '', 'Бескрайняя арена Бездны и бесконечные волны. <b>Нужно только бегать</b> — герой атакует сам. Собирайте кристаллы душ, растите в уровне, выбирайте перки, собирайте билды и пробуждайте оружие. Выберите длину забега: 10 минут, 20 минут или целый час. Враги крепнут каждую минуту. <b>Каждый уровень забега даёт герою 2,5% опыта уровня</b> (до 75% за забег).'));
   const row = el('div', 'row'); row.style.cssText = 'justify-content:center;margin:10px 0'; const intro = !(P.story.flags && P.story.flags.bossKilled);
-  const go = el('button', 'btn gold', intro ? '▶ Знакомство · 3 минуты' : `▶ В бой · ${SV.RUN_COST} ⚡`); go.style.width = '100%'; go.onclick = () => { if (!intro && !CS.spendEnergy(SV.RUN_COST)) { bus.emit('toast', { text: `Нужно ${SV.RUN_COST} ⚡ энергии`, kind: 'warn' }); bus.emit('openEnergy', rerender); return; } closeModal(); loadZone('survival'); }; row.appendChild(go); b.appendChild(row);   // кнопка вверху: не нужно листать список
+  if (intro) { const go = el('button', 'btn gold', '▶ Знакомство · 3 минуты'); go.style.width = '100%'; go.onclick = () => { closeModal(); G.survMode = 'std'; loadZone('survival'); }; row.appendChild(go); }
+  else { row.style.flexDirection = 'column'; row.style.gap = '6px';   // правки 3: три длины забега
+    for (const [id, M] of Object.entries(SV.MODES)) { const go = el('button', 'btn' + (id === 'std' ? ' gold' : ''), `▶ ${M.name} · ${M.min === 60 ? '1 час' : M.min + ' мин'} · ${M.cost} ⚡`); go.style.width = '100%'; go.onclick = () => survGo(id, rerender); row.appendChild(go); } }
+  b.appendChild(row);   // кнопки вверху: не нужно листать список
   b.appendChild(el('div', 'stats', `<div><span>Рекорд</span><b>${mmssT(P.surv.best)}</b></div><div><span>Забегов</span><b>${P.surv.runs}</b></div>`));
   // правки 3: свои задания Жатвы на день — новые каждый день, не связаны с доской объявлений деревни
   b.appendChild(el('h3', '', 'Задания Жатвы на сегодня'));
@@ -1279,9 +1282,16 @@ W.survival = () => modal('Жатва Бездны', 'md', b => {
     b.appendChild(el('div', 'muted', 'Новые задания — каждый день. Счёт идёт только в Жатве.')); }
   b.appendChild(el('h3', '', 'Достижения'));
   for (const a of SV.ACH) b.appendChild(el('div', 'q' + (P.surv.ach[a.id] ? ' done' : ''), `<div class="qt">${P.surv.ach[a.id] ? '🏆 ' : '○ '}${esc(a.name)}</div><div class="muted">+${a.gold} зол. · +${a.shards}◆</div>`));
+  b.appendChild(el('h3', '', 'Билды'));
+  b.appendChild(el('div', 'muted', SV.BUILDS.map(B => `<b>${esc(B.name)}</b>: ${B.need.map(id => esc(SV.PERKS[id].name)).join(' + ')} — ${esc(B.desc)}`).join('<br>')));
   b.appendChild(el('h3', '', 'Пробуждения оружия'));
   b.appendChild(el('div', 'muted', SV.EVOS.map(e => `<b>${esc(e.name)}</b>: ${esc(SV.PERKS[e.from].name)} 5 ур. + ${esc(SV.PERKS[e.need].name)}`).join('<br>')));
 });
+// правки 3: забег выбранной длины (10 / 20 / 60 мин) — энергия по длине
+function survGo(mode, back) {
+  const M = SV.MODES[mode]; if (!CS.spendEnergy(M.cost)) { bus.emit('toast', { text: `Нужно ${M.cost} ⚡ энергии`, kind: 'warn' }); bus.emit('openEnergy', back); return; }
+  closeModal(); G.survMode = mode; loadZone('survival');
+}
 function survLevel() {
   const S = G.surv; if (!S || S.over) return;
   if (cur) { setTimeout(survLevel, 500); return; }
@@ -1297,8 +1307,8 @@ function survLevel() {
         card.onclick = async () => { const ok = await watchRewarded('surv_extra', offerToken('surv_extra', String(Date.now())), () => {}); if (ok) { extra = true; rerender(); } };
         row.appendChild(card); return;
       }
-      const title = c.evo ? '⚡ ' + c.evo.name : c.gold ? 'Золото' : c.P.name, desc = c.evo ? c.evo.desc : c.gold ? '+50 золота' : c.P.desc(c.lvl), lv = c.evo ? 'ПРОБУЖДЕНИЕ' : c.gold ? '' : c.lvl ? `ур. ${c.lvl} → ${c.lvl + 1}` : 'новое';
-      const card = el('button', 'boon' + (c.evo ? ' evo' : ''), `<div class="bg">${c.evo ? artTag(ART.evo(c.evo.id), '✹') : c.gold ? '⛁' : artTag(ART.perk(c.id), c.P.icon || '⚔')}</div><b>${esc(title)}</b><small class="lv">${lv}</small><span>${esc(desc)}</span>`);
+      const title = c.evo ? '⚡ ' + c.evo.name : c.rep ? (c.rep === 'power' ? 'Сила Бездны' : 'Стойкость') : c.gold ? 'Золото' : c.P.name, desc = c.evo ? c.evo.desc : c.rep ? (c.rep === 'power' ? '+10% урона забега (можно брать снова)' : '+10% здоровья и полное лечение (можно брать снова)') : c.gold ? '+50 золота' : c.P.desc(c.lvl), lv = c.evo ? 'ПРОБУЖДЕНИЕ' : c.gold || c.rep ? '' : c.lvl ? `ур. ${c.lvl} → ${c.lvl + 1}` : 'новое';
+      const card = el('button', 'boon' + (c.evo ? ' evo' : ''), `<div class="bg">${c.evo ? artTag(ART.evo(c.evo.id), '✹') : c.rep ? (c.rep === 'power' ? '✹' : '♥') : c.gold ? '⛁' : artTag(ART.perk(c.id), c.P.icon || '⚔')}</div><b>${esc(title)}</b><small class="lv">${lv}</small><span>${esc(desc)}</span>${c.tag ? `<small class="lv" style="color:#ffd45a">★ ${esc(c.tag)}</small>` : ''}`);
       card.onclick = () => { SV.take(c); closeModal(); };
       row.appendChild(card);
     });
@@ -1316,7 +1326,7 @@ function survEnd(r) {
     if (r.intro) b.appendChild(el('p', 'goldc', 'Староста Эдрик: «Больше портал не удержать — сил не хватает. Наберите золота, загляните к наставнику Элвину за усилением. Жатва откроется снова, когда падёт Палач Бездны».'));
     if (r.newAch.length) b.appendChild(el('p', 'goldc', '🏆 ' + r.newAch.map(esc).join(' · ')));
     const row = el('div', 'row'); row.style.justifyContent = 'center';
-    const again = el('button', 'btn gold', `Ещё раз · ${SV.RUN_COST} ⚡`); again.onclick = () => { if (!CS.spendEnergy(SV.RUN_COST)) { bus.emit('toast', { text: `Нужно ${SV.RUN_COST} ⚡ энергии`, kind: 'warn' }); bus.emit('openEnergy'); return; } closeModal(); loadZone('survival'); };
+    const md = G.survMode && SV.MODES[G.survMode] ? G.survMode : 'std', again = el('button', 'btn gold', `Ещё раз · ${SV.MODES[md].cost} ⚡`); again.onclick = () => survGo(md);
     const home = el('button', 'btn', 'В деревню'); home.onclick = () => { closeModal(); loadZone('town', { from: 'survival' }); };
     if (!r.intro) row.append(again); row.append(home); b.appendChild(row);
   }, { sticky: true }), 700);

@@ -73,7 +73,7 @@ function scope(pfxs) {
 }
 bus.on('zoneEntered', id => {
   tinted.clear(); patterns.clear();
-  const r = zoneRealm(); scope(r ? (r === 'forest' ? ['fr_', 'st_rooted'] : [REALM_PFX[r]]) : id === 'town' ? ['hw_'] : id === 'survival' ? ['sv_', 'proj_', 'hit_', 'beam_', 'gr_', 'sk_whirlwind', 'ct_abyss_nova', 'fj_blizzard_nova'] : id === 'depths' ? ['ct_', 'dp_'] : ['ct_']);   // деревня — листы по первому удару (и листы Летописи hw_, когда будут); правки 3: Жатва — листы своего оружия (sv_ из промта) и запасные
+  const r = zoneRealm(); scope(r ? (r === 'forest' ? ['fr_', 'st_rooted'] : [REALM_PFX[r]]) : id === 'town' ? ['hw_'] : id === 'survival' ? ['sv_', 'proj_', 'hit_', 'beam_', 'gr_', 'sk_whirlwind', 'sk_arrow_rain_', 'ct_abyss_nova', 'fj_blizzard_nova'] : id === 'depths' ? ['ct_', 'dp_'] : ['ct_']);   // деревня — листы по первому удару (и листы Летописи hw_, когда будут); правки 3: Жатва — листы своего оружия (sv_ из промта) и запасные
 });
 
 // подкраска общих листов зверей под край (промт: «игра подкрашивает под локацию»); катакомбы — как нарисовано
@@ -98,7 +98,7 @@ const ppmAt = (cam, x, y, z) => { const [gx, gy] = cam.toScreen(x, y, z), [hx, h
 export function drawFxSheet(ctx, cam, fx, alpha = 1) {
   const id = real(fx.id), S = sheets.get(id); if (!S) return false;
   const k = fx.t / fx.dur, [sx, sy] = cellOf(S, k), img = imgOf(S, id, fx.realm), m = fx.size || S.meters, C = S.C;
-  ctx.save(); ctx.globalAlpha = alpha;   // листы с чёрным фоном переведены в альфу (blend 'add' в json): обычное наложение — сложение на светлой траве выцветало до белого
+  ctx.save(); ctx.globalAlpha = alpha; if (fx.add) ctx.globalCompositeOperation = 'lighter';   // правки 3: add — сложением цветов (Жатва: ярко на тёмной арене)   // листы с чёрным фоном переведены в альфу (blend 'add' в json): обычное наложение — сложение на светлой траве выцветало до белого
   if (S.view === 'ground') { groundBasis(ctx, cam, fx.x, fx.y, fx.a || 0); ctx.drawImage(img, sx, sy, C, C, -m * S.anchor[0], -m * S.anchor[1], m, m); }
   else {   // «объём»: стоит вертикально, повёрнут к герою лицом; нарисован «вправо» — разворачиваем, если удар идёт справа налево
     const [gx, gy, ppm] = ppmAt(cam, fx.x, fx.y, fx.z || 0), w = m * ppm;
