@@ -970,3 +970,8 @@ html.rm *,html.rm *::before,html.rm *::after{animation-duration:.01ms!important;
 #ui.fight #tracker.here{opacity:1}
 #ui.fight #huntBox.away{opacity:.45;animation:none}
 #goldBox .carry-g{font:600 12px var(--serif);color:#ffe9a0;margin-left:4px;white-space:nowrap}
+
+/* правки 4, П4-17: цифра и замок этапа Летописи — по центру кружка и крупно (размер от кружка, а не от экрана) */
+.hw-stage{container-type:size}
+.hw-num{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;line-height:1;font-size:62cqw;padding-top:3cqw}
+.hw-stage.locked .hw-num{font-size:60cqw;padding-top:0}
