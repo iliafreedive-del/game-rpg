@@ -38,7 +38,14 @@ export function hideHand() { if (hand) { hand.remove(); hand = null; } if (line)
 // показать палец над элементом (или просто строку, если элемента нет)
 // кнопка только что открылась: подождать кадр, пока HUD её покажет, иначе «палец» не найдёт место
 export const pointSoon = (sel, text, o) => setTimeout(() => pointAt(sel, text, o), 150);
-export function pointAt(sel, text, { key = null, time = 9, mid = false, force = false, win = false } = {}) {
+// сборка 61: пока идёт «Загрузка…» (шторка смены зоны), палец и строка не показываются — подсказка ждёт, пока зона откроется
+const loading = () => !G.zoneReady || !!document.querySelector('#zoneVeil.on');
+let pend = null;
+bus.on('zoneLoading', () => hideHand());
+bus.on('zoneEntered', () => setTimeout(() => { const q = pend; pend = null; if (q && !loading()) pointAt(...q); }, 700));
+export function pointAt(sel, text, opt = {}) {
+  const { key = null, time = 9, mid = false, force = false, win = false } = opt;
+  if (loading()) { pend = [sel, text, opt]; return false; }
   const t = T(); if (t.off && !force) return false;
   if (force && (hand || line)) return false;   // напоминание не перебивает подсказку обучения
   if (key && t.tips[key]) return false;
@@ -63,7 +70,7 @@ function handTick() {
   if (!hand && !line) return;
   followHand();
   // сборка 60: подсказка внутри окна (win) не гаснет от самого окна — гаснет, когда её кнопка исчезла; строка о зуме гаснет, как только открыто окно или панель NPC (П7)
-  if (performance.now() > handUntil || G.cinema || (handWin ? !handWin.isConnected : G.modalOpen) || (zoomLine && G.panelTarget)) hideHand();
+  if (performance.now() > handUntil || G.cinema || loading() || (handWin ? !handWin.isConnected : G.modalOpen) || (zoomLine && G.panelTarget)) hideHand();
 }
 
 // ---------------------------------------------------------------- что и когда открывать
