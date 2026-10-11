@@ -50,7 +50,7 @@ function scope(pfxs) {
 }
 bus.on('zoneEntered', id => {
   tinted.clear(); patterns.clear();
-  const r = zoneRealm(); scope(r ? (r === 'forest' ? ['fr_', 'st_rooted'] : [REALM_PFX[r]]) : id === 'town' ? [] : id === 'depths' ? ['ct_', 'dp_'] : ['ct_']);   // деревня — листы по первому удару
+  const r = zoneRealm(); scope(r ? (r === 'forest' ? ['fr_', 'st_rooted'] : [REALM_PFX[r]]) : id === 'town' ? ['hw_'] : id === 'survival' ? ['sv_', 'proj_', 'hit_', 'beam_', 'gr_', 'sk_whirlwind', 'ct_abyss_nova', 'fj_blizzard_nova'] : id === 'depths' ? ['ct_', 'dp_'] : ['ct_']);   // деревня — листы по первому удару (и листы Летописи hw_, когда будут); правки 3: Жатва — листы своего оружия (sv_ из промта) и запасные
 });
 
 // подкраска общих листов зверей под край (промт: «игра подкрашивает под локацию»); катакомбы — как нарисовано
@@ -89,6 +89,18 @@ export function drawProjSheet(ctx, cam, id, x, y, z, ang, t, size) {
   const S = sheets.get(real(id)); if (!S) return false;
   const [sx, sy] = cellOf(S, (t / S.dur) % 1), [gx, gy, ppm] = ppmAt(cam, x, y, z), w = (size || S.meters) * ppm, C = S.C;
   ctx.save(); ctx.translate(gx, gy); ctx.rotate(ang); ctx.drawImage(S.img, sx, sy, C, C, -w * S.anchor[0], -w * S.anchor[1], w, w); ctx.restore(); return true;
+}
+// правки 3: лист в экранных координатах (Летопись битв — свой холст и своя камера сбоку). ids — по порядку предпочтения:
+// рисуется первый уже загруженный (остальные заказываются), k — доля анимации 0..1 (у цикла — любое число), w — ширина кадра в px,
+// o.ang — поворот (снаряды), o.flip — отразить по горизонтали. Возвращает id нарисованного листа или null (тогда рисуется прежний эффект)
+export function drawSheetAt(ctx, ids, k, x, y, w, o = {}) {
+  let S = null; for (const i of ids) { if (fxReady(i)) { S = sheets.get(real(i)); break; } }
+  if (!S) return null;
+  const [sx, sy] = cellOf(S, S.loop ? ((k % 1) + 1) % 1 : Math.max(0, Math.min(0.999, k))), C = S.C;
+  ctx.save(); if (o.alpha != null) ctx.globalAlpha = o.alpha; ctx.translate(x, y); if (o.ang) ctx.rotate(o.ang); if (o.flip) ctx.scale(-1, 1);
+  if (S.view === 'ground') ctx.scale(1, 0.45);   // лист «на полу» сбоку — сплющенный эллипс
+  const an = S.view === 'side' && o.anchor ? o.anchor : S.anchor;   // снаряд сбоку (hw_*) — точка привязки в голове снаряда, а не на полу
+  ctx.drawImage(S.img, sx, sy, C, C, -w * an[0], -w * an[1], w, w); ctx.restore(); return true;
 }
 // состояние на существе (оглушение над головой, кровь, корни, ярость): цикл по времени игры
 export function drawStatusSheet(ctx, cam, id, x, y, z, size, alpha = 1) {
