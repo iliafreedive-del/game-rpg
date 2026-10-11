@@ -124,6 +124,6 @@ export function tick() {
   if (!G.profile || !G.zone) return;
   cqCheck();
   if (G.zoneId === 'town') { const pc = G.zone.inter.find(i => i.id === 'portal_castle'); if (pc) pc.marker = G.profile.level >= START_LVL && calls().length ? '!' : null; }
-  if (G.zoneId === 'castle') { const g = G.zone.inter.find(i => i.id === 'castle_guide'); if (g) g.plate = cqAvailable() ? 'Карта цитадели · поручение' : 'Карта цитадели'; }   // «!» над картой путался со Стеной врагов
+  if (G.zoneId === 'castle') { const g = G.zone.inter.find(i => i.id === 'castle_guide'); if (g) g.plate = cqAvailable() && cqCurrent().now() ? 'Карта цитадели · поручение' : 'Карта цитадели'; }   // «!» над картой путался со Стеной врагов
   if (G.zoneId === 'castle') { const r = G.zone.inter.find(i => i.id === 'castle_rift'); if (r && !G.rift && !riftOpen() && !r.hidden) { r.hidden = true; if (r.draw) r.draw.hidden = true; if (r.light) r.light.on = false; } }
 }
