@@ -9,7 +9,8 @@ import { makeBattle, stageFoes, hwSkill, HW_MAGE_K, HW_TUNE } from '../../js/gam
 let seed = 1; const rng = () => (seed = (seed * 16807) % 2147483647) / 2147483647; Math.random = rng;
 export const lvlOf = s => Math.max(1, Math.round(0.8 * s));
 const SK = { warrior: 'whirlwind', archer: 'volley', mage: 'fireball' };
-export function refHero(cls, L) {
+export function refHero(cls, L, roll = 0) {
+  const keep = seed; seed = 1 + (L * 131 + roll * 7919 + cls.length * 17) % 2147483646;   // одинаковые вещи при каждом вызове — кривая и проверки сравнимы
   const C = CLASSES[cls], g = GROWTH[cls], attrs = {}; for (const k of ['str', 'dex', 'int', 'vit']) attrs[k] = C.attrs[k] + g[k] * (L - 1);
   const r = L >= 60 ? 4 : L >= 40 ? 3 : L >= 20 ? 2 : L >= 8 ? 1 : 0, up = Math.min(10, Math.floor(L / 4));
   const wb = { warrior: L >= 6 ? 'knight_sword' : L >= 3 ? 'long_sword' : 'short_sword', archer: L >= 5 ? 'long_bow' : L >= 3 ? 'hunter_bow' : 'short_bow', mage: L >= 4 ? 'rune_staff' : 'oak_staff' }[cls];
@@ -17,6 +18,7 @@ export function refHero(cls, L) {
   const gear = { weapon: mk(wb), head: mk(L >= 4 ? 'helm' : 'cap'), chest: mk(L >= 6 ? 'plate' : L >= 3 ? 'mail' : 'jerkin'), amulet: mk('amulet') };
   const p = { cls, level: L, xp: 0, attrs, gear, skills: {}, upg: { dmg: Math.min(40, L >> 1), hp: Math.min(40, L >> 1), aps: Math.min(20, Math.floor(L / 5)) }, codex: {}, castle: null };
   G.profile = p; const S = stats(p), rank = Math.min(5, 1 + Math.floor(L / 8));
+  seed = keep;
   return { cls, hp: S.maxHP, dmg: (S.dmgMin + S.dmgMax) / 2 * (cls === 'mage' ? HW_MAGE_K : 1), aps: Math.min(2.2, S.aps), crit: S.critChance, critMult: S.critMult, armor: S.armor, spell: S.spellPower, skill: hwSkill(cls, SK[cls], rank) };
 }
 export function winrate(heroes, foes, n) {
@@ -25,8 +27,8 @@ export function winrate(heroes, foes, n) {
   return w / t;
 }
 if (process.argv[1].endsWith('hw_curve.mjs')) {
-  const N = +(process.env.N || 16), STAGES = 120, out = [];
-  const cache = {}; const heroesAt = L => cache[L] || (cache[L] = ['warrior', 'archer', 'mage'].map(c => refHero(c, L)));
+  const N = +(process.env.N || 12), STAGES = 120, out = [];
+  const cache = {}; const heroesAt = L => cache[L] || (cache[L] = ['warrior', 'archer', 'mage'].flatMap(c => [0, 1, 2].map(r => refHero(c, L, r))));   // 3 набора вещей на класс — меньше шума от случайных свойств
   for (let s = 1; s <= STAGES; s++) {
     if (s <= 5) { out.push(1); continue; }   // 1–5 — шаг обучения «Испытать себя», как было
     const base = stageFoes(s, true), boss = base.some(f => f.boss), target = boss ? 0.45 : 0.6, H = heroesAt(lvlOf(s));

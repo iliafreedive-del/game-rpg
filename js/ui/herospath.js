@@ -18,7 +18,7 @@ import { drawSheetAt } from '../render/fxsheets.js';
 import { makeBattle, stageFoes, arenaView, setArenaLayout, relayoutBattle, hwSkill, HW_MAGE_K } from '../game/hwbattle.js';
 import { current as curQuest } from '../game/quests.js';
 import { xpToNext } from '../game/stats.js';
-import { SKILLS } from '../data/skills.js';
+import { SKILLS, MASTERY_STEP } from '../data/skills.js';
 import { petsOf, petPower } from '../game/pets.js';
 import { PETS } from '../data/pets.js';
 
@@ -116,7 +116,8 @@ function hwSkillPick() {
 // правки 3: питомец в Летописи — бьёт вместе с героем на каждом его ходу (удар и эффект из окна характеристик питомца)
 function hwPet() { const S = petsOf(G.profile), id = S.active; if (!id || !PETS[id]) return null; const pw = petPower(id); return { icon: PETS[id].icon, dmg: (pw.phys || 0) + (pw.mag || 0) }; }
 function heroSummary() {
-  const S = G.stats; const cls = G.profile.cls || 'warrior', sid = hwSkillPick().id; return { skill: hwSkill(cls, sid, sid ? G.profile.skills[sid] : 1, sid ? SKILLS[sid].name : null), hp: S.maxHP, dmg: (S.dmgMin + S.dmgMax) / 2 * (cls === 'mage' ? HW_MAGE_K : 1), aps: Math.min(2.2, S.aps), crit: S.critChance, critMult: S.critMult, armor: S.armor, spell: S.spellPower , pet: hwPet() };
+  const S = G.stats; const cls = G.profile.cls || 'warrior', sid = hwSkillPick().id; const skill = hwSkill(cls, sid, sid ? G.profile.skills[sid] : 1, sid ? SKILLS[sid].name : null); if (sid && G.profile.mastery && G.profile.mastery[sid]) skill.mul *= 1 + MASTERY_STEP * G.profile.mastery[sid];   // перед релизом: мастерство
+  return { skill, hp: S.maxHP, dmg: (S.dmgMin + S.dmgMax) / 2 * (cls === 'mage' ? HW_MAGE_K : 1), aps: Math.min(2.2, S.aps), crit: S.critChance, critMult: S.critMult, armor: S.armor, spell: S.spellPower , pet: hwPet() };
 }
 const power = (hp, dmg, aps) => Math.round(dmg * aps * 10 + hp);
 function showPrefight(s) {

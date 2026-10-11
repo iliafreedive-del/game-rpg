@@ -16,7 +16,7 @@ export function petsOf(P) {
   if (S.active && !PETS[S.active]) S.active = null;
   return S;
 }
-const LV = l => 1 + 0.04 * (l - 1);   // правки 3: +4% за уровень (было +15%, до 5 ур.)
+const LV = l => 1 + 0.10 * (l - 1);   // перед релизом: +10% за уровень (было +4% — 1000 осколков давали лишь ×1,96, «грустно»); к 25-му ×3,4
 
 // ---------------------------------------------------------------- лавка Кофи
 export function petCan(id) {
@@ -128,7 +128,7 @@ export function petInfo(id, lvl) {
     heal: ['Лечение героя', `+${Math.round(hp * (0.03 + 0.001 * (lvl - 1)))} здоровья раз в 5 с (${pc(0.03 + 0.001 * (lvl - 1))} от максимума)`],
     needle: ['Ледяные стрелы', `бьёт цели до ${D.reach} м; каждое попадание замедляет врага ещё на 8% (до 32%, 1,5 с)`],
     stun: ['Оглушение', `шанс ${pc(0.15 + 0.004 * (lvl - 1))} за укус: 0,6 с (элита 0,4 с, босс 0,25 с)`],
-    leech: ['Вампиризм', '60% нанесённого урона лечит героя'],
+    leech: ['Вампиризм', '60% нанесённого урона лечит героя (не больше 1,5% здоровья за укус, больше — с дрессировкой)'],
     shield: ['Каменный щит', `раз в 8 с в бою: щит ${Math.round(hp * (0.06 + 0.002 * (lvl - 1)))} (${pc(0.06 + 0.002 * (lvl - 1))} здоровья, не больше 30%)`],
     loot: ['Ищейка', `шанс ${pc(0.3 + 0.01 * (lvl - 1))} горсти золота с павшего, осколок Бездны — ${pc(0.02 + 0.0012 * (lvl - 1))}`],
   }[D.fx] || ['', ''];
@@ -156,7 +156,7 @@ function strike(p, e) {
     case 'burn': s.burn = 3; s.burnDps = Math.max(s.burnDps || 0, mag * 0.35); break;
     case 'poison': s.poison = Math.min(5, (s.poison || 0) + 1); s.poisonT = 4; s.poisonDps = Math.max(s.poisonDps || 0, mag * 0.4); break;   // правки 3: яд сильнее (был 0,15 за заряд — на 5 зарядах почти не чувствовался)
     case 'stun': if (rand() < 0.15 + 0.004 * (lv - 1)) { s.stun = Math.max(s.stun, e.D.boss ? 0.25 : e.D.elite ? 0.4 : 0.6); C.float(e.x, e.y, 'Оглушён', '#f0e08a'); } break;
-    case 'leech': { const S = G.stats, h = Math.round(done * 0.6 * trainMul('mag')); if (h > 0 && pl().hp < S.maxHP) { pl().hp = Math.min(S.maxHP, pl().hp + h); C.float(pl().x, pl().y, '+' + h, '#7ef07a', { z: 2.3 }); } break; }
+    case 'leech': { const S = G.stats, h = Math.round(Math.min(done * 0.6, S.maxHP * 0.015) * trainMul('mag')); if (h > 0 && pl().hp < S.maxHP) { pl().hp = Math.min(S.maxHP, pl().hp + h); C.float(pl().x, pl().y, '+' + h, '#7ef07a', { z: 2.3 }); } break; }   // перед релизом: не больше 1,5% здоровья за укус (× дрессировка) — урон героя растёт быстрее здоровья, к 60 ур. мышь лечила ≈100%/с
   }
 }
 const pl = () => G.player;

@@ -6,9 +6,10 @@
 import { G } from '../../js/game/ctx.js';
 import { stats, xpToNext, damageReduction } from '../../js/game/stats.js';
 import { makeItem, upgradeCost as upgradeCost0, maxRarityFor } from '../../js/game/items.js';
-// FIX=1 — предложение: цены кузнеца растут как доход (до 20 ур. как сейчас, дальше линейно по уровню вещи), закалка переходит на новую вещь слота
-const FIX = !!process.env.FIX, PK = l => l <= 20 ? Math.pow(1.1, l - 1) : Math.pow(1.1, 19) * l / 20;
-const upgradeCost = it => FIX ? Math.round((30 + it.ilvl * 12) * Math.pow(1.55, it.upg || 0) * [1, 1.3, 1.7, 2.5, 3.5][it.rarity] * PK(it.ilvl)) : upgradeCost0(it);
+// Цены кузнеца и Элвина — из игры (items.js priceK, data/upgrades.js); OLD=1 — без переноса закалки на новую вещь
+const FIX = process.env.OLD !== '1',   // перенос закалки на новую вещь (character.js carryUpg); цены — из игры
+      _x = 0, PK = l => l <= 20 ? Math.pow(1.1, l - 1) : Math.pow(1.1, 19) * l / 20;
+const upgradeCost = upgradeCost0;
 import { CLASSES, GROWTH } from '../../js/data/items.js';
 import { ENEMIES, scaleHP, scaleDmg, scaleXP } from '../../js/data/enemies.js';
 import { makeBattle, stageFoes } from '../../js/game/hwbattle.js';
@@ -17,9 +18,10 @@ import { PETS, TRAIN_STEP, trainCost, petUpCost } from '../../js/data/pets.js';
 let seed = 7; Math.random = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
 
 const ONLY = process.argv[2], HPD = +(process.argv[3] || 2);   // часов игры в день
-const UPG = { dmg: [60, 1.24, 40], hp: [45, 1.22, 40], aps: [150, 1.26, 20] };
+import { UPGRADES } from '../../js/data/upgrades.js';
+const UPG = Object.fromEntries(['dmg', 'hp', 'aps'].map(k => [k, [UPGRADES[k].base, UPGRADES[k].mul, UPGRADES[k].max]]));
 const upgCost = (id, l) => Math.round(UPG[id][0] * Math.pow(UPG[id][1], l));
-const mergeCost = (r, L) => Math.round([40, 200, 900, 4000][r] * (FIX ? PK(L) : Math.pow(1.1, Math.max(0, L - 1))));
+const mergeCost = (r, L) => Math.round([40, 200, 900, 4000][r] * PK(L));
 const WB = (cls, L) => ({ warrior: L >= 6 ? 'knight_sword' : L >= 3 ? 'long_sword' : 'short_sword', archer: L >= 5 ? 'long_bow' : L >= 3 ? 'hunter_bow' : 'short_bow', mage: L >= 4 ? 'rune_staff' : 'oak_staff' }[cls]);
 const AB = { head: L => L >= 4 ? 'helm' : 'cap', chest: L => L >= 6 ? 'plate' : L >= 3 ? 'mail' : 'jerkin', amulet: () => 'amulet' };
 function mk(cls, slot, ilvl, r, u = 0) { const it = makeItem({ base: slot === 'weapon' ? WB(cls, ilvl) : AB[slot](ilvl), ilvl, rarity: r, cls, noClamp: true }); it.rarity = r; it.upg = u; delete it.req; return it; }
@@ -137,6 +139,6 @@ const LV = l => 1 + 0.04 * (l - 1);
 for (const [L, pl, tr, label] of [[10, 3, 3, 'ур.10, питомец 3, дрессировка 3'], [30, 10, 15, 'ур.30, питомец 10, дрессировка 15'], [60, 20, 30, 'ур.60, питомец 20, дрессировка 30'], [100, 25, 40, 'ур.100, питомец 25, дрессировка 40']]) {
   const r = out[0].rows.find(x => x.L === L), S = r.S, avg = (S.dmgMin + S.dmgMax) / 2, hd = dpsOf(S, 'warrior'), tm = 1 + TRAIN_STEP * tr;
   const parts = Object.entries(PETS).map(([id, D]) => { const base = avg * D.k * LV(pl); let d = (D.ranged && D.fx !== 'needle' ? 0 : base * tm) / D.cd; d += base * tm * ({ burn: 1.05, poison: 0.6 * 2.5, leech: 0 }[D.fx] || (D.ranged && D.fx !== 'needle' ? 1 : 0)) / D.cd; return `${id} ${Math.round(d / hd * 100)}%`; });
-  const heal = (0.03 + 0.001 * (pl - 1)) * tm / 5 * 100, leech = avg * 0.12 * LV(pl) * tm * 0.25 / 1.1 / S.maxHP * 100;
+  const heal = (0.03 + 0.001 * (pl - 1)) * tm / 5 * 100, leech = Math.min(avg * 0.12 * LV(pl) * 0.25 / 1.1, S.maxHP * 0.015) * tm / S.maxHP * 100;   // укус ≈ раз в 1,1 с, лечение не больше 1,5% здоровья × дрессировка
   const intake = duel(S, 'warrior', L, 'f_draugr', L + 1); console.log(`${label}: ${parts.join(', ')}; огонёк лечит ${heal.toFixed(1)}%/с, мышь ${leech.toFixed(1)}%/с; один драугр снимает ${(100 / intake.die).toFixed(1)}%/с`);
 }

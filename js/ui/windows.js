@@ -5,7 +5,7 @@ import { setCounts } from '../game/stats.js';
 import { G, bus, inCombat } from '../game/ctx.js';
 import { $, el, esc, fmt, ICO } from '../core/util.js';
 import { SLOTS, SLOT_NAMES, RARITY, WEAPONS, BASE, CLASSES, RARITY_SHORT } from '../data/items.js';
-import { SKILLS, BRANCHES, classSkillOrder, unlockLevel } from '../data/skills.js';
+import { SKILLS, BRANCHES, classSkillOrder, unlockLevel, MASTERY_MAX, MASTERY_STEP } from '../data/skills.js';
 import { STORY, REPEATABLE, DIALOG, CHAPTER, chapterOf } from '../data/quests.js';
 import { stats, compare, usefulness, meetsReq, xpToNext, effRank, damageReduction } from '../game/stats.js';
 import { iconOf, affixText, epicOf, sellValue, upgradeCost, reforgeCost, MAX_UPG, itemPower, kindPerkText, upgMult, heroPower } from '../game/items.js';
@@ -43,7 +43,7 @@ import { particles, effect } from '../game/combat.js';
 import { maybeInterstitial, offerPreview } from '../platform/monetize.js';
 import { petsOf, meetCaravan, petInfo } from '../game/pets.js';
 import { PETS, TIERS, PET_MAX } from '../data/pets.js';
-import { earlyLock, firstLessonCost, POTION_RESERVE, wildDepthGate } from '../game/progress.js';
+import { earlyLock, firstLessonCost, POTION_RESERVE, wildDepthGate, lvlOk } from '../game/progress.js';
 import { platform as PF } from '../platform/platform.js';
 import { wipeLocal, cloudBundle } from '../game/save.js';
 import { setVolumes } from '../core/audio.js';
@@ -395,7 +395,7 @@ function talentBranch(cls, ids, P, onPick, sel) {
     const [x, y] = pos(id);
     const n = el('button', `tal tal-${st}${sk.kind === 'active' ? ' act' : ''}${sel === id ? ' sel' : ''}`); n.style.left = x + 'px'; n.style.top = y + 'px';
     n.title = sk.name; n.appendChild(skillCanvas(id, 96, !r && !can.ok));
-    n.appendChild(el('span', 'tal-r', `${r}/${sk.max}`));
+    { const m = CH.masteryOf(P, id); n.appendChild(el('span', 'tal-r', `${r}/${sk.max}${m ? ' +' + m : ''}`)); }
     if (sk.kind === 'active') n.appendChild(el('span', 'tal-a', '⚔'));
     if (can.ok) n.appendChild(el('span', 'tal-plus', '+'));
     else if (!r && P.level < lv) n.appendChild(el('span', 'tal-lv', `ур. ${lv}`));
@@ -421,6 +421,15 @@ function talentInfo(id, P, edit) {
     if (!can.ok) t.appendChild(el('div', 'bad', `<small>${esc(can.why)}</small>`));
     else if (P.gold < cost) { bt.classList.remove('ok'); t.appendChild(el('div', 'bad', `<small>Не хватает ${fmt(cost - P.gold)} зол. (у вас ${fmt(P.gold)}). Очко навыка не пропадёт — вернитесь с золотом из подземелья или Летописи</small>`)); }   // М5
   } else if (!edit && r < sk.max && can.ok) t.appendChild(el('div', 'muted', '<small>Можно изучить у наставника Элвина в деревне.</small>'));
+  if (r >= sk.max && sk.kind === 'active' && sk.max >= 5) {   // перед релизом: мастерство после полного ранга
+    const m = CH.masteryOf(P, id), mc = CH.canMaster(id), bonus = id === 'warcry' ? `+${m * 2}% к усилению` : `+${Math.round(m * MASTERY_STEP * 100)}% урона`;
+    t.appendChild(el('div', 'ti-d', `<b>Мастерство:</b> ${m}/${MASTERY_MAX} · ${bonus}${m < MASTERY_MAX ? ` <span class="good">→ ${id === 'warcry' ? `+${(m + 1) * 2}%` : `+${Math.round((m + 1) * MASTERY_STEP * 100)}%`}</span>` : ''}`));
+    if (edit && m < MASTERY_MAX) {
+      const cost = mc.free ? 0 : CH.masteryCost(), bt = el('button', 'learn tal-learn' + (mc.ok ? ' ok' : ''), `Мастерство +1<small>${cost ? fmt(cost) + ' зол. и очко навыка' : 'бесплатно'}</small>`); bt.disabled = !mc.ok;
+      bt.onclick = e => { e.stopPropagation(); if (CH.master(id)) rerender(); }; t.appendChild(bt);
+      if (!mc.ok) t.appendChild(el('div', 'bad', `<small>${esc(mc.why)}</small>`));
+    }
+  }
   if (r && sk.kind === 'active') {
     const sr = el('div', 'slots4');
     { const bb = el('button', 'btn sm' + (P.bigSkill === id ? ' gold' : ''), '★'); bb.title = 'На большую кнопку'; bb.onclick = e => { e.stopPropagation(); P.bigSkill = P.bigSkill === id ? null : id; bus.emit('toast', { text: P.bigSkill ? `«${sk.name}» — на большой кнопке` : 'Навык снят с большой кнопки', kind: 'good' }); bus.emit('statsChanged'); rerender(); }; sr.appendChild(bb); }
@@ -574,7 +583,7 @@ W.settings = () => modal('Настройки', 'sm', b => {
       const C = P.cheat || (P.cheat = {}), ad = el('div', 'attr', '<b>Админка (тест)</b>');
       const tg = (k, n) => { const bt = el('button', 'btn sm' + (C[k] ? ' gold' : ''), n); bt.onclick = () => { C[k] = !C[k]; bus.emit('save'); rerender(); }; ad.appendChild(bt); };
       const act = (n, f) => { const bt = el('button', 'btn sm', n); bt.onclick = () => { f(); G.stats = calcStats(P); bus.emit('statsChanged'); bus.emit('hud'); bus.emit('save'); bus.emit('toast', { text: n, kind: 'good' }); }; ad.appendChild(bt); };
-      tg('oneHit', 'С одного удара'); tg('god', 'Бессмертие'); tg('open', 'Все порталы открыты');
+      tg('oneHit', 'С одного удара'); tg('god', 'Бессмертие'); tg('open', 'Все порталы открыты'); tg('skills', 'Навыки без уровня и очков');
       act('+100 000 золота', () => { P.gold += 100000; }); act('+1000 осколков', () => { CS.addShards(1000); });
       act('+1 уровень', () => gainXP(Math.max(1, xpToNext(P.level) - P.xp), null, null, true)); act('+10 уровней', () => { for (let i = 0; i < 10; i++) gainXP(Math.max(1, xpToNext(P.level) - P.xp), null, null, true); });
       b.appendChild(ad);
@@ -644,7 +653,7 @@ W.npc_smith = (tab0) => {
     const tabs = el('div', 'tabs big-tabs'); for (const [k, n] of [['merge', 'Слияние 3→1'], ['upg', 'Закалка']]) { const t = el('button', 'tab' + (tab === k ? ' on' : ''), n); t.onclick = () => { tab = k; sel = null; rerender(); }; tabs.appendChild(t); } b.appendChild(tabs);
     if (tab === 'merge') { mergeTab(b); b.appendChild(el('p', 'goldc', `Ваше золото: ${fmt(P.gold)}`)); return; }
     b.appendChild(el('p', '', `<i>«${esc(DIALOG.smith.hello[1])}»</i>`));
-    b.appendChild(el('p', 'muted', 'Закалка: +10% к урону или защите за уровень (до +10), без риска поломки. Закалять вещи можно только здесь, у кузнеца.'));
+    b.appendChild(el('p', 'muted', 'Закалка: +10% к урону или защите за уровень (до +10), без риска поломки. Закалять вещи можно только здесь, у кузнеца. Закалка остаётся в слоте: надели новую вещь — она получает закалку прежней.'));
     const list = [...Object.entries(P.gear).filter(([, i]) => i).map(([s, i]) => i), ...P.bag.filter(i => i.rarity >= 1 || i.dmg || i.armor)];
     const shop = el('div', 'bag');
     for (const it of list) { const d = slotEl(it, '', sel === it.id ? 'sel' : ''); if (Object.values(P.gear).includes(it)) d.appendChild(el('span', 'up2', 'Надето')); d.onclick = () => { sel = it.id; rerender(); }; shop.appendChild(d); }
@@ -1127,7 +1136,7 @@ W.wild = realm => modal(REALMS[realm].name, 'sm', b => {
   const enter = d => { closeModal(); loadZone('wild', { realm, depth: d }); };
   const need = wildReqLevel(realm, next);
   const go = el('button', 'btn gold', `▶ ${locationName(realm, next)} · глубина ${next}${isWildBoss(next) ? ' · босс' : ''} (ур. врагов ${wildLevel(realm, next)})`);
-  go.style.width = '100%'; if (P.level < need) { go.disabled = true; go.textContent = `Глубина ${next}: нужен уровень ${need}`; } else if (wildDepthGate(realm, next)) { go.disabled = true; go.textContent = `Глубина ${next}: после победы над Палачом Бездны`; }   /* П37 */ go.onclick = () => enter(next); b.appendChild(go);
+  go.style.width = '100%'; if (!lvlOk(need)) { go.disabled = true; go.textContent = `Глубина ${next}: нужен уровень ${need}`; } else if (wildDepthGate(realm, next)) { go.disabled = true; go.textContent = `Глубина ${next}: после победы над Палачом Бездны`; }   /* П37 */ go.onclick = () => enter(next); b.appendChild(go);
   if ((WS.depth || 0) > 1) {
     b.appendChild(el('h3', '', 'Пройденные локации')); const grid = el('div', 'row');
     for (let d = Math.max(1, (WS.depth || 1) - 11); d < WS.depth; d++) { const bt = el('button', 'btn sm', `${d}${isWildFort(d) ? (isWildBoss(d) ? '♛' : '⚑') : ''}`); bt.title = locationName(realm, d); bt.onclick = () => enter(d); grid.appendChild(bt); }

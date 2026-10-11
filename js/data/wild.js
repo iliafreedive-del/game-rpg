@@ -58,7 +58,7 @@ export const WILD_MOBS = {
 
 export const REALMS = {
   fjord: {
-    id: 'fjord', name: 'Фьорды Скъёльда', short: 'Фьорды', portalColor: [150, 210, 255], portal: 'portal_spire', reqLevel: 12, baseLevel: 12,   // правки 3: Фьорды — третья локация (были второй, 5/5)
+    id: 'fjord', name: 'Фьорды Скъёльда', short: 'Фьорды', portalColor: [150, 210, 255], portal: 'portal_spire', reqLevel: 25, baseLevel: 25,   // правки 3: Фьорды — третья локация (были второй, 5/5)
     blurb: 'Снежные берега, замёрзшие заливы и крепости ётунов. Драугры, ледяные волки и снежные ведьмы держат захваченные форты.',
     pool: [['f_draugr', 1], ['f_wolf', 1], ['f_berserk', 1], ['f_hag', 2], ['f_jotun', 3]],   // [тип, с какой глубины]
     commander: 'f_jarl', boss: 'f_boss', fortName: 'Захваченный форт',
@@ -81,7 +81,7 @@ export const REALMS = {
     ],
   },
   bones: {
-    id: 'bones', name: 'Костяные пустоши', short: 'Пустоши', portalColor: [255, 150, 70], portal: 'portal_bone', reqLevel: 5, baseLevel: 5,   // правки 3: пустоши — вторая локация, после острога Леса (были 12/12)
+    id: 'bones', name: 'Костяные пустоши', short: 'Пустоши', portalColor: [255, 150, 70], portal: 'portal_bone', reqLevel: 15, baseLevel: 15,   // правки 3: пустоши — вторая локация, после острога Леса (были 12/12)
     blurb: 'Красная полупустыня среди костей древних великанов. Клыкастые дикари живут в хижинах из шкур и рёбер, в балках — гиены, кабаны и скорпионы. За полями — руины древних.',
     pool: [['b_raider', 1], ['b_hyena', 1], ['b_boar', 1], ['b_thrower', 1], ['b_shaman', 2], ['b_scorpid', 3]],
     commander: 'b_chief', boss: 'b_boss', fortName: 'Древние руины',

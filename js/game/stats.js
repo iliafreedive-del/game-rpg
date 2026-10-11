@@ -140,9 +140,11 @@ export function meetsReq(p, it, st) {
   return true;
 }
 // Stat comparison: equip candidate in given slot, return list of [label, before, after, better?]
+// сравнение с учётом переноса закалки (character.js carryUpg): новая вещь получит закалку надетой, если та выше
+const withUpg = (it, old) => old && old !== it && (old.upg || 0) > (it.upg || 0) ? { ...it, upg: old.upg } : it;
 export function compare(p, item, slot) {
   const a = stats(p);
-  const g = { ...p.gear, [slot]: item };
+  const g = { ...p.gear, [slot]: withUpg(item, p.gear[slot]) };
   const b = stats(p, g);
   const rows = [
     ['Урон в секунду', a.dps, b.dps], ['Урон', `${a.dmgMin}–${a.dmgMax}`, `${b.dmgMin}–${b.dmgMax}`, (b.dmgMin + b.dmgMax) - (a.dmgMin + a.dmgMax)],
@@ -160,7 +162,7 @@ export function compare(p, item, slot) {
 export function usefulness(p, item) {
   // стрелка «лучше/хуже» считается по тому же, что видит игрок: урон в секунду (для мага — ещё и сила заклинаний), защита, здоровье
   const slot = item.slot;
-  const a = stats(p); const g = { ...p.gear, [slot]: item };
+  const a = stats(p); const g = { ...p.gear, [slot]: withUpg(item, p.gear[slot]) };
   const b = stats(p, g);
   const dpsK = (b.dps / Math.max(1, a.dps) - 1) * 100;
   // П33: у мага посох почти не меняет силу заклинаний, и max(урон, заклинания) давал 0 у любого посоха хуже надетого — стрелки не было.
