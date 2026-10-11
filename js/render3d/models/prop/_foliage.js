@@ -35,8 +35,7 @@ export function foliage(kit, seed = 5, opts = {}) {
   const lobeSet = (lobes, y0, y1, density) => {
     for (const [x, y, z, r] of lobes) {
       const c = V(x, y, z);
-      // правки 3: заполнитель внутри доли только у редких «дальних» крон (_far) — у обычных он читался сквозь листву гладким зелёным «шаром»
-      if (density < 10) raw(paint(new THREE.IcosahedronGeometry(r * 0.5, 0), hsl(FOLIAGE.leafHue + 0.02, 0.5, 0.16), { top: hsl(FOLIAGE.leafHue, 0.55, 0.26) }).translate(x, y, z));
+      // правки 4 (П4-4): заполнителя-икосаэдра внутри доли больше нет совсем — у «дальних» крон (_far, все деревья за краем острова) он торчал сквозь редкую листву гранёными шарами
       const n = Math.round(density * r * r * 0.75 + 8);
       for (let i = 0; i < n; i++) {
         const d = V(cr() - .5, cr() - .35, cr() - .5).normalize(), pos = c.clone().addScaledVector(d, r * (0.62 + cr() * 0.3)), hgt = clamp01((pos.y - y0) / (y1 - y0));
@@ -66,13 +65,11 @@ export function foliage(kit, seed = 5, opts = {}) {
       lobeSet(lobes, 0.1, 1.2, density);
       return finish();
     },
-    // ель: ярусы лап-карточек, свисающих наружу и вниз; ствол и заполнитель-конус средне-зелёные
+    // ель: ярусы лап-карточек, свисающих наружу и вниз
     pine(tiers = 5, density = 1, wide = 1) {
-      limb(V(0, 0, 0), V(0, 1.4, 0), 0.16, 0.08, BARK, BARK_L);
       const top = 0.95 + tiers * 0.46;
-      // правки 3: макушка — острый конус выше верхнего яруса (было: конус обрывался на ярусе, а над ним висела плоская «звезда» из двух карточек)
-      const apex = top + 0.55;
-      raw(paint(new THREE.ConeGeometry(0.62 * wide, apex - 0.7, 7), hsl(FOLIAGE.pineHue, 0.45, 0.17), { top: SNOW ? SNOW_C.clone() : hsl(FOLIAGE.pineTipHue, 0.55, 0.36) }).translate(0, 0.7 + (apex - 0.7) / 2, 0));
+      // правки 4 (П4-5): гладкого зелёного конуса-заполнителя больше нет — его плоские грани торчали сквозь лапы. Лапы держит тонкий ствол до макушки
+      limb(V(0, 0, 0), V(0, top + 0.3, 0), 0.16, 0.03, BARK, BARK_L);
       for (let t = 0; t < tiers; t++) {
         const y = 0.95 + t * 0.46, R = (1.1 - t * (0.75 / tiers)) * wide, n = Math.max(6, Math.round((13 - t * 1.5) * density));
         if (SNOW) raw(paint(new THREE.ConeGeometry(R * 0.66, 0.3, 6, 1, true), SNOW_C.clone().multiplyScalar(0.8), { top: SNOW_C.clone() }).rotateY(t * 0.9).translate(0, y + 0.06, 0));   // снежная шапка на ярусе (правки 3)

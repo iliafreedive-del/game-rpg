@@ -177,6 +177,11 @@ function groundMaterial(snow = false, forest = false, puddles = 1, steppe = fals
   col *= 1.0 - 0.35 * edge;                                                                      // кромка тропы
   diffuseColor.rgb = col * diffuseColor.rgb;
 }`);
+    // правки 4 (П4-12): на отвесной стенке обрыва острова тени не рисуем — земля сама тень не бросает, и тень героя/питомца
+    // проходила сквозь край острова и ложилась силуэтом на скалу внизу. gFlat: 1 на ровной земле, 0 на стенке (по нормали)
+    sh.fragmentShader = sh.fragmentShader.replace('#include <lights_fragment_begin>',
+      'float gFlat = smoothstep(0.45, 0.75, dot(normal, normalize((viewMatrix * vec4(0.0, 1.0, 0.0, 0.0)).xyz)));\n' +
+      THREE.ShaderChunk.lights_fragment_begin.replace('( directLight.visible && receiveShadow ) ? getShadow( directionalShadowMap', '( directLight.visible && receiveShadow ) ? 1.0 - gFlat + gFlat * getShadow( directionalShadowMap'));
   };
   m.customProgramCacheKey = () => 'ground';
   return m;
