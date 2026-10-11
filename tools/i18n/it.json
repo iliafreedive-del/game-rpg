@@ -2671,5 +2671,16 @@
  "Вуаль из-за портала": "Velo d'oltre il portale",
  "{0}, глубина {1}": "{0}, profondità {1}",
  "⚠ Охота: {0} — глубина {1}": "⚠ Caccia: {0} — profondità {1}",
- "▶ {0} · глубина {1}{2}{3} (ур. врагов {4})": "▶ {0} · profondità {1}{2}{3} (nemici Liv. {4})"
+ "▶ {0} · глубина {1}{2}{3} (ур. врагов {4})": "▶ {0} · profondità {1}{2}{3} (nemici Liv. {4})",
+ "2026-10-11 · сборка 64": "2026-10-11 · build 64",
+ "Мастерство — только для активных умений": "La maestria è solo per le abilità attive",
+ "Сначала {0}-й ранг": "Prima il grado {0}",
+ "Мастерство на пределе": "Maestria al massimo",
+ "Мастерство стоит {0} золота": "La maestria costa {0} oro",
+ "60% нанесённого урона лечит героя (не больше 1,5% здоровья за укус, больше — с дрессировкой)": "Il 60% dei danni inflitti cura l'eroe (al massimo 1,5% di vita per morso, di più con l'addestramento)",
+ "+{0}% к усилению": "+{0}% al potenziamento",
+ "<b>Мастерство:</b> {0}/{1} · {2}{3}": "<b>Maestria:</b> {0}/{1} · {2}{3}",
+ " зол. и очко навыка": " oro e un punto abilità",
+ "Мастерство +1<small>{0}</small>": "Maestria +1<small>{0}</small>",
+ "Навыки без уровня и очков": "Abilità senza livello né punti"
 }

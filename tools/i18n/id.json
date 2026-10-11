@@ -2671,5 +2671,16 @@
  "Вуаль из-за портала": "Kerudung dari Balik Portal",
  "{0}, глубина {1}": "{0}, kedalaman {1}",
  "⚠ Охота: {0} — глубина {1}": "⚠ Perburuan: {0} — kedalaman {1}",
- "▶ {0} · глубина {1}{2}{3} (ур. врагов {4})": "▶ {0} · kedalaman {1}{2}{3} (musuh Lv {4})"
+ "▶ {0} · глубина {1}{2}{3} (ур. врагов {4})": "▶ {0} · kedalaman {1}{2}{3} (musuh Lv {4})",
+ "2026-10-11 · сборка 64": "2026-10-11 · versi 64",
+ "Мастерство — только для активных умений": "Penguasaan hanya untuk skill aktif",
+ "Сначала {0}-й ранг": "Capai peringkat {0} dulu",
+ "Мастерство на пределе": "Penguasaan sudah maksimal",
+ "Мастерство стоит {0} золота": "Penguasaan seharga {0} emas",
+ "60% нанесённого урона лечит героя (не больше 1,5% здоровья за укус, больше — с дрессировкой)": "60% kerusakan yang diberikan menyembuhkan pahlawan (maks. 1,5% nyawa per gigitan, lebih banyak dengan latihan)",
+ "+{0}% к усилению": "+{0}% ke penguat",
+ "<b>Мастерство:</b> {0}/{1} · {2}{3}": "<b>Penguasaan:</b> {0}/{1} · {2}{3}",
+ " зол. и очко навыка": " emas dan satu poin skill",
+ "Мастерство +1<small>{0}</small>": "Penguasaan +1<small>{0}</small>",
+ "Навыки без уровня и очков": "Skill tanpa level dan poin"
 }

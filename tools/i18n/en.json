@@ -2671,5 +2671,16 @@
  "Вуаль из-за портала": "Veil from Beyond the Portal",
  "{0}, глубина {1}": "{0}, depth {1}",
  "⚠ Охота: {0} — глубина {1}": "⚠ Hunt: {0} — depth {1}",
- "▶ {0} · глубина {1}{2}{3} (ур. врагов {4})": "▶ {0} · depth {1}{2}{3} (enemy Lvl {4})"
+ "▶ {0} · глубина {1}{2}{3} (ур. врагов {4})": "▶ {0} · depth {1}{2}{3} (enemy Lvl {4})",
+ "2026-10-11 · сборка 64": "2026-10-11 · build 64",
+ "Мастерство — только для активных умений": "Mastery is for active skills only",
+ "Сначала {0}-й ранг": "Reach rank {0} first",
+ "Мастерство на пределе": "Mastery is maxed",
+ "Мастерство стоит {0} золота": "Mastery costs {0} gold",
+ "60% нанесённого урона лечит героя (не больше 1,5% здоровья за укус, больше — с дрессировкой)": "60% of damage dealt heals the hero (up to 1.5% health per bite, more with training)",
+ "+{0}% к усилению": "+{0}% to the boost",
+ "<b>Мастерство:</b> {0}/{1} · {2}{3}": "<b>Mastery:</b> {0}/{1} · {2}{3}",
+ " зол. и очко навыка": " gold and a skill point",
+ "Мастерство +1<small>{0}</small>": "Mastery +1<small>{0}</small>",
+ "Навыки без уровня и очков": "Skills without level or points"
 }

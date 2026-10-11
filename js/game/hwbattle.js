@@ -60,7 +60,11 @@ export function formation(foes) {
 }
 
 // hero: { hp, dmg, aps, crit, critMult, armor, spell, cls }; foes: [{ type, name, lvl, hp, dmg, aps, ranged, boss, big }]
+// перед релизом: в Летописи лучник и маг стоят на месте и не уворачиваются, как в обычном бою, а у воина блок и латы — в одинаковых вещах
+// воин выигрывал этап 22 в 100% боёв, маг в 5%. Поправка класса уравнивает силу (подобрана tools/qa по «силе отряда на 50% побед»)
+export const HW_CLASS = { warrior: { hp: 1, dmg: 1 }, archer: { hp: 1.2, dmg: 1.2 }, mage: { hp: 1.45, dmg: 1.45 } };
 export function makeBattle(hero, foes, rnd = Math.random) {
+  { const K = HW_CLASS[hero.cls] || HW_CLASS.warrior; hero = { ...hero, hp: Math.round(hero.hp * K.hp), dmg: hero.dmg * K.dmg }; }
   const rr = (a, b) => a + (b - a) * rnd();
   const ev = [];   // события для рендера: { k: 'num'|'proj'|'label'|'slash'|'boom'|'sfx', ... }
   const H = { side: 'h', ...hero, max: hero.hp, x: ARENA.heroX, z: 0, home: { x: ARENA.heroX, z: 0 }, ranged: hero.cls !== 'warrior', reach: 1.25, ini: 0.6, n: 0 };

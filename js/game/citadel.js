@@ -11,7 +11,7 @@ import { Enemy } from './entities.js';
 import { rint } from '../core/util.js';
 
 const H = 3600e3;
-export const START_LVL = 3, RIFT_LVL = 5, RIFT_MS = 8 * H, NUDGE_MS = 90 * 60e3;
+export const START_LVL = 40, RIFT_LVL = 40, RIFT_MS = 8 * H, NUDGE_MS = 90 * 60e3;   // перед релизом: Цитадель и её поручения — с 40 ур. (было 3 и 5): порталы открываются до 40-го
 export const RIFT_POS = [17, 15.4];   // северный проход из зала к галерее (js/world/castlegen.js)
 const cs = () => CS.C();
 const n = k => cs()[k] || 0;

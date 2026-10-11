@@ -2671,5 +2671,16 @@
  "Вуаль из-за портала": "Schleier von jenseits des Portals",
  "{0}, глубина {1}": "{0}, Tiefe {1}",
  "⚠ Охота: {0} — глубина {1}": "⚠ Jagd: {0} – Tiefe {1}",
- "▶ {0} · глубина {1}{2}{3} (ур. врагов {4})": "▶ {0} · Tiefe {1}{2}{3} (Feind-St. {4})"
+ "▶ {0} · глубина {1}{2}{3} (ур. врагов {4})": "▶ {0} · Tiefe {1}{2}{3} (Feind-St. {4})",
+ "2026-10-11 · сборка 64": "2026-10-11 · Build 64",
+ "Мастерство — только для активных умений": "Meisterschaft nur für aktive Fähigkeiten",
+ "Сначала {0}-й ранг": "Zuerst Rang {0}",
+ "Мастерство на пределе": "Meisterschaft ist ausgereizt",
+ "Мастерство стоит {0} золота": "Meisterschaft kostet {0} Gold",
+ "60% нанесённого урона лечит героя (не больше 1,5% здоровья за укус, больше — с дрессировкой)": "60 % des verursachten Schadens heilen den Helden (höchstens 1,5 % Leben pro Biss, mehr mit Training)",
+ "+{0}% к усилению": "+{0} % zur Verstärkung",
+ "<b>Мастерство:</b> {0}/{1} · {2}{3}": "<b>Meisterschaft:</b> {0}/{1} · {2}{3}",
+ " зол. и очко навыка": " Gold und ein Fertigkeitspunkt",
+ "Мастерство +1<small>{0}</small>": "Meisterschaft +1<small>{0}</small>",
+ "Навыки без уровня и очков": "Fähigkeiten ohne Stufe und Punkte"
 }

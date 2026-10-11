@@ -2671,5 +2671,16 @@
  "Вуаль из-за портала": "Voile d'au-delà du portail",
  "{0}, глубина {1}": "{0}, profondeur {1}",
  "⚠ Охота: {0} — глубина {1}": "⚠ Chasse : {0} — profondeur {1}",
- "▶ {0} · глубина {1}{2}{3} (ур. врагов {4})": "▶ {0} · profondeur {1}{2}{3} (ennemis Niv. {4})"
+ "▶ {0} · глубина {1}{2}{3} (ур. врагов {4})": "▶ {0} · profondeur {1}{2}{3} (ennemis Niv. {4})",
+ "2026-10-11 · сборка 64": "2026-10-11 · version 64",
+ "Мастерство — только для активных умений": "La maîtrise ne concerne que les compétences actives",
+ "Сначала {0}-й ранг": "D'abord le rang {0}",
+ "Мастерство на пределе": "Maîtrise au maximum",
+ "Мастерство стоит {0} золота": "La maîtrise coûte {0} or",
+ "60% нанесённого урона лечит героя (не больше 1,5% здоровья за укус, больше — с дрессировкой)": "60 % des dégâts infligés soignent le héros (au plus 1,5 % de vie par morsure, plus avec le dressage)",
+ "+{0}% к усилению": "+{0} % au renfort",
+ "<b>Мастерство:</b> {0}/{1} · {2}{3}": "<b>Maîtrise :</b> {0}/{1} · {2}{3}",
+ " зол. и очко навыка": " or et un point de compétence",
+ "Мастерство +1<small>{0}</small>": "Maîtrise +1<small>{0}</small>",
+ "Навыки без уровня и очков": "Compétences sans niveau ni points"
 }

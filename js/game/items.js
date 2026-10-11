@@ -170,8 +170,11 @@ export function affixText(a) { const A = AFFIXES[a.k]; if (!A) return ''; return
 export function epicOf(it) { return it.epic ? EPICS.find(e => e.id === it.epic) : null; }
 
 // Sell value & smith costs (gold sinks scale with level so they stay relevant)
-export const PRICE_K = 1.1;   // сборка 20: цены вещей и закалки растут на 10% за уровень вещи — с той же скоростью, что и опыт до уровня
+export const PRICE_K = 1.1;
+// перед релизом (тред «пройдётся ли игра до 100»): ×1,1 за уровень только до 20-го, дальше цена растёт линейно — как доход игрока.
+// Раньше закалка оружия 60-го уровня стоила 519 тыс. при доходе 64 тыс. за уровень, 100-го — 38 млн: кузнец с 40-го уровня был недоступен
+export const priceK = l => l <= 20 ? Math.pow(PRICE_K, Math.max(0, l - 1)) : Math.pow(PRICE_K, 19) * l / 20;   // сборка 20: цены вещей и закалки растут на 10% за уровень вещи — с той же скоростью, что и опыт до уровня
 export function sellValue(it) { return Math.round((4 + it.ilvl * 3) * [1, 2.5, 6, 15, 40][it.rarity] * (1 + (it.upg || 0) * 0.3)); }
-export function upgradeCost(it) { const u = it.upg || 0; return Math.round((30 + it.ilvl * 12) * Math.pow(1.55, u) * [1, 1.3, 1.7, 2.5, 3.5][it.rarity] * Math.pow(PRICE_K, it.ilvl - 1)); }
-export function reforgeCost(it) { return Math.round((50 + it.ilvl * 20) * [1, 1.2, 1.6, 2.4, 3.2][it.rarity] * Math.pow(PRICE_K, it.ilvl - 1)); }
+export function upgradeCost(it) { const u = it.upg || 0; return Math.round((30 + it.ilvl * 12) * Math.pow(1.55, u) * [1, 1.3, 1.7, 2.5, 3.5][it.rarity] * priceK(it.ilvl)); }
+export function reforgeCost(it) { return Math.round((50 + it.ilvl * 20) * [1, 1.2, 1.6, 2.4, 3.2][it.rarity] * priceK(it.ilvl)); }
 export const MAX_UPG = 10;
