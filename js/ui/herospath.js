@@ -130,7 +130,7 @@ function showPrefight(s) {
 async function fight(s) {
   bus.emit('music', 'battle');   // сборка 60: боевая тема Летописи
   disposeStage(); cancelAnimationFrame(raf); root.innerHTML = ''; header();
-  const stack = el('div', 'hw-stack'), bgcv = document.createElement('canvas'), glcv = document.createElement('canvas'), cv = document.createElement('canvas');
+  const stack = el('div', 'hw-stack'), bgcv = document.createElement('canvas'), cv = document.createElement('canvas'); let glcv = document.createElement('canvas');
   stack.append(bgcv, glcv, cv); root.appendChild(stack);
   const ctx = cv.getContext('2d'), bctx = bgcv.getContext('2d'); const dpr = Math.min(2, devicePixelRatio || 1);
   let stage = null, view = null;
@@ -150,7 +150,7 @@ async function fight(s) {
   const artWait = new Promise(r => { const a = artImg(ART.arena(chOf(s) + 1, 'abc'[Math.min(2, Math.floor(((s - 1) % PER_CH) / 10))], stack.clientWidth < stack.clientHeight)); if (a.ok || a.bad) r(); else { a.wait.push(() => r()); a.im.addEventListener('error', () => r(), { once: true }); setTimeout(r, 1500); } });
   try {   // 3D-бойцы; если WebGL нет или он упал — прежние спрайты
     const M = await import('../render3d/hwstage.js');
-    if (M.webglOK() && !(new URLSearchParams(location.search).get('render') === '2d')) { stage = M.createStage(glcv, { cls, wt, foes, ci }); curStage = stage; resize(); }
+    if (M.webglOK() && !(new URLSearchParams(location.search).get('render') === '2d')) { stage = M.createStage({ cls, wt, foes, ci }); curStage = stage; glcv.replaceWith(stage.canvas); glcv = stage.canvas; resize(); }
   } catch (e) { console.warn('[hw] 3D недоступно, спрайты', e); stage = null; }
   await artWait;
   if (!root || !root.contains(stack)) { disposeStage(); return; }

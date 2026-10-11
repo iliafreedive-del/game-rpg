@@ -8,6 +8,7 @@ import { toon, outline } from './toon.js';
 import { OUTLINE } from './style.js';
 import { fixZeroNormals } from './geo.js';
 import { shared } from './dispose.js';
+import { fitPhone } from './textures.js';
 
 export const SKINS = { on: true };     // переключатель (Настройки → «Новые модели»): false — процедурные модели
 // бег из клипов модели (маг, воин; лучник — клипы мага, tools/art/clips_copy.py) спокойнее, «по-геройски»: STRIDE_K — ноги перебирают реже при той же скорости героя;
@@ -16,8 +17,9 @@ const STRIDE_K = 2.1, RUN_MAX = 0.5, CALM = { armL: 0.45, elL: 0.45, handL: 0.45
 const BASE = new URL('../../assets/models/', import.meta.url).href;
 const HAS_DOM = typeof document !== 'undefined';
 const data = new Map(), wait = new Map(), TEX = new Map();
+const HERO = new Set(['warrior_knight', 'archer_raven', 'mage_staff']);   // герой крупно на экране — полная текстура и на телефоне
 function texOf(name) {
-  if (!TEX.has(name)) TEX.set(name, new THREE.TextureLoader().loadAsync(BASE + name + '.webp').then(t => { t.colorSpace = THREE.SRGBColorSpace; t.flipY = false; t.anisotropy = 4; return t; }));   // UV из GLB — без переворота
+  if (!TEX.has(name)) TEX.set(name, new THREE.TextureLoader().loadAsync(BASE + name + '.webp').then(t => { t.colorSpace = THREE.SRGBColorSpace; t.flipY = false; t.anisotropy = 4; return HERO.has(name) ? t : fitPhone(t); }));   // UV из GLB — без переворота
   return TEX.get(name);
 }
 

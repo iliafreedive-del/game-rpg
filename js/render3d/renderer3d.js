@@ -53,7 +53,7 @@ export const proj = {
 };
 
 export function webglAvailable() {
-  try { const c = document.createElement('canvas'); return !!(c.getContext('webgl2') || c.getContext('webgl')); } catch { return false; }
+  try { const c = document.createElement('canvas'), gl = c.getContext('webgl2') || c.getContext('webgl'); const x = gl && gl.getExtension('WEBGL_lose_context'); if (x) x.loseContext(); return !!gl; } catch { return false; }   // проверочный контекст сразу освобождаем (у iOS лимит контекстов)
 }
 // что умеет 3D-срез прямо сейчас: деревня и герой-воин (остальное рисует 2D-рендерер)
 // что умеет 3D: деревня и все подземелья (катакомбы, глубины, цитадель, арена) для героя-воина; лучник и маг пока идут в 2D
@@ -349,6 +349,8 @@ function syncPet(dt) {
 }
 let sparks = null;   // искры кузни (sparks.js) — создаются при первом ударе
 // «Жатва Бездны»: рой — настоящие 3D-модели (по типу врага), берутся из пула и возвращаются в него после гибели
+// рой Жатвы (до 80+ моделей): без отбрасываемой тени — под каждым круглая тень, а проход карты теней не удваивает отрисовки роя
+const noCast = a => { a.root.traverse(o => { o.castShadow = false; }); return a; };
 function syncSwarm(dt) {
   const S = G.surv, fn = frameNo;
   if (S) for (const e of S.swarm) { const a = actors.get(e); if (a) a.seen = fn; }
@@ -358,7 +360,7 @@ function syncSwarm(dt) {
     let a = actors.get(e);
     if (!a) {
       const def = MOBS[e.type] || MOBS.skel_warrior, pool = swarmPool.get(e.type);
-      a = pool && pool.length ? pool.pop() : new Actor(def, kit, scene); a.isSwarm = true; a.seen = fn; a.swType = e.type; a.root.visible = true;
+      a = pool && pool.length ? pool.pop() : noCast(new Actor(def, kit, scene)); a.isSwarm = true; a.seen = fn; a.swType = e.type; a.root.visible = true;
       a.root.scale.setScalar(e.boss ? 1.4 : e.elite ? 1.2 : 1); actors.set(e, a);
     }
     const c = measure(a, e, dt);

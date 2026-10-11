@@ -16,11 +16,21 @@ const LIGHTS = [
   { sky: 0xd0e4f6, ground: 0xdde8f2, hi: 1.7, key: 0xfff4e4, ki: 2.8 },
   { sky: 0xe8b8a0, ground: 0x6a4a3c, hi: 1.5, key: 0xffb070, ki: 3.0 },
 ];
-export const webglOK = () => { try { const c = document.createElement('canvas'); return !!(c.getContext('webgl2') || c.getContext('webgl')); } catch { return false; } };
+// Один WebGL-контекст Летописи на всю игру. Раньше каждый бой создавал два новых (проверочный и свой рендерер); iOS Safari держит
+// ограниченное число контекстов и при превышении отбирает самый старый — контекст основной игры: игра перезагружалась на выбор героя
+let shared = null;
+export const webglOK = () => { if (window.__R3 && window.__R3.renderer) return true; try { return !!sharedRenderer(); } catch { return false; } };
+function sharedRenderer() {
+  if (shared) return shared;
+  const canvas = document.createElement('canvas');
+  const r = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: (window.devicePixelRatio || 1) < 2 });
+  r.setClearColor(0x000000, 0);
+  canvas.addEventListener('webglcontextlost', e => { e.preventDefault(); if (shared === r) shared = null; });
+  return (shared = r);
+}
 
-export function createStage(canvas, { cls, wt, foes, ci }) {
-  const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
-  renderer.setClearColor(0x000000, 0);
+export function createStage({ cls, wt, foes, ci }) {
+  const renderer = sharedRenderer(), canvas = renderer.domElement;
   const scene = new THREE.Scene(), kit = makeKit(scene), L = LIGHTS[ci] || LIGHTS[0];
   scene.add(new THREE.HemisphereLight(L.sky, L.ground, L.hi * 0.8));
   const key = new THREE.DirectionalLight(L.key, L.ki * 0.8); key.position.set(-6, 9, 10); scene.add(key);
@@ -55,6 +65,7 @@ export function createStage(canvas, { cls, wt, foes, ci }) {
       t += dt; U.uTime.value = t; U.uCam.value.copy(cam.position); U.uFocus.value.set(0, -50, 0); for (const v of U.uFoc.value) v.w = 0;
       drive(H, hero, dt); foeStates.forEach((d, i) => drive(F[i], d, dt)); renderer.render(scene, cam);
     },
-    dispose() { H.a.dispose(); for (const S of F) S.a.dispose(); renderer.dispose(); try { renderer.forceContextLoss(); } catch { } },
+    canvas,
+    dispose() { H.a.dispose(); for (const S of F) S.a.dispose(); renderer.renderLists.dispose(); renderer.clear(); },   // контекст остаётся для следующего боя
   };
 }
