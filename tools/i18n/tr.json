@@ -2539,5 +2539,6 @@
  "Начинается Глава II «Тени за порогом». Печатей четыре: вторая в Старом Лесу, третья в Костяных пустошах. Портал из черепов — в левой части деревни. Катакомбы растут вместе с вами, Палача можно побеждать снова.": "Bölüm II “Eşiğin Ötesindeki Gölgeler” başlıyor. Dört mühür var: ikincisi Yaşlı Orman’da, üçüncüsü Kemik Çorakları’nda. Kafatası portalı köyün sol tarafında. Katakomplar sizinle birlikte büyür, Uçurum Celladı yeniden yenilebilir.",
  "Вторая и третья печати устояли: Хозяин Чащи и Костяной исполин повержены.": "İkinci ve üçüncü mühür dayandı: Çalılık Efendisi ve Kemik Dev yenildi.",
  "Начинается Глава III «Льды ётунов». Исполин сказал, где четвёртая печать: Фьорды Скъёльда, ледяной портал на северо-востоке деревни. Там же — тот, кто ломает печати.": "Bölüm III “Jötunların Buzları” başlıyor. Dev dördüncü mührün yerini söyledi: Skjold Fiyortları, köyün kuzeydoğusundaki buz portalı. Mühürleri kıran da orada.",
- "<div class=\"bg\" style=\"color:{0};text-shadow:0 0 18px {1}\">{2}</div><b>{3}{4}</b><span>{5}{6}</span><small class=\"lv\">▶ за рекламу</small>": "<div class=\"bg\" style=\"color:{0};text-shadow:0 0 18px {1}\">{2}</div><b>{3}{4}</b><span>{5}{6}</span><small class=\"lv\">▶ reklamla</small>"
+ "<div class=\"bg\" style=\"color:{0};text-shadow:0 0 18px {1}\">{2}</div><b>{3}{4}</b><span>{5}{6}</span><small class=\"lv\">▶ за рекламу</small>": "<div class=\"bg\" style=\"color:{0};text-shadow:0 0 18px {1}\">{2}</div><b>{3}{4}</b><span>{5}{6}</span><small class=\"lv\">▶ reklamla</small>",
+ " · ур. {0}": " · Sv. {0}"
 }

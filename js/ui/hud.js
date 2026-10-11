@@ -164,7 +164,7 @@ export function updateHUD(dt) {
   const boss = G.enemies.find(e => (e.D.boss || e.D.elite) && e.aggro && !e.dead) || null;
   ui.classList.toggle('boss', !!boss);
   if (boss && !boss.dead && G.enemies.includes(boss)) {
-    const bb = $('bossBar'); bb.classList.remove('hidden'); bb.querySelector('.n').textContent = boss.name + (boss.phase > 1 ? ` — фаза ${boss.phase}` : '');
+    const bb = $('bossBar'); bb.classList.remove('hidden'); bb.querySelector('.n').textContent = boss.name + (boss.lvl ? ` · ур. ${boss.lvl}` : '') + (boss.phase > 1 ? ` — фаза ${boss.phase}` : '');
     bb.querySelector('i').style.width = (boss.hp / boss.maxHP * 100) + '%'; bb.querySelector('b').textContent = `${Math.ceil(boss.hp)} / ${boss.maxHP}`;
   } else { $('bossBar').classList.add('hidden'); if (boss && (boss.dead || !G.enemies.includes(boss))) G.boss = null; }
   if (lastHud > 0 && tick < 0.25) { lastHud -= dt; return; }

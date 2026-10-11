@@ -2539,5 +2539,6 @@
  "Начинается Глава II «Тени за порогом». Печатей четыре: вторая в Старом Лесу, третья в Костяных пустошах. Портал из черепов — в левой части деревни. Катакомбы растут вместе с вами, Палача можно побеждать снова.": "Bab II «Bayangan di Balik Ambang» dimulai. Ada empat segel: yang kedua di Hutan Tua, yang ketiga di Padang Tulang. Portal tengkorak ada di bagian kiri desa. Katakombe tumbuh bersamamu, dan Algojo Jurang bisa dikalahkan lagi.",
  "Вторая и третья печати устояли: Хозяин Чащи и Костяной исполин повержены.": "Segel kedua dan ketiga bertahan: Penguasa Belukar dan Raksasa Tulang telah dikalahkan.",
  "Начинается Глава III «Льды ётунов». Исполин сказал, где четвёртая печать: Фьорды Скъёльда, ледяной портал на северо-востоке деревни. Там же — тот, кто ломает печати.": "Bab III «Es Para Jotun» dimulai. Raksasa itu memberi tahu letak segel keempat: Fjord Skjold, lewat portal es di timur laut desa. Si perusak segel juga ada di sana.",
- "<div class=\"bg\" style=\"color:{0};text-shadow:0 0 18px {1}\">{2}</div><b>{3}{4}</b><span>{5}{6}</span><small class=\"lv\">▶ за рекламу</small>": "<div class=\"bg\" style=\"color:{0};text-shadow:0 0 18px {1}\">{2}</div><b>{3}{4}</b><span>{5}{6}</span><small class=\"lv\">▶ via iklan</small>"
+ "<div class=\"bg\" style=\"color:{0};text-shadow:0 0 18px {1}\">{2}</div><b>{3}{4}</b><span>{5}{6}</span><small class=\"lv\">▶ за рекламу</small>": "<div class=\"bg\" style=\"color:{0};text-shadow:0 0 18px {1}\">{2}</div><b>{3}{4}</b><span>{5}{6}</span><small class=\"lv\">▶ via iklan</small>",
+ " · ур. {0}": " · Lv. {0}"
 }
