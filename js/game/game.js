@@ -21,7 +21,7 @@ import { weeklyRule, weekNo, finishWeekly, codexScan, circle, circleHP, circleDm
 import { FLOOR_MODS, modReward } from '../data/floormods.js';
 const clean = J => (declutter(J), J), WILD_DECOR = new Set(['rocks']);   // сборка 47: предметы не входят друг в друга и в стены (world/declutter.js)
 const ROOMY = 1.5;   // «простор» (сборка 18): подземелья в 3D растянуты в 1,5 раза — шире комнаты и коридоры
-import { generateFloor, isBossFloor, parTime, generateCatacombs } from '../world/floorgen.js';
+import { generateFloor, isBossFloor, parTime, generateCatacombs, floorLevel } from '../world/floorgen.js';
 import { generateWild } from '../world/wildgen.js';
 import { repairReach } from '../world/reach.js';
 import { prepareWildAtlases, setPropsPalette, buildWildFloor } from '../world/wildfloor.js';
@@ -253,12 +253,13 @@ function spawnFloor(zone) {
       let px = x, py = y;
       for (let k = 0; k < 10; k++) { const tx = x + rrange(-spread, spread), ty = y + rrange(-spread, spread); if (zone.map.free(tx, ty, 0.4)) { px = tx; py = ty; break; } }
       const rr = ({ boss: 0.8, elite_guard: 0.55, beast: 0.5 })[type] || 0.35; [px, py] = zone.map.nearestFree(px, py, rr);
-      const e = new Enemy(type, px, py, tag ? lvl : bandLevel(lvl, lvl + 3), { story: tag || null, champion: !tag && rand() < 0.05 + zone.json.floorN * 0.01 });   // сборка 47: герой +1 в пределах этаж..этаж+3; страж — ровно уровня этажа (был «герой +1» всегда — прокачка не помогала)
+      const e = new Enemy(type, px, py, tag ? lvl : bandLevel(lvl, lvl + 3), { story: tag || null, champion: !tag && rand() < Math.min(0.3, 0.05 + zone.json.floorN * 0.01) });   // сборка 62: не больше 30% чемпионов (на 100-м этаже были бы все)   // сборка 47: герой +1 в пределах этаж..этаж+3; страж — ровно уровня этажа (был «герой +1» всегда — прокачка не помогала)
       if (tag === 'floorboss') e.name = type === 'boss' ? `Палач Глубин · этаж ${zone.json.floorN}` : `Страж глубин · этаж ${zone.json.floorN}`;
       if (tag === 'floorboss') {   // страж: HP ×1,8 и урон ×1,3 за 5 этажей от стража 5-го (раньше уровень² и Палач (база ×3,2) на 10/20/… давали ×9 за 5 этажей)
-        const k = (zone.json.floorN - 5) / 5, boss = type === 'boss';
-        e.maxHP = Math.round(e.maxHP * 1.8 ** k * scaleHP(6) / scaleHP(lvl) * (boss ? 0.31 : 1)); e.hp = e.maxHP;
-        e.dmgMul *= 1.3 ** k * scaleDmg(6) / scaleDmg(lvl) * (boss ? 0.78 : 1);
+        // сборка 62: ×1,8 за 5 этажей — только до 10-го (дальше росло как 1,8^k: стена на 15–20-м, к 100-му — ×70 000); глубже страж растёт с уровнем этажа
+        const k = Math.min(1, (zone.json.floorN - 5) / 5), boss = type === 'boss', L = zone.json.floorN > 10 ? floorLevel(10) + 1 : lvl;   // L — уровень, к которому приводим (раньше — всегда lvl)
+        e.maxHP = Math.round(e.maxHP * 1.8 ** k * scaleHP(6) / scaleHP(L) * (boss ? 0.31 : 1)); e.hp = e.maxHP;
+        e.dmgMul *= 1.3 ** k * scaleDmg(6) / scaleDmg(L) * (boss ? 0.78 : 1);
       }
       if (tag === 'floorboss' && type === 'elite_guard') e.model = 'elite_warlord';   // сборка 57: свой вид (полководец с секирой)
       G.enemies.push(e);
@@ -303,8 +304,11 @@ bus.on('dust', ({ x, y }) => C.particles(x, y, 10, { c: [150, 135, 115], z: 0.1,
 bus.on('aggro', e => {   // соседи просыпаются с задержкой, близко и по видимости; не больше одного-двух, цепочки нет (разбуженный не будит дальше)
   if (e.woken) return;
   const lim = G.zoneId === 'wild' ? 1 : 2, R = G.zoneId === 'wild' ? 3.2 : 4.5, cand = [];
-  for (const o of G.enemies) { if (o.aggro || o.dead || o.D.boss || o.wakeT !== undefined) continue; const d = Math.hypot(o.x - e.x, o.y - e.y); if (d < R && G.zone.map.los(o.x, o.y, e.x, e.y)) cand.push([d, o]); }
-  cand.sort((a, b) => a[0] - b[0]); for (const [d, o] of cand.slice(0, lim)) o.wakeT = 0.6 + d * 0.25 + rand() * 0.7;
+  // сборка 62: в Глубинах просыпается вся комната (как в Archero) — раньше 1–2 соседа, остальные стояли, пока их не разбудит новая волна
+  const room = G.zoneId === 'depths' && G.run && G.run.floor > 0 && G.zone.roomAt(e.x, e.y);
+  for (const o of G.enemies) { if (o.aggro || o.dead || o.D.boss || o.wakeT !== undefined) continue; const d = Math.hypot(o.x - e.x, o.y - e.y);
+    if (room ? G.zone.roomAt(o.x, o.y) === room : d < R && G.zone.map.los(o.x, o.y, e.x, e.y)) cand.push([d, o]); }
+  cand.sort((a, b) => a[0] - b[0]); for (const [d, o] of room ? cand : cand.slice(0, lim)) o.wakeT = 0.6 + Math.min(d, 8) * 0.25 + rand() * 0.7;
 });
 bus.on('kill', e => {   // «Взрывной» чемпион: взрыв через 0.6 с после смерти
   if (e.affix !== 'volatile') return;

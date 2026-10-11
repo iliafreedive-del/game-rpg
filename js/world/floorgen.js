@@ -4,7 +4,10 @@ function rng(seed) { let s = seed >>> 0; return () => { s = (s + 0x6D2B79F5) >>>
 
 import { biomeOf } from '../data/biomes.js';
 export const isBossFloor = f => f % 5 === 0;
-export const floorLevel = f => 1 + Math.round(f * 0.85 + Math.max(0, f - 8) * 0.4);   // после 8-го этажа уровень растёт быстрее (+1,25 за этаж)
+// сборка 62: Глубины — длинный коридор, как в Archero: до 10-го этажа как было, дальше +0,12 уровня врагов за этаж
+// (10-й — ур. 10, 100-й — 21, 300-й — 45, 500-й — 69, 700-й — 93). Порога по уровню героя нет — проходишь, сколько сможешь
+export const floorLevel = f => f <= 10 ? 1 + Math.round(f * 0.85 + Math.max(0, f - 8) * 0.4) : 10 + Math.round((f - 10) * 0.12);
+export const floorForLevel = l => { let f = 2; while (floorLevel(f + 1) <= l && f < 5000) f++; return f; };   // самый глубокий этаж, враги которого не выше уровня l
 export const parTime = (f, total) => 70 + total * 7;   // seconds for the ★★★ "fast" star
 
 function prologue() {

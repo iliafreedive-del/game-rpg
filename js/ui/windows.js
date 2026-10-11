@@ -1097,7 +1097,7 @@ W.depths = () => modal('Глубины катакомб', 'sm', b => {
   }
   const next = P.depths.best + 1;
   const go = el('button', 'btn gold', `▶ Этаж ${next}${isBossFloor(next) ? ' · страж' : ''}${HU.huntFloor() === next ? ' · ⚠ охота' : ''} (ур. врагов ${floorLevel(next)})`);
-  go.style.width = '100%'; go.disabled = P.level < floorLevel(next) - 1; if (go.disabled) go.textContent = `Этаж ${next}: нужен уровень ${floorLevel(next) - 1}`; go.onclick = () => enter(next);
+  go.style.width = '100%'; go.onclick = () => enter(next);   // сборка 62: без порога по уровню — проходишь, сколько сможешь
   b.appendChild(go);
   if (P.depths.best) {
     b.appendChild(el('h3', '', 'Пройденные этажи'));
@@ -1173,7 +1173,7 @@ function floorResult(r) {
       const nx = el('button', 'btn gold', `Этаж ${r.floor + (r.first ? 1 : 0) + (r.first ? 0 : 1)} ▶`);
       const next = Math.max(r.floor + 1, 1);
       nx.textContent = `Этаж ${next} ▶`;
-      nx.onclick = async () => { const keepBoons = true; if (G.profile.level < floorLevel(next) - 1) { bus.emit('toast', { text: `Этаж ${next} — с ${floorLevel(next) - 1} уровня`, sub: 'Фармите опыт на пройденных этажах', kind: 'warn' }); return; } const free = next > (G.profile.depths.best || 0); if (!free && !CS.spendTorch()) { bus.emit('toast', { text: 'Нет энергии ⚡', sub: '+1 за 20 минут или «Получить энергию»', kind: 'warn' }); bus.emit('openEnergy'); return; } closeModal(); await maybeInterstitial('floor'); loadZone('depths', { floor: next, keepBoons, free, fullHeal: r.boss }); };   // сборка 49: после босса — передышка, следующий этаж с полным здоровьем
+      nx.onclick = async () => { const keepBoons = true; const free = next > (G.profile.depths.best || 0); if (!free && !CS.spendTorch()) { bus.emit('toast', { text: 'Нет энергии ⚡', sub: '+1 за 20 минут или «Получить энергию»', kind: 'warn' }); bus.emit('openEnergy'); return; } closeModal(); await maybeInterstitial('floor'); loadZone('depths', { floor: next, keepBoons, free, fullHeal: r.boss }); };   // сборка 49: после босса — передышка, следующий этаж с полным здоровьем
       const home = el('button', 'btn', 'В деревню');
       home.onclick = async () => { closeModal(); await maybeInterstitial('floor'); loadZone('town', { from: 'depths' }); };
       if (r.weekly) { nx.textContent = 'Ещё раз ▶'; nx.onclick = () => { closeModal(); loadZone('depths', { floor: r.floor, weekly: true }); }; }   // испытание недели: повтор на время, а не следующий этаж

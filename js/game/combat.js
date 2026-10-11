@@ -80,7 +80,7 @@ export function damageEnemy(e, amount, o = {}) {
   if (S.effects.execute && e.hp < e.maxHP * 0.3 && o.src === 'melee') dmg *= 2;
   dmg = Math.max(1, Math.round(dmg));
   e.hp -= dmg; e.flash = 0.12; G.lastCombat = G.time; e.lastSrc = o.src;
-  if (!e.aggro) { e.aggro = true; e.ret = false; bus.emit('aggro', e); }   // попал по врагу — он (и ближайшие соседи) тут же бросаются в бой
+  if (!e.aggro || e.ret) { e.aggro = true; e.ret = false; bus.emit('aggro', e); }   // сборка 62: и того, кто шёл «домой» с флагом агро (раньше не реагировал на удары)   // попал по врагу — он (и ближайшие соседи) тут же бросаются в бой
   const col = o.elem === 'poison' ? '#9ae66a' : o.src === 'pet' ? '#e8d8b0' : o.elem === 'fire' ? '#ff9a4a' : o.elem === 'cold' ? '#8fdcff' : o.elem === 'light' ? '#d0c2ff' : crit ? '#ffd23a' : '#ffffff';
   if (!o.quiet) float(e.x, e.y, crit ? dmg + '!' : dmg, col, { big: crit ? 1 : 0, z: e.D.boss ? 3.2 : 1.9 });
   if (o.src === 'melee' || (crit && o.src === 'weapon')) sheet(crit ? 'hit_crit' : 'hit_spark', e.x, e.y, { z: 0.55 * (e.D.size || 1), ex: G.player.x, ey: G.player.y });   // сборка 61: искра удара / крит
@@ -127,6 +127,7 @@ export function killEnemy(e, o = {}) {
   const S = G.stats;
   if (e.st.burn > 0 && R('burn_explode')) { const dmg = (10 + 6 * Math.max(1, R('fireball'))) * S.spellPower * S.elem.fire * 0.8 * PK; explosion(e.x, e.y, 2, dmg, 'fire', true, e); }
   if (e.st.frozen > 0 && R('shatter')) { for (let k = 0; k < 4; k++) { const a = k * Math.PI / 2 + 0.4; spawnProj({ kind: 'shard', x: e.x, y: e.y, vx: Math.cos(a) * 12, vy: Math.sin(a) * 12, owner: 'p', dmg: (9 + 5 * Math.max(1, R('ice_shard'))) * S.spellPower * S.elem.cold * 0.6 * PK, elem: 'cold', range: 5 }); } }
+  e.st.frozen = 0; e.st.stun = 0;   // сборка 62: убитый во льду/оглушении стоял статуей навсегда (смерть не проигрывалась, труп не убирался, удары проходили насквозь)
   if (S.effects.bloodShield) G.player.shield = Math.min(S.maxHP * 0.3, G.player.shield + S.maxHP * 0.1);
   if (hasBoon('vitality')) G.player.hp = Math.min(S.maxHP, G.player.hp + S.maxHP * 0.002 * boonN('vitality'));
   if (hasBoon('bloodpact')) G.player.hp = Math.min(S.maxHP, G.player.hp + S.maxHP * 0.004 * boonN('bloodpact'));

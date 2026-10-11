@@ -137,13 +137,15 @@ export class Enemy {
     this.cd -= dt;
     const dx = P.x - this.x, dy = P.y - this.y, d = Math.hypot(dx, dy);
     const map = G.zone.map;
-    if (!this.aggro && this.wakeT !== undefined) { this.wakeT -= dt; this.dir = dirOf(dx, dy); if (this.anim.clip !== 'idle') this.setAnim('idle', 5, true); if (this.wakeT <= 0) { this.aggro = true; this.woken = true; bus.emit('aggro', this); } return; }
+    if (!this.aggro && this.wakeT !== undefined) { this.wakeT -= dt; this.dir = dirOf(dx, dy); if (this.anim.clip !== 'idle') this.setAnim('idle', 5, true); if (this.wakeT <= 0) { this.aggro = true; this.ret = false; this.woken = true; bus.emit('aggro', this); } return; }   // сборка 62: ret = false — разбуженный по дороге домой больше не уходит «домой» с агро, не замечая героя
     if (this.ret) {   // возвращается на место
       // правки 2 (П2): раны не заживают — раньше моб на обратном пути лечился 30 %/с и приходил целым, и стрелку с магом не было смысла
       // держать дистанцию. П25: герой снова подошёл близко (и моб уже не у края поводка) — агро сразу возвращается, без «приглядывания»
       const hd = Math.hypot(this.hx - this.x, this.hy - this.y);
       if (!P.dead && d < 5 && hd < 13 && map.los(this.x, this.y, P.x, P.y)) { this.ret = false; this.aggro = true; this.cd = Math.min(this.cd, 0.4); bus.emit('aggro', this); }
-      else if (hd > 0.7) { this.moveToward(this.hx, this.hy, dt, 1.3); return; }
+      // сборка 62: не дошёл до места за 6 с (упёрся в стену, пропс или своих) — здесь и новый дом; раньше стоял так до следующей волны мобов
+      else if (hd > 0.7 && (this.retT = (this.retT || 0) + dt) < 6) { this.moveToward(this.hx, this.hy, dt, 1.3); return; }
+      else if (hd > 0.7) { this.hx = this.x; this.hy = this.y; this.ret = false; this.retT = 0; this.setAnim('idle', 5, true); return; }
       else { this.ret = false; this.setAnim('idle', 5, true); return; }
     }
     if (!this.aggro) {
@@ -158,7 +160,7 @@ export class Enemy {
       else { if (this.alertT !== undefined && d > R + 1.5) this.alertT = undefined; if (this.anim.clip !== 'idle') this.setAnim('idle', 5, true); return; }
     }
     // поводок: герой ушёл далеко или моб утащился от своего места — теряет интерес и идёт обратно (сборка 47: паки за героем не собираются)
-    if (this.aggro && !this.D.boss && (!this.story || this.story === 'hunt') && !this.summoned) { const hd = Math.hypot(this.x - this.hx, this.y - this.hy); if (d > 12 || hd > 16 || (d > 8 && !map.los(this.x, this.y, P.x, P.y))) { this.leashT = (this.leashT || 0) + dt; if (this.leashT > (hd > 16 ? 0.5 : 2)) { this.aggro = false; this.leashT = 0; this.alertT = undefined; this.wakeT = undefined; this.state = 'idle'; this.cd = 1.5; this.ret = true; this.teleg = null; this.lunge = null; this.atk = null; } } else this.leashT = 0; }
+    if (this.aggro && !this.D.boss && (!this.story || this.story === 'hunt') && !this.summoned) { const hd = Math.hypot(this.x - this.hx, this.y - this.hy); if (d > 12 || hd > 16 || (d > 8 && !map.los(this.x, this.y, P.x, P.y))) { this.leashT = (this.leashT || 0) + dt; if (this.leashT > (hd > 16 ? 0.5 : 2)) { this.aggro = false; this.leashT = 0; this.alertT = undefined; this.wakeT = undefined; this.state = 'idle'; this.cd = 1.5; this.ret = true; this.retT = 0; this.teleg = null; this.lunge = null; this.atk = null; } } else this.leashT = 0; }
     if (P.dead) { if (this.state !== 'attack') { this.setAnim('idle', 5, true); this.state = 'idle'; } return; }
     if (this.state === 'attack') { C.updateEnemyAttack(this, dt, P); return; }
     // правки 2 (П69): «очередь на удар», как в экшенах: одновременно замахиваются не больше трёх рядовых бойцов ближнего боя,
