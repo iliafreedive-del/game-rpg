@@ -161,6 +161,10 @@ export class Zone {
           this.inter.push({ id: 'castle_guide', type: 'castleguide', x: o.x, y: o.y, r: 1.8, panel: true, plate: 'Карта цитадели' });
           break;
         }
+        case 'castle_rift': {   // правки 3: Разлом Бездны в Цитадели (js/game/citadel.js) — кольцо Глубин в фиолетовом свете
+          const d = this.add({ x: o.x, y: o.y, spr: 'portal_ring', anim: 'portal' }); const L = this.addLight(o.x, o.y, { r: 5.5, c: [190, 90, 255], flicker: 0.6, z: 1.2 });
+          this.inter.push({ id: 'castle_rift', type: 'rift', x: o.x, y: o.y, r: 1.7, label: 'Закрыть разлом', draw: d, light: L, plate: 'Разлом Бездны' }); break;
+        }
         case 'chest_rich_d': this.add({ x: o.x, y: o.y, spr: 'chest_rich' }); this.map.circles.push({ x: o.x, y: o.y, r: 0.35 }); break;
         case 'sarcophagus_d': this.add({ x: o.x, y: o.y, spr: 'sarcophagus' }); this.map.rects.push({ x0: o.x - 0.45, y0: o.y - 0.9, x1: o.x + 0.45, y1: o.y + 0.9 }); break;
         case 'floor_exit': {
