@@ -81,7 +81,7 @@ export function initHUD() {
   bus.on('questNew', q => { setTimeout(() => { if (!document.querySelector('.rw-bg')) toast({ text: 'Новое задание', sub: q.title + (G.zoneId === 'town' && (q.chapter || 1) === 1 ? ' — идите по золотой стрелке' : ''), kind: 'quest' }); }, 350); trackOpenUntil = G.time + 7; });
   bus.on('zoneEntered', () => { trackOpenUntil = G.time + 6; });
   bus.on('levelUp', l => { if (G.hwOpen) return;   // сборка 60: в Летописи уровень празднует своё окно итога (herospath.js)
-    const e = $('levelUp'); e.textContent = `Уровень ${l}!`; e.classList.remove('show'); void e.offsetWidth; e.classList.add('show'); toast({ text: '+5 характеристик · +1 навык', sub: 'Распределите у наставника Элвина в деревне', kind: 'good' }); });   // сборка 59: «Уровень N!» уже крупно по центру — без повтора
+    const e = $('levelUp'); e.textContent = `Уровень ${l}!`; e.classList.remove('show'); void e.offsetWidth; e.classList.add('show'); toast({ text: l > 10 ? '+5 характеристик · +1 навык · +3% здоровья и +2% урона' : '+5 характеристик · +1 навык', sub: 'Распределите у наставника Элвина в деревне', kind: 'good' }); });   // сборка 59: «Уровень N!» уже крупно по центру — без повтора
   bus.on('bossStart', e => { G.boss = e; });
   refreshSkills(); refreshWeapon();
 }
@@ -164,7 +164,7 @@ export function updateHUD(dt) {
   const boss = G.enemies.find(e => (e.D.boss || e.D.elite) && e.aggro && !e.dead) || null;
   ui.classList.toggle('boss', !!boss);
   if (boss && !boss.dead && G.enemies.includes(boss)) {
-    const bb = $('bossBar'); bb.classList.remove('hidden'); bb.querySelector('.n').textContent = boss.name + (boss.phase > 1 ? ` — фаза ${boss.phase}` : '');
+    const bb = $('bossBar'); bb.classList.remove('hidden'); bb.querySelector('.n').textContent = boss.name + (boss.lvl ? ` · ур. ${boss.lvl}` : '') + (boss.phase > 1 ? ` — фаза ${boss.phase}` : '');
     bb.querySelector('i').style.width = (boss.hp / boss.maxHP * 100) + '%'; bb.querySelector('b').textContent = `${Math.ceil(boss.hp)} / ${boss.maxHP}`;
   } else { $('bossBar').classList.add('hidden'); if (boss && (boss.dead || !G.enemies.includes(boss))) G.boss = null; }
   if (lastHud > 0 && tick < 0.25) { lastHud -= dt; return; }
@@ -189,7 +189,7 @@ export function updateHUD(dt) {
   if (P.boosts.xpUntil > now) bf.push(`Опыт +50% ${mmss(P.boosts.xpUntil - now)}`);
   if (P.boosts.goldUntil > now) bf.push(`Золото +50% ${mmss(P.boosts.goldUntil - now)}`);
   if (pl.shield > 1) bf.push(`Щит ${Math.round(pl.shield)}`);
-  if (G.run && G.run.boons) for (const id of G.run.boons) bf.push(`${BOONS[id].glyph} ${BOONS[id].name}`);
+  if (G.run && G.run.boons) for (const id of new Set(G.run.boons)) { const n = G.run.boons.filter(x => x === id).length; bf.push(`${BOONS[id].glyph} ${BOONS[id].name}${n > 1 ? ' ×' + n : ''}`); }
   if (G.run && G.run.mod) bf.push(`<b class="modbuff">${G.run.mod.glyph} ${G.run.mod.name}</b>`);   // сборка 49: модификатор этажа виден без меню
   $('buffs').innerHTML = bf.map(b => `<span class="buff">${b}</span>`).join('');
   tracker(); huntBox(); minimap();

@@ -35,9 +35,10 @@ import * as SE from '../game/season.js';
 import * as HU from '../game/hunts.js';
 import { huntReward } from '../data/hunts.js';
 import { MEMORIES, SEALS } from '../data/story.js';
-import { BOONS, BOON_IDS } from '../data/boons.js';
+import { BOONS, BOON_IDS, BOON_MAX } from '../data/boons.js';
 import { FLOOR_MODS, FLOOR_MOD_IDS, modReward } from '../data/floormods.js';
 import { stats as calcStats } from '../game/stats.js';
+import { gainXP } from '../game/loot.js';
 import { particles, effect } from '../game/combat.js';
 import { maybeInterstitial, offerPreview } from '../platform/monetize.js';
 import { petsOf, meetCaravan, petInfo } from '../game/pets.js';
@@ -546,7 +547,21 @@ W.settings = () => modal('Настройки', 'sm', b => {
     for (const [k, n] of [[1, 'Обычный'], [1.15, 'Крупный'], [1.3, 'Очень крупный']]) { const bt = el('button', 'btn sm' + (A.fs === k ? ' gold' : ''), n); bt.onclick = () => { setA11y({ fs: k }); rerender(); }; ts.appendChild(bt); }
     b.appendChild(ts);
     const rm = el('div', 'attr', '<b>Меньше движения</b> <small class="muted">без мигания и пульсации кнопок; тряска камеры выключается</small>'); const br = el('button', 'btn sm', A.rm ? 'Вкл' : 'Выкл'); br.onclick = () => { setA11y({ rm: !A.rm }); if (!A.rm) s.shake = false; bus.emit('save'); rerender(); }; rm.appendChild(br); b.appendChild(rm); }
-  b.appendChild(el('p', 'muted', `<small>Версия сборки: ${window.__BUILD || ''}</small>`));
+  { // правки 3: админка для тестов — видна в демо, по ?admin в адресе или после 5 нажатий на строку версии
+    let on = platform.name === 'demo' || new URLSearchParams(location.search).has('admin'); try { on = on || localStorage.getItem('da_admin') === '1'; } catch { }
+    const ver = el('p', 'muted', `<small>Версия сборки: ${window.__BUILD || ''}</small>`); let taps = 0;
+    ver.onclick = () => { if (++taps >= 5) { taps = 0; try { localStorage.setItem('da_admin', on ? '0' : '1'); } catch { } rerender(); } };
+    b.appendChild(ver);
+    if (on) {
+      const C = P.cheat || (P.cheat = {}), ad = el('div', 'attr', '<b>Админка (тест)</b>');
+      const tg = (k, n) => { const bt = el('button', 'btn sm' + (C[k] ? ' gold' : ''), n); bt.onclick = () => { C[k] = !C[k]; bus.emit('save'); rerender(); }; ad.appendChild(bt); };
+      const act = (n, f) => { const bt = el('button', 'btn sm', n); bt.onclick = () => { f(); G.stats = calcStats(P); bus.emit('statsChanged'); bus.emit('hud'); bus.emit('save'); bus.emit('toast', { text: n, kind: 'good' }); }; ad.appendChild(bt); };
+      tg('oneHit', 'С одного удара'); tg('god', 'Бессмертие'); tg('open', 'Все порталы открыты');
+      act('+100 000 золота', () => { P.gold += 100000; }); act('+1000 осколков', () => { CS.addShards(1000); });
+      act('+1 уровень', () => gainXP(Math.max(1, xpToNext(P.level) - P.xp), null, null, true)); act('+10 уровней', () => { for (let i = 0; i < 10; i++) gainXP(Math.max(1, xpToNext(P.level) - P.xp), null, null, true); });
+      b.appendChild(ad);
+    }
+  }
   b.appendChild(el('h3', '', 'Управление'));
   b.appendChild(el('p', 'muted', 'Телефон/планшет: ведите пальцем в любом месте экрана — это джойстик; касание врага — выбрать цель и подбежать к нему, касание сундука или саркофага — подбежать и открыть. Навыки, рывок и зелья справа. Герой бьёт сам, когда враг рядом: ваше дело — двигаться, уклоняться и пить зелья. Щипок двумя пальцами — камера ближе/дальше. ПК: WASD/стрелки или зажатая правая кнопка мыши — движение, левая кнопка мыши — удар в точку, колесо мыши — камера ближе/дальше, Пробел — атака, 1–4 — навыки, Shift — уклонение, Q/E — зелья, F — действие, I/C/K/J/M — окна, T — свиток.'));
   const row = el('div', 'row'); row.style.marginTop = '10px';
@@ -763,6 +778,7 @@ function petReveal() {
   }, 900);
 }
 W.petReveal = petReveal;
+bus.on('petBought', () => { closeModal(); setTimeout(petReveal, 200); });   // правки 3: покупка питомца — тот же праздник, что и первый
 W.npc_trainer = () => {
   // Глава III: герой вспомнил всё — Элвин объясняется (одной сценой, потом обычное окно наставника)
   { const q = Q.current(), scene = q && { c3_elvin: DIALOG.trainer.confess, c2_stone: DIALOG.trainer.stone }[q.id]; if (scene) { const lines = scene;
@@ -1008,8 +1024,8 @@ export function showMemory(id) {
   bus.emit('sfx', 'levelup');
 }
 const CH_DONE = {
-  1: ['Первая печать снова цела — Палач Бездны пал.', 'Начинается Глава II «Тени за порогом». Печатей четыре: вторая в Старом Лесу, третья во Фьордах. Первое задание — найти ледяной портал на северо-востоке деревни. Катакомбы растут вместе с вами, Палача можно побеждать снова.'],
-  2: ['Вторая и третья печати устояли: Хозяин Чащи и ётун Скъёльд повержены.', 'Начинается Глава III «Кости великанов». Умирающий ётун сказал, где четвёртая печать: Костяные пустоши, портал из черепов в левой части деревни. Там же — тот, кто ломает печати.'],
+  1: ['Первая печать снова цела — Палач Бездны пал.', 'Начинается Глава II «Тени за порогом». Печатей четыре: вторая в Старом Лесу, третья в Костяных пустошах. Портал из черепов — в левой части деревни. Катакомбы растут вместе с вами, Палача можно побеждать снова.'],
+  2: ['Вторая и третья печати устояли: Хозяин Чащи и Костяной исполин повержены.', 'Начинается Глава III «Льды ётунов». Исполин сказал, где четвёртая печать: Фьорды Скъёльда, ледяной портал на северо-востоке деревни. Там же — тот, кто ломает печати.'],
   3: ['Четвёртая печать цела, и память вернулась целиком.', 'Начинается Глава IV «Цитадель Морвена» — финал. Цитадель открыта, Морвен ждёт в зале испытаний. Перед этим стоит окрепнуть: Глубины, Летопись битв, сеты у кузнеца.'],
   4: ['Бездна закрыта, Морвен повержен. История Тихого Брода окончена.', 'Открыты Круги Бездны: в окне Глубин выберите круг — чем он выше, тем злее враги, больше золота и выше шанс золотых и мифических вещей. А ещё остаются рекорды Глубин, Жатва Бездны, форты походов, Летопись и контракты доски.'],
 };
@@ -1190,7 +1206,8 @@ export { dailyBlock };
 function boonChoice() {
   const r = G.run; if (!r || r.done || G.player.dead) return;
   if (cur) { setTimeout(boonChoice, 600); return; }
-  const pool = BOON_IDS.filter(id => !r.boons.includes(id)).sort(() => Math.random() - 0.5).slice(0, 3);
+  const nOf = id => r.boons.filter(x => x === id).length;   // правки 3: числовые дары — до 3 уровней
+  const pool = BOON_IDS.filter(id => BOONS[id].stack ? nOf(id) < BOON_MAX : !r.boons.includes(id)).sort(() => Math.random() - 0.5).slice(0, 3);
   if (!pool.length) return;
   bus.emit('sfx', 'rareDrop');
   modal('Дар Бездны', 'md reward', b => {
@@ -1199,7 +1216,7 @@ function boonChoice() {
     let blood = false; const tags = [];
     for (const id of pool) {
       const B = BOONS[id];
-      const c = el('button', 'boon' + (B.minus ? ' cursed' : ''), `<div class="bg" style="color:${B.color};text-shadow:0 0 18px ${B.color}">${artTag(ART.boon(id), B.glyph)}</div><b>${esc(B.name)}</b><span>${esc(B.desc)}${B.minus ? `<em class="minus">${esc(B.minus)}</em>` : ''}</span><small class="lv">▶ за рекламу</small>`);
+      const c = el('button', 'boon' + (B.minus ? ' cursed' : ''), `<div class="bg" style="color:${B.color};text-shadow:0 0 18px ${B.color}">${artTag(ART.boon(id), B.glyph)}</div><b>${esc(B.name)}${B.stack ? ` · ${nOf(id) + 1}/${BOON_MAX}` : ''}</b><span>${esc(B.desc)}${B.minus ? `<em class="minus">${esc(B.minus)}</em>` : ''}</span><small class="lv">▶ за рекламу</small>`);
       tags.push(c.querySelector('.lv'));
       const give = () => { r.boons.push(id); G.stats = calcStats(G.profile); bus.emit('statsChanged'); bus.emit('toast', { text: 'Дар: ' + B.name, kind: 'good' }); bus.emit('sfx', 'learn'); closeModal(); };
       c.onclick = async () => {

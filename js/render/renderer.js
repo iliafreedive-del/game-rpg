@@ -522,12 +522,20 @@ function drawParticles() {
     if (p.add) ctx.globalCompositeOperation = 'source-over';
   }
 }
+// цвет уровня врага относительно героя, как в WoW: серый — переросли (мало опыта), зелёный, жёлтый — ровня, оранжевый, красный — опасно
+export const lvlColor = l => { const d = l - ((G.profile && G.profile.level) || 1); return d <= -5 ? '#9a9a9a' : d <= -2 ? '#6fd36f' : d <= 1 ? '#f2e05a' : d <= 4 ? '#ff9a3c' : '#ff4a3a'; };
+function lvlTag(e, x, y, z) {
+  if (!e.lvl) return; ctx.font = `700 ${Math.round(11 * Math.min(1.2, z))}px sans-serif`; ctx.textAlign = 'right';
+  ctx.strokeStyle = '#000'; ctx.lineWidth = 3; ctx.strokeText(String(e.lvl), x, y); ctx.fillStyle = lvlColor(e.lvl); ctx.fillText(String(e.lvl), x, y);
+}
 function drawBars() {
   const cam = G.cam, z = cam.zoom;
   for (const e of G.enemies) {
     if (e.dead || e.D.boss) continue;
-    const show = e.hp < e.maxHP || e.D.elite || e.champion; if (!show) continue;
+    const show = e.hp < e.maxHP || e.D.elite || e.champion;
     const [x, y] = cam.toScreen(e.x, e.y, e.D.mini ? 1.9 * (e.D.scale || 1) + 0.3 : e.D.elite ? 2.6 : 2.05); const w = (e.D.elite || e.champion ? 60 : 38) * Math.min(1.2, z);
+    lvlTag(e, x - w / 2 - 3, y + 4, z);   // правки 3: уровень у каждого моба, цвет — насколько он сильнее героя
+    if (!show) continue;
     ctx.fillStyle = 'rgba(0,0,0,0.7)'; ctx.fillRect(x - w / 2 - 1, y - 1, w + 2, 6);
     ctx.fillStyle = e.D.mini ? '#e0302a' : e.D.elite ? '#e8a42a' : e.champion ? '#5aa0ff' : '#c8302a'; ctx.fillRect(x - w / 2, y, w * e.hp / e.maxHP, 4);
     if (e.D.elite || e.champion) { ctx.font = `600 ${Math.round(11 * Math.min(1.2, z))}px Georgia, serif`; ctx.textAlign = 'center'; ctx.fillStyle = e.D.mini ? '#ff8a70' : e.D.elite ? '#f0c060' : '#9cc4ff'; ctx.strokeStyle = '#000'; ctx.lineWidth = 3; ctx.strokeText(e.name, x, y - 5); ctx.fillText(e.name, x, y - 5); }

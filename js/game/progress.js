@@ -49,13 +49,15 @@ const early = id => G.profile.story && G.profile.story.stage < stIdx(id);
 const EARLY = { text: 'Рано', sub: 'Сначала задания в деревне — идите по золотой стрелке' };
 export function gate(name, extra) {
   const P = G.profile;
+  if (P.cheat && P.cheat.open) return null;   // правки 3: админка — все порталы открыты
   if ((name === 'catacombs' && early('find_portal')) || (name === 'survival' && early('surv_try')) || (name === 'hw' && early('hw_try'))) return EARLY;
   switch (name) {
     case 'catacombs': return hasSkill() ? null : { text: 'Сначала выберите навык', sub: 'Поговорите с наставником в деревне (у него значок «+») и выучите первое умение' };
     case 'temple': return null;   // Разрушенный храм (портал с руками): открыт сразу со 2 уровня (уровень проверяет портал)
     case 'forest': return !hasSkill() ? { text: 'Сначала выберите навык', sub: 'Наставник в деревне учит первым умениям' } : !F().medallion && !P.world.hasMedallion ? { text: 'Лес пока закрыт', sub: 'Принесите старосте Амулет хранителя из катакомб — он откроет тропу в лес' } : null;
-    case 'bones': return !F().bossKilled ? { text: 'Пустоши закрыты', sub: 'Сначала победите Палача Бездны в катакомбах' } : forts('fjord') < 1 ? { text: 'Костяные пустоши закрыты', sub: 'Сначала отбейте форт ярла во Фьордах — умирающий ётун расскажет, где четвёртая печать' } : null;
-    case 'fjord': return !F().bossKilled ? { text: 'Фьорды закрыты', sub: 'Сначала победите Палача Бездны в катакомбах' } : forts('forest') < 1 ? { text: 'Фьорды закрыты', sub: 'Сначала отбейте разбойничий острог в Старом Лесу' } : null;
+    // правки 3: вторыми открываются Пустоши (после острога Леса), третьими — Фьорды (после руин Пустошей); кто уже был во Фьордах, не закрываем
+    case 'bones': return !F().bossKilled ? { text: 'Пустоши закрыты', sub: 'Сначала победите Палача Бездны в катакомбах' } : forts('forest') < 1 && forts('fjord') < 1 ? { text: 'Костяные пустоши закрыты', sub: 'Сначала отбейте разбойничий острог в Старом Лесу' } : null;
+    case 'fjord': return !F().bossKilled ? { text: 'Фьорды закрыты', sub: 'Сначала победите Палача Бездны в катакомбах' } : forts('bones') < 1 && forts('fjord') < 1 ? { text: 'Фьорды закрыты', sub: 'Сначала отбейте Древние руины в Костяных пустошах — Костяной исполин расскажет, где последняя печать' } : null;
     case 'depths': return F().bossKilled ? null : { text: 'Пока закрыто', sub: 'Сначала победите Палача Бездны в катакомбах' };
     case 'survival': return F().bossKilled || !P.survIntro ? null : { text: 'Староста: «Портал Жатвы не удержать дольше трёх минут»', sub: 'Он откроется снова после победы над Палачом Бездны в катакомбах' };   // сборка 47: один забег-знакомство до Палача
     case 'bossgate': return P.level >= BOSS_LEVEL ? null : { text: `Печать не поддаётся: нужен ${BOSS_LEVEL} уровень`, sub: `У вас ${P.level}. Наберите силу в катакомбах и Старом Лесу, улучшите вещи у кузнеца` };
@@ -73,6 +75,7 @@ export function gate(name, extra) {
 // дальше в лес и к острогу — после Палача Бездны. null — можно
 export const FOREST_FREE = 3;
 export function wildDepthGate(realm, depth) {
+  if (G.profile.cheat && G.profile.cheat.open) return null;
   if (realm === 'forest' && depth > FOREST_FREE && !(G.profile.story.flags.bossKilled)) return { text: 'Чаща не пускает дальше', sub: `Пока жив Палач Бездны, в лес можно только до ${FOREST_FREE}-го поля. Сломайте печать в катакомбах` };
   return null;
 }
@@ -83,7 +86,7 @@ export function nextStep() {
   if (!F().medallion && !P.world.hasMedallion) return 'Катакомбы: ключ → дверь → победить Хранителя → амулет старосте';
   if (!F().bossKilled) return P.level < BOSS_LEVEL ? `Прокачайтесь до ${BOSS_LEVEL} уровня (катакомбы, Старый Лес)` : 'Победите Палача Бездны';
   if (forts('forest') < 1) return 'Отбейте острог в Старом Лесу';
-  if (forts('fjord') < 1) return 'Отбейте форт во Фьордах';
   if (forts('bones') < 1) return 'Костяные пустоши: дойдите до руин и победите вождя';
+  if (forts('fjord') < 1) return 'Отбейте форт во Фьордах';
   return 'Идите глубже: Глубины, Жатва Бездны, Цитадель';
 }

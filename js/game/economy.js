@@ -29,8 +29,9 @@ export function ensureStock(force) {
   const slots = ['weapon', 'head', 'chest', 'amulet'];
   // П67 (правки 2): лавка Миры — без серого хлама: до 10 ур. зелёные и серые, с 10-го одна вещь всегда синяя (выпадают синие тоже с 10-го);
   // золота у Миры нет — оно из слияния у кузнеца (с 15 ур.), боссов и лавки Ордена (с 15 ур.). Товар обновляется каждые 6 часов и с уровнем
-  const blue = P.level >= 10 ? rint(0, 3) : -1;
-  slots.forEach((slot, i) => S.stock.push(makeItem({ slot, cls: P.cls || 'warrior', ilvl: P.level + rint(0, 1), rarity: i === blue ? 2 : weighted(P.level >= 10 ? [[1, 75], [2, 25]] : [[0, 45], [1, 55]]) })));
+  // правки 3: лавка идёт по той же лестнице, что и добыча: до 8 ур. серое, с 8-го серое и зелёное, с 20-го зелёное и одна синяя
+  const blue = P.level >= 20 ? rint(0, 3) : -1;
+  slots.forEach((slot, i) => S.stock.push(makeItem({ slot, cls: P.cls || 'warrior', ilvl: P.level + rint(0, 1), rarity: i === blue ? 2 : weighted(P.level >= 20 ? [[1, 75], [2, 25]] : P.level >= 8 ? [[0, 60], [1, 40]] : [[0, 1]]) })));
   for (const it of S.stock) delete it.req;
 }
 export function refreshStock(free) { if (!free && !pay(stockRefreshPrice())) return false; ensureStock(true); bus.emit('save'); return true; }

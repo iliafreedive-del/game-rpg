@@ -2,7 +2,7 @@
 import { G, bus } from './ctx.js';
 import { WEAPONS } from '../data/items.js';
 import { SKILLS, PASSIVE_K as PK } from '../data/skills.js';
-import { effRank, damageReduction, hasBoon } from './stats.js';
+import { effRank, damageReduction, hasBoon, boonN } from './stats.js';
 import { getAtlas } from '../core/assets.js';
 import { dirOf, dirVec } from '../core/iso.js';
 import { rand, rrange, rint, clamp, angDiff } from '../core/util.js';
@@ -69,6 +69,7 @@ export function rollWeapon(S) { return rrange(S.dmgMin, S.dmgMax + 0.999) | 0; }
 export function damageEnemy(e, amount, o = {}) {
   if (e.dead) return 0;
   const S = G.stats; let dmg = amount; let crit = false, weakHit = false;
+  if (G.profile.cheat && G.profile.cheat.oneHit) dmg = e.maxHP * 10;   // правки 3: админка — убивать с одного удара
   if (o.canCrit !== false) { const cc = S.critChance + (o.critBonus || 0); if (rand() < cc) { crit = true; dmg *= S.critMult; } }
   if (!o.elem || o.elem === 'phys') { const red = damageReduction(e.armor * (1 - (o.pierce || 0)), G.profile.level) * 0.9; dmg *= 1 - red; }
   if (e.st.shock > 0) dmg *= 1 + e.st.shockAmp;
@@ -125,8 +126,8 @@ export function killEnemy(e, o = {}) {
   if (e.st.burn > 0 && R('burn_explode')) { const dmg = (10 + 6 * Math.max(1, R('fireball'))) * S.spellPower * S.elem.fire * 0.8 * PK; explosion(e.x, e.y, 2, dmg, 'fire', true, e); }
   if (e.st.frozen > 0 && R('shatter')) { for (let k = 0; k < 4; k++) { const a = k * Math.PI / 2 + 0.4; spawnProj({ kind: 'shard', x: e.x, y: e.y, vx: Math.cos(a) * 12, vy: Math.sin(a) * 12, owner: 'p', dmg: (9 + 5 * Math.max(1, R('ice_shard'))) * S.spellPower * S.elem.cold * 0.6 * PK, elem: 'cold', range: 5 }); } }
   if (S.effects.bloodShield) G.player.shield = Math.min(S.maxHP * 0.3, G.player.shield + S.maxHP * 0.1);
-  if (hasBoon('vitality')) G.player.hp = Math.min(S.maxHP, G.player.hp + S.maxHP * 0.02);
-  if (hasBoon('bloodpact')) G.player.hp = Math.min(S.maxHP, G.player.hp + S.maxHP * 0.04);
+  if (hasBoon('vitality')) G.player.hp = Math.min(S.maxHP, G.player.hp + S.maxHP * 0.002 * boonN('vitality'));
+  if (hasBoon('bloodpact')) G.player.hp = Math.min(S.maxHP, G.player.hp + S.maxHP * 0.004 * boonN('bloodpact'));
   if (hasBoon('boom') && !o.fromBoom) { const d = (S.dmgMin + S.dmgMax) * 0.6; setTimeoutGame(0.08, () => { effect({ kind: 'burst', x: e.x, y: e.y, r: 2, dur: 0.4, c: [255, 170, 90] }); for (const t of G.enemies) if (!t.dead && t !== e && Math.hypot(t.x - e.x, t.y - e.y) < 2 + t.r) damageEnemy(t, d, { elem: 'fire', src: 'spell', fromBoom: true, canCrit: false }); G.cam.kick(0.2); bus.emit('sfx', 'boom'); }); }
   particles(e.x, e.y, 12, { c: e.D.skeleton ? [220, 210, 190] : [120, 20, 20], z: 1, sp: 3, add: false, size: 3 });
   bus.emit('sfx', e.D.skeleton ? 'bones' : 'death');
@@ -203,7 +204,7 @@ function dummyHit(P, wt, W, dur) {
   if (!d) return; const o = d[0]; P.faceTo(o.x, o.y); P.dir = P.face;
   setTimeout(() => {
     const S = G.stats; if (!S || G.zoneId !== 'town') return;
-    let v = S.dmgMin + Math.random() * (S.dmgMax - S.dmgMin); if (wt === 'staff') v *= S.spellPower;
+    let v = S.dmgMin + Math.random() * (S.dmgMax - S.dmgMin); if (wt === 'staff') v *= 1 + (WEAPONS.staff.spell || 0);   // правки 3: интеллект уже в уроне посоха — второй раз не умножаем
     const crit = Math.random() < S.critChance; if (crit) v *= S.critMult;
     float(o.x, o.y, Math.round(v) + (crit ? '!' : ''), crit ? '#ffd23a' : '#fff', { z: 2.1, big: crit ? 1 : 0, life: 0.9 });
     bus.emit('sfx', 'hit');
@@ -611,6 +612,7 @@ export function enemyHitsPlayer(e, mult, elem) {
   }
 }
 export function hurtPlayer(src, raw, elem) {
+  if (G.profile.cheat && G.profile.cheat.god) return;   // правки 3: админка — бессмертие
   const P = G.player, S = G.stats; if (P.dead) return;
   G.lastCombat = G.time;
   const lvl = src && src.lvl ? src.lvl : G.profile.level;

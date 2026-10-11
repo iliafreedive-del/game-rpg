@@ -35,10 +35,12 @@ export function rollAffix(k, ilvl, cls) {
 // opts: {slot, ilvl, rarity, base, wt, epic}
 // Редкость растёт вместе с героем: серые и зелёные вещи в начале, синие с 6-го уровня, золотые (эпики) с 12-го — не в первые 10 минут
 // сборка 47: редкость реже и позже — зелёные с начала, синие с 10-го, золотые с 18-го уровня (раньше 6 и 12)
-export const maxRarityFor = lvl => lvl >= 18 ? 3 : lvl >= 10 ? 2 : 1;   // ограничение для выпадения
+// правки 3 (лестница как в WoW на 100 уровней): до 8 ур. только серое, зелёное — с 8-го (редко), синее — с 20-го, золотое — с 40-го
+export const maxRarityFor = lvl => lvl >= 40 ? 3 : lvl >= 20 ? 2 : lvl >= 8 ? 1 : 0;   // ограничение для выпадения
 // слияние у кузнеца тоже ограничено уровнем героя: синее — с 8-го, золотое — с 15-го, мифическое — с 22-го (было: золотой нагрудник к 8-му)
-export const mergeCapFor = lvl => lvl >= 22 ? 4 : lvl >= 15 ? 3 : lvl >= 8 ? 2 : 1;
-export const mergeCapLevel = r => [1, 1, 8, 15, 22][r] || 99;
+// правки 3: слияние в зелёное — с 8-го, в синее — с 18-го, в золотое — с 35-го, в мифическое — с 60-го (до 8-го слияния нет)
+export const mergeCapFor = lvl => lvl >= 60 ? 4 : lvl >= 35 ? 3 : lvl >= 18 ? 2 : lvl >= 8 ? 1 : 0;
+export const mergeCapLevel = r => [1, 8, 18, 35, 60][r] || 99;
 export function makeItem(opts = {}) {
   const lvlNow = G && G.profile && !opts.noClamp ? G.profile.level : 99;
   if (opts.epic && maxRarityFor(lvlNow) < 3) { opts = { ...opts }; delete opts.epic; opts.rarity = 2; }
