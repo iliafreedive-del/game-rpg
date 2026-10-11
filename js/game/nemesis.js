@@ -82,7 +82,11 @@ export function onLeaveWild() {
   if (!W.died) {
     bus.emit('wildLeave', { carry: W.carry || 0, cap: carryCap() });
     const e = liveNem(); if (e) { const n = e.nem; n.rank++; n.fled++; n.title = titleOf(n); bus.emit('toast', { text: `${n.name} смеётся вам вслед`, sub: `Он стал сильнее (ранг ${n.rank})`, kind: 'warn' }); }
+    const carry = W.carry || 0, cached = W.cached || 0;
     bankCarry('Вы вышли из похода');
+    // правки 3: вышли через портал — окно «что вынесли» (ноша + сданное в схрон). У отбитого форта своё окно итога
+    if (carry + cached > 0 && !(W.done && W.result)) bus.emit('reward', { title: `${(REALMS[W.realm] || {}).name || 'Поход'}: добыча вынесена`, sub: 'Итог похода', gold: carry + cached, xp: 0, potions: 0, scrolls: 0, skillPts: 0,
+      items: [], note: [carry && `ноша — ${carry} зол.`, cached && `из схрона — ${cached} зол.`].filter(Boolean).join(' · ') });
   }
 }
 export function onNemesisKilled(e) {

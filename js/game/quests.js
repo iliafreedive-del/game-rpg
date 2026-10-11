@@ -171,9 +171,17 @@ export function repState(r) {
   const R = G.profile.repeat[r.id]; const st = G.profile.stats;
   if (r.once && R && R.completions) return { accepted: true, cur: r.n, done: false, finished: true, completions: R.completions };   // разовый контракт уже выполнен
   if (!R || !R.accepted) { G.profile.repeat[r.id] = { ...(R || {}), accepted: true, base: st[r.stat] || 0 }; return repState(r); }
-  const cur = Math.min(r.n, Math.floor((st[r.stat] || 0) - R.base));
+  // правки 3: первый раз контракт считает всё, что сделано с начала игры («300 монстров» к 5 уровню уже убиты), повторы — от прошлой награды
+  const cur = Math.max(0, Math.min(r.n, Math.floor((st[r.stat] || 0) - (R.completions || r.after ? R.base : 0))));
   return { accepted: true, cur, done: cur >= r.n, completions: R.completions || 0 };
 }
+// правки 3: на доске — только действующие контракты: разовый после награды уходит, а «Собрать 4000 золота» (тот же счётчик золота)
+// появляется, когда сдано «Серебро для Горана» — два одинаковых задания про золото рядом не висят
+export const REP_NEXT = 48 * 3600e3;
+export const repCooling = () => REPEATABLE.map(r => G.profile.repeat[r.id]).filter(R => R && R.coolUntil > Date.now()).map(R => R.coolUntil - Date.now());
+export const repVisible = r => { const s = repState(r); if (s.finished) return false;
+  { const R = G.profile.repeat[r.id]; if (R.coolUntil) { if (Date.now() < R.coolUntil) return false; delete R.coolUntil; R.base = G.profile.stats[r.stat] || 0; } } if (r.after) { const A = REPEATABLE.find(x => x.id === r.after); if (!(A && repState(A).finished)) return false; const R = G.profile.repeat[r.id]; if (!R.shown) { R.shown = 1; R.base = G.profile.stats[r.stat] || 0; } } return true; };
+export const repList = () => REPEATABLE.filter(repVisible);
 export function acceptRep(id) {
   const r = REPEATABLE.find(x => x.id === id); const st = G.profile.stats;
   G.profile.repeat[id] = { ...(G.profile.repeat[id] || {}), accepted: true, base: st[r.stat] || 0 };
@@ -181,7 +189,7 @@ export function acceptRep(id) {
 }
 export function claimRep(id) {
   const r = REPEATABLE.find(x => x.id === id); const s = repState(r); if (!s.done) return false;
-  const R = G.profile.repeat[id]; R.completions = (R.completions || 0) + 1; R.base = G.profile.stats[r.stat] || 0; R.accepted = true;
+  const R = G.profile.repeat[id]; R.completions = (R.completions || 0) + 1; R.base = G.profile.stats[r.stat] || 0; R.accepted = true; if (!r.once) R.coolUntil = Date.now() + REP_NEXT;   // правки 3: снова на доске — через двое суток
   // rewards scale with player level and repeat count (kept modest to avoid inflation)
   const lv = G.profile.level; const rw = { ...r.reward };
   if (rw.gold) rw.gold = Math.round(rw.gold * (1 + 0.15 * (lv - 1)));
@@ -190,7 +198,7 @@ export function claimRep(id) {
 }
 let repNotified = {};
 function repeatTick() {
-  for (const r of REPEATABLE) { const s = repState(r); if (s.accepted && s.done && !repNotified[r.id]) { repNotified[r.id] = 1; bus.emit('toast', { text: 'Контракт выполнен!', sub: r.title + ' — заберите награду у доски', kind: 'quest' }); } if (!s.done) repNotified[r.id] = 0; }
+  for (const r of repList()) { const s = repState(r); if (s.accepted && s.done && !repNotified[r.id]) { repNotified[r.id] = 1; bus.emit('toast', { text: 'Контракт выполнен!', sub: r.title + ' — заберите награду у доски', kind: 'quest' }); } if (!s.done) repNotified[r.id] = 0; }
 }
 // walking meters are committed periodically by the game loop
 export function addMeters(m) { G.profile.stats.meters += m; repeatTick(); }

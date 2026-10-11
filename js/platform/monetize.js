@@ -219,4 +219,11 @@ export function openOrderChest(viaAd) {
   bus.emit('reward', { title: 'Сундук Ордена открыт!', sub: viaAd ? 'Награда за просмотр' : 'Сундук Ордена', gold: 40 * P.level, xp: 0, potions: 0, scrolls: 0, skillPts: 0, items: [got], now: true });   // М22: окно с вещью и сравнением
   bus.emit('sfx', 'chest'); bus.emit('hud'); bus.emit('save'); return true;
 }
-export function chestSkip() { const s = chestStatus(); if (s.ready) return openOrderChest(); return watchRewarded('chest_skip', offerToken('chest_skip', String(G.profile.orderChest.readyAt)), () => openOrderChest(true)); }
+// правки 3: сундук открывался за рекламу бесконечно — таймер 4 ч ничего не значил. Теперь раньше срока — не больше CHEST_SKIP_DAY раз в день
+export const CHEST_SKIP_DAY = 1;
+export function chestSkipsLeft() { const C = chestStatus() && G.profile.orderChest, d = dayKey(Date.now()); if (C.skipDay !== d) { C.skipDay = d; C.skipN = 0; } return Math.max(0, CHEST_SKIP_DAY - (C.skipN || 0)); }
+export function chestSkip() {
+  const s = chestStatus(); if (s.ready) return Promise.resolve(openOrderChest());
+  if (!chestSkipsLeft()) { bus.emit('toast', { text: 'Сундук Ордена ещё запечатан', sub: 'Раньше срока за рекламу — раз в день. Он откроется сам, когда кончится таймер', kind: 'warn' }); return Promise.resolve(false); }
+  return watchRewarded('chest_skip', offerToken('chest_skip', String(G.profile.orderChest.readyAt)), () => { chestSkipsLeft(); G.profile.orderChest.skipN = (G.profile.orderChest.skipN || 0) + 1; openOrderChest(true); });
+}

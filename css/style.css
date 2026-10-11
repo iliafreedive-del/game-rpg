@@ -929,3 +929,44 @@ html.rm *,html.rm *::before,html.rm *::after{animation-duration:.01ms!important;
 .btn.pf-ok{margin-top:12px;min-width:200px;padding:13px 24px;font:700 20px var(--serif);animation:rwin .5s ease-out .9s backwards}
 @keyframes pfPop{from{transform:scale(.2);opacity:0}}
 @media (orientation:landscape) and (max-height:500px){.pf-ic{font-size:70px;margin:0}.pf-d{margin:2px auto;font-size:13px}.pf-t{font-size:44px}.pf-s{font-size:22px}.btn.pf-ok{margin-top:6px;padding:9px 20px}}
+
+/* ---- правки 3: Летопись на ПК — меньше воздуха, звёзды крупнее, этапы по десяткам */
+.hw-map{width:min(860px,100%);padding:10px 12px}
+.hw-grid{grid-template-columns:repeat(10,minmax(0,min(64px,8.2vw)));gap:30px 10px;margin:12px 0 6px}
+.hw-stage{border-width:3px;font-size:19px}
+.hw-stars{top:-19px;font-size:19px;letter-spacing:-2px;line-height:1;white-space:nowrap}
+.hw-stars i{display:inline-block;vertical-align:bottom}
+.hw-stars i:nth-child(2){font-size:25px;transform:translateY(-4px)}
+.hw-tag{bottom:-9px;font-size:11px}
+.hw-ten{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:4px 14px;align-items:baseline;justify-content:center;margin:2px 0 -14px;padding:4px 10px;border-radius:8px;background:#5a3e2222;border:1px solid #8a6a3a66;font:600 14px var(--serif);color:#4a2a10}
+.hw-ten b{font-size:15px}
+.hw-ten-st{color:#a06a00}
+.hw-ten-rw{color:#6a4a20}.hw-ten-rw svg{width:14px;height:14px;vertical-align:-2px}
+.hw-ten.paid .hw-ten-rw{color:#2a6a1a}
+.hw-ten-lock{flex-basis:100%;text-align:center;color:#8a1a1a;font-size:13px}
+@media (max-width:700px){.hw-grid{grid-template-columns:repeat(5,minmax(0,min(64px,15vw)));gap:28px 12px}}
+@media (orientation:landscape) and (max-height:500px){.hw-grid{grid-template-columns:repeat(10,minmax(0,min(48px,7.4vw)));gap:24px 8px}.hw-stage{font-size:15px}.hw-stars{font-size:15px;top:-15px}.hw-stars i:nth-child(2){font-size:19px}.hw-ten{font-size:12px;margin-bottom:-10px}}
+/* перед боем — читаемые надписи, тёмные на пергаменте */
+.hw-pre{width:min(700px,100%)}
+.hw-pre .hw-vs b{font-size:22px}.hw-pre .hw-vs span{font-size:16px;color:#3a2410}
+.hw-pre .hw-foes{font-size:15px!important;line-height:1.35}
+.hw-pre p{font-size:16px;margin:6px 0}
+.hw-pre p.good,.hw-pre p.bad{font:bold 18px var(--serif)}
+.hw-pre .muted{color:#5a3e22!important}
+.hw-pre .goldc{color:#7a4200!important;font-weight:600}
+.hw-pre .hw-sk{font-size:15px}
+/* итог боя: полоса опыта крупнее и текст в ней по центру, картинка меньше */
+.hw-result .hw-rimg{width:min(220px,60%);margin:-4px auto -10px}
+.hw-xpbar{height:22px;margin:10px 6px 4px;display:flex;align-items:center;justify-content:center;border-radius:11px}
+.hw-xpbar span{font:600 13px/1 var(--serif);white-space:nowrap}
+/* окно героя: показатели — кнопки с пояснением */
+.iv-stats button{background:none;border:1px solid transparent;border-radius:8px;color:inherit;font:inherit;padding:3px 6px;cursor:pointer}
+.iv-stats button.on,.iv-stats button:hover{border-color:#b8903e88;background:#ffffff0d}
+.iv-stats .st-mp b{color:#8fb8ff}.iv-stats .st-ehp b{color:#e8d8a8}
+.iv-tip{margin:4px 0 2px;padding:8px 10px;border-radius:8px;background:#000a;border:1px solid #5a4a2a;font-size:13px;line-height:1.4;color:#e8dcc0}
+#btnFs{width:auto;padding:0 10px;font:700 12px var(--serif);color:#ffe9b0;border-color:#b8903e;white-space:nowrap}
+#btnFs.on{color:#c8b890;border-color:var(--line)}
+#minimap{cursor:zoom-in}
+#ui.fight #tracker.here{opacity:1}
+#ui.fight #huntBox.away{opacity:.45;animation:none}
+#goldBox .carry-g{font:600 12px var(--serif);color:#ffe9a0;margin-left:4px;white-space:nowrap}
