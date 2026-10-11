@@ -15,6 +15,7 @@ export function mobSkin(kit, m, name, o = {}) {
     const wb = sk && sk.getBoneByName(regrip.bone), J = S.skinMeta(name).bones.find(b => b[0] === regrip.bone);
     if (wb && J) {
       const { THREE } = kit, q = new THREE.Quaternion().setFromEuler(new THREE.Euler(...regrip.rot));
+      if (regrip.spin) q.premultiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(...regrip.spin.slice(0, 3)).normalize(), regrip.spin[3]));   // spin — довернуть вокруг оси (система модели), например вокруг древка
       const Jp = new THREE.Vector3(...regrip.to).sub(new THREE.Vector3(...regrip.at).sub(new THREE.Vector3(...J[2])).applyQuaternion(q));   // новый сустав: J' = to − R·(at − J)
       wb.quaternion.copy(q); wb.position.add(Jp.sub(new THREE.Vector3(...J[2])));   // у костей шкуры поворот покоя нулевой — смещение в системе модели
     }
