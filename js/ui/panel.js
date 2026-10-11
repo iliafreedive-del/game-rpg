@@ -74,6 +74,7 @@ function render(force) {
     for (const [id, U] of Object.entries(UPGRADES)) {
       const l = (P.upg && P.upg[id]) || 0, max = l >= U.max, cost = upgCost(id, l), can = !upLock && !max && upgHave(P, id) >= cost;
       const r = row(U.icon, `${U.name} <span class="lv">ур. ${l}</span>`, max ? U.fmt(l) + ' · максимум' : `${U.fmt(l)} → <span class="good">${U.fmt(l + 1)}</span>`, max ? '—' : upLock ? '🔒' : U.shards ? `${cost}◆` : `${fmt(cost)}`, can, () => buyUpg(id));
+      r.querySelector('.pn-btn').classList.add('cost');   // крупная цена и осколок на всю кнопку (а не мелкая цифра посреди пустой кнопки)
       if (elvStep && can && !nudged && !U.shards) { r.querySelector('.pn-btn').classList.add('nudge'); r.classList.add('hot'); nudged = true; }
       box.appendChild(r);
     }
@@ -113,10 +114,10 @@ function render(force) {
       const sub = `<span style="color:${T0.color}">${T0.name}</span> · ⚔ ${PT.petInfo(id, lvl || 1).dps}/с · ${D.desc}`;
       const r = row(D.icon, `${esc(D.name)}${lvl ? ` <span class="lv">ур. ${lvl}</span>` : ''}`, sub, null, false, null, on ? 'hot' : '');
       { const ib = el('button', 'pn-btn ok pn-info', 'ℹ'); ib.title = 'Урон и дар питомца'; ib.onpointerdown = e => { e.stopPropagation(); W.petInfo(id); }; r.appendChild(ib); }   // П61
-      if (!lvl) btn(r, c.why ? '🔒 ' + c.why : `${c.cost}◆`, c.ok, () => PT.buyPet(id));
+      if (!lvl) btn(r, c.why ? '🔒 ' + c.why : `${c.cost}◆`, c.ok, () => PT.buyPet(id), c.why ? '' : ' cost');
       else {
         btn(r, on ? '✔ С вами' : 'Взять', !on, () => PT.choosePet(id));
-        if (lvl < PET_MAX) btn(r, `▲ ${c.cost}◆`, c.ok, () => PT.upgradePet(id), ' up');
+        if (lvl < PET_MAX) btn(r, `▲ ${c.cost}◆`, c.ok, () => PT.upgradePet(id), ' up cost');
       }
       box.appendChild(r);
     }
