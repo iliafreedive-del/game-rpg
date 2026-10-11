@@ -4,7 +4,7 @@
 import * as THREE from '../vendor/three.module.min.js';
 import { G, bus } from '../game/ctx.js';
 import { PX_PER_M } from '../core/iso.js';
-import { U, setSmoothFade } from './toon.js';
+import { U, setSmoothFade, outline } from './toon.js';
 import { makeKit, preloadModels } from './kit.js';
 import { Actor, setOutlinesVisible } from './actor.js';
 import { preloadBones, bonesReady, preloadBoneTrees } from './bonesglb.js';
@@ -344,8 +344,19 @@ function syncPet(dt) {
   const skin = 'pet_' + p.id; kit.skin.preloadSkin(skin);
   const was = actors.get(p); if (was && !was.model.skin && kit.skin.skinLoaded(skin) && kit.skin.SKINS.on) { was.dispose(); actors.delete(p); }
   const a = getActor(p, PET_MODELS[p.id]); a.isPet = true; a.turnRate = 12;
+  if (!a.petGlow) petGlow(a);
   a.place(p.x, p.y); a.faceAngle(Math.PI / 2 - p.ang);
   a.update(dt, p.act ? { clip: 'attack', k: Math.min(1, p.act.t / p.act.dur) } : p.speed > 0.4 ? { clip: 'walk', speed: p.speed } : { clip: 'idle' }, env);
+  // правки к сборке 60: питомец ярче — светящийся силуэт (тёплая обводка дышит) и лёгкий подсвет тела.
+  // Дёшево для iPhone: та же обводка, что была (только другой цвет и толщина), без новых проходов и источников света
+  const k = 0.5 + 0.5 * Math.sin(U.uTime.value * 3.2); PET_GLOW.color.setRGB(1.6 + 0.8 * k, 0.55 + 0.35 * k, 0.05);   // выше 1 — подхватывает bloom (ореол без своего прохода)
+  a.flash(0.12, 0xfff2cc);
+}
+// светящаяся обводка питомца: одна общая на всех зверьков, подменяет тёмную обводку модели
+const PET_GLOW = outline({ width: 0.03, color: 0xffa020 }); PET_GLOW.fog = false;
+function petGlow(a) {
+  a.petGlow = true;
+  a.root.traverse(o => { if (o.isMesh && o.userData.isOutline) o.material = PET_GLOW; });
 }
 let sparks = null;   // искры кузни (sparks.js) — создаются при первом ударе
 // «Жатва Бездны»: рой — настоящие 3D-модели (по типу врага), берутся из пула и возвращаются в него после гибели

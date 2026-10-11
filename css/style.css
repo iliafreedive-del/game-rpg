@@ -911,3 +911,21 @@ html.rm *,html.rm *::before,html.rm *::after{animation-duration:.01ms!important;
 .ic-x{width:48px;height:48px;font-size:24px}
 .mx:active,.ic-x:active,.pn-x:active{background:#5a4220;transform:scale(.94)}
 @media (max-height:520px){.mx{width:40px;height:40px}}
+/* правки к сборке 60: подарок Кофи — крупная мигающая кнопка; первый питомец — поздравление на весь экран */
+.btn.pet-gift{display:block;width:100%;margin:8px 0;padding:14px 10px;font:700 19px var(--serif);border:2px solid #fff3b0;box-shadow:0 0 0 2px #ffd24a,0 0 22px #ffae00;animation:petGift 1s ease-in-out infinite}
+@keyframes petGift{0%,100%{transform:scale(1);box-shadow:0 0 0 2px #ffd24a,0 0 14px #ffae0088}50%{transform:scale(1.06);box-shadow:0 0 0 4px #fff6,0 0 34px #ffcf40}}
+.modal.pet-full{width:100%;height:100%;max-height:100%;border:0;border-radius:0;background:transparent;box-shadow:none}
+.modal.pet-full .mh{display:none}
+.modal.pet-full .mb{position:relative;flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;overflow:hidden auto;padding:16px}
+.modal-bg.pet-full-bg{padding:var(--safe-t) var(--safe-r) var(--safe-b) var(--safe-l);background:radial-gradient(circle,#5a3a0ef2,#120a04f7 72%)}
+.pf-rays{position:fixed;left:50%;top:50%;width:160vmax;height:160vmax;margin:-80vmax 0 0 -80vmax;background:repeating-conic-gradient(#ffd96a2e 0 9deg,#0000 9deg 18deg);animation:spin 18s linear infinite;mask:radial-gradient(#000 10%,#0000 55%);-webkit-mask:radial-gradient(#000 10%,#0000 55%);pointer-events:none}
+.pf-hehe,.pf-t,.pf-s,.pf-ic,.pf-n,.pf-d,.pf-ok{position:relative}
+.pf-hehe{font:italic 600 18px var(--serif);color:#ffd9a0;animation:rwin .4s ease-out backwards}
+.pf-t{font:900 clamp(38px,10vw,72px)/1.05 var(--serif);color:#ffe08a;text-shadow:0 0 24px #ff9a10,0 3px 3px #000;animation:pfPop .6s cubic-bezier(.2,1.6,.4,1) .1s backwards}
+.pf-s{font:700 clamp(22px,5.5vw,34px) var(--serif);color:#fff2c8;text-shadow:0 2px 3px #000;margin-top:4px;animation:rwin .5s ease-out .35s backwards}
+.pf-ic{font-size:clamp(84px,22vmin,150px);line-height:1.15;margin:6px 0;filter:drop-shadow(0 0 24px #ffb040) drop-shadow(0 4px 4px #000);animation:pfPop .7s cubic-bezier(.2,1.6,.4,1) .5s backwards}
+.pf-n{font:700 20px var(--serif);color:#ffe9b8;text-shadow:0 2px 2px #000}
+.pf-d{max-width:520px;margin:6px auto}
+.btn.pf-ok{margin-top:12px;min-width:200px;padding:13px 24px;font:700 20px var(--serif);animation:rwin .5s ease-out .9s backwards}
+@keyframes pfPop{from{transform:scale(.2);opacity:0}}
+@media (orientation:landscape) and (max-height:500px){.pf-ic{font-size:70px;margin:0}.pf-d{margin:2px auto;font-size:13px}.pf-t{font-size:44px}.pf-s{font-size:22px}.btn.pf-ok{margin-top:6px;padding:9px 20px}}

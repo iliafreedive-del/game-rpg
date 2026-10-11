@@ -43,6 +43,7 @@ import { SKILLS } from '../data/skills.js';
 import { rand, rrange } from '../core/util.js';
 import { pollMove, input, mouse, tapAim, tapMove } from '../core/input.js';
 import { elvinBuy } from '../ui/tutorial.js';
+import { canLearnNow } from './character.js';
 import { gate, BOSS_LEVEL, nextStep, earlyLock, lockToast, bandLevel, CATA_MAX, wildDepthGate } from './progress.js';
 import { platform } from '../platform/platform.js';
 import { cineTick, inCinema, cinema, portalShots, newPortalShots } from '../ui/cinema.js';
@@ -735,6 +736,6 @@ function updateMarkers() {
   const fn = G.npcs.find(n => n.id === 'fortune'); if (fn) fn.marker = !xl && wheelReady() ? '!' : null;
   const kv = G.npcs.find(n => n.id === 'caravan'); if (kv && !kv.marker) kv.marker = (G.profile.pets && G.profile.pets.met) || earlyLock('pet') ? null : '!';   // сборка 60 (П15): Кофи зовёт, когда староста отправит к нему   // сборка 58: Кофи ждёт с подарком
   const bd = G.zone.inter.find(i => i.id === 'board'); if (bd) bd.marker = (REPEATABLE.some(r => Q.repState(r).done) || DQ.dailyReady() || DQ.weeklyQuests().some(q => q.done && !q.claimed)) ? '?' : null;
-  const P = G.profile; const tr = G.npcs.find(n => n.id === 'trainer'); if (tr && !tr.marker && (P.attrPts || P.skillPts || elvinBuy())) tr.marker = '+';   // М19: «+» над Элвином и когда золота хватает на усиление
+  const P = G.profile; const tr = G.npcs.find(n => n.id === 'trainer'); if (tr && !tr.marker && (P.attrPts || canLearnNow() || elvinBuy())) tr.marker = '+';   // М19: «+» над Элвином и когда золота хватает на усиление
 }
 export { Q };

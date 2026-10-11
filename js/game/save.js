@@ -149,6 +149,11 @@ export function migrate(p) {
     if (done.has('find_portal') || done.has('enter')) add('meet_kofi');
     p.story.flow60 = true;   // номер шага не пересчитываем: шаг ведётся по id (quests.js syncStory)
   }
+  // правки к сборке 60: кто обновился, стоя на «Найти портал» / «Войти в катакомбы», проскочил шаг Кофи и остался без питомца — возвращаем к Кофи
+  if (p.story && !p.story.flowKofi) {
+    if (!(p.story.done || []).includes('meet_kofi') && !(p.pets && p.pets.met) && ['find_portal', 'enter'].includes(p.story.cur)) p.story.cur = 'meet_kofi';
+    p.story.flowKofi = true;
+  }
   // fill any fields added later with defaults (forward-compatible)
   const d = newProfile();
   for (const k in d) if (!(k in p)) p[k] = d[k];

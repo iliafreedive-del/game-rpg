@@ -1,7 +1,7 @@
 // Character management: equipment, attribute points, skill tree learning & slots.
 import { G, bus } from './ctx.js';
 import { WEAPONS, CLASSES, SLOTS } from '../data/items.js';
-import { SKILLS, BRANCHES, rankLevel, prevNode, inClassTree } from '../data/skills.js';
+import { SKILLS, BRANCHES, rankLevel, prevNode, inClassTree, classSkillOrder } from '../data/skills.js';
 import { stats, meetsReq, usefulness, compare } from './stats.js';
 import { sellValue } from './items.js';
 import { firstLessonCost, potionReserve } from './progress.js';
@@ -70,6 +70,8 @@ export function canLearn(id) {
   if (P.skillPts <= 0) return { ok: false, why: 'Нет очков навыков — получите новый уровень' };
   return { ok: true };
 }
+// правки к сборке 60: «Навыки» у Элвина мигают, только если умение можно изучить прямо сейчас (уровень, прошлый узел, золото) — одного очка мало
+export const canLearnNow = () => G.profile.skillPts > 0 && classSkillOrder(cls()).some(id => canLearn(id).ok && G.profile.gold >= skillCost(id));
 export function learn(id, pay = false, first = false) {
   const c = first ? (G.profile.skillPts > 0 ? { ok: true } : { ok: false, why: 'Нет очков навыков' }) : canLearn(id); if (!c.ok) { bus.emit('toast', { text: c.why, kind: 'warn' }); bus.emit('sfx', 'deny'); return false; }
   const P = G.profile;

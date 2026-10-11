@@ -58,7 +58,7 @@ function render(force) {
   if (T.id === 'trainer') {
     head('Наставник Элвин', 'Здесь изучают умения. Ниже — усиления за золото (Меткость — за осколки Бездны ◆).'); bal();
     const b2 = el('div', 'pn-tabs');
-    const sk = el('button', 'pn-tab' + (P.skillPts ? ' hot' : ''), `<span>✦</span><b>Навыки</b>${P.skillPts ? `<i>+${P.skillPts}</i>` : ''}`); sk.id = 'tBtnSkills'; sk.onclick = () => W.skills({ npc: true });
+    const sk = el('button', 'pn-tab' + (CH.canLearnNow() ? ' hot' : ''), `<span>✦</span><b>Навыки</b>${P.skillPts ? `<i>+${P.skillPts}</i>` : ''}`); sk.id = 'tBtnSkills'; sk.onclick = () => W.skills({ npc: true });
     b2.append(sk); box.appendChild(b2);
     if (P.skillPts && !Object.values(P.skills || {}).some(Boolean)) box.appendChild(el('div', 'pn-tip', '💡 Сначала изучите <b>активное умение</b> — оно появится кнопкой справа внизу и сильно упростит бои.'));
     box.appendChild(el('div', 'pn-sub', 'Усиления'));
@@ -104,9 +104,12 @@ function render(force) {
     // сборка 58: Караванщик Кофи — питомцы за осколки Бездны (js/data/pets.js, js/game/pets.js)
     const S = PT.petsOf(P);
     head('Караванщик Кофи', 'Зверьки из Пустошей. С вами ходит один: бьёт слабо, зато у каждого свой дар.'); bal();
-    if (!S.met) {
+    // правки к сборке 60: подарок здесь брали в обход старосты (шаг «Заглянуть к Кофи» потом засчитывался сам) и без поздравления.
+    // До этого шага — только обещание; на шаге — крупная мигающая кнопка и праздник на весь экран (W.petReveal)
+    if (!S.met && earlyLock('pet')) box.appendChild(el('div', 'pn-tip', '🎁 У Кофи для вас подарок — заберёте, когда староста Эдрик отправит вас к нему.'));
+    else if (!S.met) {
       box.appendChild(el('div', 'pn-tip', `🎁 Подарок от Кофи: <b>${PETS[GIFT_PET].name}</b>. ${PETS[GIFT_PET].desc}`));
-      const g = el('button', 'btn gold', 'Принять подарок'); g.onpointerdown = e => { e.stopPropagation(); PT.meetCaravan(); bus.emit('sfx', 'rareDrop'); render(true); }; box.appendChild(g);
+      const g = el('button', 'btn gold pet-gift', '🎁 Забрать подарок'); g.onpointerdown = e => { e.stopPropagation(); if (PT.meetCaravan()) { dismissed = target; render(true); W.petReveal(); } }; box.appendChild(g);
     }
     const btn = (r, text, ok, fn, cls = '') => { const b = el('button', 'pn-btn' + (ok ? ' ok' : '') + cls, text); b.disabled = !ok; b.onpointerdown = e => { e.stopPropagation(); fn(); render(true); }; r.appendChild(b); };
     for (const [id, D] of Object.entries(PETS)) {
