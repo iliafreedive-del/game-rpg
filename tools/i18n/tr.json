@@ -2669,6 +2669,5 @@
  "<b>Мастерство:</b> {0}/{1} · {2}{3}": "<b>Ustalık:</b> {0}/{1} · {2}{3}",
  " зол. и очко навыка": " altın ve bir yetenek puanı",
  "Мастерство +1<small>{0}</small>": "Ustalık +1<small>{0}</small>",
- "Навыки без уровня и очков": "Seviye ve puan olmadan yetenekler",
- "Закалка: +10% к урону или защите за уровень (до +10), без риска поломки. Закалять вещи можно только здесь, у кузнеца. Закалка остаётся в слоте: надели новую вещь — она получает закалку прежней.": "Su verme: seviye başına hasar ya da savunmaya +%10 (+10'a kadar), kırılma riski yok. Eşyalara yalnızca burada, demircide su verilir. Su verme yuvada kalır: yeni eşya giyilince eskisinin su vermesini alır."
+ "Навыки без уровня и очков": "Seviye ve puan olmadan yetenekler"
 }

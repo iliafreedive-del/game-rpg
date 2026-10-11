@@ -653,7 +653,7 @@ W.npc_smith = (tab0) => {
     const tabs = el('div', 'tabs big-tabs'); for (const [k, n] of [['merge', 'Слияние 3→1'], ['upg', 'Закалка']]) { const t = el('button', 'tab' + (tab === k ? ' on' : ''), n); t.onclick = () => { tab = k; sel = null; rerender(); }; tabs.appendChild(t); } b.appendChild(tabs);
     if (tab === 'merge') { mergeTab(b); b.appendChild(el('p', 'goldc', `Ваше золото: ${fmt(P.gold)}`)); return; }
     b.appendChild(el('p', '', `<i>«${esc(DIALOG.smith.hello[1])}»</i>`));
-    b.appendChild(el('p', 'muted', 'Закалка: +10% к урону или защите за уровень (до +10), без риска поломки. Закалять вещи можно только здесь, у кузнеца. Закалка остаётся в слоте: надели новую вещь — она получает закалку прежней.'));
+    b.appendChild(el('p', 'muted', 'Закалка: +10% к урону или защите за уровень (до +10), без риска поломки. Закалять вещи можно только здесь, у кузнеца.'));
     const list = [...Object.entries(P.gear).filter(([, i]) => i).map(([s, i]) => i), ...P.bag.filter(i => i.rarity >= 1 || i.dmg || i.armor)];
     const shop = el('div', 'bag');
     for (const it of list) { const d = slotEl(it, '', sel === it.id ? 'sel' : ''); if (Object.values(P.gear).includes(it)) d.appendChild(el('span', 'up2', 'Надето')); d.onclick = () => { sel = it.id; rerender(); }; shop.appendChild(d); }

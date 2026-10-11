@@ -2669,6 +2669,5 @@
  "<b>Мастерство:</b> {0}/{1} · {2}{3}": "<b>Maîtrise :</b> {0}/{1} · {2}{3}",
  " зол. и очко навыка": " or et un point de compétence",
  "Мастерство +1<small>{0}</small>": "Maîtrise +1<small>{0}</small>",
- "Навыки без уровня и очков": "Compétences sans niveau ni points",
- "Закалка: +10% к урону или защите за уровень (до +10), без риска поломки. Закалять вещи можно только здесь, у кузнеца. Закалка остаётся в слоте: надели новую вещь — она получает закалку прежней.": "Trempe : +10 % de dégâts ou de défense par niveau (jusqu'à +10), sans risque de casse. On ne peut tremper qu'ici, chez le forgeron. La trempe reste dans l'emplacement : un nouvel objet équipé reprend la trempe de l'ancien."
+ "Навыки без уровня и очков": "Compétences sans niveau ni points"
 }

@@ -6,8 +6,8 @@
 import { G } from '../../js/game/ctx.js';
 import { stats, xpToNext, damageReduction } from '../../js/game/stats.js';
 import { makeItem, upgradeCost as upgradeCost0, maxRarityFor } from '../../js/game/items.js';
-// Цены кузнеца и Элвина — из игры (items.js priceK, data/upgrades.js); OLD=1 — без переноса закалки на новую вещь
-const FIX = process.env.OLD !== '1',   // перенос закалки на новую вещь (character.js carryUpg); цены — из игры
+// Цены кузнеца и Элвина — из игры (items.js priceK, data/upgrades.js); CARRY=1 — с переносом закалки (для сравнения)
+const FIX = process.env.CARRY === '1',   // перенос закалки на новую вещь — пользователь отказался, в игре его нет; цены — из игры
       _x = 0, PK = l => l <= 20 ? Math.pow(1.1, l - 1) : Math.pow(1.1, 19) * l / 20;
 const upgradeCost = upgradeCost0;
 import { CLASSES, GROWTH } from '../../js/data/items.js';

@@ -2669,6 +2669,5 @@
  "<b>Мастерство:</b> {0}/{1} · {2}{3}": "<b>Maestría:</b> {0}/{1} · {2}{3}",
  " зол. и очко навыка": " de oro y un punto de habilidad",
  "Мастерство +1<small>{0}</small>": "Maestría +1<small>{0}</small>",
- "Навыки без уровня и очков": "Habilidades sin nivel ni puntos",
- "Закалка: +10% к урону или защите за уровень (до +10), без риска поломки. Закалять вещи можно только здесь, у кузнеца. Закалка остаётся в слоте: надели новую вещь — она получает закалку прежней.": "Temple: +10% de daño o defensa por nivel (hasta +10), sin riesgo de romperse. Solo se puede templar aquí, con el herrero. El temple se queda en la ranura: al equipar un objeto nuevo, recibe el temple del anterior."
+ "Навыки без уровня и очков": "Habilidades sin nivel ni puntos"
 }

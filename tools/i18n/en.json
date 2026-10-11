@@ -2669,6 +2669,5 @@
  "<b>Мастерство:</b> {0}/{1} · {2}{3}": "<b>Mastery:</b> {0}/{1} · {2}{3}",
  " зол. и очко навыка": " gold and a skill point",
  "Мастерство +1<small>{0}</small>": "Mastery +1<small>{0}</small>",
- "Навыки без уровня и очков": "Skills without level or points",
- "Закалка: +10% к урону или защите за уровень (до +10), без риска поломки. Закалять вещи можно только здесь, у кузнеца. Закалка остаётся в слоте: надели новую вещь — она получает закалку прежней.": "Tempering: +10% damage or defense per level (up to +10), no risk of breaking. Items can only be tempered here, at the smith. Tempering stays in the slot: equip a new item and it inherits the old one's tempering."
+ "Навыки без уровня и очков": "Skills without level or points"
 }

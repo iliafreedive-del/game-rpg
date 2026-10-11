@@ -19,9 +19,6 @@ export function canEquip(it) {
   if (!meetsReq(G.profile, it, G.stats)) { const r = Object.entries(it.req).map(([k, v]) => `${ATTR_NAMES[k]} ${v}`).join(', '); return { ok: false, why: `Требуется: ${r}` }; }
   return { ok: true };
 }
-// перед релизом: закалка у слота, а не у вещи — новая вещь получает закалку надетой (если та выше), снятая остаётся без неё.
-// Иначе после 40 ур. каждая новая вещь сбрасывала закалку, а заново закалить было не по карману
-export function carryUpg(it, old) { if (it && old && old !== it && (old.upg || 0) > (it.upg || 0)) { it.upg = old.upg; old.upg = 0; } }
 export const ATTR_NAMES = { str: 'Сила', dex: 'Ловкость', int: 'Интеллект', vit: 'Живучесть' };
 export function equip(id, slotOverride) {
   const P = G.profile; const i = P.bag.findIndex(x => x.id === id); if (i < 0) return false;
@@ -30,7 +27,7 @@ export function equip(id, slotOverride) {
   P.bag.splice(i, 1); it.isNew = false;
   const back = [];
   if (P.gear[slot]) back.push(P.gear[slot]);
-  carryUpg(it, P.gear[slot]); P.gear[slot] = it;
+  P.gear[slot] = it;
   for (const b of back) P.bag.splice(Math.min(i, P.bag.length), 0, b);
   bus.emit('sfx', 'equip'); bus.emit('equipChanged', slot); recalc(); return true;
 }
@@ -115,7 +112,7 @@ export { BRANCHES };
 export function autoEquip(it, force) {
   const P = G.profile, slot = it.slot, old = P.gear[slot]; const e = { item: it };
   const ok = canEquip(it).ok;
-  if (ok && (!old || force)) { carryUpg(it, old); P.gear[slot] = it; e.equipped = true; if (old) { old.isNew = true; if (P.bag.length < P.bagSize) P.bag.push(old); else P.gold += sellValue(old); } recalc(); bus.emit('equipChanged', slot); }
+  if (ok && (!old || force)) { P.gear[slot] = it; e.equipped = true; if (old) { old.isNew = true; if (P.bag.length < P.bagSize) P.bag.push(old); else P.gold += sellValue(old); } recalc(); bus.emit('equipChanged', slot); }
   else { it.isNew = true; if (P.bag.length < P.bagSize) { P.bag.push(it); e.bagged = true; } else { const v = sellValue(it); P.gold += v; e.sold = v; e.soldNew = true; } bus.emit('hud'); }
   if (old && !e.equipped) { e.old = old; e.cmp = compare(P, it, slot).slice(0, 4); }
   return e;
@@ -123,6 +120,6 @@ export function autoEquip(it, force) {
 // надеть вещь из сумки: прежняя уходит в сумку
 export function equipFromBag(it) {
   const P = G.profile, i = P.bag.indexOf(it); if (i < 0) return false; const old = P.gear[it.slot];
-  carryUpg(it, old); P.gear[it.slot] = it; P.bag.splice(i, 1); if (old) { old.isNew = true; P.bag.push(old); }
+  P.gear[it.slot] = it; P.bag.splice(i, 1); if (old) { old.isNew = true; P.bag.push(old); }
   it.isNew = false; recalc(); bus.emit('equipChanged', it.slot); bus.emit('sfx', 'equip'); bus.emit('hud'); return true;
 }

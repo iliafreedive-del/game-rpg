@@ -2669,6 +2669,5 @@
  "<b>Мастерство:</b> {0}/{1} · {2}{3}": "<b>Maestria:</b> {0}/{1} · {2}{3}",
  " зол. и очко навыка": " de ouro e um ponto de habilidade",
  "Мастерство +1<small>{0}</small>": "Maestria +1<small>{0}</small>",
- "Навыки без уровня и очков": "Habilidades sem nível nem pontos",
- "Закалка: +10% к урону или защите за уровень (до +10), без риска поломки. Закалять вещи можно только здесь, у кузнеца. Закалка остаётся в слоте: надели новую вещь — она получает закалку прежней.": "Têmpera: +10% de dano ou defesa por nível (até +10), sem risco de quebrar. Itens só podem ser temperados aqui, no ferreiro. A têmpera fica no espaço: ao equipar um item novo, ele recebe a têmpera do anterior."
+ "Навыки без уровня и очков": "Habilidades sem nível nem pontos"
 }
