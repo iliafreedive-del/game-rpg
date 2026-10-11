@@ -512,15 +512,24 @@ function drawStatusFx() {
   if (P.warcry > G.time) drawStatusSheet(ctx, cam, 'st_warcry_buff', P.x, P.y, 0, 2, 0.8);
   if (P.rootedT > G.time && zoneRealm() === 'forest') drawStatusSheet(ctx, cam, 'st_rooted', P.x, P.y, 0, 1.5);
 }
+// правки 4 (П4-7): частица — мягкая круглая точка (радиальный градиент её цвета), а не квадрат fillRect. Спрайт на цвет кешируется (цветов — пара десятков)
+const DOTS = new Map();
+function dotOf(c) {
+  const k = c.join(); let d = DOTS.get(k); if (d) return d;
+  d = document.createElement('canvas'); d.width = d.height = 16; const x = d.getContext('2d'), g = x.createRadialGradient(8, 8, 0, 8, 8, 8);
+  g.addColorStop(0, `rgba(${c[0]},${c[1]},${c[2]},1)`); g.addColorStop(0.45, `rgba(${c[0]},${c[1]},${c[2]},0.85)`); g.addColorStop(1, `rgba(${c[0]},${c[1]},${c[2]},0)`);
+  x.fillStyle = g; x.fillRect(0, 0, 16, 16); DOTS.set(k, d); return d;
+}
 function drawParticles() {
   const cam = G.cam, z = cam.zoom;
   for (const p of G.particles) {
     const [x, y] = cam.toScreen(p.x, p.y, p.z); const a = 1 - p.t / p.life;
     if (p.add) ctx.globalCompositeOperation = 'lighter';
-    ctx.fillStyle = `rgba(${p.c[0]},${p.c[1]},${p.c[2]},${a})`; const s = p.size * z * (p.add ? a * 0.7 + 0.3 : 1);
-    ctx.fillRect(x - s / 2, y - s / 2, s, s);
+    ctx.globalAlpha = a; const s = p.size * z * (p.add ? a * 0.7 + 0.3 : 1) * 1.6;   // ×1,6: край градиента прозрачный — видимое пятно того же размера, что был квадрат
+    ctx.drawImage(dotOf(p.c), x - s / 2, y - s / 2, s, s);
     if (p.add) ctx.globalCompositeOperation = 'source-over';
   }
+  ctx.globalAlpha = 1;
 }
 // цвет уровня врага относительно героя, как в WoW: серый — переросли (мало опыта), зелёный, жёлтый — ровня, оранжевый, красный — опасно
 export const lvlColor = l => { const d = l - ((G.profile && G.profile.level) || 1); return d <= -5 ? '#9a9a9a' : d <= -2 ? '#6fd36f' : d <= 1 ? '#f2e05a' : d <= 4 ? '#ff9a3c' : '#ff4a3a'; };
