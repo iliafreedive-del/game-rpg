@@ -4,7 +4,7 @@
 //  3) зов в деревне — «!» над солнечной аркой и короткий тост при возвращении, когда в Цитадели что-то готово (не чаще раза в 90 минут).
 import { G, bus, inCombat } from './ctx.js';
 import * as CS from './castle.js';
-import { ROOMS } from '../data/upgrades.js';
+import { ROOMS, DECOR } from '../data/upgrades.js';
 import { grant } from './quests.js';
 import { earlyLock } from './progress.js';
 import { Enemy } from './entities.js';
@@ -15,20 +15,22 @@ export const START_LVL = 3, RIFT_LVL = 5, RIFT_MS = 8 * H, NUDGE_MS = 90 * 60e3;
 export const RIFT_POS = [17, 15.4];   // северный проход из зала к галерее (js/world/castlegen.js)
 const cs = () => CS.C();
 const n = k => cs()[k] || 0;
+const can = id => () => CS.canUnlock(id).ok;   // П4-11: шаг можно сделать прямо сейчас (хватает золота/осколков) — только тогда «!» над аркой
+const afford = c => G.profile.gold >= c.gold && (G.profile.shards || 0) >= c.shards;
 
 // ---- поручения: выполняются по настоящему состоянию Цитадели, по порядку; шаг ждёт свой уровень
 export const CQ = [
-  { id: 'enter', lvl: 3, title: 'Войти в Цитадель Ордена', text: 'Эдрик: «Орден оставил стражу крепость. Солнечная арка в деревне ведёт в Цитадель — загляни».', done: () => n('visits') > 0, reward: { gold: 300, shards: 3 } },
-  { id: 'altar', lvl: 3, title: 'Разжечь Алтарь золота', text: 'Откройте Алтарь золота в западном крыле: он копит золото до 8 часов, даже когда вас нет в игре.', done: () => n('altar') > 0, reward: { shards: 3 } },
-  { id: 'take', lvl: 3, title: 'Забрать золото с алтаря', text: 'Алтарь уже копит. Вернитесь в Цитадель через час-другой и заберите золото.', done: () => n('taken') > 0, reward: { gold: 100, shards: 2 } },
-  { id: 'decor', lvl: 3, title: 'Обставить главный зал', text: 'Светящиеся круги в зале — места для украшений. Каждое украшение даёт постоянный бонус.', done: () => Object.keys(cs().decor || {}).length > 0, reward: { shards: 3 } },
-  { id: 'trial', lvl: 5, title: 'Открыть Зал испытаний', text: 'Восточное крыло: стражи прошлого бьются прямо в Цитадели — без спуска в подземелье.', done: () => n('trial') > 0, reward: { shards: 4 } },
-  { id: 'trialwin', lvl: 5, title: 'Пройти испытание', text: 'Победите стража в Зале испытаний. Вход — печать испытаний, они восстанавливаются сами.', done: () => n('trialWins') > 0, reward: { gold: 400, shards: 3 } },
-  { id: 'rift', lvl: 5, title: 'Закрыть Разлом Бездны', text: 'В северном проходе Цитадели трещит Разлом Бездны. Подойдите к нему и отбейте три волны.', done: () => n('rifts') > 0, reward: { shards: 4 } },
-  { id: 'treasury', lvl: 7, title: 'Открыть Сокровищницу Бездны', text: 'Северо-западное крыло: сундуки за осколки Бездны, в них вещи вашего класса.', done: () => n('treasury') > 0, reward: { shards: 8 } },
-  { id: 'chest', lvl: 7, title: 'Открыть сундук Бездны', text: 'Сундук в Сокровищнице стоит 8 осколков. Внутри — вещь вашего класса, иногда эпическая.', done: () => n('chests') > 0, reward: { gold: 600 } },
-  { id: 'trophyroom', lvl: 9, title: 'Открыть Зал трофеев', text: 'Северо-восточное крыло: трофеи дают постоянный бонус к урону и золоту.', done: () => n('trophy') > 0, reward: { shards: 10 } },
-  { id: 'trophy', lvl: 9, title: 'Поставить новый трофей', text: 'Улучшите трофей в Зале трофеев: +3% урона и +5% золота навсегда.', done: () => n('trophy') >= 2, reward: { gold: 800, shards: 5 } },
+  { id: 'enter', lvl: 3, title: 'Войти в Цитадель Ордена', text: 'Эдрик: «Орден оставил стражу крепость. Солнечная арка в деревне ведёт в Цитадель — загляни».', done: () => n('visits') > 0, now: () => true, reward: { gold: 300, shards: 3 } },
+  { id: 'altar', lvl: 3, title: 'Разжечь Алтарь золота', text: 'Откройте Алтарь золота в западном крыле: он копит золото до 8 часов, даже когда вас нет в игре.', done: () => n('altar') > 0, now: can('altar'), reward: { shards: 3 } },
+  { id: 'take', lvl: 3, title: 'Забрать золото с алтаря', text: 'Алтарь уже копит. Вернитесь в Цитадель через час-другой и заберите золото.', done: () => n('taken') > 0, now: () => CS.altarStored() >= CS.altarRate(), reward: { gold: 100, shards: 2 } },
+  { id: 'decor', lvl: 3, title: 'Обставить главный зал', text: 'Светящиеся круги в зале — места для украшений. Каждое украшение даёт постоянный бонус.', done: () => Object.keys(cs().decor || {}).length > 0, now: () => Object.values(DECOR).some(afford), reward: { shards: 3 } },
+  { id: 'trial', lvl: 5, title: 'Открыть Зал испытаний', text: 'Восточное крыло: стражи прошлого бьются прямо в Цитадели — без спуска в подземелье.', done: () => n('trial') > 0, now: can('trial'), reward: { shards: 4 } },
+  { id: 'trialwin', lvl: 5, title: 'Пройти испытание', text: 'Победите стража в Зале испытаний. Вход — печать испытаний, они восстанавливаются сами.', done: () => n('trialWins') > 0, now: () => CS.seals().n > 0, reward: { gold: 400, shards: 3 } },
+  { id: 'rift', lvl: 5, title: 'Закрыть Разлом Бездны', text: 'В северном проходе Цитадели трещит Разлом Бездны. Подойдите к нему и отбейте три волны.', done: () => n('rifts') > 0, now: () => riftOpen(), reward: { shards: 4 } },
+  { id: 'treasury', lvl: 7, title: 'Открыть Сокровищницу Бездны', text: 'Северо-западное крыло: сундуки за осколки Бездны, в них вещи вашего класса.', done: () => n('treasury') > 0, now: can('treasury'), reward: { shards: 8 } },
+  { id: 'chest', lvl: 7, title: 'Открыть сундук Бездны', text: 'Сундук в Сокровищнице стоит 8 осколков. Внутри — вещь вашего класса, иногда эпическая.', done: () => n('chests') > 0, now: () => (G.profile.shards || 0) >= CS.CHEST_SHARDS, reward: { gold: 600 } },
+  { id: 'trophyroom', lvl: 9, title: 'Открыть Зал трофеев', text: 'Северо-восточное крыло: трофеи дают постоянный бонус к урону и золоту.', done: () => n('trophy') > 0, now: can('trophy'), reward: { shards: 10 } },
+  { id: 'trophy', lvl: 9, title: 'Поставить новый трофей', text: 'Улучшите трофей в Зале трофеев: +3% урона и +5% золота навсегда.', done: () => n('trophy') >= 2, now: () => afford(CS.trophyCost()), reward: { gold: 800, shards: 5 } },
 ];
 const started = () => { const P = G.profile; return P && P.level >= START_LVL && !earlyLock('extra') && !!(P.story.flags.bossKilled || P.level >= 5); };
 // старые сохранения (до правок 3 счётчика visits нет): что уже сделано — засчитываем без наград, иначе разом 11 окон наград
@@ -86,13 +88,18 @@ function riftKill(e) {
 export function calls() {
   const P = G.profile; if (!P || !started()) return [];
   const c = cs(), out = [];
-  if (cqAvailable()) out.push({ k: 'q' + c.q, text: 'Поручение Цитадели: ' + cqCurrent().title });
+  if (cqAvailable() && cqCurrent().now()) out.push({ k: 'q' + c.q, text: 'Поручение Цитадели: ' + cqCurrent().title });
   if (riftOpen()) out.push({ k: 'rift' + (c.riftAt || 0), text: 'В Цитадель прорвалась Бездна: закройте разлом — осколки и золото' });
   if (c.altar && CS.altarStored() >= CS.altarRate() * 4) out.push({ k: 'altar', text: `Алтарь накопил ${CS.altarStored()} золота` });
   if (c.trial && CS.seals().n >= CS.SEAL_MAX && (P.story.flags.eliteKilled || P.story.flags.bossKilled)) out.push({ k: 'seals', text: 'Печати испытаний полны — стражи ждут в Зале испытаний' });
   if (c.treasury && (P.shards || 0) >= CS.CHEST_SHARDS * 2) out.push({ k: 'chest', text: 'Осколков хватает на сундуки в Сокровищнице' });
   for (const id of Object.keys(ROOMS)) if (!c[id] && CS.canUnlock(id).ok) { out.push({ k: 'room_' + id, text: 'Можно открыть: ' + ROOMS[id].name }); break; }
   return out;
+}
+// П4-11: внутри Цитадели стрелка ведёт к тому, ради чего звал «!»: к разлому, иначе к карте цитадели (там поручение и комнаты)
+export function callTarget() {
+  const L = calls(); if (!L.length || !G.zone) return null;
+  return (/^rift/.test(L[0].k) && G.zone.inter.find(i => i.id === 'castle_rift' && !i.hidden)) || G.zone.inter.find(i => i.id === 'castle_guide') || null;
 }
 function nudge(tries = 0) {
   if (G.zoneId !== 'town') return;
@@ -117,6 +124,6 @@ export function tick() {
   if (!G.profile || !G.zone) return;
   cqCheck();
   if (G.zoneId === 'town') { const pc = G.zone.inter.find(i => i.id === 'portal_castle'); if (pc) pc.marker = G.profile.level >= START_LVL && calls().length ? '!' : null; }
-  if (G.zoneId === 'castle') { const g = G.zone.inter.find(i => i.id === 'castle_guide'); if (g) g.plate = cqAvailable() ? 'Карта цитадели · поручение' : 'Карта цитадели'; }   // «!» над картой путался со Стеной врагов
+  if (G.zoneId === 'castle') { const g = G.zone.inter.find(i => i.id === 'castle_guide'); if (g) g.plate = cqAvailable() && cqCurrent().now() ? 'Карта цитадели · поручение' : 'Карта цитадели'; }   // «!» над картой путался со Стеной врагов
   if (G.zoneId === 'castle') { const r = G.zone.inter.find(i => i.id === 'castle_rift'); if (r && !G.rift && !riftOpen() && !r.hidden) { r.hidden = true; if (r.draw) r.draw.hidden = true; if (r.light) r.light.on = false; } }
 }
