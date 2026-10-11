@@ -78,7 +78,18 @@ function spot(zone, cur) {
   if (cur.place === 'depths' && zone.json.floorN !== cur.floor) return null;
   const keys = Object.keys(zone.rooms); if (!keys.length) return null;
   const r = cur.place === 'catacombs' ? zone.rooms[cur.room] : zone.rooms[keys[Math.min(keys.length - 1, Math.max(1, Math.floor(keys.length / 2)))]];
-  return r ? [r[0] + r[2] / 2, r[1] + r[3] / 2] : null;
+  return r ? awayFromStart(zone, [r[0] + r[2] / 2, r[1] + r[3] / 2]) : null;
+}
+// сборка 61: чудовище охоты не стоит у входного портала — игрок ещё не освоился, а рядом сложный босс.
+// Зал ближе FAR клеток к старту/порталу → ближайший к нему зал, который уже достаточно далеко (служебные залы катакомб — мимо)
+const FAR = 14, SKIP = new Set(['entry', 'altar', 'arena', 'secret', 'hall', 'guard', 'trial']);
+function awayFromStart(zone, at) {
+  const marks = [zone.start, ...zone.inter.filter(i => i.type === 'portal' || i.type === 'exit').map(i => [i.x, i.y])].filter(Boolean);
+  const gap = ([x, y]) => Math.min(...marks.map(m => Math.hypot(m[0] - x, m[1] - y)));
+  if (!marks.length || gap(at) >= FAR) return at;
+  const c = Object.entries(zone.rooms).filter(([k]) => !SKIP.has(k)).map(([, r]) => [r[0] + r[2] / 2, r[1] + r[3] / 2]);
+  const ok = c.filter(p => gap(p) >= FAR).sort((a, b) => Math.hypot(a[0] - at[0], a[1] - at[1]) - Math.hypot(b[0] - at[0], b[1] - at[1]));
+  return ok[0] || c.sort((a, b) => gap(b) - gap(a))[0] || at;
 }
 export function spawnFor(zone, live) {
   const cur = current(); if (!cur || cur.slain || !zone) return null;

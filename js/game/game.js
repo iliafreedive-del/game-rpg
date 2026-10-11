@@ -279,6 +279,7 @@ bus.on('kill', e => {
   if (G.zoneId === 'depths' && G.run && G.run.floor > 0 && G.enemies.every(x => x.dead || x.summoned || x.respawned)) {
     const ex = G.zone.inter.find(i => i.id === 'floor_exit'); if (ex && ex.hidden) { ex.hidden = false; ex.draw.hidden = false; ex.light.on = true; C.particles(ex.x, ex.y, 30, { c: [140, 210, 255], sp: 3, size: 4 }); bus.emit('toast', { text: 'Этаж зачищен!', sub: 'Портал выхода открыт', kind: 'good' }); bus.emit('sfx', 'portal'); }
   }
+  if (e.story === 'elite') for (const o of G.enemies) if (!o.dead && o.master === e) C.killEnemy(o, { quiet: true });   // сборка 61: подмога Хранителя рассыпается с ним
   if (e.D.boss && G.zoneId === 'catacombs') {
     G.profile.world.opened.bossPortal = true; G.profile.world.bossPortal = true;
     const it = G.zone.inter.find(i => i.id === 'portal_return');
@@ -307,11 +308,13 @@ bus.on('kill', e => {   // «Взрывной» чемпион: взрыв че�
   C.effect({ kind: 'ring', x: e.x, y: e.y, r: 2.6, dur: 0.6, c: [255, 120, 60] });
   setTimeout(() => { const pl = G.player; if (pl && !pl.dead && G.zone && Math.hypot(pl.x - e.x, pl.y - e.y) < 2.6) C.hurtPlayer({ lvl: e.lvl }, 10 * e.dmgMul * (1 + e.lvl * 0.1), 'fire'); C.particles(e.x, e.y, 24, { c: [255, 150, 60], sp: 3, size: 4 }); bus.emit('sfx', 'fire'); }, 600);
 });
-bus.on('summon', ({ x, y, n, lvl }) => {
+bus.on('summon', ({ x, y, n, lvl, types, master }) => {
   for (let i = 0; i < n; i++) {
-    const a = rand() * 6.28, r = rrange(2, 3.5); const px = x + Math.cos(a) * r, py = y + Math.sin(a) * r;
-    if (!G.zone.map.free(px, py, 0.35)) continue;
-    const e = new Enemy(rand() < 0.3 ? 'skel_archer' : 'skel_warrior', px, py, Math.max(1, lvl - 1)); e.aggro = true; e.summoned = true;
+    let px = 0, py = 0, ok = false;   // сборка 61: до 6 попыток найти свободное место (в тесном зале подмога иногда не появлялась)
+    for (let k = 0; k < 6 && !ok; k++) { const a = rand() * 6.28, r = rrange(2, 3.5); px = x + Math.cos(a) * r; py = y + Math.sin(a) * r; ok = G.zone.map.free(px, py, 0.35); }
+    if (!ok) continue;
+    const t = types ? types[Math.floor(rand() * types.length)] : rand() < 0.3 ? 'skel_archer' : 'skel_warrior';
+    const e = new Enemy(t, px, py, Math.max(1, lvl - 1)); e.aggro = true; e.summoned = true; if (master) e.master = master;
     C.particles(px, py, 14, { c: [170, 90, 255], sp: 2, size: 3 }); G.enemies.push(e);
   }
 });
@@ -456,21 +459,38 @@ function autoTick(inp) {
     if (d > 0.9) { const g = map.guideDir(pl.x, pl.y, goal.x, goal.y) || [(goal.x - pl.x) / d, (goal.y - pl.y) / d]; { const [sx, sy] = steer(pl, map, g[0], g[1]); inp.wx = sx; inp.wy = sy; } inp.mag = 0.8; A.wanted = true; A.wx = g[0]; A.wy = g[1]; }
   }
 }
-// правки мамы (М27): короткое касание экрана — герой бежит в эту точку; ткнули во врага — он становится целью (как раньше).
-// Джойстик, «Веди меня», автобой, окно или 6 с в пути — бег к точке отменяется
+// правки мамы (М27) → сборка 61: касание пустого места больше никуда не ведёт (мимо кнопки «Открыть» герой убегал не туда) —
+// ходят джойстиком в любом месте экрана. Ткнули во врага — он цель, герой бежит к нему до дистанции удара/выстрела и бьёт сам;
+// ткнули в сундук/саркофаг/тайник — бежит к нему и открывает. Джойстик, «Веди меня», автобой, окно или 8 с в пути — отмена
+const LOOT_TAP = new Set(['chest', 'sarc', 'stash', 'cache']);
+function tapTarget(sx, sy) {
+  // 3D: касание приходится на тело/крышку над землёй — проверяем точки чуть ниже пальца (к ногам)
+  let best = null, bd = 1e9;
+  for (const off of [20, 45, 75]) {
+    const [wx, wy] = G.cam.toWorld(sx, sy + off);
+    for (const e of G.enemies) { if (e.dead || e.hidden) continue; const d = Math.hypot(e.x - wx, e.y - wy) - 1.4 - (e.r || 0.4); if (d < 0 && d < bd) { bd = d; best = e; } }
+    for (const it of G.zone.inter) { if (it.done || it.hidden || !LOOT_TAP.has(it.type)) continue; const d = Math.hypot(it.x - wx, it.y - wy) - 1.1; if (d < 0 && d < bd) { bd = d; best = it; } }
+  }
+  return best;
+}
 let tapSeen = 0;
 function moveToTick(inp) {
   const pl = G.player, map = G.zone.map;
   if (tapMove.t !== tapSeen) { tapSeen = tapMove.t;
     if (!G.modalOpen && !pl.dead && G.zoneId !== 'survival') {
-      const [wx, wy] = G.cam.toWorld(tapMove.x, tapMove.y + 20), e = C.nearAim({ x: wx, y: wy }, 1.6);
-      if (e) { pl.focus = e; G.moveTo = null; }
-      else if (map.free(wx, wy, pl.r * 0.8)) { G.moveTo = { x: wx, y: wy, t: G.time }; if (G.lead) { G.lead = false; bus.emit('hud'); } }
-      else { const [fx, fy] = map.nearestFree(wx, wy, pl.r); G.moveTo = { x: fx, y: fy, t: G.time }; }
+      const t = tapTarget(tapMove.x, tapMove.y);
+      if (t) {
+        if (G.enemies.includes(t)) pl.focus = t;
+        G.moveTo = { x: t.x, y: t.y, t: G.time, to: t }; if (G.lead) { G.lead = false; bus.emit('hud'); }
+      }
     } }
   const m = G.moveTo; if (!m) return;
-  const d = Math.hypot(m.x - pl.x, m.y - pl.y);
-  if (inp.mag >= 0.12 || G.auto || G.lead || G.modalOpen || pl.dead || d < 0.5 || G.time - m.t > 6) { G.moveTo = null; return; }
+  const T = m.to, foe = T && G.enemies.includes(T);
+  if (T) { m.x = T.x; m.y = T.y; }
+  const d = Math.hypot(m.x - pl.x, m.y - pl.y), W = G.stats;
+  const arrived = foe ? (d <= (W.ranged ? W.range * 0.8 : W.range + 0.2) + T.r && C.sees(pl, T)) : T ? d < Math.min(1.2, T.r - 0.3) : d < 0.5;
+  if (inp.mag >= 0.12 || G.auto || G.lead || G.modalOpen || pl.dead || (T && (T.dead || T.done || T.hidden)) || G.time - m.t > 8) { G.moveTo = null; return; }
+  if (arrived) { G.moveTo = null; if (T && !foe && LOOT_TAP.has(T.type)) interact(T); return; }
   if (pl.busy()) return;
   const g = map.guideDir(pl.x, pl.y, m.x, m.y) || [(m.x - pl.x) / d, (m.y - pl.y) / d];
   const [sx, sy] = steer(pl, map, g[0], g[1]); inp.wx = sx; inp.wy = sy; inp.mag = Math.min(1, 0.5 + d * 0.25);
@@ -499,7 +519,7 @@ function tutorialTick() {
   const T = G.tut || (G.tut = { step: 0, t: 0 }); T.t += G.dt || 0.016;
   const say = (text, sub) => bus.emit('toast', { text, sub, kind: 'quest' });
   const point = (sel, text) => bus.emit('tutHand', { sel, text, time: 10 });
-  if (T.step === 0 && G.time - G.run.t0 > 0.8) { T.step = 1; point('joyZone', touch() ? 'Ведите пальцем по экрану — герой пойдёт. Коснитесь места — побежит туда' : 'Идите: WASD или зажмите правую кнопку мыши'); }
+  if (T.step === 0 && G.time - G.run.t0 > 0.8) { T.step = 1; point('joyZone', touch() ? 'Ведите пальцем в любом месте экрана — герой пойдёт. Коснитесь врага или сундука — побежит к нему' : 'Идите: WASD или зажмите правую кнопку мыши'); }
   else if (T.step === 1 && G.enemies.some(e => e.aggro)) { T.step = 2; point(null, 'Подойдите к врагу — герой бьёт сам. Ваше дело — двигаться и уклоняться'); }   // П31: без кнопки удара
   else if (T.step === 2 && G.run.kills >= 1) { T.step = 3; say('Отлично! Добейте остальных');
     // сборка 49 («новое — без настоящей угрозы»): оставшийся скелет — учитель: медленный подсвеченный замах, удар почти без урона.

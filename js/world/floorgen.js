@@ -223,7 +223,7 @@ function dressKind(r, i, c, { R, ri, put, wall, rect, g, X0, Y0, w, h, cx, cy })
 // арена — к востоку от Зала стражи (печать gate), тайник — тупик; ключ (sarc3) в оссуарии, до него нет ни дверей, ни печатей.
 const CATA_EXTRA = ['ring', 'library', 'barracks', 'split', 'collapsed', 'flooded', 'colonnade', 'shrine', 'vault', 'plain'];
 const CATA_POOL = ['skel_warrior', 'skel_warrior', 'skel_archer', 'skel_mage', 'bone_wolf', 'ghoul'];
-const CATA_MOBS = { entry: [3, ['skel_warrior']], ossuary: [5, ['skel_warrior', 'skel_archer']], guard: [5, ['skel_warrior', 'skel_archer']], altar: [3, ['skel_warrior', 'skel_mage']], secret: [2, ['ghoul']], arena: [0], shrine: [0] };
+const CATA_MOBS = { entry: [3, ['skel_warrior']], ossuary: [5, ['skel_warrior', 'skel_archer']], guard: [5, ['skel_warrior', 'skel_archer']], altar: [0], secret: [2, ['ghoul']], arena: [0], shrine: [0] };
 export function generateCatacombs(seed = (Math.random() * 4294967296) >>> 0) {
   const R = rng(seed ^ 0x5bd1e995), ri = (a, b) => a + Math.floor(R() * (b - a + 1)), pickOf = a => a[Math.floor(R() * a.length)];
   const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(R() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };

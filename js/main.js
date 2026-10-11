@@ -101,7 +101,7 @@ async function boot() {
     const n = el('button', 'btn gold', 'Начать игру'); n.onclick = newGame; btns.append(n);
   }
   btns.appendChild(el('div', 'muted', `<small>Версия: ${BUILD}</small>`));
-  btns.appendChild(el('div', 'muted', '<small>Телефон: ведите пальцем по экрану или коснитесь места — герой побежит; рывок и зелья справа · ПК: WASD, Shift — рывок</small>'));
+  btns.appendChild(el('div', 'muted', '<small>Телефон: ведите пальцем в любом месте экрана — герой пойдёт; коснитесь врага или сундука — побежит к нему; рывок и зелья справа · ПК: WASD, Shift — рывок</small>'));
   if (G.webglFail) btns.appendChild(el('div', 'muted', '<small>' + esc('3D-графика недоступна на этом устройстве — игра в 2D. Причина: ') + esc(G.webglFail) + '</small>'));   // П42
 }
 

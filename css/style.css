@@ -887,3 +887,5 @@ html.rm *,html.rm *::before,html.rm *::after{animation-duration:.01ms!important;
 /* М14: полоса загрузки живая — по ней бежит блик, даже когда проценты стоят */
 #loadbar{position:relative}#loadbar::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,#fff0,#ffe9a088,#fff0);width:40%;animation:ldshine 1.3s linear infinite}
 @keyframes ldshine{from{transform:translateX(-100%)}to{transform:translateX(260%)}}
+
+#portrait.gear-hint,.menu-tile.gear-hint{animation:gearh 1s ease-in-out infinite alternate}@keyframes gearh{from{box-shadow:0 0 0 2px #ffd24a88}to{box-shadow:0 0 0 4px #ffd24a,0 0 26px 6px #ffae00}}   /* сборка 61: задание «Осмотреть снаряжение» */

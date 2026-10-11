@@ -38,7 +38,14 @@ export function hideHand() { if (hand) { hand.remove(); hand = null; } if (line)
 // показать палец над элементом (или просто строку, если элемента нет)
 // кнопка только что открылась: подождать кадр, пока HUD её покажет, иначе «палец» не найдёт место
 export const pointSoon = (sel, text, o) => setTimeout(() => pointAt(sel, text, o), 150);
-export function pointAt(sel, text, { key = null, time = 9, mid = false, force = false, win = false } = {}) {
+// сборка 61: пока идёт «Загрузка…» (шторка смены зоны), палец и строка не показываются — подсказка ждёт, пока зона откроется
+const loading = () => !G.zoneReady || !!document.querySelector('#zoneVeil.on');
+let pend = null;
+bus.on('zoneLoading', () => hideHand());
+bus.on('zoneEntered', () => setTimeout(() => { const q = pend; pend = null; if (q && !loading()) pointAt(...q); }, 700));
+export function pointAt(sel, text, opt = {}) {
+  const { key = null, time = 9, mid = false, force = false, win = false } = opt;
+  if (loading()) { pend = [sel, text, opt]; return false; }
   const t = T(); if (t.off && !force) return false;
   if (force && (hand || line)) return false;   // напоминание не перебивает подсказку обучения
   if (key && t.tips[key]) return false;
@@ -63,7 +70,7 @@ function handTick() {
   if (!hand && !line) return;
   followHand();
   // сборка 60: подсказка внутри окна (win) не гаснет от самого окна — гаснет, когда её кнопка исчезла; строка о зуме гаснет, как только открыто окно или панель NPC (П7)
-  if (performance.now() > handUntil || G.cinema || (handWin ? !handWin.isConnected : G.modalOpen) || (zoomLine && G.panelTarget)) hideHand();
+  if (performance.now() > handUntil || G.cinema || loading() || (handWin ? !handWin.isConnected : G.modalOpen) || (zoomLine && G.panelTarget)) hideHand();
 }
 
 // ---------------------------------------------------------------- что и когда открывать
@@ -152,7 +159,7 @@ export async function intro() {
   const t = T(); if (t.introDone) return; t.introDone = true; bus.emit('save');
   // первые секунды в склепе: только движение. Остальному учим по ходу.
   if (G.run && G.run.floor === 0) return;   // сборка 49: в склепе это говорит пролог (tutorialTick в game.js) — без повтора
-  pointAt('joyZone', touch() ? 'Ведите пальцем по экрану — герой пойдёт. Коснитесь места — побежит туда' : 'Идите: WASD или зажмите правую кнопку мыши', { time: 10 });
+  pointAt('joyZone', touch() ? 'Ведите пальцем в любом месте экрана — герой пойдёт. Коснитесь врага или сундука — побежит к нему' : 'Идите: WASD или зажмите правую кнопку мыши', { time: 10 });
 }
 
 export function initTutorial() {
@@ -179,6 +186,14 @@ export function initTutorial() {
   const gearStep = () => { const q = G.profile && STORY[G.profile.story.stage]; return q && q.id === 'hero_gear'; };
   const portraitHint = () => { if (gearStep() && !G.modalOpen) pointAt('portrait', 'Нажмите на портрет — это окно героя', { time: 12 }); };
   bus.on('questNew', q => { if (q && q.id === 'hero_gear') setTimeout(function again(n = 0) { if (G.modalOpen && n < 30) return setTimeout(() => again(n + 1), 700); portraitHint(); }, 900); });
+  // сборка 61: задание «Осмотреть снаряжение» висит, а куда жать — не видно. Пока оно не выполнено: портрет (а в меню — плитка «Герой»)
+  // мигает золотом, и палец повторяется раз в 20 с, если игрок его пропустил
+  let gearAt = 0;
+  setInterval(() => { const on = !!(G.profile && G.zoneReady && !loading() && !G.cinema && gearStep());
+    const tile = document.querySelector('.menu-tile[data-w="inventory"]'), pt = $('portrait');
+    if (pt) pt.classList.toggle('gear-hint', on && !G.modalOpen); if (tile) tile.classList.toggle('gear-hint', on);
+    if (!on || G.modalOpen || hand || line) { gearAt = performance.now(); return; }
+    if (performance.now() - gearAt > 20000) { gearAt = performance.now(); portraitHint(); } }, 500);
   bus.on('menuOpened', () => { T().tips.hero = 1; if (gearStep()) pointAt(document.querySelector('.menu-tile[data-w="inventory"]'), '«Герой» — надетые вещи и сумка', { time: 12, win: true }); });
   bus.on('invOpened', () => {
     if (!hintsOn()) return; const t = T(); if (t.tips.inv1) return; t.tips.inv1 = 1; bus.emit('save');
