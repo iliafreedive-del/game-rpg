@@ -81,7 +81,7 @@ export function unlock(id) {
 export const altarRate = () => { const P = G.profile, l = P.castle.altar || 0; return l ? Math.round((35 + 25 * l) * (1 + P.level * 0.08)) : 0; };   // gold per hour
 export const altarUpgCost = () => { const l = G.profile.castle.altar; return { gold: Math.round(250 * Math.pow(1.6, l)), shards: 2 * l }; };
 export function altarStored() { const P = G.profile; C(); if (!P.castle.altar) return 0; unFuture(P.castle, 'altarAt'); const h = Math.min(8, (Date.now() - P.castle.altarAt) / H); return Math.floor(altarRate() * h); }
-export function altarCollect(mult = 1) { const g = altarStored(); if (!g) return 0; const P = G.profile; P.gold += g * mult; P.castle.altarAt = Date.now(); bus.emit('sfx', 'coin'); bus.emit('toast', { text: `Алтарь: +${g * mult} золота`, kind: 'good' }); bus.emit('hud'); bus.emit('save'); return g; }
+export function altarCollect(mult = 1) { const g = altarStored(); if (!g) return 0; const P = G.profile; P.gold += g * mult; P.castle.altarAt = Date.now(); P.castle.taken = (P.castle.taken || 0) + 1; bus.emit('sfx', 'coin'); bus.emit('toast', { text: `Алтарь: +${g * mult} золота`, kind: 'good' }); bus.emit('hud'); bus.emit('save'); return g; }
 export function altarUpgrade() {
   const P = G.profile, c = altarUpgCost(); if (P.castle.altar >= 10) return false;
   if (P.gold < c.gold || P.shards < c.shards) { bus.emit('toast', { text: `Нужно ${c.gold} золота и ${c.shards} осколков`, kind: 'warn' }); bus.emit('sfx', 'deny'); return false; }
@@ -98,7 +98,7 @@ export function trophyUpgrade() {
 export const CHEST_SHARDS = 8;
 export function openTreasury() {
   const P = G.profile; if (P.shards < CHEST_SHARDS) { bus.emit('toast', { text: `Нужно ${CHEST_SHARDS} осколков`, kind: 'warn' }); bus.emit('sfx', 'deny'); return false; }
-  P.shards -= CHEST_SHARDS;
+  P.shards -= CHEST_SHARDS; P.castle.chests = (P.castle.chests || 0) + 1;
   const roll = rand(); const it = roll < 0.07 ? makeItem({ epic: pickEpic(P.cls), ilvl: P.level + 1, cls: P.cls }) : makeItem({ slot: ['weapon', 'head', 'chest', 'amulet'][rint(0, 3)], ilvl: P.level + 1, rarity: roll < 0.45 ? 2 : 1, cls: P.cls });
   delete it.req; const e = autoEquip(it); const gold = 30 * P.level; P.gold += gold;
   bus.emit('reward', { title: 'Сундук Бездны', sub: roll < 0.07 ? 'ДЖЕКПОТ!' : 'Сокровищница', gold, xp: 0, potions: 0, scrolls: 0, skillPts: 0, items: [e] });
@@ -112,7 +112,7 @@ export const TRIALS = [
   { id: 't4', name: 'Магистр Морвен', type: 'boss', lvl: 8, req: 18 },   // финал Главы IV (js/data/story.js)
 ];
 export function trialReward(t) {
-  const P = G.profile; const gold = Math.round(80 * P.level * (1 + t.lvl * 0.3)); P.gold += gold;
+  const P = G.profile; const gold = Math.round(80 * P.level * (1 + t.lvl * 0.3)); P.gold += gold; P.castle.trialWins = (P.castle.trialWins || 0) + 1;   // правки 3: поручения Цитадели (js/game/citadel.js)
   const shards = rint(2, 4) + t.lvl; P.shards += shards;
   const items = [];
   if (rand() < 0.35 + t.lvl * 0.08) { const slot = ['weapon', 'head', 'chest', 'amulet'][rint(0, 3)]; const it = rand() < 0.05 + t.lvl * 0.02 ? makeItem({ epic: pickEpic(P.cls), ilvl: P.level + 1, cls: P.cls }) : makeItem({ slot, ilvl: P.level + 1, rarity: rand() < 0.4 ? 2 : 1, cls: P.cls }); delete it.req; items.push(autoEquip(it)); }

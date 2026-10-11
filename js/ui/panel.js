@@ -9,6 +9,7 @@ import * as CH from '../game/character.js';
 import * as EC from '../game/economy.js';
 import * as Q from '../game/quests.js';
 import * as CS from '../game/castle.js';
+import * as CT from '../game/citadel.js';
 import * as DQ from '../game/daily.js';
 import { upgradeCost, MAX_UPG, iconOf } from '../game/items.js';
 import { iconURL } from './icons.js';
@@ -153,6 +154,12 @@ function render(force) {
     box.appendChild(el('p', 'muted', '<small>Осколки Бездны выпадают случайно: с элиты, чемпионов, стражей, боссов и из сундуков.</small>'));
   } else if (T.type === 'castleguide') {
     head('Карта цитадели', 'Нажмите «Перейти» — окажетесь у входа в комнату.'); bal();
+    { // правки 3: поручение Цитадели и Разлом Бездны (js/game/citadel.js)
+      const q = CT.cqCurrent(), i = CT.CQ.indexOf(q);
+      if (q) box.appendChild(el('div', 'pn-big', `<small>Поручение Цитадели ${i + 1}/${CT.CQ.length}</small><br><b>${esc(q.title)}</b><br><small>${P.level >= q.lvl ? esc(q.text) : `Откроется с ${q.lvl} уровня`}</small><br><small class="good">Награда: ${[q.reward.gold ? fmt(q.reward.gold) + ' зол.' : '', q.reward.shards ? q.reward.shards + '◆' : ''].filter(Boolean).join(' · ')}</small>`));
+      else box.appendChild(el('p', 'muted', '<small>Все поручения Цитадели выполнены.</small>'));
+      box.appendChild(el('p', CT.riftOpen() ? 'good' : 'muted', `<small>${CT.riftOpen() ? '⚠ Разлом Бездны открыт — северный проход. Три волны, в конце осколки и золото.' : P.level < CT.RIFT_LVL ? `Разлом Бездны — с ${CT.RIFT_LVL} уровня.` : `Разлом Бездны снова прорвётся через ${Math.ceil(CT.riftIn() / 60e3)} мин.`}</small>`));
+    }
     const rooms = G.zone.json.rooms;
     for (const [id, R] of Object.entries(ROOMS)) {
       const open = P.castle[id]; const gate = G.zone.inter.find(i => i.type === 'roomgate' && i.room === id);
