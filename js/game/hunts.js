@@ -9,6 +9,8 @@ import * as Q from './quests.js';
 import { HUNTS, PLACES, ROOM_NAMES, MINIBOSSES, HUNT_EVERY, HUNT_FIRST, huntReward } from '../data/hunts.js';
 import { ROOM_LEVEL } from '../data/enemies.js';
 import { floorLevel } from '../world/floorgen.js';
+import { REALMS, wildLevel, wildReqLevel, isWildFort } from '../data/wild.js';
+import { gate, wildDepthGate } from './progress.js';
 import { rand, rrange, pick } from '../core/util.js';
 
 export function state() {
@@ -27,7 +29,16 @@ export const readyToTurnIn = () => { const c = current(); return !!(c && c.slain
 export const msLeft = () => Math.max(0, state().nextAt - Date.now());
 
 const depthsOpen = P => !!P.story.flags.bossKilled || !!(P.depths && P.depths.best > 0);
-function available(H, P) { return P.level >= H.minLevel && (H.place !== 'depths' || depthsOpen(P)); }
+// П4-8: глубины похода, где герой уже был и куда его пустят (без фортов — там стены и ворота)
+function wildSpots(P) {
+  const out = [];
+  for (const realm of Object.keys(REALMS)) {
+    const best = (P.wild && P.wild[realm] && P.wild[realm].depth) || 0; if (!best || gate(realm) || P.level < REALMS[realm].reqLevel) continue;
+    for (let d = Math.max(1, best - 3); d <= best; d++) if (!isWildFort(d) && P.level >= wildReqLevel(realm, d) && !wildDepthGate(realm, d)) out.push({ realm, floor: d });
+  }
+  return out;
+}
+function available(H, P) { return P.level >= H.minLevel && (H.place !== 'depths' || depthsOpen(P)) && (H.place !== 'wild' || wildSpots(P).length > 0); }
 function placeFor(H, P) {
   if (H.place === 'catacombs') return { room: pick(H.rooms) };
   if (H.place === 'depths') {   // a floor the hero can actually enter: up to the next unexplored one
@@ -35,10 +46,12 @@ function placeFor(H, P) {
     for (let f = Math.max(1, best - 3); f <= best + 1; f++) if (P.level >= floorLevel(f) - 1) fl.push(f);
     return fl.length ? { floor: pick(fl) } : null;
   }
+  if (H.place === 'wild') { const L = wildSpots(P); return L.length ? pick(L) : null; }
   return {};
 }
 function levelOf(cur, P) {
   if (cur.place === 'depths') return floorLevel(cur.floor) + 1;
+  if (cur.place === 'wild') return wildLevel(cur.realm, cur.floor) + 1;
   if (cur.place === 'catacombs') return Math.max(P.level, (ROOM_LEVEL[cur.room] || 3) + 1);
   return Math.max(2, P.level);
 }
@@ -46,10 +59,12 @@ export function whereText(cur) {
   const p = PLACES[cur.place];
   if (cur.place === 'catacombs') return `${p.name}, зал «${ROOM_NAMES[cur.room] || cur.room}»`;
   if (cur.place === 'depths') return `${p.name}, этаж ${cur.floor}`;
+  if (cur.place === 'wild') return `${REALMS[cur.realm].name}, глубина ${cur.floor}`;
   return p.name;
 }
-export const steps = cur => PLACES[cur.place].steps.map(s => s.replace('{room}', ROOM_NAMES[cur.room] || '').replace('{floor}', cur.floor));
+export const steps = cur => PLACES[cur.place].steps.map(s => s.replace('{room}', ROOM_NAMES[cur.room] || '').replace('{floor}', cur.floor).replace('{realm}', cur.realm ? REALMS[cur.realm].name : ''));
 export const huntFloor = () => { const c = current(); return c && !c.slain && c.place === 'depths' ? c.floor : 0; };
+export const huntWild = realm => { const c = current(); return c && !c.slain && c.place === 'wild' && c.realm === realm ? c.floor : 0; };   // П4-8
 
 export function start() {
   const P = G.profile, h = state(); if (h.cur) return null;
@@ -76,6 +91,11 @@ function spot(zone, cur) {
   const p = PLACES[cur.place]; if (p.zone !== zone.id) return null;
   if (p.at) return p.at;
   if (cur.place === 'depths' && zone.json.floorN !== cur.floor) return null;
+  if (cur.place === 'wild') {   // П4-8: только на своей глубине своего похода — у лагеря на середине пути
+    const W = zone.json.wild; if (!W || W.realm !== cur.realm || W.depth !== cur.floor) return null;
+    const [sx, sy] = zone.start, c = (zone.json.spawns || []).filter(s => !s[6]).sort((a, b) => Math.hypot(a[1] - sx, a[2] - sy) - Math.hypot(b[1] - sx, b[2] - sy));
+    return c.length ? awayFromStart(zone, [c[c.length >> 1][1], c[c.length >> 1][2]]) : null;
+  }
   const keys = Object.keys(zone.rooms); if (!keys.length) return null;
   const r = cur.place === 'catacombs' ? zone.rooms[cur.room] : zone.rooms[keys[Math.min(keys.length - 1, Math.max(1, Math.floor(keys.length / 2)))]];
   return r ? awayFromStart(zone, [r[0] + r[2] / 2, r[1] + r[3] / 2]) : null;
@@ -96,7 +116,7 @@ export function spawnFor(zone, live) {
   if (G.enemies.some(e => e.huntUid === cur.uid && !e.dead)) return null;
   const at = spot(zone, cur); if (!at) return null;
   const [x, y] = zone.map.nearestFree(at[0], at[1], 0.7);
-  const e = new Enemy(defOf(cur).boss, x, y, cur.lvl, { story: 'hunt' }); e.huntUid = cur.uid;
+  const e = new Enemy(defOf(cur).boss, x, y, cur.lvl, { story: 'hunt' }); e.huntUid = cur.uid; e.bigMul = MINIBOSSES[defOf(cur).boss].scale;
   // сборка 47: первая охота — знакомство: чудовище вдвое слабее (магу было не победить, и оно мешало пройти катакомбы)
   if (!((G.profile.hunt && G.profile.hunt.done) > 0)) { e.maxHP = Math.round(e.maxHP * 0.5); e.hp = e.maxHP; e.dmgMul *= 0.65; }
   G.enemies.push(e);
@@ -115,6 +135,7 @@ export function guideTarget() {
   const z = PLACES[cur.place].zone;
   if (G.zoneId === 'town' && z === 'catacombs') return G.zone.inter.find(i => i.id === 'portal_town') || null;
   if (G.zoneId === 'town' && z === 'depths') return G.zone.inter.find(i => i.type === 'depths') || null;
+  if (G.zoneId === 'town' && z === 'wild') return G.zone.inter.find(i => i.id === 'portal_' + cur.realm) || null;
   return null;
 }
 export function canAbandon() { const cur = current(); return !!cur && !cur.slain && !G.enemies.some(e => e.huntUid === cur.uid && !e.dead && e.aggro); }

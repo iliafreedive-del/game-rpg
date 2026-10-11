@@ -1126,11 +1126,12 @@ W.wild = realm => modal(REALMS[realm].name, 'sm', b => {
   b.appendChild(el('p', 'muted', `Пять разных открытых локаций подряд: в конце каждой — портал «Вглубь», следующая локация требует уровня. Шестая — ${RL.fortName.toLowerCase()}: перебейте зверей вокруг, чтобы открылись ворота, и отбейте форт. Глубже — снова поля, каждый второй форт — босс. Дальше всего вы дошли до глубины <b class="goldc">${WS.depth || 0}</b>.`));
   const enter = d => { closeModal(); loadZone('wild', { realm, depth: d }); };
   const need = wildReqLevel(realm, next);
-  const go = el('button', 'btn gold', `▶ ${locationName(realm, next)} · глубина ${next}${isWildBoss(next) ? ' · босс' : ''} (ур. врагов ${wildLevel(realm, next)})`);
+  const hd = HU.huntWild(realm); if (hd) b.appendChild(el('p', 'bad', `⚠ Охота: ${esc(HU.bossOf(HU.current()).name)} — глубина ${hd}`));   // П4-8
+  const go = el('button', 'btn gold', `▶ ${locationName(realm, next)} · глубина ${next}${isWildBoss(next) ? ' · босс' : ''}${hd === next ? ' · ⚠ охота' : ''} (ур. врагов ${wildLevel(realm, next)})`);
   go.style.width = '100%'; if (P.level < need) { go.disabled = true; go.textContent = `Глубина ${next}: нужен уровень ${need}`; } else if (wildDepthGate(realm, next)) { go.disabled = true; go.textContent = `Глубина ${next}: после победы над Палачом Бездны`; }   /* П37 */ go.onclick = () => enter(next); b.appendChild(go);
   if ((WS.depth || 0) > 1) {
     b.appendChild(el('h3', '', 'Пройденные локации')); const grid = el('div', 'row');
-    for (let d = Math.max(1, (WS.depth || 1) - 11); d < WS.depth; d++) { const bt = el('button', 'btn sm', `${d}${isWildFort(d) ? (isWildBoss(d) ? '♛' : '⚑') : ''}`); bt.title = locationName(realm, d); bt.onclick = () => enter(d); grid.appendChild(bt); }
+    for (let d = Math.max(1, (WS.depth || 1) - 11); d < WS.depth; d++) { const bt = el('button', 'btn sm' + (hd === d ? ' gold' : ''), `${hd === d ? '⚠' : ''}${d}${isWildFort(d) ? (isWildBoss(d) ? '♛' : '⚑') : ''}`); bt.title = locationName(realm, d); bt.onclick = () => enter(d); grid.appendChild(bt); }
     b.appendChild(grid);
   }
   const NS = nemState(), foes = NS.list.filter(n => n.alive && n.realm === realm && (n.rank > 0 || n.defeats || n.fled)), tro = NS.trophies.filter(t => t.realm === realm);
