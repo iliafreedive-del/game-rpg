@@ -14,6 +14,7 @@ import { CODEX } from '../data/story.js';
 import { gate } from '../game/progress.js';
 import { paintScene } from './hwscenes.js';
 import { ART, artImg } from './art.js';
+import { drawSheetAt } from '../render/fxsheets.js';
 import { makeBattle, stageFoes, arenaView, setArenaLayout, relayoutBattle, hwSkill, HW_MAGE_K } from '../game/hwbattle.js';
 import { current as curQuest } from '../game/quests.js';
 import { xpToNext } from '../game/stats.js';
@@ -233,10 +234,12 @@ async function fight(s) {
     ctx.restore();
   }
   const PROJ = { arrow: ['#f4e6c0', 3], bolt: ['#7fd0ff', 7], fireball: ['#ff8a2a', 13], shadow: ['#b070ff', 8] };
+  const PSHEET = { arrow: [['hw_arrow', 'proj_arrow'], 1.6], bolt: [['hw_bolt', 'proj_star_bolt'], 1.5], fireball: [['hw_fireball', 'proj_fireball'], 2.0], shadow: [['hw_shadow', 'ct_darkbolt'], 1.8] };
   function drawProj(p) {
     if (p.t < 0) return; const [c, r] = PROJ[p.k] || PROJ.bolt;
     const sx = p.src.x, sz = p.src.z, k = p.k01 || 0, arc = Math.sin(k * Math.PI) * (p.k === 'arrow' ? 0.8 : 0.3);
     const [x, y] = P(p.x, 1.15 + arc, p.z), [x0, y0] = P(sx + (p.x - sx) * Math.max(0, k - 0.12), 1.15 + Math.sin(Math.max(0, k - 0.12) * Math.PI) * (p.k === 'arrow' ? 0.8 : 0.3), sz + (p.z - sz) * Math.max(0, k - 0.12));
+    { const ids = PSHEET[p.k]; if (ids && drawSheetAt(ctx, ids[0], time * 2.5, x, y, view.pxPerM * ids[1], { ang: Math.atan2(y - y0, x - x0), anchor: [0.62, 0.5] })) return; }   // правки 3: снаряд — лист
     if (p.k === 'arrow') { ctx.strokeStyle = c; ctx.lineWidth = r; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x, y); ctx.stroke(); return; }
     const g = ctx.createLinearGradient(x0, y0, x, y); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, c); ctx.strokeStyle = g; ctx.lineWidth = r * 1.3; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x, y); ctx.stroke();
     ctx.globalCompositeOperation = 'lighter'; const rg = ctx.createRadialGradient(x, y, 0, x, y, r * 2.2); rg.addColorStop(0, '#fff8e0'); rg.addColorStop(0.35, c); rg.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = rg; ctx.beginPath(); ctx.arc(x, y, r * 2.2, 0, 7); ctx.fill(); ctx.globalCompositeOperation = 'source-over';
@@ -270,6 +273,9 @@ async function fight(s) {
     // удары, взрывы, снаряды
     for (let i = fx.length - 1; i >= 0; i--) {
       const q = fx[i]; q.t += dt; const D = q.k === 'boom' ? 0.5 : 0.25; if (q.t > D) { fx.splice(i, 1); continue; } const p = q.t / D;
+      // правки 3: удары и взрывы — нарисованные листы (hw_* из промта для GPT, пока их нет — общие листы ударов героя), иначе прежние дуги
+      if (q.k === 'slash' && q.u) { const [x, y] = P(q.u.x, 0, q.u.z); if (drawSheetAt(ctx, q.u === Hu ? ['hw_slash_foe', 'mob_bite'] : ['hw_slash_hero', 'hit_spark'], p, x, y, view.pxPerM * 2.4, { flip: q.dir < 0 })) continue; }
+      if (q.k === 'boom') { const [x, y] = P(q.x, 0, q.z); if (drawSheetAt(ctx, q.c === 'gold' ? ['hw_crush', 'hit_crit'] : ['hw_boom_fire', 'hit_fire_explosion'], p, x, y, view.pxPerM * (q.c === 'gold' ? 4.5 : 4))) continue; }
       if (q.k === 'slash') { if (!q.u) continue; const [x, y] = P(q.u.x, 1.1, q.u.z), R = view.pxPerM * 0.8; ctx.save(); ctx.globalAlpha = 1 - p; ctx.strokeStyle = q.u === Hu ? '#ff9a8a' : '#fff3c0'; ctx.lineWidth = 6 * (1 - p) + 1; ctx.lineCap = 'round'; ctx.beginPath(); ctx.arc(x, y, R, q.dir > 0 ? -2.4 + p * 0.6 : -0.7 - p * 0.6, q.dir > 0 ? -0.4 + p * 0.6 : 1.3 - p * 0.6); ctx.stroke(); ctx.restore(); }
       else { const [x, y] = P(q.x, 0.2, q.z), R = view.pxPerM * (0.6 + 2.2 * p); ctx.save(); ctx.globalCompositeOperation = 'lighter'; const g = ctx.createRadialGradient(x, y, 0, x, y, R); g.addColorStop(0, `rgba(255,240,180,${0.9 * (1 - p)})`); g.addColorStop(0.4, q.c === 'gold' ? `rgba(255,200,80,${0.6 * (1 - p)})` : `rgba(255,110,30,${0.7 * (1 - p)})`); g.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(x, y, R, R * 0.6, 0, 0, 7); ctx.fill(); ctx.restore(); }
     }

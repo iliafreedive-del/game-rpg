@@ -370,13 +370,13 @@ function syncSwarm(dt) {
   for (const e of S.swarm) {
     let a = actors.get(e);
     if (!a) {
-      const def = MOBS[e.type] || MOBS.skel_warrior, pool = swarmPool.get(e.type);
-      a = pool && pool.length ? pool.pop() : noCast(new Actor(def, kit, scene)); a.isSwarm = true; a.seen = fn; a.swType = e.type; a.root.visible = true;
-      a.root.scale.setScalar(e.boss ? 1.4 : e.elite ? 1.2 : 1); actors.set(e, a);
+      const mk = e.model || e.type, def = MOBS[mk] || MOBS.skel_warrior, pool = swarmPool.get(mk);   // правки 3: стражи Жатвы — своя модель (e.model) при общем типе
+      a = pool && pool.length ? pool.pop() : noCast(new Actor(def, kit, scene)); a.isSwarm = true; a.seen = fn; a.swType = mk; a.root.visible = true;
+      a.root.scale.setScalar(e.scale || (e.boss ? 1.4 : e.elite ? 1.2 : 1)); actors.set(e, a);
     }
     const c = measure(a, e, dt);
     a.place(e.x, e.y); a.faceAngle(yawOfDir(e.dir));
-    const hitting = e.hitCd > 0.6; a.update(dt, hitting ? { clip: 'attack', k: (0.9 - e.hitCd) / 0.3 } : { clip: 'walk', speed: Math.max(1.2, c.v) }, env); a.flash(e.flash > 0 ? Math.min(1, e.flash * 8) : 0, 0xffffff);
+    const hitting = e.hitCd > 0.6; a.update(dt, e.act ? { clip: 'attack', k: Math.min(1, e.act.t / e.act.dur) } : hitting ? { clip: 'attack', k: (0.9 - e.hitCd) / 0.3 } : { clip: 'walk', speed: Math.max(1.2, c.v) }, env);   // e.act — приём стража (замах перед рывком/ударом) a.flash(e.flash > 0 ? Math.min(1, e.flash * 8) : 0, 0xffffff);
   }
 }
 const env = { wind: new THREE.Vector2() };

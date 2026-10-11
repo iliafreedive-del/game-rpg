@@ -1246,6 +1246,11 @@ W.survival = () => modal('Жатва Бездны', 'md', b => {
   const row = el('div', 'row'); row.style.cssText = 'justify-content:center;margin:10px 0'; const intro = !(P.story.flags && P.story.flags.bossKilled);
   const go = el('button', 'btn gold', intro ? '▶ Знакомство · 3 минуты' : `▶ В бой · ${SV.RUN_COST} ⚡`); go.style.width = '100%'; go.onclick = () => { if (!intro && !CS.spendEnergy(SV.RUN_COST)) { bus.emit('toast', { text: `Нужно ${SV.RUN_COST} ⚡ энергии`, kind: 'warn' }); bus.emit('openEnergy', rerender); return; } closeModal(); loadZone('survival'); }; row.appendChild(go); b.appendChild(row);   // кнопка вверху: не нужно листать список
   b.appendChild(el('div', 'stats', `<div><span>Рекорд</span><b>${mmssT(P.surv.best)}</b></div><div><span>Забегов</span><b>${P.surv.runs}</b></div>`));
+  // правки 3: свои задания Жатвы на день — новые каждый день, не связаны с доской объявлений деревни
+  b.appendChild(el('h3', '', 'Задания Жатвы на сегодня'));
+  { const r = SV.sdqReward(); for (const q of SV.survDaily()) { const d = el('div', 'q' + (q.claimed ? ' done' : ''), `<div class="qt">${q.claimed ? '✓ ' : q.done ? '★ ' : '○ '}${esc(q.title)}</div><div class="muted">${q.cur} / ${q.n} · +${r.gold} зол. · +${r.shards}◆</div>`);
+    if (q.done && !q.claimed) { const c = el('button', 'btn gold sm', 'Забрать'); c.onclick = () => { if (SV.claimSurvDaily(q.id)) rerender(); }; d.appendChild(c); } b.appendChild(d); }
+    b.appendChild(el('div', 'muted', 'Новые задания — каждый день. Счёт идёт только в Жатве.')); }
   b.appendChild(el('h3', '', 'Достижения'));
   for (const a of SV.ACH) b.appendChild(el('div', 'q' + (P.surv.ach[a.id] ? ' done' : ''), `<div class="qt">${P.surv.ach[a.id] ? '🏆 ' : '○ '}${esc(a.name)}</div><div class="muted">+${a.gold} зол. · +${a.shards}◆</div>`));
   b.appendChild(el('h3', '', 'Пробуждения оружия'));
@@ -1279,7 +1284,8 @@ function survEnd(r) {
   setTimeout(() => modal(r.win ? 'Вы выжили!' : 'Жатва окончена', 'sm reward', b => {
     b.appendChild(artHead(ART.harvest(r.win ? 'victory' : 'defeat'), 'tall'));   // сборка 58: рассвет над ареной / волна мертвецов
     b.appendChild(el('div', 'rw-head', `<div class="rw-rays r${r.win ? 3 : 1}"></div><div class="rw-t">${mmssT(r.t)}${r.record ? ' · рекорд!' : ''}</div>`));
-    b.appendChild(el('div', 'stats', `<div><span>Убито</span><b>${r.kills}</b></div><div><span>Уровень забега</span><b>${r.lvl}</b></div>`));
+    b.appendChild(el('div', 'stats', `<div><span>Убито</span><b>${r.kills}</b></div><div><span>Стражей</span><b>${r.guards || 0}</b></div><div><span>Уровень забега</span><b>${r.lvl}</b></div>`));
+    if (r.dayDone) b.appendChild(el('p', 'goldc', '★ Задание Жатвы на сегодня выполнено — награда в окне портала Жатвы'));
     b.appendChild(el('div', 'rw-loot', `<span class="goldc">+${r.gold} золота</span>${r.heroXP ? ` · <span style="color:#b8e3ff">+${r.heroXP} опыта герою</span>` : ''}${r.shards ? ` · <span class="c-shard">+${r.shards}◆</span>` : ''}`));
     if (r.intro) b.appendChild(el('p', 'goldc', 'Староста Эдрик: «Больше портал не удержать — сил не хватает. Наберите золота, загляните к наставнику Элвину за усилением. Жатва откроется снова, когда падёт Палач Бездны».'));
     if (r.newAch.length) b.appendChild(el('p', 'goldc', '🏆 ' + r.newAch.map(esc).join(' · ')));
