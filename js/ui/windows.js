@@ -482,10 +482,10 @@ W.journal = (arg = {}) => {
       if (hs.done) b.appendChild(el('p', 'muted', `<small>Завершено охот: ${hs.done}</small>`));
       b.appendChild(el('p', 'muted', `<small>Таймер — справа вверху под золотом. Награда: золото, опыт, осколки Бездны ◆ и именной трофей.</small>`));
     } else if (tab === 'daily') {
-      const r = DQ.dqReward(); for (const q of dq) b.appendChild(card(q.title, q.cur, q.n, { gold: r.gold, potions: r.potions }, q.claimed ? 'claimed' : q.done ? 'done' : 'go', () => DQ.claimDaily(q.id), q.next));
+      const r = DQ.dqReward(); nextNote(b, dq); for (const q of dq.filter(q => !q.claimed)) b.appendChild(card(q.title, q.cur, q.n, { gold: r.gold, potions: r.potions }, q.claimed ? 'claimed' : q.done ? 'done' : 'go', () => DQ.claimDaily(q.id), q.next));
       b.appendChild(el('p', 'muted', '<small>Выполненное задание уходит — через час на его месте новое. Три за сутки — «Сундук дня» с редкой вещью.</small>'));
     } else if (tab === 'weekly') {
-      const r = DQ.wqReward(); for (const q of wq) b.appendChild(card(q.title, q.cur, q.n, { gold: r.gold, shards: r.shards }, q.claimed ? 'claimed' : q.done ? 'done' : 'go', () => DQ.claimWeekly(q.id), q.next));
+      const r = DQ.wqReward(); nextNote(b, wq); for (const q of wq.filter(q => !q.claimed)) b.appendChild(card(q.title, q.cur, q.n, { gold: r.gold, shards: r.shards }, q.claimed ? 'claimed' : q.done ? 'done' : 'go', () => DQ.claimWeekly(q.id), q.next));
       b.appendChild(el('p', 'muted', '<small>Трудные задания: выполненное уходит, новое — через сутки. Дают осколки Бездны для Цитадели.</small>'));
     } else {
       for (const rr of Q.repList()) { const s = Q.repState(rr); b.appendChild(card(rr.title, s.cur, rr.n, rr.reward || { gold: rr.gold }, s.done ? 'done' : 'go', () => Q.claimRep(rr.id))); }
@@ -835,6 +835,8 @@ const qChips = r => `<div class="q-rw">${r.gold ? `<span class="chip g">💰 ${f
 const leftTxt = ms => { const m = Math.ceil(ms / 60000); return m >= 60 ? `${Math.floor(m / 60)} ч${m % 60 ? ' ' + (m % 60) + ' мин' : ''}` : `${m} мин`; };
 const claimedTxt = next => next ? `✔ Новое через ${leftTxt(next)}` : '✔ Получено';
 const coolNote = () => { const c = Q.repCooling(); return c.length ? ` Сданных контрактов: ${c.length} — ближайший вернётся через ${leftTxt(Math.min(...c))}.` : ''; };
+// П4-6: сданные задания не висят в списке — только строка, когда придёт новое
+const nextNote = (b, list) => { const c = list.filter(q => q.claimed && q.next); if (c.length) b.appendChild(el('p', 'good', `<small>${claimedTxt(Math.min(...c.map(q => q.next)))}</small>`)); };
 function qCard(title, cur, max, rw, state, onClaim, onGo, next) {
   const d = el('div', 'q-card' + (state === 'done' ? ' hot' : state === 'claimed' ? ' claimed' : ''), `<div class="q-t">${esc(title)}</div><div class="q-prog"><div class="pbar"><i style="width:${Math.min(100, cur / max * 100)}%"></i></div><span>${cur}/${max}</span></div>${qChips(rw)}`);
   const btn = el('button', 'btn sm ' + (state === 'done' ? 'gold' : ''), state === 'done' ? 'Забрать' : state === 'claimed' ? claimedTxt(next) : 'Перейти');
@@ -850,10 +852,10 @@ W.board = () => {
     for (const [id, name] of [['daily', 'Ежедневные'], ['weekly', 'Недельные'], ['contracts', 'Долгие']]) { const t = el('button', 'q-tab' + (tab === id ? ' on' : ''), `${name}${cnt[id] ? `<i>${cnt[id]}</i>` : ''}`); t.onclick = () => { tab = W._boardTab = id; rerender(); }; tabs.appendChild(t); }
     b.appendChild(tabs);
     if (tab === 'daily') {
-      const r = DQ.dqReward(); for (const q of dq) b.appendChild(qCard(q.title, q.cur, q.n, { gold: r.gold, potions: r.potions }, q.claimed ? 'claimed' : q.done ? 'done' : 'go', () => DQ.claimDaily(q.id), closeModal, q.next));
+      const r = DQ.dqReward(); nextNote(b, dq); for (const q of dq.filter(q => !q.claimed)) b.appendChild(qCard(q.title, q.cur, q.n, { gold: r.gold, potions: r.potions }, q.claimed ? 'claimed' : q.done ? 'done' : 'go', () => DQ.claimDaily(q.id), closeModal, q.next));
       b.appendChild(el('p', 'muted', '<small>Выполненное задание уходит — через час на его месте новое. Три за сутки — «Сундук дня».</small>'));
     } else if (tab === 'weekly') {
-      const r = DQ.wqReward(); for (const q of wq) b.appendChild(qCard(q.title, q.cur, q.n, { gold: r.gold, shards: r.shards }, q.claimed ? 'claimed' : q.done ? 'done' : 'go', () => DQ.claimWeekly(q.id), closeModal, q.next));
+      const r = DQ.wqReward(); nextNote(b, wq); for (const q of wq.filter(q => !q.claimed)) b.appendChild(qCard(q.title, q.cur, q.n, { gold: r.gold, shards: r.shards }, q.claimed ? 'claimed' : q.done ? 'done' : 'go', () => DQ.claimWeekly(q.id), closeModal, q.next));
       b.appendChild(el('p', 'muted', '<small>Крупные цели: выполненное уходит, новое — через сутки. Золото и осколки Бездны для Цитадели.</small>'));
     } else {
       for (const rr of Q.repList()) { const s = Q.repState(rr); b.appendChild(qCard(rr.title, s.cur, rr.n, rr.reward || { gold: rr.gold }, s.done ? 'done' : 'go', () => Q.claimRep(rr.id), closeModal)); }
