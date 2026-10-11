@@ -9,6 +9,7 @@ import { SKINS, preloadSkin } from './glbskin.js';
 import { preloadMob } from './glbmob.js';
 import { STONE_GLB, STONE_SKINS } from './models/mob/_stone.js';
 import { shared } from './dispose.js';
+import { openGeometry, insideMesh } from './chestglb.js';
 
 const BASE = new URL('../../assets/models/temple/', import.meta.url).href;
 const PACKS = ['walls', 'ruins'];
@@ -101,12 +102,19 @@ export function swap(lists) {
 
 // сундуки с добычей — каменные сундуки пака (закрытый и открытый — отдельные модели), богатый крупнее
 const CHESTS = { chest: ['chest', 0.8], chest_open: ['chest_open', 0.8], chest_rich: ['chest', 1.0], chest_rich_open: ['chest_open', 1.0] };
-const LIVE = new Map();
+// правки 4 (П4-13): у открытого внутри была светлая каменная «кладка» — теперь тёмная полость с монетами и самоцветами (chestglb.js)
+const LIVE = new Map(), TPL_IN = { w: 0.84, d: 0.56, cz: 0.04, y0: 0.22, y1: 0.5, shell: 0xb7a980 };
+let OPEN = null;
 export function liveDef(want) {
   const c = CHESTS[want]; if (!c || !templeReady() || !OBJ.has(c[0])) return null;
   if (LIVE.has(want)) return LIVE.get(want);
   const O = OBJ.get(c[0]);
   const def = { id: 'tpl:' + want, kind: 'prop', outline: false,
-    build() { const root = new THREE.Group(), m = new THREE.Mesh(O.geometry, O.mat); m.scale.setScalar(c[1]); root.add(m); return { root }; } };
+    build() {
+      const root = new THREE.Group(), g = new THREE.Group(); g.scale.setScalar(c[1]); root.add(g);
+      if (c[0] !== 'chest_open') g.add(new THREE.Mesh(O.geometry, O.mat));
+      else { if (!OPEN) OPEN = shared(openGeometry(O.geometry, { seam: 99, back: 0, inner: TPL_IN }).body); g.add(new THREE.Mesh(OPEN, O.mat), insideMesh({ ...TPL_IN, rich: want === 'chest_rich_open' })); }
+      return { root };
+    } };
   LIVE.set(want, def); return def;
 }
