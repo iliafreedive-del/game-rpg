@@ -1,0 +1,38 @@
+# Архив сборки для скачивания на iPhone — в релиз GitHub (файл до 2 ГБ, без лимита 100 МБ, как у файлов в ветке).
+# Запуск: отправить метку build-<номер> (git tag build-62 && git push origin build-62) или вручную во вкладке Actions.
+# Итог: релиз «Сборка <номер>» с dark_ascent_build<номер>.zip — все 11 языков, модели с WebP-текстурами, картинки без пережатия.
+name: Архив сборки
+on:
+  push:
+    tags: ['build-*']
+  workflow_dispatch:
+    inputs:
+      build:
+        description: 'Номер сборки'
+        required: true
+permissions:
+  contents: write
+jobs:
+  zip:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - name: Инструменты
+        run: |
+          sudo mkdir -p /opt/node-tools && sudo chown "$USER" /opt/node-tools
+          npm i --prefix /opt/node-tools acorn acorn-walk @gltf-transform/cli@4
+          pip install pillow
+      - name: Языки и архив
+        run: |
+          N="${{ github.event.inputs.build }}"; [ -n "$N" ] || N="${GITHUB_REF_NAME#build-}"
+          echo "N=$N" >> "$GITHUB_ENV"
+          node tools/i18n/build_langs.mjs dist/langs
+          GT=/opt/node-tools/node_modules/.bin/gltf-transform SRC=$PWD/dist/langs OUT=$PWD/dist/dark_ascent_build$N.zip tools/build_zip.sh
+      - name: Релиз
+        env: { GH_TOKEN: '${{ github.token }}' }
+        run: |
+          T="build-$N"
+          gh release view "$T" >/dev/null 2>&1 || gh release create "$T" --target "$GITHUB_SHA" --title "Сборка $N" --notes "Архив для Cloudflare / iPhone. Что проверить — docs/CHANGELOG.md."
+          gh release upload "$T" "dist/dark_ascent_build$N.zip" --clobber
