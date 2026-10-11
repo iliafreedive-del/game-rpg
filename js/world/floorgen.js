@@ -136,7 +136,7 @@ export function generateFloor(floor, seed) {
   // objects must stand on floor and never block the start, the exit or the guardian
   const keep = [start, [last.cx, last.cy], [last.x + last.w - 1.6, last.cy]];
   const objs = objects.filter(o => free(o.x, o.y) && (o.t === 'floor_exit' || entries.every(([ex, ey]) => Math.hypot(o.x - ex, o.y - ey) > 1.6)) && (o.t === 'floor_exit' || o.t === 'chest' || keep.every(([kx, ky]) => Math.hypot(o.x - kx, o.y - ky) > 2.4)));
-  for (let i = objs.length - 1; i >= 0; i--) if (objs[i].t === 'stash' && objs.some(p => p !== objs[i] && Math.hypot(p.x - objs[i].x, p.y - objs[i].y) < 1.2)) objs.splice(i, 1);   // тайник не впритык к сундуку и т. п.
+  for (let i = objs.length - 1; i >= 0; i--) if (objs[i].t === 'stash' && !objs[i].keep && objs.some(p => p !== objs[i] && p.t !== 'stash' && Math.hypot(p.x - objs[i].x, p.y - objs[i].y) < 1.2)) objs.splice(i, 1);   // тайник не впритык к сундуку и т. п.
   // пустые ряды стены сверху и снизу срезаем (карта не больше, чем нужно)
   let y0 = 0, y1 = H - 1; while (y0 < H && !rows[y0].includes('.')) y0++; while (y1 > 0 && !rows[y1].includes('.')) y1--;
   const dy = Math.max(0, y0 - 2), H2 = Math.min(H, y1 + 3) - dy;
@@ -157,6 +157,8 @@ function dressRoom(r, i, c) {
   const cs = [[X0 + 0.9, Y0 + 0.9], [X0 + w - 0.9, Y0 + 0.9], [X0 + 0.9, Y0 + h - 0.9], [X0 + w - 0.9, Y0 + h - 0.9]].sort(() => S() - 0.5);
   for (let n = S() < 0.2 ? 2 : 1; n > 0 && cs.length;) { const [x, y] = cs.pop(); if (g[Math.floor(y)][Math.floor(x)] !== '.' || here.some(([a, b]) => Math.hypot(a - x, b - y) < 1.4)) continue; put('stash', x, y, { id: 'st' + c.st++, kind: S() < 0.5 ? 'crate' : 'barrel' }); n--; }
 }
+// правки 3: последовательность предметов интерьера, где нет трёх одинаковых подряд
+function mixed(R, kinds) { const out = []; return k => { while (out.length <= k) { let t; do t = kinds[Math.floor(R() * kinds.length)]; while (out.length >= 2 && out[out.length - 1] === t && out[out.length - 2] === t); out.push(t); } return out[k]; }; }
 function dressKind(r, i, c, { R, ri, put, wall, rect, g, X0, Y0, w, h, cx, cy }) {
   switch (r.kind) {
     case 'plain':
@@ -185,15 +187,15 @@ function dressKind(r, i, c, { R, ri, put, wall, rect, g, X0, Y0, w, h, cx, cy })
       put('candles', cx, Y0 + 1.3); break;
     }
     case 'library':   // книжные шкафы вдоль верхней стены, свечи
-      for (let x = X0 + 1.6; x < X0 + w - 1.2; x += 1.6) if (R() < 0.8) put('bookshelf', x, Y0 + 0.75);
+      { const seq = mixed(R, ['bookshelf', 'bookshelf', 'cabinet']); let k = 0; for (let x = X0 + 1.6; x < X0 + w - 1.2; x += 1.6) if (R() < 0.8) put('stash', x, Y0 + 0.75, { id: `sf${i}_${k}`, kind: seq(k++), keep: 1 }); }   // правки 3: шкафы обыскивают; не три одинаковых подряд
       put('candles', X0 + 1.4, Y0 + h - 1.4); put('candles', X0 + w - 1.4, Y0 + h - 1.4); put('rug', cx, cy + 0.5); break;
     case 'ossuary':   // костница: ниши в верхней стене, кости и черепа грудами
       for (let x = X0 + 1; x < X0 + w - 1; x += 2) if (Y0 - 1 > c.top && g[Y0 - 1][x] === '#' && g[Y0 - 2][x] === '#' && R() < 0.6) { g[Y0 - 1][x] = '.'; put('skulls', x + 0.5, Y0 - 0.4); }
       for (let k = 0; k < 5; k++) put(R() < 0.5 ? 'bones' : 'skulls', X0 + 1.5 + R() * (w - 3), Y0 + 1.5 + R() * (h - 3));
       put('candles', cx, cy); break;
     case 'barracks':   // казарма мёртвых: стойки с оружием, ящики, знамя
-      for (let x = X0 + 1.8; x < X0 + w - 1.5; x += 2.2) put('weapon_rack', x, Y0 + 0.7);
-      put('crate', X0 + 1.3, Y0 + h - 1.3); put('barrel', X0 + 2.3, Y0 + h - 1.3); put('banner', X0 + w - 1.4, Y0 + 1.2); break;
+      { const seq = mixed(R, ['weapon_rack', 'weapon_rack_bow', 'weapon_rack_staff']); let k = 0; for (let x = X0 + 1.8; x < X0 + w - 1.5; x += 2.2) put('stash', x, Y0 + 0.7, { id: `sf${i}_${k}`, kind: seq(k++), keep: 1 }); }   // правки 3: мечи, луки, посохи вперемешку; стойки обыскивают
+      put('stash', X0 + 1.3, Y0 + h - 1.3, { id: `sf${i}_c`, kind: 'crate' }); put('stash', X0 + 2.3, Y0 + h - 1.3, { id: `sf${i}_b`, kind: 'barrel' }); put('banner', X0 + w - 1.4, Y0 + 1.2); break;
     case 'split': {   // зал перегорожен стеной с двумя проломами
       const vx = Math.floor(cx), cells = []; const g1 = ri(Y0 + 1, Y0 + Math.floor(h / 2) - 2), g2 = ri(Y0 + Math.floor(h / 2) + 1, Y0 + h - 3);
       for (let y = Y0 + 1; y < Y0 + h - 1; y++) if (y !== g1 && y !== g1 + 1 && y !== g2 && y !== g2 + 1) cells.push([vx, y]);
@@ -226,7 +228,8 @@ function dressKind(r, i, c, { R, ri, put, wall, rect, g, X0, Y0, w, h, cx, cy })
 // арена — к востоку от Зала стражи (печать gate), тайник — тупик; ключ (sarc3) в оссуарии, до него нет ни дверей, ни печатей.
 const CATA_EXTRA = ['ring', 'library', 'barracks', 'split', 'collapsed', 'flooded', 'colonnade', 'shrine', 'vault', 'plain'];
 const CATA_POOL = ['skel_warrior', 'skel_warrior', 'skel_archer', 'skel_mage', 'bone_wolf', 'ghoul'];
-const CATA_MOBS = { entry: [3, ['skel_warrior']], ossuary: [5, ['skel_warrior', 'skel_archer']], guard: [5, ['skel_warrior', 'skel_archer']], altar: [0], secret: [2, ['ghoul']], arena: [0], shrine: [0] };
+const CATA_MOBS = { entry: [0],   // правки 3: в первой комнате после портала из деревни мобов нет — оглядеться
+   ossuary: [5, ['skel_warrior', 'skel_archer']], guard: [5, ['skel_warrior', 'skel_archer']], altar: [0], secret: [2, ['ghoul']], arena: [0], shrine: [0] };
 export function generateCatacombs(seed = (Math.random() * 4294967296) >>> 0) {
   const R = rng(seed ^ 0x5bd1e995), ri = (a, b) => a + Math.floor(R() * (b - a + 1)), pickOf = a => a[Math.floor(R() * a.length)];
   const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(R() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
@@ -360,7 +363,7 @@ export function generateCatacombs(seed = (Math.random() * 4294967296) >>> 0) {
   // обстановка не стоит в проходах, у сюжетных вещей и на старте
   const allM = all.flatMap(mouthPts), free = (x, y) => g[Math.floor(y)] && g[Math.floor(y)][Math.floor(x)] === '.';
   const objs = decor.filter(o => free(o.x, o.y) && allM.every(([mx, my]) => Math.hypot(o.x - mx, o.y - my) > 1.8) && [...key, { x: start[0], y: start[1] }, { x: elite[0], y: elite[1] }, { x: boss[0], y: boss[1] }].every(k => Math.hypot(o.x - k.x, o.y - k.y) > 1.6));
-  for (let i = objs.length - 1; i >= 0; i--) if (objs[i].t === 'stash' && objs.some(p => p !== objs[i] && Math.hypot(p.x - objs[i].x, p.y - objs[i].y) < 1.2)) objs.splice(i, 1);   // тайник не впритык к жаровне и т. п.
+  for (let i = objs.length - 1; i >= 0; i--) if (objs[i].t === 'stash' && !objs[i].keep && objs.some(p => p !== objs[i] && p.t !== 'stash' && Math.hypot(p.x - objs[i].x, p.y - objs[i].y) < 1.2)) objs.splice(i, 1);   // тайник не впритык к жаровне и т. п.
   { let n = key.filter(o => o.t === 'sarcophagus').length; for (let i = objs.length - 1; i >= 0; i--) if (objs[i].t === 'sarcophagus' && ++n > 12) objs.splice(i, 1); }   // не больше 12 саркофагов
   return {
     name: 'Катакомбы Ордена', gen: true, floorN: 1, seed, w: W, h: H, rows: g.map(r => r.join('')), objects: [...key, ...objs], torches, spawns, start,

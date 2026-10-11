@@ -262,7 +262,7 @@ export function buildGround(scene, zone, opts = {}) {
   if (!opts.abyss) far.position.set(W / 2, -0.4, H / 2); scene.add(far);
 
   // вода: плоскость над впадиной; видна только там, где земля провалилась ниже -0.08, поэтому берег получается плавным
-  let water = null, distTex = null; const wt = [];
+  let water = null, distTex = null, falls = null; const wt = [];
   for (let ty = 0; ty < H; ty++) for (let tx = 0; tx < W; tx++) if (m.rows[ty][tx] === '~') wt.push([tx, ty]);
   if (wt.length) {
     let x0w = Math.min(...wt.map(t => t[0])) - 1, x1w = Math.max(...wt.map(t => t[0])) + 2, y0w = Math.min(...wt.map(t => t[1])) - 1, y1w = Math.max(...wt.map(t => t[1])) + 2;
@@ -285,6 +285,7 @@ export function buildGround(scene, zone, opts = {}) {
       Object.assign(water.material.uniforms, { tDist: { value: tx }, uDist: { value: 1 }, uSize: { value: new THREE.Vector2(W, H) } });
     }
     water.userData.noOutline = true; scene.add(water);
+    if (isl) falls = waterfalls(m, W, H, snow); if (falls) scene.add(falls);
   }
 
   // булыжник площади: instanced-камни 0.5 м
@@ -383,8 +384,45 @@ export function buildGround(scene, zone, opts = {}) {
       if (on) { grassU.uShadowMap.value = sm.map.texture; grassU.uShadowMat.value.copy(sm.matrix); grassU.uShadowTexel.value.set(1 / sm.mapSize.x, 1 / sm.mapSize.y); }
     },
     update(blobs) { for (let i = 0; i < 12; i++) { const b = blobs[i], v = grassU.uBlobs.value[i]; if (b) v.set(b.x, b.z, b.r, b.w ?? 1); else v.set(999, 999, 0.5, 0); } },
-    dispose() { for (const o of [ground, far, water, cob, ...grass]) disposeObject(o); if (distTex) distTex.dispose(); },   // сетка деревни (GROUND_CACHE) и трава из GRASS_CACHE — shared
+    dispose() { for (const o of [ground, far, water, falls, cob, ...grass]) disposeObject(o); if (distTex) distTex.dispose(); },   // сетка деревни (GROUND_CACHE) и трава из GRASS_CACHE — shared
   };
+}
+
+// правки 3: река у обрыва острова стекает водопадом по стенке. Только на сторонах, обращённых к камере (+x и +z);
+// на дальних краях, которых камера не видит, ничего не строим.
+function waterfalls(m, W, H, snow) {
+  const isV = (x, y) => x < 0 || y < 0 || x >= W || y >= H || m.rows[y][x] === 'v' || m.rows[y][x] === 'h', isW = (x, y) => { const c = m.rows[y][x]; return c === '~' || c === 'b'; };
+  const P = [], UV = [], PROF = [[0, -0.08], [0.32, -0.9], [0.55, -4], [0.7, -12]];   // профиль: отступ от края наружу, высота (стенка обрыва уходит вниз за ≈0,5 м)
+  const strip = (ax, az, bx, bz, nx, nz) => {
+    for (let r = 0; r < PROF.length - 1; r++) {
+      const [d0, y0] = PROF[r], [d1, y1] = PROF[r + 1], v0 = -y0, v1 = -y1;
+      const A = [ax + nx * d0, y0, az + nz * d0], B = [bx + nx * d0, y0, bz + nz * d0], C = [ax + nx * d1, y1, az + nz * d1], D = [bx + nx * d1, y1, bz + nz * d1];
+      const ua = ax + az, ub = bx + bz;
+      P.push(...A, ...C, ...B, ...B, ...C, ...D); UV.push(ua, v0, ua, v1, ub, v0, ub, v0, ua, v1, ub, v1);
+    }
+  };
+  for (let ty = 0; ty < H; ty++) for (let tx = 0; tx < W; tx++) {
+    if (!isW(tx, ty)) continue;
+    if (isV(tx + 1, ty)) strip(tx + 1, ty, tx + 1, ty + 1, 1, 0);
+    if (isV(tx, ty + 1)) strip(tx, ty + 1, tx + 1, ty + 1, 0, 1);
+  }
+  if (!P.length) return null;
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(UV, 2)); g.computeBoundingSphere();
+  const tn = noiseTex(); tn.wrapS = tn.wrapT = THREE.RepeatWrapping;
+  const mat = new THREE.ShaderMaterial({
+    uniforms: { uTime: U.uTime, tNoise: { value: tn }, uCol: { value: new THREE.Color(snow ? 0x9cc8e0 : 0x5ab0c8) } },
+    vertexShader: 'varying vec2 vU; void main(){ vU = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+    fragmentShader: `uniform float uTime; uniform sampler2D tNoise; uniform vec3 uCol; varying vec2 vU;
+      void main(){
+        float s = texture2D(tNoise, vec2(vU.x * 0.9, vU.y * 0.08 - uTime * 0.55)).r, s2 = texture2D(tNoise, vec2(vU.x * 2.3 + 0.4, vU.y * 0.15 - uTime * 0.9)).g;
+        float streak = smoothstep(0.45, 0.8, s * 0.6 + s2 * 0.5), lip = 1.0 - smoothstep(0.0, 0.7, vU.y);
+        vec3 c = mix(uCol, vec3(0.92, 0.97, 1.0), clamp(streak * 0.7 + lip * 0.6, 0.0, 1.0));
+        float a = (0.72 + streak * 0.25) * (1.0 - smoothstep(5.0, 11.5, vU.y));   // внизу тает в дымке бездны
+        gl_FragColor = vec4(c, a);
+      }`,
+    transparent: true, depthWrite: false, side: THREE.DoubleSide,
+  });
+  const mesh = new THREE.Mesh(g, mat); mesh.userData.noOutline = true; mesh.renderOrder = 2; return mesh;
 }
 
 // ---------------------------------------------------------------- бездна за краем похода (сборка 45)

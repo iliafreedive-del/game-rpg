@@ -19,7 +19,8 @@ export function float(x, y, text, color = '#fff', o = {}) {
   // сборка 59: одна и та же надпись (не число) в том же месте — не громоздить друг на друга («Уклонение» от трёх ударов разом)
   if (isNaN(text) && G.texts.some(f => f.text === String(text) && f.t < 0.45 && Math.hypot(f.x - x, f.y - y) < 1.2)) return;
   if (G.texts.length >= MAX_TEXTS) G.texts.shift();
-  G.texts.push({ x, y, z: o.z ?? 1.9, text: String(text), color, t: 0, life: o.life || 0.9, big: o.big || 0, dx: rrange(-0.25, 0.25) });
+  text = String(text).replace(/\d+\.\d{3,}/g, m => String(Math.round(+m)));   // правки 3: никаких 14 знаков после запятой во всплывающих числах
+  G.texts.push({ x, y, z: o.z ?? 1.9, text, color, t: 0, life: o.life || 0.9, big: o.big || 0, dx: rrange(-0.25, 0.25) });
 }
 bus.on('float', f => float(f.x, f.y, f.text, f.color, f));
 export function particles(x, y, n, o) {
@@ -162,7 +163,7 @@ export function tickStatus(e, dt) {
     if (s.burn <= 0) s.burnDps = 0;
   }
   if (s.bleed > 0) { s.bleed -= dt; s.bleedAcc = (s.bleedAcc || 0) + s.bleedDps * dt; if ((s.bleedT = (s.bleedT || 0) + dt) >= 0.6) { s.bleedT = 0; const d = Math.round(s.bleedAcc); s.bleedAcc = 0; if (d > 0) damageEnemy(e, d, { src: 'dot', canCrit: false, elem: 'bleed' }); } if (s.bleed <= 0) s.bleedDps = 0; }
-  if (s.poisonT > 0) { s.poisonT -= dt; if ((s.poisonTick = (s.poisonTick || 0) + dt) >= 0.5) { s.poisonTick = 0; const d = Math.round(s.poisonDps * s.poison * 0.5); if (d > 0) damageEnemy(e, d, { src: 'dot', canCrit: false, elem: 'poison' }); } if (s.poisonT <= 0) { s.poison = 0; s.poisonDps = 0; } }   // яд скорпида (питомец)
+  if (s.poisonT > 0) { s.poisonT -= dt; s.poisonAcc = (s.poisonAcc || 0) + s.poisonDps * s.poison * dt; if ((s.poisonTick = (s.poisonTick || 0) + dt) >= 0.5) { s.poisonTick = 0; const d = Math.floor(s.poisonAcc); s.poisonAcc -= d; if (d > 0) damageEnemy(e, d, { src: 'dot', canCrit: false, elem: 'poison' }); } if (s.poisonT <= 0) { s.poison = 0; s.poisonDps = 0; s.poisonAcc = 0; } }   // яд скорпида (питомец); правки 3: дробный урон копится, а не округляется до нуля — каждый заряд заметно добавляет
   if (s.slowT > 0) { s.slowT -= dt; if (s.slowT <= 0) s.slow = 0; }
   if (s.chillT > 0) { s.chillT -= dt; if (s.chillT <= 0) s.chill = 0; }
   if (s.frozen > 0) s.frozen -= dt;
@@ -415,6 +416,7 @@ export function updateProjectiles(dt) {
           if (p.aoe) { explosion(p.x, p.y, p.aoe, p.dmg, p.elem, p.ignite); p.dead = true; break; }
           damageEnemy(e, p.dmg, { elem: p.elem === 'magic' ? 'phys' : p.elem, src: p.src || 'spell', pierce: p.elem === 'magic' ? 1 : 0 }); projHitFx(p, e.x, e.y, 0.9 * (e.D.size || 1));
           if (p.chill && !e.dead) applyChill(e);
+          if (p.petSlow && !e.dead) { const s = e.st, k = e.D.boss ? 0.5 : 1; s.slow = Math.min(0.32 * k, (s.slowT > 0 ? s.slow : 0) + 0.08 * k); s.slowT = 1.5; }   // правки 3: ледяная стрела костяного пса — замедление копится понемногу
           if (p.explosive && rand() < 0.25 * PK) explosion(p.x, p.y, 1.8, p.dmg * 0.7, 'fire', false, null, 'sk_explosive_arrow');
           if ((p.pierce || 0) > 0) { p.pierce--; continue; }
           projEnd(p, false); break;
@@ -625,7 +627,7 @@ export function hurtPlayer(src, raw, elem) {
     dmg *= 1 - damageReduction(S.armor, lvl);
   }
   dmg = Math.max(1, Math.round(dmg));
-  if (P.shield > 0) { const ab = Math.min(P.shield, dmg); P.shield -= ab; dmg = Math.round(dmg - ab); }
+  if (P.shield > 0) { const ab = Math.min(P.shield, dmg); P.shield -= ab; dmg = Math.round(dmg - ab); }   // правки 3: щит дробный — без «-8.648000000001»
   if (src && src.D && src.D.onHit === 'slow') P.slowT = Math.max(P.slowT || 0, 1.6);   // мороз: замедление героя
   P.hp -= dmg; P.flash = 0.15; bus.emit('hurt', { dmg, src: src && src.type ? src.type : src && src.src && src.src.type ? src.src.type : String(src && src.kind || 'proj') });
   float(P.x, P.y, '-' + dmg, '#ff5a4a', { z: 2.1 });
