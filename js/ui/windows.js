@@ -559,11 +559,17 @@ W.settings = () => modal('Настройки', 'sm', b => {
     for (const [k, n] of [[1, 'Обычный'], [1.15, 'Крупный'], [1.3, 'Очень крупный']]) { const bt = el('button', 'btn sm' + (A.fs === k ? ' gold' : ''), n); bt.onclick = () => { setA11y({ fs: k }); rerender(); }; ts.appendChild(bt); }
     b.appendChild(ts);
     const rm = el('div', 'attr', '<b>Меньше движения</b> <small class="muted">без мигания и пульсации кнопок; тряска камеры выключается</small>'); const br = el('button', 'btn sm', A.rm ? 'Вкл' : 'Выкл'); br.onclick = () => { setA11y({ rm: !A.rm }); if (!A.rm) s.shake = false; bus.emit('save'); rerender(); }; rm.appendChild(br); b.appendChild(rm); }
-  { // правки 3: админка для тестов — видна в демо, по ?admin в адресе или после 5 нажатий на строку версии
-    let on = platform.name === 'demo' || new URLSearchParams(location.search).has('admin'); try { on = on || localStorage.getItem('da_admin') === '1'; } catch { }
-    const ver = el('p', 'muted', `<small>Версия сборки: ${window.__BUILD || ''}</small>`); let taps = 0;
-    ver.onclick = () => { if (++taps >= 5) { taps = 0; try { localStorage.setItem('da_admin', on ? '0' : '1'); } catch { } rerender(); } };
-    b.appendChild(ver);
+  { // правки 3: админка для тестов; сборка 62: вход по кнопке и паролю (до перезапуска игры)
+    const on = adminOK;
+    b.appendChild(el('p', 'muted', `<small>Версия сборки: ${window.__BUILD || ''}</small>`));
+    if (!on) {
+      const ad = el('div', 'attr', '<b>Админка</b>'), pw = document.createElement('input');
+      pw.type = 'password'; pw.inputMode = 'numeric'; pw.placeholder = 'Пароль'; pw.style.cssText = 'width:110px;margin:0 6px;font-size:16px';
+      const go = el('button', 'btn sm', 'Войти');
+      go.onclick = () => { if (pw.value.trim() === '12345') { adminOK = true; rerender(); } else { pw.value = ''; bus.emit('toast', { text: 'Неверный пароль', kind: 'warn' }); } };
+      pw.onkeydown = e => { if (e.key === 'Enter') go.onclick(); };
+      ad.appendChild(pw); ad.appendChild(go); b.appendChild(ad);
+    }
     if (on) {
       const C = P.cheat || (P.cheat = {}), ad = el('div', 'attr', '<b>Админка (тест)</b>');
       const tg = (k, n) => { const bt = el('button', 'btn sm' + (C[k] ? ' gold' : ''), n); bt.onclick = () => { C[k] = !C[k]; bus.emit('save'); rerender(); }; ad.appendChild(bt); };
@@ -585,6 +591,7 @@ W.settings = () => modal('Настройки', 'sm', b => {
 });
 
 // ---------------------------------------------------------------- NPCs
+let adminOK = false;   // сборка 62: админка открыта паролем до перезапуска
 const FACES = ['elder', 'smith', 'merchant', 'trainer', 'fortune'];   // сборка 47: портреты из 3D-моделей NPC (tools/qa/scenarios/npc_faces.js)
 function dialog(b, id, name, lines, img) {
   const d = el('div', 'dlg');
