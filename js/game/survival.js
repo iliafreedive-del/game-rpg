@@ -410,7 +410,6 @@ const glow = (x, R, col, a = 0.55) => { const g = x.createRadialGradient(0, 0, 0
 const soulSpr = (col, hex) => sprite('soul' + hex, 64, (x, R) => { glow(x, R, col, 0.6); const s = R * 0.42;
   x.fillStyle = hex; x.strokeStyle = 'rgba(255,255,255,0.9)'; x.lineWidth = 1.2; x.beginPath(); x.moveTo(0, -s * 1.35); x.lineTo(s * 0.8, 0); x.lineTo(0, s * 1.35); x.lineTo(-s * 0.8, 0); x.closePath(); x.fill(); x.stroke();
   x.fillStyle = 'rgba(255,255,255,0.85)'; x.beginPath(); x.moveTo(0, -s * 0.7); x.lineTo(s * 0.32, 0); x.lineTo(0, s * 0.5); x.lineTo(-s * 0.32, 0); x.closePath(); x.fill(); });
-const coinSpr = () => sprite('coin', 32, (x, R) => { glow(x, R, '255,210,90', 0.5); x.fillStyle = '#ffd45a'; x.strokeStyle = '#8a5a10'; x.lineWidth = 1.2; x.beginPath(); x.arc(0, 0, R * 0.45, 0, 7); x.fill(); x.stroke(); x.fillStyle = '#fff3b0'; x.beginPath(); x.arc(-R * 0.12, -R * 0.12, R * 0.15, 0, 7); x.fill(); });
 const shardSpr = () => sprite('shard', 40, (x, R) => { x.save(); x.scale(1, 0.55); glow(x, R, '143,220,255', 0.5); x.restore();
   x.fillStyle = 'rgba(220,250,255,0.95)'; x.strokeStyle = 'rgba(120,200,255,0.9)'; x.lineWidth = 1; x.beginPath(); x.moveTo(R * 0.6, 0); x.lineTo(0, -R * 0.22); x.lineTo(-R * 0.5, 0); x.lineTo(0, R * 0.22); x.closePath(); x.fill(); x.stroke(); });
 const knifeSpr = () => sprite('knife', 32, (x, R) => { x.save(); x.scale(1, 0.4); glow(x, R, '188,212,255', 0.4); x.restore();
@@ -419,16 +418,17 @@ const boltSpr = () => sprite('bolt', 40, (x, R) => { const g = x.createRadialGra
 const bladeSpr = () => sprite('blade', 48, (x, R) => { x.save(); x.scale(1, 0.25); const g = x.createRadialGradient(0, 0, 0, 0, 0, R * 0.85); g.addColorStop(0, 'rgba(255,255,255,0.95)'); g.addColorStop(0.4, 'rgba(200,190,255,0.5)'); g.addColorStop(1, 'rgba(120,90,255,0)'); x.fillStyle = g; x.beginPath(); x.arc(0, 0, R * 0.85, 0, 7); x.fill(); x.restore(); });
 const blit = (ctx, img, x, y, s, a = 0) => { if (a) { ctx.save(); ctx.translate(x, y); ctx.rotate(a); ctx.drawImage(img, -s / 2, -s / 2, s, s); ctx.restore(); } else ctx.drawImage(img, x - s / 2, y - s / 2, s, s); };
 const PSHEET = { knife: 'proj_knife', knife_evo: 'proj_knife_evo', shard: 'proj_ice_shard', arrow: 'proj_arrow', bolt: 'proj_star_bolt', evo: 'proj_hero_weapon_evo' };
-// правки 3: души в 5 раз крупнее, «жирные» (дают больше опыта) — ещё вдвое
-export const SOUL_PX = 20, SOUL_BIG = 2;
+// правки 3: души крупнее; второй заход — на 40 % меньше (спрайт 60 → 36 px), «жирные» вдвое больше.
+// Золото — тот же кристалл того же размера, только жёлтый (раньше монетка 26 px с крошечным кругом внутри)
+export const SOUL_PX = 20, SOUL_BIG = 2, SOUL_K = 1.8;
+export const gemSprites = () => ({ blue: soulSpr('122,224,255', '#7ae0ff'), pink: soulSpr('255,106,216', '#ff6ad8'), gold: soulSpr('255,205,80', '#ffcf4a') });
 export function drawSurvivalFx(ctx, cam) {
   const S = G.surv; if (!S) return; const z = cam.zoom, zz = Math.max(0.8, z);
   for (const q of S.pools) { const [x, y] = cam.toScreen(q.x, q.y); ctx.save(); ctx.translate(x, y); ctx.scale(1, 0.5); const g = ctx.createRadialGradient(0, 0, 0, 0, 0, q.r * 45 * z); g.addColorStop(0, 'rgba(255,150,40,0.55)'); g.addColorStop(1, 'rgba(255,60,10,0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, q.r * 45 * z, 0, 7); ctx.fill(); ctx.restore(); }
-  { const W = cam.w || innerWidth, H = cam.h || innerHeight, bob = Math.sin(G.time * 3) * 3;
-    const soulSheet = fxReady('sv_soul_drop'), blue = soulSpr('122,224,255', '#7ae0ff'), pink = soulSpr('255,106,216', '#ff6ad8'), coin = coinSpr();
+  if (!cam.proj) {   // в 3D души и золото лежат в сцене (render3d/renderer3d.js syncGems): мобы и герой их заслоняют; здесь — только 2D-режим
+    const W = cam.w || innerWidth, H = cam.h || innerHeight, bob = Math.sin(G.time * 3) * 3, sp = gemSprites();
     for (const g of S.gems) { const [x, y] = cam.toScreen(g.x, g.y, 0.25); if (x < -60 || y < -60 || x > W + 60 || y > H + 60) continue;
-      if (g.gold) { blit(ctx, coin, x, y, 26 * zz); continue; }
-      const s = SOUL_PX * zz * (g.big ? SOUL_BIG : 1) * 3; if (soulSheet && !g.big && drawStatusSheet(ctx, cam, 'sv_soul_drop', g.x, g.y, 0, s / (PX_PER_M * z))) continue; blit(ctx, g.big ? pink : blue, x, y + bob * (g.big ? 1.5 : 1), s); } }   // спрайт с сиянием ×3: сам кристалл ≈ 28 px в высоту (было ≈ 6 px), «жирный» — 56 px
+      const big = g.big && !g.gold; blit(ctx, g.gold ? sp.gold : big ? sp.pink : sp.blue, x, y + bob * (big ? 1.5 : 1), SOUL_PX * zz * (big ? SOUL_BIG : 1) * SOUL_K); } }
   ctx.globalCompositeOperation = 'lighter';
   for (const p of S.projs) {
     const [x, y] = cam.toScreen(p.x, p.y, 0.9), [x2, y2] = cam.toScreen(p.x - p.vx * 0.05, p.y - p.vy * 0.05, 0.9); const ang = Math.atan2(y - y2, x - x2);

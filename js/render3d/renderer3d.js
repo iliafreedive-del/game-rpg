@@ -27,6 +27,7 @@ import { Sparks } from './sparks.js';
 import { FORGE_HIT } from './models/npc/npc_smith.js';
 import { sfx } from '../core/audio.js';
 import { disposeObject } from './dispose.js';
+import { gemSprites } from '../game/survival.js';
 
 const params = new URLSearchParams(location.search);
 const SQ = Math.SQRT1_2;
@@ -381,6 +382,23 @@ function syncSwarm(dt) {
     const hitting = e.hitCd > 0.6; a.update(dt, e.act ? { clip: 'attack', k: Math.min(1, e.act.t / e.act.dur) } : hitting ? { clip: 'attack', k: (0.9 - e.hitCd) / 0.3 } : { clip: 'walk', speed: Math.max(1.2, c.v) }, env);   // e.act — приём стража (замах перед рывком/ударом) a.flash(e.flash > 0 ? Math.min(1, e.flash * 8) : 0, 0xffffff);
   }
 }
+// правки 3: души и золото Жатвы — в сцене у самой земли, с проверкой глубины: мобы и герой их заслоняют
+// (на 2D-оверлее кристаллы висели поверх всех). Три облака точек (голубые, розовые «жирные», золото), одна отрисовка на каждое
+const GEM_N = 800, GEM_PX = 36;   // спрайт с сиянием в px, как был на оверлее (60) минус 40 %; «жирные» вдвое
+let gemPts = null;
+function syncGems() {
+  const S = G.surv;
+  if (!gemPts) { if (!S) return; const sp = gemSprites();
+    gemPts = ['blue', 'pink', 'gold'].map(k => { const g = new THREE.BufferGeometry(), a = new THREE.BufferAttribute(new Float32Array(GEM_N * 3), 3); a.setUsage(THREE.DynamicDrawUsage); g.setAttribute('position', a);
+      const t = new THREE.CanvasTexture(sp[k]); t.colorSpace = THREE.SRGBColorSpace;
+      const p = new THREE.Points(g, new THREE.PointsMaterial({ map: t, size: 1, sizeAttenuation: false, transparent: true, depthWrite: false, fog: false, toneMapped: false })); p.frustumCulled = false; p.renderOrder = 4; scene.add(p); return p; }); }
+  const n = [0, 0, 0];
+  if (S) { const b = Math.sin(G.time * 3) * 0.07, px = G.player.x, py = G.player.y;
+    for (const g of S.gems) { if (Math.abs(g.x - px) > 30 || Math.abs(g.y - py) > 30) continue; const k = g.gold ? 2 : g.big ? 1 : 0; if (n[k] >= GEM_N) continue;
+      const P = gemPts[k].geometry.attributes.position.array, j = n[k]++ * 3; P[j] = g.x; P[j + 1] = (k === 1 ? 0.6 : 0.35) + b * (k === 1 ? 1.5 : 1); P[j + 2] = g.y; } }
+  const sz = GEM_PX * Math.max(0.8, G.cam.zoom || 1);   // размер в пикселях экрана, как у прежнего спрайта (survival.js SOUL_PX)
+  gemPts.forEach((p, k) => { p.visible = n[k] > 0; p.geometry.setDrawRange(0, n[k]); p.geometry.attributes.position.needsUpdate = n[k] > 0; p.material.size = sz * (k === 1 ? 2 : 1); });
+}
 const env = { wind: new THREE.Vector2() };
 // «Жатва» (сборка 50): мир сдвинулся на плитку — пол подставляет тот же рисунок, у моделей не бывает рывка скорости
 bus.on('worldShift', ({ dx, dy }) => { if (U.uWShift) { U.uWShift.value.x -= dx; U.uWShift.value.y -= dy; } for (const a of actors.values()) if (a.ctl) { a.ctl.px += dx; a.ctl.py += dy; } });
@@ -496,7 +514,7 @@ export function render() {
   if (Z !== zone) setZone(Z);
   applyQuality();
   updateCamera(dt); updateLights(tAll, dt);
-  { const adt = dt * (G.timeScale ?? 1); syncPlayer(adt); syncEnemies(adt); syncSwarm(adt); syncNpcs(dt); syncPet(adt); } cullActors();   // С22: в стоп-кадре удара анимации тоже замирают
+  { const adt = dt * (G.timeScale ?? 1); syncPlayer(adt); syncEnemies(adt); syncSwarm(adt); syncGems(); syncNpcs(dt); syncPet(adt); } cullActors();   // С22: в стоп-кадре удара анимации тоже замирают
   world.props.cull(camera); world.props.update(tAll);
   if (world.atmo) world.atmo.update(dt, tAll, G.cam.x, G.cam.y, G.player.x, G.player.y);
   if (world.critters) world.critters.update(dt, tAll, G.player, G.cam.x, G.cam.y);

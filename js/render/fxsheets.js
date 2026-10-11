@@ -21,9 +21,20 @@ const real = id => (META[id] && META[id].same) || id;   // sk_cleave -> hit_slas
 function want(id) {
   id = real(id); const m = META[id]; if (!m || sheets.has(id) || pending.has(id)) return;
   const im = new Image(); im.decoding = 'async'; pending.set(id, im);
-  im.onload = () => { if (pending.get(id) !== im) return; pending.delete(id); sheets.set(id, { ...m, img: im, C: m.cols ? im.naturalWidth / m.cols : 0 }); };   // кадр — по картинке: ПК 192, телефон 128
+  im.onload = () => { if (pending.get(id) !== im) return; pending.delete(id); const C = m.cols ? im.naturalWidth / m.cols : 0; sheets.set(id, { ...m, img: ROUND.has(id) ? roundCells(im, m, C) : im, C }); };   // кадр — по картинке: ПК 192, телефон 128
   im.onerror = () => { pending.delete(id); console.warn('[fx] missing sheet', id); };
   im.src = BASE + (PHONE ? m.file.replace(/^assets\/art\/fx\//, 'art/fx/m/') : m.file.replace(/^assets\//, ''));
+}
+// правки 3 (Жатва): у круглых листов «на полу» (вихрь воина) рисунок доходит до края кадра — на земле был виден квадрат.
+// Один раз при загрузке каждый кадр гасится мягким кругом: до 0.3 кадра — как нарисовано, к 0.49 — в ноль
+const ROUND = new Set(['sk_whirlwind', 'sv_main_warrior']);   // список здесь, а не в fx.json: json пересобирает tools/art/fx_pack.py
+function roundCells(im, m, C) {
+  const W = im.naturalWidth, H = im.naturalHeight, c = document.createElement('canvas'); c.width = W; c.height = H; const x = c.getContext('2d');
+  for (let r = 0; r < (m.rows || 1); r++) for (let k = 0; k < m.cols; k++) {
+    const cx = (k + (m.anchor ? m.anchor[0] : 0.5)) * C, cy = (r + (m.anchor ? m.anchor[1] : 0.5)) * C, g = x.createRadialGradient(cx, cy, 0, cx, cy, C * 0.49);
+    g.addColorStop(0, '#000'); g.addColorStop(0.3 / 0.49, '#000'); g.addColorStop(1, 'rgba(0,0,0,0)'); x.fillStyle = g; x.fillRect(k * C, r * C, C, C);
+  }
+  x.globalCompositeOperation = 'source-in'; x.drawImage(im, 0, 0); return c;
 }
 // лист готов к рисованию? (если нет — заказать загрузку; вызывающий рисует прежний эффект)
 export const fxMeta = id => META[real(id)];
