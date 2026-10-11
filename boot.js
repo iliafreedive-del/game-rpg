@@ -28,5 +28,10 @@ function pick(l) { l = String(l || 'ru').slice(0, 2).toLowerCase(); if (['be', '
       if (D[document.title]) document.title = D[document.title];
     } catch (e) { console.warn('html i18n', e); }
   }
+  { // сборка 64: все модули игры — параллельно (список кладёт сборка, tools/i18n/build_langs.mjs); vendor общий для всех языков
+    const base = lang === 'ru' ? 'js/' : `js_${lang}/`;
+    const mods = (window.__MODS || []).slice().sort((a, b) => b.startsWith('vendor/') - a.startsWith('vendor/'));   // самые большие (three.js) — первыми
+    for (const m of mods) { const l = document.createElement('link'); l.rel = 'modulepreload'; l.href = (m.startsWith('vendor/') ? 'js/' : base) + m; document.head.appendChild(l); }
+  }
   await import(lang === 'ru' ? './js/main.js' : `./js_${lang}/main.js`);
 })();

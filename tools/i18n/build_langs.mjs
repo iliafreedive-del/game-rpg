@@ -70,7 +70,15 @@ for (const L of LANGS) {
   console.log(`${L}: без перевода ${missing.size}, ошибок синтаксиса ${bad}`); if (missing.size) console.log([...missing].slice(0, 10).map(s => '   · ' + s.slice(0, 80)).join('\n'));
   total += missing.size + bad;
 }
+// сборка 64: список модулей игры (статические import от main.js, по слоям) — boot.js сразу ставит их на modulepreload,
+// чтобы браузер качал все файлы параллельно, а не по цепочке «скачал файл → увидел его import → пошёл за следующим»
+const MODS = []; { const seen = new Set(['main.js']), q = ['main.js'], JS = path.join(ROOT, 'js');
+  while (q.length) { const m = q.shift(); MODS.push(m); const src = fs.readFileSync(path.join(JS, m), 'utf8');
+    for (const x of src.matchAll(/(?:^|[;\n])\s*(?:import|export)\s+(?:[\w*{}\s,$]+?\s+from\s+)?['"](\.{1,2}\/[^'"]+\.js)['"]/g)) {
+      const r = path.relative(JS, path.resolve(path.dirname(path.join(JS, m)), x[1])).split(path.sep).join('/');
+      if (!r.startsWith('..') && !seen.has(r) && fs.existsSync(path.join(JS, r))) { seen.add(r); q.push(r); } } } }
+console.log('модулей на предзагрузку:', MODS.length);
 // список языков для boot.js
-const html = fs.readFileSync(path.join(OUT, 'index.html'), 'utf8').replace('<script type="module" src="boot.js"></script>', `<script>window.__LANGS=${JSON.stringify(['ru', ...LANGS])}</script>\n<script type="module" src="boot.js"></script>`);
+const html = fs.readFileSync(path.join(OUT, 'index.html'), 'utf8').replace('<script type="module" src="boot.js"></script>', `<script>window.__LANGS=${JSON.stringify(['ru', ...LANGS])};window.__MODS=${JSON.stringify(MODS)}</script>\n<script type="module" src="boot.js"></script>`);
 fs.writeFileSync(path.join(OUT, 'index.html'), html);
 console.log('языки:', ['ru', ...LANGS].join(', '), total ? '— ЕСТЬ ПРОБЛЕМЫ' : '— ок');

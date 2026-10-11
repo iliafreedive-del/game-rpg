@@ -43,7 +43,8 @@ async function boot() {
   prog(0.05, 'Подключение платформы…');
   await initPlatform();
   prog(0.1, 'Загрузка героя и мира…');
-  await loadGroup(CORE, f => prog(0.1 + f * 0.6, 'Загрузка героя и мира…'));
+  // сборка 64: атласы (props ≈1,3 МБ) качаются, пока игрок на титуле; «Начать игру» их дожидается
+  const core = loadGroup(CORE).catch(e => console.warn(e));
   // сборка 63: портрет над названием скрыт (css #title .hero) — не качаем его зря
   // save: local, or cloud if newer (Yandex)
   // сборка 44: три сохранения — по одному на класс; облако (Яндекс) — если там новее
@@ -53,11 +54,13 @@ async function boot() {
   platform.p.ready();
   initAnalytics();
   // сборка 51: монстры, модели героев и зверей качаются после Game Ready, пока игрок на титульном экране
-  const mons = loadGroup(MONSTERS).catch(e => console.warn(e));
-  startPreload(saves.last);
+  const mons = core.then(() => loadGroup(MONSTERS)).catch(e => console.warn(e));   // сборка 64: после атласов, чтобы не делить с ними канал
+  mons.then(() => startPreload(saves.last));   // модели — после атласов: «Начать игру» ждёт именно атласы
   $('loadbar').classList.add('hidden'); $('loadtxt').classList.add('hidden');
   const btns = $('titleBtns'); btns.classList.remove('hidden'); $('title').classList.add('ready'); if (window.__bootOk) window.__bootOk();   // сборка 58: фон загрузки (лестница) → титульный (Тихий Брод)
   const start = async (p) => {
+    btns.innerHTML = '<div class="muted">Вход в мир…</div>';
+    await core;
     await loadGroup(CLASS_ATLAS[p.cls || 'warrior']).catch(() => { });
     const dv = deviceVolumes(); if (dv) { p.settings.sfx = dv.sfx; p.settings.music = dv.music; }   // громкость — настройка устройства (одна для всех героев)
     G.profile = p; G.stats = stats(p); wireAnalytics(); setVolumes(p.settings.sfx, p.settings.music); resize();
