@@ -73,14 +73,29 @@ function header(title) {
   root.appendChild(bar);
   if (title) root.appendChild(el('div', 'hw-title', title));
 }
+// правки 3: десятка этапов пройдена на все три звезды — 1000 золота (один раз за десятку; уже набранные звёзды тоже считаются)
+const tenOf = s => Math.floor((s - 1) / 10);
+const tenStars = t => { const st = HW().stars; let n = 0; for (let s = t * 10 + 1; s <= t * 10 + 10; s++) n += st[s] || 0; return n; };
+function payTens() {
+  const h = HW(); h.ten = h.ten || {};
+  for (let t = 0; t < STAGES / 10; t++) if (!h.ten[t] && tenStars(t) >= 30) {
+    h.ten[t] = 1; G.profile.gold += TEN_GOLD; bus.emit('sfx', 'quest'); bus.emit('hud'); bus.emit('save');
+    bus.emit('toast', { text: `Этапы ${t * 10 + 1}–${t * 10 + 10} — все звёзды!`, sub: `+${fmt(TEN_GOLD)} золота`, kind: 'good' });
+  }
+}
 function showMap() {
-  cancelAnimationFrame(raf); disposeStage(); root.innerHTML = ''; header();
+  cancelAnimationFrame(raf); disposeStage(); root.innerHTML = ''; payTens(); header();
   const h = HW(), ch = CHAPTERS[page];
   const card = el('div', 'hw-map', `<div class="hw-pano"><img src="${ART.banner(page + 1)}" alt="" onerror="this.parentNode.remove()"></div><div class="hw-banner">Летопись битв · ${esc(ch.name)}</div><div class="hw-sub">Бой идёт сам. Ваш герой, его вещи, закалка и улучшения — те же, что в подземелье.</div>`);
+  // правки 3: этапы по десяткам — у каждой десятки своя строка: звёзды десятки, награда за все 30 ★ и почему закрыта
   const grid = el('div', 'hw-grid');
   for (let i = 1; i <= PER_CH; i++) {
-    const s = page * PER_CH + i, st = h.stars[s] || 0, locked = s > h.top || !!gate('hw', s), E = stageEnemy(s);
-    const b = el('button', 'hw-stage' + (locked ? ' locked' : '') + (E.boss ? ' boss' : '') + (s === h.top ? ' cur' : ''), `<div class="hw-stars">${[0, 1, 2].map(k => `<i class="${k < st ? 'on' : ''}">★</i>`).join('')}</div><div class="hw-num">${locked ? '🔒' : s}</div>${E.boss ? '<div class="hw-tag">босс</div>' : ''}`);
+    const s = page * PER_CH + i, st = h.stars[s] || 0, g0 = gate('hw', s), locked = s > h.top || !!g0, E = stageEnemy(s);
+    if ((i - 1) % 10 === 0) {
+      const t = tenOf(s), got = tenStars(t), paid = (h.ten || {})[t];
+      grid.appendChild(el('div', 'hw-ten' + (paid ? ' paid' : ''), `<b>Этапы ${s}–${s + 9}</b><span class="hw-ten-st">★ ${got}/30</span><span class="hw-ten-rw">${paid ? '✔ Награда получена' : `Все ★★★ — ${ICO.gold}${fmt(TEN_GOLD)}`}</span>${g0 && s <= h.top + 1 ? `<span class="hw-ten-lock">🔒 ${esc(g0.sub || g0.text)}</span>` : ''}`));
+    }
+    const b = el('button', 'hw-stage' + (locked ? ' locked' : '') + (E.boss ? ' boss' : '') + (s === h.top && !g0 ? ' cur' : ''), `<div class="hw-stars">${[0, 1, 2].map(k => `<i class="${k < st ? 'on' : ''}">★</i>`).join('')}</div><div class="hw-num">${locked ? '🔒' : s}</div>${E.boss ? '<div class="hw-tag">босс</div>' : ''}`);
     b.onclick = () => { const g = gate('hw', s); if (g) { bus.emit('toast', { ...g, kind: 'warn' }); return; } if (s > h.top) { bus.emit('toast', { text: 'Этап закрыт', sub: `Сначала победите на этапе ${h.top}`, kind: 'warn' }); return; } showPrefight(s); };
     grid.appendChild(b);
   }
@@ -112,7 +127,7 @@ function showPrefight(s) {
   const names = {}; for (const f of L) names[f.name] = (names[f.name] || 0) + 1;
   const list = Object.entries(names).map(([n, k]) => esc(n) + (k > 1 ? ' ×' + k : '')).join('<br>');
   const card = el('div', 'hw-map hw-pre', `<div class="hw-banner">Этап ${s}${L.some(f => f.boss) ? ' · босс' : ''}</div>
-    <div class="hw-vs"><div><b>Вы · ур. ${G.profile.level}</b><span>Сила ${fmt(me)}</span><span>♥ ${fmt(H.hp)} · ⚔ ${Math.round(H.dmg)}</span></div><div class="hw-vsx">VS</div><div><b>Врагов: ${L.length}</b><span>Сила ${fmt(Math.round(foe))}</span><span style="font-size:12px">${list}</span></div></div>
+    <div class="hw-vs"><div><b>Вы · ур. ${G.profile.level}</b><span>Сила ${fmt(me)}</span><span>♥ ${fmt(H.hp)} · ⚔ ${Math.round(H.dmg)}</span></div><div class="hw-vsx">VS</div><div><b>Врагов: ${L.length}</b><span>Сила ${fmt(Math.round(foe))}</span><span class="hw-foes">${list}</span></div></div>
     <p class="${me >= foe ? 'good' : 'bad'}" style="text-align:center">${me >= foe * 1.3 ? 'Лёгкий бой' : me >= foe * 0.85 ? 'Равный бой' : 'Враг сильнее — прокачайтесь в катакомбах, улучшите вещи у кузнеца'}</p>`);
   // П9: выбор умения перед боем (их будет несколько) и как часто оно срабатывает
   { const pk = hwSkillPick(), box = el('div', 'hw-sk', `<b>Умение в бою:</b>`);
@@ -325,10 +340,7 @@ async function fight(s) {
       if (h.bonus) { gold *= 2; h.bonus = 0; bonus = true; }   // П49: «Зов Летописи» — первая победа после напоминания с двойным золотом
       if (foes.some(f => f.boss) && first) shards = foes.some(f => f.type === 'boss') ? 5 : 3; else if (rand() < 0.1) shards = 1;
       P.gold += gold; gainXP(xp); if (shards) addShards(shards); bus.emit('hwWin');
-      h.stars[s] = Math.max(h.stars[s] || 0, stars); if (first) { h.top = Math.min(STAGES, s + 1); codexPage(s); }
-      // правки 3: все 10 этапов ряда на три звезды — разовая награда 1000 золота
-      { const r0 = Math.floor((s - 1) / 10) * 10; h.ten = h.ten || {};
-        if (!h.ten[r0] && [...Array(10).keys()].every(i => (h.stars[r0 + i + 1] || 0) >= 3)) { h.ten[r0] = 1; P.gold += TEN_GOLD; setTimeout(() => bus.emit('toast', { text: `Этапы ${r0 + 1}–${r0 + 10} на три звезды!`, sub: `+${TEN_GOLD} золота`, kind: 'good' }), 1800); } }
+      h.stars[s] = Math.max(h.stars[s] || 0, stars); if (first) { h.top = Math.min(STAGES, s + 1); codexPage(s); } payTens();
     }
     bus.emit('save');
     const up = P.level > lvl0;

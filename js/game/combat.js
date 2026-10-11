@@ -14,6 +14,8 @@ const MAX_PARTICLES = 350, MAX_TEXTS = 50, MAX_EFFECTS = 80;
 
 // ------------------------------------------------------------------ VFX helpers (bounded pools)
 export function float(x, y, text, color = '#fff', o = {}) {
+  // правки 3: «-8.6480000000001» — дробный урон (щит съел часть удара) больше не выводится с хвостом знаков: числа в надписях целые
+  text = typeof text === 'number' ? Math.round(text) : String(text).replace(/-?\d+\.\d{2,}/g, m => String(Math.round(+m)));
   // сборка 59: одна и та же надпись (не число) в том же месте — не громоздить друг на друга («Уклонение» от трёх ударов разом)
   if (isNaN(text) && G.texts.some(f => f.text === String(text) && f.t < 0.45 && Math.hypot(f.x - x, f.y - y) < 1.2)) return;
   if (G.texts.length >= MAX_TEXTS) G.texts.shift();
@@ -622,7 +624,7 @@ export function hurtPlayer(src, raw, elem) {
     dmg *= 1 - damageReduction(S.armor, lvl);
   }
   dmg = Math.max(1, Math.round(dmg));
-  if (P.shield > 0) { const ab = Math.min(P.shield, dmg); P.shield -= ab; dmg -= ab; }
+  if (P.shield > 0) { const ab = Math.min(P.shield, dmg); P.shield -= ab; dmg = Math.round(dmg - ab); }
   if (src && src.D && src.D.onHit === 'slow') P.slowT = Math.max(P.slowT || 0, 1.6);   // мороз: замедление героя
   P.hp -= dmg; P.flash = 0.15; bus.emit('hurt', { dmg, src: src && src.type ? src.type : src && src.src && src.src.type ? src.src.type : String(src && src.kind || 'proj') });
   float(P.x, P.y, '-' + dmg, '#ff5a4a', { z: 2.1 });

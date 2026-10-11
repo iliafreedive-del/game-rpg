@@ -27,7 +27,11 @@ export function initPanel() {
   box = el('div', 'npc-panel hidden'); box.id = 'npcPanel'; $('ui').appendChild(box); box.addEventListener('scroll', moreDn, { passive: true });
   // правки мамы (М30): выполненное задание сдаётся сразу, как подошли к жителю (кузнец, Мира, Элвин, Кофи) — раньше только после второго подхода
   // или открытия его окна, и стрелка всё вела к нему
-  bus.on('panel', t => { if (!t) dismissed = null; target = t; lastSig = ''; if (t && t.id && Q.isReady() && Q.turnNpc(Q.current()) === t.id) Q.talked(t.id); render(true); });
+  bus.on('panel', t => { if (!t) dismissed = null; target = t; lastSig = ''; if (t && t.id && Q.isReady() && Q.turnNpc(Q.current()) === t.id) Q.talked(t.id);
+    // правки 3: задание «Показать камень Палача Элвину» (поговорить с жителем) не засчитывалось: подошёл — открылась панель покупок, а разговор
+    // был только по кнопке действия. Теперь у жителя с «!» сначала открывается его разговор
+    else if (t && t.id && Q.current() && Q.current().obj.talk === t.id && W['npc_' + t.id] && !G.modalOpen) { W['npc_' + t.id](); return; }
+    render(true); });
   // tap anywhere on the game field outside the panel → close it until you walk away and come back
   const hide = e => { if (!target || box.classList.contains('hidden') || box.contains(e.target)) return; dismissed = target; render(true); };
   for (const id of ['game', 'joyZone']) { const n = $(id); if (n) n.addEventListener('pointerdown', hide, true); }
@@ -141,11 +145,11 @@ function render(force) {
   } else if (T.id === 'board') {
     head('Доска заданий', 'Ежедневные · недельные · долгие контракты');
     box.appendChild(el('div', 'pn-sub', 'Ежедневные'));
-    for (const q of DQ.dailyQuests()) box.appendChild(row('☀', esc(q.title), q.claimed ? 'получено' : `${q.cur}/${q.n}`, q.done && !q.claimed ? 'Забрать' : null, q.done && !q.claimed, () => DQ.claimDaily(q.id), q.done && !q.claimed ? 'hot' : ''));
+    for (const q of DQ.dailyQuests()) box.appendChild(row('☀', esc(q.title), q.claimed ? (q.next ? `✔ новое через ${Math.ceil(q.next / 60000) >= 60 ? Math.ceil(q.next / 3600000) + ' ч' : Math.ceil(q.next / 60000) + ' мин'}` : 'получено') : `${q.cur}/${q.n}`, q.done && !q.claimed ? 'Забрать' : null, q.done && !q.claimed, () => DQ.claimDaily(q.id), q.done && !q.claimed ? 'hot' : ''));
     box.appendChild(el('div', 'pn-sub', 'Недельные (крупнее)'));
-    for (const q of DQ.weeklyQuests()) box.appendChild(row('☾', esc(q.title), q.claimed ? 'получено' : `${q.cur}/${q.n}`, q.done && !q.claimed ? 'Забрать' : null, q.done && !q.claimed, () => DQ.claimWeekly(q.id), q.done && !q.claimed ? 'hot' : ''));
+    for (const q of DQ.weeklyQuests()) box.appendChild(row('☾', esc(q.title), q.claimed ? (q.next ? `✔ новое через ${Math.ceil(q.next / 60000) >= 60 ? Math.ceil(q.next / 3600000) + ' ч' : Math.ceil(q.next / 60000) + ' мин'}` : 'получено') : `${q.cur}/${q.n}`, q.done && !q.claimed ? 'Забрать' : null, q.done && !q.claimed, () => DQ.claimWeekly(q.id), q.done && !q.claimed ? 'hot' : ''));
     box.appendChild(el('div', 'pn-sub', 'Долгие контракты (трудные)'));
-    for (const r of REPEATABLE) { const s = Q.repState(r); box.appendChild(row(s.done ? '✔' : '•', esc(r.title), `${s.cur}/${r.n}`, s.done ? 'Забрать' : null, s.done, () => Q.claimRep(r.id), s.done ? 'hot' : '')); }
+    for (const r of Q.repList()) { const s = Q.repState(r); box.appendChild(row(s.done ? '✔' : '•', esc(r.title), `${s.cur}/${r.n}`, s.done ? 'Забрать' : null, s.done, () => Q.claimRep(r.id), s.done ? 'hot' : '')); }
   } else if (T.type === 'roomgate') {
     const R = ROOMS[T.room]; const c = CS.canUnlock(T.room);
     head(R.name, R.desc); bal();

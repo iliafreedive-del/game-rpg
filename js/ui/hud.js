@@ -50,10 +50,14 @@ export function initHUD() {
   hold('potHP', () => pot('hp')); hold('potMP', () => pot('mp'));
   hold('btnAct', () => { if (G.focus) interact(G.focus); });
   $('btnScroll').onclick = () => useScroll();
+  // правки 3: нажатие на мини-карту — большая карта; пока она открыта, бой на паузе (окно ставит игру на паузу)
+  { const mm = $('minimap'); mm.title = 'Карта (M) — нажмите, чтобы открыть'; mm.onpointerdown = e => { e.preventDefault(); e.stopPropagation(); if (!G.modalOpen && G.zone) openWindow('map'); }; }
   // правки 2 (П51): напоминание о рывке в бою с большим боссом (combat.js enemyTelegraph) — кнопка мигает, над героем подсказка не чаще раза в 4 с
   { let hT = 0, fT = -9; bus.on('dodgeHint', () => { const b = $('btnDodge'); if (!b || G.player.cds.dodge > 0.3) return; b.classList.add('hint'); clearTimeout(hT); hT = setTimeout(() => b.classList.remove('hint'), 1100);
     if (G.time - fT > 4) { fT = G.time; bus.emit('float', { x: G.player.x, y: G.player.y, text: matchMedia('(pointer:coarse)').matches ? 'Рывок!' : 'Рывок — Shift!', color: '#ffe08a', z: 2.6, life: 1.1 }); } }); }
   const ab = $('btnAuto'); ab.removeAttribute('data-open'); ab.onclick = null; ab.onpointerdown = async e => { e.preventDefault(); e.stopPropagation();
+    // правки 3: включить АВТО можно только вне боя (выключить — всегда)
+    if (!G.auto && inCombat()) { toast({ text: 'Автобой включается только вне боя', sub: autoOK() ? 'Отойдите от врагов и нажмите АВТО' : `Вне боя: АВТО за рекламу — ${AUTO_MIN} минут`, kind: 'warn' }); bus.emit('sfx', 'deny'); return; }
     if (!G.auto && !autoOK()) { if (!await autoAd()) return; toast({ text: `Автобой на ${AUTO_MIN} минут`, sub: 'Герой сам сражается, пьёт зелья и идёт к цели', kind: 'good' }); }   // сборка 47: автобой за рекламу
     G.auto = !G.auto; ab.classList.toggle('on', G.auto); toast({ text: G.auto ? 'Автобой включён' : 'Автобой выключен', sub: G.auto ? (autoFree() ? 'Герой сам сражается, пьёт зелья и идёт к цели' : `Осталось ${Math.ceil(autoLeft() / 60000)} мин`) : '', kind: 'info' }); };
   // keyboard shortcuts
@@ -171,7 +175,10 @@ export function updateHUD(dt) {
   tick = 0; lastHud = 0.25;
   $('lvl').textContent = P.level; $('lvl').classList.toggle('up', P.attrPts > 0 || P.skillPts > 0);
   setBar('xpBar', P.xp / xpToNext(P.level));
-  $('gold').textContent = fmt(P.gold); $('shards').textContent = P.shards || 0; $('torchV').textContent = CS.torches().n;   // П44: подписи «зол.», «◆», «⚡» — картинки в index.html
+  $('gold').textContent = fmt(P.gold); $('shards').textContent = P.shards || 0; $('torchV').textContent = CS.torches().n;
+  // правки 3: в походе подобранное золото копится в ноше 🎒 и в кошелёк уходит на выходе / в схроне — видно рядом с кошельком, сколько несёте
+  { let c = $('carryG'); if (!c) { c = el('small', 'carry-g hidden'); c.id = 'carryG'; c.title = 'Ноша: золото похода. Уйдёт в кошелёк, когда выйдете или сдадите в схрон; если падёте — пропадёт'; $('gold').after(c); }
+    const n = G.zoneId === 'wild' && G.wild ? G.wild.carry || 0 : 0; c.classList.toggle('hidden', !n); if (n) c.textContent = `+${fmt(n)} 🎒`; }   // П44: подписи «зол.», «◆», «⚡» — картинки в index.html
   autoTick(); $('btnAuto').classList.toggle('on', !!G.auto); dot('dotHW', G.zoneId === 'town' && hwReady() ? 1 : 0);
   $('hpCount').textContent = P.potions.hp; $('mpCount').textContent = P.potions.mp; $('scrollCount').textContent = P.scrolls;
   $('btnScroll').classList.toggle('hidden', !scrollZone());   // П48/П64: и в походах, и в Глубинах
@@ -206,6 +213,7 @@ function huntBox() {
     else h = `<span class="hb-ico">🎯</span> Охота через <b>${mmss(HU.msLeft())}</b>`;
   }
   const b = $('huntBox'); b.classList.toggle('hidden', !h); b.classList.toggle('on', on); b.classList.toggle('ready', HU.readyToTurnIn());
+  { const c = HU.unlocked() && HU.current(); b.classList.toggle('away', !!(c && !c.slain && c.place !== G.zoneId)); }   // правки 3: охота в другом месте — в бою приглушена, а не горит ярче задания
   if (h !== lastHunt) { b.innerHTML = h; lastHunt = h; }
 }
 const mmss = ms => { const s = Math.ceil(ms / 1000); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
@@ -218,7 +226,7 @@ function tracker() {
   if (G.run) {
     const r = G.run, t = Math.floor(G.time - r.t0); const boss = G.enemies.find(e => e.story === 'floorboss' && !e.dead);
     h = `<div class="t">${r.floor === 0 ? 'Пролог · Склеп пробуждения' : esc(G.zone.name)}</div><div class="d" style="display:block">Враги ${r.kills}/${r.total} · ${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}${r.kills >= r.total ? ' · портал открыт' : ' · убейте всех — откроется портал'}</div>`;
-    if (h !== lastTrack) { $('tracker').innerHTML = h; lastTrack = h; } return;
+    if (h !== lastTrack) { $('tracker').innerHTML = h; lastTrack = h; } $('tracker').classList.add('here'); return;
   }
   if (!q) h = `<div class="ch">${chapterOf(STORY[STORY.length - 1])}</div><div class="t">История пройдена!</div><div class="d">Круги Бездны в окне Глубин, рекорды этажей, Жатва Бездны, форты походов и контракты доски</div>`;
   else {
@@ -231,6 +239,8 @@ function tracker() {
     h = `<div class="ch">${chapterOf(q)} · ${done}/${inCh.length}</div><div class="t">${esc(q.title)}${pr ? ` <span class="muted">${pr.cur}/${pr.max}</span>` : ''}</div><div class="d">${esc(txt)}</div>` + (pr ? `<div class="pb"><i style="width:${pr.cur / pr.max * 100}%"></i></div>` : '');
   }
   if (h !== lastTrack) { $('tracker').innerHTML = h; lastTrack = h; }
+  // правки 3: задание этого места (волки в лесу) в бою не бледнеет — бледнеет только то, что делать в другом месте
+  $('tracker').classList.toggle('here', !!(q && !Q.isReady() && (q.where === G.zoneId || (G.zoneId === 'wild' && G.wild && q.target === 'portal_' + G.wild.realm))));
 }
 let safeC = null, safeEl = null;
 addEventListener('resize', () => { safeC = null; }); addEventListener('orientationchange', () => { safeC = null; });
@@ -252,8 +262,13 @@ function edgeArrow() {
   const [sx, sy] = G.cam.toScreen(t.x, t.y);
   // С3: отступ от края — 46 px плюс вырез/скругление экрана с каждой стороны (safe area)
   const S = safeInsets(), W = innerWidth, H = innerHeight, mL = 46 + S.l, mR = 46 + S.r, mT = 46 + S.t, mB = 46 + S.b;
-  if (sx > mL && sx < W - mR && sy > mT && sy < H - mB) { e.classList.add('hidden'); return; }
-  const cx = (mL + W - mR) / 2, cy = (mT + H - mB) / 2; let dx = sx - cx, dy = sy - cy; const l = Math.hypot(dx, dy) || 1; dx /= l; dy /= l;
+  // правки 3: цель далеко внизу (за камерой) проецировалась «вверх» — стрелка смотрела вверх, хотя идти надо вниз. Направление на экране
+  // теперь берём по короткому шагу от героя к цели (он всегда перед камерой); дальняя точка годится, только если лежит в ту же сторону
+  const [hx, hy] = G.cam.toScreen(P.x, P.y), wd = Math.hypot(t.x - P.x, t.y - P.y) || 1, [nx, ny] = G.cam.toScreen(P.x + (t.x - P.x) / wd * 2, P.y + (t.y - P.y) / wd * 2);
+  let ux = nx - hx, uy = ny - hy; { const l = Math.hypot(ux, uy) || 1; ux /= l; uy /= l; }
+  const ahead = (sx - hx) * ux + (sy - hy) * uy > 0;
+  if (ahead && sx > mL && sx < W - mR && sy > mT && sy < H - mB) { e.classList.add('hidden'); return; }
+  const cx = (mL + W - mR) / 2, cy = (mT + H - mB) / 2; let dx = ahead ? sx - cx : ux, dy = ahead ? sy - cy : uy; const l = Math.hypot(dx, dy) || 1; dx /= l; dy /= l;
   let k = Math.min((dx > 0 ? W - mR - cx : cx - mL) / Math.abs(dx || 1e-6), (dy > 0 ? H - mB - cy : cy - mT) / Math.abs(dy || 1e-6));
   // сборка 59: стрелка не ложится на полосы здоровья, трекер, кнопки боя — сдвигается по тому же направлению ближе к центру
   const R = ['hudL', 'hudR', 'pad', 'btnAct', 'btnLead'].map(id => $(id)).filter(x => x && x.offsetParent).map(x => x.getBoundingClientRect()).filter(r => r.width && r.width < W * 0.9);

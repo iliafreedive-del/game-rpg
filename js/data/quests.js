@@ -72,7 +72,7 @@ export const STORY = [
 export const REPEATABLE = [
   { id: 'r_kill100', title: 'Уничтожить 300 монстров', stat: 'kills', n: 300, reward: { gold: 700, xp: 900 } },
   { id: 'r_walk1000', title: 'Пройти 4000 метров', stat: 'meters', n: 4000, reward: { gold: 400, potions: 5 } },
-  { id: 'r_gold1000', title: 'Собрать 4000 золота', stat: 'gold', n: 4000, reward: { gold: 700, xp: 600 } },
+  { id: 'r_gold1000', after: 'r_gold5000', title: 'Собрать 4000 золота', stat: 'gold', n: 4000, reward: { gold: 700, xp: 600 } },
   { id: 'r_elite5', title: 'Убить 15 элитных противников', stat: 'elites', n: 15, reward: { gold: 900, items: [{ slot: 'weapon', tier: 2, rarity: 2 }] } },
   { id: 'r_chest10', title: 'Открыть 30 сундуков', stat: 'chests', n: 30, reward: { gold: 500, potions: 5 } },
   // П34 (правки 2): кузнецу на серебро — 5000 золота, только добытого в бою (подобранного с врагов и сундуков и вынесенного из похода; не реклама, не покупки, не награды)
