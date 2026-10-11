@@ -497,6 +497,17 @@ canvas#game{filter:saturate(1.22) contrast(1.08) brightness(1.06)}
   #bossBar{width:100%;max-width:48vw}
   #hudR{max-width:48vw}
 }
+/* телефон вертикально: плашки охоты и задания справа — компактно, в одну-две короткие строки, без пустого поля слева */
+@media (orientation:portrait) and (max-width:760px){
+  #huntBox.on{padding:3px 8px 4px;border-radius:7px}
+  #huntBox .hb-t{font-size:12px;line-height:1.2}
+  #huntBox .hb-d{font-size:11px;line-height:1.2}
+  #tracker{padding:3px 8px 4px 14px;background:linear-gradient(90deg,#0000,#000b 14px)}
+  #tracker .t{font-size:12px;line-height:1.2;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  #tracker .pb{margin-top:3px;height:3px}
+  #hudR{max-width:62vw}#tracker{max-width:100%}#tracker.open .ch{display:none}
+  #tracker.open .d{font-size:11px;line-height:1.25;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+}
 /* Летопись битв: три слоя (фон, 3D-бойцы, полосы и цифры) */
 .hw-stack{position:relative;width:100%;flex:1;min-height:240px;margin-top:6px;border-radius:10px;border:3px solid #5a3e22;overflow:hidden;background:#0a0810}
 .hw-stack canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
