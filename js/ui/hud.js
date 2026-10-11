@@ -200,8 +200,9 @@ function huntBox() {
   let h = '', on = false;
   if (HU.unlocked() && !G.surv) {
     const cur = HU.current();
-    if (cur && cur.slain) { on = true; h = `<div class="hb-t ok">✔ Охота: ${esc(HU.bossOf(cur).name)}</div><div class="hb-d">Сдайте охоту старосте Эдрику</div>`; }
-    else if (cur) { on = true; h = `<div class="hb-t">⚠ Охота: ${esc(HU.bossOf(cur).name)}</div><div class="hb-d">${esc(HU.whereText(cur))}</div>`; }
+    // коротко, чтобы плашка не закрывала пол-экрана: «⚠ Лесной Ужас / Катакомбы · Преддверие» (красная рамка и так говорит, что это охота)
+    if (cur && cur.slain) { on = true; h = `<div class="hb-t ok">✔ ${esc(HU.bossOf(cur).name)}</div><div class="hb-d">Сдайте старосте Эдрику</div>`; }
+    else if (cur) { on = true; h = `<div class="hb-t">⚠ ${esc(HU.bossOf(cur).name)}</div><div class="hb-d">${esc(HU.whereText(cur).replace(/, зал «(.+)»$/, ' · $1'))}</div>`; }
     else h = `<span class="hb-ico">🎯</span> Охота через <b>${mmss(HU.msLeft())}</b>`;
   }
   const b = $('huntBox'); b.classList.toggle('hidden', !h); b.classList.toggle('on', on); b.classList.toggle('ready', HU.readyToTurnIn());
