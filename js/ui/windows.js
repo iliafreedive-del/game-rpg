@@ -729,7 +729,7 @@ W.npc_caravan = () => {
     const dl = dialog(b, 'caravan', 'Караванщик Кофи', lines);
     const row = el('div', 'row'); row.style.marginTop = '12px';
     const nx = el('button', 'btn gold', lines.length > 1 ? 'Далее' : 'Понятно');
-    nx.onclick = () => { if (dl.next()) { if (dl.last()) nx.textContent = first ? 'Принять подарок' : 'Понятно'; return; } closeModal(); if (first && meetCaravan()) petReveal(); };
+    nx.onclick = () => { if (dl.next()) { if (dl.last()) { nx.textContent = first ? '🎁 Забрать подарок' : 'Понятно'; if (first) nx.classList.add('pet-gift'); } return; } closeModal(); if (first && meetCaravan()) petReveal(); };
     if (lines.length === 1) nx.textContent = 'Понятно';
     row.appendChild(nx); b.appendChild(row);
   }, { sticky: true });
@@ -742,16 +742,23 @@ function petReveal() {
   effect({ kind: 'ring', x: p.x, y: p.y, r: 2.6, dur: 0.7, c: [255, 200, 110] }); G.cam.kick(0.25);
   bus.emit('sfx', 'epicDrop'); setTimeout(() => bus.emit('sfx', 'levelup'), 350);
   bus.emit('float', { x: p.x, y: p.y, text: D.icon + ' ' + D.name, color: '#ffd27a', z: 1.6, life: 1.8, big: 1 });
+  // правки к сборке 60: поздравление на весь экран — «Хе-хе, поздравляем! Вот тебе питомец!» (было небольшое окно «Новый спутник»)
   setTimeout(() => {
-    const m = modal('Новый спутник!', 'sm reward', b => {
-      b.appendChild(el('div', 'rw-head pet-rv', `<div class="rw-rays r3"></div><div class="pet-rv-ic">${D.icon}</div><div class="rw-t">${esc(D.name)}</div><div class="pet-rv-tier" style="color:${TIERS[D.tier].color}">${esc(TIERS[D.tier].name)} питомец · подарок Кофи</div>`));
-      b.appendChild(el('p', 'pet-rv-d', `<b>Умение:</b> ${esc(D.desc)}`));
-      b.appendChild(el('p', 'muted pet-rv-d', 'Ходит за вами везде — в подземельях, походах и Цитадели — и сам бьётся рядом. Новых зверьков и улучшения Кофи продаёт за осколки Бездны ◆.'));
-      const r = el('div', 'row'); r.style.justifyContent = 'center'; const ok = el('button', 'btn gold', 'В путь!'); ok.onclick = closeModal; r.appendChild(ok); b.appendChild(r);
+    const m = modal('Новый спутник!', 'pet-full', b => {
+      b.appendChild(el('div', 'pf-rays'));
+      b.appendChild(el('div', 'pf-hehe', '«Хе-хе!» — Кофи'));
+      b.appendChild(el('div', 'pf-t', 'Поздравляем!'));
+      b.appendChild(el('div', 'pf-s', 'Вот тебе питомец!'));
+      b.appendChild(el('div', 'pf-ic', D.icon));
+      b.appendChild(el('div', 'pf-n', `${esc(D.name)} <span style="color:${TIERS[D.tier].color}">· ${esc(TIERS[D.tier].name)}</span>`));
+      b.appendChild(el('p', 'pf-d', `<b>Умение:</b> ${esc(D.desc)}`));
+      b.appendChild(el('p', 'pf-d muted', 'Ходит за вами везде и сам бьётся рядом. Новых зверьков Кофи продаёт за осколки Бездны ◆.'));
+      const ok = el('button', 'btn gold pf-ok', 'В путь!'); ok.onclick = closeModal; b.appendChild(ok);
     }, { sticky: true });
-    m.bg.classList.add('rw-bg');
-  }, 1100);
+    m.bg.classList.add('rw-bg', 'pet-full-bg');
+  }, 900);
 }
+W.petReveal = petReveal;
 W.npc_trainer = () => {
   // Глава III: герой вспомнил всё — Элвин объясняется (одной сценой, потом обычное окно наставника)
   { const q = Q.current(), scene = q && { c3_elvin: DIALOG.trainer.confess, c2_stone: DIALOG.trainer.stone }[q.id]; if (scene) { const lines = scene;
@@ -776,7 +783,7 @@ W.npc_trainer = () => {
     }
     b.appendChild(el('h3', '', 'Услуги'));
     const r1 = el('div', 'row');
-        const sk = el('button', 'btn ' + (P.skillPts ? 'gold' : ''), `Навыки${P.skillPts ? ` (+${P.skillPts})` : ''}`); sk.onclick = () => W.skills({ npc: true }); r1.appendChild(sk); b.appendChild(r1);
+        const sk = el('button', 'btn ' + (CH.canLearnNow() ? 'gold' : ''), `Навыки${P.skillPts ? ` (+${P.skillPts})` : ''}`); sk.onclick = () => W.skills({ npc: true }); r1.appendChild(sk); b.appendChild(r1);
     const r2 = el('div', 'row'); r2.style.marginTop = '8px';
     const rs = el('button', 'btn', `Сбросить навыки — ${EC.respecSkillPrice()} зол.`); rs.disabled = P.gold < EC.respecSkillPrice(); rs.onclick = () => { if (confirm('Сбросить все навыки и вернуть очки?')) { EC.respecSkills(); rerender(); } }; r2.appendChild(rs);
     b.appendChild(r2);

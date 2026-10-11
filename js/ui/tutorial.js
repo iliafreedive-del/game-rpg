@@ -8,7 +8,7 @@ import { $, el, esc, ICO } from '../core/util.js';
 import { STORY } from '../data/quests.js';
 import { once as anOnce } from '../platform/analytics.js';
 import { UPGRADES, upgCost } from '../data/upgrades.js';
-import { skillCost, canLearn } from '../game/character.js';
+import { skillCost, canLearn, canLearnNow } from '../game/character.js';
 import { earlyLock } from '../game/progress.js';
 
 const touch = () => matchMedia('(pointer:coarse)').matches;
@@ -174,7 +174,7 @@ export function initTutorial() {
     if (newPot) pointSoon('potHP', touch() ? 'Красная кнопка — зелье здоровья. Нажмите в бою, когда мало жизни' : 'Зелье здоровья: кнопка Q или красная кнопка. Пейте в бою, когда мало жизни', { time: 7 });
     if (newDodge) setTimeout(() => pointAt('btnDodge', touch() ? 'Рывок! Нажмите, чтобы отпрыгнуть от удара врага (красный круг)' : 'Рывок: Shift — отпрыгнуть от удара врага (красный круг)', { key: 'dodge2', time: 8 }), newPot ? 8000 : 300);
   });
-  bus.on('panel', it => { if (!it || it.id !== 'trainer') return; setTimeout(() => { if (G.profile.skillPts > 0) pointAt('tBtnSkills', 'Нажмите «Навыки» — там изучают умения', { key: 'tbtn' }); }, 400); });
+  bus.on('panel', it => { if (!it || it.id !== 'trainer') return; setTimeout(() => { if (canLearnNow()) pointAt('tBtnSkills', 'Нажмите «Навыки» — там изучают умения', { key: 'tbtn' }); }, 400); });
   // сборка 60 (П32): окно героя — портрет → «Герой» → сумка и сравнение. Учим на шаге «Осмотреть снаряжение»
   const gearStep = () => { const q = G.profile && STORY[G.profile.story.stage]; return q && q.id === 'hero_gear'; };
   const portraitHint = () => { if (gearStep() && !G.modalOpen) pointAt('portrait', 'Нажмите на портрет — это окно героя', { time: 12 }); };
