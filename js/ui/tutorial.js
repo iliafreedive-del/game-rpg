@@ -152,7 +152,7 @@ export async function intro() {
   const t = T(); if (t.introDone) return; t.introDone = true; bus.emit('save');
   // первые секунды в склепе: только движение. Остальному учим по ходу.
   if (G.run && G.run.floor === 0) return;   // сборка 49: в склепе это говорит пролог (tutorialTick в game.js) — без повтора
-  pointAt('joyZone', touch() ? 'Ведите пальцем по экрану — герой пойдёт. Коснитесь места — побежит туда' : 'Идите: WASD или зажмите правую кнопку мыши', { time: 10 });
+  pointAt('joyZone', touch() ? 'Ведите пальцем в любом месте экрана — герой пойдёт. Коснитесь врага или сундука — побежит к нему' : 'Идите: WASD или зажмите правую кнопку мыши', { time: 10 });
 }
 
 export function initTutorial() {

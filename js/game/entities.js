@@ -238,6 +238,9 @@ const AI = {
     AI.melee(e, dt, P, d);
   },
   elite(e, dt, P, d) {
+    // сборка 61: Хранитель амулета (катакомбы) — в зале больше нет мобов; как Палач, на 80/60/40 % HP зовёт подмогу, магов среди неё нет
+    if (e.story === 'elite') { const f = e.hp / e.maxHP; e.callN = e.callN || 0;
+      if (e.callN < 3 && f <= [0.8, 0.6, 0.4][e.callN]) { e.callN++; bus.emit('summon', { x: e.x, y: e.y, n: e.callN === 3 ? 3 : 2, lvl: e.lvl, types: ['skel_warrior', 'skel_archer', 'bone_wolf', 'ghoul'], master: e }); bus.emit('float', { x: e.x, y: e.y, text: 'Стража, ко мне!', color: '#c9a0ff', big: 1, z: 3.4 }); bus.emit('sfx', 'roar'); } }
     if (!e.enraged && e.hp < e.maxHP * 0.5) { e.enraged = true; bus.emit('float', { x: e.x, y: e.y, text: 'ЯРОСТЬ!', color: '#ff5040', big: 1 }); bus.emit('sfx', 'roar'); }
     if (d <= e.D.range + P.r + 0.2 && e.cd <= 0) { e.startAttack(rand() < 0.45 ? 'attack2' : 'attack', P); e.cd = e.D.cd * (e.enraged ? 0.7 : 1); return; }
     if (d > e.D.range + P.r) e.moveToward(P.x, P.y, dt); else e.setAnim('idle', 5, true, e.anim.clip !== 'idle');

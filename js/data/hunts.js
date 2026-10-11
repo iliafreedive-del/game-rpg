@@ -85,7 +85,7 @@ for (const D of Object.values(MINIBOSSES)) Object.assign(D, { mini: true, elite:
 //             для оружия name можно задать по классам: { warrior, archer, mage }
 //  elder    — что говорит староста Эдрик, когда герой сдаёт охоту (награда выдаётся у него)
 export const HUNTS = [
-  { id: 'forest_horror', title: 'Страшный зверь в катакомбах', place: 'catacombs', rooms: ['cave', 'entry'], boss: 'mb_forest_horror', minLevel: 2,
+  { id: 'forest_horror', title: 'Страшный зверь в катакомбах', place: 'catacombs', rooms: ['cave', 'gallery'], boss: 'mb_forest_horror', minLevel: 2,
     rumor: 'Лесорубы не вернулись с опушки, а следы размером с тележное колесо ведут вниз, в катакомбы. Никто не знает, что это за тварь.',
     elder: 'Так вот кто таскал лесорубов… Клык размером с кинжал! Лесорубы завтра же вернутся на опушку.',
     trophy: { slot: 'amulet', name: 'Клык Лесного Ужаса' } },
@@ -97,7 +97,7 @@ export const HUNTS = [
     rumor: 'Из катакомб слышен скрежет — будто кто-то точит косу о кости. Скелеты бегут оттуда сами.',
     elder: 'Жнец рассыпался? Значит, скрежет под деревней наконец утихнет. Возьми награду, ты её заслужил.',
     trophy: { slot: 'weapon', name: { warrior: 'Коса Жнеца', archer: 'Костяной лук Жнеца', mage: 'Посох Жнеца' } } },
-  { id: 'ghoul_mother', title: 'Гнездо в пещере', place: 'catacombs', rooms: ['cave', 'entry'], boss: 'mb_ghoul_mother', minLevel: 3,
+  { id: 'ghoul_mother', title: 'Гнездо в пещере', place: 'catacombs', rooms: ['cave', 'gallery'], boss: 'mb_ghoul_mother', minLevel: 3,
     rumor: 'Упырей в катакомбах стало вдвое больше. Значит, где-то в пещере завелась Матка.',
     elder: 'Матка мертва? Выводок без неё не протянет и недели. Тихий Брод спит спокойнее.',
     trophy: { slot: 'chest', name: 'Шкура Матки' } },
