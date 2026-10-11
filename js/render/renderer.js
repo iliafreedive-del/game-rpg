@@ -7,7 +7,8 @@ import { RARITY } from '../data/items.js';
 import { iconOf } from '../game/items.js';
 import { BIOMES } from '../data/biomes.js';
 import * as SV from '../game/survival.js';
-import { drawFxSheet, drawChargeTele, preloadFxSheets } from './fxsheets.js';
+import { drawFxSheet, drawChargeTele, preloadFxSheets, drawProjSheet, drawStatusSheet, telePattern, fxReady, zoneRealm } from './fxsheets.js';
+import { projSheetOf, mobRageFx } from '../game/combat.js';
 
 let cv, ctx, lightCv, lctx, W = 0, H = 0, DPR = 1;
 const floorImgs = new Map();
@@ -158,7 +159,7 @@ export function render() {
   // ---- lighting
   if (Z.dark) darkness(); else dusk();
   drawProjectiles(true);
-  drawEffects(); drawParticles(); drawBlades();
+  drawEffects(); drawStatusFx(); drawParticles(); drawBlades();
   placed.length = 0; drawBars(); drawPlates(); drawPickupLabels(); drawBubbles(); drawTexts(); drawInteractMarker();
 }
 // С1/С27: подпись в мире не рисуем, если она легла на блок интерфейса (полосы, трекер, кнопки, тосты) или на уже нарисованную подпись.
@@ -205,7 +206,7 @@ export function renderOverlay() {
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0); ctx.clearRect(0, 0, W, H);
   drawGroundFx(); drawTelegraphs(); drawGuide(); drawPickupsGround();
   drawProjectiles(false); drawProjectiles(true);
-  drawEffects(); drawParticles(); drawBlades(); if (G.surv) SV.drawSurvivalFx(ctx, G.cam);
+  drawEffects(); drawStatusFx(); drawParticles(); drawBlades(); if (G.surv) SV.drawSurvivalFx(ctx, G.cam);
   placed.length = 0; drawBars(); drawNpcPlates(); drawPlates(); drawPickupLabels(); drawBubbles(); drawTexts(); drawInteractMarker();   // С27: важные подписи первыми
 }
 export function clearOverlay() { if (ctx) { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height); } }
@@ -343,6 +344,7 @@ function drawTelegraphs() {
     const tg = e.teleg; if (!tg || e.dead) continue;
     const p = Math.min(1, e.anim.prog / (e.atk ? e.atk.impact : 1));
     if (tg.sheet === 'charge' && drawChargeTele(ctx, cam, tg, p, tg.realm)) continue;   // П21: разбег — полоса шевронов вместо красной
+    if (tg.teleSheet && drawFxSheet(ctx, cam, { id: tg.teleSheet, x: tg.x, y: tg.y, t: p * 0.999, dur: 1, size: tg.r * 2.2 })) continue;   // сборка 61: метка-лист (корни, вихрь, колья)
     ctx.save(); const [x, y] = cam.toScreen(tg.x, tg.y);
     ctx.translate(x, y); ctx.scale(1, 0.5);
     const R = tg.r * 32 * z * Math.SQRT2;   // world metre → screen along iso diagonal
@@ -351,6 +353,9 @@ function drawTelegraphs() {
     ctx.fillStyle = `rgba(${tc},${tg.col ? 0.26 : tg.rift ? 0.18 : 0.16})`; ctx.strokeStyle = `rgba(${sc},${tg.col ? 1 : 0.85})`; ctx.lineWidth = tg.col ? 3 : 2.5; if (tg.fx === 'stone' || tg.fx === 'bone') ctx.setLineDash([7, 4]);
     const isoA = a => Math.atan2(Math.sin(a) + Math.cos(a), Math.cos(a) - Math.sin(a)); // world angle → screen angle (pre-scale)
     ctx.beginPath();
+    const pat = tg.shape !== 'line' && telePattern(ctx, tg.realm);   // сборка 61: опасная зона залита узором края (тайл GPT)
+    if (pat) { if (tg.shape === 'circle') ctx.arc(0, 0, R, 0, 7); else { const a = isoA(tg.a), h = tg.arc / 2 * Math.PI / 180; ctx.moveTo(0, 0); ctx.arc(0, 0, R, a - h, a + h); ctx.closePath(); }
+      ctx.save(); ctx.clip(); const k = pat.m * 32 * z * Math.SQRT2 / pat.px; ctx.scale(k, k); ctx.globalAlpha = 0.35 + 0.4 * p; ctx.fillStyle = pat.p; ctx.fillRect(-R / k, -R / k, 2 * R / k, 2 * R / k); ctx.restore(); ctx.beginPath(); }
     if (tg.shape === 'circle') { ctx.arc(0, 0, R, 0, 7); ctx.fill(); ctx.stroke(); ctx.beginPath(); ctx.arc(0, 0, R * p, 0, 7); ctx.fillStyle = fill2; ctx.fill(); }
     else if (tg.shape === 'cone') { const a = isoA(tg.a), h = tg.arc / 2 * Math.PI / 180; ctx.moveTo(0, 0); ctx.arc(0, 0, R, a - h, a + h); ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, R * p, a - h, a + h); ctx.closePath(); ctx.fillStyle = fill2; ctx.fill(); }
     else if (tg.shape === 'line') { const a = isoA(tg.a); ctx.rotate(a); ctx.fillRect(0, -tg.w * 16 * z, R * p, tg.w * 32 * z); ctx.strokeRect(0, -tg.w * 16 * z, R, tg.w * 32 * z); }
@@ -364,6 +369,8 @@ function drawProjectiles(emissive) {
     const [x, y] = cam.toScreen(p.x, p.y, pz);
     const [x2, y2] = cam.toScreen(p.x - p.vx * 0.035, p.y - p.vy * 0.035, pz);
     const ang = Math.atan2(y - y2, x - x2);
+    const sid = projSheetOf(p);   // сборка 61: снаряд — лист GPT (стрела, искра, огненный шар, камень, дротик, игла), пока не загрузился — прежний рисунок
+    if (sid && fxReady(sid)) { if (emissive) drawProjSheet(ctx, cam, sid, p.x, p.y, pz, ang, p.dist / 12); continue; }
     if (p.kind === 'arrow') {
       if (emissive) { if (p.owner === 'p') { ctx.globalCompositeOperation = 'lighter'; const [tx, ty] = cam.toScreen(p.x - p.vx * 0.09, p.y - p.vy * 0.09, pz); const g = ctx.createLinearGradient(tx, ty, x, y); g.addColorStop(0, 'rgba(255,200,90,0)'); g.addColorStop(1, 'rgba(255,220,130,0.8)'); ctx.strokeStyle = g; ctx.lineWidth = 5 * z; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(x, y); ctx.stroke(); ctx.globalCompositeOperation = 'source-over'; } continue; }
       ctx.save(); ctx.translate(x, y); ctx.rotate(ang);
@@ -491,6 +498,19 @@ function drawEffects() {
       ctx.globalCompositeOperation = 'source-over';
     }
   }
+}
+// сборка 61: состояния на существах — оглушение над головой, кровотечение, ярость берсерка; на герое — боевой клич и корни лешего
+function drawStatusFx() {
+  const cam = G.cam;
+  for (const e of G.enemies) {
+    if (e.dead) continue; const s = e.D.size || 1;
+    if (e.st.stun > 0) drawStatusSheet(ctx, cam, 'st_stun', e.x, e.y, (e.D.boss ? 3 : 1.9) * s, 1.2 * s);
+    if (e.st.bleed > 0) drawStatusSheet(ctx, cam, 'st_bleed', e.x, e.y, 0.2, 1.4 * s, 0.85);
+    const rg = mobRageFx(e); if (rg) drawStatusSheet(ctx, cam, rg, e.x, e.y, 0, 1.9 * s, 0.9);
+  }
+  const P = G.player; if (!P || P.dead) return;
+  if (P.warcry > G.time) drawStatusSheet(ctx, cam, 'st_warcry_buff', P.x, P.y, 0, 2, 0.8);
+  if (P.rootedT > G.time && zoneRealm() === 'forest') drawStatusSheet(ctx, cam, 'st_rooted', P.x, P.y, 0, 1.5);
 }
 function drawParticles() {
   const cam = G.cam, z = cam.zoom;

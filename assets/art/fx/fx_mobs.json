@@ -78,5 +78,904 @@
    0.5,
    0.94
   ]
+ },
+ "ct_rust_slash": {
+  "file": "assets/art/fx/ct_rust_slash.webp",
+  "cols": 3,
+  "rows": 3,
+  "frames": 9,
+  "cell": 256,
+  "dur": 0.22,
+  "loop": false,
+  "view": "ground",
+  "blend": "add",
+  "meters": 3.5,
+  "anchor": [
+   0.5,
+   0.5
+  ]
+ },
+ "ct_bone_arrow": {
+  "file": "assets/art/fx/ct_bone_arrow.webp",
+  "cols": 4,
+  "rows": 4,
+  "frames": 16,
+  "cell": 256,
+  "dur": 0.35,
+  "loop": true,
+  "view": "proj",
+  "blend": "alpha",
+  "meters": 1.8,
+  "anchor": [
+   0.62,
+   0.5
+  ]
+ },
+ "ct_darkbolt": {
+  "file": "assets/art/fx/ct_darkbolt.webp",
+  "cols": 4,
+  "rows": 4,
+  "frames": 16,
+  "cell": 256,
+  "dur": 0.4,
+  "loop": true,
+  "view": "proj",
+  "blend": "add",
+  "meters": 1.8,
+  "anchor": [
+   0.62,
+   0.5
+  ]
+ },
+ "ct_darkbolt_hit": {
+  "file": "assets/art/fx/ct_darkbolt_hit.webp",
+  "cols": 3,
+  "rows": 3,
+  "frames": 9,
+  "cell": 256,
+  "dur": 0.3,
+  "loop": false,
+  "view": "upright",
+  "blend": "add",
+  "meters": 2.0,
+  "anchor": [
+   0.5,
+   0.75
+  ]
+ },
+ "ct_ghoul_claws": {
+  "file": "assets/art/fx/ct_ghoul_claws.webp",
+  "cols": 3,
+  "rows": 3,
+  "frames": 9,
+  "cell": 256,
+  "dur": 0.2,
+  "loop": false,
+  "view": "ground",
+  "blend": "add",
+  "meters": 2.4,
+  "anchor": [
+   0.5,
+   0.5
+  ]
+ },
+ "ct_beast_maul": {
+  "file": "assets/art/fx/ct_beast_maul.webp",
+  "cols": 3,
+  "rows": 3,
+  "frames": 9,
+  "cell": 256,
+  "dur": 0.3,
+  "loop": false,
+  "view": "ground",
+  "blend": "add",
+  "meters": 3.5,
+  "anchor": [
+   0.5,
+   0.5
+  ]
+ },
+ "ct_guard_cleave": {
+  "file": "assets/art/fx/ct_guard_cleave.webp",
+  "cols": 3,
+  "rows": 3,
+  "frames": 9,
+  "cell": 256,
+  "dur": 0.3,
+  "loop": false,
+  "view": "ground",
+  "blend": "add",
+  "meters": 4.0,
+  "anchor": [
+   0.5,
+   0.5
+  ]
+ },
+ "ct_tele_pattern": {
+  "file": "assets/art/fx/ct_tele_pattern.webp",
+  "tile": true,
+  "size": 512,
+  "meters": 4,
+  "blend": "alpha"
+ },
+ "ct_abyss_slam": {
+  "file": "assets/art/fx/ct_abyss_slam.webp",
+  "cols": 4,
+  "rows": 4,
+  "frames": 16,
+  "cell": 256,
+  "dur": 0.6,
+  "loop": false,
+  "view": "upright",
+  "blend": "add",
+  "meters": 5.0,
+  "anchor": [
+   0.5,
+   0.75
+  ]
+ },
+ "ct_abyss_nova": {
+  "file": "assets/art/fx/ct_abyss_nova.webp",
+  "cols": 4,
+  "rows": 4,
+  "frames": 16,
+  "cell": 256,
+  "dur": 0.8,
+  "loop": false,
+  "view": "ground",
+  "blend": "add",
+  "meters": 12.0,
+  "anchor": [
+   0.5,
+   0.5
+  ]
+ },
+ "ct_abyss_roar": {
+  "file": "assets/art/fx/ct_abyss_roar.webp",
+  "cols": 4,
+  "rows": 4,
+  "frames": 16,
+  "cell": 256,
+  "dur": 0.6,
+  "loop": false,
+  "view": "upright",
+  "blend": "add",
+  "meters": 8.0,
+  "anchor": [
+   0.5,
+   0.75
+  ]
+ },
+ "ct_exec_axe": {
+  "file": "assets/art/fx/ct_exec_axe.webp",
+  "cols": 3,
+  "rows": 3,
+  "frames": 9,
+  "cell": 256,
+  "dur": 0.3,
+  "loop": false,
+  "view": "ground",
+  "blend": "add",
+  "meters": 7.0,
+  "anchor": [
+   0.5,
+   0.5
+  ]
+ },
+ "dp_water_geyser": {
+  "file": "assets/art/fx/dp_water_geyser.webp",
+  "cols": 4,
+  "rows": 4,
+  "frames": 16,
+  "cell": 256,
+  "dur": 0.6,
+  "loop": false,
+  "view": "upright",
+  "blend": "alpha",
+  "meters": 4.0,
+  "anchor": [
+   0.5,
+   0.75
+  ]
+ },
+ "dp_lava_burst": {
+  "file": "assets/art/fx/dp_lava_burst.webp",
+  "cols": 4,
+  "rows": 4,
+  "frames": 16,
+  "cell": 256,
+  "dur": 0.6,
+  "loop": false,
+  "view": "upright",
+  "blend": "add",
+  "meters": 4.0,
+  "anchor": [
+   0.5,
+   0.75
+  ]
+ },
+ "dp_abyss_crystals": {
+  "file": "assets/art/fx/dp_abyss_crystals.webp",
+  "cols": 4,
+  "rows": 4,
+  "frames": 16,
+  "cell": 256,
+  "dur": 0.8,
+  "loop": false,
+  "view": "upright",
+  "blend": "alpha",
+  "meters": 4.0,
+  "anchor": [
+   0.5,
+   0.75
+  ]
+ },
+ "fr_tele_pattern": {
+  "file": "assets/art/fx/fr_tele_pattern.webp",
+  "tile": true,
+  "size": 512,
+  "meters": 4,
+  "blend": "alpha"
+ },
+ "fr_poacher_arrow": {
+  "file": "assets/art/fx/fr_poacher_arrow.webp",
+  "cols": 4,
+  "rows": 4,
+  "frames": 16,
+  "cell": 256,
+  "dur": 0.35,
+  "loop": true,
+  "view": "proj",
+  "blend": "alpha",
+  "meters": 1.8,
+  "anchor": [
+   0.62,
+   0.5
+  ]
+ },
+ "fr_arrow_hit": {
+  "file": "assets/art/fx/fr_arrow_hit.webp",
+  "cols": 3,
+  "rows": 3,
+  "frames": 9,
+  "cell": 256,
+  "dur": 0.25,
+  "loop": false,
+  "view": "upright",
+  "blend": "alpha",
+  "meters": 1.2,
+  "anchor": [
+   0.5,
+   0.75
+  ]
+ },
+ "fr_roots_tele": {
+  "file": "assets/art/fx/fr_roots_tele.webp",
+  "cols": 4,
+  "rows": 4,
+  "frames": 16,
+  "cell": 256,
+  "dur": 0.6,
+  "loop": false,
+  "view": "ground",
+  "blend": "add",
+  "meters": 4.0,
+  "anchor": [
+   0.5,
+   0.5
+  ]
+ },
+ "fr_roots_erupt": {
+  "file": "assets/art/fx/fr_roots_erupt.webp",
+  "cols": 4,
+  "rows": 4,
+  "frames": 16,
+  "cell": 256,
+  "dur": 1.0,
+  "loop": false,
+  "view": "upright",
+  "blend": "alpha",
+  "meters": 4.0,
+  "anchor": [
+   0.5,
+   0.75
+  ]
+ },
+ "st_rooted": {
+  "file": "assets/art/fx/st_rooted.webp",
+  "cols": 4,
+  "rows": 4,
+  "frames": 16,
+  "cell": 256,
+  "dur": 0.8,
+  "loop": true,
+  "view": "upright",
+  "blend": "alpha",
+  "meters": 1.4,
+  "anchor": [
+   0.5,
+   0.75
+  ]
+ },
+ "fr_bear_swipe": {
+  "file": "assets/art/fx/fr_bear_swipe.webp",
+  "cols": 3,
+  "rows": 3,
+  "frames": 9,
+  "cell": 256,
+  "dur": 0.3,
+  "loop": false,
+  "view": "ground",
+  "blend": "add",
+  "meters": 5.0,
+  "anchor": [
+   0.5,
+   0.5
+  ]
+ },
+ "fr_bear_slam": {
+  "file": "assets/art/fx/fr_bear_slam.webp",
+  "cols": 4,
+  "rows": 4,
+  "frames": 16,
+  "cell": 256,
+  "dur": 0.6,
+  "loop": false,
+  "view": "ground",
+  "blend": "alpha",
+  "meters": 5.0,
+  "anchor": [
+   0.5,
+   0.5
+  ]
+ },
+ "fr_axe_cleave": {
+  "file": "assets/art/fx/fr_axe_cleave.webp",
+  "cols": 3,
+  "rows": 3,
+  "frames": 9,
+  "cell": 256,
+  "dur": 0.3,
+  "loop": false,
+  "view": "ground",
+  "blend": "add",
+  "meters": 5.0,
+  "anchor": [
+   0.5,
+   0.5
+  ]
+ },
+ "fr_shield_stomp": {
+  "file": "assets/art/fx/fr_shield_stomp.webp",
+  "cols": 4,
+  "rows": 4,
+  "frames": 16,
+  "cell": 256,
+  "dur": 0.5,
+  "loop": false,
+  "view": "ground",
+  "blend": "alpha",
+  "meters": 5.0,
+  "anchor": [
+   0.5,
+   0.5
+  ]
+ },
+ "fr_boss_club": {
+  "file": "assets/art/fx/fr_boss_club.webp",
+  "cols": 4,
+  "rows": 4,
+  "frames": 16,
+  "cell": 256,
+  "dur": 0.4,
+  "loop": false,
+  "view": "ground",
+  "blend": "alpha",
+  "meters": 7.0,
+  "anchor": [
+   0.5,
+   0.5
+  ]
+ },
+ "fr_thicket_slam": {
+  "file": "assets/art/fx/fr_thicket_slam.webp",
+  "cols": 4,
+  "rows": 4,
+  "frames": 16,
+  "cell": 256,
+  "dur": 1.0,
+  "loop": false,
+  "view": "upright",
+  "blend": "alpha",
+  "meters": 5.0,
+  "anchor": [
+   0.5,
+   0.75
+  ]
+ },
+ "fr_spore_nova": {
+  "file": "assets/art/fx/fr_spore_nova.webp",
+  "cols": 4,
+  "rows": 4,
+  "frames": 16,
+  "cell": 256,
+  "dur": 0.8,
+  "loop": false,
+  "view": "ground",
+  "blend": "add",
+  "meters": 12.0,
+  "anchor": [
+   0.5,
+   0.5
+  ]
+ },
+ "fr_boss_roar": {
+  "file": "assets/art/fx/fr_boss_roar.webp",
+  "cols": 4,
+  "rows": 4,
+  "frames": 16,
+  "cell": 256,
+  "dur": 0.6,
+  "loop": false,
+  "view": "upright",
+  "blend": "alpha",
+  "meters": 6.0,
+  "anchor": [
+   0.5,
+   0.75
+  ]
+ },
+ "tm_tele_pattern": {
+  "file": "assets/art/fx/tm_tele_pattern.webp",
+  "tile": true,
+  "size": 512,
+  "meters": 4,
+  "blend": "alpha"
+ },
+ "tm_stone_slash": {
+  "file": "assets/art/fx/tm_stone_slash.webp",
+  "cols": 3,
+  "rows": 3,
+  "frames": 9,
+  "cell": 256,
+  "dur": 0.22,
+  "loop": false,
+  "view": "ground",
+  "blend": "add",
+  "meters": 3.5,
+  "anchor": [
+   0.5,
+   0.5
+  ]
+ },
+ "tm_rock_throw": {
+  "file": "assets/art/fx/tm_rock_throw.webp",
+  "cols": 4,
+  "rows": 4,
+  "frames": 16,
+  "cell": 256,
+  "dur": 0.4,
+  "loop": true,
+  "view": "proj",
+  "blend": "alpha",
+  "meters": 1.8,
+  "anchor": [
+   0.62,
+   0.5
+  ]
+ },
+ "tm_rock_impact": {
+  "file": "assets/art/fx/tm_rock_impact.webp",
+  "cols": 4,
+  "rows": 4,
+  "frames": 16,
+  "cell": 256,
+  "dur": 0.5,
+  "loop": false,
+  "view": "upright",
+  "blend": "alpha",
+  "meters": 2.5,
+  "anchor": [
+   0.5,
+   0.75
+  ]
+ },
+ "tm_wind_tele": {
+  "file": "assets/art/fx/tm_wind_tele.webp",
+  "cols": 4,
+  "rows": 4,
+  "frames": 16,
+  "cell": 256,
+  "dur": 0.6,
+  "loop": false,
+  "view": "ground",
+  "blend": "add",
+  "meters": 4.0,
+  "anchor": [
+   0.5,
+   0.5
+  ]
+ },
+ "tm_wind_tornado": {
+  "file": "assets/art/fx/tm_wind_tornado.webp",
+  "cols": 4,
+  "rows": 4,
+  "frames": 16,
+  "cell": 256,
+  "dur": 1.0,
+  "loop": false,
+  "view": "upright",
+  "blend": "alpha",
+  "meters": 4.0,
+  "anchor": [
+   0.5,
+   0.75
+  ]
+ },
+ "tm_stone_spikes": {
+  "file": "assets/art/fx/tm_stone_spikes.webp",
+  "cols": 4,
+  "rows": 4,
+  "frames": 16,
+  "cell": 256,
+  "dur": 0.9,
+  "loop": false,
+  "view": "upright",
+  "blend": "alpha",
+  "meters": 5.0,
+  "anchor": [
+   0.5,
+   0.75
+  ]
+ },
+ "tm_golem_punch": {
+  "file": "assets/art/fx/tm_golem_punch.webp",
+  "cols": 3,
+  "rows": 3,
+  "frames": 9,
+  "cell": 256,
+  "dur": 0.3,
+  "loop": false,
+  "view": "ground",
+  "blend": "alpha",
+  "meters": 5.0,
+  "anchor": [
+   0.5,
+   0.5
+  ]
+ },
+ "tm_rune_cone": {
+  "file": "assets/art/fx/tm_rune_cone.webp",
+  "cols": 3,
+  "rows": 3,
+  "frames": 9,
+  "cell": 256,
+  "dur": 0.3,
+  "loop": false,
+  "view": "ground",
+  "blend": "add",
+  "meters": 4.5,
+  "anchor": [
+   0.5,
+   0.5
+  ]
+ },
+ "tm_rune_stomp": {
+  "file": "assets/art/fx/tm_rune_stomp.webp",
+  "cols": 4,
+  "rows": 4,
+  "frames": 16,
+  "cell": 256,
+  "dur": 0.6,
+  "loop": false,
+  "view": "ground",
+  "blend": "add",
+  "meters": 6.0,
+  "anchor": [
+   0.5,
+   0.5
+  ]
+ },
+ "tm_god_slam": {
+  "file": "assets/art/fx/tm_god_slam.webp",
+  "cols": 4,
+  "rows": 4,
+  "frames": 16,
+  "cell": 256,
+  "dur": 1.0,
+  "loop": false,
+  "view": "upright",
+  "blend": "alpha",
+  "meters": 6.0,
+  "anchor": [
+   0.5,
+   0.75
+  ]
+ },
+ "tm_sand_nova": {
+  "file": "assets/art/fx/tm_sand_nova.webp",
+  "cols": 4,
+  "rows": 4,
+  "frames": 16,
+  "cell": 256,
+  "dur": 0.8,
+  "loop": false,
+  "view": "ground",
+  "blend": "add",
+  "meters": 12.0,
+  "anchor": [
+   0.5,
+   0.5
+  ]
+ },
+ "tm_god_roar": {
+  "file": "assets/art/fx/tm_god_roar.webp",
+  "cols": 4,
+  "rows": 4,
+  "frames": 16,
+  "cell": 256,
+  "dur": 0.6,
+  "loop": false,
+  "view": "upright",
+  "blend": "alpha",
+  "meters": 6.0,
+  "anchor": [
+   0.5,
+   0.75
+  ]
+ },
+ "fj_tele_pattern": {
+  "file": "assets/art/fx/fj_tele_pattern.webp",
+  "tile": true,
+  "size": 512,
+  "meters": 4,
+  "blend": "alpha"
+ },
+ "fj_frost_slash": {
+  "file": "assets/art/fx/fj_frost_slash.webp",
+  "cols": 3,
+  "rows": 3,
+  "frames": 9,
+  "cell": 256,
+  "dur": 0.25,
+  "loop": false,
+  "view": "ground",
+  "blend": "add",
+  "meters": 4.0,
+  "anchor": [
+   0.5,
+   0.5
+  ]
+ },
+ "fj_berserk_rage": {
+  "file": "assets/art/fx/fj_berserk_rage.webp",
+  "cols": 4,
+  "rows": 4,
+  "frames": 16,
+  "cell": 256,
+  "dur": 0.6,
+  "loop": true,
+  "view": "upright",
+  "blend": "add",
+  "meters": 1.8,
+  "anchor": [
+   0.5,
+   0.75
+  ]
+ },
+ "fj_icicle": {
+  "file": "assets/art/fx/fj_icicle.webp",
+  "cols": 4,
+  "rows": 4,
+  "frames": 16,
+  "cell": 256,
+  "dur": 0.4,
+  "loop": true,
+  "view": "proj",
+  "blend": "alpha",
+  "meters": 1.8,
+  "anchor": [
+   0.62,
+   0.5
+  ]
+ },
+ "fj_icicle_hit": {
+  "file": "assets/art/fx/fj_icicle_hit.webp",
+  "cols": 3,
+  "rows": 3,
+  "frames": 9,
+  "cell": 256,
+  "dur": 0.3,
+  "loop": false,
+  "view": "upright",
+  "blend": "alpha",
+  "meters": 1.6,
+  "anchor": [
+   0.5,
+   0.75
+  ]
+ },
+ "fj_jotun_swing": {
+  "file": "assets/art/fx/fj_jotun_swing.webp",
+  "cols": 4,
+  "rows": 4,
+  "frames": 16,
+  "cell": 256,
+  "dur": 0.4,
+  "loop": false,
+  "view": "ground",
+  "blend": "alpha",
+  "meters": 6.0,
+  "anchor": [
+   0.5,
+   0.5
+  ]
+ },
+ "fj_ice_tele": {
+  "file": "assets/art/fx/fj_ice_tele.webp",
+  "cols": 4,
+  "rows": 4,
+  "frames": 16,
+  "cell": 256,
+  "dur": 0.7,
+  "loop": false,
+  "view": "ground",
+  "blend": "add",
+  "meters": 4.5,
+  "anchor": [
+   0.5,
+   0.5
+  ]
+ },
+ "fj_ice_spikes": {
+  "file": "assets/art/fx/fj_ice_spikes.webp",
+  "cols": 4,
+  "rows": 4,
+  "frames": 16,
+  "cell": 256,
+  "dur": 0.9,
+  "loop": false,
+  "view": "upright",
+  "blend": "alpha",
+  "meters": 5.0,
+  "anchor": [
+   0.5,
+   0.75
+  ]
+ },
+ "fj_jarl_stomp": {
+  "file": "assets/art/fx/fj_jarl_stomp.webp",
+  "cols": 4,
+  "rows": 4,
+  "frames": 16,
+  "cell": 256,
+  "dur": 0.5,
+  "loop": false,
+  "view": "ground",
+  "blend": "add",
+  "meters": 6.0,
+  "anchor": [
+   0.5,
+   0.5
+  ]
+ },
+ "fj_glacier_slam": {
+  "file": "assets/art/fx/fj_glacier_slam.webp",
+  "cols": 4,
+  "rows": 4,
+  "frames": 16,
+  "cell": 256,
+  "dur": 1.0,
+  "loop": false,
+  "view": "upright",
+  "blend": "alpha",
+  "meters": 6.0,
+  "anchor": [
+   0.5,
+   0.75
+  ]
+ },
+ "fj_blizzard_nova": {
+  "file": "assets/art/fx/fj_blizzard_nova.webp",
+  "cols": 4,
+  "rows": 4,
+  "frames": 16,
+  "cell": 256,
+  "dur": 0.8,
+  "loop": false,
+  "view": "ground",
+  "blend": "add",
+  "meters": 12.0,
+  "anchor": [
+   0.5,
+   0.5
+  ]
+ },
+ "fj_frost_roar": {
+  "file": "assets/art/fx/fj_frost_roar.webp",
+  "cols": 4,
+  "rows": 4,
+  "frames": 16,
+  "cell": 256,
+  "dur": 0.6,
+  "loop": false,
+  "view": "upright",
+  "blend": "add",
+  "meters": 6.0,
+  "anchor": [
+   0.5,
+   0.75
+  ]
+ },
+ "bn_bone_javelin": {
+  "file": "assets/art/fx/bn_bone_javelin.webp",
+  "cols": 4,
+  "rows": 4,
+  "frames": 16,
+  "cell": 256,
+  "dur": 0.35,
+  "loop": true,
+  "view": "proj",
+  "blend": "alpha",
+  "meters": 2.2,
+  "anchor": [
+   0.62,
+   0.5
+  ]
+ },
+ "bn_bone_spikes": {
+  "file": "assets/art/fx/bn_bone_spikes.webp",
+  "cols": 4,
+  "rows": 4,
+  "frames": 16,
+  "cell": 256,
+  "dur": 0.9,
+  "loop": false,
+  "view": "upright",
+  "blend": "alpha",
+  "meters": 4.0,
+  "anchor": [
+   0.5,
+   0.75
+  ]
+ },
+ "bn_tele_pattern": {
+  "file": "assets/art/fx/bn_tele_pattern.webp",
+  "tile": true,
+  "size": 512,
+  "meters": 4.0,
+  "blend": "alpha"
+ },
+ "bn_scorpid_strike": {
+  "file": "assets/art/fx/bn_scorpid_strike.webp",
+  "cols": 4,
+  "rows": 4,
+  "frames": 16,
+  "cell": 256,
+  "dur": 0.6,
+  "loop": false,
+  "view": "upright",
+  "blend": "add",
+  "meters": 5.0,
+  "anchor": [
+   0.5,
+   0.75
+  ]
+ },
+ "bn_war_stomp": {
+  "file": "assets/art/fx/bn_war_stomp.webp",
+  "cols": 4,
+  "rows": 4,
+  "frames": 16,
+  "cell": 256,
+  "dur": 0.8,
+  "loop": false,
+  "view": "upright",
+  "blend": "alpha",
+  "meters": 6.0,
+  "anchor": [
+   0.5,
+   0.75
+  ]
  }
 }
