@@ -14,10 +14,12 @@ import { CODEX } from '../data/story.js';
 import { gate } from '../game/progress.js';
 import { paintScene } from './hwscenes.js';
 import { ART, artImg } from './art.js';
-import { makeBattle, stageFoes, arenaView, setArenaLayout, relayoutBattle, hwSkill } from '../game/hwbattle.js';
+import { makeBattle, stageFoes, arenaView, setArenaLayout, relayoutBattle, hwSkill, HW_MAGE_K } from '../game/hwbattle.js';
 import { current as curQuest } from '../game/quests.js';
 import { xpToNext } from '../game/stats.js';
 import { SKILLS } from '../data/skills.js';
+import { petsOf, petPower } from '../game/pets.js';
+import { PETS } from '../data/pets.js';
 
 // сборка 60: первая Летопись — шаг обучения «Испытать себя» (П8, П10)
 const tut = () => { const q = G.profile && G.profile.story && curQuest(); return !!(q && q.id === 'hw_try'); };
@@ -37,6 +39,7 @@ const CHAPTERS = [
   { name: 'Пепельные скалы', pool: ['elite_guard', 'beast', 'skel_mage', 'ghoul'] },
 ];
 export const PER_CH = 30, STAGES = PER_CH * CHAPTERS.length;
+export const TEN_GOLD = 1000;   // правки 3: награда за ряд из 10 этапов на ★★★
 const chOf = s => Math.min(CHAPTERS.length - 1, Math.floor((s - 1) / PER_CH));
 // враг-«лицо» этапа для карты: босс ряда или первый в отряде
 const stageEnemy = s => { const L = stageFoes(s), b = L.find(f => f.boss); return b ? { ...b, boss: true } : { ...L[0], boss: false }; };
@@ -94,8 +97,10 @@ function hwSkillPick() {
   const id = list.includes(P.hwSkill) ? P.hwSkill : (P.slots || []).find(k => list.includes(k)) || list[0] || null;
   return { id, list };
 }
+// правки 3: питомец в Летописи — бьёт вместе с героем на каждом его ходу (удар и эффект из окна характеристик питомца)
+function hwPet() { const S = petsOf(G.profile), id = S.active; if (!id || !PETS[id]) return null; const pw = petPower(id); return { icon: PETS[id].icon, dmg: (pw.phys || 0) + (pw.mag || 0) }; }
 function heroSummary() {
-  const S = G.stats; const cls = G.profile.cls || 'warrior', sid = hwSkillPick().id; return { skill: hwSkill(cls, sid, sid ? G.profile.skills[sid] : 1, sid ? SKILLS[sid].name : null), hp: S.maxHP, dmg: (S.dmgMin + S.dmgMax) / 2 * (cls === 'mage' ? Math.max(1, S.spellPower * 0.85) : 1), aps: Math.min(2.2, S.aps), crit: S.critChance, critMult: S.critMult, armor: S.armor, spell: S.spellPower };
+  const S = G.stats; const cls = G.profile.cls || 'warrior', sid = hwSkillPick().id; return { skill: hwSkill(cls, sid, sid ? G.profile.skills[sid] : 1, sid ? SKILLS[sid].name : null), hp: S.maxHP, dmg: (S.dmgMin + S.dmgMax) / 2 * (cls === 'mage' ? HW_MAGE_K : 1), aps: Math.min(2.2, S.aps), crit: S.critChance, critMult: S.critMult, armor: S.armor, spell: S.spellPower , pet: hwPet() };
 }
 const power = (hp, dmg, aps) => Math.round(dmg * aps * 10 + hp);
 function showPrefight(s) {
@@ -315,6 +320,9 @@ async function fight(s) {
       if (foes.some(f => f.boss) && first) shards = foes.some(f => f.type === 'boss') ? 5 : 3; else if (rand() < 0.1) shards = 1;
       P.gold += gold; gainXP(xp); if (shards) addShards(shards); bus.emit('hwWin');
       h.stars[s] = Math.max(h.stars[s] || 0, stars); if (first) { h.top = Math.min(STAGES, s + 1); codexPage(s); }
+      // правки 3: все 10 этапов ряда на три звезды — разовая награда 1000 золота
+      { const r0 = Math.floor((s - 1) / 10) * 10; h.ten = h.ten || {};
+        if (!h.ten[r0] && [...Array(10).keys()].every(i => (h.stars[r0 + i + 1] || 0) >= 3)) { h.ten[r0] = 1; P.gold += TEN_GOLD; setTimeout(() => bus.emit('toast', { text: `Этапы ${r0 + 1}–${r0 + 10} на три звезды!`, sub: `+${TEN_GOLD} золота`, kind: 'good' }), 1800); } }
     }
     bus.emit('save');
     const up = P.level > lvl0;

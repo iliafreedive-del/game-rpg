@@ -6,6 +6,7 @@ import { dirOf, dirVec } from '../core/iso.js';
 import { rand, rrange, clamp, angDiff } from '../core/util.js';
 import * as C from './combat.js';
 import { makeWildAI } from './wildai.js';
+import { boonN } from './stats.js';
 
 export class Anim {
   constructor() { this.clip = 'idle'; this.t = 0; this.fps = 6; this.loop = true; this.nf = 4; this.done = false; }
@@ -66,7 +67,7 @@ export class Player {
     // movement
     const mag = input.mag;
     if (mag > 0.12) {   // удар по герою не сбивает шаг (сборка 19)
-      const run = mag > 0.55; const sp = (run ? 5.4 : 3.2 * Math.min(1, 0.35 + (mag - 0.12) * 3.6)) *   /* С33: у края мёртвой зоны шаг набирает скорость плавно (35 % → 100 % к 30 % наклона), а не рывком */ (this.S.moveMul || 1) * (G.surv ? 1 + (G.surv.p.swift || 0) * 0.08 : 1) * (this.slowT > 0 ? 0.6 : 1) * (G.wild ? G.wild.slow : 1) * (G.run && G.run.boons && G.run.boons.includes('haste') ? 1.12 : 1);
+      const run = mag > 0.55; const sp = (run ? 5.4 : 3.2 * Math.min(1, 0.35 + (mag - 0.12) * 3.6)) *   /* С33: у края мёртвой зоны шаг набирает скорость плавно (35 % → 100 % к 30 % наклона), а не рывком */ (this.S.moveMul || 1) * (G.surv ? 1 + (G.surv.p.swift || 0) * 0.08 : 1) * (this.slowT > 0 ? 0.6 : 1) * (G.wild ? G.wild.slow : 1) * (1 + 0.012 * boonN('haste'));
       const ox = this.x, oy = this.y;
       [this.x, this.y] = G.zone.map.move(this.x, this.y, input.wx * sp * dt, input.wy * sp * dt, this.r);
       const moved = Math.hypot(this.x - ox, this.y - oy); this.meters += moved;
@@ -81,7 +82,7 @@ export class Player {
   dodge(wx, wy) {
     if (this.dead || this.state === 'dodge' || (this.cds.dodge > 0)) return false;
     const d = (Math.hypot(wx, wy) > 0.1) ? dirOf(wx, wy) : this.face;
-    this.dodgeDir = d; this.face = d; this.dir = d; this.state = 'dodge'; this.stateT = 0; this.inv = 0.32; this.cds.dodge = G.run && G.run.boons && G.run.boons.includes('haste') ? 0.65 : 0.9;
+    this.dodgeDir = d; this.face = d; this.dir = d; this.state = 'dodge'; this.stateT = 0; this.inv = 0.32; this.cds.dodge = 0.9 - 0.025 * boonN('haste');
     this.setAnim('dodge', 5 / 0.42); bus.emit('sfx', 'dodge'); this.trail = []; this.trailT = 0;
     bus.emit('dust', { x: this.x, y: this.y }); return true;
   }

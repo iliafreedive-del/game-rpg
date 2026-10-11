@@ -2,16 +2,16 @@
 import { streakGoldMul } from './streak.js';
 import { rm, circleRew } from './season.js';
 import { G, bus } from './ctx.js';
-import { makeItem, sellValue, makeSetItem, pickSet } from './items.js';
+import { makeItem, sellValue, makeSetItem, pickSet, growItem } from './items.js';
 import { EPICS } from '../data/items.js';
 import { ENEMIES, scaleXP } from '../data/enemies.js';
-import { xpToNext, stats, MAX_LEVEL, powerQuarter } from './stats.js';
+import { xpToNext, stats, MAX_LEVEL, powerQuarter, boonN } from './stats.js';
 import { rand, rint, weighted, pick, uid } from '../core/util.js';
 import { float, particles } from './combat.js';
 
 // Сила источника за рекламу (сборка 47 — урезано по просьбе пользователя): было +50% золота и опыта, +25% вещей
-const BLESS_MUL = 1.25, BLESS_ITEMS = 1.15;
-const goldMul = () => rm('gold') * (G.run && G.run.boons && G.run.boons.includes('greed') ? 1.25 : 1) * (1 + G.stats.goldFind / 100) * (G.profile.boosts.goldUntil > Date.now() ? 1.5 : G.profile.boosts.blessUntil > Date.now() ? BLESS_MUL : 1) * (G.profile.iap.goldPerk ? 1.25 : 1) * streakGoldMul();
+const BLESS_MUL = 1.05, BLESS_ITEMS = 1.03;   // правки 3: ещё −80% (было +25% / +15%)
+const goldMul = () => rm('gold') * (1 + 0.025 * boonN('greed')) * (1 + G.stats.goldFind / 100) * (G.profile.boosts.goldUntil > Date.now() ? 1.5 : G.profile.boosts.blessUntil > Date.now() ? BLESS_MUL : 1) * (G.profile.iap.goldPerk ? 1.05 : 1) * streakGoldMul();
 export const xpMul = () => rm('xp') * (G.profile.boosts.xpUntil > Date.now() ? 1.5 : G.profile.boosts.blessUntil > Date.now() ? BLESS_MUL : 1) * (1 + ((G.stats && G.stats.decor && G.stats.decor.xp) || 0) / 100);
 
 export function dropGold(x, y, amount) {
@@ -56,7 +56,7 @@ export function rollDrop(ilvl, table, big) {
   if (big && r < 2 && lk.big + 1 >= BIG_PITY) r = 2;
   lk.grey = r === 0 ? lk.grey + 1 : 0; if (big) lk.big = r < 2 ? lk.big + 1 : 0;
   if (r >= 3) return makeItem({ epic: pickEpic(P.cls), ilvl, cls: P.cls });
-  if (r === 2 && P.level >= 10 && rand() < 0.3) return makeSetItem(pickSet(P.cls), null, ilvl, P.cls);   // часть синих — части сетов (с 6 уровня)
+  if (r === 2 && P.level >= 20 && rand() < 0.3) return makeSetItem(pickSet(P.cls), null, ilvl, P.cls);   // часть синих — части сетов (с 6 уровня)
   return makeItem({ ilvl, rarity: r, cls: P.cls });
 }
 export function pickEpic(cls) {
@@ -74,7 +74,7 @@ function chestLoot0(x, y, rich, lvl, id) {
   for (let i = 0; i < (rich ? 5 : 3); i++) dropGold(x, y, rint(3, 7) * (1 + 0.15 * (lvl - 1)));
   if (rand() < (rich ? 0.6 : 0.15)) dropPotion(x, y, rand() < 0.75 ? 'hp' : 'mp');
   if (rand() < (rich ? 0.35 : 0.06)) dropItem(x, y + 0.2, stamp(rollDrop(lvl, rich ? [60, 36, 4, 0] : [95, 5, 0, 0]), rich ? 'Сундук Ордена' : 'Сундук'));
-  if (rich && G.profile.level >= 10 && rand() < 0.1) dropItem(x + 0.3, y + 0.4, makeSetItem(pickSet(G.profile.cls), null, lvl, G.profile.cls));   // сундук Ордена — шанс части сета
+  if (rich && G.profile.level >= 20 && rand() < 0.1) dropItem(x + 0.3, y + 0.4, makeSetItem(pickSet(G.profile.cls), null, lvl, G.profile.cls));   // сундук Ордена — шанс части сета
 }
 
 // pickups (сборка 38): всё, что выпало с мобов и из сундуков, само летит в сумку; сумка полна — вещь лежит на земле и красное уведомление
@@ -120,13 +120,14 @@ export function flushPickups() {
 // ------------------------------------------------------------------ XP & levels
 import { GROWTH } from '../data/items.js';
 export function autoGrow(P, n = 1) { const g = GROWTH[P.cls || 'warrior']; for (const k in g) P.attrs[k] += g[k] * n; }
-export function gainXP(n, x, y) {
-  const P = G.profile; n = Math.round(n * xpMul()); if (n <= 0) return;
+export function gainXP(n, x, y, raw) {
+  const P = G.profile; n = Math.round(raw ? n : n * xpMul()); if (n <= 0) return;   // raw — админка: ровно столько опыта
   const q0 = powerQuarter(P), l0 = P.level;
   P.xp += n; if (x != null) float(x, y, '+' + n + ' опыта', '#b8e3ff', { z: 2.6, life: 0.8 });
   let up = 0;
   while (P.xp >= xpToNext(P.level) && P.level < MAX_LEVEL) { P.xp -= xpToNext(P.level); P.level++; autoGrow(P); P.skillPts += 1; up++; }
   if (up) {
+    for (const it of [...Object.values(P.gear || {}), ...(P.bag || [])]) growItem(it, P.level);   // правки 3: купленные вещи растут с героем
     G.stats = stats(P); G.player.hp = G.stats.maxHP; G.player.mp = G.stats.maxMP;
     particles(G.player.x, G.player.y, 30, { c: [255, 220, 120], z: 0.2, sp: 1.2, vz: 4, g: 1, size: 4, life: 1.2 });
     bus.emit('levelUp', P.level); bus.emit('sfx', 'levelup');

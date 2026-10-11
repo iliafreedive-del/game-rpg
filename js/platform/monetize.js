@@ -14,7 +14,7 @@ import { track } from './analytics.js';
 
 const MIN = 60 * 1000;
 export const OFFERS = {
-  bless: { title: 'Сила источника: +25% золота и опыта на 10 минут', icon: '✦' },
+  bless: { title: 'Сила источника: +5% золота и опыта на 10 минут', icon: '✦' },
   xp_boost: { title: '+50% опыта на 15 минут', icon: '✦' },
   gold_boost: { title: '+50% золота на 15 минут', icon: '⛁' },
   revive: { title: 'Воскреснуть на месте', icon: '✚' },
@@ -106,14 +106,14 @@ export function offerPreview(id) {
 function takePreview(id) { const P = G.profile, pre = P.iap.preview && P.iap.preview[id]; if (pre) delete P.iap.preview[id]; return pre && pre.items; }
 // синее оружие набора искателя: всегда заметно сильнее надетого (закалка до +20% силы)
 function starterItem() {
-  const P = G.profile, it = makeItem({ ilvl: Math.max(3, P.level), rarity: 2, slot: 'weapon', cls: P.cls }); delete it.req;
+  const P = G.profile, it = makeItem({ ilvl: Math.max(3, P.level), rarity: 2, slot: 'weapon', cls: P.cls, noClamp: true }); delete it.req; it.grow = true;
   const cur = P.gear.weapon; let k = 0; if (cur) while (itemPower(it) < itemPower(cur) * 1.2 && k++ < MAX_UPG) it.upg = (it.upg || 0) + 1;
   return it;
 }
 function rollGear(def) {
   const P = G.profile, cls = P.cls || 'warrior', ilvl = P.level + 3, g = def.gear, out = [];
   // сборка 47: купленная вещь всегда заметно лучше надетой (жалоба: набор за 99 ₽ слабее своих зелёных) — редкость не ниже надетой +1, закалка до +20% силы
-  const fix = it => { delete it.req; it.ilvl = ilvl; const cur = P.gear[it.slot];
+  const fix = it => { delete it.req; it.ilvl = ilvl; it.grow = true; const cur = P.gear[it.slot];
     if (cur) { it.rarity = Math.max(it.rarity, Math.min(4, cur.rarity + 1)); applyKindPerk(it); let k = 0; while (itemPower(it) < itemPower(cur) * 1.2 && k++ < MAX_UPG) it.upg = (it.upg || 0) + 1; }
     return it; };
   if (g.kind === 'set') {
@@ -135,6 +135,12 @@ export async function grantPurchase(productId, token) {
     case 'starter_pack': { P.gold += 1000; P.potions.hp += 10; P.potions.mp += 5; const items = (takePreview('starter_pack') || [starterItem()]).map(it => autoEquip(it, true)); P.iap.tx['once_starter_pack'] = 1;
       bus.emit('reward', { title: PRODUCTS[productId].title, sub: 'Покупка получена', gold: 1000, xp: 0, potions: 10, mp: 5, scrolls: 0, skillPts: 0, items }); break; }   // П24: окно с тем, что получено
     case 'gold_small': P.gold += 600; break;
+    case 'gold_mid': P.gold += 2000; break;   // правки 3: мешочки золота и осколков
+    case 'gold_big': P.gold += 5000; break;
+    case 'gold_huge': P.gold += 20000; break;
+    case 'shards_small': CS.addShards(10); break;
+    case 'shards_mid': CS.addShards(50); break;
+    case 'shards_big': CS.addShards(150); break;
     case 'guard_armor': case 'seal_blade': case 'magister_plate': case 'order_weapon': case 'abyss_set': {
       const items = grantGear(PRODUCTS[productId], takePreview(productId)); P.iap.tx['once_' + productId] = 1;
       bus.emit('reward', { title: PRODUCTS[productId].title, sub: 'Покупка получена', gold: 0, xp: 0, potions: 0, scrolls: 0, skillPts: 0, items });
@@ -200,7 +206,7 @@ export function blessing() {
   if (blessLeft() > (BLESS_CAP - BLESS_MIN) * MIN) { bus.emit('toast', { text: 'Сила источника уже на пределе', sub: `Не больше ${BLESS_CAP} минут подряд`, kind: 'warn' }); return Promise.resolve(false); }
   if (blessToday() >= BLESS_DAY) { bus.emit('toast', { text: 'Источник силы отдыхает до завтра', sub: `Не больше ${BLESS_DAY} раз в день`, kind: 'warn' }); return Promise.resolve(false); }
   return watchRewarded('bless', offerToken('bless'), () => { const P = G.profile; blessToday(); P.ads.bless.n++; P.boosts.blessUntil = Math.max(Date.now(), P.boosts.blessUntil || 0) + BLESS_MIN * MIN; P.boosts.blessWarned = false;
-    bus.emit('toast', { text: 'Сила источника!', sub: '+25% золота и опыта, +15% вещей — 10 минут. Вперёд, в бой!', kind: 'good' }); bus.emit('sfx', 'levelup'); });
+    bus.emit('toast', { text: 'Сила источника!', sub: '+5% золота и опыта, +3% вещей — 10 минут. Вперёд, в бой!', kind: 'good' }); bus.emit('sfx', 'levelup'); });
 }
 // напоминание за минуту до конца и по окончании (вызывается раз в секунду из hud.js)
 export function blessTick() {
