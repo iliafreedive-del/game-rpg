@@ -2,7 +2,7 @@
 import { streakGoldMul } from './streak.js';
 import { rm, circleRew } from './season.js';
 import { G, bus } from './ctx.js';
-import { makeItem, sellValue, makeSetItem, pickSet, growItem } from './items.js';
+import { makeItem, sellValue, makeSetItem, pickSet } from './items.js';
 import { EPICS } from '../data/items.js';
 import { ENEMIES, scaleXP } from '../data/enemies.js';
 import { xpToNext, stats, MAX_LEVEL, powerQuarter, boonN } from './stats.js';
@@ -127,7 +127,6 @@ export function gainXP(n, x, y, raw) {
   let up = 0;
   while (P.xp >= xpToNext(P.level) && P.level < MAX_LEVEL) { P.xp -= xpToNext(P.level); P.level++; autoGrow(P); P.skillPts += 1; up++; }
   if (up) {
-    for (const it of [...Object.values(P.gear || {}), ...(P.bag || [])]) growItem(it, P.level);   // правки 3: купленные вещи растут с героем
     G.stats = stats(P); G.player.hp = G.stats.maxHP; G.player.mp = G.stats.maxMP;
     particles(G.player.x, G.player.y, 30, { c: [255, 220, 120], z: 0.2, sp: 1.2, vz: 4, g: 1, size: 4, life: 1.2 });
     bus.emit('levelUp', P.level); bus.emit('sfx', 'levelup');

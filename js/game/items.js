@@ -165,15 +165,6 @@ export function pickSet(cls) { const own = Object.keys(SETS).filter(k => SETS[k]
 export const baseOf = it => BASE[it.base];
 export const iconOf = it => it.wt ? WEAPONS[it.wt].icon : (BASE[it.base].icon || it.slot);
 export const rarityColor = it => RARITY[it.rarity].color;
-// правки 3: купленная за деньги вещь растёт вместе с героем — на каждом уровне её уровень подтягивается к «герой + 3»
-// (урон +12%, защита +10% за уровень вещи, как у выпавших), чтобы покупка не устаревала через пару уровней
-export function growItem(it, L) {
-  if (!it || !it.grow || it.ilvl >= L + 3) return false;
-  const t = L + 3, k = (1 + 0.12 * (t - 1)) / (1 + 0.12 * (it.ilvl - 1)), ka = (1 + 0.1 * (t - 1)) / (1 + 0.1 * (it.ilvl - 1));
-  if (it.dmg) it.dmg = [Math.round(it.dmg[0] * k), Math.round(it.dmg[1] * k)];
-  if (it.armor) it.armor = Math.round(it.armor * ka);
-  it.ilvl = t; return true;
-}
 export const upgMult = it => (1 + (it.upg || 0) * 0.1) * (RMUL[it.rarity] || 1);   // закалка и редкость (сборка 20)
 export function affixText(a) { const A = AFFIXES[a.k]; if (!A) return ''; return A.branch ? A.name(a.v, (BRANCHES.find(b => b.id === a.b) || {}).name) : A.name(a.v); }
 export function epicOf(it) { return it.epic ? EPICS.find(e => e.id === it.epic) : null; }

@@ -106,14 +106,14 @@ export function offerPreview(id) {
 function takePreview(id) { const P = G.profile, pre = P.iap.preview && P.iap.preview[id]; if (pre) delete P.iap.preview[id]; return pre && pre.items; }
 // синее оружие набора искателя: всегда заметно сильнее надетого (закалка до +20% силы)
 function starterItem() {
-  const P = G.profile, it = makeItem({ ilvl: Math.max(3, P.level), rarity: 2, slot: 'weapon', cls: P.cls, noClamp: true }); delete it.req; it.grow = true;
+  const P = G.profile, it = makeItem({ ilvl: Math.max(3, P.level), rarity: 2, slot: 'weapon', cls: P.cls, noClamp: true }); delete it.req;
   const cur = P.gear.weapon; let k = 0; if (cur) while (itemPower(it) < itemPower(cur) * 1.2 && k++ < MAX_UPG) it.upg = (it.upg || 0) + 1;
   return it;
 }
 function rollGear(def) {
   const P = G.profile, cls = P.cls || 'warrior', ilvl = P.level + 3, g = def.gear, out = [];
   // сборка 47: купленная вещь всегда заметно лучше надетой (жалоба: набор за 99 ₽ слабее своих зелёных) — редкость не ниже надетой +1, закалка до +20% силы
-  const fix = it => { delete it.req; it.ilvl = ilvl; it.grow = true; const cur = P.gear[it.slot];
+  const fix = it => { delete it.req; it.ilvl = ilvl; const cur = P.gear[it.slot];
     if (cur) { it.rarity = Math.max(it.rarity, Math.min(4, cur.rarity + 1)); applyKindPerk(it); let k = 0; while (itemPower(it) < itemPower(cur) * 1.2 && k++ < MAX_UPG) it.upg = (it.upg || 0) + 1; }
     return it; };
   if (g.kind === 'set') {
