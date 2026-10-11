@@ -1,0 +1,421 @@
+{
+ "hit_slash_sword": {
+  "file": "assets/art/fx/hit_slash_sword.webp",
+  "cols": 3,
+  "rows": 3,
+  "frames": 9,
+  "cell": 256,
+  "dur": 0.2,
+  "loop": false,
+  "view": "ground",
+  "blend": "add",
+  "meters": 4.0,
+  "anchor": [
+   0.5,
+   0.5
+  ]
+ },
+ "hit_slash_heavy": {
+  "file": "assets/art/fx/hit_slash_heavy.webp",
+  "cols": 3,
+  "rows": 3,
+  "frames": 9,
+  "cell": 256,
+  "dur": 0.25,
+  "loop": false,
+  "view": "ground",
+  "blend": "add",
+  "meters": 5.0,
+  "anchor": [
+   0.5,
+   0.5
+  ]
+ },
+ "hit_spark": {
+  "file": "assets/art/fx/hit_spark.webp",
+  "cols": 3,
+  "rows": 3,
+  "frames": 9,
+  "cell": 256,
+  "dur": 0.2,
+  "loop": false,
+  "view": "upright",
+  "blend": "add",
+  "meters": 1.5,
+  "anchor": [
+   0.5,
+   0.75
+  ]
+ },
+ "hit_crit": {
+  "file": "assets/art/fx/hit_crit.webp",
+  "cols": 3,
+  "rows": 3,
+  "frames": 9,
+  "cell": 256,
+  "dur": 0.3,
+  "loop": false,
+  "view": "upright",
+  "blend": "add",
+  "meters": 2.0,
+  "anchor": [
+   0.5,
+   0.75
+  ]
+ },
+ "proj_arrow": {
+  "file": "assets/art/fx/proj_arrow.webp",
+  "cols": 4,
+  "rows": 4,
+  "frames": 16,
+  "cell": 256,
+  "dur": 0.4,
+  "loop": true,
+  "view": "proj",
+  "blend": "alpha",
+  "meters": 2.0,
+  "anchor": [
+   0.62,
+   0.5
+  ]
+ },
+ "hit_arrow": {
+  "file": "assets/art/fx/hit_arrow.webp",
+  "cols": 3,
+  "rows": 3,
+  "frames": 9,
+  "cell": 256,
+  "dur": 0.2,
+  "loop": false,
+  "view": "upright",
+  "blend": "add",
+  "meters": 1.2,
+  "anchor": [
+   0.5,
+   0.75
+  ]
+ },
+ "proj_star_bolt": {
+  "file": "assets/art/fx/proj_star_bolt.webp",
+  "cols": 4,
+  "rows": 4,
+  "frames": 16,
+  "cell": 256,
+  "dur": 0.4,
+  "loop": true,
+  "view": "proj",
+  "blend": "add",
+  "meters": 1.6,
+  "anchor": [
+   0.62,
+   0.5
+  ]
+ },
+ "hit_star_bolt": {
+  "file": "assets/art/fx/hit_star_bolt.webp",
+  "cols": 3,
+  "rows": 3,
+  "frames": 9,
+  "cell": 256,
+  "dur": 0.25,
+  "loop": false,
+  "view": "upright",
+  "blend": "add",
+  "meters": 1.6,
+  "anchor": [
+   0.5,
+   0.75
+  ]
+ },
+ "hit_block": {
+  "file": "assets/art/fx/hit_block.webp",
+  "cols": 3,
+  "rows": 3,
+  "frames": 9,
+  "cell": 256,
+  "dur": 0.2,
+  "loop": false,
+  "view": "upright",
+  "blend": "add",
+  "meters": 1.4,
+  "anchor": [
+   0.5,
+   0.75
+  ]
+ },
+ "sk_whirlwind": {
+  "file": "assets/art/fx/sk_whirlwind.webp",
+  "cols": 4,
+  "rows": 4,
+  "frames": 16,
+  "cell": 256,
+  "dur": 0.35,
+  "loop": false,
+  "view": "ground",
+  "blend": "add",
+  "meters": 5.0,
+  "anchor": [
+   0.5,
+   0.5
+  ]
+ },
+ "sk_cleave": {
+  "same": "hit_slash_heavy"
+ },
+ "st_bleed": {
+  "file": "assets/art/fx/st_bleed.webp",
+  "cols": 4,
+  "rows": 4,
+  "frames": 16,
+  "cell": 256,
+  "dur": 0.8,
+  "loop": true,
+  "view": "upright",
+  "blend": "add",
+  "meters": 1.4,
+  "anchor": [
+   0.5,
+   0.75
+  ]
+ },
+ "sk_crush_wave": {
+  "file": "assets/art/fx/sk_crush_wave.webp",
+  "cols": 4,
+  "rows": 4,
+  "frames": 16,
+  "cell": 256,
+  "dur": 0.4,
+  "loop": false,
+  "view": "ground",
+  "blend": "add",
+  "meters": 4.5,
+  "anchor": [
+   0.5,
+   0.5
+  ]
+ },
+ "st_stun": {
+  "file": "assets/art/fx/st_stun.webp",
+  "cols": 4,
+  "rows": 4,
+  "frames": 16,
+  "cell": 256,
+  "dur": 0.8,
+  "loop": true,
+  "view": "upright",
+  "blend": "alpha",
+  "meters": 1.2,
+  "anchor": [
+   0.5,
+   0.75
+  ]
+ },
+ "sk_leap_launch": {
+  "file": "assets/art/fx/sk_leap_launch.webp",
+  "cols": 3,
+  "rows": 3,
+  "frames": 9,
+  "cell": 256,
+  "dur": 0.3,
+  "loop": false,
+  "view": "upright",
+  "blend": "alpha",
+  "meters": 2.5,
+  "anchor": [
+   0.5,
+   0.75
+  ]
+ },
+ "sk_leap_impact": {
+  "file": "assets/art/fx/sk_leap_impact.webp",
+  "cols": 4,
+  "rows": 4,
+  "frames": 16,
+  "cell": 256,
+  "dur": 0.6,
+  "loop": false,
+  "view": "ground",
+  "blend": "alpha",
+  "meters": 6.0,
+  "anchor": [
+   0.5,
+   0.5
+  ]
+ },
+ "sk_leap_flash": {
+  "file": "assets/art/fx/sk_leap_flash.webp",
+  "cols": 3,
+  "rows": 3,
+  "frames": 9,
+  "cell": 256,
+  "dur": 0.3,
+  "loop": false,
+  "view": "ground",
+  "blend": "add",
+  "meters": 6.0,
+  "anchor": [
+   0.5,
+   0.5
+  ]
+ },
+ "sk_warcry_ring": {
+  "file": "assets/art/fx/sk_warcry_ring.webp",
+  "cols": 4,
+  "rows": 4,
+  "frames": 16,
+  "cell": 256,
+  "dur": 0.6,
+  "loop": false,
+  "view": "ground",
+  "blend": "add",
+  "meters": 10.5,
+  "anchor": [
+   0.5,
+   0.5
+  ]
+ },
+ "st_warcry_buff": {
+  "file": "assets/art/fx/st_warcry_buff.webp",
+  "cols": 4,
+  "rows": 4,
+  "frames": 16,
+  "cell": 256,
+  "dur": 1.0,
+  "loop": true,
+  "view": "upright",
+  "blend": "add",
+  "meters": 2.0,
+  "anchor": [
+   0.5,
+   0.75
+  ]
+ },
+ "sk_volley_flash": {
+  "file": "assets/art/fx/sk_volley_flash.webp",
+  "cols": 3,
+  "rows": 3,
+  "frames": 9,
+  "cell": 256,
+  "dur": 0.25,
+  "loop": false,
+  "view": "ground",
+  "blend": "add",
+  "meters": 4.0,
+  "anchor": [
+   0.5,
+   0.5
+  ]
+ },
+ "proj_pierce_shot": {
+  "file": "assets/art/fx/proj_pierce_shot.webp",
+  "cols": 4,
+  "rows": 4,
+  "frames": 16,
+  "cell": 256,
+  "dur": 0.3,
+  "loop": true,
+  "view": "proj",
+  "blend": "add",
+  "meters": 4.0,
+  "anchor": [
+   0.62,
+   0.5
+  ]
+ },
+ "hit_pierce_shot": {
+  "file": "assets/art/fx/hit_pierce_shot.webp",
+  "cols": 3,
+  "rows": 3,
+  "frames": 9,
+  "cell": 256,
+  "dur": 0.25,
+  "loop": false,
+  "view": "upright",
+  "blend": "add",
+  "meters": 1.8,
+  "anchor": [
+   0.5,
+   0.75
+  ]
+ },
+ "sk_arrow_rain_zone": {
+  "file": "assets/art/fx/sk_arrow_rain_zone.webp",
+  "cols": 4,
+  "rows": 4,
+  "frames": 16,
+  "cell": 256,
+  "dur": 0.6,
+  "loop": true,
+  "view": "ground",
+  "blend": "add",
+  "meters": 6.5,
+  "anchor": [
+   0.5,
+   0.5
+  ]
+ },
+ "sk_arrow_rain_drop": {
+  "file": "assets/art/fx/sk_arrow_rain_drop.webp",
+  "cols": 4,
+  "rows": 4,
+  "frames": 16,
+  "cell": 256,
+  "dur": 0.4,
+  "loop": false,
+  "view": "upright",
+  "blend": "alpha",
+  "meters": 2.0,
+  "anchor": [
+   0.5,
+   0.75
+  ]
+ },
+ "sk_explosive_arrow": {
+  "file": "assets/art/fx/sk_explosive_arrow.webp",
+  "cols": 4,
+  "rows": 4,
+  "frames": 16,
+  "cell": 256,
+  "dur": 0.4,
+  "loop": false,
+  "view": "upright",
+  "blend": "add",
+  "meters": 4.0,
+  "anchor": [
+   0.5,
+   0.75
+  ]
+ },
+ "proj_fireball": {
+  "file": "assets/art/fx/proj_fireball.webp",
+  "cols": 4,
+  "rows": 4,
+  "frames": 16,
+  "cell": 256,
+  "dur": 0.4,
+  "loop": true,
+  "view": "proj",
+  "blend": "add",
+  "meters": 2.0,
+  "anchor": [
+   0.62,
+   0.5
+  ]
+ },
+ "hit_fire_explosion": {
+  "file": "assets/art/fx/hit_fire_explosion.webp",
+  "cols": 4,
+  "rows": 4,
+  "frames": 16,
+  "cell": 256,
+  "dur": 0.55,
+  "loop": false,
+  "view": "upright",
+  "blend": "add",
+  "meters": 3.2,
+  "anchor": [
+   0.5,
+   0.75
+  ]
+ }
+}
