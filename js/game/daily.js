@@ -84,6 +84,17 @@ export function claimDaily(id) {
   }
   bus.emit('hud'); bus.emit('save'); return true;
 }
+// сборка 66 (B3 отчёта): не нравится задание — заменить на другое за рекламу, раз в день
+export const rerollLeft = () => { const P = G.profile; dailyQuests(); return P.dq.rerolled ? 0 : 1; };
+export function rerollQuest(id) {
+  const P = G.profile; dailyQuests(); if (P.dq.rerolled) return false;
+  const i = P.dq.list.findIndex(x => x.id === id); if (i < 0 || P.dq.list[i].claimed) return false;
+  const q = P.dq.list[i], ok = d => !d.need || d.need(P), defs = [...LOC, ...POOL];
+  const free = defs.filter(d => ok(d) && !P.dq.list.some(x => x.id === d.id) && fam(d.stat) !== fam(q.stat)); if (!free.length) return false;
+  const d = free[Math.floor(Math.random() * free.length)];
+  P.dq.list[i] = { id: d.id, stat: d.stat, n: d.n[0] + Math.floor(Math.random() * (d.n[1] - d.n[0] + 1)), base: P.stats[d.stat] || 0, claimed: false };
+  P.dq.rerolled = 1; bus.emit('save'); return true;
+}
 export const dailyReady = () => G.profile && dailyQuests().some(q => q.done && !q.claimed);
 
 // ---- Dozor: the Order keeps patrolling the depths while you're away (max 8 h)

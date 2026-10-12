@@ -1,7 +1,7 @@
 // Monetization & retention: rewarded offers (never in combat), IAP grants with de-duplication,
 // interstitial pacing, daily login streak and the "ripening chest" timer.
 import { G, bus, inCombat } from '../game/ctx.js';
-import { platform, PRODUCTS, gameplay } from './platform.js';
+import { platform, PRODUCTS, gameplay, now, flagNum, flagStr } from './platform.js';
 import { makeItem, makeSetItem, pickSet, itemPower, applyKindPerk, MAX_UPG } from '../game/items.js';
 import { stats } from '../game/stats.js';
 import { autoEquip } from '../game/character.js';
@@ -83,7 +83,9 @@ export async function buy(productId) {
   if (def.once && P.iap.tx['once_' + productId]) { bus.emit('toast', { text: 'Этот набор уже куплен', kind: 'warn' }); return false; }
   if (!def.consumable && P.iap[flagOf(productId)]) { bus.emit('toast', { text: 'Уже куплено', kind: 'warn' }); return false; }
   const wasPaused = G.paused; G.paused = true; gameplay(false); const r = await platform.p.purchase(productId); G.paused = wasPaused;
-  track(r.ok ? 'buy_ok' : 'buy_cancel', { id: productId });
+  // сборка 66: в Метрику — цена из каталога (рубли или валюта портала), чтобы видеть выручку по товарам
+  const cp = platform.p.catalogPrice(productId), price = cp && typeof cp === 'object' ? +cp.value || 0 : parseFloat(String(cp || '').replace(',', '.')) || 0;
+  track(r.ok ? 'buy_ok' : 'buy_cancel', r.ok ? { id: productId, order_price: price, currency: cp && cp.code || 'RUB' } : { id: productId });
   if (!r.ok) return false;
   return grantPurchase(productId, r.token);
 }
@@ -127,6 +129,7 @@ function rollGear(def) {
   return out;
 }
 export const flagOf = id => ({ gold_perk: 'goldPerk', no_ads: 'noAds', bag_big: 'bagBig' }[id] || id);
+const DAY = 864e5;
 export async function grantPurchase(productId, token) {
   const P = G.profile;
   if (P.iap.tx[token]) { await platform.p.consume(token); return false; }   // already granted — just finish the transaction
@@ -147,6 +150,9 @@ export async function grantPurchase(productId, token) {
       break; }
     case 'season_pass': P.seasonPass = P.seasonPass || {}; P.seasonPass[new Date().getFullYear() + '-' + (new Date().getMonth() + 1)] = 1; break;
     case 'energy_pack': { const t = CS.torches(); t.n += 50; break; }   // сборка 47: можно сверх запаса
+    case 'energy_big': { const t = CS.torches(); t.n += 150; break; }
+    case 'order_seal': { const S = (P.iap.seal = P.iap.seal || { until: 0, last: 0 }); S.until = Math.max(now(), S.until || 0) + 30 * DAY; CS.addShards(10); break; }   // продлевает срок
+    case 'day_offer': { CS.addShards(30); P.gold += 3000; const t = CS.torches(); t.n += 30; P.iap.tx['once_day_offer'] = 1; break; }
     case 'potion_pack': P.potions.hp += 15; P.potions.mp += 10; break;
     case 'gold_perk': P.iap.goldPerk = true; break;
     case 'no_ads': P.iap.noAds = true; break;
@@ -174,9 +180,10 @@ export function loginReward(d) {   // d — день календаря 1..28
 }
 export const DAILY = Array.from({ length: LOGIN_DAYS }, (_, i) => loginReward(i + 1));
 const dayKey = t => { const d = new Date(t); return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate(); };
+export const todayKey = () => dayKey(now());   // сборка 66: день — по часам сервера
 export function dailyStatus() {
   const P = G.profile; P.daily = P.daily || { last: 0, streak: 0 };
-  const today = dayKey(Date.now()), claimable = P.daily.last !== today, n = P.daily.streak;   // streak — сколько дней календаря уже получено (всего)
+  const today = todayKey(), claimable = P.daily.last !== today, n = P.daily.streak;   // streak — сколько дней календаря уже получено (всего)
   const day = claimable ? n % LOGIN_DAYS + 1 : (n - 1) % LOGIN_DAYS + 1;   // текущий день календаря
   return { claimable, streak: n, day, reward: loginReward(day) };
 }
@@ -189,17 +196,19 @@ export function claimDaily(double) {
   if (r.shards) P.shards = (P.shards || 0) + Math.round(r.shards * m);
   const items = [];
   if (r.item) for (let i = 0; i < 1; i++) { const it = makeItem({ ilvl: P.level, rarity: r.item, cls: P.cls }); delete it.req; items.push(autoEquip(it)); }
-  P.daily.last = dayKey(Date.now()); P.daily.streak = s.streak + 1; bus.emit('loginClaimed');
+  P.daily.last = todayKey(); P.daily.streak = s.streak + 1; bus.emit('loginClaimed');
+  const seal = sealDaily();   // сборка 66: Печать Ордена — 3 ◆ и 20 ⚡ вместе с даром дня
   // М22: после рекламы (и без неё) — окно с тем, что получено, а не мимолётная строка
-  bus.emit('reward', { title: `Дар источника — день ${s.day} из ${LOGIN_DAYS}`, sub: double ? 'Награда за просмотр ×1,5' : r.big ? 'Большая награда!' : 'Ежедневный дар', gold: r.gold ? Math.round(r.gold * m * P.level) : 0, xp: 0, potions: r.potions ? Math.round(r.potions * m) : 0, scrolls: r.scrolls ? Math.round(r.scrolls * m) : 0, shards: r.shards ? Math.round(r.shards * m) : 0, skillPts: 0, items, now: true });
+  bus.emit('reward', { title: `Дар источника — день ${s.day} из ${LOGIN_DAYS}`, sub: double ? 'Награда за просмотр ×1,5' : r.big ? 'Большая награда!' : 'Ежедневный дар', gold: r.gold ? Math.round(r.gold * m * P.level) : 0, xp: 0, potions: r.potions ? Math.round(r.potions * m) : 0, scrolls: r.scrolls ? Math.round(r.scrolls * m) : 0, shards: (r.shards ? Math.round(r.shards * m) : 0) + (seal ? SEAL_DAY.shards : 0), skillPts: 0, items, now: true, note: seal ? `Печать Ордена: +${SEAL_DAY.shards} ◆ и +${SEAL_DAY.energy} ⚡ (ещё ${sealDaysLeft()} дн.)` : '' });
   bus.emit('sfx', 'quest'); bus.emit('hud'); bus.emit('save'); return true;
 }
 
 // ---- благословение богини за рекламу: +25% золота и опыта, +15% к выпадению вещей (сборка 47; было +50% / +25%); 10 минут за просмотр, не больше 30 подряд
 export const BLESS_MIN = 10, BLESS_CAP = 30;
 // сборка 47: не больше 3 просмотров в день (30 минут), иначе реклама подряд качает героя быстрее игры
-export const BLESS_DAY = 3;
-export function blessToday() { const P = G.profile, d = dayKey(Date.now()); P.ads.bless = P.ads.bless && P.ads.bless.d === d ? P.ads.bless : { d, n: 0 }; return P.ads.bless.n; }
+export let BLESS_DAY = 3;
+export const blessDay = () => (BLESS_DAY = Math.max(1, Math.min(10, flagNum('bless_day', 3))));   // сборка 66: флаг bless_day в консоли (по умолчанию 3)
+export function blessToday() { blessDay(); const P = G.profile, d = todayKey(); P.ads.bless = P.ads.bless && P.ads.bless.d === d ? P.ads.bless : { d, n: 0 }; return P.ads.bless.n; }
 export const blessLeft = () => Math.max(0, ((G.profile.boosts && G.profile.boosts.blessUntil) || 0) - Date.now());
 export const blessed = () => blessLeft() > 0;
 export function blessing() {
@@ -216,20 +225,42 @@ export function blessTick() {
   if (left <= 0 && B.blessWarned !== 'done') { B.blessWarned = 'done'; bus.emit('toast', { text: 'Сила источника угасла', sub: 'Источник силы на площади деревни даст новое', kind: 'info' }); bus.emit('save'); }
 }
 export const CHEST_TIME = 4 * 60 * MIN;
-export function chestStatus() { const P = G.profile; P.orderChest = P.orderChest || { readyAt: Date.now() + 20 * MIN }; const left = P.orderChest.readyAt - Date.now(); return { ready: left <= 0, left }; }
+export function chestStatus() { const P = G.profile, t = now(); P.orderChest = P.orderChest || { readyAt: t + 20 * MIN };
+  if (P.orderChest.readyAt - t > CHEST_TIME) P.orderChest.readyAt = t + CHEST_TIME;   // часы переводили вперёд и обратно — не ждать дольше 4 ч
+  const left = P.orderChest.readyAt - t; return { ready: left <= 0, left }; }
 export function openOrderChest(viaAd) {
   const P = G.profile; const s = chestStatus();
   if (!s.ready && !viaAd) return false;
   let got; { const it = makeItem({ ilvl: P.level + 1, rarity: Math.random() < 0.25 ? 2 : 1, cls: P.cls }); delete it.req; got = autoEquip(it); }   // сборка 47: обычно зелёная, синяя — 1 из 4
-  P.gold += 40 * P.level; P.orderChest.readyAt = Date.now() + CHEST_TIME;
+  P.gold += 40 * P.level; P.orderChest.readyAt = now() + CHEST_TIME;
   bus.emit('reward', { title: 'Сундук Ордена открыт!', sub: viaAd ? 'Награда за просмотр' : 'Сундук Ордена', gold: 40 * P.level, xp: 0, potions: 0, scrolls: 0, skillPts: 0, items: [got], now: true });   // М22: окно с вещью и сравнением
   bus.emit('sfx', 'chest'); bus.emit('hud'); bus.emit('save'); return true;
 }
 // правки 3: сундук открывался за рекламу бесконечно — таймер 4 ч ничего не значил. Теперь раньше срока — не больше CHEST_SKIP_DAY раз в день
 export const CHEST_SKIP_DAY = 1;
-export function chestSkipsLeft() { const C = chestStatus() && G.profile.orderChest, d = dayKey(Date.now()); if (C.skipDay !== d) { C.skipDay = d; C.skipN = 0; } return Math.max(0, CHEST_SKIP_DAY - (C.skipN || 0)); }
+export function chestSkipsLeft() { const C = chestStatus() && G.profile.orderChest, d = todayKey(); if (C.skipDay !== d) { C.skipDay = d; C.skipN = 0; } return Math.max(0, CHEST_SKIP_DAY - (C.skipN || 0)); }
 export function chestSkip() {
   const s = chestStatus(); if (s.ready) return Promise.resolve(openOrderChest());
   if (!chestSkipsLeft()) { bus.emit('toast', { text: 'Сундук Ордена ещё запечатан', sub: 'Раньше срока за рекламу — раз в день. Он откроется сам, когда кончится таймер', kind: 'warn' }); return Promise.resolve(false); }
   return watchRewarded('chest_skip', offerToken('chest_skip', String(G.profile.orderChest.readyAt)), () => { chestSkipsLeft(); G.profile.orderChest.skipN = (G.profile.orderChest.skipN || 0) + 1; openOrderChest(true); });
 }
+
+// ---- сборка 66: Печать Ордена — 30 дней, каждый день вместе с даром источника 3 ◆ и 20 ⚡ (C1 отчёта)
+export const SEAL_DAY = { shards: 3, energy: 20 };
+export const sealActive = () => { const S = G.profile.iap && G.profile.iap.seal; return !!(S && S.until > now()); };
+export const sealDaysLeft = () => { const S = G.profile.iap && G.profile.iap.seal; return S ? Math.max(0, Math.ceil((S.until - now()) / DAY)) : 0; };
+function sealDaily() {
+  const S = G.profile.iap && G.profile.iap.seal; if (!S || S.until <= now() || S.last === todayKey()) return false;
+  S.last = todayKey(); CS.addShards(SEAL_DAY.shards); CS.addTorches(SEAL_DAY.energy); return true;
+}
+
+// ---- сборка 66: предложение дня (C4) — один раз на героя, после первого часа игры, живёт 24 часа с первого показа
+export const DAY_OFFER_AFTER = 3600;   // секунд игры
+export function dayOffer() {
+  const P = G.profile; if (!P || earlyLock('extra') || flagStr('day_offer', 'on') === 'off') return null;
+  if (!platform.p.hasProduct('day_offer') || P.iap.tx['once_day_offer'] || (P.stats.playTime || 0) < DAY_OFFER_AFTER) return null;
+  const O = (P.iap.dayOffer = P.iap.dayOffer || {}); if (!O.start) return { fresh: true, left: DAY };
+  const left = O.start + DAY - now(); return left > 0 ? { left } : null;
+}
+export function startDayOffer() { const O = (G.profile.iap.dayOffer = G.profile.iap.dayOffer || {}); if (!O.start) { O.start = now(); track('offer_shown', { id: 'day_offer' }); bus.emit('save'); } }
+

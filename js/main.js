@@ -19,6 +19,7 @@ import * as CS from './game/castle.js';
 import { initPlatform, platform, gameplay } from './platform/platform.js';
 import { restorePurchases } from './platform/monetize.js';
 import { initAnalytics, wireAnalytics, track } from './platform/analytics.js';
+import { wireEvents } from './platform/events.js';
 import { dozorPending, initDozor } from './game/daily.js';
 import { showDozor } from './ui/windows.js';
 import { $, el, esc } from './core/util.js';
@@ -63,7 +64,7 @@ async function boot() {
     await core;
     await loadGroup(CLASS_ATLAS[p.cls || 'warrior']).catch(() => { });
     const dv = deviceVolumes(); if (dv) { p.settings.sfx = dv.sfx; p.settings.music = dv.music; }   // громкость — настройка устройства (одна для всех героев)
-    G.profile = p; G.stats = stats(p); wireAnalytics(); setVolumes(p.settings.sfx, p.settings.music); resize();
+    G.profile = p; G.stats = stats(p); wireAnalytics(); wireEvents(); setVolumes(p.settings.sfx, p.settings.music); resize();
     btns.innerHTML = '<div class="muted">Вход в мир…</div>';
     initQuests(); initHunts(); initHUD(); initPanel(); CS.C(); initTutorial();
     await mons;

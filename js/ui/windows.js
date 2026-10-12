@@ -15,8 +15,9 @@ import * as Q from '../game/quests.js';
 import { iconURL, skillCanvas, branchImg } from './icons.js';
 import { ART, artTag, artHead } from './art.js';
 import { drawMap, seen, seenKey } from './hud.js';
-import { offers, buy, restorePurchases, dailyStatus, claimDaily, chestStatus, chestSkip, chestSkipsLeft, openOrderChest, DAILY, LOGIN_DAYS, watchRewarded, offerToken, blessing, blessLeft, BLESS_MIN, BLESS_CAP, BLESS_DAY, blessToday } from '../platform/monetize.js';
+import { offers, buy, restorePurchases, dailyStatus, claimDaily, chestStatus, chestSkip, chestSkipsLeft, openOrderChest, DAILY, LOGIN_DAYS, watchRewarded, offerToken, blessing, blessLeft, BLESS_MIN, BLESS_CAP, BLESS_DAY, blessToday, sealActive, sealDaysLeft, SEAL_DAY, dayOffer, startDayOffer } from '../platform/monetize.js';
 import { PRODUCTS, platform } from '../platform/platform.js';
+import { eventNow } from '../platform/events.js';
 import { wallOffer, markShown, streakHelp, helpGiven, shopGearToday } from '../platform/offers.js';
 import { inCinema } from './cinema.js';
 import { revive, saveNow, loadZone, depthsUnlocked, MAX_REVIVES, inPrologue } from '../game/game.js';
@@ -878,7 +879,7 @@ W.shrine = () => modal('Источник силы', 'md', b => {
   const P = G.profile, now = Date.now(); if (!P.shrineSeen) { P.shrineSeen = 1; bus.emit('save'); }   // П67
   // 1) благословение — главное предложение алтаря
   { const left = blessLeft(), on = left > 0, full = left > (BLESS_CAP - BLESS_MIN) * 60000;
-    const c = el('div', 'bless-card' + (on ? ' on' : ''), `<div class="bl-ic">✦</div><div class="tx"><b>Сила источника</b><div>+25% золота и опыта, +15% к выпадению вещей — ${BLESS_MIN} минут</div><div class="muted">${on ? `Действует ещё <b>${Math.floor(left / 60000)}:${String(Math.floor(left / 1000) % 60).padStart(2, '0')}</b>${full ? ' · предел ' + BLESS_CAP + ' мин' : ' · можно продлить'}` : 'Посмотрите рекламу — и 10 минут всё падает щедрее'}</div></div>`);
+    const c = el('div', 'bless-card' + (on ? ' on' : ''), `<div class="bl-ic">✦</div><div class="tx"><b>Сила источника</b><div>+5% золота и опыта, +3% к выпадению вещей — ${BLESS_MIN} минут</div><div class="muted">${on ? `Действует ещё <b>${Math.floor(left / 60000)}:${String(Math.floor(left / 1000) % 60).padStart(2, '0')}</b>${full ? ' · предел ' + BLESS_CAP + ' мин' : ' · можно продлить'}` : 'Посмотрите рекламу — и 10 минут всё падает щедрее'}</div></div>`);
     const used = blessToday() >= BLESS_DAY; c.appendChild(el('div', 'muted', `<small>Сегодня: ${blessToday()} из ${BLESS_DAY}</small>`));
     const bt = el('button', 'btn ad', used ? 'Завтра' : on ? `+${BLESS_MIN} мин` : 'Получить'); bt.disabled = full || used || inCombat(); bt.onclick = () => blessing().then(rerender); c.appendChild(bt); b.appendChild(c); }
   // 2) календарь входа: 28 дней, пропуск не сбрасывает, каждый 3-й больше, 7/14/21/28 — вещь
@@ -907,11 +908,15 @@ W.shrine = () => modal('Источник силы', 'md', b => {
   b.appendChild(el('h3', '', 'Лавка Ордена'));
   b.appendChild(el('p', 'muted', '<small>Снаряжение в лавке меняется каждый день. Синий сет — с начала, золотые вещи — с 15 уровня, мифические — с 22-го.</small>'));   // П67
   const gearToday = shopGearToday();
+  { const e = eventNow(); if (e) b.appendChild(el('div', 'offer ev-card', `<div class="ic">✷</div><div class="tx"><b>${esc(e.name)}</b><div class="muted">${esc(e.sub)} — сегодня во всех локациях</div></div>`)); }   // сборка 66: событие
+  const dOff = dayOffer();
   for (const [id, p] of Object.entries(PRODUCTS)) {
     if (!platform.p.hasProduct(id)) continue;
     if (p.gear && !gearToday.includes(id)) continue;   // П67: из снаряжения — только товары дня, открытые по уровню
+    if (id === 'day_offer' && !dOff) continue;   // сборка 66: предложение дня — только пока идут его 24 часа
     const owned = (p.once && P.iap.tx['once_' + id]) || (!p.consumable && P.iap[{ gold_perk: 'goldPerk', no_ads: 'noAds', bag_big: 'bagBig' }[id]]);
-    const o = el('div', 'offer', `<div class="ic">${esc(p.icon || '⛁')}</div><div class="tx"><b>${esc(p.title)}</b><div class="muted">${esc(p.desc)}</div></div>`);
+    const extra = id === 'order_seal' && sealActive() ? `<div class="good"><small>Действует ещё ${sealDaysLeft()} дн. · каждый день ${SEAL_DAY.shards} ◆ и ${SEAL_DAY.energy} ⚡ с дарами источника</small></div>` : id === 'day_offer' && dOff ? `<div class="goldc"><small>Осталось ${Math.floor(dOff.left / 3600e3)} ч ${Math.floor(dOff.left / 60e3) % 60} мин</small></div>` : '';
+    const o = el('div', 'offer' + (p.tag || p.limited ? ' hot' : ''), `<div class="ic">${esc(p.icon || '⛁')}</div><div class="tx">${p.tag ? `<em class="of-tag">${esc(p.tag)}</em>` : ''}<b>${esc(p.title)}</b><div class="muted">${esc(p.desc)}</div>${extra}</div>`);
     const pr = platform.p.catalogPrice(id), price = typeof pr === 'string' ? esc(pr) : `${esc(pr.value)} ${pr.img ? `<img class="cur" src="${esc(pr.img)}" alt="${esc(pr.code)}">` : esc(pr.code)}`;
     const bt = el('button', 'btn gold', owned ? 'Куплено' : price); bt.disabled = !!owned; bt.onclick = () => buy(id).then(rerender); o.appendChild(bt); b.appendChild(o);
     if (!owned && (p.gear || id === 'starter_pack' || id === 'potion_pack')) { const box = el('div', ''), sh = el('button', 'btn sm', 'Что внутри ▾'); sh.onclick = () => { if (box.childElementCount) box.innerHTML = ''; else offerContents(box, id); }; o.querySelector('.tx').appendChild(sh); b.appendChild(box); }   // П24
@@ -975,7 +980,9 @@ function offerContents(b, id) {
   }
 }
 export function showWallOffer() {
-  const w = wallOffer(); if (!w || G.modalOpen || inCombat() || inCinema()) return false;
+  if (G.modalOpen || inCombat() || inCinema()) return false;
+  { const d = dayOffer(); if (d && d.fresh && platform.p.hasProduct('day_offer')) { startDayOffer(); showDayOffer(); return true; } }   // сборка 66: предложение дня — один раз
+  const w = wallOffer(); if (!w) return false;
   markShown(w.id, w.promo);
   const pr = platform.p.catalogPrice(w.id);
   const price = !pr ? '' : typeof pr === 'string' ? esc(pr) : `${esc(pr.value)} ${pr.img ? `<img class="cur" src="${esc(pr.img)}" alt="${esc(pr.code)}">` : esc(pr.code)}`;
@@ -1203,6 +1210,24 @@ function floorResult(r) {
     maybeReview(r);
   }, 600);
 }
+// сборка 66 (C4): предложение дня — один раз после первого часа игры, потом 24 часа лежит в лавке Ордена с таймером
+function showDayOffer() {
+  const pd = PRODUCTS.day_offer, pr = platform.p.catalogPrice('day_offer');
+  const price = !pr ? 'Купить' : typeof pr === 'string' ? esc(pr) : `${esc(pr.value)} ${pr.img ? `<img class="cur" src="${esc(pr.img)}" alt="${esc(pr.code)}">` : esc(pr.code)}`;
+  modal(pd.title, 'sm', b => {
+    b.appendChild(el('div', 'of-pack', [['shard', 30, 'осколков Бездны'], ['gold', 3000, 'золота'], ['energy', 30, 'энергии']].map(([ic, n, t]) => `<div class="of-x">${ic === 'shard' ? '<b class="c-shard" style="font-size:26px">◆</b>' : ic === 'energy' ? '<b style="font-size:26px">⚡</b>' : `<img src="${iconURL(ic)}" alt="">`}<b>×${fmt(n)}</b><small>${t}</small></div>`).join('')));
+    b.appendChild(el('p', 'muted', 'Один раз за игру и только 24 часа — потом предложение исчезнет. Оно останется в лавке Ордена у Источника силы, пока идёт таймер.'));
+    const r = el('div', 'row'); const bt = el('button', 'btn gold', price); bt.onclick = () => { closeModal(); buy('day_offer'); };
+    const no = el('button', 'btn', 'Не сейчас'); no.onclick = closeModal; r.append(bt, no); b.appendChild(r);
+  });
+}
+// сборка 66 (D3): ярлык на рабочий стол — предложить один раз после первой победы над боссом, когда игрок доволен
+bus.on('bossDefeated', () => { const P = G.profile; if (P.shortcutDone || P.shortcutAsked || !platform.p.canShortcut) return;
+  setTimeout(async () => { if (!(await platform.p.canShortcut()) || G.modalOpen || inCombat()) return; P.shortcutAsked = 1; bus.emit('save');
+    modal('Ярлык на рабочий стол', 'sm', b => { b.appendChild(el('p', '', 'Добавьте Umbrahold на рабочий стол — в игру одним касанием. Подарок Ордена: <b class="goldc">+200 золота</b>.'));
+      const r = el('div', 'row'), ok = el('button', 'btn gold', 'Добавить'), no = el('button', 'btn', 'Не сейчас');
+      ok.onclick = async () => { closeModal(); if (await platform.p.shortcut()) { P.shortcutDone = 1; P.gold += 200; bus.emit('hud'); bus.emit('save'); bus.emit('toast', { text: 'Ярлык добавлен', sub: '+200 золота', kind: 'good' }); } };
+      no.onclick = closeModal; r.append(ok, no); b.appendChild(r); }); }, 12000); });
 let reviewAsked = false;
 async function maybeReview(r) {
   const P = G.profile;
@@ -1235,6 +1260,8 @@ function dailyBlock(b) {
   for (const q of list) {
     const d = el('div', 'q' + (q.done && !q.claimed ? ' cur' : '') + (q.claimed ? ' done' : ''), `<div class="qt">${q.claimed ? '✔ ' : ''}${esc(q.title)} — ${q.cur}/${q.n}</div><div class="pbar"><i style="width:${q.cur / q.n * 100}%"></i></div>`);
     if (q.done && !q.claimed) { const bt = el('button', 'btn sm gold', `Забрать: ${r.gold} зол. + зелье`); bt.style.marginTop = '6px'; bt.onclick = () => { DQ.claimDaily(q.id); rerender(); }; d.appendChild(bt); }
+    else if (!q.claimed && !q.done && DQ.rerollLeft()) { const rb = el('button', 'btn sm ad', '↻ Другое задание'); rb.style.marginTop = '6px'; rb.title = 'Заменить за рекламу, раз в день';   // сборка 66
+      rb.onclick = () => watchRewarded('dq_reroll', offerToken('dq_reroll', String(G.profile.dq.day)), () => { DQ.rerollQuest(q.id); bus.emit('toast', { text: 'Задание заменено', kind: 'good' }); }).then(rerender); d.appendChild(rb); }
     b.appendChild(d);
   }
   b.appendChild(el('p', 'muted', `<small>Все три — «Сундук дня» с редкой вещью для вашего класса. Новые задания — завтра.</small>`));

@@ -24,6 +24,7 @@ class DemoProvider {
   hasProduct() { return true; }
   async setLeaderboardScore() { return false; } async getLeaderboard() { return null; }   // демо: таблиц рекордов нет
   async flags() { return {}; } async canShortcut() { return false; } async shortcut() { return false; }
+  async serverTime() { return null; } showBanner() { return false; } hideBanner() { }
 }
 
 class YandexProvider {
@@ -45,6 +46,11 @@ class YandexProvider {
   async flags() { try { return await this.ysdk.getFlags({ defaultFlags: {} }); } catch { return {}; } }
   async canShortcut() { try { return !!(await this.ysdk.shortcut.canShowPrompt()).canShow; } catch { return false; } }
   async shortcut() { try { const r = await this.ysdk.shortcut.showPrompt(); return r && r.outcome === 'accepted'; } catch { return false; } }
+  // сборка 66: время сервера Яндекса — таймеры наград (дар дня, сундук Ордена, Сила источника, Печать Ордена) не обмануть переводом часов
+  async serverTime() { try { const t = this.ysdk.serverTime(); return typeof t === 'number' && t > 0 ? t : null; } catch { return null; } }
+  // сборка 66: sticky-баннер (включается в консоли → Реклама). Игра показывает его только в деревне, в бою и походах прячет
+  showBanner() { try { const r = this.ysdk.adv.showBannerAdv && this.ysdk.adv.showBannerAdv(); if (r && r.then) return r.then(x => !!(x && x.stickyAdvIsShowing), () => false); return Promise.resolve(!!r); } catch { return Promise.resolve(false); } }
+  hideBanner() { try { this.ysdk.adv.hideBannerAdv && this.ysdk.adv.hideBannerAdv(); } catch { } }
   ready() { try { this.ysdk.features.LoadingAPI?.ready(); } catch { } }
   gameplayStart() { try { this.ysdk.features.GameplayAPI?.start(); } catch { } }
   gameplayStop() { try { this.ysdk.features.GameplayAPI?.stop(); } catch { } }
@@ -99,16 +105,25 @@ export const PRODUCTS = {
   gold_big: { title: 'Сундучок золота', price: '40 ₽', desc: '5000 золота.', consumable: true, icon: '⛁' },
   gold_huge: { title: 'Казна Ордена', price: '150 ₽', desc: '20 000 золота.', consumable: true, icon: '⛁' },
   shards_small: { title: 'Мешочек осколков', price: '15 ₽', desc: '10 осколков Бездны ◆.', consumable: true, icon: '◆' },
-  shards_mid: { title: 'Кошель осколков', price: '59 ₽', desc: '50 осколков Бездны ◆.', consumable: true, icon: '◆' },
+  shards_mid: { title: 'Кошель осколков', price: '59 ₽', desc: '50 осколков Бездны ◆.', consumable: true, icon: '◆', tag: 'Выгодно' },
   shards_big: { title: 'Сундук осколков', price: '149 ₽', desc: '150 осколков Бездны ◆.', consumable: true, icon: '◆' },
   energy_pack: { title: 'Запас энергии', price: '49 ₽', desc: '+50 ⚡ энергии для Летописи битв, Глубин и Жатвы.', consumable: true, icon: '⚡' },
+  // сборка 66 (отчёт «как больше зарабатывать», C1, C3, C4): товар «на каждый день», крупный запас энергии, предложение дня
+  energy_big: { title: 'Большой запас энергии', price: '129 ₽', desc: '+150 ⚡ энергии для Летописи битв, Глубин и Жатвы.', consumable: true, icon: '⚡', tag: 'Выгодно' },
+  order_seal: { title: 'Печать Ордена · 30 дней', price: '149 ₽', desc: 'Сразу 10 осколков Бездны ◆, потом 30 дней каждый день вместе с дарами источника: 3 ◆ и 20 ⚡. Повторная покупка продлевает срок.', consumable: true, icon: '✠', tag: 'Лучший выбор' },
+  day_offer: { title: 'Предложение дня', price: '49 ₽', desc: '30 осколков Бездны ◆, 3000 золота и 30 ⚡ энергии. Один раз, только 24 часа.', consumable: true, once: true, icon: '✶', limited: true },
   bag_big: { title: 'Большая сумка', price: '149 ₽', desc: 'Навсегда +20 мест в сумке.', consumable: false, icon: '▤' },
 };
 
 function onYandex() {
   const h = location.hostname; return /yandex\.|playhop|games\.s3\.yandex/.test(h) || new URLSearchParams(location.search).has('yandex');
 }
-export const platform = { p: null, name: 'demo', flags: {} };
+export const platform = { p: null, name: 'demo', flags: {}, skew: 0 };
+// сборка 66: «сейчас» по часам сервера (skew — поправка к часам телефона; без SDK — 0). Для таймеров наград, а не для анимаций
+export const now = () => Date.now() + platform.skew;
+// флаги удалённой конфигурации (консоль Яндекса → Удалённая конфигурация): число или значение по умолчанию
+export const flagNum = (k, def) => { const v = platform.flags && platform.flags[k]; return v != null && v !== '' && isFinite(+v) ? +v : def; };
+export const flagStr = (k, def) => { const v = platform.flags && platform.flags[k]; return v != null && v !== '' ? String(v) : def; };
 // GameplayAPI (требование 1.19.3): идёт ли игровой процесс. main.js сверяет каждый кадр (окна, пауза, смерть),
 // реклама и сворачивание выключают сразу; Яндексу уходит только смена состояния
 let gpOn = false;
@@ -119,7 +134,12 @@ export async function initPlatform() {
   platform.p = prov; platform.name = prov.name;
   // флаги — один раз на старте, не дольше 1,5 с (без них — значения по умолчанию)
   try { platform.flags = (await Promise.race([prov.flags ? prov.flags() : {}, new Promise(r => setTimeout(() => r({}), 1500))])) || {}; } catch { platform.flags = {}; }
+  syncTime(); setInterval(syncTime, 10 * 60e3);
   return prov;
+}
+
+async function syncTime() {
+  try { const t = platform.p.serverTime && await platform.p.serverTime(); if (t) platform.skew = t - Date.now(); } catch { }
 }
 
 // ---- demo overlays (DOM)

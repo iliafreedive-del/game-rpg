@@ -1,5 +1,6 @@
 // Loot & progression: drops on the ground, proximity pickup (single credit), XP/levels, chest contents.
 import { streakGoldMul } from './streak.js';
+import { eventMul } from '../platform/events.js';
 import { rm, circleRew } from './season.js';
 import { G, bus } from './ctx.js';
 import { makeItem, sellValue, makeSetItem, pickSet } from './items.js';
@@ -11,8 +12,8 @@ import { float, particles } from './combat.js';
 
 // Сила источника за рекламу (сборка 47 — урезано по просьбе пользователя): было +50% золота и опыта, +25% вещей
 const BLESS_MUL = 1.05, BLESS_ITEMS = 1.03;   // правки 3: ещё −80% (было +25% / +15%)
-const goldMul = () => rm('gold') * (1 + 0.025 * boonN('greed')) * (1 + G.stats.goldFind / 100) * (G.profile.boosts.goldUntil > Date.now() ? 1.5 : G.profile.boosts.blessUntil > Date.now() ? BLESS_MUL : 1) * (G.profile.iap.goldPerk ? 1.05 : 1) * streakGoldMul();
-export const xpMul = () => rm('xp') * (G.profile.boosts.xpUntil > Date.now() ? 1.5 : G.profile.boosts.blessUntil > Date.now() ? BLESS_MUL : 1) * (1 + ((G.stats && G.stats.decor && G.stats.decor.xp) || 0) / 100);
+const goldMul = () => rm('gold') * (1 + 0.025 * boonN('greed')) * (1 + G.stats.goldFind / 100) * (G.profile.boosts.goldUntil > Date.now() ? 1.5 : G.profile.boosts.blessUntil > Date.now() ? BLESS_MUL : 1) * (G.profile.iap.goldPerk ? 1.05 : 1) * streakGoldMul() * eventMul('gold');
+export const xpMul = () => rm('xp') * eventMul('xp') * (G.profile.boosts.xpUntil > Date.now() ? 1.5 : G.profile.boosts.blessUntil > Date.now() ? BLESS_MUL : 1) * (1 + ((G.stats && G.stats.decor && G.stats.decor.xp) || 0) / 100);
 
 export function dropGold(x, y, amount) {
   amount = Math.max(1, Math.round(amount * goldMul()));

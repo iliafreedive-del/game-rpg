@@ -1,6 +1,7 @@
 // Citadel systems: Abyss shards, torches (energy for the Depths), gold altar (offline income),
 // trial seals (boss fights without the dungeon), treasury chests, trophies, room unlocking.
 import { G, bus } from './ctx.js';
+import { eventMul } from '../platform/events.js';
 import { ROOMS, DECOR } from '../data/upgrades.js';
 import { makeItem } from './items.js';
 import { autoEquip } from './character.js';
@@ -57,9 +58,10 @@ bus.on('kill', e => {
   if (!G.profile) return;
   if (e.repeat) { addShards(e.D.boss ? 8 : 5, e.x, e.y); return; }   // П45: возродившийся Хранитель — 5 осколков, Палач — 8
   const ch = e.D.boss ? 1 : e.D.elite ? 1 : e.champion ? 0.175 : e.story === 'floorboss' ? 1 : 0.015;
-  if (rand() < ch) addShards(e.D.boss ? rint(4, 7) : e.D.elite ? rint(2, 4) : 1, e.x, e.y);
+  const em = eventMul('shards');   // сборка 66: события — больше осколков (шанс и горсть босса)
+  if (rand() < ch * em) addShards(Math.round((e.D.boss ? rint(4, 7) : e.D.elite ? rint(2, 4) : 1) * (ch >= 1 ? em : 1)), e.x, e.y);
 });
-bus.on('chest', () => { if (rand() < 0.125) addShards(1, G.player.x, G.player.y); });
+bus.on('chest', () => { if (rand() < 0.125 * eventMul('shards')) addShards(1, G.player.x, G.player.y); });
 
 // ---- rooms
 export function canUnlock(id) {
