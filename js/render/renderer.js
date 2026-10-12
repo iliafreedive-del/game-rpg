@@ -8,7 +8,7 @@ import { iconOf } from '../game/items.js';
 import { lvlOk } from '../game/progress.js';
 import { BIOMES } from '../data/biomes.js';
 import * as SV from '../game/survival.js';
-import { drawFxSheet, drawChargeTele, preloadFxSheets, drawProjSheet, drawStatusSheet, drawBeamSheet, telePattern, fxReady, zoneRealm, fxGround, isGroundFx } from './fxsheets.js';
+import { drawFxSheet, drawChargeTele, preloadFxSheets, drawProjSheet, drawStatusSheet, drawBeamSheet, telePattern, fxReady, zoneRealm, fxGround, isGroundFx, isUprightFx, fxBillboard } from './fxsheets.js';
 import { projSheetOf, mobRageFx } from '../game/combat.js';
 import { GOLD_ICO, artImg } from '../ui/art.js';
 import { appH } from '../ui/fullscreen.js';
@@ -223,6 +223,12 @@ export function drawGroundLayer(c, gcam) {
   }
   if (G.surv) n += SV.drawSurvivalGround(c, gcam);
   return n;
+}
+// сборка 66: объёмные листы на земле для 3D-щитов (render3d/decals.js FxBillboards)
+export function uprightFxList() {
+  const L = [];
+  for (const e of G.effects) if (isUprightFx(e)) { const k = e.t / e.dur, b = fxBillboard(e, e.fade ? 1 - Math.max(0, k - 0.7) / 0.3 : 1, G.cam); if (b) L.push(b); }
+  return L;
 }
 export function clearOverlay() { if (ctx) { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height); } }
 
@@ -448,7 +454,7 @@ function drawEffects() {
   const cam = G.cam, z = cam.zoom;
   for (const e of G.effects) {
     const k = e.t / e.dur;
-    if (e.kind === 'sheet') { if (!isGroundFx(e)) drawFxSheet(ctx, cam, e, e.fade ? 1 - Math.max(0, k - 0.7) / 0.3 : 1); continue; }   // П21: листы атак зверей (render/fxsheets.js)
+    if (e.kind === 'sheet') { if (!isGroundFx(e) && !isUprightFx(e)) drawFxSheet(ctx, cam, e, e.fade ? 1 - Math.max(0, k - 0.7) / 0.3 : 1); continue; }   // П21: листы атак зверей (render/fxsheets.js)
     if (e.kind === 'beam') { drawBeamSheet(ctx, cam, e.id, e.x1, e.y1, 1.1, e.x2, e.y2, 1.0, e.t / 0.25, 1.4); continue; }   // сборка 66: цепная молния — лист-луч
     if (e.kind === 'hop') { const q = Math.min(1, k), x = e.x1 + (e.x2 - e.x1) * q, y = e.y1 + (e.y2 - e.y1) * q, [ax, ay] = cam.toScreen(e.x1, e.y1), [bx, by] = cam.toScreen(e.x2, e.y2);   // огонь/искра перескакивает на соседа по дуге
       drawProjSheet(ctx, cam, e.id, x, y, 0.9 + Math.sin(q * Math.PI) * 0.8, Math.atan2(by - ay, bx - ax), q * e.dur * 0.999); continue; }

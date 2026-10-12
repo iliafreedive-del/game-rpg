@@ -25,3 +25,37 @@ export class GroundDecals {
   }
   dispose() { this.mesh.geometry.dispose(); this.mesh.material.dispose(); this.tex.dispose(); }
 }
+
+// сборка 66: «объёмные» листы, что стоят на земле (шипы новы, языки пламени, взрывы, удары мобов), — щитами к камере в 3D-сцене:
+// стоящее за героем прячется за ним. Щит сдвинут к камере на NUDGE м (экранное место то же): эффект в точке героя не уходит ему за спину.
+const NUDGE = 0.6, POOL = 32;
+export class FxBillboards {
+  constructor(scene) {
+    this.scene = scene; this.pool = []; this.base = new Map();   // картинка листа -> текстура (копии на щитах делят её в видеопамяти)
+  }
+  baseTex(img) {
+    let t = this.base.get(img); if (t) return t;
+    t = new THREE.Texture(img); t.colorSpace = THREE.SRGBColorSpace; t.premultiplyAlpha = true; t.generateMipmaps = false; t.minFilter = THREE.LinearFilter; t.needsUpdate = true;
+    this.base.set(img, t); return t;
+  }
+  item(i) {
+    let s = this.pool[i]; if (s) return s;
+    const mat = new THREE.SpriteMaterial({ transparent: true, premultipliedAlpha: true, depthWrite: false, toneMapped: false, fog: false });
+    s = new THREE.Sprite(mat); s.renderOrder = 10; s.frustumCulled = false; s.userData.img = null; this.scene.add(s); this.pool[i] = s; return s;
+  }
+  // list — [{ S (лист из fxsheets), x, y, z, k, size, alpha, flip, add }]
+  update(list, camera) {
+    const n = Math.min(list.length, POOL);
+    for (let i = 0; i < n; i++) {
+      const f = list[i], S = f.S, s = this.item(i), m = s.material;
+      if (s.userData.img !== S.img) { if (m.map) m.map.dispose(); m.map = this.baseTex(S.img).clone(); m.map.needsUpdate = true; s.userData.img = S.img; m.needsUpdate = true; }
+      const W = S.img.width, H = S.img.height, C = S.C, t = m.map, fl = !!f.flip;
+      t.repeat.set((fl ? -C : C) / W, C / H); t.offset.set((f.sx + (fl ? C : 0)) / W, 1 - (f.sy + C) / H);
+      m.opacity = f.alpha; m.blending = f.add ? THREE.AdditiveBlending : THREE.NormalBlending;
+      s.center.set(S.anchor[0], 1 - S.anchor[1]); s.scale.set(f.size, f.size, 1);
+      s.position.set(f.x, f.z || 0, f.y); const d = camera.position.clone().sub(s.position).normalize().multiplyScalar(NUDGE); s.position.add(d);
+      s.visible = true;
+    }
+    for (let i = n; i < this.pool.length; i++) this.pool[i].visible = false;
+  }
+}

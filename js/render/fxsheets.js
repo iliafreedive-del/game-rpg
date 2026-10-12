@@ -50,6 +50,14 @@ function softCells(im, m, C, round) {
 }
 // сборка 66: в 3D листы «на полу» рисует плоскость у земли (render3d/decals.js) — на 2D-холсте поверх они закрывали героя и мобов
 export const fxGround = { on: false };
+// и «объёмные» листы на земле (без высоты z) — щитами в 3D (decals.js FxBillboards); fxBillboard отдаёт кадр для щита
+export const isUprightFx = e => e.kind === 'sheet' && fxGround.on && !(e.z > 0.3) && (META[real(e.id)] || {}).view === 'upright';
+export function fxBillboard(fx, alpha, cam) {
+  const S = sheets.get(real(fx.id)); if (!S) return null;
+  const k = fx.cyc ? fx.t / fx.cyc : fx.t / fx.dur, [sx, sy] = cellOf(S, k);
+  const flip = fx.ex != null && cam.toScreen(fx.ex, fx.ey)[0] > cam.toScreen(fx.x, fx.y)[0];
+  return { S: { img: imgOf(S, real(fx.id), fx.realm), C: S.C, anchor: S.anchor }, sx, sy, x: fx.x, y: fx.y, z: fx.z, size: fx.size || S.meters, alpha, flip, add: fx.add };
+}
 export const isGroundFx = e => e.kind === 'sheet' && fxGround.on && (META[real(e.id)] || {}).view === 'ground';
 // лист готов к рисованию? (если нет — заказать загрузку; вызывающий рисует прежний эффект)
 export const fxMeta = id => META[real(id)];
