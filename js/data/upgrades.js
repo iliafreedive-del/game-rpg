@@ -5,13 +5,14 @@ export const UPGRADES = {
   hp:   { name: 'Крепость', icon: '♥', step: 12, step2: 30, unit: '', cap0: 40, max: 100, base: 45, mul: 1.154, fmt: l => `+${upgVal('hp', l)} здоровья` },
   crit: { name: 'Меткость', icon: '✷', step: 0.6, step2: 0.3, unit: '%', cap0: 25, max: 75, shards: true, fmt: l => `+${upgVal('crit', l).toFixed(1)}% шанса крита` },
   mp:   { name: 'Запас маны', icon: '✦', step: 10, step2: 10, unit: '', cap0: 30, max: 100, base: 50, mul: 1.147, fmt: l => `+${upgVal('mp', l)} маны и +${(upgVal('mp', l) / 100).toFixed(1)} маны/с` },   // П27: мана за золото, растёт по уровням
-  aps:  { name: 'Проворство', icon: '⚡', step: 2, step2: 1, unit: '%', cap0: 20, max: 50, base: 150, mul: 1.182, fmt: l => `+${upgVal('aps', l)}% скорости атаки` },
+  aps:  { name: 'Проворство', icon: '⚡', step: 1, step2: 0.5, unit: '%', cap0: 20, max: 50, base: 150, mul: 1.182, fmt: l => `+${upgVal('aps', l)}% скорости атаки` },
 };
 // сборка 66: усиления растут до 100-го уровня. До cap0 — как было; дальше потолок = уровень героя (не выше max),
 // ступень вдвое слабее (step2), цена растёт линейно: +5% от цены последней «старой» ступени за каждую следующую
 export const upgVal = (id, l) => { const U = UPGRADES[id]; return +(U.step * Math.min(l, U.cap0) + U.step2 * Math.max(0, l - U.cap0)).toFixed(1); };
 export const upgMax = (id, P) => { const U = UPGRADES[id]; return Math.min(U.max, Math.max(U.cap0, (P && P.level) || 1)); };
 // после правок 3 (тред «перед релизом»): рост цены за ступень на 30% ниже (×1,24 → ×1,168 и т. д.) — «Сила удара» до 40 стоит ≈180 тыс. вместо 1,36 млн
+// сборка 66: Проворство вдвое слабее (было +2% / +1% за ступень, «лучник имба»): +20% к 20-й ступени, +35% к 50-й
 // цена уровня: золото, у Меткости — осколки Бездны (2, 3, 4… за уровень)
 export const upgCost = (id, l) => { const U = UPGRADES[id]; if (U.shards) return 2 + l; const k = Math.min(l, U.cap0); return Math.round(U.base * Math.pow(U.mul, k) * (1 + 0.05 * Math.max(0, l - U.cap0))); };
 export const upgHave = (P, id) => UPGRADES[id].shards ? (P.shards || 0) : P.gold;
