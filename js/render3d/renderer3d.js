@@ -5,7 +5,7 @@ import * as THREE from '../vendor/three.module.min.js';
 import { G, bus } from '../game/ctx.js';
 import { PX_PER_M } from '../core/iso.js';
 import { U, setSmoothFade, outline, applyLook } from './toon.js';
-import { heroLook, heroModel, petLook } from '../game/cosmetics.js';
+import { heroLook, heroModel, petLook, heroCrown, petCrown } from '../game/cosmetics.js';
 import { make as makeWarrior } from './models/hero/warrior.js';
 import { make as makeMage } from './models/hero/mage.js';
 import { makeKit, preloadModels, zoneModels, bgModels, mobAssets, assetLoaded, wantAssets } from './kit.js';
@@ -28,7 +28,7 @@ import { SKINS, skinLoaded, preloadSkin } from './glbskin.js';
 import { Post } from './post.js';
 import { Sparks } from './sparks.js';
 import { petFx } from './models/pet/petfx.js';
-import { petMotes, emitPet } from './cosfx.js';
+import { petMotes, emitPet, Extra } from './cosfx.js';
 import { FORGE_HIT } from './models/npc/npc_smith.js';
 import { sfx } from '../core/audio.js';
 import { disposeObject } from './dispose.js';
@@ -253,6 +253,12 @@ let cosmVer = 0; bus.on('cosm', () => cosmVer++);
 const ALT = {};   // другие модели класса: тот же герой с другой «шкурой»
 const altDef = (cls, name) => ALT[name] || (ALT[name] = cls === 'mage' ? makeMage(name) : makeWarrior(name));
 const HERO_SKIN = { archer: 'archer_raven', warrior: 'warrior_knight', mage: 'mage_staff' };   // класс → модель из assets/models (tools/art/glb_rig.py)
+// огненная корона (облик): парит над головой; одна отрисовка, снимается вместе с актёром
+const CROWN_Y = { warrior: 0.72, archer: 0.85, mage: 1.0 };   // над шлемом, капюшоном, шляпой мага
+function crownOn(a, on, head, o) {
+  if (on && !a.crown && head) a.crown = new Extra('crown', scene, head, o);
+  else if (!on && a.crown) { a.crown.dispose(); a.crown = null; }
+}
 function syncPlayer(dt) {
   const P = G.player; if (!P) return;
   const cls = (G.profile && G.profile.cls) || 'warrior';
@@ -269,7 +275,9 @@ function syncPlayer(dt) {
     a.cosmVer = cosmVer; const L = heroLook(G.profile);
     if (a.model.skinMat) applyLook(a.model.skinMat, L);
     a.root.traverse(o => { if (o.userData.isOutline) o.visible = !(L && L.ghost); });
+    crownOn(a, heroCrown(G.profile), (a.model.skinBones || a.model.bones).head, { y: CROWN_Y[cls] || 0.7 });
   }
+  if (a.crown) a.crown.update(dt);
   const wt = P.weaponType(), key = wt + cls;
   if (a.gear !== key) { a.gear = key; const wm = WEAPONS[WEAPON_MODEL[wt] || 'sword_iron'], off = OFFHAND_MODEL[cls] ? WEAPONS[OFFHAND_MODEL[cls]] : null; if (wt === 'bow') { a.equip('handL', wm); a.equip('handR', null); } else { a.equip('handR', wm); a.equip('handL', off); } }
   const c = measure(a, P, dt), an = P.anim; let clip = 'idle', k, impact, speed = 0;
@@ -377,7 +385,9 @@ function syncPet(dt) {
     a.cosmVer = cosmVer; const L = petLook(p.id, G.profile), gh = !!(L && L.ghost);
     for (const m of a.mats) if (L || m.userData.look) applyLook(m, L);
     a.root.traverse(o => { if (o.userData.isOutline) o.visible = !gh; });
+    crownOn(a, petCrown(G.profile), a.model.bones && a.model.bones.head, { y: 0.42, z: 0.04, scale: 0.8 });
   }
+  if (a.crown) a.crown.update(dt);
   a.place(p.x, p.y); a.faceAngle(Math.PI / 2 - p.ang);
   const M = !a.model.skin && a.def.motes; if (M) { if (!a.motes) a.motes = petMotes(scene, M); emitPet(a.motes, M, dt, p.x, p.y, a.yaw); }   // искры — только у процедурной модели (точки под неё)
   petFx(a, scene, dt, U.uTime.value);   // модель из Meshy: искры от кости (models/pet/petfx.js)

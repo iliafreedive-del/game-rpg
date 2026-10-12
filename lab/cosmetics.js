@@ -9,6 +9,7 @@ import { grassTex } from '../js/render3d/textures.js';
 import { LIGHT, CAMERA, HERO } from '../js/render3d/style.js';
 import { Post } from '../js/render3d/post.js';
 import { Trail, Aura, Wings, Extra } from '../js/render3d/cosfx.js';
+import { petFx } from '../js/render3d/models/pet/petfx.js';
 import { PET_MODELS } from '../js/render3d/models/pet/pets.js';
 import { PREMIUM_PET_MODELS } from '../js/render3d/models/pet/pets_premium.js';
 import { PETS } from '../js/data/pets.js';
@@ -103,6 +104,31 @@ async function build() {
       });
     });
     camDist = 5.5 + ids.length * 2.6; camPitch = 0.72; camAim.y = 0.3;
+  } else if (S === 'mpets' || S === 'mfx') {   // питомцы из Meshy (как в игре): облики и эффекты
+    kit.skin.SKINS.on = true; await Promise.all(Object.keys(PET_MODELS).map(id => kit.skin.preloadSkin('pet_' + id)));
+    const ids = (QS.list || 'fennec,skull,golem,bat').split(','), PS = +QS.ps || 1.4;
+    const mk = (id, look, x, z, o) => { const it = pet(PET_MODELS[id], look, x, z, o); it.a.root.scale.setScalar(PS); return it; };
+    if (S === 'mpets') {
+      title.textContent = 'Облики питомцев';
+      ids.forEach((id, r) => {
+        const cols = [[PETS[id].name, null, ''], ...Object.entries(PET_SKINS[id] || {}).map(([k, [n, l]]) => [n, l, k === 'gold' ? 'или 60 реклам за неделю' : '20◆']), ['Призрачный', { ghost: true }, 'или 80 реклам за неделю']];
+        cols.forEach(([n, l, pr], c) => { const it = mk(id, l, ...xz(at((c - (cols.length - 1) / 2) * 2.1, (r - (ids.length - 1) / 2) * (+QS.rs || 2.6)))); if (l && l.ghost) it.a.root.traverse(o => { if (o.userData.isOutline) o.visible = false; }); it.tag = tag(n, '', pr); });
+      });
+      camDist = 6 + ids.length * 2.6; camPitch = 0.6; camAim.y = 0.3;
+    } else {
+      title.textContent = 'Эффекты на питомце';
+      const id = QS.pet || 'fennec', V = [['Аура огня', { aura: 'fire' }], ['Ледяные следы', { trail: 'ice' }], ['Аура Бездны', { aura: 'void' }], ['Огненные сферы', { extra: 'orbs_fire' }], ['Нимб', { extra: 'halo' }], ['Корона пламени', { extra: 'crown' }]];
+      V.forEach(([n, fx], i) => {
+        const st = V.filter(v => !v[1].trail), j = st.findIndex(v => v[0] === n), it = fx.trail ? mk(id, null, ...xz(at(0, 2.2)), { walk: true }) : mk(id, null, ...xz(at((j - (st.length - 1) / 2) * 2.5, -1.2))); if (fx.trail) it.walkAmp = 1.6;
+        for (const [k, v] of Object.entries(fx)) {
+          if (k === 'aura') { const A = new Aura(scene, v); A.disc.scale.setScalar(0.55); it.fx.push(A); }
+          else if (k === 'trail') it.fx.push(new Trail(scene, v));
+          else { const E = new Extra(v, scene, it.a.model.bones.head, { y: v === 'crown' ? 0.16 : 0.22, z: 0.06 }); it.fx.push(E); }
+        }
+        it.tag = tag(n);
+      });
+      camDist = 9.5; camPitch = 0.6; camAim.y = 0.3;
+    }
   } else if (S === 'fx') {
     const kind = QS.kind || 'trail', list = QS.only ? QS.only.split(',') : Object.keys(EFFECTS[kind]);
     const NAMES = { trail: 'Следы шагов', aura: 'Ауры', wings: 'Крылья', extra: 'Нимб, сферы, корона' };
@@ -140,13 +166,14 @@ function tick(dt) {
     let x = it.x, z = it.z, moving = false;
     if (it.walk) {   // ходит вперёд-назад вдоль взгляда камеры: видно след
       const ph = (t * 0.3 + 0.05) % 2, k = ph < 1 ? ph : 2 - ph, dir = ph < 1 ? 1 : -1;
-      const d = fwd.clone().multiplyScalar((k - 0.5) * 4.5); x += d.x; z += d.z; moving = true;
+      const d = fwd.clone().multiplyScalar((k - 0.5) * (it.walkAmp || 4.5)); x += d.x; z += d.z; moving = true;
       it.a.faceAngle(Math.atan2(fwd.x * dir, fwd.z * dir));
     } else if (it.follow) { x = it.follow.cx + right.x * 0.9 - fwd.x * 0.6; z = it.follow.cz + right.z * 0.9 - fwd.z * 0.6; it.a.faceAngle(it.follow.a.yaw); }
     else it.a.faceAngle(it.face);
     it.cx = x; it.cz = z;
     it.a.place(x, z); it.a.update(dt, moving ? { clip: 'walk', speed: 3.2 } : { clip: 'idle' }, env);
     for (const f of it.fx) { if (f.update.length >= 3) f.update(dt, x, z, it.a.yaw); else f.update(dt, moving); }
+    if (it.pet && it.a.model.fx) petFx(it.a, scene, dt, t);
   }
 }
 function placeCam() {

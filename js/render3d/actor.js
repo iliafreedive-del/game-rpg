@@ -146,6 +146,7 @@ export class Actor {
   }
   setVisible(v) { this.root.visible = this.shadow.visible = v; }
   dispose() {
+    if (this.crown) { this.crown.dispose(); this.crown = null; }   // огненная корона (облик, renderer3d crownOn)
     if (this.model.dispose) this.model.dispose();
     disposeObject(this.root); disposeObject(this.shadow);   // скелеты (текстуры костей), слитые сетки, тень (С20)
   }

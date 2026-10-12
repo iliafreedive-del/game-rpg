@@ -273,7 +273,7 @@ export class Extra {
     } else if (kind === 'crown') {
       // корона из языков пламени над головой
       const g = mergeGeometries(Array.from({ length: 7 }, (_, i) => { const c = new THREE.ConeGeometry(0.035, 0.16 + (i % 2) * 0.07, 4); const a = i / 7 * Math.PI * 2; c.translate(Math.cos(a) * 0.15, 0.08, Math.sin(a) * 0.15); return c; }));
-      this.root = new THREE.Mesh(g, this.mat); this.root.position.set(0, o.y ?? 0.34, 0); headBone.add(this.root);
+      this.root = new THREE.Mesh(g, this.mat); this.root.position.set(0, o.y ?? 0.34, o.z ?? 0); this.y0 = this.root.position.y; if (o.scale) this.root.scale.setScalar(o.scale); this.s0 = this.root.scale.x; headBone.add(this.root);
     } else {
       this.root = new THREE.Group(); this.orbs = [];
       for (let i = 0; i < (E.n || 3); i++) { const m = new THREE.Mesh(new THREE.SphereGeometry(0.06, 10, 8), this.mat); this.root.add(m); this.orbs.push(m); }
@@ -288,7 +288,7 @@ export class Extra {
       this.orbs.forEach((m, i) => { const a = t * 1.8 + i * Math.PI * 2 / this.orbs.length; m.position.set(x + Math.cos(a) * 0.75, 1.2 + Math.sin(t * 2.3 + i * 2) * 0.18, y + Math.sin(a) * 0.75); if (Math.random() < 0.5) this.motes.emit(m.position.x, m.position.y, m.position.z, 0, 0, 0, 0.45); });
       this.motes.update(dt);
     } else if (this.kind.startsWith('halo')) { this.root.rotation.z = t * 0.6; this.root.position.y += (0.42 + Math.sin(t * 2) * 0.02 - this.root.position.y) * 0.5; }
-    else { this.root.rotation.y = t * 0.8; this.root.scale.y = 1 + Math.sin(t * 9) * 0.12; }
+    else { this.root.rotation.y = t * 0.8; this.root.scale.y = this.s0 * (1 + Math.sin(t * 9) * 0.12); this.root.position.y = this.y0 + Math.sin(t * 2) * 0.025; }   // корона парит над головой, как нимб
   }
   dispose() { this.root.removeFromParent(); this.root.traverse(o => o.geometry && o.geometry.dispose()); this.mat.dispose(); if (this.motes) this.motes.dispose(); }
 }

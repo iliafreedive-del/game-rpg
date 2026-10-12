@@ -1,8 +1,8 @@
 // Окно «Облик» (сборка 59, js/game/cosmetics.js): готовые облики, свои краски (ткань · кайма · броня), другая модель класса,
-// призрак для героя и питомца. Только вид. Открывается из меню; герой перекрашивается сразу (окно полупрозрачное снизу).
+// призрак и корона пламени для героя и питомца. Только вид. Открывается из меню; герой перекрашивается сразу (окно полупрозрачное снизу).
 import { G, bus } from '../game/ctx.js';
 import { el, esc } from '../core/util.js';
-import { HERO_LOOKS, DYES, HERO_MODELS, GHOST, DYE_PRICE, MODEL_PRICE } from '../data/cosmetics.js';
+import { HERO_LOOKS, DYES, HERO_MODELS, GHOST, CROWN, DYE_PRICE, MODEL_PRICE } from '../data/cosmetics.js';
 import * as CO from '../game/cosmetics.js';
 import { platform } from '../platform/platform.js';
 
@@ -90,13 +90,20 @@ export function renderLooks(b, redraw) {
   }
 
   // ---- призрак
-  b.appendChild(el('h3', '', 'Призрак'));
-  b.appendChild(el('p', 'muted', '<small>Полупрозрачное тело со светящимся краем. Сочетается с любым обликом и краской.</small>'));
-  for (const [k, label, isOn, set] of [['hero', 'Герой', !!w.ghost, v => CO.wear({ ghost: v })], ['pet', 'Питомец', !!CO.cosmOf(P).petGhost, v => CO.setPetGhost(v)]]) {
-    const key = 'ghost:' + k, own = CO.owns(key), row = el('div', 'lk-row');
-    row.appendChild(el('b', '', label));
-    if (own) { const t = el('button', 'btn' + (isOn ? ' gold' : ''), isOn ? '✔ Включён' : 'Включить'); t.onclick = () => { set(!isOn); redraw(); }; row.appendChild(t); }
-    else getButtons(row, key, GHOST[k].get, GHOST[k].name, () => {}, redraw);
-    b.appendChild(row);
-  }
+  const toggles = (kind, T, title, note, rows) => {
+    b.appendChild(el('h3', '', title));
+    b.appendChild(el('p', 'muted', `<small>${note}</small>`));
+    for (const [k, label, isOn, set] of rows) {
+      const key = kind + ':' + k, own = CO.owns(key), row = el('div', 'lk-row');
+      row.appendChild(el('b', '', label));
+      if (own) { const t = el('button', 'btn' + (isOn ? ' gold' : ''), isOn ? '✔ Включён' : 'Включить'); t.onclick = () => { set(!isOn); redraw(); }; row.appendChild(t); }
+      else getButtons(row, key, T[k].get, T[k].name, () => {}, redraw);
+      b.appendChild(row);
+    }
+  };
+  const C = CO.cosmOf(P);
+  toggles('ghost', GHOST, 'Призрак', 'Полупрозрачное тело со светящимся краем. Сочетается с любым обликом и краской.',
+    [['hero', 'Герой', !!w.ghost, v => CO.wear({ ghost: v })], ['pet', 'Питомец', !!C.petGhost, v => CO.setPetGhost(v)]]);
+  toggles('crown', CROWN, 'Корона пламени', 'Огненная корона парит над головой, как нимб.',
+    [['hero', 'Герой', !!w.crown, v => CO.wear({ crown: v })], ['pet', 'Питомец', !!C.petCrown, v => CO.setPetCrown(v)]]);
 }
