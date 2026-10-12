@@ -51,7 +51,7 @@ const PROP = {
   sand_rock: { spr: 'sand_rock', r: 0.4 }, sand_rock_b: { spr: 'sand_rock_b', r: 0.4 },
   tree_acacia: { spr: 'tree_acacia', r: 0.3, tall: 1 }, tree_acacia_b: { spr: 'tree_acacia_b', r: 0.3, tall: 1 }, tree_acacia_c: { spr: 'tree_acacia_c', r: 0.3, tall: 1 },
   bush_dry: { spr: 'bush_dry' }, agave: { spr: 'agave', r: 0.25 }, tumbleweed: { spr: 'tumbleweed' },
-  fj_longship: { spr: 'crate', tall: 1, model: 'fj_longship' }, fj_boat: { spr: 'crate', model: 'fj_boat' }, fj_runestone: { spr: 'grave', tall: 1, model: 'fj_runestone' },   // правки 5: Фьорды (коллайдеры — o.boxes из wildgen)
+  fj_longship: { spr: 'crate', tall: 1, model: 'fj_longship' }, fj_longship_b: { spr: 'crate', tall: 1, model: 'fj_longship_b' }, fj_longship_split: { spr: 'crate', tall: 1, model: 'fj_longship_split' }, fj_boat: { spr: 'crate', model: 'fj_boat' }, fj_runestone: { spr: 'grave', tall: 1, model: 'fj_runestone' },   // правки 5: Фьорды (коллайдеры — o.boxes из wildgen)
   giant_skull: { spr: 'giant_skull', tall: 1 }, giant_ribs: { spr: 'giant_ribs', tall: 1 }, giant_spine: { spr: 'giant_spine' }, tusk_arch: { spr: 'tusk_arch', tall: 1 }, giant_fallen: { spr: 'giant_fallen', tall: 1 },
   bone_hut: { spr: 'bone_hut', r: 1.75, tall: 1 }, bone_totem: { spr: 'bone_totem', r: 0.25, tall: 1 }, hide_rack: { spr: 'hide_rack', box: [0.95, 0.15] }, war_banner: { spr: 'war_banner', r: 0.12, tall: 1 }, tusk_fence: { spr: 'tusk_fence', box: [0.5, 0.15] },
   bonfire: { spr: 'bonfire', r: 0.55, light: { r: 5.5, c: [255, 140, 60], flicker: 1, z: 0.7 } },

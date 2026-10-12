@@ -46,7 +46,11 @@ export class PropLayer {
     // правки 5: на островах походов ничего не висит над обрывом — пятно предмета (ствол с корнями, основание скалы) целиком на земле.
     // Не помещается — сдвигаем вглубь острова (до 1,5 м), иначе не ставим. this.foot — счёт для проверки (tools: сдвинуто / убрано / осталось)
     const isl = zone.id === 'wild' && !!zone.json.wild.islands, M0 = zone.map, foot = this.foot = { moved: 0, dropped: 0, hang: [] };
+    // правки 5: «мобы или предметы в предметах не должны теряться» — декор, который ставит только 3D (камни кромки, кусты, мелочь), не растёт сквозь драккары и лодки
+    const SHIP_R = { fj_longship: 3.4, fj_longship_b: 3.4, fj_longship_split: 4.4, fj_boat: 1.8 }, ships = zone.statics.filter(d => SHIP_R[d.model]).map(d => [d.x, d.y, SHIP_R[d.model]]);
+    const inShip = (x, y, r) => ships.some(([sx, sy, sr]) => (x - sx) ** 2 + (y - sy) ** 2 < (sr + r) ** 2);
     const place = (id, x, y, s, fixed) => {
+      if (!fixed && ships.length && !SHIP_R[id] && inShip(x, y, footOf(id, s) * 0.6)) { foot.dropped++; return null; }
       if (!isl || /bridge/.test(id) || onGround(M0, x, y, footOf(id, s))) return [x, y, s];
       if (fixed) {   // предмет карты с коллизией (его ставит zone.js): не двигаем — уменьшаем 3D-облик (форма камня у кромки — меньше), пока не встанет на землю
         for (let k = 0.85; k >= 0.45; k -= 0.1) if (onGround(M0, x, y, footOf(id, s * k))) { foot.shrunk = (foot.shrunk || 0) + 1; return [x, y, s * k]; }

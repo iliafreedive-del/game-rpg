@@ -44,16 +44,22 @@ function hull(kit, len, wid, dep, skip = () => false) {
 }
 const SHIELD = [0xb8282a, 0xe8dcc0, 0x2a4a8a, 0xd6a548];
 
-// разбитый драккар: корпус накренился и ушёл в снег, в борту пробоина, мачта сломана и завалилась, рваный полосатый парус,
-// щиты по борту (часть сорвана), нос с завитком, рядом оторванные доски. Длинная ось — X (≈7,2 м)
-const longship = def('fj_longship', (kit, L) => {
-  const { THREE, geo, part, tube } = kit, R = geo.rng(77), LEN = 7.2, WID = 1.15, DEP = 0.95;
-  const H = [];
-  H.push(geo.paint(hull(kit, LEN, WID, DEP, (i, j) => i >= 10 && i <= 12 && j >= 4), 0x4a3020, { top: 0x7a5434, tex: 'woodH' }));
-  for (let i = 1; i < 18; i += 2) { const t = i / 18 * 2 - 1, x = t * LEN / 2, w = WID * Math.pow(Math.max(0, 1 - Math.pow(Math.abs(t), 1.8)), 0.55); if (i === 11) continue; H.push(part(new THREE.BoxGeometry(0.09, 0.07, w * 2), 0x5a3a24, [x, DEP + 0.5 * Math.pow(t, 4) - 0.1, 0], 0, 1, { tex: 'wood' })); }   // скамьи гребцов
+// разбитый драккар: корпус накренился и ушёл в снег, в борту пробоина, мачта сломана, щиты по борту (часть сорвана), нос с завитком,
+// рядом оторванные доски. Длинная ось — X (≈7,2 м). Правки 5 («чтобы не все одинаковые»): три вида —
+//   fj_longship       — рухнувшая мачта с рваным полосатым парусом поперёк борта (парус ложится в сторону +Z);
+//   fj_longship_b     — без паруса: только обломок мачты, другой крен, другие щиты;
+//   fj_longship_split — разломан пополам, нос и корма лежат врозь с промежутком, на изломе торчат доски
+function ship(kit, L, { seed, sail = false, split = false, tilt = 0.2 }) {
+  const { THREE, geo, part, tube } = kit, R = geo.rng(seed), LEN = 7.2, WID = 1.15, DEP = 0.95;
+  const H = [], side = x => split ? (x > 0 ? 1 : -1) : 0;
+  const hullG = sk => geo.paint(hull(kit, LEN, WID, DEP, sk), 0x4a3020, { top: 0x7a5434, tex: 'woodH' });
+  if (!split) H.push(hullG((i, j) => i >= 10 && i <= 12 && j >= 4));
+  else { H.push(hullG((i, j) => i < 9 || (i === 9 && j % 2 === 0)), hullG((i, j) => i >= 9 || (i === 8 && j % 2 === 1)));   // излом неровный
+    for (const sx of [-1, 1]) for (let k = 0; k < 4; k++) H.push(part(new THREE.BoxGeometry(0.5 + R() * 0.5, 0.05, 0.16), 0x6a4a2c, [sx * 0.15, 0.25 + k * 0.2, (R() - 0.5) * 1.6], [0, (R() - 0.5) * 0.6, sx * (0.3 + R() * 0.5)], 1, { top: 0x8a6440, tex: 'woodH' })); }   // торчащие доски
+  for (let i = 1; i < 18; i += 2) { const t = i / 18 * 2 - 1, x = t * LEN / 2, w = WID * Math.pow(Math.max(0, 1 - Math.pow(Math.abs(t), 1.8)), 0.55); if (i === 11 && !split) continue; if (split && i === 9) continue; H.push(part(new THREE.BoxGeometry(0.09, 0.07, w * 2), 0x5a3a24, [x, DEP + 0.5 * Math.pow(t, 4) - 0.1, 0], 0, 1, { tex: 'wood' })); }   // скамьи гребцов
   for (const s of [-1, 1]) for (let k = 0; k < 7; k++) {   // щиты по борту; у пробоины сорваны
-    const t = -0.62 + k * 0.2; if (s > 0 && (k === 4 || k === 5)) continue; if (R() < 0.15) continue;
-    const x = t * LEN / 2, w = WID * Math.pow(Math.max(0, 1 - Math.pow(Math.abs(t), 1.8)), 0.55) + 0.05, c = SHIELD[(k + (s > 0 ? 1 : 0)) % 4];
+    const t = -0.62 + k * 0.2; if (!split && s > 0 && (k === 4 || k === 5)) continue; if (R() < (sail ? 0.15 : 0.35)) continue;
+    const x = t * LEN / 2, w = WID * Math.pow(Math.max(0, 1 - Math.pow(Math.abs(t), 1.8)), 0.55) + 0.05, c = SHIELD[(k + (s > 0 ? 1 : 0) + seed) % 4];
     H.push(part(new THREE.CylinderGeometry(0.27, 0.27, 0.04, 10), c, [x, DEP + 0.5 * Math.pow(t, 4) - 0.08, s * w], [Math.PI / 2 + s * 0.15, 0, (R() - 0.5) * 0.4], 1, { tex: 'wood' }));
     H.push(part(new THREE.SphereGeometry(0.07, 6, 4), 0x8a8a90, [x, DEP + 0.5 * Math.pow(t, 4) - 0.08, s * (w + 0.03)], 0, [1, 1, 0.5], { tex: 'iron' }));
   }
@@ -61,29 +67,36 @@ const longship = def('fj_longship', (kit, L) => {
   H.push(tube([[LEN / 2 - 0.05, DEP + 0.5, 0], [LEN / 2 + 0.25, DEP + 1.1, 0], [LEN / 2 + 0.15, DEP + 1.6, 0], [LEN / 2 - 0.15, DEP + 1.7, 0]], 0.12, 0.07, 0x4a3020, { top: 0x7a5434, tex: 'wood' }, 6));
   H.push(part(new THREE.ConeGeometry(0.11, 0.35, 5), 0x6a4a2a, [LEN / 2 - 0.3, DEP + 1.66, 0], [0, 0, Math.PI / 2 + 0.3], 1, { tex: 'wood' }));
   H.push(tube([[-LEN / 2 + 0.05, DEP + 0.5, 0], [-LEN / 2 - 0.2, DEP + 1.0, 0], [-LEN / 2 - 0.05, DEP + 1.35, 0]], 0.11, 0.05, 0x4a3020, { top: 0x7a5434, tex: 'wood' }, 6));
-  // сломанная мачта: обломок торчит, верх с реем и парусом завалился за борт
-  H.push(part(new THREE.CylinderGeometry(0.1, 0.12, 1.5, 7), 0x4a3424, [0.3, DEP + 0.6, 0], 0, 1, { top: 0x8a6a48, tex: 'wood' }));
-  const mast = [], sail = [];
-  mast.push(part(new THREE.CylinderGeometry(0.08, 0.1, 3.2, 7), 0x4a3424, [0, 1.6, 0], 0, 1, { tex: 'wood' }));
-  mast.push(part(new THREE.CylinderGeometry(0.06, 0.06, 3.4, 6), 0x4a3424, [0, 3.0, 0], [0, 0, Math.PI / 2], 1, { tex: 'wood' }));   // рей
-  // парус: вертикальные полосы красный/белый, нижний край рваный, полотнище провисает
-  const SW = 3.2, SH = 2.3, NS = 8;
-  for (let k = 0; k < NS; k++) {
-    const x0 = -SW / 2 + k * SW / NS, x1 = x0 + SW / NS, torn = 0.35 + R() * (k % 3 === 1 ? 1.1 : 0.5), g = new THREE.PlaneGeometry(SW / NS, SH - torn, 1, 3);
-    const p = g.attributes.position; for (let i = 0; i < p.count; i++) { const yy = p.getY(i), v = (yy + (SH - torn) / 2) / (SH - torn); p.setZ(i, Math.sin((1 - v) * Math.PI * 0.8) * 0.35 + (R() - 0.5) * 0.05); if (v < 0.01) p.setY(i, yy + (R() - 0.5) * 0.25); }
-    g.translate(x0 + SW / NS / 2, 2.95 - (SH - torn) / 2, 0.05);
-    sail.push(geo.paint(g, k % 2 ? 0xe8dcc8 : 0x9a1e1e, { tex: 'cloth' }));
+  // обломок мачты
+  if (!split) H.push(part(new THREE.CylinderGeometry(0.1, 0.12, sail ? 1.5 : 1.1, 7), 0x4a3424, [0.3, DEP + (sail ? 0.6 : 0.4), 0], [0, 0, sail ? 0 : 0.25], 1, { top: 0x8a6a48, tex: 'wood' }));
+  if (sail) {   // верх мачты с реем и парусом завалился за борт: вертикальные полосы красный/белый, нижний край рваный, полотнище провисает
+    const mast = [], sl = [], SW = 3.2, SH = 2.3, NS = 8;
+    mast.push(part(new THREE.CylinderGeometry(0.08, 0.1, 3.2, 7), 0x4a3424, [0, 1.6, 0], 0, 1, { tex: 'wood' }));
+    mast.push(part(new THREE.CylinderGeometry(0.06, 0.06, 3.4, 6), 0x4a3424, [0, 3.0, 0], [0, 0, Math.PI / 2], 1, { tex: 'wood' }));   // рей
+    for (let k = 0; k < NS; k++) {
+      const x0 = -SW / 2 + k * SW / NS, torn = 0.35 + R() * (k % 3 === 1 ? 1.1 : 0.5), g = new THREE.PlaneGeometry(SW / NS, SH - torn, 1, 3);
+      const p = g.attributes.position; for (let i = 0; i < p.count; i++) { const yy = p.getY(i), v = (yy + (SH - torn) / 2) / (SH - torn); p.setZ(i, Math.sin((1 - v) * Math.PI * 0.8) * 0.35 + (R() - 0.5) * 0.05); if (v < 0.01) p.setY(i, yy + (R() - 0.5) * 0.25); }
+      g.translate(x0 + SW / NS / 2, 2.95 - (SH - torn) / 2, 0.05); sl.push(geo.paint(g, k % 2 ? 0xe8dcc8 : 0x9a1e1e, { tex: 'cloth' }));
+    }
+    const top = kit.merge([...mast, ...sl]); top.rotateX(1.25); top.rotateY(0.35); top.translate(0.3, DEP + 1.1, 0.25); H.push(top);
   }
-  const top = kit.merge([...mast, ...sail]);
-  top.rotateX(1.25); top.rotateY(0.35); top.translate(0.3, DEP + 1.1, 0.25);   // верх мачты рухнул поперёк борта
-  H.push(top);
-  // корпус накренён и ушёл в снег по скулу
-  for (const g of H) { g.rotateX(0.2); g.rotateZ(0.04); g.translate(0, -0.35, 0); L.push(g); }
+  // корпус накренён и ушёл в снег по скулу; разломанный — нос и корма врозь, каждая половина со своим креном
+  for (const g of H) {
+    g.computeBoundingBox(); const sd = side((g.boundingBox.min.x + g.boundingBox.max.x) / 2);
+    if (sd > 0) { g.rotateX(-0.28); g.rotateZ(-0.12); g.rotateY(0.18); g.translate(1.1, -0.3, 0.45); }
+    else if (sd < 0) { g.rotateX(0.32); g.rotateZ(0.1); g.rotateY(-0.12); g.translate(-1.1, -0.38, -0.3); }
+    else { g.rotateX(tilt); g.rotateZ(0.04); g.translate(0, -0.35, 0); }
+    L.push(g);
+  }
   // оторванные доски и бочонок рядом, сугроб у борта
-  for (let k = 0; k < 4; k++) L.push(part(new THREE.BoxGeometry(1.1 + R() * 0.6, 0.05, 0.2), 0x5a3a24, [-1.5 + k * 1.1 + R() * 0.3, 0.04, 1.6 + R() * 0.5], [0, R() * 1.5, (R() - 0.5) * 0.2], 1, { top: 0x7a5434, tex: 'woodH' }));
-  L.push(part(new THREE.SphereGeometry(1, 9, 5, 0, 6.283, 0, Math.PI / 2), 0xd8e4f0, [0.6, -0.05, -1.05], 0, [2.6, 0.45, 0.7], { top: SNOW }));
-  L.push(part(new THREE.CylinderGeometry(0.26, 0.26, 0.6, 8), 0x5a3a24, [2.3, 0.26, 1.5], [Math.PI / 2, 0.6, 0], 1, { tex: 'wood' }));
-}, { side: 'double', tint: 0.05, aoH: 1.6 });
+  for (let k = 0; k < (split ? 6 : 4); k++) L.push(part(new THREE.BoxGeometry(1.1 + R() * 0.6, 0.05, 0.2), 0x5a3a24, [split ? (R() - 0.5) * 2.4 : -1.5 + k * 1.1 + R() * 0.3, 0.04, split ? (R() - 0.5) * 2.6 : 1.6 + R() * 0.5], [0, R() * 1.5, (R() - 0.5) * 0.2], 1, { top: 0x7a5434, tex: 'woodH' }));
+  L.push(part(new THREE.SphereGeometry(1, 9, 5, 0, 6.283, 0, Math.PI / 2), 0xd8e4f0, [split ? 2.4 : 0.6, -0.05, split ? -0.5 : -1.05], 0, [split ? 1.6 : 2.6, 0.45, 0.7], { top: SNOW }));
+  if (!split) L.push(part(new THREE.CylinderGeometry(0.26, 0.26, 0.6, 8), 0x5a3a24, [2.3, 0.26, sail ? 1.5 : -1.4], [Math.PI / 2, 0.6, 0], 1, { tex: 'wood' }));
+  else L.push(part(new THREE.SphereGeometry(1, 9, 5, 0, 6.283, 0, Math.PI / 2), 0xd8e4f0, [0, -0.05, 0.1], 0, [0.9, 0.35, 1.3], { top: SNOW }));   // снег в проломе между половинами
+}
+const longship = def('fj_longship', (kit, L) => ship(kit, L, { seed: 77, sail: true }), { side: 'double', tint: 0.05, aoH: 1.6 });
+const longshipB = def('fj_longship_b', (kit, L) => ship(kit, L, { seed: 41, tilt: -0.24 }), { side: 'double', tint: 0.05, aoH: 1.6 });
+const longshipSplit = def('fj_longship_split', (kit, L) => ship(kit, L, { seed: 13, split: true }), { side: 'double', tint: 0.05, aoH: 1.6 });
 
 // перевёрнутая лодка: днище кверху, в нём дыра, рядом весло
 const boat = def('fj_boat', (kit, L) => {
@@ -138,7 +151,7 @@ export const FJORD_PROPS = [
   def('fj_crag', (kit, L) => crag(kit, L, 5, [[1.3, 3.6, 0, 0], [0.7, 1.8, 1.0, 0.5]])),
   def('fj_crag_b', (kit, L) => crag(kit, L, 9, [[1.1, 4.2, 0, 0], [0.8, 2.6, -0.9, 0.6], [0.5, 1.4, 0.8, -0.7]])),
   def('fj_crag_c', (kit, L) => crag(kit, L, 17, [[1.5, 3.0, 0, 0], [1.0, 2.3, 1.3, -0.2], [0.9, 2.0, -1.2, 0.3], [0.6, 1.2, 0.2, 1.0]])),   // гряда-стена
-  runestone, longship, boat, ...STONES, ...FOREST_STONES,
+  runestone, longship, longshipB, longshipSplit, boat, ...STONES, ...FOREST_STONES,
 ];
 export const FJ_ROCKS = [['fj_rock_a', 1], ['fj_rock_b', 1], ['fj_rock_c', 1], ['fj_stone_ledge', 1], ['fj_stone_slab', 1], ['fj_stone_shard', 0.8], ['fj_stone_chunk', 1], ['fj_stone_block', 0.8]];
 export const FJ_CRAGS = [['fj_crag', 1], ['fj_crag_b', 1], ['fj_crag_c', 1.2], ['fj_stone_shard', 0.6]];
