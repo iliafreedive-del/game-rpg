@@ -42,7 +42,7 @@ export function createStage({ cls, wt, foes, ci, pet }) {
   const H = mk(HEROES[cls] || HEROES.warrior, HERO.scale);
   { const wm = WEAPONS[WEAPON_MODEL[wt] || 'sword_iron'], off = OFFHAND_MODEL[cls] ? WEAPONS[OFFHAND_MODEL[cls]] : null;
     if (wt === 'bow') { H.a.equip('handL', wm); } else { H.a.equip('handR', wm); H.a.equip('handL', off); } }
-  const F = foes.map(f => { const S = mk(MOBS[f.type] || MOBS.skel_warrior, f.type === 'boss' ? 0.72 : f.type === 'elite_guard' && !f.boss ? 0.85 : 1); for (const [slot, id] of Object.entries(S.a.model.defaultWeapons || {})) S.a.equip(slot, WEAPONS[id]); return S; });
+  const F = foes.map(f => { const S = mk(MOBS[f.type] || MOBS.skel_warrior, 1.15 * (f.type === 'boss' ? 0.72 : f.type === 'elite_guard' && !f.boss ? 0.85 : 1));   // правки 5: мобы на 15% крупнее for (const [slot, id] of Object.entries(S.a.model.defaultWeapons || {})) S.a.equip(slot, WEAPONS[id]); return S; });
   const PT = pet && PET_MODELS[pet] ? mk(PET_MODELS[pet], 1.2) : null;   // П4-3: питомец рядом с героем (тот же масштаб, что в деревне)
   let W = 0, Hh = 0, view = null, t = 0;
   function resize(w, h) {

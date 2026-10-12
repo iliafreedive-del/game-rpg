@@ -33,6 +33,7 @@ import { fxGround, BLAST_FX } from '../render/fxsheets.js';
 
 const params = new URLSearchParams(location.search);
 const SQ = Math.SQRT1_2;
+export const MOB_K = 1.15;   // правки 5: все мобы на 15% крупнее (подземелья, походы, Жатва, Летопись — hwstage.js, полоски здоровья — renderer.js)
 let decals = null, bills = null, groundPaint = null, uprightList = null;   // сборка 66: эффекты «на полу» под героем и мобами (decals.js)
 export const setGroundPainter = (f, u) => { groundPaint = f; uprightList = u; };
 let canvas, renderer, scene, camera, kit, W = 800, H = 450, DPR = 1;
@@ -289,7 +290,7 @@ function syncEnemies(dt) {
   for (const e of G.enemies) {
     let def = MOBS[e.model || e.type] || MOBS[e.D && e.D.model3d];   // e.model — свой вид при том же типе (Страж глубин, сборка 57); model3d — чужая модель на время (мобы храма)
     if (!def) { if (!warned.has(e.type)) { warned.add(e.type); console.warn('[3D] нет модели моба «' + e.type + '» — показан скелет-воин'); } def = MOBS.skel_warrior; }
-    const scale = (e.champion ? 1.25 : 1) * (e.bigMul || 1) * (def === MOBS[e.model || e.type] || (e.D && def === MOBS[e.D.model3d]) ? 1 : e.r / 0.34);
+    const scale = MOB_K * (e.champion ? 1.25 : 1) * (e.bigMul || 1) * (def === MOBS[e.model || e.type] || (e.D && def === MOBS[e.D.model3d]) ? 1 : e.r / 0.34);
     let a = enemyActor(e, def, scale); a.seen = fn;
     // правки 2 (П17–18): моб собран запасной моделью, пока его модель грузилась, — пересобрать, когда догрузилась
     if (def.ready && SKINS.on) { if (a.fb === undefined) a.fb = !def.ready(kit); else if (a.fb && def.ready(kit)) { a.dispose(); actors.delete(e); a = getActor(e, def, { scale }); a.isEnemy = true; a.def = def; a.seen = fn; a.fb = false; } }
@@ -381,7 +382,7 @@ function syncSwarm(dt) {
     if (!a) {
       const mk = e.model || e.type, def = MOBS[mk] || MOBS.skel_warrior, pool = swarmPool.get(mk);   // правки 3: стражи Жатвы — своя модель (e.model) при общем типе
       a = pool && pool.length ? pool.pop() : noCast(new Actor(def, kit, scene)); a.isSwarm = true; a.seen = fn; a.swType = mk; a.root.visible = true;
-      a.root.scale.setScalar(e.scale || (e.boss ? 1.4 : e.elite ? 1.2 : 1)); actors.set(e, a);
+      a.root.scale.setScalar(MOB_K * (e.scale || (e.boss ? 1.4 : e.elite ? 1.2 : 1))); actors.set(e, a);
     }
     const c = measure(a, e, dt);
     a.place(e.x, e.y); a.faceAngle(yawOfDir(e.dir));

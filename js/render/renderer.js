@@ -579,7 +579,7 @@ function drawBars() {
   for (const e of G.enemies) {
     if (e.dead || e.D.boss) continue;
     const show = e.hp < e.maxHP || e.D.elite || e.champion;
-    const [x, y] = cam.toScreen(e.x, e.y, e.D.mini ? 1.9 * (e.D.scale || 1) + 0.3 : e.D.elite ? 2.6 : 2.05); const w = (e.D.elite || e.champion ? 60 : 38) * Math.min(1.2, z);
+    const [x, y] = cam.toScreen(e.x, e.y, (cam.proj ? 1.15 : 1) * (e.D.mini ? 1.9 * (e.D.scale || 1) + 0.3 : e.D.elite ? 2.6 : 2.05))   /* правки 5: в 3D мобы на 15% выше — полоска тоже */; const w = (e.D.elite || e.champion ? 60 : 38) * Math.min(1.2, z);
     lvlTag(e, x - w / 2 - 3, y + 4, z);   // правки 3: уровень у каждого моба, цвет — насколько он сильнее героя
     if (!show) continue;
     ctx.fillStyle = 'rgba(0,0,0,0.7)'; ctx.fillRect(x - w / 2 - 1, y - 1, w + 2, 6);
