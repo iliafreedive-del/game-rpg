@@ -2739,5 +2739,21 @@
  " зол. и очко навыка": " de oro y un punto de habilidad",
  "Мастерство +1<small>{0}</small>": "Maestría +1<small>{0}</small>",
  "Навыки без уровня и очков": "Habilidades sin nivel ni puntos",
- "2026-10-11 · сборка 65": "2026-10-11 · versión 65"
+ "2026-10-11 · сборка 65": "2026-10-11 · versión 65",
+ "Глубины катакомб · лучший этаж": "Profundidades · piso más hondo",
+ "этаж {0}": "piso {0}",
+ "Жатва Бездны · дольше всех": "Cosecha del Abismo · partida más larga",
+ "Круги": "Círculos",
+ "Круги Бездны · самый высокий пройденный": "Círculos del Abismo · el más alto superado",
+ "круг {0}": "círculo {0}",
+ "Уровень": "Nivel",
+ "Уровень героя": "Nivel del héroe",
+ "Неделя": "Semana",
+ "Испытание недели · быстрее всех": "Prueba semanal · el más rápido",
+ "Доска славы": "Salón de la Fama",
+ "<span>Ваш рекорд</span><b>{0}</b>": "<span>Tu récord</span><b>{0}</b>",
+ " (вы)": " (tú)",
+ "Пока в таблице никого нет — станьте первым!": "Aún no hay nadie en la tabla: ¡sé el primero!",
+ "Таблица игроков появится в Яндекс Играх.": "La tabla de jugadores aparecerá en Yandex Games.",
+ "<small>Рекорды записываются сами, когда вы их бьёте. Таблица обновляется раз в минуту.</small>": "<small>Los récords se guardan solos cuando los superas. La tabla se actualiza una vez por minuto.</small>"
 }

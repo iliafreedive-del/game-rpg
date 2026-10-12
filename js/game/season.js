@@ -7,8 +7,8 @@ import { makeItem, maxRarityFor } from './items.js';
 import { autoEquip } from './character.js';
 import { mergeGroups, mergeCost } from './economy.js';
 import { BASES, CLASSES, RARITY } from '../data/items.js';
-import { platform } from '../platform/platform.js';
 import { floorForLevel } from '../world/floorgen.js';
+import { submitScore } from './ladder.js';
 
 // ---------------------------------------------------------------- путь сезона
 export const SEASON_LEVELS = 30;
@@ -85,7 +85,7 @@ export function finishWeekly(time) {
   const P = G.profile, W = weeklyState(), first = !W.done, rec = !W.best || time < W.best;
   W.done = true; if (rec) W.best = time;
   if (first) { P.gold += 200 * P.level; const it = makeItem({ ilvl: P.level + 1, rarity: Math.max(2, Math.min(3, maxRarityFor(P.level))), cls: P.cls }); delete it.req; autoEquip(it); }
-  try { platform.p.setLeaderboardScore && platform.p.setLeaderboardScore('weeklyDepths', Math.round(time * 1000)); } catch { }
+  if (rec) submitScore('weeklyDepths', Math.round(time * 1000), true, 'weeklyDepths' + weekNo());   // ладдер: очередь с лимитом Яндекса (js/game/ladder.js)
   return { first, rec };
 }
 

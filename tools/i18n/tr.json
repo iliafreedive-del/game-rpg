@@ -2739,5 +2739,21 @@
  " зол. и очко навыка": " altın ve bir yetenek puanı",
  "Мастерство +1<small>{0}</small>": "Ustalık +1<small>{0}</small>",
  "Навыки без уровня и очков": "Seviye ve puan olmadan yetenekler",
- "2026-10-11 · сборка 65": "2026-10-11 · sürüm 65"
+ "2026-10-11 · сборка 65": "2026-10-11 · sürüm 65",
+ "Глубины катакомб · лучший этаж": "Yeraltı Derinlikleri · en derin kat",
+ "этаж {0}": "{0}. kat",
+ "Жатва Бездны · дольше всех": "Uçurum Hasadı · en uzun koşu",
+ "Круги": "Çemberler",
+ "Круги Бездны · самый высокий пройденный": "Uçurum Çemberleri · geçilen en yüksek",
+ "круг {0}": "{0}. çember",
+ "Уровень": "Seviye",
+ "Уровень героя": "Kahraman seviyesi",
+ "Неделя": "Hafta",
+ "Испытание недели · быстрее всех": "Haftalık Sınav · en hızlı",
+ "Доска славы": "Şöhret Panosu",
+ "<span>Ваш рекорд</span><b>{0}</b>": "<span>Rekorunuz</span><b>{0}</b>",
+ " (вы)": " (siz)",
+ "Пока в таблице никого нет — станьте первым!": "Tabloda henüz kimse yok — ilk siz olun!",
+ "Таблица игроков появится в Яндекс Играх.": "Oyuncu sıralaması Yandex Games'te görünecek.",
+ "<small>Рекорды записываются сами, когда вы их бьёте. Таблица обновляется раз в минуту.</small>": "<small>Rekorlar kırdığınızda kendiliğinden kaydedilir. Tablo dakikada bir yenilenir.</small>"
 }

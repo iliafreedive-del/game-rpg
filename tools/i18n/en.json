@@ -2739,5 +2739,21 @@
  " зол. и очко навыка": " gold and a skill point",
  "Мастерство +1<small>{0}</small>": "Mastery +1<small>{0}</small>",
  "Навыки без уровня и очков": "Skills without level or points",
- "2026-10-11 · сборка 65": "2026-10-11 · build 65"
+ "2026-10-11 · сборка 65": "2026-10-11 · build 65",
+ "Глубины катакомб · лучший этаж": "Catacomb Depths · deepest floor",
+ "этаж {0}": "floor {0}",
+ "Жатва Бездны · дольше всех": "Abyss Harvest · longest run",
+ "Круги": "Circles",
+ "Круги Бездны · самый высокий пройденный": "Abyss Circles · highest cleared",
+ "круг {0}": "circle {0}",
+ "Уровень": "Level",
+ "Уровень героя": "Hero level",
+ "Неделя": "Week",
+ "Испытание недели · быстрее всех": "Weekly Trial · fastest",
+ "Доска славы": "Hall of Fame",
+ "<span>Ваш рекорд</span><b>{0}</b>": "<span>Your record</span><b>{0}</b>",
+ " (вы)": " (you)",
+ "Пока в таблице никого нет — станьте первым!": "Nobody on the board yet — be the first!",
+ "Таблица игроков появится в Яндекс Играх.": "The player leaderboard will appear on Yandex Games.",
+ "<small>Рекорды записываются сами, когда вы их бьёте. Таблица обновляется раз в минуту.</small>": "<small>Records are saved automatically when you beat them. The board refreshes once a minute.</small>"
 }

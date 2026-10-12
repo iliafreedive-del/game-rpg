@@ -2739,5 +2739,21 @@
  " зол. и очко навыка": " emas dan satu poin skill",
  "Мастерство +1<small>{0}</small>": "Penguasaan +1<small>{0}</small>",
  "Навыки без уровня и очков": "Skill tanpa level dan poin",
- "2026-10-11 · сборка 65": "2026-10-11 · versi 65"
+ "2026-10-11 · сборка 65": "2026-10-11 · versi 65",
+ "Глубины катакомб · лучший этаж": "Kedalaman Katakomba · lantai terdalam",
+ "этаж {0}": "lantai {0}",
+ "Жатва Бездны · дольше всех": "Panen Jurang · lari terlama",
+ "Круги": "Lingkaran",
+ "Круги Бездны · самый высокий пройденный": "Lingkaran Jurang · tertinggi yang ditaklukkan",
+ "круг {0}": "lingkaran {0}",
+ "Уровень": "Level",
+ "Уровень героя": "Level pahlawan",
+ "Неделя": "Minggu",
+ "Испытание недели · быстрее всех": "Ujian Mingguan · tercepat",
+ "Доска славы": "Papan Kejayaan",
+ "<span>Ваш рекорд</span><b>{0}</b>": "<span>Rekor Anda</span><b>{0}</b>",
+ " (вы)": " (Anda)",
+ "Пока в таблице никого нет — станьте первым!": "Belum ada yang tercatat — jadilah yang pertama!",
+ "Таблица игроков появится в Яндекс Играх.": "Papan peringkat pemain akan muncul di Yandex Games.",
+ "<small>Рекорды записываются сами, когда вы их бьёте. Таблица обновляется раз в минуту.</small>": "<small>Rekor tersimpan otomatis saat Anda memecahkannya. Papan diperbarui sekali per menit.</small>"
 }

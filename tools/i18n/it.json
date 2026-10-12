@@ -2739,5 +2739,21 @@
  " зол. и очко навыка": " oro e un punto abilità",
  "Мастерство +1<small>{0}</small>": "Maestria +1<small>{0}</small>",
  "Навыки без уровня и очков": "Abilità senza livello né punti",
- "2026-10-11 · сборка 65": "2026-10-11 · build 65"
+ "2026-10-11 · сборка 65": "2026-10-11 · build 65",
+ "Глубины катакомб · лучший этаж": "Profondità · piano più profondo",
+ "этаж {0}": "piano {0}",
+ "Жатва Бездны · дольше всех": "Mietitura dell'Abisso · corsa più lunga",
+ "Круги": "Cerchi",
+ "Круги Бездны · самый высокий пройденный": "Cerchi dell'Abisso · il più alto superato",
+ "круг {0}": "cerchio {0}",
+ "Уровень": "Livello",
+ "Уровень героя": "Livello dell'eroe",
+ "Неделя": "Settimana",
+ "Испытание недели · быстрее всех": "Prova settimanale · il più veloce",
+ "Доска славы": "Albo d'onore",
+ "<span>Ваш рекорд</span><b>{0}</b>": "<span>Il tuo record</span><b>{0}</b>",
+ " (вы)": " (tu)",
+ "Пока в таблице никого нет — станьте первым!": "Ancora nessuno in classifica: sii il primo!",
+ "Таблица игроков появится в Яндекс Играх.": "La classifica dei giocatori apparirà su Yandex Games.",
+ "<small>Рекорды записываются сами, когда вы их бьёте. Таблица обновляется раз в минуту.</small>": "<small>I record si salvano da soli quando li batti. La classifica si aggiorna una volta al minuto.</small>"
 }
