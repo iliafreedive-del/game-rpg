@@ -38,7 +38,7 @@ const SEED_JS = seed => `(() => { const rn = performance.now.bind(performance), 
 // Новая страница с игрой. opt: w,h, mobile, lang, seed, base, cls (0 воин, 1 лучник, 2 маг), tut, save (объект localStorage), cont (нажать «Продолжить»)
 export async function open(b, opt = {}) {
   const { w = 844, h = 390, mobile = false, lang, seed, cls = 0 } = opt;
-  const ctx = await b.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: 1, isMobile: mobile, hasTouch: mobile });
+  const ctx = await b.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: opt.dpr || 1, isMobile: mobile, hasTouch: mobile });
   if (seed != null) await ctx.addInitScript(SEED_JS(seed));
   const p = await ctx.newPage(); p.errors = []; p.logs = [];
   p.on('pageerror', e => p.errors.push('PAGEERR ' + e.message));
