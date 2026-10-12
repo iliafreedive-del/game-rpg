@@ -9,7 +9,7 @@ import { loadJSON } from '../core/assets.js';
 
 const PHONE = typeof matchMedia !== 'undefined' && matchMedia('(pointer: coarse)').matches;
 const META = {}, sheets = new Map(), pending = new Map();   // id -> мета; id -> { ...meta, img, C }; id -> Image (грузится)
-let started = false, keep = null;
+let started = false, keep = null, extra = [];   // extra — листы выученных навыков (combat.js preloadSkillFx)
 const BASE = 'assets/';
 export function preloadFxSheets() {
   if (started) return; started = true;
@@ -19,7 +19,7 @@ export function preloadFxSheets() {
 }
 // правки 3: эти листы героя GPT нарисовал сеткой 4×4 (16 кадров), а в fx.json записано 3×3 — в кадр попадали куски
 // четырёх соседних картинок («экран с повторяющимися картинками» в квадратной рамке). Сетка — здесь, json пересобирает fx_pack.py
-const GRID4 = new Set(['hit_slash_sword', 'hit_slash_heavy', 'hit_spark', 'hit_crit', 'hit_arrow', 'hit_star_bolt', 'hit_block', 'sk_leap_launch', 'sk_leap_flash', 'sk_volley_flash', 'hit_pierce_shot']);
+const GRID4 = new Set(['hit_slash_sword', 'hit_slash_heavy', 'hit_spark', 'hit_crit', 'hit_arrow', 'hit_star_bolt', 'hit_block', 'sk_leap_launch', 'sk_leap_flash', 'sk_volley_flash', 'hit_pierce_shot', 'hw_slash_hero', 'hw_slash_foe', 'hw_volley']);   // сборка 66: и три листа Летописи из полного комплекта
 const real = id => (META[id] && META[id].same) || id;   // sk_cleave -> hit_slash_heavy
 function want(id) {
   id = real(id); let m = META[id]; if (!m || sheets.has(id) || pending.has(id)) return;
@@ -32,7 +32,7 @@ function want(id) {
 // правки 3: у многих листов GPT рисунок доходит до края кадра (вспышки, удары, вихрь) — в игре и Летописи был виден
 // жёсткий квадрат. Один раз при загрузке каждый кадр гасится к краям: мягкая рамка ~12 % кадра у всех листов,
 // у круглых листов «на полу» (вихрь воина) — ещё и круг (до 0.3 кадра как нарисовано, к 0.49 — в ноль)
-const ROUND = new Set(['sk_whirlwind', 'sv_main_warrior', 'fj_blizzard_nova', 'sk_leap_flash', 'sk_leap_impact', 'fj_jarl_stomp']);   // список здесь, а не в fx.json: json пересобирает tools/art/fx_pack.py
+const ROUND = new Set(['sk_whirlwind', 'sv_main_warrior', 'fj_blizzard_nova', 'sk_leap_flash', 'sk_leap_impact', 'fj_jarl_stomp', 'gr_scorch', 'gr_frost', 'gr_burning_ground']);   // список здесь, а не в fx.json: json пересобирает tools/art/fx_pack.py
 const SEAM = new Set(['hit_spark', 'hit_crit', 'hit_arrow', 'hit_star_bolt', 'hit_block', 'hit_pierce_shot']);
 function softCells(im, m, C, round) {
   const W = im.naturalWidth, H = im.naturalHeight, n = Math.max(1, Math.round(C)), e = n * 0.12;
@@ -48,6 +48,21 @@ function softCells(im, m, C, round) {
     x.globalCompositeOperation = 'source-over'; }
   x.globalCompositeOperation = 'source-in'; x.drawImage(im, 0, 0); return c;
 }
+// сборка 66: в 3D листы «на полу» рисует плоскость у земли (render3d/decals.js) — на 2D-холсте поверх они закрывали героя и мобов
+export const fxGround = { on: false };
+// и «объёмные» листы на земле (без высоты z) — щитами в 3D (decals.js FxBillboards); fxBillboard отдаёт кадр для щита
+export const isUprightFx = e => e.kind === 'sheet' && fxGround.on && !(e.z > 0.3) && (META[real(e.id)] || {}).view === 'upright';
+export function fxBillboard(fx, alpha, cam) {
+  const S = sheets.get(real(fx.id)); if (!S) return null;
+  const k = fx.cyc ? fx.t / fx.cyc : fx.t / fx.dur, [sx, sy] = cellOf(S, k);
+  const flip = fx.ex != null && cam.toScreen(fx.ex, fx.ey)[0] > cam.toScreen(fx.x, fx.y)[0];
+  return { S: { img: imgOf(S, real(fx.id), fx.realm), C: S.C, anchor: S.anchor }, sx, sy, x: fx.x, y: fx.y, z: fx.z, size: fx.size || S.meters, alpha, flip, add: fx.add };
+}
+export function statusBillboard(id, x, y, z, size, alpha = 1, k) {
+  const S = sheets.get(real(id)); if (!S) return null; const [sx, sy] = cellOf(S, k ?? (G.time / S.dur) % 1);
+  return { S: { img: S.img, C: S.C, anchor: S.anchor }, sx, sy, x, y, z, size: size || S.meters, alpha, flip: false, add: false };
+}
+export const isGroundFx = e => e.kind === 'sheet' && fxGround.on && (META[real(e.id)] || {}).view === 'ground';
 // лист готов к рисованию? (если нет — заказать загрузку; вызывающий рисует прежний эффект)
 export const fxMeta = id => META[real(id)];
 export function fxReady(id) { id = real(id); if (sheets.has(id)) return true; want(id); return false; }
@@ -59,11 +74,11 @@ export function zoneRealm() { const z = G.zone, w = z && z.json && z.json.wild; 
 const HERO = {
   warrior: ['hit_slash_sword', 'hit_slash_heavy', 'hit_spark', 'sk_whirlwind', 'sk_crush_wave', 'sk_leap_', 'sk_warcry_ring', 'st_warcry_buff', 'st_bleed'],
   archer: ['proj_arrow', 'hit_arrow', 'sk_volley_flash', 'proj_pierce_shot', 'hit_pierce_shot', 'sk_arrow_rain_', 'sk_explosive_arrow'],
-  mage: ['proj_star_bolt', 'hit_star_bolt', 'proj_fireball', 'hit_fire_explosion'],
+  mage: ['proj_star_bolt', 'hit_star_bolt', 'proj_fireball', 'hit_fire_explosion', 'gr_scorch'],   // сборка 66: листы остальных навыков мага — по навыкам, что выучены (combat.js preloadSkillFx)
 };
 const COMMON = ['mob_', 'hit_crit', 'hit_block', 'st_stun'];
 function scope(pfxs) {
-  keep = pfxs; const mine = COMMON.concat(HERO[(G.profile && G.profile.cls) || 'warrior'] || [], pfxs);
+  keep = pfxs; const mine = COMMON.concat(HERO[(G.profile && G.profile.cls) || 'warrior'] || [], extra, pfxs);
   const ok = id => mine.some(p => id.startsWith(p));
   for (const id of [...sheets.keys()]) if (!ok(id)) sheets.delete(id);   // отпустить листы чужого края (картинка уйдёт из памяти)
   for (const [id, im] of [...pending]) if (!ok(id)) { pending.delete(id); im.src = ''; }
@@ -71,9 +86,11 @@ function scope(pfxs) {
   const pre = id => !PHONE || !pfxs.some(p => id.startsWith(p)) || id.endsWith('_tele_pattern');
   for (const id of Object.keys(META)) if (ok(id) && !META[id].same && pre(id)) want(id);
 }
+// сборка 66: листы навыков, что у героя выучены (лёд, огонь, молния, метеор) — держать и заранее грузить, остальные — по первому применению
+export function fxKeep(ids) { extra = ids; if (keep) scope(keep); }
 bus.on('zoneEntered', id => {
   tinted.clear(); patterns.clear();
-  const r = zoneRealm(); scope(r ? (r === 'forest' ? ['fr_', 'st_rooted'] : [REALM_PFX[r]]) : id === 'town' ? ['hw_'] : id === 'survival' ? ['sv_', 'proj_', 'hit_', 'beam_', 'gr_', 'sk_whirlwind', 'sk_arrow_rain_', 'ct_abyss_nova', 'fj_blizzard_nova'] : id === 'depths' ? ['ct_', 'dp_'] : ['ct_']);   // деревня — листы по первому удару (и листы Летописи hw_, когда будут); правки 3: Жатва — листы своего оружия (sv_ из промта) и запасные
+  const r = zoneRealm(); scope(r ? (r === 'forest' ? ['fr_', 'st_rooted'] : [REALM_PFX[r]]) : id === 'town' ? ['hw_'] : id === 'survival' ? ['sv_', 'proj_', 'hit_', 'beam_', 'gr_', 'sk_meteor_impact', 'sk_meteor_target', 'sk_thunder_strike', 'sk_whirlwind', 'sk_arrow_rain_', 'ct_abyss_nova', 'fj_blizzard_nova'] : id === 'depths' ? ['ct_', 'dp_'] : ['ct_']);   // деревня — листы по первому удару (и листы Летописи hw_, когда будут); правки 3: Жатва — листы своего оружия (sv_ из промта) и запасные
 });
 
 // подкраска общих листов зверей под край (промт: «игра подкрашивает под локацию»); катакомбы — как нарисовано
@@ -97,7 +114,7 @@ const ppmAt = (cam, x, y, z) => { const [gx, gy] = cam.toScreen(x, y, z), [hx, h
 // разовый/циклический эффект-лист. fx: { id, x, y, a, t, dur, realm, size (м), z, ex, ey (откуда удар — для разворота) }
 export function drawFxSheet(ctx, cam, fx, alpha = 1) {
   const id = real(fx.id), S = sheets.get(id); if (!S) return false;
-  const k = fx.t / fx.dur, [sx, sy] = cellOf(S, k), img = imgOf(S, id, fx.realm), m = fx.size || S.meters, C = S.C;
+  const k = fx.cyc ? fx.t / fx.cyc : fx.t / fx.dur, [sx, sy] = cellOf(S, k), img = imgOf(S, id, fx.realm), m = fx.size || S.meters, C = S.C;
   ctx.save(); ctx.globalAlpha = alpha; if (fx.add) ctx.globalCompositeOperation = 'lighter';   // правки 3: add — сложением цветов (Жатва: ярко на тёмной арене)   // листы с чёрным фоном переведены в альфу (blend 'add' в json): обычное наложение — сложение на светлой траве выцветало до белого
   if (S.view === 'ground') { groundBasis(ctx, cam, fx.x, fx.y, fx.a || 0); ctx.drawImage(img, sx, sy, C, C, -m * S.anchor[0], -m * S.anchor[1], m, m); }
   else {   // «объём»: стоит вертикально, повёрнут к герою лицом; нарисован «вправо» — разворачиваем, если удар идёт справа налево
@@ -106,6 +123,20 @@ export function drawFxSheet(ctx, cam, fx, alpha = 1) {
     ctx.drawImage(img, sx, sy, C, C, -w * S.anchor[0], -w * S.anchor[1], w, w);
   }
   ctx.restore(); return true;
+}
+// сборка 66: взрыв (объёмный лист) ещё и «расплёскан» по земле — отсвет у ног, чтобы вспышка не выглядела плоской картинкой
+export const BLAST_FX = new Set(['sk_meteor_impact', 'sv_evo_sky_wrath', 'sk_burn_explode', 'hit_fire_explosion']);
+export function drawFxFlat(ctx, cam, fx, alpha = 1) {
+  const id = real(fx.id), S = sheets.get(id); if (!S) return false;
+  const k = fx.t / fx.dur, [sx, sy] = cellOf(S, k), m = (fx.size || S.meters) * 0.95, C = S.C;
+  ctx.save(); ctx.globalAlpha = alpha; ctx.globalCompositeOperation = 'lighter'; groundBasis(ctx, cam, fx.x, fx.y, 0);
+  ctx.drawImage(imgOf(S, id, fx.realm), sx, sy, C, C, -m * 0.5, -m * 0.62, m, m); ctx.restore(); return true;
+}
+// пятно жара на полу (круг радиуса r м, мягкий край) — подложка под огонь, чтобы середина светилась
+export function drawGroundGlow(ctx, cam, x, y, r, alpha = 1) {
+  ctx.save(); ctx.globalAlpha = alpha; ctx.globalCompositeOperation = 'lighter'; groundBasis(ctx, cam, x, y, 0);
+  const g = ctx.createRadialGradient(0, 0, 0, 0, 0, r); g.addColorStop(0, 'rgba(255,170,60,0.55)'); g.addColorStop(0.6, 'rgba(255,90,20,0.35)'); g.addColorStop(1, 'rgba(255,40,0,0)');
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, r, 0, 7); ctx.fill(); ctx.restore();
 }
 // снаряд: лист «вправо», поворачивается по полёту (ang — экранный угол), t — время полёта для цикла кадров
 export function drawProjSheet(ctx, cam, id, x, y, z, ang, t, size) {
@@ -125,11 +156,17 @@ export function drawSheetAt(ctx, ids, k, x, y, w, o = {}) {
   const an = S.view === 'side' && o.anchor ? o.anchor : S.anchor;   // снаряд сбоку (hw_*) — точка привязки в голове снаряда, а не на полу
   ctx.drawImage(S.img, sx, sy, C, C, -w * an[0], -w * an[1], w, w); ctx.restore(); return true;
 }
-// состояние на существе (оглушение над головой, кровь, корни, ярость): цикл по времени игры
-export function drawStatusSheet(ctx, cam, id, x, y, z, size, alpha = 1) {
+// состояние на существе (оглушение над головой, кровь, корни, ярость): цикл по времени игры; k — доля разового листа (лёд вокруг замороженного)
+export function drawStatusSheet(ctx, cam, id, x, y, z, size, alpha = 1, k) {
   const S = sheets.get(real(id)); if (!S) return false;
-  const [sx, sy] = cellOf(S, (G.time / S.dur) % 1), [gx, gy, ppm] = ppmAt(cam, x, y, z), w = (size || S.meters) * ppm, C = S.C;
+  const [sx, sy] = cellOf(S, k ?? (G.time / S.dur) % 1), [gx, gy, ppm] = ppmAt(cam, x, y, z), w = (size || S.meters) * ppm, C = S.C;
   ctx.save(); ctx.globalAlpha = alpha; ctx.drawImage(S.img, sx, sy, C, C, gx - w * S.anchor[0], gy - w * S.anchor[1], w, w); ctx.restore(); return true;
+}
+// сборка 66: лист-луч (цепная молния) растянут между двумя точками: ячейка рисует разряд от середины левого края до середины правого
+export function drawBeamSheet(ctx, cam, id, x1, y1, z1, x2, y2, z2, k, h = 1.2) {
+  const S = sheets.get(real(id)); if (!S) return false;
+  const [ax, ay] = cam.toScreen(x1, y1, z1), [bx, by] = cam.toScreen(x2, y2, z2), [, , ppm] = ppmAt(cam, x1, y1, z1), L = Math.hypot(bx - ax, by - ay), [sx, sy] = cellOf(S, k), C = S.C;
+  ctx.save(); ctx.translate(ax, ay); ctx.rotate(Math.atan2(by - ay, bx - ax)); ctx.drawImage(S.img, sx, sy, C, C, 0, -h * ppm / 2, L, h * ppm); ctx.restore(); return true;
 }
 // узор подсветки опасной зоны края (бесшовный тайл): заливка кругов/конусов телеграфа. 1 метр тайла = 4 м мира (meters в json)
 const TELE = { forest: 'fr_tele_pattern', temple: 'tm_tele_pattern', fjord: 'fj_tele_pattern', bones: 'bn_tele_pattern' };

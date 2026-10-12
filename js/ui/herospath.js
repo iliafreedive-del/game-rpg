@@ -270,6 +270,7 @@ async function fight(s) {
       else if (e.k === 'label') labels.push({ u: e.u, s: e.s, t: 0 });
       else if (e.k === 'slash') fx.push({ k: 'slash', u: e.u, dir: e.from.x < e.u.x ? 1 : -1, t: 0 });
       else if (e.k === 'boom') fx.push({ k: 'boom', x: e.x, z: e.z, c: e.c, t: 0 });
+      else if (e.k === 'volley') fx.push({ k: 'volley', u: e.u, dir: e.dir, t: 0 });
       else if (e.k === 'sfx') bus.emit('sfx', e.id);
     }
     const W = cv.width / dpr, Hh = cv.height / dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); bctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, Hh);
@@ -291,6 +292,7 @@ async function fight(s) {
       const q = fx[i]; q.t += dt; const D = q.k === 'boom' ? 0.5 : 0.25; if (q.t > D) { fx.splice(i, 1); continue; } const p = q.t / D;
       // правки 3: удары и взрывы — нарисованные листы (hw_* из промта для GPT, пока их нет — общие листы ударов героя), иначе прежние дуги
       if (q.k === 'slash' && q.u) { const [x, y] = P(q.u.x, 0, q.u.z); if (drawSheetAt(ctx, q.u === Hu ? ['hw_slash_foe', 'mob_bite'] : ['hw_slash_hero', 'hit_spark'], p, x, y, view.pxPerM * 2.4, { flip: q.dir < 0 })) continue; }
+      if (q.k === 'volley') { const [x, y] = P(q.u.x + q.dir * 0.9, 1.1, q.u.z); drawSheetAt(ctx, ['hw_volley'], p, x, y, view.pxPerM * 2.5, { flip: q.dir < 0, anchor: [0.3, 0.5] }); continue; }
       if (q.k === 'boom') { const [x, y] = P(q.x, 0, q.z); if (drawSheetAt(ctx, q.c === 'gold' ? ['hw_crush', 'hit_crit'] : ['hw_boom_fire', 'hit_fire_explosion'], p, x, y, view.pxPerM * (q.c === 'gold' ? 4.5 : 4))) continue; }
       if (q.k === 'slash') { if (!q.u) continue; const [x, y] = P(q.u.x, 1.1, q.u.z), R = view.pxPerM * 0.8; ctx.save(); ctx.globalAlpha = 1 - p; ctx.strokeStyle = q.u === Hu ? '#ff9a8a' : '#fff3c0'; ctx.lineWidth = 6 * (1 - p) + 1; ctx.lineCap = 'round'; ctx.beginPath(); ctx.arc(x, y, R, q.dir > 0 ? -2.4 + p * 0.6 : -0.7 - p * 0.6, q.dir > 0 ? -0.4 + p * 0.6 : 1.3 - p * 0.6); ctx.stroke(); ctx.restore(); }
       else { const [x, y] = P(q.x, 0.2, q.z), R = view.pxPerM * (0.6 + 2.2 * p); ctx.save(); ctx.globalCompositeOperation = 'lighter'; const g = ctx.createRadialGradient(x, y, 0, x, y, R); g.addColorStop(0, `rgba(255,240,180,${0.9 * (1 - p)})`); g.addColorStop(0.4, q.c === 'gold' ? `rgba(255,200,80,${0.6 * (1 - p)})` : `rgba(255,110,30,${0.7 * (1 - p)})`); g.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(x, y, R, R * 0.6, 0, 0, 7); ctx.fill(); ctx.restore(); }
