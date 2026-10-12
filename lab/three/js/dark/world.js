@@ -1,4 +1,4 @@
-// Dark Ascent · "bone, brass and abyss" — night at the catacomb gate.
+// Umbrahold · "bone, brass and abyss" — night at the catacomb gate.
 // Same budget rules as the cute prototype: no textures, instancing for repeated stuff, one real warm light + one violet light.
 import * as THREE from '../../vendor/three.module.min.js';
 import { U, toon, outline } from '../toon.js';
