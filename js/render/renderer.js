@@ -8,7 +8,7 @@ import { iconOf } from '../game/items.js';
 import { lvlOk } from '../game/progress.js';
 import { BIOMES } from '../data/biomes.js';
 import * as SV from '../game/survival.js';
-import { drawFxSheet, drawChargeTele, preloadFxSheets, drawProjSheet, drawStatusSheet, drawBeamSheet, telePattern, fxReady, zoneRealm, fxGround, isGroundFx, isUprightFx, fxBillboard } from './fxsheets.js';
+import { drawFxSheet, drawChargeTele, preloadFxSheets, drawProjSheet, drawStatusSheet, drawBeamSheet, telePattern, fxReady, zoneRealm, fxGround, isGroundFx, isUprightFx, fxBillboard, statusBillboard, BLAST_FX, drawFxFlat } from './fxsheets.js';
 import { projSheetOf, mobRageFx } from '../game/combat.js';
 import { GOLD_ICO, artImg } from '../ui/art.js';
 import { appH } from '../ui/fullscreen.js';
@@ -218,6 +218,7 @@ export function drawGroundLayer(c, gcam) {
   for (const e of G.effects) {
     const k = e.t / e.dur;
     if (isGroundFx(e)) { if (drawFxSheet(c, gcam, e, e.fade ? 1 - Math.max(0, k - 0.7) / 0.3 : 1)) n++; continue; }
+    if (e.kind === 'sheet' && BLAST_FX.has(e.id) && !(e.z > 0.3)) { if (drawFxFlat(c, gcam, e, 0.75 * (1 - k))) n++; continue; }
     const gid = e.kind === 'scorch' ? 'gr_scorch' : e.kind === 'frost' ? 'gr_frost' : null;
     if (gid && fxReady(gid) && drawFxSheet(c, gcam, { id: gid, x: e.x, y: e.y, t: e.t, dur: e.dur, size: e.r * (gid === 'gr_frost' ? 2.1 : 2.6) }, Math.min(1, (1 - k) * 4) * (gid === 'gr_frost' ? 0.55 : 1))) n++;
   }
@@ -227,7 +228,7 @@ export function drawGroundLayer(c, gcam) {
 // сборка 66: объёмные листы на земле для 3D-щитов (render3d/decals.js FxBillboards)
 export function uprightFxList() {
   const L = [];
-  for (const e of G.effects) if (isUprightFx(e)) { const k = e.t / e.dur, b = fxBillboard(e, e.fade ? 1 - Math.max(0, k - 0.7) / 0.3 : 1, G.cam); if (b) L.push(b); }
+  for (const e of G.effects) if (isUprightFx(e)) { const k = e.t / e.dur, b = fxBillboard(e, e.fade ? 1 - Math.max(0, k - 0.7) / 0.3 : 1, G.cam); if (b) { L.push(b); if (BLAST_FX.has(e.id)) L.push({ ...b, add: true, alpha: b.alpha * 0.45 }); } }   // взрыв: поверх копия сложением — горячее ядро (в 3D-сцене иначе тусклее прежнего)
   return L;
 }
 export function clearOverlay() { if (ctx) { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height); } }
@@ -527,21 +528,23 @@ function drawEffects() {
   }
 }
 // сборка 61: состояния на существах — оглушение над головой, кровотечение, ярость берсерка; на герое — боевой клич и корни лешего
-function drawStatusFx() {
-  const cam = G.cam;
-  for (const e of G.enemies) {
+// out — список для 3D-щитов (при 3D-земле состояния мобов стоят в сцене и прячутся за тем, кто перед ними); без out — рисуем на 2D-холсте
+function drawStatusFx(out) {
+  const cam = G.cam, on = fxGround.on;
+  const put = (id, x, y, z, size, alpha = 1, k) => { if (!out) return drawStatusSheet(ctx, cam, id, x, y, z, size, alpha, k); const b = statusBillboard(id, x, y, z, size, alpha, k); if (b) out.push(b); };
+  if (out || !on) for (const e of G.enemies) {
     if (e.dead) continue; const s = e.D.size || 1;
-    if (e.st.stun > 0) drawStatusSheet(ctx, cam, 'st_stun', e.x, e.y, (e.D.boss ? 3 : 1.9) * s, 1.2 * s);
-    if (e.st.bleed > 0) drawStatusSheet(ctx, cam, 'st_bleed', e.x, e.y, 0.2, 1.4 * s, 0.85);
-    const rg = mobRageFx(e); if (rg) drawStatusSheet(ctx, cam, rg, e.x, e.y, 0, 1.9 * s, 0.9);
+    if (e.st.stun > 0) put('st_stun', e.x, e.y, (e.D.boss ? 3 : 1.9) * s, 1.2 * s);
+    if (e.st.bleed > 0) put('st_bleed', e.x, e.y, 0.2, 1.4 * s, 0.85);
+    const rg = mobRageFx(e); if (rg) put(rg, e.x, e.y, 0, 1.9 * s, 0.9);
     // сборка 66: горение, холод, лёд и шок — листы полного комплекта (грузятся с навыком мага или по первому разу)
     const st = e.st;
-    if (st.frozen > 0) { if (fxReady('st_frozen')) drawStatusSheet(ctx, cam, 'st_frozen', e.x, e.y, 0, 1.9 * s, 0.95, Math.min(0.999, 1 - st.frozen / (st.frozenMax || 1.5))); }
-    else if (st.chillT > 0 && st.slowT > 0 && fxReady('st_chill')) drawStatusSheet(ctx, cam, 'st_chill', e.x, e.y, 0, 1.5 * s, 0.85);
-    if (st.burn > 0 && fxReady('st_burning')) drawStatusSheet(ctx, cam, 'st_burning', e.x, e.y, 0, 1.7 * s, 0.9);
-    if (st.shock > 0 && fxReady('st_shock')) drawStatusSheet(ctx, cam, 'st_shock', e.x, e.y, 0, 1.7 * s, 0.85);
+    if (st.frozen > 0) { if (fxReady('st_frozen')) put('st_frozen', e.x, e.y, 0, 1.9 * s, 0.95, Math.min(0.999, 1 - st.frozen / (st.frozenMax || 1.5))); }
+    else if (st.chillT > 0 && st.slowT > 0 && fxReady('st_chill')) put('st_chill', e.x, e.y, 0, 1.5 * s, 0.85);
+    if (st.burn > 0 && fxReady('st_burning')) put('st_burning', e.x, e.y, 0, 1.7 * s, 0.9);
+    if (st.shock > 0 && fxReady('st_shock')) put('st_shock', e.x, e.y, 0, 1.7 * s, 0.85);
   }
-  const P = G.player; if (!P || P.dead) return;
+  const P = G.player; if (out || !P || P.dead) return;
   if (P.warcry > G.time) drawStatusSheet(ctx, cam, 'st_warcry_buff', P.x, P.y, 0, 2, 0.8);
   if (P.rootedT > G.time && zoneRealm() === 'forest') drawStatusSheet(ctx, cam, 'st_rooted', P.x, P.y, 0, 1.5);
 }

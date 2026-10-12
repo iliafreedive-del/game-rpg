@@ -29,7 +29,7 @@ import { sfx } from '../core/audio.js';
 import { disposeObject } from './dispose.js';
 import { gemSprites } from '../game/survival.js';
 import { GroundDecals, FxBillboards } from './decals.js';
-import { fxGround } from '../render/fxsheets.js';
+import { fxGround, BLAST_FX } from '../render/fxsheets.js';
 
 const params = new URLSearchParams(location.search);
 const SQ = Math.SQRT1_2;
@@ -89,7 +89,8 @@ export function init() {
     hemi: new THREE.HemisphereLight(L.hemi.sky, L.hemi.ground, L.hemi.i), moon: new THREE.DirectionalLight(L.key.color, L.key.i),
   };
   lights.hero = new THREE.PointLight(0xffe2b8, 0, 10, 1.5);   // свет вокруг героя в подземельях (в деревне погашен)
-  scene.add(lights.hemi, lights.moon, lights.moon.target, lights.hero);
+  lights.blast = new THREE.PointLight(0xff8a3a, 0, 11, 1.4);   // сборка 66: вспышка взрыва (метеор и т. п.) освещает героя, мобов и землю — объём
+  scene.add(lights.hemi, lights.moon, lights.moon.target, lights.hero, lights.blast);
   const sc = lights.moon.shadow.camera; sc.left = sc.bottom = -SHADOW.half; sc.right = sc.top = SHADOW.half; sc.near = 1; sc.far = 90;
   lights.moon.shadow.bias = SHADOW.bias; lights.moon.shadow.normalBias = SHADOW.normalBias; lights.moon.shadow.intensity = SHADOW.intensity; sc.updateProjectionMatrix(); sc.layers.enable(1);   // слой 1 — заменители теней крон
   U.uWindStr.value = 1;
@@ -460,6 +461,8 @@ function updateLights(t, dt) {
   for (const L of want) if (!slots.some(s => s.L === L)) { const s = slots.find(s => !s.L); if (s) { s.L = L; s.k = 0; } }
   const town = zone.id === 'town' || zone.id === 'wild', base = town ? LV.warm : LV.point;
   { const H = LV.hero, hl = lights.hero; if (H && P) { hl.color.setHex(H.color); hl.distance = H.dist; hl.decay = H.decay; hl.position.set(P.x, H.y, P.y); hl.intensity = H.i * (0.96 + Math.sin(t * 3.1) * 0.04); } else hl.intensity = 0; }
+  { let best = null, bi = 0; for (const e of G.effects) if (e.kind === 'sheet' && BLAST_FX.has(e.id)) { const k = e.t / e.dur, i = (k < 0.12 ? k / 0.12 : Math.pow(1 - (k - 0.12) / 0.88, 1.6)) * (e.size || 5) / 5; if (i > bi) { bi = i; best = e; } }
+    const bl = lights.blast; if (best) { bl.position.set(best.x, 1.6, best.y); bl.distance = 4 + (best.size || 5) * 1.3; } bl.intensity = best ? 30 * bi : 0; }
   for (const s of slots) {
     const L = s.L; if (!L) { s.lt.intensity = 0; continue; }
     if (want.includes(L)) s.k = Math.min(1, s.k + dt * 3);

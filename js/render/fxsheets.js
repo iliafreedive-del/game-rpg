@@ -58,6 +58,10 @@ export function fxBillboard(fx, alpha, cam) {
   const flip = fx.ex != null && cam.toScreen(fx.ex, fx.ey)[0] > cam.toScreen(fx.x, fx.y)[0];
   return { S: { img: imgOf(S, real(fx.id), fx.realm), C: S.C, anchor: S.anchor }, sx, sy, x: fx.x, y: fx.y, z: fx.z, size: fx.size || S.meters, alpha, flip, add: fx.add };
 }
+export function statusBillboard(id, x, y, z, size, alpha = 1, k) {
+  const S = sheets.get(real(id)); if (!S) return null; const [sx, sy] = cellOf(S, k ?? (G.time / S.dur) % 1);
+  return { S: { img: S.img, C: S.C, anchor: S.anchor }, sx, sy, x, y, z, size: size || S.meters, alpha, flip: false, add: false };
+}
 export const isGroundFx = e => e.kind === 'sheet' && fxGround.on && (META[real(e.id)] || {}).view === 'ground';
 // лист готов к рисованию? (если нет — заказать загрузку; вызывающий рисует прежний эффект)
 export const fxMeta = id => META[real(id)];
@@ -119,6 +123,14 @@ export function drawFxSheet(ctx, cam, fx, alpha = 1) {
     ctx.drawImage(img, sx, sy, C, C, -w * S.anchor[0], -w * S.anchor[1], w, w);
   }
   ctx.restore(); return true;
+}
+// сборка 66: взрыв (объёмный лист) ещё и «расплёскан» по земле — отсвет у ног, чтобы вспышка не выглядела плоской картинкой
+export const BLAST_FX = new Set(['sk_meteor_impact', 'sv_evo_sky_wrath', 'sk_burn_explode', 'hit_fire_explosion']);
+export function drawFxFlat(ctx, cam, fx, alpha = 1) {
+  const id = real(fx.id), S = sheets.get(id); if (!S) return false;
+  const k = fx.t / fx.dur, [sx, sy] = cellOf(S, k), m = (fx.size || S.meters) * 0.95, C = S.C;
+  ctx.save(); ctx.globalAlpha = alpha; ctx.globalCompositeOperation = 'lighter'; groundBasis(ctx, cam, fx.x, fx.y, 0);
+  ctx.drawImage(imgOf(S, id, fx.realm), sx, sy, C, C, -m * 0.5, -m * 0.62, m, m); ctx.restore(); return true;
 }
 // снаряд: лист «вправо», поворачивается по полёту (ang — экранный угол), t — время полёта для цикла кадров
 export function drawProjSheet(ctx, cam, id, x, y, z, ang, t, size) {
