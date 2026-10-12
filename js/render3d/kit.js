@@ -11,17 +11,57 @@ import * as skin from './glbskin.js';
 import * as mob from './glbmob.js';
 import { PAL, HERO, MOB, OUTLINE, RIM, FOLIAGE, LOOKS, SHADOW } from './style.js';
 
-// сборка 51: модели героев и зверей качаются после титульного экрана (preloadModels из renderer3d.startPreload), а не вместе с ним —
-// на медленной сети они отнимали канал у загрузки и Game Ready наступал через ~50 с. Перед сборкой зоны их ждёт prepare().
+// сборка 51: модели героев и зверей качаются после титульного экрана, а не вместе с ним — на медленной сети они отнимали канал
+// у загрузки и Game Ready наступал через ~50 с. Сборка 66: качаются не все сразу (≈14 МБ), а только нужные зоне: на титуле —
+// герой последнего сохранения и жители деревни; перед сборкой зоны prepare() ждёт (zoneModels) героя, жителей деревни и модели
+// мобов, которые стоят на карте; остальное — фоном по одному файлу после входа в зону (bgModels), с паузой на время смены зоны.
 const HERO_SKIN = { warrior: 'warrior_knight', archer: 'archer_raven', mage: 'mage_staff' };
+const NPC_SKIN = ['npc_trainer', 'npc_elder', 'npc_smith', 'npc_merchant', 'npc_fortune', 'npc_caravan'];   // жители деревни — шкуры Meshy (сборка 56)
 const MOB_SKIN = ['skel_warrior_m', 'skel_archer_m', 'skel_mage_m', 'ghoul_m', 'elite_guard_m', 'elite_warlord_m', 'boss_m', 'b_raider_m', 'b_thrower_m', 'b_shaman_m', 'b_chief_m', 'b_boss_m', 'w_poacher_m', 'w_leshy_m', 'w_ataman_m', 'w_boss_m', 'f_hag_m', 'f_berserk_m', 'f_draugr_m', 'f_jarl_m', 'f_boss_m'];   // сборка 57: нежить подземелий, клыкачи пустошей, Старый Лес, Фьорды
 const MOBS = ['wolf_grey', 'dog_brown', 'dog_town', 'wolf_ice', 'beast', 'chicken_white', 'chicken_red', 'hyena', 'w_boar', 'b_boar', 'w_bear', 'b_scorpid', 'bone_wolf'];
-let models = null;
+const SKIN_SET = new Set([...Object.values(HERO_SKIN), ...NPC_SKIN, ...MOB_SKIN]);
+// модель врага (id из registry MOBS) → файлы, из которых она собирается (models/mob/*.js); каменные мобы храма — templeglb.js
+const MOB_GLB = { w_wolf: 'wolf_grey', f_wolf: 'wolf_ice', beast: 'beast', b_hyena: 'hyena', w_boar: 'w_boar', b_boar: 'b_boar', w_bear: 'w_bear', b_scorpid: 'b_scorpid', bone_wolf: 'bone_wolf' };
+const MOB_SKIN_OF = { mb_grave_weeper: 'skel_mage_m', f_jotun: 'f_boss_m', surv_guard: 'elite_guard_m', surv_brute: 'elite_warlord_m' };
+export function mobAssets(id) {
+  if (MOB_GLB[id]) return [MOB_GLB[id]];
+  const s = MOB_SKIN_OF[id] || id + '_m'; return MOB_SKIN.includes(s) ? [s] : [];
+}
+const loadOne = n => n === 'decals' ? fur.loadDecals() : SKIN_SET.has(n) ? skin.preloadSkin(n) : mob.preloadMob(n);
+export const assetLoaded = n => SKIN_SET.has(n) ? skin.skinLoaded(n) : mob.mobLoaded(n);
+export const wantAssets = names => { for (const n of names) loadOne(n); };
+// бой Летописи (hwstage.js): модели бойцов — до сборки сцены, не дольше ms
+export const mobsReady = (ids, ms) => Promise.race([Promise.all(ids.flatMap(mobAssets).map(loadOne)), new Promise(r => setTimeout(r, ms))]);
+// титульный экран: герой последнего сохранения (первым) и жители деревни — первая зона почти всегда деревня
 export function preloadModels(cls) {
-  if (cls && HERO_SKIN[cls]) skin.preloadSkin(HERO_SKIN[cls]);   // выбранный герой — первым
-  if (models) return models;
-  const heroes = Object.values(HERO_SKIN).map(n => skin.preloadSkin(n)).concat(['npc_trainer', 'npc_elder', 'npc_smith', 'npc_merchant', 'npc_fortune', 'npc_caravan'].map(n => skin.preloadSkin(n)), MOB_SKIN.map(n => skin.preloadSkin(n)));   // жители деревни — шкуры Meshy (сборка 56), нежить подземелий (57)
-  return (models = Promise.all(heroes.concat(MOBS.map(n => mob.preloadMob(n)), [fur.loadDecals()])));
+  if (cls && HERO_SKIN[cls]) skin.preloadSkin(HERO_SKIN[cls]);
+  return Promise.all(NPC_SKIN.map(n => skin.preloadSkin(n)));
+}
+// что ждать перед показом зоны: герой; в деревне — жители; где есть враги — наклейки морд зверей и модели мобов на карте
+// (и их приспешников). Собаки и куры деревни, моб, пришедший позже, — догружаются и подменяются на месте (critters.js, renderer3d syncEnemies)
+export function zoneModels(cls, Z, enemies, defOf) {
+  const need = new Set([HERO_SKIN[cls] || HERO_SKIN.warrior]);
+  if (Z.id === 'town') NPC_SKIN.forEach(n => need.add(n));
+  if (Z.id === 'survival') ['skel_warrior', 'ghoul', 'skel_archer', 'skel_mage', 'beast', 'boss', 'surv_guard', 'surv_brute', 'decals'].forEach(id => (id === 'decals' ? [id] : mobAssets(id)).forEach(n => need.add(n)));   // рой Жатвы приходит волнами (survival.js), его модели — из пула
+  for (const e of enemies || []) {
+    need.add('decals');
+    const d = defOf(e); if (d) mobAssets(d.id).forEach(n => need.add(n));
+    const sm = e.D && e.D.abil && e.D.abil.summon; if (sm) mobAssets(sm.type).forEach(n => need.add(n));
+  }
+  return Promise.all([...need].map(loadOne));
+}
+// фон: остальные модели по одному файлу (герои — первыми: призраки павших героев, смена класса)
+let bgQ = null, bgOn = false, bgBusy = 0;
+export function bgModels(on) {
+  bgOn = on; if (!on) return;
+  if (!bgQ) bgQ = [...Object.values(HERO_SKIN), ...NPC_SKIN, 'decals', ...MOB_SKIN, ...MOBS];
+  const pump = () => {
+    while (bgOn && bgBusy < 2 && bgQ.length) {
+      const n = bgQ.shift(); if (n !== 'decals' && assetLoaded(n)) continue;
+      bgBusy++; loadOne(n).finally(() => { bgBusy--; pump(); });
+    }
+  };
+  pump();
 }
 export function makeKit(scene) {
   const { part, merge } = geo;
