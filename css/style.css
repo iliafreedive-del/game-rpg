@@ -1012,3 +1012,5 @@ html.rm *,html.rm *::before,html.rm *::after{animation-duration:.01ms!important;
 .hw-pre .hw-sk .btn small{font-size:.78em}
 .hw-pre .hw-nav .btn{font-size:clamp(16px,2.2vw,24px);padding:clamp(9px,1.2vw,14px) clamp(18px,2.6vw,34px)}
 @media (orientation:landscape) and (max-height:500px){.hw-pre .hw-banner{font-size:22px}.hw-pre .hw-vs b{font-size:20px}.hw-pre .hw-vs span,.hw-pre .hw-foes{font-size:15px!important}.hw-pre .hw-vsx{font-size:34px}.hw-pre .hw-vs{margin:2px 0}.hw-pre p{margin:3px 0}}
+@media (orientation:landscape) and (max-height:500px){.hw-pre{padding:6px 14px}.hw-pre .hw-banner{font-size:19px}.hw-pre .hw-foes{columns:2;column-gap:14px}.hw-pre p.good,.hw-pre p.bad{font-size:16px}
+  .hw-pre .hw-sk .btn{font-size:13px;padding:5px 9px}.hw-pre .hw-sk{gap:5px;margin:2px 0 4px}.hw-pre .hw-nav{margin-top:4px}.hw-pre .hw-nav .btn{font-size:15px;padding:7px 18px}}
