@@ -12,7 +12,7 @@ export class GroundDecals {
     const geo = new THREE.PlaneGeometry(SIZE, SIZE), uv = geo.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setY(i, 1 - uv.getY(i));
     this.mesh = new THREE.Mesh(geo, mat); this.mesh.rotation.x = -Math.PI / 2; this.mesh.renderOrder = 5; this.mesh.frustumCulled = false; this.mesh.visible = false;
     scene.add(this.mesh);
-    this.x0 = 0; this.y0 = 0; this.dirty = false; const self = this;
+    this.x0 = 0; this.y0 = 0; this.dirty = false; this.skip = 0; const self = this;
     this.cam = { zoom: 1, proj: null, toScreen(x, y) { return [(x - self.x0) * K, (y - self.y0) * K]; } };   // мир (x, y) → пиксель холста; высота z на полу не нужна
   }
   // высота 0,07 и порядок 5 — над прозрачным слоем земли (0,05, порядок 4: трава/рисунок пола), под ногами героя
@@ -20,11 +20,11 @@ export class GroundDecals {
   // сборка 66 (лаги при дожде клинков): холст 1024² заливался в видеопамять каждый кадр, пока на полу что-то есть; теперь — через кадр
   // (листы и так идут ~16 кадров/с), а пустой пол не перерисовывается
   update(cx, cy, paint) {
-    if (this.dirty && (this.skip = !this.skip)) return;
+    if (this.dirty && (this.skip = (this.skip + 1) % 3)) return;   // ОС-15: на полу теперь и круги (порталы, метки) — обновление раз в 3 кадра (20 в секунду)
     this.x0 = Math.round(cx) - SIZE / 2; this.y0 = Math.round(cy) - SIZE / 2;
     const c = this.ctx; c.setTransform(1, 0, 0, 1, 0, 0); c.globalAlpha = 1; c.globalCompositeOperation = 'source-over';
     if (this.dirty) c.clearRect(0, 0, PX, PX);
-    const n = paint(c, this.cam); this.dirty = n > 0; this.mesh.visible = n > 0;
+    const n = paint(c, this.cam); this.dirty = n > 0; this.mesh.visible = n > 0 || !this.warm; this.warm = true;   // ОС-16: в первый кадр плоскость видна (пустая) — шейдер собирается сразу, а не рывком при первом эффекте
     if (n > 0) { this.mesh.position.set(this.x0 + SIZE / 2, 0.07, this.y0 + SIZE / 2); this.tex.needsUpdate = true; }
   }
   dispose() { this.mesh.geometry.dispose(); this.mesh.material.dispose(); this.tex.dispose(); }
@@ -32,7 +32,20 @@ export class GroundDecals {
 
 // сборка 66: «объёмные» листы, что стоят на земле (шипы новы, языки пламени, взрывы, удары мобов), — щитами к камере в 3D-сцене:
 // стоящее за героем прячется за ним. Щит сдвинут к камере на NUDGE м (экранное место то же): эффект в точке героя не уходит ему за спину.
-const NUDGE = 0.6, POOL = 32, _toCam = new THREE.Vector3(), _up = new THREE.Vector3();
+// ОС-15: щит «влетает» в цель — стоит почти в её середине (NUDGE мал): ближняя к камере часть фигуры заслоняет эффект, остальное видно.
+// Низ листа (нарисованная земля под эффектом) раньше уходил под пол и срезался ровной линией; теперь глубина пикселя щита не дальше
+// пола на этом луче (шейдер ниже): пол щит не режет, а герой и мобы — заслоняют. Правки 5 решали срез сдвигом щита к камере — он больше не нужен
+const NUDGE = 0.3, POOL = 32;
+const U = { uGround: { value: new THREE.Vector4() }, uProj: { value: new THREE.Matrix4() } }, _n = new THREE.Vector3(), _o = new THREE.Vector3();
+function floorDepth(m) {
+  m.onBeforeCompile = sh => {
+    Object.assign(sh.uniforms, U);
+    sh.vertexShader = sh.vertexShader.replace('void main() {', 'varying vec3 vVP;\nvoid main() {').replace('gl_Position = projectionMatrix * mvPosition;', 'gl_Position = projectionMatrix * mvPosition;\n\tvVP = mvPosition.xyz;');
+    sh.fragmentShader = sh.fragmentShader.replace('void main() {', 'uniform vec4 uGround;\nuniform mat4 uProj;\nvarying vec3 vVP;\nvoid main() {')
+      .replace(/}\s*$/, '\tfloat dep = gl_FragCoord.z, dn = dot( uGround.xyz, vVP );\n\tif ( dn < 0.0 ) { float t = - uGround.w / dn; if ( t > 0.0 && t < 1.0 ) { vec4 c = uProj * vec4( vVP * t * 0.995, 1.0 ); dep = min( dep, c.z / c.w * 0.5 + 0.5 ); } }\n\tgl_FragDepth = dep;\n}');
+  };
+  m.customProgramCacheKey = () => 'fxFloorDepth';
+}
 export class FxBillboards {
   constructor(scene) {
     this.scene = scene; this.pool = []; this.base = new Map();   // картинка листа -> текстура (копии на щитах делят её в видеопамяти)
@@ -52,11 +65,14 @@ export class FxBillboards {
   item(i) {
     let s = this.pool[i]; if (s) return s;
     const mat = new THREE.SpriteMaterial({ transparent: true, premultipliedAlpha: true, depthWrite: false, toneMapped: false, fog: false });
-    s = new THREE.Sprite(mat); s.renderOrder = 10; s.frustumCulled = false; s.userData.img = null; this.scene.add(s); this.pool[i] = s; return s;
+    floorDepth(mat); s = new THREE.Sprite(mat); s.renderOrder = 10; s.frustumCulled = false; s.userData.img = null; this.scene.add(s); this.pool[i] = s; return s;
   }
   // list — [{ S (лист из fxsheets), x, y, z, k, size, alpha, flip, add }]
   update(list, camera) {
     const n = Math.min(list.length, POOL);
+    // пол y = 0 в координатах камеры: нормаль и сдвиг плоскости; проекция — для глубины точки пола
+    camera.updateMatrixWorld(); const V = camera.matrixWorldInverse; _n.set(0, 1, 0).transformDirection(V); _o.set(0, 0, 0).applyMatrix4(V);
+    U.uGround.value.set(_n.x, _n.y, _n.z, -_n.dot(_o)); U.uProj.value.copy(camera.projectionMatrix);
     for (let i = 0; i < n; i++) {
       const f = list[i], S = f.S, s = this.item(i), m = s.material;
       // сборка 66: у щита своя копия текстуры на каждый лист (своё смещение кадра); копии кэшируются — раньше при смене листа на щите
@@ -70,5 +86,7 @@ export class FxBillboards {
       s.visible = true;
     }
     for (let i = n; i < this.pool.length; i++) this.pool[i].visible = false;
+    // ОС-16 (провалы FPS у лучника): шейдер щита собирался при первом эффекте — кадр замирал. В первые кадры зоны — невидимый щит с картинкой
+    if (n === 0 && (this.warm = (this.warm || 0) + 1) < 3) { const s = this.item(0), m = s.material; if (!m.map) { m.map = new THREE.DataTexture(new Uint8Array(4), 1, 1); m.map.needsUpdate = true; m.needsUpdate = true; s.userData.img = null; } m.opacity = 0; s.position.copy(camera.position).addScaledVector(camera.getWorldDirection(_n), 5); s.visible = true; }
   }
 }
