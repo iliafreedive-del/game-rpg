@@ -24,7 +24,7 @@ export class GroundDecals {
     this.x0 = Math.round(cx) - SIZE / 2; this.y0 = Math.round(cy) - SIZE / 2;
     const c = this.ctx; c.setTransform(1, 0, 0, 1, 0, 0); c.globalAlpha = 1; c.globalCompositeOperation = 'source-over';
     if (this.dirty) c.clearRect(0, 0, PX, PX);
-    const n = paint(c, this.cam); this.dirty = n > 0; this.mesh.visible = n > 0;
+    const n = paint(c, this.cam); this.dirty = n > 0; this.mesh.visible = n > 0 || !this.warm; this.warm = true;   // ОС-16: в первый кадр плоскость видна (пустая) — шейдер собирается сразу, а не рывком при первом эффекте
     if (n > 0) { this.mesh.position.set(this.x0 + SIZE / 2, 0.07, this.y0 + SIZE / 2); this.tex.needsUpdate = true; }
   }
   dispose() { this.mesh.geometry.dispose(); this.mesh.material.dispose(); this.tex.dispose(); }
@@ -79,5 +79,7 @@ export class FxBillboards {
       s.visible = true;
     }
     for (let i = n; i < this.pool.length; i++) this.pool[i].visible = false;
+    // ОС-16 (провалы FPS у лучника): шейдер щита собирался при первом эффекте — кадр замирал. В первые кадры зоны — невидимый щит с картинкой
+    if (n === 0 && (this.warm = (this.warm || 0) + 1) < 3) { const s = this.item(0), m = s.material; if (!m.map) { m.map = new THREE.DataTexture(new Uint8Array(4), 1, 1); m.map.needsUpdate = true; m.needsUpdate = true; s.userData.img = null; } m.opacity = 0; s.position.copy(camera.position).addScaledVector(camera.getWorldDirection(_n), 5); s.visible = true; }
   }
 }
