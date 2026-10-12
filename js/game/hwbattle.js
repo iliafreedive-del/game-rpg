@@ -175,7 +175,7 @@ export function makeBattle(hero, foes, rnd = Math.random) {
       }
     }
     if (PT && PT.act) stepPet(dt);
-    const busy = all.find(u => u.act) || (PT && PT.act);
+    const busy = all.find(u => u.act) || (PT && PT.act ? PT : null);
     if (busy && busy !== PT) stepAct(busy, dt);
     else if (!B.projs.length) {
       B.pause -= dt;
