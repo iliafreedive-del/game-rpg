@@ -1,4 +1,5 @@
 // Zone: builds walls, props, lights, colliders and interactables from a level JSON.
+import { fit, footOf } from './footing.js';
 import { GridMap } from './map.js';
 import { DECOR } from '../data/upgrades.js';
 import { rand } from '../core/util.js';
@@ -50,7 +51,7 @@ const PROP = {
   sand_rock: { spr: 'sand_rock', r: 0.4 }, sand_rock_b: { spr: 'sand_rock_b', r: 0.4 },
   tree_acacia: { spr: 'tree_acacia', r: 0.3, tall: 1 }, tree_acacia_b: { spr: 'tree_acacia_b', r: 0.3, tall: 1 }, tree_acacia_c: { spr: 'tree_acacia_c', r: 0.3, tall: 1 },
   bush_dry: { spr: 'bush_dry' }, agave: { spr: 'agave', r: 0.25 }, tumbleweed: { spr: 'tumbleweed' },
-  fj_longship: { spr: 'crate', tall: 1, model: 'fj_longship' }, fj_boat: { spr: 'crate', model: 'fj_boat' }, fj_runestone: { spr: 'grave', tall: 1, model: 'fj_runestone' },   // правки 5: Фьорды (коллайдеры — o.boxes из wildgen)
+  fj_longship: { spr: 'crate', tall: 1, model: 'fj_longship' }, fj_longship_b: { spr: 'crate', tall: 1, model: 'fj_longship_b' }, fj_longship_split: { spr: 'crate', tall: 1, model: 'fj_longship_split' }, fj_boat: { spr: 'crate', model: 'fj_boat' }, fj_runestone: { spr: 'grave', tall: 1, model: 'fj_runestone' },   // правки 5: Фьорды (коллайдеры — o.boxes из wildgen)
   giant_skull: { spr: 'giant_skull', tall: 1 }, giant_ribs: { spr: 'giant_ribs', tall: 1 }, giant_spine: { spr: 'giant_spine' }, tusk_arch: { spr: 'tusk_arch', tall: 1 }, giant_fallen: { spr: 'giant_fallen', tall: 1 },
   bone_hut: { spr: 'bone_hut', r: 1.75, tall: 1 }, bone_totem: { spr: 'bone_totem', r: 0.25, tall: 1 }, hide_rack: { spr: 'hide_rack', box: [0.95, 0.15] }, war_banner: { spr: 'war_banner', r: 0.12, tall: 1 }, tusk_fence: { spr: 'tusk_fence', box: [0.5, 0.15] },
   bonfire: { spr: 'bonfire', r: 0.55, light: { r: 5.5, c: [255, 140, 60], flicker: 1, z: 0.7 } },
@@ -82,6 +83,11 @@ export class Zone {
   add(d) { this.statics.push(d); return d; }
   prop(o) {
     const P = PROP[o.t]; if (!P) return null;
+    // правки 5: на островах походов предмет не висит над обрывом — сдвигаем вглубь вместе с коллизией, не помещается — не ставим (world/footing.js)
+    if (this.id === 'wild' && this.json.wild && this.json.wild.islands && !o.boxes && !o.circles && !P.flat && !/bridge/.test(o.t)) {   // мост и должен висеть над пропастью
+      const r = Math.max(footOf(P.model || o.t, o.s || (/tree|rock/.test(P.spr) ? 1.7 : 1)), (P.r || 0) * (o.s || 1) + 0.1, P.box ? Math.max(...P.box) + 0.1 : 0), p = fit(this.map, o.x, o.y, r);
+      if (!p) { (this.footDrop ||= []).push(o.t); return null; } if (p[0] !== o.x || p[1] !== o.y) { (this.footMove ||= []).push(o.t); o = { ...o, x: p[0], y: p[1] }; }
+    }
     const d = this.add({ x: o.x, y: o.y, spr: P.spr, tall: P.tall, flat: P.flat });
     if (P.model || o.rot !== undefined) { d.model = P.model || o.t; d.rot = o.rot || 0; }
     if (o.s) d.s = o.s; if (o.yaw) d.yaw = o.yaw; if (o.len || o.opts) d.opts = { len: o.len, ...o.opts };   // параметры модели (длина и ширина моста, размеры мельницы)
@@ -305,21 +311,24 @@ export class Zone {
 
   // Открытое поле похода (Фьорды / Старый Лес / Костяные пустоши): чаща по 'x', стены форта по 'D', сундуки, тайники, порталы.
   buildWild(J) {
-    const m = this.map, realm = J.wild.realm, fj = realm === 'fjord', bn = realm === 'bones', put = [];   // put — уже посаженные деревья: между соседними не меньше ~1,7 м
+    const m = this.map, realm = J.wild.realm, fj = realm === 'fjord', bn = realm === 'bones', put = [];
+    // правки 5: деревья, камни и кусты чащи не висят над обрывом острова: пятно в 3D-размере (до ×1,8) целиком на земле, центр — на клетке чащи
+    const isl = !!J.wild.islands, onX = (x, y) => m.ch(Math.floor(x), Math.floor(y)) === 'x';
+    const deco = d => { if (isl) { const p = fit(m, d.x, d.y, footOf(d.spr, d.s ? d.s * 1.2 : 1.8), onX); if (!p) { (this.footDrop ||= []).push(d.spr); return; } if (p[0] !== d.x || p[1] !== d.y) (this.footMove ||= []).push(d.spr); d.x = p[0]; d.y = p[1]; } this.add(d); };   // put — уже посаженные деревья: между соседними не меньше ~1,7 м
     for (let y = 0; y < m.h; y++) for (let x = 0; x < m.w; x++) {
       const c = m.ch(x, y), h = hash(x, y);
       if (c === 'D') { this.add({ x: x + 0.5, y: y + 0.5, spr: 'wall_' + (h % 4), wall: true }); continue; }
       if (c !== 'x') continue;
       if (realm === 'temple') {   // храм: в углах залов и за стенами — кусты, не деревья (за стеной реже, в залах — каждый тайл)
         const out = x < 5 || y < 5 || x > 59 || y > 59; if (out && h % 3) continue;
-        this.add({ x: x + 0.3 + (h % 5) / 10, y: y + 0.3 + ((h >> 3) % 5) / 10, spr: h % 4 === 0 ? 'fern' : 'bush', s: (out ? 1.4 : 1.1) + (h % 7) / 10 }); continue;
+        deco({ x: x + 0.3 + (h % 5) / 10, y: y + 0.3 + ((h >> 3) % 5) / 10, spr: h % 4 === 0 ? 'fern' : 'bush', s: (out ? 1.4 : 1.1) + (h % 7) / 10 }); continue;
       }
       const inner = [[1, 0], [-1, 0], [0, 1], [0, -1], [2, 0], [-2, 0], [0, 2], [0, -2]].some(([dx, dy]) => { const X = x + dx, Y = y + dy; return X >= 0 && Y >= 0 && X < m.w && Y < m.h && m.ch(X, Y) !== 'x'; });
       if (!inner || h % 3 !== 1 || (bn && h % 5 < 2) || ((x >= m.w - 5 || y >= m.h - 5) && h % 2)) continue;   // сборка 18: на опушке каждое третье дерево, у ближнего края — ещё реже   // в пустошах камни внутри скоплений реже: поле не загромождено
       { const px = x + 0.3 + (h % 5) / 10, py = y + 0.3 + ((h >> 3) % 5) / 10; if (put.some(q => (q[0] - px) ** 2 + (q[1] - py) ** 2 < 5.8)) continue; put.push([px, py]); }
       const front = x >= m.w - 5 || y >= m.h - 5;   // ближний к камере край: только низкое (иначе закрывает героя)
       const spr = bn ? (front ? ['sand_rock', 'sand_rock_b', 'tree_acacia_b', 'sand_rock'][h % 4] : ['sand_spire', 'sand_rock', 'tree_acacia', 'sand_tooth', 'sand_rock_b', 'sand_rock', 'tree_acacia_b'][h % 7]) : fj ? ['rocks', 'stalagmite', 'tree_1', 'rocks'][h % 4] : (h % 5 === 0 ? 'rocks' : h % 2 ? 'tree_0' : 'tree_1');
-      this.add({ x: x + 0.3 + (h % 5) / 10, y: y + 0.3 + ((h >> 3) % 5) / 10, spr, tall: spr === 'rocks' || spr.startsWith('sand_rock') ? 0 : 1 });
+      deco({ x: x + 0.3 + (h % 5) / 10, y: y + 0.3 + ((h >> 3) % 5) / 10, spr, tall: spr === 'rocks' || spr.startsWith('sand_rock') ? 0 : 1 });
     }
     const col = REALMS[realm].portalColor;
     for (const o of J.objects) {

@@ -135,7 +135,7 @@ export class Enemy {
     if (this.st.frozen > 0 || this.st.stun > 0) return;
     if (this.hitStun > 0) { this.hitStun -= dt; if (this.anim.done) this.setAnim('idle', 5, true); return; }
     this.cd -= dt;
-    const dx = P.x - this.x, dy = P.y - this.y, d = Math.hypot(dx, dy);
+    const dx = P.x - this.x, dy = P.y - this.y, d = C.bodyD(this, P.x, P.y);   // правки 5: у длинного зверя — от морды и боков (combat.js bodyD)
     const map = G.zone.map;
     if (!this.aggro && this.wakeT !== undefined) { this.wakeT -= dt; this.dir = dirOf(dx, dy); if (this.anim.clip !== 'idle') this.setAnim('idle', 5, true); if (this.wakeT <= 0) { this.aggro = true; this.ret = false; this.woken = true; bus.emit('aggro', this); } return; }   // сборка 62: ret = false — разбуженный по дороге домой больше не уходит «домой» с агро, не замечая героя
     if (this.ret) {   // возвращается на место
@@ -228,7 +228,7 @@ const AI = {
       const L = e.lunge; L.t += dt;
       const sp = 7.5; const [nx, ny] = G.zone.map.move(e.x, e.y, L.vx * sp * dt, L.vy * sp * dt, e.r);
       const blocked = Math.hypot(nx - e.x, ny - e.y) < sp * dt * 0.3; e.x = nx; e.y = ny;
-      if (!L.hit && Math.hypot(P.x - e.x, P.y - e.y) < e.r + P.r + 0.35) { L.hit = true; C.enemyHitsPlayer(e, 1.3, 'phys'); C.mobStrikeFx(e, P); }
+      if (!L.hit && C.bodyD(e, P.x, P.y) < e.r + P.r + 0.35) { L.hit = true; C.enemyHitsPlayer(e, 1.3, 'phys'); C.mobStrikeFx(e, P); }
       if (L.t > 0.45 || blocked) { e.lunge = null; e.state = 'idle'; e.setAnim('idle', 5, true); e.cd = e.D.cd; e.recoverT = 0.85; }
       return;
     }

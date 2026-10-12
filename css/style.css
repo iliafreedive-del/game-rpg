@@ -734,6 +734,9 @@ canvas#game{filter:saturate(1.22) contrast(1.08) brightness(1.06)}
 #fsHint b{color:var(--gold)}.fs-ic{color:#6aa8ff}
 #title:has(.class-card) #fsHint{display:none}
 @media (max-height:460px){#title:has(#fsHint) .ctl-tip{display:none}}   /* телефон горизонтально: подсказка управления и подсказка «на весь экран» не помещались обе и ложились друг на друга; управление есть в «Помощи» */   /* iPhone горизонтально: подсказка «На экран Домой» ложилась на описания героев — на выборе героя её не показываем, она есть на титуле */
+/* правки 5: на ПК подсказка «F11 / На весь экран» — маленькая плашка в правом верхнем углу (по центру внизу наплывала на строку управления) */
+#fsHint.pc{left:auto;right:calc(12px + var(--safe-r, 0px));top:calc(10px + var(--safe-t, 0px));bottom:auto;transform:none;width:auto;font-size:11px;padding:4px 6px 4px 10px;display:flex;align-items:center;gap:6px;white-space:nowrap}
+#fsHint.pc .btn{padding:3px 10px;font-size:12px;min-height:0;min-width:0;width:auto;line-height:1.3}
 
 /* сборка 44: портрет героя слева наверху — он же кнопка меню (вместо «Герой» и «Меню» справа) */
 #portrait{width:64px;height:64px;border:0;background-color:#120a1a;background-size:cover;background-position:center 30%;box-shadow:0 0 0 2px #e8c26a,0 0 0 4px #2a1a08,0 0 0 5px #8a6a2e,0 3px 12px #000c,0 0 16px #b48cff44;transition:transform .1s}

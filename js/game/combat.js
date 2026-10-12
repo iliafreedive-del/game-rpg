@@ -53,12 +53,22 @@ export function shotClear(ax, ay, bx, by, w = 0.2) {
   const dx = bx - ax, dy = by - ay, l = Math.hypot(dx, dy) || 1, nx = -dy / l * w, ny = dx / l * w;
   return map.los(ax + nx, ay + ny, bx + nx, by + ny) && map.los(ax - nx, ay - ny, bx - nx, by - ny);
 }
+// правки 5: длинный зверь (кабан, бык, медведь, волк…) — тело капсулой вдоль взгляда, а не кругом в середине. e.body ставит renderer3d.js
+// по размеру модели: f — от центра до морды, b — до хвоста, w — полуширина (м). bodyD — расстояние «как до круга радиуса e.r»: до поверхности
+// капсулы + e.r, поэтому все проверки «d <= range + P.r» и «rng + e.r» считаются от морды и боков: моб бьёт перед мордой, герой встаёт перед ней
+export function bodyPt(e, x, y) {
+  const B = e.body; if (!B) return [e.x, e.y];
+  const [ux, uy] = dirVec(e.dir), t = clamp((x - e.x) * ux + (y - e.y) * uy, -Math.max(0, B.b - B.w), Math.max(0, B.f - B.w));
+  return [e.x + ux * t, e.y + uy * t];
+}
+export function bodyD(e, x, y) { if (!e.body) return Math.hypot(x - e.x, y - e.y); const [px, py] = bodyPt(e, x, y); return Math.hypot(x - px, y - py) - e.body.w + e.r; }
+export const snoutOf = e => e.body ? Math.max(0, e.body.f - e.r) : 0;   // насколько морда дальше обычного круга моба
 export const sees = (P, e) => G.stats && G.stats.ranged ? shotClear(P.x, P.y, e.x, e.y) : G.zone.map.los(P.x, P.y, e.x, e.y);
 export function pickTarget(P, range) {
   // prefer enemies in front, within range, with line of sight
   let best = null, bs = 1e9; const [fx, fy] = dirVec(P.face);
   for (const e of G.enemies) {
-    if (e.dead) continue; const dx = e.x - P.x, dy = e.y - P.y, d = Math.hypot(dx, dy);
+    if (e.dead) continue; const dx = e.x - P.x, dy = e.y - P.y, d = bodyD(e, P.x, P.y);
     if (d > range + e.r) continue; if (!sees(P, e)) continue;
     const front = (dx * fx + dy * fy) / (d || 1);
     const score = d - front * 1.2 + (e.D.boss || e.D.elite ? -0.3 : 0);
@@ -223,8 +233,8 @@ export function updatePlayerAction(P, dt) {
   if (a.tgt && !a.tgt.dead && (a.t < 0.15 || (a.kind === 'melee' && !a.fired))) P.faceTo(a.tgt.x, a.tgt.y);
   // замах воина: цель отходит — герой подшагивает за ней до удара (иначе отбегающего моба он постоянно не доставал)
   if (a.kind === 'melee' && !a.fired && a.tgt && !a.tgt.dead) {
-    const dx = a.tgt.x - P.x, dy = a.tgt.y - P.y, d = Math.hypot(dx, dy), want = a.W.range * 0.75 + a.tgt.r;
-    if (d > want && d < a.W.range + a.tgt.r + 2.5) { const st = Math.min(d - want, 6.5 * dt); [P.x, P.y] = G.zone.map.move(P.x, P.y, dx / d * st, dy / d * st, P.r); }
+    const [bx, by] = bodyPt(a.tgt, P.x, P.y), dx = bx - P.x, dy = by - P.y, d = bodyD(a.tgt, P.x, P.y), l = Math.hypot(dx, dy) || 1, want = a.W.range * 0.75 + a.tgt.r;   // правки 5: к морде длинного зверя, не к середине
+    if (d > want && d < a.W.range + a.tgt.r + 2.5) { const st = Math.min(d - want, 6.5 * dt); [P.x, P.y] = G.zone.map.move(P.x, P.y, dx / l * st, dy / l * st, P.r); }
   }
   const S = G.stats;
   if (a.kind === 'bow') {
@@ -258,9 +268,9 @@ function meleeImpact(P, a) {
   const cl = R('cleave'); let hitAny = false;
   const opts = { src: 'melee', pierce: W.pierce || 0, axeBleed: !!W.bleed };
   // primary target
-  const prim = a.tgt && !a.tgt.dead && Math.hypot(a.tgt.x - P.x, a.tgt.y - P.y) <= W.range + a.tgt.r + 0.9 ? a.tgt : null;   // по своей цели — с запасом (П69: 0,6 → 0,9 м: кружащий зверь не уходит из-под удара)
+  const prim = a.tgt && !a.tgt.dead && bodyD(a.tgt, P.x, P.y) <= W.range + a.tgt.r + 0.9 ? a.tgt : null;   // по своей цели — с запасом (П69: 0,6 → 0,9 м: кружащий зверь не уходит из-под удара)
   for (const e of G.enemies) {
-    if (e.dead) continue; const dx = e.x - P.x, dy = e.y - P.y, d = Math.hypot(dx, dy);
+    if (e.dead) continue; const dx = e.x - P.x, dy = e.y - P.y, d = bodyD(e, P.x, P.y);
     if (e !== prim && d > W.range + e.r + 0.2) continue;
     const inArc = Math.abs(angDiff(ang0, Math.atan2(dy, dx))) <= (W.arc / 2) * Math.PI / 180;
     if (e !== prim && !inArc && d > e.r + 0.5) continue;
@@ -414,7 +424,7 @@ export function updateProjectiles(dt) {
     if (p.owner === 'p') {
       for (const e of G.enemies) {
         if (e.dead || p.hit.has(e)) continue;
-        if ((e.x - p.x) ** 2 + (e.y - p.y) ** 2 < (e.r + 0.25) ** 2) {
+        if (bodyD(e, p.x, p.y) < e.r + 0.25) {   // правки 5: стрела попадает в тело длинного зверя, не только в середину
           p.hit.add(e);
           if (p.aoe) { explosion(p.x, p.y, p.aoe, p.dmg, p.elem, p.ignite); p.dead = true; break; }
           damageEnemy(e, p.dmg, { elem: p.elem === 'magic' ? 'phys' : p.elem, src: p.src || 'spell', pierce: p.elem === 'magic' ? 1 : 0 }); projHitFx(p, e.x, e.y, 0.9 * (e.D.size || 1));
@@ -474,6 +484,10 @@ export function enemyTelegraph(e, kind, P) {
   if (tg && kind === 'lunge') { tg.sheet = 'charge'; tg.realm = e.D.realm; }
   if (tg) { const T = ATK_FX[e.type] && ATK_FX[e.type].tele, ts = T && T[kind]; if (ts && fxReady(ts)) tg.teleSheet = ts; tg.realm ??= e.D.realm; }
   { const id = atkFxId(e, kind); if (id) fxReady(id); }   // лист удара грузится, пока идёт замах   // сборка 61: метка-лист (корни лешего, вихрь, ледяные колья)   // П21: полоса разбега — лист mob_charge_tele (render/fxsheets.js)
+  // правки 5: у длинного зверя замах и красная зона — перед мордой, а не из-под брюха; круг «вокруг себя» — тоже чуть вперёд и шире
+  const sn = snoutOf(e);
+  if (tg && sn > 0 && tg.x == null && (tg.shape === 'cone' || tg.shape === 'line')) { tg.x = e.x + Math.cos(ang) * sn; tg.y = e.y + Math.sin(ang) * sn; }
+  else if (tg && sn > 0 && tg.shape === 'circle' && tg.x === e.x && tg.y === e.y) { tg.x += Math.cos(ang) * sn * 0.5; tg.y += Math.sin(ang) * sn * 0.5; tg.r += sn * 0.5; }
   e.teleg = tg; if (tg) { tg.x = tg.x ?? e.x; tg.y = tg.y ?? e.y; tg.t = 0; }
   // П51: в бою с большим боссом — напоминание про рывок, когда удар идёт по герою (кнопка мигает, над героем «Рывок!»)
   if (tg && e.D.boss && inShape(tg, P, e)) bus.emit('dodgeHint');
@@ -551,11 +565,12 @@ export function mobSheet(e, kind, x, y, o = {}) {
 }
 // удар зверя по герою (обычный ближний или бросок): лист у героя, если герой в досягаемости, иначе — в конце замаха
 export function mobStrikeFx(e, P, kind = mobFxOf(e)) {
-  const d = Math.hypot(P.x - e.x, P.y - e.y), a = Math.atan2(P.y - e.y, P.x - e.x), r = Math.min(d, e.D.range + 0.3), hs = atkFxId(e, 'hit');
-  if (hs && sheet(hs, e.x + Math.cos(a) * r * 0.6, e.y + Math.sin(a) * r * 0.6, { a, size: (fxMeta(hs).meters || 3.5) * (e.D.size || 1), ex: e.x, ey: e.y })) return true;
+  const a = Math.atan2(P.y - e.y, P.x - e.x), sn = snoutOf(e), ox = e.x + Math.cos(a) * sn, oy = e.y + Math.sin(a) * sn;   // правки 5: от морды
+  const d = Math.max(0, Math.hypot(P.x - e.x, P.y - e.y) - sn), r = Math.min(d, e.D.range + 0.3), hs = atkFxId(e, 'hit');
+  if (hs && sheet(hs, ox + Math.cos(a) * r * 0.6, oy + Math.sin(a) * r * 0.6, { a, size: (fxMeta(hs).meters || 3.5) * (e.D.size || 1), ex: ox, ey: oy })) return true;
   if (!kind) return false;
-  const x = e.x + Math.cos(a) * r, y = e.y + Math.sin(a) * r;
-  if (kind === 'claw') mobSheet(e, 'claw', e.x + Math.cos(a) * r * 0.75, e.y + Math.sin(a) * r * 0.75, { a, size: 1.5 * (e.D.size || 1) });
+  const x = ox + Math.cos(a) * r, y = oy + Math.sin(a) * r;
+  if (kind === 'claw') mobSheet(e, 'claw', ox + Math.cos(a) * r * 0.75, oy + Math.sin(a) * r * 0.75, { a, size: 1.5 * (e.D.size || 1) });
   else mobSheet(e, kind, x, y, kind === 'gore' ? { size: 2.4 * (e.D.size || 1) } : {});
   return true;
 }
@@ -601,14 +616,14 @@ export function updateEnemyAttack(e, dt, P) {
       if (mobAtkFx(e, a.kind, tg)) { if (inside && tg.slow && ATK_FX[e.type].root) P.rootedT = G.time + tg.slow; }   // сборка 61: лист приёма края
       else if (tg.fx) groundFx(tg);
       else if (tg.shape === 'circle' && tg.rift) { const cc = tg.elem === 'cold' ? [150, 215, 255] : D.realm === 'forest' ? [110, 200, 90] : D.realm === 'bones' ? [255, 140, 60] : [180, 80, 255]; effect({ kind: 'burst', x: tg.x, y: tg.y, r: tg.r, dur: 0.5, c: cc }); particles(tg.x, tg.y, 20, { c: cc, sp: 4, size: 4 }); }
-      else if (tg.shape === 'cone' && mobFxOf(e) === 'claw') mobSheet(e, 'claw', e.x + Math.cos(tg.a) * tg.r * 0.55, e.y + Math.sin(tg.a) * tg.r * 0.55, { a: tg.a, size: tg.r * 1.15 });   // П21: веер когтей вместо дуги
-      else effect({ kind: tg.shape === 'cone' ? 'slash' : 'ring', x: e.x, y: e.y, a: tg.a, r: tg.r, arc: tg.arc || 360, dur: 0.3, c: [255, 90, 60], enemy: true });
+      else if (tg.shape === 'cone' && mobFxOf(e) === 'claw') mobSheet(e, 'claw', tg.x + Math.cos(tg.a) * tg.r * 0.55, tg.y + Math.sin(tg.a) * tg.r * 0.55, { a: tg.a, size: tg.r * 1.15 });   // П21: веер когтей вместо дуги
+      else effect({ kind: tg.shape === 'cone' ? 'slash' : 'ring', x: tg.shape === 'cone' ? tg.x : e.x, y: tg.shape === 'cone' ? tg.y : e.y, a: tg.a, r: tg.r, arc: tg.arc || 360, dur: 0.3, c: [255, 90, 60], enemy: true });
       G.cam.kick(D.boss ? 0.45 : 0.3); bus.emit('sfx', 'heavy');
       if (inside) { enemyHitsPlayer(e, tg.mult ?? (a.kind === 'slam' ? 1.3 : a.kind === 'attack2' ? 0.9 : 1.1), tg.elem === 'cold' ? 'cold' : tg.elem ? tg.elem : tg.rift && !D.realm ? 'fire' : 'phys'); if (tg.slow && !P.dead) P.slowT = Math.max(P.slowT || 0, tg.slow); }
       if (D.boss && e.phase === 3 && a.kind === 'slam') setTimeoutGame(0.35, () => shockwave(e));
     } else {
       // regular melee: hit if still in reach & roughly in front
-      const d = Math.hypot(P.x - e.x, P.y - e.y);
+      const d = bodyD(e, P.x, P.y);
       if (d <= D.range + P.r + 0.45) enemyHitsPlayer(e, 1, 'phys');
       mobStrikeFx(e, P);   // П21: укус / когти / клыки
       bus.emit('sfx', 'swingE');

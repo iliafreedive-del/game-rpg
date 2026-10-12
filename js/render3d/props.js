@@ -1,5 +1,6 @@
 // Слой окружения: превращает zone.statics в 3D. Модели с batch:true собираются в instanced-меши (по одному на меш модели),
 // остальные — отдельные группы с update(t). Деревьев вне карты добавляется кольцо-фон, чтобы за краем не было пустоты.
+import { onGround, fit, footOf } from '../world/footing.js';
 import * as THREE from '../vendor/three.module.min.js';
 import { addOutlines, outlineMat } from './actor.js';
 import { PROPS, TREE_KINDS, DEAD_KINDS, ROCK_KINDS } from './registry.js';
@@ -42,7 +43,22 @@ export class PropLayer {
     const lists = new Map();   // id → [{x,y,rot,s,q}]
     const wildForest = zone.id === 'wild' && zone.json.wild.realm === 'forest', WF_TINT = new THREE.Color(0.72, 0.9, 0.82);
     this._lists = lists; this.decorK = 1; this.zoneLights = zone.lights;
-    const push = (id, x, y, rot, s, opts) => { if (!lists.has(id)) lists.set(id, []); const t = PROPS[id] && PROPS[id].tint; let col = t ? tintOf(x, y, t) : null; if (col && wildForest) col.multiply(WF_TINT);   // кроны леса темнее и холоднее земли
+    // правки 5: на островах походов ничего не висит над обрывом — пятно предмета (ствол с корнями, основание скалы) целиком на земле.
+    // Не помещается — сдвигаем вглубь острова (до 1,5 м), иначе не ставим. this.foot — счёт для проверки (tools: сдвинуто / убрано / осталось)
+    const isl = zone.id === 'wild' && !!zone.json.wild.islands, M0 = zone.map, foot = this.foot = { moved: 0, dropped: 0, hang: [] };
+    // правки 5: «мобы или предметы в предметах не должны теряться» — декор, который ставит только 3D (камни кромки, кусты, мелочь), не растёт сквозь драккары и лодки
+    const SHIP_R = { fj_longship: 3.4, fj_longship_b: 3.4, fj_longship_split: 4.4, fj_boat: 1.8 }, ships = zone.statics.filter(d => SHIP_R[d.model]).map(d => [d.x, d.y, SHIP_R[d.model]]);
+    const inShip = (x, y, r) => ships.some(([sx, sy, sr]) => (x - sx) ** 2 + (y - sy) ** 2 < (sr + r) ** 2);
+    const place = (id, x, y, s, fixed) => {
+      if (!fixed && ships.length && !SHIP_R[id] && inShip(x, y, footOf(id, s) * 0.6)) { foot.dropped++; return null; }
+      if (!isl || /bridge/.test(id) || onGround(M0, x, y, footOf(id, s))) return [x, y, s];
+      if (fixed) {   // предмет карты с коллизией (его ставит zone.js): не двигаем — уменьшаем 3D-облик (форма камня у кромки — меньше), пока не встанет на землю
+        for (let k = 0.85; k >= 0.45; k -= 0.1) if (onGround(M0, x, y, footOf(id, s * k))) { foot.shrunk = (foot.shrunk || 0) + 1; return [x, y, s * k]; }
+        foot.hang.push([id, +x.toFixed(1), +y.toFixed(1)]); return [x, y, s * 0.45];   // и так не встал — самый маленький облик (свес почти не виден)
+      }
+      const p = fit(M0, x, y, footOf(id, s)); if (p) foot.moved++; else foot.dropped++; return p && [p[0], p[1], s];
+    };
+    const push = (id, x, y, rot, s, opts, fixed) => { const p = place(id, x, y, s, fixed); if (!p) return; [x, y, s] = p; if (!lists.has(id)) lists.set(id, []); const t = PROPS[id] && PROPS[id].tint; let col = t ? tintOf(x, y, t) : null; if (col && wildForest) col.multiply(WF_TINT);   // кроны леса темнее и холоднее земли
       lists.get(id).push({ x, y, rot, s, opts, col }); };
     const mode = zone.id === 'town' ? 'town' : zone.id === 'wild' ? 'wild' : 'dungeon', dungeon = mode === 'dungeon', wild = mode === 'wild', m = zone.map;
     const fj = wild && zone.json.wild.realm === 'fjord', bn = wild && zone.json.wild.realm === 'bones', open = !dungeon;   // open — открытая местность (деревня, поход); bn — Костяные пустоши
@@ -63,13 +79,13 @@ export class PropLayer {
       if (wild && d.wall) continue;   // стены форта строятся по тайлам 'D' ниже
       if (d.tag || d.hidden !== undefined || DYN.has(d.spr)) { this.live.push({ d, rot: d.model ? (d.rot || 0) : d.flip ? Math.PI / 2 : 0, model: d.model ? (MODEL[d.model] || d.model) : undefined }); continue; }
       if (d.hidden || (d.flat && !PROPS[d.spr])) continue;
-      if (d.model) { push(MODEL[d.model] || d.model, d.x, d.y, d.rot || 0, d.s || 1, d.opts); continue; }
+      if (d.model) { push(MODEL[d.model] || d.model, d.x, d.y, d.rot || 0, d.s || 1, d.opts, true); continue; }
       if (!PROPS[d.spr]) { if (!warned.has(d.spr)) { warned.add(d.spr); console.warn('[3D] нет модели предмета «' + d.spr + '» — не показан'); } continue; }
       if (mode === 'town' && d.spr === 'deadtree') { const bt = boneDeadTree(PROPS, kit); if (bt) { extra0[bt.id] = bt; push(bt.id, d.x, d.y, hash(d.x, d.y) * 6.283 + (d.yaw || 0), d.s || 1.15); continue; } }   // сухое дерево пустошей (Meshy)
       const h = hash(d.x, d.y), isTree = d.spr === 'tree_0' || d.spr === 'tree_1' || d.spr === 'deadtree';   // правки 3: во Фьордах и сухое дерево карты — ель в снегу
       const light = zone.lights.find(L => Math.hypot(L.x - d.x, L.y - d.y) < 0.3);
       const var3 = ((d.spr === 'rocks' || d.spr === 'deadtree') && open && !light) || STEPPE_FREE.has(d.spr);   // камни и сухие деревья поля — разные формы, повороты, размеры
-      push(isTree ? (fj ? pickFj(hash(d.x * 3.1 + 1, d.y * 1.7 + 2)) : pickTree(d.spr, hash(d.x * 3.1 + 1, d.y * 1.7 + 2))) : var3 ? (STEPPE_FREE.has(d.spr) ? d.spr : bn && d.spr === 'rocks' ? pickW(STEPPE_ROCKS, hash(d.x * 2.3 + 5, d.y * 1.9 + 1)) : fj && d.spr === 'rocks' ? pickW(FJ_ROCKS, hash(d.x * 2.3 + 5, d.y * 1.9 + 1)) : wildForest && d.spr === 'rocks' ? pickW(FO_ROCKS, hash(d.x * 2.3 + 5, d.y * 1.9 + 1)) : pickTree(d.spr, hash(d.x * 2.3 + 5, d.y * 1.9 + 1))) : d.spr, d.x, d.y, isTree || var3 || d.s ? h * 6.283 : 0, isTree ? (fj ? 0.75 : 1.0) + hash(d.y * 1.3, d.x * 0.7) * (fj ? 1.0 : 0.75) : var3 ? 0.7 + hash(d.y, d.x) * 0.9 : d.s || 1, light ? { color: new THREE.Color(light.c[0] / 255, light.c[1] / 255, light.c[2] / 255) } : null);
+      push(isTree ? (fj ? pickFj(hash(d.x * 3.1 + 1, d.y * 1.7 + 2)) : pickTree(d.spr, hash(d.x * 3.1 + 1, d.y * 1.7 + 2))) : var3 ? (STEPPE_FREE.has(d.spr) ? d.spr : bn && d.spr === 'rocks' ? pickW(STEPPE_ROCKS, hash(d.x * 2.3 + 5, d.y * 1.9 + 1)) : fj && d.spr === 'rocks' ? pickW(FJ_ROCKS, hash(d.x * 2.3 + 5, d.y * 1.9 + 1)) : wildForest && d.spr === 'rocks' ? pickW(FO_ROCKS, hash(d.x * 2.3 + 5, d.y * 1.9 + 1)) : pickTree(d.spr, hash(d.x * 2.3 + 5, d.y * 1.9 + 1))) : d.spr, d.x, d.y, isTree || var3 || d.s ? h * 6.283 : 0, isTree ? (fj ? 0.75 : 1.0) + hash(d.y * 1.3, d.x * 0.7) * (fj ? 1.0 : 0.75) : var3 ? 0.7 + hash(d.y, d.x) * 0.9 : d.s || 1, light ? { color: new THREE.Color(light.c[0] / 255, light.c[1] / 255, light.c[2] / 255) } : null, true);
     }
     // сборка 47: деревья выше — в среднем ≈6 м (три роста героя), от 4,5 до 8+ м: множитель 1,0–1,75 (был 0,85–1,4), чаща 1,15–1,95
     if (wild) {   // стены форта по тайлам 'D' (лицом наружу) и густая чаща по тайлам 'x'

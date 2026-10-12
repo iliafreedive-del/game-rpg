@@ -27,7 +27,10 @@ function want(id) {
   const im = new Image(); im.decoding = 'async'; pending.set(id, im);
   im.onload = () => { if (pending.get(id) !== im) return; pending.delete(id); const C = m.cols ? im.naturalWidth / m.cols : 0; sheets.set(id, { ...m, img: C ? softCells(im, { ...m, id }, C, ROUND.has(id)) : im, C }); };   // кадр — по картинке: ПК 192, телефон 128
   im.onerror = () => { pending.delete(id); console.warn('[fx] missing sheet', id); };
-  im.src = BASE + (PHONE ? m.file.replace(/^assets\/art\/fx\//, 'art/fx/m/') : m.file.replace(/^assets\//, ''));
+  // правки 5: стоячие листы (корни лешего, оплетание героя, вихрь, шипы, состояния) на телефоне с кадром 128 px растянуты — «пиксельные». Им — полный кадр
+  // (+3 МБ памяти на лист; грузятся только листы своего края и выученных навыков)
+  const lo = PHONE && m.view !== 'upright';
+  im.src = BASE + (lo ? m.file.replace(/^assets\/art\/fx\//, 'art/fx/m/') : m.file.replace(/^assets\//, ''));
 }
 // правки 3: у многих листов GPT рисунок доходит до края кадра (вспышки, удары, вихрь) — в игре и Летописи был виден
 // жёсткий квадрат. Один раз при загрузке каждый кадр гасится к краям: мягкая рамка ~12 % кадра у всех листов,
@@ -41,6 +44,9 @@ function softCells(im, m, C, round) {
   for (const [x0, y0, x1, y1] of [[0, 0, e, 0], [n, 0, n - e, 0], [0, 0, 0, e], [0, n, 0, n - e]]) { const g = y.createLinearGradient(x0, y0, x1, y1); g.addColorStop(0, 'rgba(0,0,0,1)'); g.addColorStop(1, 'rgba(0,0,0,0)'); y.fillStyle = g; y.fillRect(0, 0, n, n); }
   if (round) { const cx = (m.anchor ? m.anchor[0] : 0.5) * n, cy = (m.anchor ? m.anchor[1] : 0.5) * n, g = y.createRadialGradient(cx, cy, 0, cx, cy, n * 0.49);
     g.addColorStop(0, '#000'); g.addColorStop(0.3 / 0.49, '#000'); g.addColorStop(1, 'rgba(0,0,0,0)'); y.globalCompositeOperation = 'destination-in'; y.fillStyle = g; y.fillRect(0, 0, n, n); }
+  // правки 5: у стоячего листа низ рисунка — ровная полоса земли («обрубленный плоский низ»); гасим её плавно от точки привязки вниз
+  if (m.view === 'upright' && m.anchor) { y.globalCompositeOperation = 'destination-out'; const a = m.anchor[1] * n, g = y.createLinearGradient(0, a - n * 0.16, 0, Math.min(n, a + n * 0.08));
+    g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,1)'); y.fillStyle = g; y.fillRect(0, a - n * 0.16, n, n); }
   const c = document.createElement('canvas'); c.width = W; c.height = H; const x = c.getContext('2d');
   for (let r = 0; r * C < H - 1; r++) for (let k = 0; k * C < W - 1; k++) x.drawImage(cm, k * C, r * C, C, C);
   if (SEAM.has(m.id)) { x.globalCompositeOperation = 'destination-out'; const h = H * 0.035;   // склейка GPT на 1/3 и 2/3 высоты: жёсткий срез рисунка — гасим полосой
@@ -141,7 +147,7 @@ export function drawGroundGlow(ctx, cam, x, y, r, alpha = 1) {
 // снаряд: лист «вправо», поворачивается по полёту (ang — экранный угол), t — время полёта для цикла кадров
 export function drawProjSheet(ctx, cam, id, x, y, z, ang, t, size) {
   const S = sheets.get(real(id)); if (!S) return false;
-  const [sx, sy] = cellOf(S, (t / S.dur) % 1), [gx, gy, ppm] = ppmAt(cam, x, y, z), w = (size || S.meters) * ppm, C = S.C;
+  const [sx, sy] = cellOf(S, S.still != null ? (S.still + 0.5) / S.frames : (t / S.dur) % 1), [gx, gy, ppm] = ppmAt(cam, x, y, z), w = (size || S.meters) * ppm, C = S.C;   // правки 5: still — один кадр без анимации (копьё метателя: лист «крутил» копьё, оно гнулось и пропадало)
   ctx.save(); ctx.translate(gx, gy); ctx.rotate(ang + (S.rot || 0)); if (S.sy) ctx.scale(1, S.sy); ctx.drawImage(S.img, sx, sy, C, C, -w * S.anchor[0], -w * S.anchor[1], w, w); ctx.restore(); return true;   // правки 5: rot — стрела на листе нарисована под углом (у стрелы браконьера ≈ −15°), разворачиваем по полёту; sy — сплющить по толщине (стрела героя: оперение выглядело комично)
 }
 // правки 3: лист в экранных координатах (Летопись битв — свой холст и своя камера сбоку). ids — по порядку предпочтения:
@@ -150,7 +156,7 @@ export function drawProjSheet(ctx, cam, id, x, y, z, ang, t, size) {
 export function drawSheetAt(ctx, ids, k, x, y, w, o = {}) {
   let S = null; for (const i of ids) { if (fxReady(i)) { S = sheets.get(real(i)); break; } }
   if (!S) return null;
-  const [sx, sy] = cellOf(S, S.loop ? ((k % 1) + 1) % 1 : Math.max(0, Math.min(0.999, k))), C = S.C;
+  const [sx, sy] = cellOf(S, S.still != null ? (S.still + 0.5) / S.frames : S.loop ? ((k % 1) + 1) % 1 : Math.max(0, Math.min(0.999, k))), C = S.C;
   ctx.save(); if (o.alpha != null) ctx.globalAlpha = o.alpha; ctx.translate(x, y); if (o.ang) ctx.rotate(o.ang); if (o.flip) ctx.scale(-1, 1);
   if (S.view === 'ground') ctx.scale(1, 0.45);   // лист «на полу» сбоку — сплющенный эллипс
   const an = (S.view === 'side' || o.force) && o.anchor ? o.anchor : S.anchor;   // снаряд сбоку (hw_*) — точка привязки в голове снаряда, а не на полу

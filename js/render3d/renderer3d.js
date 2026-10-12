@@ -210,8 +210,12 @@ function setZone(z) {
   const town = z.id === 'town', wild = z.id === 'wild', open = town || wild, fj = wild && z.json.wild.realm === 'fjord', bn = wild && z.json.wild.realm === 'bones';
   const ground = wild ? buildGround(scene, z, { abyss: z.json.wild.realm || 'forest', snow: fj, steppe: bn, forest: !fj && !bn, kindOf: wildKind, stoneCh: '\u0000', grassK: bn ? 0.24 : 0.15, islands: !!z.json.wild.islands, farColor: fj ? 0xb4c6d8 : bn ? 0x6a3420 : 0x0f2418, margin: 6 }) : town ? buildGround(scene, z, { margin: z.json.big ? 14 : 3, farColor: z.json.village ? 0x22341c : undefined }) : buildDungeonFloor(scene, z, LV.look), props = new PropLayer(scene, kit, z, open);
   // деревня: дым из труб, стелющийся туман, куры и собаки
-  U.uHFog.value = town && z.json.village ? 0.24 : 0;   // туман у земли — только в деревне
-  if (z.json.center) U.uHFogC.value.set(z.json.center[0], z.json.center[1], 17); else U.uHFogC.value.set(0, 0, 0);   // в центре деревни тумана почти нет
+  // туман у земли: деревня; правки 5 — и походы: Старый лес — зеленоватая дымка, Пустоши — жёлтая песчаная, с пролетающими по ветру полосами (toon.js HFOG_F).
+  // Считается в тех же шейдерах — без лишних частиц и проходов
+  const wf = wild && (z.json.wild.realm || 'forest') === 'forest';
+  U.uHFog.value = town && z.json.village ? 0.24 : wf ? 0.2 : bn ? 0.18 : 0;
+  U.uHFogCol.value.set(wf ? 0x9cc8a4 : bn ? 0xe6c88e : 0xb4c8c0);
+  if (z.json.center) U.uHFogC.value.set(z.json.center[0], z.json.center[1], 17); else U.uHFogC.value.set(0, 0, wf || bn ? -0.45 : 0);   // в центре деревни тумана почти нет
   const atmo = town && z.json.village ? new Atmo(scene, z, props.smoke) : null, critters = town && z.json.village ? new Critters(scene, kit, z) : null;
   world = { ground, props, atmo, critters, ...lightSets(z) };
   props.cull(camera, true); applyQuality(true); ground.setQuality(quality); spawned = false;
@@ -314,6 +318,19 @@ function enemyActor(e, def, scale) {
 // пока не пришла — её файлы заказываются вне очереди. Проверка идёт только у мобов с запасной моделью (a.fb)
 for (const d of Object.values(MOBS)) if (!d.ready) { const A = mobAssets(d.id); if (A.length) d.ready = () => { for (const n of A) if (!assetLoaded(n)) { wantAssets(A); return false; } return true; }; }
 const mobDef = e => MOBS[e.model || e.type] || MOBS[e.D && e.D.model3d];
+// правки 5: размер тела по модели (в покое, без поворота): длинный зверь — морда далеко впереди центра. Игра (combat.js bodyD) бьёт и подсвечивает
+// удар от морды и не пускает героя внутрь. Только у вытянутых моделей (длина больше 1,8 ширины) — у людей и скелетов круг e.r, как раньше
+const _bb = new THREE.Box3();
+function bodyOf(a, scale, e) {
+  if (a.body0 === undefined) {
+    const r = a.root, p = r.position.clone(), ry = r.rotation.y, s = r.scale.x; r.position.set(0, 0, 0); r.rotation.y = 0; r.scale.setScalar(1); r.updateMatrixWorld(true);
+    _bb.setFromObject(a.model.root); r.position.copy(p); r.rotation.y = ry; r.scale.setScalar(s); r.updateMatrixWorld(true);
+    const f = _bb.max.z, b = -_bb.min.z, w = Math.max(-_bb.min.x, _bb.max.x);
+    a.body0 = isFinite(f) && f + b > 3.6 * w ? { f, b, w } : null;
+  }
+  const B = a.body0; if (!B || B.f * scale < e.r + 0.15) return null;
+  return { f: B.f * scale, b: B.b * scale, w: Math.max(e.r, Math.min(B.w * scale, B.f * scale * 0.45)) };   // полуширина — по модели (у быка бока шире круга e.r)
+}
 function syncEnemies(dt) {
   const fn = ++frameNo;
   for (const e of G.enemies) {
@@ -323,6 +340,7 @@ function syncEnemies(dt) {
     let a = enemyActor(e, def, scale); a.seen = fn;
     // правки 2 (П17–18): моб собран запасной моделью, пока его модель грузилась, — пересобрать, когда догрузилась
     if (def.ready && SKINS.on) { if (a.fb === undefined) a.fb = !def.ready(kit); else if (a.fb && def.ready(kit)) { a.dispose(); actors.delete(e); a = getActor(e, def, { scale }); a.isEnemy = true; a.def = def; a.seen = fn; a.fb = false; } }
+    e.body = bodyOf(a, scale, e);
     const c = measure(a, e, dt), an = e.anim; let clip = 'idle', k, impact, speed = 0;
     if (e.dead) { clip = 'death'; k = an.prog; }
     else if (e.state === 'attack') { clip = e.D.proj ? 'cast' : (e.atk && e.atk.kind) || 'attack';   /* у босса: attack2, slam, roar */ k = an.prog; impact = e.atk ? e.atk.impact : undefined; }
