@@ -1,0 +1,30 @@
+// Сборка 66: Печать Ордена, предложение дня, событие, замена задания, баннер-флаг. Запуск: node tools/qa/run.mjs tools/qa/scenarios/money66.js 390 844
+const L = (window.__LANG && window.__LANG !== 'ru') ? '/js_' + window.__LANG : '/js';
+{ const st = document.createElement('style'); st.textContent = '.modal-bg{animation:none!important;opacity:1!important}'; document.head.appendChild(st); }   // в безголовом Chromium анимация появления окна иногда не доходит до конца
+const M = await import(L + '/platform/monetize.js'), PF = await import(L + '/platform/platform.js'), EV = await import(L + '/platform/events.js'), DQ = await import(L + '/game/daily.js');
+const G = window.__G, P = G.profile;
+P.tutorial.prologue = 1; P.level = Math.max(P.level, 12); P.stats.playTime = 4000;
+const { STORY } = await import(L + '/data/quests.js'); P.story.stage = Math.max(P.story.stage, STORY.findIndex(q => q.id === 'meet_kofi') + 1);
+const gm = await import(L + '/game/game.js'); await gm.loadZone('town', {}); await sleep(2500);
+document.querySelectorAll('.modal-bg').forEach(m => m.remove()); G.modalOpen = false;
+PF.platform.flags = { event: 'shards2' };
+print('event', JSON.stringify(EV.eventNow()), 'mul shards', EV.eventMul('shards'), 'gold', EV.eventMul('gold'));
+PF.platform.flags = {};
+const sat = new Date(); sat.setDate(sat.getDate() + ((6 - sat.getDay() + 7) % 7)); PF.platform.skew = sat.getTime() - Date.now();
+print('weekend via skew', JSON.stringify(EV.eventNow())); PF.platform.skew = 0;
+print('dayOffer', JSON.stringify(M.dayOffer()));
+const sh0 = P.shards; await M.grantPurchase('order_seal', 'qa_seal_1'); print('seal active', M.sealActive(), 'days', M.sealDaysLeft(), 'shards +', P.shards - sh0);
+P.daily.last = 0; const sh1 = P.shards; M.claimDaily(false); print('daily with seal shards +', P.shards - sh1);
+const q = DQ.dailyQuests(); const before = q.map(x => x.id).join(','); print('reroll left', DQ.rerollLeft(), DQ.rerollQuest(q.find(x => !x.done).id), 'after', DQ.dailyQuests().map(x => x.id).join(','), 'was', before, 'left', DQ.rerollLeft());
+document.querySelectorAll('.modal-bg').forEach(m => m.remove()); G.modalOpen = false;
+const W = await import(L + '/ui/windows.js');
+PF.platform.flags = { event: 'gold2' };
+const bus = (await import(L + '/game/ctx.js')).bus; bus.emit('openShrine'); await sleep(800);
+const body = document.querySelector('.modal-bg .mb') || document.querySelector('.modal-bg');
+const sc = document.querySelector('.modal-bg .mbody') || body; 
+const lav = [...document.querySelectorAll('.modal-bg h3')].find(h => /Лавка/.test(h.textContent)); if (lav) lav.scrollIntoView();
+await sleep(300); await shot('money66_shop');
+print('tags', [...document.querySelectorAll('.of-tag')].map(e => e.textContent).join('|'), 'event card', !!document.querySelector('.ev-card'));
+print('seal row', [...document.querySelectorAll('.offer')].filter(o => /Печать/.test(o.textContent)).map(o => o.textContent.slice(0, 160)).join(' / '));
+document.querySelectorAll('.modal-bg').forEach(m => m.remove()); G.modalOpen = false;
+P.iap.dayOffer = {}; W.showWallOffer(); await sleep(500); await shot('money66_dayoffer'); print('day offer modal', !!document.querySelector('.modal-bg'), JSON.stringify(M.dayOffer()));
