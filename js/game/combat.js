@@ -530,10 +530,19 @@ function burningGround(x, y, r, t) {
 }
 bus.on('zoneEntered', () => { preloadMobFx(); if (G.profile) preloadSkillFx(); });
 export const mobRageFx = e => (e.enraged && ATK_FX[e.type] && ATK_FX[e.type].rage) || null;
+// сборка 66: приёмы мобов Леса — на 10% меньше и объёмнее: корни лезут из земли в нескольких местах (часть за героем, часть перед ним),
+// у ударов о землю летят комья и пыль, у спор — облако спор
+const FR_VOL = { fr_roots_erupt: 'roots', fr_bear_slam: 'dust', fr_shield_stomp: 'dust', fr_boss_club: 'dust', fr_thicket_slam: 'dust', fr_spore_nova: 'spores' };
 function mobAtkFx(e, kind, tg) {
   const id = atkFxId(e, kind); if (!id) return false;
-  if (tg.shape === 'cone') return sheet(id, e.x + Math.cos(tg.a) * tg.r * 0.5, e.y + Math.sin(tg.a) * tg.r * 0.5, { a: tg.a, size: tg.r * 2.1, ex: e.x, ey: e.y });
-  return sheet(id, tg.x, tg.y, { a: tg.a, size: tg.r * 2.3, ex: e.x, ey: e.y });
+  const k = e.D.realm === 'forest' ? 0.9 : 1, cone = tg.shape === 'cone';
+  const x = cone ? e.x + Math.cos(tg.a) * tg.r * 0.5 : tg.x, y = cone ? e.y + Math.sin(tg.a) * tg.r * 0.5 : tg.y, size = tg.r * (cone ? 2.1 : 2.3) * k;
+  if (!sheet(id, x, y, { a: tg.a, size, ex: e.x, ey: e.y })) return false;
+  const v = k < 1 && FR_VOL[id];
+  if (v === 'roots') for (let i = 0; i < 4; i++) { const a = i / 4 * 6.283 + rand() * 0.8, rr = tg.r * (0.45 + rand() * 0.25); setTimeoutGame(0.06 + i * 0.07, () => sheet(id, x + Math.cos(a) * rr, y + Math.sin(a) * rr, { size: size * (0.45 + rand() * 0.15), ex: e.x, ey: e.y })); }
+  if (v === 'roots' || v === 'dust') { particles(x, y, v === 'roots' ? 10 : 14, { c: [96, 72, 44], z: 0.2, sp: tg.r * 1.4, vz: 5, g: 12, size: 5, life: 0.7, add: false }); particles(x, y, 8, { c: [150, 135, 110], z: 0.3, sp: tg.r * 0.8, vz: 1.5, g: -0.6, size: 9, life: 1.1, add: false }); }
+  if (v === 'spores') particles(x, y, 26, { c: [170, 210, 90], z: 0.6, sp: tg.r * 1.6, vz: 1.2, g: -0.5, size: 5, life: 1.4 });
+  return true;
 }
 export const mobFxOf = e => MOB_FX[e.type];
 // x, y — точка удара (у героя); size — метры (иначе из листа); a — направление удара (для когтей на полу)
@@ -610,7 +619,7 @@ export function updateEnemyAttack(e, dt, P) {
 }
 function shockwave(e) {
   const cold = e.D.novaElem === 'cold';
-  const nid = atkFxId(e, 'nova'); if (!(nid && sheet(nid, e.x, e.y, { size: 13 }))) effect({ kind: 'wave', x: e.x, y: e.y, r: 6, dur: 0.8, c: cold ? [150, 215, 255] : e.D.realm ? [110, 200, 90] : [200, 90, 255] });
+  const nid = atkFxId(e, 'nova'), nk = e.D.realm === 'forest' ? 0.9 : 1; if (nid && nk < 1 && fxReady(nid)) particles(e.x, e.y, 30, { c: [170, 210, 90], z: 0.6, sp: 9, vz: 1.2, g: -0.5, size: 5, life: 1.4 }); if (!(nid && sheet(nid, e.x, e.y, { size: 13 * nk }))) effect({ kind: 'wave', x: e.x, y: e.y, r: 6, dur: 0.8, c: cold ? [150, 215, 255] : e.D.realm ? [110, 200, 90] : [200, 90, 255] });
   const P = G.player; const d = Math.hypot(P.x - e.x, P.y - e.y);
   setTimeoutGame(d / 7.5, () => { if (Math.abs(Math.hypot(P.x - e.x, P.y - e.y) - d) < 1.6 && !P.dead) enemyHitsPlayer(e, 0.6, cold ? 'cold' : e.D.realm ? 'phys' : 'fire'); });
 }

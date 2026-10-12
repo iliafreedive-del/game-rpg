@@ -207,7 +207,7 @@ function drawNpcPlates() {
 export function renderOverlay() {
   if (!G.zone) return;
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0); ctx.clearRect(0, 0, W, H);
-  drawGroundFx(); drawTelegraphs(); drawGuide(); drawPickupsGround();
+  if (!fxGround.on) { drawGroundFx(); drawTelegraphs(); } drawGuide(); drawPickupsGround();   // в 3D круги на полу — на плоскости у земли (drawFloorRings)
   drawProjectiles(false); drawProjectiles(true);
   drawEffects(); drawStatusFx(); drawParticles(); drawBlades(); if (G.surv) SV.drawSurvivalFx(ctx, G.cam);
   placed.length = 0; drawBars(); drawNpcPlates(); drawPlates(); drawPickupLabels(); drawBubbles(); drawTexts(); drawInteractMarker();   // С27: важные подписи первыми
@@ -223,12 +223,25 @@ export function drawGroundLayer(c, gcam) {
     if (gid && fxReady(gid) && drawFxSheet(c, gcam, { id: gid, x: e.x, y: e.y, t: e.t, dur: e.dur, size: e.r * (gid === 'gr_frost' ? 2.1 : 2.6) }, Math.min(1, (1 - k) * 4) * (gid === 'gr_frost' ? 0.55 : 1))) n++;
   }
   if (G.surv) n += SV.drawSurvivalGround(c, gcam);
-  return n;
+  return n + drawFloorRings(c, gcam);
+}
+// сборка 66 (ОС-13): круги и ауры на земле — это обруч на полу: дальняя половина должна прятаться за героем и мобами.
+// В 3D их рисует тот же код, что и в 2D, но на холст плоскости у земли (вид сверху, без сплющивания): GC — «камера» холста пола
+let GC = null, FL_N = 0;
+const iso = (k = 0.5) => { if (GC) FL_N++; else ctx.scale(1, k); };   // эллипс на экране / круг на холсте пола (и счёт нарисованного)
+const onFloor = () => !!GC || !fxGround.on;   // рисовать часть «на полу» сейчас: в 2D — всегда, в 3D — только в проходе по холсту пола
+function drawFloorRings(c, gcam) {
+  const K = gcam.toScreen(1, 0)[0] - gcam.toScreen(0, 0)[0], oc = ctx;
+  GC = { toScreen: (x, y) => gcam.toScreen(x, y), zoom: K / (32 * Math.SQRT2), proj: null }; FL_N = 0; ctx = c;
+  try { drawGroundFx(); drawTelegraphs(); drawMoveTo(); drawBeacon(G.guide); drawEffects(); drawPlates(); drawInteractMarker(); }
+  finally { ctx = oc; GC = null; c.globalCompositeOperation = 'source-over'; c.setLineDash([]); }
+  return FL_N;
 }
 // сборка 66: объёмные листы на земле для 3D-щитов (render3d/decals.js FxBillboards)
 export function uprightFxList() {
   const L = [];
   for (const e of G.effects) if (isUprightFx(e)) { const k = e.t / e.dur, b = fxBillboard(e, e.fade ? 1 - Math.max(0, k - 0.7) / 0.3 : 1, G.cam); if (b) { L.push(b); if (BLAST_FX.has(e.id)) L.push({ ...b, add: true, alpha: b.alpha * 0.45 }); } }   // взрыв: поверх копия сложением — горячее ядро (в 3D-сцене иначе тусклее прежнего)
+  if (G.surv) SV.survivalUpright(L);
   return L;
 }
 export function clearOverlay() { if (ctx) { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height); } }
@@ -361,26 +374,26 @@ function vignette(a) {
 
 // ---------------------------------------------------------------- VFX
 function drawTelegraphs() {
-  const cam = G.cam, z = cam.zoom;
+  const cam = GC || G.cam, z = cam.zoom;
   for (const e of G.enemies) {
     const tg = e.teleg; if (!tg || e.dead) continue;
     const p = Math.min(1, e.anim.prog / (e.atk ? e.atk.impact : 1));
-    if (tg.sheet === 'charge' && drawChargeTele(ctx, cam, tg, p, tg.realm)) continue;   // П21: разбег — полоса шевронов вместо красной
-    if (tg.teleSheet && drawFxSheet(ctx, cam, { id: tg.teleSheet, x: tg.x, y: tg.y, t: p * 0.999, dur: 1, size: tg.r * 2.2 })) continue;   // сборка 61: метка-лист (корни, вихрь, колья)
+    if (tg.sheet === 'charge' && drawChargeTele(ctx, cam, tg, p, tg.realm)) { FL_N++; continue; }   // П21: разбег — полоса шевронов вместо красной
+    if (tg.teleSheet && drawFxSheet(ctx, cam, { id: tg.teleSheet, x: tg.x, y: tg.y, t: p * 0.999, dur: 1, size: tg.r * 2.2 })) { FL_N++; continue; }   // сборка 61: метка-лист (корни, вихрь, колья)
     ctx.save(); const [x, y] = cam.toScreen(tg.x, tg.y);
-    ctx.translate(x, y); ctx.scale(1, 0.5);
+    ctx.translate(x, y); iso();
     const R = tg.r * 32 * z * Math.SQRT2;   // world metre → screen along iso diagonal
     // правки 2 (П21): цвет подсветки — по материалу удара (tg.col: корни — зелёный, камень — песочный, кость — слоновая кость, лёд — голубой)
     const tc = tg.col ? tg.col.join(',') : tg.rift ? '170,70,255' : '255,60,30', sc = tg.col ? tc : tg.rift ? '200,120,255' : '255,90,50', fill2 = `rgba(${tc},${tg.col ? 0.4 : 0.3})`;
     ctx.fillStyle = `rgba(${tc},${tg.col ? 0.26 : tg.rift ? 0.18 : 0.16})`; ctx.strokeStyle = `rgba(${sc},${tg.col ? 1 : 0.85})`; ctx.lineWidth = tg.col ? 3 : 2.5; if (tg.fx === 'stone' || tg.fx === 'bone') ctx.setLineDash([7, 4]);
-    const isoA = a => Math.atan2(Math.sin(a) + Math.cos(a), Math.cos(a) - Math.sin(a)); // world angle → screen angle (pre-scale)
+    const isoA = a => GC ? a : Math.atan2(Math.sin(a) + Math.cos(a), Math.cos(a) - Math.sin(a)); // world angle → screen angle (pre-scale)
     ctx.beginPath();
     const pat = tg.shape !== 'line' && telePattern(ctx, tg.realm);   // сборка 61: опасная зона залита узором края (тайл GPT)
     if (pat) { if (tg.shape === 'circle') ctx.arc(0, 0, R, 0, 7); else { const a = isoA(tg.a), h = tg.arc / 2 * Math.PI / 180; ctx.moveTo(0, 0); ctx.arc(0, 0, R, a - h, a + h); ctx.closePath(); }
       ctx.save(); ctx.clip(); const k = pat.m * 32 * z * Math.SQRT2 / pat.px; ctx.scale(k, k); ctx.globalAlpha = 0.35 + 0.4 * p; ctx.fillStyle = pat.p; ctx.fillRect(-R / k, -R / k, 2 * R / k, 2 * R / k); ctx.restore(); ctx.beginPath(); }
     if (tg.shape === 'circle') { ctx.arc(0, 0, R, 0, 7); ctx.fill(); ctx.stroke(); ctx.beginPath(); ctx.arc(0, 0, R * p, 0, 7); ctx.fillStyle = fill2; ctx.fill(); }
     else if (tg.shape === 'cone') { const a = isoA(tg.a), h = tg.arc / 2 * Math.PI / 180; ctx.moveTo(0, 0); ctx.arc(0, 0, R, a - h, a + h); ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, R * p, a - h, a + h); ctx.closePath(); ctx.fillStyle = fill2; ctx.fill(); }
-    else if (tg.shape === 'line') { const a = isoA(tg.a); ctx.rotate(a); ctx.fillRect(0, -tg.w * 16 * z, R * p, tg.w * 32 * z); ctx.strokeRect(0, -tg.w * 16 * z, R, tg.w * 32 * z); }
+    else if (tg.shape === 'line') { const a = isoA(tg.a); ctx.rotate(a); const ww = tg.w * 32 * z * (GC ? Math.SQRT2 : 1); ctx.fillRect(0, -ww / 2, R * p, ww); ctx.strokeRect(0, -ww / 2, R, ww); }
     ctx.restore();
   }
 }
@@ -435,14 +448,14 @@ function drawProjectiles(emissive) {
   }
 }
 function drawGroundFx() {   // scorch marks, burning ground, frost — drawn on the floor under everyone
-  const cam = G.cam, z = cam.zoom;
+  const cam = GC || G.cam, z = cam.zoom;
   for (const e of G.effects) {
     if (e.kind !== 'scorch' && e.kind !== 'firepool' && e.kind !== 'frost' && e.kind !== 'rain') continue;
     const k = e.t / e.dur, [x, y] = cam.toScreen(e.x, e.y); const R = e.r * 32 * z * Math.SQRT2;
     const gid = e.kind === 'scorch' ? 'gr_scorch' : e.kind === 'frost' ? 'gr_frost' : null;   // сборка 66: подпалина и иней — листы полного комплекта
     if (gid && fxReady(gid) && fxGround.on) continue;   // в 3D — на плоскости у земли (drawGroundLayer)
     if (gid && fxReady(gid) && drawFxSheet(ctx, cam, { id: gid, x: e.x, y: e.y, t: e.t, dur: e.dur, size: e.r * (gid === 'gr_frost' ? 2.1 : 2.6) }, Math.min(1, (1 - k) * 4) * (gid === 'gr_frost' ? 0.55 : 1))) continue;   // иней полупрозрачный: под ним видно землю
-    ctx.save(); ctx.translate(x, y); ctx.scale(1, 0.5);
+    ctx.save(); ctx.translate(x, y); iso();
     if (e.kind === 'scorch') { const g = ctx.createRadialGradient(0, 0, 0, 0, 0, R); g.addColorStop(0, `rgba(20,10,5,${0.55 * (1 - k)})`); g.addColorStop(0.7, `rgba(40,15,5,${0.35 * (1 - k)})`); g.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, R, 0, 7); ctx.fill();
       ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = `rgba(255,110,30,${0.35 * (1 - k) * (0.6 + 0.4 * Math.sin(G.time * 9 + e.x))})`; for (let i = 0; i < 6; i++) { const a = i * 1.05 + e.x; ctx.beginPath(); ctx.arc(Math.cos(a) * R * 0.5, Math.sin(a) * R * 0.5, 3 * z, 0, 7); ctx.fill(); } }
     else if (e.kind === 'firepool') { ctx.globalCompositeOperation = 'lighter'; const f = Math.min(1, (1 - k) * 3); const g = ctx.createRadialGradient(0, 0, 0, 0, 0, R); g.addColorStop(0, `rgba(255,180,60,${0.55 * f})`); g.addColorStop(0.6, `rgba(255,80,20,${0.35 * f})`); g.addColorStop(1, 'rgba(255,40,0,0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, R * (0.95 + Math.sin(G.time * 12) * 0.05), 0, 7); ctx.fill(); }
@@ -452,9 +465,10 @@ function drawGroundFx() {   // scorch marks, burning ground, frost — drawn on 
   }
 }
 function drawEffects() {
-  const cam = G.cam, z = cam.zoom;
+  const cam = GC || G.cam, z = cam.zoom;
   for (const e of G.effects) {
     const k = e.t / e.dur;
+    if (GC && e.kind !== 'ring' && e.kind !== 'wave' && e.kind !== 'burst' && e.kind !== 'meteor' && e.kind !== 'aura') continue;   // на холст пола — только круги
     if (e.kind === 'sheet') { if (!isGroundFx(e) && !isUprightFx(e)) drawFxSheet(ctx, cam, e, e.fade ? 1 - Math.max(0, k - 0.7) / 0.3 : 1); continue; }   // П21: листы атак зверей (render/fxsheets.js)
     if (e.kind === 'beam') { drawBeamSheet(ctx, cam, e.id, e.x1, e.y1, 1.1, e.x2, e.y2, 1.0, e.t / 0.25, 1.4); continue; }   // сборка 66: цепная молния — лист-луч
     if (e.kind === 'hop') { const q = Math.min(1, k), x = e.x1 + (e.x2 - e.x1) * q, y = e.y1 + (e.y2 - e.y1) * q, [ax, ay] = cam.toScreen(e.x1, e.y1), [bx, by] = cam.toScreen(e.x2, e.y2);   // огонь/искра перескакивает на соседа по дуге
@@ -472,13 +486,13 @@ function drawEffects() {
     } else if (e.kind === 'ring' || e.kind === 'wave' || e.kind === 'burst') {
       const [x, y] = cam.toScreen(e.x, e.y, 0.05); const R = e.r * 32 * z * Math.SQRT2 * (e.kind === 'burst' ? 0.5 + Math.sqrt(k) * 0.6 : Math.sqrt(k));
       ctx.save(); ctx.translate(x, y); ctx.globalCompositeOperation = 'lighter';
-      if (e.kind === 'burst') {   // fireball-like explosion: bright core, rolling flame, shock ring
+      if (e.kind === 'burst' && !GC) {   // fireball-like explosion: bright core, rolling flame, shock ring
         ctx.save(); ctx.scale(1, 0.6); const g = ctx.createRadialGradient(0, -8 * z, 0, 0, -8 * z, R); g.addColorStop(0, `rgba(255,255,230,${0.95 * (1 - k)})`); g.addColorStop(0.25, `rgba(${e.c},${0.8 * (1 - k)})`); g.addColorStop(0.7, `rgba(${e.c},${0.25 * (1 - k)})`); g.addColorStop(1, `rgba(${e.c},0)`); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, -8 * z, R, 0, 7); ctx.fill(); ctx.restore();
         const g2 = ctx.createRadialGradient(0, -30 * z * k, 0, 0, -30 * z * k, R * 0.6); g2.addColorStop(0, `rgba(255,220,150,${0.6 * (1 - k)})`); g2.addColorStop(1, 'rgba(255,120,40,0)'); ctx.fillStyle = g2; ctx.beginPath(); ctx.arc(0, -30 * z * k, R * 0.6, 0, 7); ctx.fill();
       }
-      ctx.scale(1, 0.5);
+      if (onFloor()) { iso();
       ctx.strokeStyle = `rgba(${e.c},${0.9 * (1 - k)})`; ctx.lineWidth = (e.kind === 'wave' ? 16 : 6) * z; ctx.beginPath(); ctx.arc(0, 0, R, 0, 7); ctx.stroke();
-      ctx.strokeStyle = `rgba(255,255,255,${0.6 * (1 - k)})`; ctx.lineWidth = 2 * z; ctx.beginPath(); ctx.arc(0, 0, R, 0, 7); ctx.stroke();
+      ctx.strokeStyle = `rgba(255,255,255,${0.6 * (1 - k)})`; ctx.lineWidth = 2 * z; ctx.beginPath(); ctx.arc(0, 0, R, 0, 7); ctx.stroke(); }
       ctx.restore(); ctx.globalCompositeOperation = 'source-over';
     } else if (e.kind === 'shatter') {   // ice crystals bursting out of the ground
       const [x, y] = cam.toScreen(e.x, e.y); ctx.save(); ctx.translate(x, y); ctx.globalCompositeOperation = 'lighter';
@@ -504,12 +518,13 @@ function drawEffects() {
     } else if (e.kind === 'meteor') {   // falling rock of fire
       const p = Math.min(1, k); const [x, y] = cam.toScreen(e.x, e.y, (1 - p) * 9); const [gx, gy] = cam.toScreen(e.x, e.y);
       ctx.globalCompositeOperation = 'lighter';
-      ctx.save(); ctx.translate(gx, gy); ctx.scale(1, 0.5); ctx.strokeStyle = `rgba(255,120,40,${0.4 + p * 0.5})`; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(0, 0, e.r * 45 * z * (1.2 - p * 0.2), 0, 7); ctx.stroke(); ctx.restore();
+      if (onFloor()) { ctx.save(); ctx.translate(gx, gy); iso(); ctx.strokeStyle = `rgba(255,120,40,${0.4 + p * 0.5})`; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(0, 0, e.r * 45 * z * (1.2 - p * 0.2), 0, 7); ctx.stroke(); ctx.restore(); }
+      if (GC) continue;
       const g = ctx.createRadialGradient(x, y, 0, x, y, 40 * z); g.addColorStop(0, 'rgba(255,250,220,1)'); g.addColorStop(0.3, 'rgba(255,150,40,0.9)'); g.addColorStop(1, 'rgba(255,50,0,0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, 40 * z, 0, 7); ctx.fill();
       ctx.strokeStyle = 'rgba(255,140,50,0.6)'; ctx.lineWidth = 14 * z; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - 60 * z, y - 120 * z); ctx.stroke();
       ctx.globalCompositeOperation = 'source-over';
     } else if (e.kind === 'aura') {   // war cry
-      const pl = G.player; const [x, y] = cam.toScreen(pl.x, pl.y); ctx.save(); ctx.translate(x, y); ctx.scale(1, 0.5); ctx.globalCompositeOperation = 'lighter';
+      if (!onFloor()) continue; const pl = G.player; const [x, y] = cam.toScreen(pl.x, pl.y); ctx.save(); ctx.translate(x, y); iso(); ctx.globalCompositeOperation = 'lighter';
       for (let i = 0; i < 3; i++) { const kk = (k * 3 + i / 3) % 1; ctx.strokeStyle = `rgba(255,200,80,${0.7 * (1 - kk)})`; ctx.lineWidth = 5 * z; ctx.beginPath(); ctx.arc(0, 0, 20 * z + kk * 110 * z, 0, 7); ctx.stroke(); }
       ctx.restore(); ctx.globalCompositeOperation = 'source-over';
     } else if (e.kind === 'bolt') {
@@ -634,9 +649,9 @@ function drawTexts() {
   ctx.globalAlpha = 1;
 }
 function drawInteractMarker() {
-  const it = G.focus; if (!it) return;
-  const [x, y] = G.cam.toScreen(it.x, it.y); const z = G.cam.zoom; const p = 1 + Math.sin(G.time * 5) * 0.08;
-  ctx.save(); ctx.translate(x, y); ctx.scale(1, 0.5); ctx.strokeStyle = 'rgba(255,215,120,0.9)'; ctx.lineWidth = 2.5; ctx.setLineDash([8, 6]); ctx.lineDashOffset = -G.time * 20;
+  const it = G.focus; if (!it || !onFloor()) return; const cam = GC || G.cam;
+  const [x, y] = cam.toScreen(it.x, it.y); const z = cam.zoom; const p = 1 + Math.sin(G.time * 5) * 0.08;
+  ctx.save(); ctx.translate(x, y); iso(); ctx.strokeStyle = 'rgba(255,215,120,0.9)'; ctx.lineWidth = 2.5; ctx.setLineDash([8, 6]); ctx.lineDashOffset = -G.time * 20;
   ctx.beginPath(); ctx.arc(0, 0, 34 * z * p, 0, 7); ctx.stroke(); ctx.restore();
 }
 
@@ -647,16 +662,17 @@ function drawGuide() { drawMoveTo(); drawArrow(G.guide, 'gv', '255,210,90'); dra
 function drawBeacon(t) {
   const P = G.player; if (!t || !P || P.dead || t.type === 'portal' || t.type === 'npc' || G.zoneId !== 'catacombs' || t.done || !G.zone.inter.includes(t)) return;
   const d = Math.hypot(t.x - P.x, t.y - P.y); if (d > 11) return;
-  const cam = G.cam, z = cam.zoom, b = Math.abs(Math.sin(G.time * 3.2)) * 14 * z, [gx, gy] = cam.toScreen(t.x, t.y), [x, y] = cam.toScreen(t.x, t.y, 2.3);
-  ctx.save(); ctx.translate(gx, gy); ctx.scale(1, 0.5); const p = (G.time * 0.9) % 1;
-  ctx.strokeStyle = `rgba(255,215,90,${0.9 * (1 - p)})`; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(0, 0, (26 + 34 * p) * z, 0, 7); ctx.stroke(); ctx.restore();
+  const cam = GC || G.cam, z = cam.zoom, b = Math.abs(Math.sin(G.time * 3.2)) * 14 * z, [gx, gy] = cam.toScreen(t.x, t.y), [x, y] = cam.toScreen(t.x, t.y, 2.3);
+  if (onFloor()) { ctx.save(); ctx.translate(gx, gy); iso(); const p = (G.time * 0.9) % 1;
+  ctx.strokeStyle = `rgba(255,215,90,${0.9 * (1 - p)})`; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(0, 0, (26 + 34 * p) * z, 0, 7); ctx.stroke(); ctx.restore(); }
+  if (GC) return;
   ctx.save(); ctx.translate(x, y - b); ctx.shadowColor = '#ffb020'; ctx.shadowBlur = 14; ctx.fillStyle = '#ffd24a'; ctx.strokeStyle = '#3a2400'; ctx.lineWidth = 3;
   ctx.beginPath(); ctx.moveTo(-15 * z, -16 * z); ctx.lineTo(15 * z, -16 * z); ctx.lineTo(0, 6 * z); ctx.closePath(); ctx.stroke(); ctx.fill(); ctx.restore();
 }
 // М27: куда бежит герой после касания экрана — сжимающееся кольцо на земле
 function drawMoveTo() {
-  const m = G.moveTo; if (!m) return; const z = G.cam.zoom, [x, y] = G.cam.toScreen(m.x, m.y), p = ((G.time - m.t) * 1.6) % 1;
-  ctx.save(); ctx.translate(x, y); ctx.scale(1, 0.5); ctx.strokeStyle = `rgba(150,230,255,${0.9 - p * 0.5})`; ctx.lineWidth = 3;
+  const m = G.moveTo; if (!m || !onFloor()) return; const cam = GC || G.cam, z = cam.zoom, [x, y] = cam.toScreen(m.x, m.y), p = ((G.time - m.t) * 1.6) % 1;
+  ctx.save(); ctx.translate(x, y); iso(); ctx.strokeStyle = `rgba(150,230,255,${0.9 - p * 0.5})`; ctx.lineWidth = 3;
   ctx.beginPath(); ctx.arc(0, 0, (22 - 12 * p) * z, 0, 7); ctx.stroke(); ctx.restore();
 }
 function drawArrow(t, key, rgb, off = 0) {
@@ -694,16 +710,17 @@ function drawBubbles() {   // реплики Эха и других NPC над �
   }
 }
 function drawPlates() {
-  const cam = G.cam, z = cam.zoom;
+  const cam = GC || G.cam, z = cam.zoom;
   for (const it of G.zone.inter) {
-    if (it.glow && !it.hidden) { const [sx, sy] = cam.toScreen(it.x, it.y); ctx.save(); ctx.translate(sx, sy); ctx.scale(1, 0.5); ctx.globalCompositeOperation = 'lighter'; const p = 0.45 + Math.sin(G.time * 3 + it.x) * 0.2; ctx.strokeStyle = `rgba(120,230,255,${p})`; ctx.lineWidth = 3; ctx.setLineDash([6, 5]); ctx.beginPath(); ctx.arc(0, 0, 26 * z, 0, 7); ctx.stroke(); ctx.fillStyle = `rgba(120,230,255,${p * 0.25})`; ctx.fill(); ctx.restore(); ctx.font = `bold ${Math.round(16 * z)}px Georgia`; ctx.textAlign = 'center'; ctx.fillStyle = `rgba(160,240,255,${p + 0.2})`; ctx.fillText('+', sx, sy + 5 * z); }
+    if (it.glow && !it.hidden && onFloor()) { const [sx, sy] = cam.toScreen(it.x, it.y); ctx.save(); ctx.translate(sx, sy); iso(); ctx.globalCompositeOperation = 'lighter'; const p = 0.45 + Math.sin(G.time * 3 + it.x) * 0.2; ctx.strokeStyle = `rgba(120,230,255,${p})`; ctx.lineWidth = 3; ctx.setLineDash([6, 5]); ctx.beginPath(); ctx.arc(0, 0, 26 * z, 0, 7); ctx.stroke(); ctx.fillStyle = `rgba(120,230,255,${p * 0.25})`; ctx.fill(); ctx.restore(); if (!GC) { ctx.font = `bold ${Math.round(16 * z)}px Georgia`; ctx.textAlign = 'center'; ctx.fillStyle = `rgba(160,240,255,${p + 0.2})`; ctx.fillText('+', sx, sy + 5 * z); } }
     if (!it.plate || it.hidden) continue;
     const [x, y] = cam.toScreen(it.x, it.y);
     // glowing ground ring
-    ctx.save(); ctx.translate(x, y); ctx.scale(1, 0.5); ctx.globalCompositeOperation = 'lighter';
+    if (onFloor()) { ctx.save(); ctx.translate(x, y); iso(); ctx.globalCompositeOperation = 'lighter';
     const p = 0.5 + Math.sin(G.time * 3) * 0.2;
     ctx.strokeStyle = `rgba(255,205,90,${p})`; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(0, 0, 46 * z, 0, 7); ctx.stroke(); ctx.restore();
-    ctx.globalCompositeOperation = 'source-over';
+    ctx.globalCompositeOperation = 'source-over'; }
+    if (GC) continue;
     const locked = !lvlOk(it.reqLevel) || it.locked;
     // сборка 47: табличка не закрывает порталы и алтари — она лежит под светящимся кругом, у земли, мельче и полупрозрачная.
     // Подробности (уровень, «выберите навык») — только когда герой рядом (до 5 м); издалека — одно название
@@ -724,6 +741,7 @@ function drawBlades() {
   const b = G.run && G.run.blades; if (!b || !(G.run.boons || []).includes('blades')) return;
   const z = G.cam.zoom; ctx.globalCompositeOperation = 'lighter';
   for (const [x, y, a] of b) {
+    if (SV.hiddenBehind(G.cam, x, y)) continue;   // ОС-14: в 3D клинок за спиной героя не рисуем поверх него
     const [sx, sy] = G.cam.toScreen(x, y, 1.0);
     ctx.save(); ctx.translate(sx, sy); ctx.rotate(a * 3);
     const g = ctx.createRadialGradient(0, 0, 0, 0, 0, 22 * z); g.addColorStop(0, 'rgba(255,255,255,0.9)'); g.addColorStop(0.4, 'rgba(200,190,255,0.5)'); g.addColorStop(1, 'rgba(120,90,255,0)');

@@ -56,7 +56,7 @@ export function fxBillboard(fx, alpha, cam) {
   const S = sheets.get(real(fx.id)); if (!S) return null;
   const k = fx.cyc ? fx.t / fx.cyc : fx.t / fx.dur, [sx, sy] = cellOf(S, k);
   const flip = fx.ex != null && cam.toScreen(fx.ex, fx.ey)[0] > cam.toScreen(fx.x, fx.y)[0];
-  return { S: { img: imgOf(S, real(fx.id), fx.realm), C: S.C, anchor: S.anchor }, sx, sy, x: fx.x, y: fx.y, z: fx.z, size: fx.size || S.meters, alpha, flip, add: fx.add };
+  return { S: { img: imgOf(S, real(fx.id), fx.realm), C: S.C, anchor: S.anchor }, sx, sy, x: fx.x, y: fx.y, z: fx.z, size: fx.size || S.meters, alpha, flip, add: fx.add, back: BLAST_FX.has(real(fx.id)) && k > 0.18 };   // взрыв: после вспышки уходит за цель — моб виден в огне, а не за «шторкой»
 }
 export function statusBillboard(id, x, y, z, size, alpha = 1, k) {
   const S = sheets.get(real(id)); if (!S) return null; const [sx, sy] = cellOf(S, k ?? (G.time / S.dur) % 1);
@@ -153,8 +153,8 @@ export function drawSheetAt(ctx, ids, k, x, y, w, o = {}) {
   const [sx, sy] = cellOf(S, S.loop ? ((k % 1) + 1) % 1 : Math.max(0, Math.min(0.999, k))), C = S.C;
   ctx.save(); if (o.alpha != null) ctx.globalAlpha = o.alpha; ctx.translate(x, y); if (o.ang) ctx.rotate(o.ang); if (o.flip) ctx.scale(-1, 1);
   if (S.view === 'ground') ctx.scale(1, 0.45);   // лист «на полу» сбоку — сплющенный эллипс
-  const an = S.view === 'side' && o.anchor ? o.anchor : S.anchor;   // снаряд сбоку (hw_*) — точка привязки в голове снаряда, а не на полу
-  ctx.drawImage(S.img, sx, sy, C, C, -w * an[0], -w * an[1], w, w); ctx.restore(); return true;
+  const an = (S.view === 'side' || o.force) && o.anchor ? o.anchor : S.anchor;   // снаряд сбоку (hw_*) — точка привязки в голове снаряда, а не на полу
+  const h = o.h || w; ctx.drawImage(S.img, sx, sy, C, C, -w * an[0], -h * an[1], w, h); ctx.restore(); return true;   // o.h — высота кадра (луч молнии: длина × толщина)
 }
 // состояние на существе (оглушение над головой, кровь, корни, ярость): цикл по времени игры; k — доля разового листа (лёд вокруг замороженного)
 export function drawStatusSheet(ctx, cam, id, x, y, z, size, alpha = 1, k) {
