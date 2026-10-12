@@ -24,8 +24,8 @@ function scalePlan(p) {
     portals: Object.fromEntries(Object.entries(p.portals).map(([k, v]) => [k, sp(v)])), roads: p.roads.map(r => ({ ...r, w: r.w + (r.main ? 0.5 : 0.3), pts: r.pts.map(sp) })), start: sp(p.start) };
 }
 // коллайдеры мелочи (как в js/world/zone.js PROP): число — радиус, пара — полуоси коробки
-const COL = { cart: [1.0, 0.55], cart_load: [1.0, 0.55], signpost: 0.15, barrel_stack: [0.9, 0.55], log_stack: [1.35, 0.6], plank_pile: [1.3, 0.35], pumpkins: 0.45, tool_stand: [0.6, 0.25], barrel: 0.3, crate: 0.35, sacks: 0.3, lamp: 0.12, well: 0.62, board: 0.3, banner: 0.15, table: 0.6, dummy: 0.3, target: 0.35, hay: 0.45, tree_0: 0.3, tree_1: 0.3, grave: 0.2, deadtree: 0.25, shrine: 1.3, crystals: 0.3, rocks: 0.35, logpile: [0.7, 0.4], bench: [0.75, 0.22], weapon_rack: [0.6, 0.18], forge: [0.75, 0.6], anvil: [0.55, 0.38], fortune_tent: [1.5, 1.3], bonfire: 0.55 };
-const KEEP = new Set(['well', 'board', 'banner', 'shrine', 'forge', 'anvil', 'fortune_tent', 'portal', 'caravan_wagon', 'bonfire']);   // то, что не убирается ради зазора
+const COL = { cart: [1.0, 0.55], cart_load: [1.0, 0.55], signpost: 0.15, barrel_stack: [0.9, 0.55], log_stack: [1.35, 0.6], plank_pile: [1.3, 0.35], pumpkins: 0.45, tool_stand: [0.6, 0.25], barrel: 0.3, crate: 0.35, sacks: 0.3, lamp: 0.12, well: 0.62, board: 0.3, fame_board: 0.35, banner: 0.15, table: 0.6, dummy: 0.3, target: 0.35, hay: 0.45, tree_0: 0.3, tree_1: 0.3, grave: 0.2, deadtree: 0.25, shrine: 1.3, crystals: 0.3, rocks: 0.35, logpile: [0.7, 0.4], bench: [0.75, 0.22], weapon_rack: [0.6, 0.18], forge: [0.75, 0.6], anvil: [0.55, 0.38], fortune_tent: [1.5, 1.3], bonfire: 0.55 };
+const KEEP = new Set(['well', 'board', 'fame_board', 'banner', 'shrine', 'forge', 'anvil', 'fortune_tent', 'portal', 'caravan_wagon', 'bonfire']);   // то, что не убирается ради зазора
 const GAP = 1.8;   // свободный проход между препятствиями (герой ≈ 0,85 м в ширину + запас); сборка 18: шире — просторнее
 
 export const PLAN = {
@@ -224,6 +224,7 @@ export function generateVillage(plan0 = PLAN) {
   const SX = 3.1;
   const AX = church.x;
   put('shrine', AX + 4.3, CY + 1.2, { s: 1.35 });   // сборка 55: по просьбе — на прежнем месте
+  put('fame_board', CX + SQ.hw - 0.2, CY + SQ.hh - 2.2);   // ладдер (12 октября): Доска славы — юго-восточный угол площади, ниже восточной улицы, проходы свободны
   const hwsign = [CX + 0.3 - SX, CY + 0.3 + SX];
   for (const [sx, sy] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) put('lamp', CX + sx * (SQ.hw - 0.6), CY + sy * (SQ.hh - 0.5));
   // сборка 55: лавочка — за старостой (дальше от камеры), у края площади, где начинается трава между таверной и церковью

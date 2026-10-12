@@ -122,7 +122,7 @@ export async function loadZone(id, how = {}) {
     const json = big ? generateVillage() : gen || structuredClone(await loadJSON(ZONES[id])); const B = big ? json.big : null;
     if (id === 'town' && depthsUnlocked()) json.objects.push({ t: 'depths', x: B ? B.depths[0] : 13.5, y: B ? B.depths[1] : 8.5, rot: B ? B.depthsRot : undefined });
     if (id === 'town' && P.tutorial.prologue) json.objects.push({ t: 'castle', x: B ? B.castle[0] : 18.5, y: B ? B.castle[1] : 7.5 }, { t: 'survportal', x: B ? B.survportal[0] : 16.5, y: B ? B.survportal[1] : 12.5 }, { t: 'wildportal', realm: 'fjord', x: B ? B.fjord[0] : 26.4, y: B ? B.fjord[1] : 19.6 }, { t: 'wildportal', realm: 'forest', x: B ? B.forest[0] : 25.5, y: B ? B.forest[1] : 34.6 });
-    if (id === 'town' && !B) { const bd = json.objects.find(o => o.t === 'board'); if (bd) { bd.x = 28.4; bd.y = 22.4; } json.objects.push({ t: 'wheel', x: 22.6, y: 28.0 }); }
+    if (id === 'town' && !B) { const bd = json.objects.find(o => o.t === 'board'); if (bd) { bd.x = 28.4; bd.y = 22.4; } json.objects.push({ t: 'wheel', x: 22.6, y: 28.0 }, { t: 'fame_board', x: 30.6, y: 22.4 }); }
     if (id === 'town' && !B) json.objects.push({ t: 'hwsign', x: 31.2, y: 25.2 }, { t: 'banner', x: 20.0, y: 15.6 }, { t: 'banner', x: 17.6, y: 22.2 }, { t: 'statue', x: 23.6, y: 11.6 }, { t: 'weapon_rack', x: 31.0, y: 16.2 }, { t: 'crystals', x: 33.6, y: 29.6 });
     if (id === 'town' && B) json.objects.push({ t: 'hwsign', x: B.hwsign[0], y: B.hwsign[1] });
     if (id === 'town' && B) json.objects.push({ t: 'wildportal', realm: 'bones', x: B.bones[0], y: B.bones[1] });   // Костяные пустоши: пока открыты всегда (вход со 2 ур., для проверки)
@@ -364,6 +364,7 @@ export function interact(it) {
       return;
     case 'npc': { if ((it.id === 'fortune' && earlyLock('extra')) || (it.id === 'merchant' && earlyLock('shop'))) { lockToast('extra'); return; } const n = G.npcs.find(x => x.id === it.id); if (n) n.talkT = 4; bus.emit('openNPC', it.id); return; }
     case 'board': bus.emit('openBoard'); return;
+    case 'ladder': bus.emit('openLadder'); return;
     case 'rift': CT.startRift(it); return;
     case 'herospath': { if (!lvlOk(2) && !(Q.current() && Q.current().id === 'hw_try')) { bus.emit('toast', { text: 'Летопись битв — со 2 уровня', sub: 'Сначала пройдите пролог и немного прокачайтесь', kind: 'warn' }); bus.emit('sfx', 'deny'); return; } const g = gate('hw', 1); if (g) { bus.emit('toast', { ...g, kind: 'warn' }); bus.emit('sfx', 'deny'); return; } bus.emit('openHeroPath'); return; }
     case 'wheel': if (earlyLock('extra')) { lockToast('extra'); return; } bus.emit('openWheel'); return;

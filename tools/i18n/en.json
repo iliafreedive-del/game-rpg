@@ -2771,5 +2771,21 @@
  "Заменить за рекламу, раз в день": "Replace for an ad, once a day",
  "Задание заменено": "Quest replaced",
  "<div class=\"bl-ic\">✦</div><div class=\"tx\"><b>Сила источника</b><div>+5% золота и опыта, +3% к выпадению вещей — {0} минут</div><div class=\"muted\">{1}</div></div>": "<div class=\"bl-ic\">✦</div><div class=\"tx\"><b>Wellspring Power</b><div>+5% gold and XP, +3% item drops — {0} minutes</div><div class=\"muted\">{1}</div></div>",
- "2026-10-12 · сборка 66": "2026-10-12 · build 66"
+ "2026-10-12 · сборка 66": "2026-10-12 · build 66",
+ "Глубины катакомб · лучший этаж": "Catacomb Depths · deepest floor",
+ "этаж {0}": "floor {0}",
+ "Жатва Бездны · дольше всех": "Abyss Harvest · longest run",
+ "Круги": "Circles",
+ "Круги Бездны · самый высокий пройденный": "Abyss Circles · highest cleared",
+ "круг {0}": "circle {0}",
+ "Уровень": "Level",
+ "Уровень героя": "Hero level",
+ "Неделя": "Week",
+ "Испытание недели · быстрее всех": "Weekly Trial · fastest",
+ "Доска славы": "Hall of Fame",
+ "<span>Ваш рекорд</span><b>{0}</b>": "<span>Your record</span><b>{0}</b>",
+ " (вы)": " (you)",
+ "Пока в таблице никого нет — станьте первым!": "Nobody on the board yet — be the first!",
+ "Таблица игроков появится в Яндекс Играх.": "The player leaderboard will appear on Yandex Games.",
+ "<small>Рекорды записываются сами, когда вы их бьёте. Таблица обновляется раз в минуту.</small>": "<small>Records are saved automatically when you beat them. The board refreshes once a minute.</small>"
 }

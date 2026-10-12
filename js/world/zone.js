@@ -22,7 +22,7 @@ const PROP = {
   crystals: { spr: 'crystals', r: 0.3, light: { r: 3.2, c: [190, 120, 255], flicker: 0.3 } },
   banner: { spr: 'banner', r: 0.15, tall: 1 }, bookshelf: { spr: 'bookshelf', box: [0.55, 0.2] }, weapon_rack: { spr: 'weapon_rack', box: [0.6, 0.18] }, weapon_rack_bow: { spr: 'weapon_rack', box: [0.6, 0.18], model: 'weapon_rack_bow' }, weapon_rack_staff: { spr: 'weapon_rack', box: [0.6, 0.18], model: 'weapon_rack_staff' }, cabinet: { spr: 'bookshelf', box: [0.52, 0.24], model: 'cabinet' },
   statue: { spr: 'statue', r: 0.42, tall: 1 }, throne: { spr: 'throne', r: 0.55 }, rug: { spr: 'rug', flat: 1 }, deadroot: { spr: 'deadtree', r: 0.25, tall: 1 }, deadtree: { spr: 'deadtree', r: 0.25, tall: 1 },
-  board_dungeon: { spr: 'board', r: 0.3 },
+  board_dungeon: { spr: 'board', r: 0.3 }, fame_board: { spr: 'board', r: 0.35, model: 'fame_board' },
   well: { spr: 'well', r: 0.62 },
   runebed: { spr: 'runebed', r: 1.1, light: { r: 5, c: [110, 230, 255], flicker: 0.25, z: 0.8 } }, forge: { spr: 'forge', box: [0.75, 0.6], light: { r: 4, c: [255, 120, 40], flicker: 1, dx: 0, dy: 0.2 } },
   stall: { spr: 'stall', box: [0.95, 0.45] }, market_tent: { spr: 'stall', box: [1.8, 1.25], model: 'market_tent' }, lamp: { spr: 'lamp', tall: 1, light: { r: 5.5, c: [255, 190, 110], flicker: 0.5, z: 1.9 } },   // правки мамы (М18): сквозь фонарь можно пройти — герой цеплялся за столб
@@ -288,6 +288,9 @@ export class Zone {
         this.prop({ ...o, t: 'board_dungeon' });
         this.addLight(o.x, o.y, { r: 4, c: [255, 210, 110], flicker: 0.2, z: 1.2 });
         this.inter.push({ id: 'board', type: 'board', x: o.x, y: o.y, r: 2.0, label: 'Доска заданий', plate: 'Доска заданий', panel: true });
+      } else if (o.t === 'fame_board') {   // ладдер (12 октября): Доска славы — рекорды игроков (js/game/ladder.js)
+        this.prop(o); this.addLight(o.x, o.y, { r: 4, c: [255, 200, 90], flicker: 0.15, z: 1.6 });
+        this.inter.push({ id: 'ladder', type: 'ladder', x: o.x, y: o.y + 0.3, r: 2.0, label: 'Доска славы', plate: 'Доска славы' });
       } else if (o.t === 'shrine') {
         this.prop(o);
         this.inter.push({ id: 'shrine', type: 'shrine', x: o.x, y: o.y, r: 2.3, label: 'Источник силы', plate: 'Источник силы' });

@@ -2771,5 +2771,21 @@
  "Заменить за рекламу, раз в день": "Gegen Werbung tauschen, einmal pro Tag",
  "Задание заменено": "Aufgabe ersetzt",
  "<div class=\"bl-ic\">✦</div><div class=\"tx\"><b>Сила источника</b><div>+5% золота и опыта, +3% к выпадению вещей — {0} минут</div><div class=\"muted\">{1}</div></div>": "<div class=\"bl-ic\">✦</div><div class=\"tx\"><b>Kraft des Quells</b><div>+5 % Gold und EP, +3 % Item-Drops – {0} Minuten</div><div class=\"muted\">{1}</div></div>",
- "2026-10-12 · сборка 66": "2026-10-12 · Build 66"
+ "2026-10-12 · сборка 66": "2026-10-12 · Build 66",
+ "Глубины катакомб · лучший этаж": "Katakombentiefen · tiefste Ebene",
+ "этаж {0}": "Ebene {0}",
+ "Жатва Бездны · дольше всех": "Ernte des Abgrunds · längster Lauf",
+ "Круги": "Kreise",
+ "Круги Бездны · самый высокий пройденный": "Kreise des Abgrunds · höchster bezwungener",
+ "круг {0}": "Kreis {0}",
+ "Уровень": "Stufe",
+ "Уровень героя": "Heldenstufe",
+ "Неделя": "Woche",
+ "Испытание недели · быстрее всех": "Wochenprüfung · am schnellsten",
+ "Доска славы": "Ruhmeshalle",
+ "<span>Ваш рекорд</span><b>{0}</b>": "<span>Dein Rekord</span><b>{0}</b>",
+ " (вы)": " (du)",
+ "Пока в таблице никого нет — станьте первым!": "Noch niemand auf der Tafel — sei der Erste!",
+ "Таблица игроков появится в Яндекс Играх.": "Die Spielerrangliste erscheint auf Yandex Games.",
+ "<small>Рекорды записываются сами, когда вы их бьёте. Таблица обновляется раз в минуту.</small>": "<small>Rekorde werden automatisch gespeichert, wenn du sie brichst. Die Tafel wird einmal pro Minute aktualisiert.</small>"
 }

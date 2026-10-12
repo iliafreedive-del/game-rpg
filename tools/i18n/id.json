@@ -2771,5 +2771,21 @@
  "Заменить за рекламу, раз в день": "Ganti dengan iklan, sekali sehari",
  "Задание заменено": "Misi diganti",
  "<div class=\"bl-ic\">✦</div><div class=\"tx\"><b>Сила источника</b><div>+5% золота и опыта, +3% к выпадению вещей — {0} минут</div><div class=\"muted\">{1}</div></div>": "<div class=\"bl-ic\">✦</div><div class=\"tx\"><b>Kekuatan Mata Air</b><div>+5% emas dan XP, +3% peluang item — {0} menit</div><div class=\"muted\">{1}</div></div>",
- "2026-10-12 · сборка 66": "2026-10-12 · versi 66"
+ "2026-10-12 · сборка 66": "2026-10-12 · versi 66",
+ "Глубины катакомб · лучший этаж": "Kedalaman Katakomba · lantai terdalam",
+ "этаж {0}": "lantai {0}",
+ "Жатва Бездны · дольше всех": "Panen Jurang · lari terlama",
+ "Круги": "Lingkaran",
+ "Круги Бездны · самый высокий пройденный": "Lingkaran Jurang · tertinggi yang ditaklukkan",
+ "круг {0}": "lingkaran {0}",
+ "Уровень": "Level",
+ "Уровень героя": "Level pahlawan",
+ "Неделя": "Minggu",
+ "Испытание недели · быстрее всех": "Ujian Mingguan · tercepat",
+ "Доска славы": "Papan Kejayaan",
+ "<span>Ваш рекорд</span><b>{0}</b>": "<span>Rekor Anda</span><b>{0}</b>",
+ " (вы)": " (Anda)",
+ "Пока в таблице никого нет — станьте первым!": "Belum ada yang tercatat — jadilah yang pertama!",
+ "Таблица игроков появится в Яндекс Играх.": "Papan peringkat pemain akan muncul di Yandex Games.",
+ "<small>Рекорды записываются сами, когда вы их бьёте. Таблица обновляется раз в минуту.</small>": "<small>Rekor tersimpan otomatis saat Anda memecahkannya. Papan diperbarui sekali per menit.</small>"
 }

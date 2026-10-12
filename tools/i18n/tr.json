@@ -2771,5 +2771,21 @@
  "Заменить за рекламу, раз в день": "Reklam karşılığı değiştir, günde bir kez",
  "Задание заменено": "Görev değiştirildi",
  "<div class=\"bl-ic\">✦</div><div class=\"tx\"><b>Сила источника</b><div>+5% золота и опыта, +3% к выпадению вещей — {0} минут</div><div class=\"muted\">{1}</div></div>": "<div class=\"bl-ic\">✦</div><div class=\"tx\"><b>Pınarın Gücü</b><div>Altın ve TP'ye +%25, eşya düşmesine +%15 — {0} dakika</div><div class=\"muted\">{1}</div></div>",
- "2026-10-12 · сборка 66": "2026-10-12 · sürüm 66"
+ "2026-10-12 · сборка 66": "2026-10-12 · sürüm 66",
+ "Глубины катакомб · лучший этаж": "Yeraltı Derinlikleri · en derin kat",
+ "этаж {0}": "{0}. kat",
+ "Жатва Бездны · дольше всех": "Uçurum Hasadı · en uzun koşu",
+ "Круги": "Çemberler",
+ "Круги Бездны · самый высокий пройденный": "Uçurum Çemberleri · geçilen en yüksek",
+ "круг {0}": "{0}. çember",
+ "Уровень": "Seviye",
+ "Уровень героя": "Kahraman seviyesi",
+ "Неделя": "Hafta",
+ "Испытание недели · быстрее всех": "Haftalık Sınav · en hızlı",
+ "Доска славы": "Şöhret Panosu",
+ "<span>Ваш рекорд</span><b>{0}</b>": "<span>Rekorunuz</span><b>{0}</b>",
+ " (вы)": " (siz)",
+ "Пока в таблице никого нет — станьте первым!": "Tabloda henüz kimse yok — ilk siz olun!",
+ "Таблица игроков появится в Яндекс Играх.": "Oyuncu sıralaması Yandex Games'te görünecek.",
+ "<small>Рекорды записываются сами, когда вы их бьёте. Таблица обновляется раз в минуту.</small>": "<small>Rekorlar kırdığınızda kendiliğinden kaydedilir. Tablo dakikada bir yenilenir.</small>"
 }

@@ -2771,5 +2771,21 @@
  "Заменить за рекламу, раз в день": "Trocar por um anúncio, uma vez por dia",
  "Задание заменено": "Missão trocada",
  "<div class=\"bl-ic\">✦</div><div class=\"tx\"><b>Сила источника</b><div>+5% золота и опыта, +3% к выпадению вещей — {0} минут</div><div class=\"muted\">{1}</div></div>": "<div class=\"bl-ic\">✦</div><div class=\"tx\"><b>Poder da Fonte</b><div>+5% de ouro e XP, +3% de drop de itens — {0} minutos</div><div class=\"muted\">{1}</div></div>",
- "2026-10-12 · сборка 66": "2026-10-12 · versão 66"
+ "2026-10-12 · сборка 66": "2026-10-12 · versão 66",
+ "Глубины катакомб · лучший этаж": "Profundezas · andar mais fundo",
+ "этаж {0}": "andar {0}",
+ "Жатва Бездны · дольше всех": "Colheita do Abismo · corrida mais longa",
+ "Круги": "Círculos",
+ "Круги Бездны · самый высокий пройденный": "Círculos do Abismo · o mais alto vencido",
+ "круг {0}": "círculo {0}",
+ "Уровень": "Nível",
+ "Уровень героя": "Nível do herói",
+ "Неделя": "Semana",
+ "Испытание недели · быстрее всех": "Desafio semanal · o mais rápido",
+ "Доска славы": "Mural da Fama",
+ "<span>Ваш рекорд</span><b>{0}</b>": "<span>Seu recorde</span><b>{0}</b>",
+ " (вы)": " (você)",
+ "Пока в таблице никого нет — станьте первым!": "Ninguém no mural ainda — seja o primeiro!",
+ "Таблица игроков появится в Яндекс Играх.": "O ranking de jogadores aparecerá no Yandex Games.",
+ "<small>Рекорды записываются сами, когда вы их бьёте. Таблица обновляется раз в минуту.</small>": "<small>Os recordes são salvos sozinhos quando você os bate. O mural atualiza uma vez por minuto.</small>"
 }

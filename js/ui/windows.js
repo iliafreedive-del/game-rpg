@@ -33,6 +33,7 @@ import { adButton } from './adbtn.js';
 import { openWheel, wheelReady } from './wheel.js';
 import * as SV from '../game/survival.js';
 import * as SE from '../game/season.js';
+import { getBoard } from '../game/ladder.js';
 import * as HU from '../game/hunts.js';
 import { huntReward } from '../data/hunts.js';
 import { MEMORIES, SEALS } from '../data/story.js';
@@ -873,6 +874,42 @@ W.board = () => {
     }
   }).live = true;
 };
+
+// ---------------------------------------------------------------- ладдер (12 октября): Доска славы — рекорды игроков из таблиц Яндекс Игр
+const LAD = [
+  ['depthsBest', 'Глубины', 'Глубины катакомб · лучший этаж', s => `этаж ${s}`],
+  ['harvestBest', 'Жатва', 'Жатва Бездны · дольше всех', s => mmssT(s)],
+  ['abyssCircle', 'Круги', 'Круги Бездны · самый высокий пройденный', s => `круг ${s}`],
+  ['heroLevel', 'Уровень', 'Уровень героя', s => `ур. ${s}`],
+  ['weeklyDepths', 'Неделя', 'Испытание недели · быстрее всех', s => mmssT(s / 1000)],
+];
+W.ladder = () => {
+  let tab = W._ladTab || 'depthsBest'; const got = {};   // got[tab]: список, null (нет таблицы) или 'wait'
+  modal('Доска славы', 'md', b => {
+    const P = G.profile, T = LAD.find(t => t[0] === tab), WS = SE.weeklyState();
+    const mine = { depthsBest: (P.depths && P.depths.best) || 0, harvestBest: Math.floor((P.surv && P.surv.best) || 0), abyssCircle: P.circleBest || 0, heroLevel: P.level, weeklyDepths: WS.done && WS.best ? Math.round(WS.best * 1000) : 0 }[tab];
+    const tabs = el('div', 'q-tabs lad-tabs');
+    for (const [id, name] of LAD) { const t = el('button', 'q-tab' + (tab === id ? ' on' : ''), esc(name)); t.onclick = () => { tab = W._ladTab = id; rerender(); }; tabs.appendChild(t); }
+    b.appendChild(tabs);
+    b.appendChild(el('h3', '', esc(T[2])));
+    b.appendChild(el('div', 'lad-mine', `<span>Ваш рекорд</span><b>${mine ? esc(T[3](mine)) : '—'}</b>`));
+    const yandex = PF.p && PF.p.name === 'yandex';
+    if (yandex && got[tab] === undefined && !inCombat()) {   // читаем только при открытии вкладки, кэш 60 с — js/game/ladder.js
+      got[tab] = 'wait'; const want = tab;
+      getBoard(want).then(L => { got[want] = L || null; if (cur && cur.ladder && tab === want) rerender(); });
+    }
+    const L = yandex ? got[tab] : null;
+    if (L === 'wait') b.appendChild(el('p', 'muted', 'Загрузка…'));
+    else if (L && L.length) {
+      const list = el('div', 'lad-list');
+      for (const e of L) list.appendChild(el('div', 'lad-row' + (e.me ? ' me' : '') + (e.rank <= 3 ? ' top' + e.rank : ''), `<i>${e.rank}</i><span>${esc(e.name)}${e.me ? ' (вы)' : ''}</span><b>${esc(T[3](e.score))}</b>`));
+      b.appendChild(list);
+    } else if (L) b.appendChild(el('p', 'muted', 'Пока в таблице никого нет — станьте первым!'));
+    else b.appendChild(el('p', 'muted lad-note', 'Таблица игроков появится в Яндекс Играх.'));
+    b.appendChild(el('p', 'muted', '<small>Рекорды записываются сами, когда вы их бьёте. Таблица обновляется раз в минуту.</small>'));
+  }).ladder = true;
+};
+bus.on('openLadder', () => W.ladder());
 
 // ---------------------------------------------------------------- rewards / shop (monetization hub)
 W.shrine = () => modal('Источник силы', 'md', b => {

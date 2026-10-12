@@ -2771,5 +2771,21 @@
  "Заменить за рекламу, раз в день": "Sostituisci con una pubblicità, una volta al giorno",
  "Задание заменено": "Missione sostituita",
  "<div class=\"bl-ic\">✦</div><div class=\"tx\"><b>Сила источника</b><div>+5% золота и опыта, +3% к выпадению вещей — {0} минут</div><div class=\"muted\">{1}</div></div>": "<div class=\"bl-ic\">✦</div><div class=\"tx\"><b>Potere della Fonte</b><div>+5% oro e XP, +3% oggetti trovati per {0} minuti</div><div class=\"muted\">{1}</div></div>",
- "2026-10-12 · сборка 66": "2026-10-12 · build 66"
+ "2026-10-12 · сборка 66": "2026-10-12 · build 66",
+ "Глубины катакомб · лучший этаж": "Profondità · piano più profondo",
+ "этаж {0}": "piano {0}",
+ "Жатва Бездны · дольше всех": "Mietitura dell'Abisso · corsa più lunga",
+ "Круги": "Cerchi",
+ "Круги Бездны · самый высокий пройденный": "Cerchi dell'Abisso · il più alto superato",
+ "круг {0}": "cerchio {0}",
+ "Уровень": "Livello",
+ "Уровень героя": "Livello dell'eroe",
+ "Неделя": "Settimana",
+ "Испытание недели · быстрее всех": "Prova settimanale · il più veloce",
+ "Доска славы": "Albo d'onore",
+ "<span>Ваш рекорд</span><b>{0}</b>": "<span>Il tuo record</span><b>{0}</b>",
+ " (вы)": " (tu)",
+ "Пока в таблице никого нет — станьте первым!": "Ancora nessuno in classifica: sii il primo!",
+ "Таблица игроков появится в Яндекс Играх.": "La classifica dei giocatori apparirà su Yandex Games.",
+ "<small>Рекорды записываются сами, когда вы их бьёте. Таблица обновляется раз в минуту.</small>": "<small>I record si salvano da soli quando li batti. La classifica si aggiorna una volta al minuto.</small>"
 }
