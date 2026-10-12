@@ -118,6 +118,8 @@ export const PRODUCTS = {
   look_void: { title: 'Облик «Дитя Бездны»', price: '149 ₽', desc: 'Облик героя навсегда.', consumable: false, icon: '✦', cosm: 'look:void' },
   look_ghost: { title: 'Призрак', price: '99 ₽', desc: 'Полупрозрачный светящийся облик героя навсегда.', consumable: false, icon: '✦', cosm: 'ghost:hero' },
   pet_ghost: { title: 'Призрачный питомец', price: '69 ₽', desc: 'Призрачный облик питомца навсегда.', consumable: false, icon: '✦', cosm: 'ghost:pet' },
+  crown_hero: { title: 'Корона пламени', price: '99 ₽', desc: 'Огненная корона над головой героя навсегда.', consumable: false, icon: '✦', cosm: 'crown:hero' },
+  crown_pet: { title: 'Корона пламени питомца', price: '69 ₽', desc: 'Огненная корона над питомцем навсегда.', consumable: false, icon: '✦', cosm: 'crown:pet' },
   bag_big: { title: 'Большая сумка', price: '149 ₽', desc: 'Навсегда +20 мест в сумке.', consumable: false, icon: '▤' },
 };
 
