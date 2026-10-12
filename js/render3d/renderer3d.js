@@ -27,6 +27,7 @@ import { zoomNow } from '../core/camzoom.js';
 import { SKINS, skinLoaded, preloadSkin } from './glbskin.js';
 import { Post } from './post.js';
 import { Sparks } from './sparks.js';
+import { petFx } from './models/pet/petfx.js';
 import { petMotes, emitPet } from './cosfx.js';
 import { FORGE_HIT } from './models/npc/npc_smith.js';
 import { sfx } from '../core/audio.js';
@@ -166,7 +167,7 @@ function applyQuality(force) {
 
 // ---------------------------------------------------------------- мир зоны
 function disposeWorld() {
-  for (const a of actors.values()) { a.dispose(); if (a.motes) a.motes.dispose(); } actors.clear();
+  for (const a of actors.values()) { a.dispose(); if (a.motes) a.motes.dispose(); if (a.fxMotes) a.fxMotes.dispose(); } actors.clear();
   for (const P of [swarmPool, enemyPool]) { for (const l of P.values()) for (const a of l) a.dispose(); P.clear(); }
   if (!world) return;
   world.ground.dispose(); world.props.dispose(); disposeObject(world.glow); disposeObject(world.pool); if (world.atmo) world.atmo.dispose(); if (world.critters) world.critters.dispose(); world = null;
@@ -360,7 +361,7 @@ function syncNpcs(dt) {
 // питомец героя (сборка 58, js/game/pets.js): новая модель — когда сменили зверька (G.pet — новый объект)
 function syncPet(dt) {
   const p = G.pet;
-  for (const [k, a] of actors) if (a.isPet && k !== p) { a.dispose(); if (a.motes) a.motes.dispose(); actors.delete(k); }
+  for (const [k, a] of actors) if (a.isPet && k !== p) { a.dispose(); if (a.motes) a.motes.dispose(); if (a.fxMotes) a.fxMotes.dispose(); actors.delete(k); }
   if (!p || !PET_MODELS[p.id]) return;
   // сборка 60: модель из Meshy качается, когда зверёк впервые вышел; пока качается — процедурный, потом подменяется
   const skin = 'pet_' + p.id; kit.skin.preloadSkin(skin);
@@ -374,6 +375,7 @@ function syncPet(dt) {
   }
   a.place(p.x, p.y); a.faceAngle(Math.PI / 2 - p.ang);
   const M = !a.model.skin && a.def.motes; if (M) { if (!a.motes) a.motes = petMotes(scene, M); emitPet(a.motes, M, dt, p.x, p.y, a.yaw); }   // искры — только у процедурной модели (точки под неё)
+  petFx(a, scene, dt, U.uTime.value);   // модель из Meshy: искры от кости (models/pet/petfx.js)
   a.update(dt, p.act ? { clip: 'attack', k: Math.min(1, p.act.t / p.act.dur) } : p.speed > 0.4 ? { clip: 'walk', speed: p.speed } : { clip: 'idle' }, env);
   // правки к сборке 60: питомец ярче — светящийся силуэт (тёплая обводка дышит) и лёгкий подсвет тела.
   // Дёшево для iPhone: та же обводка, что была (только другой цвет и толщина), без новых проходов и источников света
