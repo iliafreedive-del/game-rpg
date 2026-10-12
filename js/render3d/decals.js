@@ -53,7 +53,7 @@ export class FxBillboards {
       t.repeat.set((fl ? -C : C) / W, C / H); t.offset.set((f.sx + (fl ? C : 0)) / W, 1 - (f.sy + C) / H);
       m.opacity = f.alpha; m.blending = f.add ? THREE.AdditiveBlending : THREE.NormalBlending;
       s.center.set(S.anchor[0], 1 - S.anchor[1]); s.scale.set(f.size, f.size, 1);
-      s.position.set(f.x, f.z || 0, f.y); const d = camera.position.clone().sub(s.position).normalize().multiplyScalar(NUDGE); s.position.add(d);
+      s.position.set(f.x, f.z || 0, f.y); const d = camera.position.clone().sub(s.position).normalize().multiplyScalar(f.back ? -1.3 : NUDGE); s.position.add(d);
       s.visible = true;
     }
     for (let i = n; i < this.pool.length; i++) this.pool[i].visible = false;

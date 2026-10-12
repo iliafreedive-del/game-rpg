@@ -56,7 +56,7 @@ export function fxBillboard(fx, alpha, cam) {
   const S = sheets.get(real(fx.id)); if (!S) return null;
   const k = fx.cyc ? fx.t / fx.cyc : fx.t / fx.dur, [sx, sy] = cellOf(S, k);
   const flip = fx.ex != null && cam.toScreen(fx.ex, fx.ey)[0] > cam.toScreen(fx.x, fx.y)[0];
-  return { S: { img: imgOf(S, real(fx.id), fx.realm), C: S.C, anchor: S.anchor }, sx, sy, x: fx.x, y: fx.y, z: fx.z, size: fx.size || S.meters, alpha, flip, add: fx.add };
+  return { S: { img: imgOf(S, real(fx.id), fx.realm), C: S.C, anchor: S.anchor }, sx, sy, x: fx.x, y: fx.y, z: fx.z, size: fx.size || S.meters, alpha, flip, add: fx.add, back: BLAST_FX.has(real(fx.id)) && k > 0.18 };   // взрыв: после вспышки уходит за цель — моб виден в огне, а не за «шторкой»
 }
 export function statusBillboard(id, x, y, z, size, alpha = 1, k) {
   const S = sheets.get(real(id)); if (!S) return null; const [sx, sy] = cellOf(S, k ?? (G.time / S.dur) % 1);
