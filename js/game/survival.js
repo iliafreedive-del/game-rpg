@@ -201,7 +201,7 @@ export function updateSurvival(dt) {
   }
   S.projs = S.projs.filter(p => p.life > 0);
   // burning ground
-  for (const q of S.pools) { if (!q.fx) { q.fx = 1; C.effect({ kind: 'firepool', x: q.x, y: q.y, r: q.r, dur: q.t }); } q.t -= dt; q.tick -= dt; if (q.tick <= 0) { q.tick = 0.4; for (const e of S.swarm) if (!e.dead && (e.x - q.x) ** 2 + (e.y - q.y) ** 2 < q.r * q.r) hitE(e, q.dps * 0.4, true); } }
+  for (const q of S.pools) { if (!q.fx) { q.fx = 1; if (!fxReady('gr_burning_ground')) C.effect({ kind: 'firepool', x: q.x, y: q.y, r: q.r, dur: q.t }); } q.t -= dt; q.tick -= dt; if (q.tick <= 0) { q.tick = 0.4; for (const e of S.swarm) if (!e.dead && (e.x - q.x) ** 2 + (e.y - q.y) ** 2 < q.r * q.r) hitE(e, q.dps * 0.4, true); } }
   S.pools = S.pools.filter(q => q.t > 0);
   // deaths → gems
   for (const e of S.swarm) if (e.hp <= 0 && !e.dead) {
