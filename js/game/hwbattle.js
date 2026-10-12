@@ -129,8 +129,13 @@ export function makeBattle(hero, foes, rnd = Math.random) {
     if (u === H && PT && H.pet.dmg > 0) { const L = alive(), v = L.length ? L[rnd() * L.length | 0] : null; if (v) { if (PT.act && !PT.act.hit) petHit(PT.act.tgt); PT.act = { t: 0, dur: 0.5, tgt: v, hit: false }; } }   // правки 3: питомец бьёт вместе с героем (П4-3: удар — когда долетит)
     if (u === H && a.skill) {
       if (SK.fx === 'smash') { damage(H, t, SK.mul, { sure: true, big: 1 }); splash(H, t, SK.R, SK.splash); ev.push({ k: 'boom', x: t.x, z: t.z, c: 'gold' }); }
-      else if (SK.fx === 'volley') { const L = alive(); for (let i = 0; i < SK.n; i++) { const v = L[(i + (rnd() * L.length | 0)) % L.length]; B.projs.push({ k: SK.proj || 'arrow', src: u, tgt: v, x: u.x, z: u.z, t: -i * 0.12, d: 0.42, mul: SK.mul }); } }
-      else B.projs.push({ k: SK.proj || 'fireball', src: u, tgt: t, x: u.x, z: u.z, t: 0, d: 0.55, mul: SK.mul, aoe: SK.aoe, amul: SK.amul });   // правки 3: сила заклинаний уже в уроне мага (HW_MAGE_K)
+      else if (SK.id === 'chain') {   // сборка 66: цепная молния — разряд перескакивает с цели на цель (как в походе), урон прежний: n ударов по SK.mul
+        const L = alive(), seq = [t, ...L.filter(f => f !== t).sort((a, b) => Math.hypot(a.x - t.x, a.z - t.z) - Math.hypot(b.x - t.x, b.z - t.z))];
+        let prev = u; for (let i = 0; i < SK.n; i++) { const v = seq[i % seq.length]; B.projs.push({ k: 'zap', src: u, from: prev, tgt: v, x: v.x, z: v.z, t: -i * 0.16, d: 0.05, mul: SK.mul }); prev = v; }
+      }
+      else if (SK.fx === 'volley') { const L = alive(); for (let i = 0; i < SK.n; i++) { const v = L[(i + (rnd() * L.length | 0)) % L.length]; B.projs.push({ k: SK.proj || 'arrow', src: u, tgt: v, x: u.x, z: u.z, t: -i * 0.12, d: 0.42, mul: SK.mul }); } if (!SK.proj && L[0]) ev.push({ k: 'volley', u, dir: L[0].x < u.x ? -1 : 1 }); }   // сборка 66: вспышка залпа у лука (hw_volley)
+      else if (SK.id === 'meteor') { ev.push({ k: 'mark', u: t }); B.projs.push({ k: 'meteor', src: u, tgt: t, x: t.x, z: t.z, t: 0, d: 0.75, mul: SK.mul, aoe: SK.aoe, amul: SK.amul }); }   // сборка 66: метка на земле, метеор падает с неба
+      else B.projs.push({ k: SK.id === 'ice_shard' ? 'ice' : SK.proj || 'fireball', src: u, tgt: t, x: u.x, z: u.z, t: 0, d: 0.55, mul: SK.mul, aoe: SK.aoe, amul: SK.amul });   // правки 3: сила заклинаний уже в уроне мага (HW_MAGE_K)
       return;
     }
     if (a.kind === 'melee') { damage(u, t, u.boss && rnd() < 0.3 ? 1.5 : 1); ev.push({ k: 'slash', u: t, from: u }); return; }
@@ -170,8 +175,13 @@ export function makeBattle(hero, foes, rnd = Math.random) {
       if (k >= 1) {
         B.projs.splice(i, 1);
         if (p.pet) { petHit(p.tgt); continue; }
-        if (!p.tgt.dead) damage(p.src, p.tgt, p.mul, { big: !!p.aoe, sure: !!p.aoe });
-        if (p.aoe) { splash(p.src, p.tgt, p.aoe, p.amul); ev.push({ k: 'boom', x: p.tgt.x, z: p.tgt.z, c: 'fire' }); }
+        const tg = p.tgt, alive0 = !tg.dead;
+        if (!tg.dead) damage(p.src, tg, p.mul, { big: !!p.aoe, sure: !!p.aoe });
+        if (p.aoe) { splash(p.src, tg, p.aoe, p.amul); ev.push({ k: 'boom', x: tg.x, z: tg.z, c: p.k === 'meteor' ? 'meteor' : 'fire' }); if (p.k === 'meteor') ev.push({ k: 'pool', x: tg.x, z: tg.z }); }
+        // сборка 66: след умения на цели — лёд, горение, разряд (листы полного комплекта)
+        if (p.k === 'zap') ev.push({ k: 'zap', a: p.from, b: tg });
+        const st = p.k === 'ice' ? 'st_chill' : p.k === 'zap' ? 'st_shock' : p.src === H && p.aoe ? 'st_burning' : null;
+        if (st && alive0) ev.push({ k: 'st', u: tg, id: st, hit: p.k === 'ice' ? 'hit_ice' : null });
       }
     }
     if (PT && PT.act) stepPet(dt);

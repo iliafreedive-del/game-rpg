@@ -7,7 +7,7 @@ import { gainXP } from './loot.js';
 import * as C from './combat.js';
 import { getAtlas, drawFrame } from '../core/assets.js';
 import { PX_PER_M } from '../core/iso.js';
-import { drawProjSheet, drawStatusSheet, fxReady } from '../render/fxsheets.js';
+import { drawProjSheet, drawStatusSheet, drawFxSheet, fxReady, fxGround, drawGroundGlow, statusBillboard } from '../render/fxsheets.js';
 import { rand, rrange } from '../core/util.js';
 const PHONE = typeof matchMedia !== 'undefined' && matchMedia('(pointer: coarse)').matches;
 
@@ -201,7 +201,7 @@ export function updateSurvival(dt) {
   }
   S.projs = S.projs.filter(p => p.life > 0);
   // burning ground
-  for (const q of S.pools) { if (!q.fx) { q.fx = 1; C.effect({ kind: 'firepool', x: q.x, y: q.y, r: q.r, dur: q.t }); } q.t -= dt; q.tick -= dt; if (q.tick <= 0) { q.tick = 0.4; for (const e of S.swarm) if (!e.dead && (e.x - q.x) ** 2 + (e.y - q.y) ** 2 < q.r * q.r) hitE(e, q.dps * 0.4, true); } }
+  for (const q of S.pools) { if (!q.fx) { q.fx = 1; if (!fxReady('gr_burning_ground')) C.effect({ kind: 'firepool', x: q.x, y: q.y, r: q.r, dur: q.t }); } q.t -= dt; q.tick -= dt; if (q.tick <= 0) { q.tick = 0.4; for (const e of S.swarm) if (!e.dead && (e.x - q.x) ** 2 + (e.y - q.y) ** 2 < q.r * q.r) hitE(e, q.dps * 0.4, true); } }
   S.pools = S.pools.filter(q => q.t > 0);
   // deaths → gems
   for (const e of S.swarm) if (e.hp <= 0 && !e.dead) {
@@ -337,8 +337,8 @@ function weapons(dt) {
   // правки 3, второй заход: новые виды оружия
   if (w.meteor && ready('meteor', 2.6)) { const n = (1 + Math.floor(w.meteor / 2)) * (S.evo.evo_meteor ? 3 : 1), R = (1.5 + w.meteor * 0.15) * A;
     for (let i = 0; i < n; i++) { const t = randomFoe(9); if (!t) break; S.drops.push({ x: t.x + (rand() - 0.5) * 0.8, y: t.y + (rand() - 0.5) * 0.8, t: 0.5 + i * 0.12, T: 0.5 + i * 0.12, R, dmg: D * B.meteor * 1.6 * (1 + w.meteor * 0.15) }); } }
-  for (const m of S.drops) { m.t -= dt; if (m.t > 0) continue; m.done = 1;
-    if (!fx('hit_fire_explosion', m.x, m.y, { size: m.R * 2.3 })) { C.effect({ kind: 'ring', x: m.x, y: m.y, r: m.R, dur: 0.4, c: [255, 170, 60] }); C.effect({ kind: 'firepool', x: m.x, y: m.y, r: m.R * 0.8, dur: 0.5 }); }
+  for (const m of S.drops) { m.t -= dt; if (m.t > 0) continue; m.done = 1;   // сборка 66: удар метеора — лист полного комплекта (у «Звездопада» — свой взрыв)
+    if (!fx(S.evo.evo_meteor ? 'sv_evo_sky_wrath' : 'sk_meteor_impact', m.x, m.y, { size: m.R * (S.evo.evo_meteor ? 2.4 : 2.6) }) && !fx('hit_fire_explosion', m.x, m.y, { size: m.R * 2.3 })) { C.effect({ kind: 'ring', x: m.x, y: m.y, r: m.R, dur: 0.4, c: [255, 170, 60] }); C.effect({ kind: 'firepool', x: m.x, y: m.y, r: m.R * 0.8, dur: 0.5 }); }
     C.particles(m.x, m.y, 8, { c: [255, 160, 60], z: 0.3, sp: 4, size: 4, life: 0.5 }); bus.emit('sfx', 'boom');
     for (const e of S.swarm) if ((e.x - m.x) ** 2 + (e.y - m.y) ** 2 < (m.R + e.r) ** 2) hitE(e, m.dmg);
     if ((S.builds.fire || S.evo.evo_meteor) && S.pools.length < 12) S.pools.push({ x: m.x, y: m.y, r: m.R * 0.8, t: 2.5, dps: m.dmg * 0.35, tick: 0 }); }
@@ -349,7 +349,7 @@ function weapons(dt) {
   if (w.frost) { S.frostR = (1.7 + w.frost * 0.25) * A * (S.evo.evo_frost ? 1.6 : 1);
     if (ready('frost', 0.5)) for (const e of S.swarm) if ((e.x - pl.x) ** 2 + (e.y - pl.y) ** 2 < (S.frostR + e.r) ** 2) { e.slowT = 0.8; hitE(e, D * B.frost * 0.45 * (1 + w.frost * 0.15), true); e.flash = 0.06; if (S.evo.evo_frost && !e.boss && rand() < 0.2) e.frozen = 0.7; } }
   if (w.thunder && ready('thunder', 2.8)) { const n = (2 + w.thunder) * (S.evo.evo_thunder ? 2 : 1);
-    for (let i = 0; i < n; i++) { const t = randomFoe(10); if (!t) break; S.bolts.push({ x: t.x, y: t.y, t: 0.3, s: rand() * 99 }); fx('hit_star_bolt', t.x, t.y, { z: 0.2 });
+    for (let i = 0; i < n; i++) { const t = randomFoe(10); if (!t) break; if (!fx('sk_thunder_strike', t.x, t.y, { size: 2.8 })) { S.bolts.push({ x: t.x, y: t.y, t: 0.3, s: rand() * 99 }); fx('hit_star_bolt', t.x, t.y, { z: 0.2 }); }   // сборка 66: молния с неба — лист
       const dm = D * B.thunder * 1.5 * (1 + w.thunder * 0.15); for (const e of S.swarm) if ((e.x - t.x) ** 2 + (e.y - t.y) ** 2 < (0.9 + e.r) ** 2) hitE(e, dm);
       if (S.evo.evo_thunder) { const hit = new Set([t]); let px = t.x, py = t.y; for (let j = 0; j < 2; j++) { const q = nearest(px, py, 4, hit); if (!q) break; hit.add(q); C.lightningArc(px, py, q.x, q.y); hitE(q, dm * 0.7); px = q.x; py = q.y; } } }
     bus.emit('sfx', 'zap'); }
@@ -504,9 +504,38 @@ const fireSpr = () => sprite('fire', 48, (x, R) => { const g = x.createRadialGra
 // Золото — тот же кристалл того же размера, только жёлтый (раньше монетка 26 px с крошечным кругом внутри)
 export const SOUL_PX = 20, SOUL_BIG = 2, SOUL_K = 1.8;
 export const gemSprites = () => ({ blue: soulSpr('122,224,255', '#7ae0ff'), pink: soulSpr('255,106,216', '#ff6ad8'), gold: soulSpr('255,205,80', '#ffcf4a') });
+const poolFx = (q, k = 1, a = 0, dt = 0) => ({ id: 'gr_burning_ground', x: q.x, y: q.y, a, t: G.time + q.x + dt, dur: 1, cyc: 0.8, size: q.r * 2.3 * k, add: 1 });
+// горящая земля: кольцо огня и внутри ещё два таких же, меньше и повёрнутых, — середина горит, а не пустая
+const POOL_RINGS = [[1, 0, 0], [0.66, 1.3, 0.27], [0.36, 2.6, 0.53]];
+const drawPool = (c, cam, q) => { const al = Math.min(1, q.t * 2); let ok = false; if (fxReady('gr_burning_ground')) drawGroundGlow(c, cam, q.x, q.y, q.r * 0.95, al * (0.85 + Math.sin(G.time * 7 + q.x) * 0.15)); for (const [k, a, dt] of POOL_RINGS) ok = drawFxSheet(c, cam, poolFx(q, k, a, dt), al) || ok; return ok; };
+const markFx = m => ({ id: 'sk_meteor_target', x: m.x, y: m.y, t: 1 - Math.max(0, m.t / m.T), dur: 1, size: m.R * 2.2, add: 1 });
+// сборка 66: горящая земля и метки метеоров — на плоскость у земли в 3D (render3d/decals.js), чтобы мобы стояли на них, а не под ними
+// морозная аура вокруг героя; flat — рисуем на холст пола (вид сверху, без сплющивания)
+function drawFrost(c, cam, flat) {
+  const S = G.surv; if (!S.w.frost || !S.frostR) return 0;
+  const pl = G.player, [cx, cy] = cam.toScreen(pl.x, pl.y), [rx] = cam.toScreen(pl.x + S.frostR, pl.y), R = Math.abs(rx - cx), pu = 0.75 + 0.25 * Math.sin(G.time * 5), d = flat ? 3 : 2;
+  c.save(); c.translate(cx, cy); if (!flat) c.scale(1, 0.5); const g = c.createRadialGradient(0, 0, R * 0.3, 0, 0, R); g.addColorStop(0, 'rgba(120,200,255,0)'); g.addColorStop(0.8, `rgba(140,215,255,${0.22 * pu})`); g.addColorStop(1, 'rgba(200,240,255,0)');
+  c.fillStyle = g; c.beginPath(); c.arc(0, 0, R, 0, 7); c.fill(); c.strokeStyle = `rgba(200,240,255,${0.55 * pu})`; c.lineWidth = flat ? 4 : 3; c.beginPath(); c.arc(0, 0, R * 0.96, 0, 7); c.stroke();
+  for (let i = 0; i < 10; i++) { const a = G.time * 0.8 + i * 0.628; c.fillStyle = 'rgba(230,250,255,0.9)'; c.fillRect(Math.cos(a) * R * 0.9 - d, Math.sin(a) * R * 0.9 - d, d * 2, d * 2); } c.restore(); return 1;
+}
+export function drawSurvivalGround(c, cam) {
+  const S = G.surv; if (!S) return 0; let n = 0;
+  if (fxReady('gr_burning_ground')) for (const q of S.pools) if (drawPool(c, cam, q)) n++;
+  if (fxReady('sk_meteor_target')) for (const m of S.drops || []) if (drawFxSheet(c, cam, markFx(m), 1)) n++;
+  n += drawFrost(c, cam, true);
+  return n;
+}
+// сборка 66 (ОС-14): танцующие клинки в 3D — щиты в сцене (render3d/decals.js): за героем клинок прячется за ним
+export function survivalUpright(L) {
+  const S = G.surv; if (!S || !S.bladePts) return; const bid = S.evo.evo_blades ? 'sv_evo_blades' : 'sv_orbit_blade'; if (!fxReady(bid)) return;
+  for (const [bx, by] of S.bladePts) { const b = statusBillboard(bid, bx, by, 0.3, S.evo.evo_blades ? 1.6 : 1.2); if (b) { b.add = true; L.push(b); } }
+}
+// прежний рисунок клинка (лист не загрузился) в 3D: за спиной героя, где его заслоняет фигура, не рисуем
+export const hiddenBehind = (cam, x, y) => { const P = G.player; if (!fxGround.on || !P || x + y >= P.x + P.y) return false; const [sx] = cam.toScreen(x, y), [px] = cam.toScreen(P.x, P.y); return Math.abs(sx - px) < 26 * cam.zoom; };
 export function drawSurvivalFx(ctx, cam) {
   const S = G.surv; if (!S) return; const z = cam.zoom, zz = Math.max(0.8, z);
-  for (const q of S.pools) { const [x, y] = cam.toScreen(q.x, q.y); ctx.save(); ctx.translate(x, y); ctx.scale(1, 0.5); const g = ctx.createRadialGradient(0, 0, 0, 0, 0, q.r * 45 * z); g.addColorStop(0, 'rgba(255,150,40,0.55)'); g.addColorStop(1, 'rgba(255,60,10,0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, q.r * 45 * z, 0, 7); ctx.fill(); ctx.restore(); }
+  const gb = fxReady('gr_burning_ground');   // сборка 66: горящая земля — лист круга огня (цикл), пока не загрузился — прежнее пятно; в 3D — на плоскости у земли (drawSurvivalGround)
+  for (const q of S.pools) { if (gb && (fxGround.on || drawPool(ctx, cam, q))) continue; const [x, y] = cam.toScreen(q.x, q.y); ctx.save(); ctx.translate(x, y); ctx.scale(1, 0.5); const g = ctx.createRadialGradient(0, 0, 0, 0, 0, q.r * 45 * z); g.addColorStop(0, 'rgba(255,150,40,0.55)'); g.addColorStop(1, 'rgba(255,60,10,0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, q.r * 45 * z, 0, 7); ctx.fill(); ctx.restore(); }
   if (!cam.proj) {   // в 3D души и золото лежат в сцене (render3d/renderer3d.js syncGems): мобы и герой их заслоняют; здесь — только 2D-режим
     const W = cam.w || innerWidth, H = cam.h || innerHeight, bob = Math.sin(G.time * 3) * 3, sp = gemSprites();
     for (const g of S.gems) { const [x, y] = cam.toScreen(g.x, g.y, 0.25); if (x < -60 || y < -60 || x > W + 60 || y > H + 60) continue;
@@ -538,15 +567,12 @@ export function drawSurvivalFx(ctx, cam) {
   }
   // метеоры: падают наискосок, на земле — растущая метка
   for (const m of S.drops || []) { const k = Math.max(0, m.t / m.T), [gx, gy] = cam.toScreen(m.x, m.y), [ex, ey] = cam.toScreen(m.x + m.R, m.y);
-    ctx.save(); ctx.translate(gx, gy); ctx.scale(1, 0.5); ctx.strokeStyle = `rgba(255,140,50,${0.35 + 0.5 * (1 - k)})`; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(0, 0, Math.abs(ex - gx) * (1 - k * 0.6), 0, 7); ctx.stroke(); ctx.restore();
+    if (!(fxReady('sk_meteor_target') && (fxGround.on || drawFxSheet(ctx, cam, markFx(m), 1)))) { ctx.save(); ctx.translate(gx, gy); ctx.scale(1, 0.5); ctx.strokeStyle = `rgba(255,140,50,${0.35 + 0.5 * (1 - k)})`; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(0, 0, Math.abs(ex - gx) * (1 - k * 0.6), 0, 7); ctx.stroke(); ctx.restore(); }
     const [x, y] = cam.toScreen(m.x - 2.2 * k, m.y, 7 * k), [x2, y2] = cam.toScreen(m.x - 2.2 * k - 0.4, m.y, 7 * k + 1.3), ang = Math.atan2(y - y2, x - x2);
     if (fxReady('proj_fireball') && drawProjSheet(ctx, cam, 'proj_fireball', m.x - 2.2 * k, m.y, 7 * k, ang, G.time, 2.6)) continue;
     ctx.strokeStyle = 'rgba(255,150,50,0.6)'; ctx.lineWidth = 14 * z; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x2 + (x2 - x) * 1.5, y2 + (y2 - y) * 1.5); ctx.stroke(); blit(ctx, fireSpr(), x, y, 56 * z); }
-  // морозная аура: голубой круг на земле, пульсирует
-  if (S.w.frost && S.frostR) { const pl = G.player, [cx, cy] = cam.toScreen(pl.x, pl.y), [rx] = cam.toScreen(pl.x + S.frostR, pl.y), R = Math.abs(rx - cx), pu = 0.75 + 0.25 * Math.sin(G.time * 5);
-    ctx.save(); ctx.translate(cx, cy); ctx.scale(1, 0.5); const g = ctx.createRadialGradient(0, 0, R * 0.3, 0, 0, R); g.addColorStop(0, 'rgba(120,200,255,0)'); g.addColorStop(0.8, `rgba(140,215,255,${0.22 * pu})`); g.addColorStop(1, 'rgba(200,240,255,0)');
-    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, R, 0, 7); ctx.fill(); ctx.strokeStyle = `rgba(200,240,255,${0.55 * pu})`; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(0, 0, R * 0.96, 0, 7); ctx.stroke();
-    for (let i = 0; i < 10; i++) { const a = G.time * 0.8 + i * 0.628; ctx.fillStyle = 'rgba(230,250,255,0.9)'; ctx.fillRect(Math.cos(a) * R * 0.9 - 2, Math.sin(a) * R * 0.9 - 2, 4, 4); } ctx.restore(); }
+  // морозная аура: голубой круг на земле, пульсирует; в 3D — на плоскости у земли (drawSurvivalGround): это обруч на полу, дальняя половина прячется за героем
+  if (!fxGround.on) drawFrost(ctx, cam, false);
   // громовержец: молния с неба
   for (const b of S.bolts || []) { const [x0, y0] = cam.toScreen(b.x, b.y, 0), [x1, y1] = cam.toScreen(b.x, b.y, 9), al = Math.min(1, b.t / 0.15);
     ctx.beginPath(); ctx.moveTo(x1, y1); for (let i = 1; i < 8; i++) { const f = i / 8; ctx.lineTo(x1 + (x0 - x1) * f + Math.sin(b.s + i * 2.7 + G.time * 40) * 14 * z, y1 + (y0 - y1) * f); } ctx.lineTo(x0, y0);
@@ -557,6 +583,6 @@ export function drawSurvivalFx(ctx, cam) {
     ctx.save(); ctx.globalCompositeOperation = 'source-over'; ctx.translate(x, y - 44 - b); ctx.fillStyle = '#7ae0ff'; ctx.strokeStyle = '#06222c'; ctx.lineWidth = 3; ctx.shadowColor = '#7ae0ff'; ctx.shadowBlur = 12;
     ctx.beginPath(); ctx.moveTo(-12, -16); ctx.lineTo(12, -16); ctx.lineTo(0, 4); ctx.closePath(); ctx.stroke(); ctx.fill(); ctx.restore(); ctx.globalCompositeOperation = 'lighter';
   }
-  if (S.bladePts) { const bid = S.evo.evo_blades ? 'sv_evo_blades' : 'sv_orbit_blade', ok = fxReady(bid); for (const [bx, by, a] of S.bladePts) { if (ok && drawStatusSheet(ctx, cam, bid, bx, by, 0.3, S.evo.evo_blades ? 1.6 : 1.2)) continue; const [x, y] = cam.toScreen(bx, by, 0.9); blit(ctx, bladeSpr(), x, y, 60 * z, a * 3); blit(ctx, bladeSpr(), x, y, 40 * z, a * 3); } }
+  if (S.bladePts) { const bid = S.evo.evo_blades ? 'sv_evo_blades' : 'sv_orbit_blade', ok = fxReady(bid); if (!(ok && fxGround.on)) for (const [bx, by, a] of S.bladePts) { if (hiddenBehind(cam, bx, by)) continue; if (ok && drawStatusSheet(ctx, cam, bid, bx, by, 0.3, S.evo.evo_blades ? 1.6 : 1.2)) continue; const [x, y] = cam.toScreen(bx, by, 0.9); blit(ctx, bladeSpr(), x, y, 60 * z, a * 3); blit(ctx, bladeSpr(), x, y, 40 * z, a * 3); } }
   ctx.globalCompositeOperation = 'source-over';
 }
