@@ -2771,5 +2771,6 @@
  "Заменить за рекламу, раз в день": "Cambiar por un anuncio, una vez al día",
  "Задание заменено": "Misión cambiada",
  "<div class=\"bl-ic\">✦</div><div class=\"tx\"><b>Сила источника</b><div>+5% золота и опыта, +3% к выпадению вещей — {0} минут</div><div class=\"muted\">{1}</div></div>": "<div class=\"bl-ic\">✦</div><div class=\"tx\"><b>Poder del Manantial</b><div>+5% de oro y XP, +3% de objetos: {0} minutos</div><div class=\"muted\">{1}</div></div>",
- "2026-10-12 · сборка 66": "2026-10-12 · versión 66"
+ "2026-10-12 · сборка 66": "2026-10-12 · versión 66",
+ " · предел на вашем уровне (ещё +1 с каждым уровнем героя, до {0})": " · límite de tu nivel (+1 con cada nivel del héroe, hasta {0})"
 }

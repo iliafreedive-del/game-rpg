@@ -2771,5 +2771,6 @@
  "Заменить за рекламу, раз в день": "Gegen Werbung tauschen, einmal pro Tag",
  "Задание заменено": "Aufgabe ersetzt",
  "<div class=\"bl-ic\">✦</div><div class=\"tx\"><b>Сила источника</b><div>+5% золота и опыта, +3% к выпадению вещей — {0} минут</div><div class=\"muted\">{1}</div></div>": "<div class=\"bl-ic\">✦</div><div class=\"tx\"><b>Kraft des Quells</b><div>+5 % Gold und EP, +3 % Item-Drops – {0} Minuten</div><div class=\"muted\">{1}</div></div>",
- "2026-10-12 · сборка 66": "2026-10-12 · Build 66"
+ "2026-10-12 · сборка 66": "2026-10-12 · Build 66",
+ " · предел на вашем уровне (ещё +1 с каждым уровнем героя, до {0})": " · Grenze für deine Stufe (+1 mit jeder Heldenstufe, bis {0})"
 }

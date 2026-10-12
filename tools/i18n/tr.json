@@ -2771,5 +2771,6 @@
  "Заменить за рекламу, раз в день": "Reklam karşılığı değiştir, günde bir kez",
  "Задание заменено": "Görev değiştirildi",
  "<div class=\"bl-ic\">✦</div><div class=\"tx\"><b>Сила источника</b><div>+5% золота и опыта, +3% к выпадению вещей — {0} минут</div><div class=\"muted\">{1}</div></div>": "<div class=\"bl-ic\">✦</div><div class=\"tx\"><b>Pınarın Gücü</b><div>Altın ve TP'ye +%25, eşya düşmesine +%15 — {0} dakika</div><div class=\"muted\">{1}</div></div>",
- "2026-10-12 · сборка 66": "2026-10-12 · sürüm 66"
+ "2026-10-12 · сборка 66": "2026-10-12 · sürüm 66",
+ " · предел на вашем уровне (ещё +1 с каждым уровнем героя, до {0})": " · seviyene göre sınır (her kahraman seviyesinde +1, en fazla {0})"
 }

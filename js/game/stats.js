@@ -4,7 +4,7 @@ import { WEAPONS, CLASSES, AFFIXES, BR_CAP } from '../data/items.js';
 import { SKILLS, PASSIVE_K as K } from '../data/skills.js';
 import { upgMult } from './items.js';
 import { G, bus } from './ctx.js';
-import { DECOR } from '../data/upgrades.js';
+import { DECOR, upgVal } from '../data/upgrades.js';
 import { ENEMIES, scaleHP } from '../data/enemies.js';
 export const hasBoon = id => !!(G.run && G.run.boons && G.run.boons.includes(id));
 export const boonN = id => (G.run && G.run.boons) ? G.run.boons.filter(x => x === id).length : 0;   // правки 3: уровень дара (до 3)
@@ -97,10 +97,10 @@ export function stats(p, gearOverride) {
   if (p.nemesis) for (const t of p.nemesis.trophies) { const b = Math.min(3.5, t.bonus); DB.dmg += b; DB.gold += b; }   // С19: старые трофеи сверх 5-го ранга — тоже до +3,5%   // трофеи немезисов
   const codex = Object.keys(p.codex || {}).length; DB.dmg += codex * 0.5;   // коллекция вещей (сборка 21): +0,5% урона и здоровья за запись
   s.decor = DB; s.maxHP = Math.round((s.maxHP + DB.hp) * (1 + codex * 0.005)); s.codex = codex; s.critMult += DB.critDmg / 100; s.mpRegen += DB.regen; s.goldFind += DB.gold;
-  { const m = 1 + (U.dmg || 0) * 0.04 + tr * 0.03 + DB.dmg / 100; s.dmgMin = Math.round(s.dmgMin * m); s.dmgMax = Math.round(s.dmgMax * m); s.spellPower *= m; }
-  s.maxHP += (U.hp || 0) * 12; s.maxMP += (U.mp || 0) * 10; s.mpRegen += (U.mp || 0) * 0.1; s.hpRegen += (U.regen || 0) * 0.4;
-  s.critChance = Math.min(0.75, s.critChance + (U.crit || 0) * 0.006); s.critMult += (U.critDmg || 0) * 0.06;
-  s.aps = +(s.aps * (1 + (U.aps || 0) * 0.02)).toFixed(2); s.moveMul = 1 + (U.move || 0) * 0.02; s.goldFind += tr * 5;
+  { const m = 1 + upgVal('dmg', U.dmg || 0) / 100 + tr * 0.03 + DB.dmg / 100; s.dmgMin = Math.round(s.dmgMin * m); s.dmgMax = Math.round(s.dmgMax * m); s.spellPower *= m; }
+  s.maxHP += upgVal('hp', U.hp || 0); s.maxMP += upgVal('mp', U.mp || 0); s.mpRegen += upgVal('mp', U.mp || 0) / 100; s.hpRegen += (U.regen || 0) * 0.4;
+  s.critChance = Math.min(0.75, s.critChance + upgVal('crit', U.crit || 0) / 100); s.critMult += (U.critDmg || 0) * 0.06;
+  s.aps = +(s.aps * (1 + upgVal('aps', U.aps || 0) / 100)).toFixed(2); s.moveMul = 1 + (U.move || 0) * 0.02; s.goldFind += tr * 5;
   if (G.run && G.run.boons) {   // run-only boons from «Дары Бездны»
     if (hasBoon('giant')) { const m = 1 + 0.015 * boonN('giant'); s.dmgMin = Math.round(s.dmgMin * m); s.dmgMax = Math.round(s.dmgMax * m); s.spellPower *= m; }   // сборка 47: дары скромнее
     if (hasBoon('frenzy')) s.aps = +(s.aps * (1 + 0.012 * boonN('frenzy'))).toFixed(2);

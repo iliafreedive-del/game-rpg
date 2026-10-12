@@ -2771,5 +2771,6 @@
  "Заменить за рекламу, раз в день": "Replace for an ad, once a day",
  "Задание заменено": "Quest replaced",
  "<div class=\"bl-ic\">✦</div><div class=\"tx\"><b>Сила источника</b><div>+5% золота и опыта, +3% к выпадению вещей — {0} минут</div><div class=\"muted\">{1}</div></div>": "<div class=\"bl-ic\">✦</div><div class=\"tx\"><b>Wellspring Power</b><div>+5% gold and XP, +3% item drops — {0} minutes</div><div class=\"muted\">{1}</div></div>",
- "2026-10-12 · сборка 66": "2026-10-12 · build 66"
+ "2026-10-12 · сборка 66": "2026-10-12 · build 66",
+ " · предел на вашем уровне (ещё +1 с каждым уровнем героя, до {0})": " · cap for your level (+1 with each hero level, up to {0})"
 }

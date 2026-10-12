@@ -7,7 +7,7 @@ import { G, bus } from '../game/ctx.js';
 import { $, el, esc, ICO } from '../core/util.js';
 import { STORY } from '../data/quests.js';
 import { once as anOnce } from '../platform/analytics.js';
-import { UPGRADES, upgCost } from '../data/upgrades.js';
+import { UPGRADES, upgCost, upgMax } from '../data/upgrades.js';
 import { skillCost, canLearn, canLearnNow } from '../game/character.js';
 import { earlyLock } from '../game/progress.js';
 
@@ -144,7 +144,7 @@ const nag = (k, gap) => { const now = performance.now(); if (now - (nagT[k] || -
 export function elvinBuy() {   // самая дешёвая покупка у Элвина, на которую хватает золота: { text, cost } или null
   const P = G.profile; if (!P || earlyLock('upg')) return null; let best = null;
   if (P.skillPts > 0) for (const id of Object.keys(P.skills || {})) if (P.skills[id] && canLearn(id).ok) { const c = skillCost(id); if (P.gold >= c && (!best || c < best.cost)) best = { text: 'повысить умение', cost: c }; }
-  for (const [id, U] of Object.entries(UPGRADES)) { if (U.shards) continue; const l = (P.upg && P.upg[id]) || 0; if (l >= U.max) continue; const c = upgCost(id, l); if (P.gold >= c && (!best || c < best.cost)) best = { text: `«${U.name}»`, cost: c }; }
+  for (const [id, U] of Object.entries(UPGRADES)) { if (U.shards) continue; const l = (P.upg && P.upg[id]) || 0; if (l >= upgMax(id, P)) continue; const c = upgCost(id, l); if (P.gold >= c && (!best || c < best.cost)) best = { text: `«${U.name}»`, cost: c }; }
   return best;
 }
 function remindTick() {

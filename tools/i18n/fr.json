@@ -2771,5 +2771,6 @@
  "Заменить за рекламу, раз в день": "Remplacer contre une pub, une fois par jour",
  "Задание заменено": "Quête remplacée",
  "<div class=\"bl-ic\">✦</div><div class=\"tx\"><b>Сила источника</b><div>+5% золота и опыта, +3% к выпадению вещей — {0} минут</div><div class=\"muted\">{1}</div></div>": "<div class=\"bl-ic\">✦</div><div class=\"tx\"><b>Force de la Source</b><div>+5 % d'or et d'XP, +3 % d'objets — {0} minutes</div><div class=\"muted\">{1}</div></div>",
- "2026-10-12 · сборка 66": "2026-10-12 · version 66"
+ "2026-10-12 · сборка 66": "2026-10-12 · version 66",
+ " · предел на вашем уровне (ещё +1 с каждым уровнем героя, до {0})": " · plafond à votre niveau (+1 à chaque niveau du héros, jusqu'à {0})"
 }
