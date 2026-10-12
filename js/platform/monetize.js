@@ -81,7 +81,7 @@ export async function buy(productId) {
   const P = G.profile, def = PRODUCTS[productId];
   if (earlyLock('extra')) { lockToast('extra'); return false; }   // сборка 47: покупки — после обучения
   if (def.once && P.iap.tx['once_' + productId]) { bus.emit('toast', { text: 'Этот набор уже куплен', kind: 'warn' }); return false; }
-  if (!def.consumable && P.iap[flagOf(productId)]) { bus.emit('toast', { text: 'Уже куплено', kind: 'warn' }); return false; }
+  if (!def.consumable && (def.cosm ? P.cosm && P.cosm.own && P.cosm.own[def.cosm] : P.iap[flagOf(productId)])) { bus.emit('toast', { text: 'Уже куплено', kind: 'warn' }); return false; }
   const wasPaused = G.paused; G.paused = true; gameplay(false); const r = await platform.p.purchase(productId); G.paused = wasPaused;
   // сборка 66: в Метрику — цена из каталога (рубли или валюта портала), чтобы видеть выручку по товарам
   const cp = platform.p.catalogPrice(productId), price = cp && typeof cp === 'object' ? +cp.value || 0 : parseFloat(String(cp || '').replace(',', '.')) || 0;
@@ -156,6 +156,7 @@ export async function grantPurchase(productId, token) {
     case 'potion_pack': P.potions.hp += 15; P.potions.mp += 10; break;
     case 'gold_perk': P.iap.goldPerk = true; break;
     case 'no_ads': P.iap.noAds = true; break;
+    default: if (PRODUCTS[productId] && PRODUCTS[productId].cosm) { const C = (P.cosm = P.cosm || {}); (C.own = C.own || {})[PRODUCTS[productId].cosm] = 1; bus.emit('cosm'); } break;   // облик за рубли
     case 'bag_big': if (!P.iap.bagBig) { P.iap.bagBig = true; P.bagSize += 20; } break;   // повторное восстановление покупки не добавит мест
   }
   bus.emit('save');   // persist grant BEFORE consuming, so a crash cannot lose it

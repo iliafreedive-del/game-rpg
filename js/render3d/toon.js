@@ -259,3 +259,78 @@ export function addOutlines(root, mat) {
   }
   return list.length;
 }
+
+// ---------------------------------------------------------------- облики (косметика): перекраска без новых файлов
+// Текстуры героев Meshy состоят из трёх «красок»: фиолетовая ткань и камни (полоса A), золотая кайма (полоса B),
+// серо-стальная броня (C, малая насыщенность). Шейдер ищет их по оттенку и перекрашивает с сохранением яркости:
+// облик — это три цвета, свечение полосы A и общий сдвиг оттенка. Для питомцев (цвета вершин) обычно хватает сдвига,
+// насыщенности, яркости и тонировки. Один материал — одна программа: смена облика меняет только числа (uniform).
+const LOOK_PARS = /* glsl */`
+uniform vec4 uLkA; uniform vec4 uLkB; uniform vec4 uLkC; uniform vec4 uLkSrc; uniform vec4 uLkSrc2; uniform vec4 uLkHSV; uniform vec4 uLkT; uniform vec4 uLkG; uniform vec4 uLkG2; uniform vec4 uLkGh;
+vec3 lkHsv(vec3 c) { vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0); vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g)); vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r)); float d = q.x - min(q.w, q.y); return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + 1e-10)), d / (q.x + 1e-10), q.x); }
+vec3 lkRgb(vec3 c) { vec3 p = abs(fract(c.xxx + vec3(1.0, 2.0 / 3.0, 1.0 / 3.0)) * 6.0 - 3.0); return c.z * mix(vec3(1.0), clamp(p - 1.0, 0.0, 1.0), c.y); }
+vec3 lkX(vec3 c) {   // общий сдвиг оттенка/насыщенности/яркости и тонировка (после полос; и для светящихся частей)
+  if (uLkHSV.w > 0.0) { vec3 k = lkHsv(c); k.x = fract(k.x + uLkHSV.x); k.y = clamp(k.y * uLkHSV.y, 0.0, 1.0); k.z *= uLkHSV.z; c = lkRgb(k); }
+  return mix(c, uLkT.rgb * (0.25 + 1.4 * dot(c, vec3(0.2126, 0.7152, 0.0722))), uLkT.w);
+}
+`;
+const LOOK_F = /* glsl */`
+float lkW = 0.0;
+{
+  vec3 c = diffuseColor.rgb, h = lkHsv(c);
+  float L = dot(c, vec3(0.2126, 0.7152, 0.0722));
+  float dA = abs(fract(h.x - uLkSrc.x + 0.5) - 0.5), dB = abs(fract(h.x - uLkSrc.y + 0.5) - 0.5), dC = abs(fract(h.x - uLkSrc.z + 0.5) - 0.5);
+  float wA = (1.0 - smoothstep(uLkSrc2.x * 0.6, uLkSrc2.x, dA)) * smoothstep(0.3, 0.6, h.y);
+  float wB = (1.0 - smoothstep(uLkSrc2.y * 0.6, uLkSrc2.y, dB)) * smoothstep(0.3, 0.5, h.y) * (uLkSrc2.w > 0.0 ? smoothstep(uLkSrc2.w * 0.5, uLkSrc2.w, L) : 1.0);
+  float wC = max((1.0 - smoothstep(uLkSrc2.z * 0.6, uLkSrc2.z, dC)) * (1.0 - smoothstep(0.62, 0.8, h.y)), 1.0 - smoothstep(0.12, 0.3, h.y));
+  c = mix(c, min(uLkA.rgb * L, vec3(1.6)), wA * uLkA.w);
+  c = mix(c, min(uLkB.rgb * L, vec3(1.6)), wB * uLkB.w);
+  c = mix(c, min(uLkC.rgb * L, vec3(1.6)), wC * uLkC.w);
+  diffuseColor.rgb = lkX(c);
+  lkW = mix(1.0, wA, uLkG2.y);
+}
+`;
+const LOOK_GLOW = /* glsl */`
+{
+#if defined(USE_COLOR_ALPHA)
+  outgoingLight = mix(lkX(outgoingLight), outgoingLight, vColor.a);   // светящиеся части питомцев (огонь хвоста, глаза) — того же облика
+#endif
+  float pu = 0.75 + 0.25 * sin(uTime * uLkG2.x * 6.2831); outgoingLight += uLkG.rgb * uLkG.w * lkW * pu;
+  if (uLkGh.w > 0.0) {   // призрак: тело полупрозрачное, светится по краю силуэта, по нему бегут бледные полосы
+    float fr = pow(1.0 - saturate(abs(dot(normal, normalize(vViewPosition)))), 1.6);
+    float sc = 0.78 + 0.22 * sin(vViewPosition.y * 14.0 + uTime * 4.0);
+    outgoingLight = mix(outgoingLight, outgoingLight * 0.45 + uLkGh.rgb * (0.35 + 2.4 * fr) * sc, uLkGh.w);
+    diffuseColor.a *= mix(1.0, clamp((0.3 + 0.8 * fr) * sc, 0.0, 1.0), uLkGh.w);
+  }
+}
+`;
+const _lc = new THREE.Color();
+// перевести «цвет полосы» в множитель к яркости пикселя: средняя яркость исходной полосы → ровно этот цвет
+const lkVec = (u, col, ref, w = 1) => { if (col == null) { u.value.set(0, 0, 0, 0); return; } _lc.set(col); u.value.set(_lc.r / ref, _lc.g / ref, _lc.b / ref, w); };
+// look: { a, b, c — цвета полос (null — не трогать), src: [оттенок A, B, C], src2: [ширина A, B, C, порог яркости B], hue, sat, val, tint, tintK, glow, glowK, pulse, glowAll }
+export function applyLook(m, look) {
+  if (!m) return;
+  if (!m.userData.look) {
+    const u = m.userData.look = { uLkA: { value: new THREE.Vector4() }, uLkB: { value: new THREE.Vector4() }, uLkC: { value: new THREE.Vector4() }, uLkSrc: { value: new THREE.Vector4(0.71, 0.07, 0.635, 0) }, uLkSrc2: { value: new THREE.Vector4(0.06, 0.05, 0.04, 0.0) }, uLkHSV: { value: new THREE.Vector4(0, 1, 1, 0) }, uLkT: { value: new THREE.Vector4() }, uLkG: { value: new THREE.Vector4() }, uLkG2: { value: new THREE.Vector4(0.5, 1, 0, 0) }, uLkGh: { value: new THREE.Vector4() } };
+    m.userData.baseTransparent = m.transparent;
+    const ob = m.onBeforeCompile, key = m.customProgramCacheKey;
+    m.onBeforeCompile = (sh, r) => {
+      ob.call(m, sh, r); Object.assign(sh.uniforms, u, { uTime: U.uTime });
+      sh.fragmentShader = sh.fragmentShader.replace('void main() {', LOOK_PARS + (sh.fragmentShader.includes('uniform float uTime') ? '' : 'uniform float uTime;\n') + 'void main() {')
+        .replace('#include <color_fragment>', '#include <color_fragment>\n' + LOOK_F).replace('#include <opaque_fragment>', LOOK_GLOW + '#include <opaque_fragment>');
+    };
+    m.customProgramCacheKey = () => key.call(m) + '-look';
+    m.needsUpdate = true;
+  }
+  const u = m.userData.look, L = look || {};
+  lkVec(u.uLkA, L.a, L.refA ?? 0.05, L.aK ?? 1); lkVec(u.uLkB, L.b, L.refB ?? 0.22, L.bK ?? 1); lkVec(u.uLkC, L.c, L.refC ?? 0.12, L.cK ?? 1);
+  if (L.src) u.uLkSrc.value.set(...L.src); if (L.src2) u.uLkSrc2.value.set(...L.src2);
+  const hsv = L.hue != null || L.sat != null || L.val != null;
+  u.uLkHSV.value.set(L.hue || 0, L.sat ?? 1, L.val ?? 1, hsv ? 1 : 0);
+  _lc.set(L.tint ?? 0xffffff); u.uLkT.value.set(_lc.r, _lc.g, _lc.b, L.tint != null ? (L.tintK ?? 0.6) : 0);
+  _lc.set(L.glow ?? 0); u.uLkG.value.set(_lc.r, _lc.g, _lc.b, L.glow != null ? (L.glowK ?? 0.5) : 0);
+  u.uLkG2.value.set(L.pulse ?? 0.5, L.glowAll ? 0 : 1, 0, 0);
+  // ghost: цвет свечения призрака (true — голубой); материал становится прозрачным (смена прозрачности — одна перекомпиляция)
+  const gh = L.ghost; _lc.set(gh === true ? 0x8ae8ff : gh || 0); u.uLkGh.value.set(_lc.r, _lc.g, _lc.b, gh ? (L.ghostK ?? 1) : 0);
+  if (m.transparent !== !!gh && !m.userData.baseTransparent) { m.transparent = !!gh; m.needsUpdate = true; }
+}

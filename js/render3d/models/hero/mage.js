@@ -28,9 +28,9 @@ function head({ kit, STEEL, STEEL_L, STEEL_D, BR, BONE }) {
 }
 // новая модель — маг в маске с ригом Mixamo и своими ходьбой/бегом (art_meshy/in/mage_staff_rigged_fixed.glb → tools/art/glb_mixamo.py);
 // посох — отдельная сетка, поставлен в правую кисть (как у процедурного мага). Прежняя «Starlight Archmage» — assets/models/mage_archmage.*
-const SKIN = 'mage_staff';
-export default { id: 'mage', kind: 'hero', outline: 'hero', build(kit) {
+export const make = (SKIN = 'mage_staff') => ({ id: 'mage', kind: 'hero', outline: 'hero', skin: SKIN, build(kit) {
   const skin = !!(kit.skin && kit.skin.SKINS.on && kit.skin.skinLoaded(SKIN));
   const m = heroModel(kit, { steel: 0x4a3a8a, steelL: 0x8a6ad8, steelD: 0x2a1c5c, dark: 0x1a1438, tex: 'cloth', rimColor: 0xcfa8ff, cape: 0x6a2ab0, capeHem: 0x2a1050, capeLen: 1.35, height: 2.6, torso, head, noCape: skin });
   return skin ? kit.skin.attachSkin(kit, m, SKIN, { noEquip: ['handR'], staffHand: 'handR', legK: 0.85, rimColor: 0xcfa8ff, rim: 0.7 }) : m;
-} };
+} });
+export default make();

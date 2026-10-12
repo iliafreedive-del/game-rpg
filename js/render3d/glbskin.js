@@ -282,6 +282,7 @@ export function attachSkin(kit, model, name, o = {}) {
     root.updateMatrixWorld(true); sync(); bowShot(); if (trail) trail(dt, actor); };
   model.materials = [...(model.materials || []), mat];
   model.noEquip = o.noEquip || [];
+  model.skinMat = mat; model.skinBones = byName;   // облики (cosmetics.js): перекраска и крепление крыльев к кости корпуса шкуры
   model.skin = name;
   return model;
 }

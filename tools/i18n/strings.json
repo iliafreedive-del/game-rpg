@@ -144,6 +144,298 @@
   "w": "js/data/boons.js"
  },
  {
+  "k": "Фиолет",
+  "w": "js/data/cosmetics.js"
+ },
+ {
+  "k": "Багрянец",
+  "w": "js/data/cosmetics.js"
+ },
+ {
+  "k": "Изумруд",
+  "w": "js/data/cosmetics.js"
+ },
+ {
+  "k": "Лазурь",
+  "w": "js/data/cosmetics.js"
+ },
+ {
+  "k": "Сажа",
+  "w": "js/data/cosmetics.js"
+ },
+ {
+  "k": "Снег",
+  "w": "js/data/cosmetics.js"
+ },
+ {
+  "k": "Пламя",
+  "w": "js/data/cosmetics.js"
+ },
+ {
+  "k": "Золото",
+  "w": "js/data/cosmetics.js"
+ },
+ {
+  "k": "Серебро",
+  "w": "js/data/cosmetics.js"
+ },
+ {
+  "k": "Чернь",
+  "w": "js/data/cosmetics.js"
+ },
+ {
+  "k": "Медь",
+  "w": "js/data/cosmetics.js"
+ },
+ {
+  "k": "Кость",
+  "w": "js/data/cosmetics.js"
+ },
+ {
+  "k": "Сталь",
+  "w": "js/data/cosmetics.js"
+ },
+ {
+  "k": "Вороная",
+  "w": "js/data/cosmetics.js"
+ },
+ {
+  "k": "Белая",
+  "w": "js/data/cosmetics.js"
+ },
+ {
+  "k": "Бронза",
+  "w": "js/data/cosmetics.js"
+ },
+ {
+  "k": "Ледяная",
+  "w": "js/data/cosmetics.js"
+ },
+ {
+  "k": "Как есть",
+  "w": "js/data/cosmetics.js"
+ },
+ {
+  "k": "Кровавый страж",
+  "w": "js/data/cosmetics.js"
+ },
+ {
+  "k": "Ледяной паладин",
+  "w": "js/data/cosmetics.js"
+ },
+ {
+  "k": "Пепельное пламя",
+  "w": "js/data/cosmetics.js"
+ },
+ {
+  "k": "Светоносный",
+  "w": "js/data/cosmetics.js"
+ },
+ {
+  "k": "Изумрудный лес",
+  "w": "js/data/cosmetics.js"
+ },
+ {
+  "k": "Дитя Бездны",
+  "w": "js/data/cosmetics.js"
+ },
+ {
+  "k": "Призрак",
+  "w": "js/data/cosmetics.js"
+ },
+ {
+  "k": "Призрачный питомец",
+  "w": "js/data/cosmetics.js"
+ },
+ {
+  "k": "Рыцарь Ордена",
+  "w": "js/data/cosmetics.js"
+ },
+ {
+  "k": "Фиолетовый авангард",
+  "w": "js/data/cosmetics.js"
+ },
+ {
+  "k": "Маг посоха",
+  "w": "js/data/cosmetics.js"
+ },
+ {
+  "k": "Звёздный архимаг",
+  "w": "js/data/cosmetics.js"
+ },
+ {
+  "k": "Вороний лучник",
+  "w": "js/data/cosmetics.js"
+ },
+ {
+  "k": "Снежный",
+  "w": "js/data/cosmetics.js"
+ },
+ {
+  "k": "Теневой",
+  "w": "js/data/cosmetics.js"
+ },
+ {
+  "k": "Золотой",
+  "w": "js/data/cosmetics.js"
+ },
+ {
+  "k": "Белый ворон",
+  "w": "js/data/cosmetics.js"
+ },
+ {
+  "k": "Угольный",
+  "w": "js/data/cosmetics.js"
+ },
+ {
+  "k": "Призрачный",
+  "w": "js/data/cosmetics.js"
+ },
+ {
+  "k": "Лазурный",
+  "w": "js/data/cosmetics.js"
+ },
+ {
+  "k": "Обсидиан",
+  "w": "js/data/cosmetics.js"
+ },
+ {
+  "k": "Огненный",
+  "w": "js/data/cosmetics.js"
+ },
+ {
+  "k": "Бездны",
+  "w": "js/data/cosmetics.js"
+ },
+ {
+  "k": "Кровавый",
+  "w": "js/data/cosmetics.js"
+ },
+ {
+  "k": "Ледяной",
+  "w": "js/data/cosmetics.js"
+ },
+ {
+  "k": "Рубиновый",
+  "w": "js/data/cosmetics.js"
+ },
+ {
+  "k": "Кровавая",
+  "w": "js/data/cosmetics.js"
+ },
+ {
+  "k": "Золотая",
+  "w": "js/data/cosmetics.js"
+ },
+ {
+  "k": "Нефритовый",
+  "w": "js/data/cosmetics.js"
+ },
+ {
+  "k": "Душ",
+  "w": "js/data/cosmetics.js"
+ },
+ {
+  "k": "Пламенный",
+  "w": "js/data/cosmetics.js"
+ },
+ {
+  "k": "Дракончик Бездны",
+  "w": "js/data/cosmetics.js"
+ },
+ {
+  "k": "Призрачный волчонок",
+  "w": "js/data/cosmetics.js"
+ },
+ {
+  "k": "Феникс",
+  "w": "js/data/cosmetics.js"
+ },
+ {
+  "k": "Огненные следы",
+  "w": "js/data/cosmetics.js"
+ },
+ {
+  "k": "Иней",
+  "w": "js/data/cosmetics.js"
+ },
+ {
+  "k": "Кровавые следы",
+  "w": "js/data/cosmetics.js"
+ },
+ {
+  "k": "Тень",
+  "w": "js/data/cosmetics.js"
+ },
+ {
+  "k": "Золотые звёзды",
+  "w": "js/data/cosmetics.js"
+ },
+ {
+  "k": "Аура огня",
+  "w": "js/data/cosmetics.js"
+ },
+ {
+  "k": "Аура холода",
+  "w": "js/data/cosmetics.js"
+ },
+ {
+  "k": "Аура крови",
+  "w": "js/data/cosmetics.js"
+ },
+ {
+  "k": "Аура Бездны",
+  "w": "js/data/cosmetics.js"
+ },
+ {
+  "k": "Свет",
+  "w": "js/data/cosmetics.js"
+ },
+ {
+  "k": "Яд",
+  "w": "js/data/cosmetics.js"
+ },
+ {
+  "k": "Крылья демона",
+  "w": "js/data/cosmetics.js"
+ },
+ {
+  "k": "Крылья ангела",
+  "w": "js/data/cosmetics.js"
+ },
+ {
+  "k": "Ледяные крылья",
+  "w": "js/data/cosmetics.js"
+ },
+ {
+  "k": "Крылья пламени",
+  "w": "js/data/cosmetics.js"
+ },
+ {
+  "k": "Крылья Бездны",
+  "w": "js/data/cosmetics.js"
+ },
+ {
+  "k": "Нимб",
+  "w": "js/data/cosmetics.js"
+ },
+ {
+  "k": "Тёмный нимб",
+  "w": "js/data/cosmetics.js"
+ },
+ {
+  "k": "Сферы душ",
+  "w": "js/data/cosmetics.js"
+ },
+ {
+  "k": "Огненные сферы",
+  "w": "js/data/cosmetics.js"
+ },
+ {
+  "k": "Корона пламени",
+  "w": "js/data/cosmetics.js"
+ },
+ {
   "k": "Скелет-воин",
   "w": "js/data/enemies.js"
  },
@@ -518,10 +810,6 @@
  {
   "k": "Вуаль из-за портала",
   "w": "js/data/hunts.js"
- },
- {
-  "k": "Рыцарь Ордена",
-  "w": "js/data/items.js"
  },
  {
   "k": "Меч и щит. Крепкий, бьёт вблизи, поджигает врагов огнём.",
@@ -3336,6 +3624,30 @@
   "w": "js/game/combat.js"
  },
  {
+  "k": "Нужно {0}◆ осколков Бездны",
+  "w": "js/game/cosmetics.js"
+ },
+ {
+  "k": "Осколки дают стражи, боссы, чемпионы, сундуки и недельные задания",
+  "w": "js/game/cosmetics.js"
+ },
+ {
+  "k": "Облик открыт",
+  "w": "js/game/cosmetics.js"
+ },
+ {
+  "k": "Краска «",
+  "w": "js/game/cosmetics.js"
+ },
+ {
+  "k": "{0}: {1} из {2}",
+  "w": "js/game/cosmetics.js"
+ },
+ {
+  "k": "Реклама засчитана",
+  "w": "js/game/cosmetics.js"
+ },
+ {
   "k": "Уничтожить {0} врагов",
   "w": "js/game/daily.js"
  },
@@ -3541,10 +3853,6 @@
  },
  {
   "k": "Бронированный",
-  "w": "js/game/entities.js"
- },
- {
-  "k": "Ледяной",
   "w": "js/game/entities.js"
  },
  {
@@ -3961,10 +4269,6 @@
  },
  {
   "k": "Мрачный",
-  "w": "js/game/items.js"
- },
- {
-  "k": "Кровавый",
   "w": "js/game/items.js"
  },
  {
@@ -4516,23 +4820,11 @@
   "w": "js/game/pets.js"
  },
  {
-  "k": "Нужно {0}◆ осколков Бездны",
-  "w": "js/game/pets.js"
- },
- {
-  "k": "Осколки дают стражи, боссы, чемпионы, сундуки и недельные задания",
-  "w": "js/game/pets.js"
- },
- {
   "k": "{0} питомца ↑",
   "w": "js/game/pets.js"
  },
  {
   "k": "{0} урона огнём в секунду, 3 с (маг.)",
-  "w": "js/game/pets.js"
- },
- {
-  "k": "Яд",
   "w": "js/game/pets.js"
  },
  {
@@ -4921,10 +5213,6 @@
  },
  {
   "k": "3 вещи для слияния и свиток",
-  "w": "js/game/season.js"
- },
- {
-  "k": "Золото",
   "w": "js/game/season.js"
  },
  {
@@ -5856,10 +6144,6 @@
   "w": "js/game/wildmem.js"
  },
  {
-  "k": "Тень",
-  "w": "js/game/wildmem.js"
- },
- {
   "k": "Волк",
   "w": "js/game/wildmem.js"
  },
@@ -6516,6 +6800,30 @@
   "w": "js/platform/platform.js"
  },
  {
+  "k": "Облик «Ледяной паладин»",
+  "w": "js/platform/platform.js"
+ },
+ {
+  "k": "Облик героя навсегда.",
+  "w": "js/platform/platform.js"
+ },
+ {
+  "k": "Облик «Пепельное пламя»",
+  "w": "js/platform/platform.js"
+ },
+ {
+  "k": "Облик «Дитя Бездны»",
+  "w": "js/platform/platform.js"
+ },
+ {
+  "k": "Полупрозрачный светящийся облик героя навсегда.",
+  "w": "js/platform/platform.js"
+ },
+ {
+  "k": "Призрачный облик питомца навсегда.",
+  "w": "js/platform/platform.js"
+ },
+ {
   "k": "Большая сумка",
   "w": "js/platform/platform.js"
  },
@@ -6574,6 +6882,10 @@
  {
   "k": " · ур. {0}+",
   "w": "js/render/renderer.js"
+ },
+ {
+  "k": "\nuniform float uTime; uniform float uLife; uniform float uShape; uniform vec3 uColA; uniform vec3 uColB; uniform float uAdd;\nvarying vec2 vUv; varying float vBorn; varying float vSeed;\n{0}\nvoid main() {\n  float age = (uTime - vBorn) / uLife; if (age < 0.0 || age > 1.0) discard;\n  vec2 p = vUv * 2.0 - 1.0; float r = length(p), a = atan(p.y, p.x), A = 0.0; vec3 col;\n  if (uShape < 0.5) {            // огонь: пятно-след с языками, гаснет от жёлтого к красному\n    vec2 q = p * vec2(1.0, 0.7); float n = vn(q * 3.0 + vec2(vSeed * 7.0, -uTime * 3.0));\n    A = smoothstep(0.95, 0.2, length(q) + n * 0.45 - 0.15) * (1.0 - age);\n    col = mix(uColA, uColB, smoothstep(0.2, 0.9, A + 0.3 * (1.0 - age))) * 2.2;\n  } else if (uShape < 1.5) {     // лёд: шестилучевая снежинка-иней\n    float star = 0.25 + 0.7 * pow(abs(cos(a * 3.0 + vSeed * 6.0)), 18.0);\n    float ring = smoothstep(0.08, 0.0, abs(r - 0.42)) * 0.5;\n    A = max(smoothstep(star, star - 0.12, r), ring) * smoothstep(1.0, 0.6, age) * (0.7 + 0.3 * vn(p * 6.0 + vSeed));\n    col = mix(uColA, uColB, smoothstep(0.0, 0.5, A)) * 1.6;\n  } else if (uShape < 2.5) {     // кровь: клякса с брызгами, медленно сохнет\n    float lob = 0.55 + 0.25 * vn(vec2(a * 2.0, vSeed * 13.0));\n    float drops = smoothstep(0.12, 0.0, length(fract(p * 2.2 + vSeed * 3.0) - 0.5)) * step(0.7, hh(floor(p * 2.2 + vSeed * 3.0)));\n    A = max(smoothstep(lob, lob - 0.1, r), drops) * smoothstep(1.0, 0.55, age) * 0.92;\n    col = mix(uColB, uColA, smoothstep(0.0, 0.8, r + age * 0.6));\n  } else if (uShape < 3.5) {     // тень: тёмное дымное пятно с фиолетовой каймой\n    float n = vn(p * 2.5 + vec2(uTime * 0.6, vSeed * 9.0));\n    float d = r + n * 0.5 - 0.2; A = smoothstep(0.95, 0.35, d) * (1.0 - age) * 0.9;\n    col = mix(uColA, uColB, smoothstep(0.55, 0.85, d) * 1.2);\n  } else {                       // золото: четырёхлучевая звезда-отпечаток\n    float st = 0.15 + 0.85 * pow(abs(cos(a * 2.0)), 30.0);\n    A = (smoothstep(st, st - 0.15, r) + smoothstep(0.5, 0.0, r) * 0.5) * (1.0 - age);\n    col = mix(uColA, uColB, smoothstep(0.0, 0.6, A)) * 2.0;\n  }\n  if (A < 0.01) discard;\n  gl_FragColor = uAdd > 0.5 ? vec4(col * A, A) : vec4(col, A);\n}",
+  "w": "js/render3d/cosfx.js"
  },
  {
   "k": "\n#include <color_fragment>\n{\n  vec2 wp = vGW + uWShift;   // «Жатва»: сдвиг бесконечного поля\n  float f = texture2D(tFlag, wp * 0.4).r;\n  vec4 nz = texture2D(tNoise, wp * 0.045), nz2 = texture2D(tNoise, wp * 0.17 + 0.3);\n  vec3 col = uFloor * (0.45 + f * 1.1) * (0.85 + nz.g * 0.3);\n  col = mix(col, uGrime * (0.6 + f * 0.6), smoothstep(0.45, 0.8, nz.r + vEdge * 0.35) * 0.75);   // грязь пятнами и к стенам\n  col = mix(col, uMoss * (0.6 + f * 0.6), smoothstep(0.62, 0.85, nz2.b + vEdge * 0.25) * 0.55);   // мох в щелях у стен\n  // трещины в плитах (тонкие тёмные линии по шуму; в пепельных — раскалённые, в Бездне — фиолетовые рунные)\n  float cr1 = 1.0 - smoothstep(0.0, 0.014, abs(nz2.g - 0.5)), cr2 = 1.0 - smoothstep(0.0, 0.011, abs(texture2D(tNoise, wp * 0.31 + 0.7).b - 0.5));\n  float crk = max(cr1 * smoothstep(0.45, 0.65, nz.g), cr2 * smoothstep(0.55, 0.75, nz.b));\n  if (uBiome > 3.5) {   // цитадель: полированные плиты шахматкой, золотые полосы-вставки через 4 м, чистый камень\n    vec2 gp = wp * 0.5; float chk = mod(floor(gp.x) + floor(gp.y), 2.0);\n    col = uFloor * (0.18 + f * 0.42) * mix(vec3(1.5, 1.4, 1.1), vec3(0.45, 0.52, 0.8), chk) * (0.9 + nz.g * 0.2);\n    vec2 gl = abs(fract(wp * 0.25) - 0.5);\n    float line = smoothstep(0.488, 0.498, max(gl.x, gl.y));\n    col = mix(col, vec3(0.7, 0.45, 0.12), line * 0.8);\n    crk *= 0.3;\n  }\n  col = mix(col, vec3(0.03, 0.025, 0.03), crk * 0.85);\n  if (uBiome > 2.5) col = mix(col, vec3(0.62, 0.36, 1.0), crk * 0.7);\n  else if (uBiome > 1.5) col = mix(col, vec3(1.2, 0.5, 0.12), crk * 0.9);\n  // кровь и воск (катакомбы, пепел, цитадель): тёмные подсохшие пятна и бледные лужицы свечного воска у стен\n  if (uBiome < 0.5 || uBiome > 1.5 && uBiome < 2.5) {\n    float bl = smoothstep(0.74, 0.8, texture2D(tNoise, wp * 0.09 + 0.15).g * 0.65 + nz2.r * 0.35);\n    col = mix(col, vec3(0.2, 0.025, 0.02) * (0.7 + f * 0.6), bl * 0.8);\n    float wx = smoothstep(0.78, 0.84, nz.b * 0.5 + nz2.g * 0.5 + vEdge * 0.2);\n    col = mix(col, vec3(0.8, 0.7, 0.5) * (0.5 + f * 0.5), wx * 0.75);\n  }\n  // затопленные: мелкая вода в низинах плит — тёмная бирюза, блики, мокрая кромка\n  if (uBiome > 0.5 && uBiome < 1.5) {\n    float wn = nz.r * 0.55 + nz2.g * 0.45, wat = smoothstep(0.52, 0.58, wn);\n    float rip = texture2D(tNoise, wp * 0.5 + vec2(uTime * 0.03, uTime * 0.02)).b;\n    vec3 wc = mix(vec3(0.03, 0.12, 0.14), vec3(0.2, 0.5, 0.52), smoothstep(0.55, 0.75, rip));\n    col = mix(col, col * 0.55, smoothstep(0.46, 0.52, wn) * (1.0 - wat));\n    col = mix(col, wc, wat * 0.9);\n  }\n  col *= 1.0 - vEdge * 0.42;                                                                       // тень у основания стен\n  diffuseColor.rgb = col * diffuseColor.rgb;\n}",
@@ -6697,6 +7009,14 @@
  },
  {
   "k": "\nif (vTexId > 0.5) {\n  vec3 an = abs(normalize(vTN)); vec3 tw = pow(an, vec3(4.0)); tw /= (tw.x + tw.y + tw.z);\n  float id = floor(vTexId + 0.5);\n  float L = id < 2.5 ? 0.0 : id - 2.0;\n  bool vert = id == 1.0 || id == 8.0;   // волокна вдоль Y\n  float sc = MSC[int(L)];\n  vec2 ux = (vert ? vTP.yz : vTP.zy) * sc, uy = vTP.xz * sc, uz = (vert ? vTP.yx : vTP.xy) * sc;\n  if (id > 17.5) { ux.y = -ux.y; uy.y = -uy.y; uz.y = -uz.y; }   // мех: рисунок «сверху вниз» = вниз по телу и назад по спине\n  vec2 dxX = dFdx(ux), dyX = dFdy(ux), dxY = dFdx(uy), dyY = dFdy(uy), dxZ = dFdx(uz), dyZ = dFdy(uz);\n  vec3 m = textureGrad(tMats, vec3(ux, L), dxX, dyX).rgb * tw.x + textureGrad(tMats, vec3(uy, L), dxY, dyY).rgb * tw.y + textureGrad(tMats, vec3(uz, L), dxZ, dyZ).rgb * tw.z;\n  vec3 f = clamp(1.0 + (m - 0.5) * MAMP[int(L)], 0.25, 1.8);\n  // второй слой — износ: дерево, камень, штукатурка и брусчатка грязнее и темнее у земли; на камне сверху мох\n  if (id < 3.5 || id == 5.0 || id == 11.0 || id == 17.0) {\n    float nzs = 0.5 + 0.5 * sin(vTP.x * 1.9 + sin(vTP.z * 2.3 + vTP.y * 1.3) * 2.1 + vTP.y * 3.1);\n    float low = 1.0 - smoothstep(0.0, 1.15, vTP.y);\n    f *= mix(vec3(1.0), vec3(0.58, 0.52, 0.44), low * (0.45 + 0.55 * nzs) * 0.8);\n    if (id == 3.0 || id == 11.0) f *= mix(vec3(1.0), vec3(0.62, 0.98, 0.5), smoothstep(0.55, 0.95, an.y) * smoothstep(0.3, 0.8, nzs) * 0.65);\n  }\n  // стены подземелья по биому: сырость и слизь, копоть и угли, фиолетовые жилы Бездны\n  if (id == 3.0 && uBiome > 0.5) {\n    float nzb = 0.5 + 0.5 * sin(vTP.x * 1.3 + sin(vTP.z * 1.7 + vTP.y * 2.1) * 1.8 + vTP.y * 0.9);\n    float vein = (1.0 - smoothstep(0.0, 0.06, abs(sin(vTP.x * 2.1 + sin(vTP.z * 2.6 + vTP.y * 3.3) * 1.6 + vTP.y * 1.7)))) * smoothstep(0.55, 0.85, nzb);\n    if (uBiome < 1.5) { float wet = 1.0 - smoothstep(0.0, 1.7, vTP.y); f *= mix(vec3(1.0), vec3(0.5, 0.82, 0.78), wet * (0.45 + 0.55 * nzb)); f *= mix(vec3(1.0), vec3(0.62, 1.15, 0.8), smoothstep(0.65, 1.0, nzb) * 0.5); }\n    else if (uBiome < 2.5) { f *= mix(vec3(1.0), vec3(0.6, 0.52, 0.48), 0.7 * nzb); f = mix(f, vec3(1.6, 0.7, 0.2), vein * 0.8); }\n    else { f *= mix(vec3(1.0), vec3(0.8, 0.72, 0.95), 0.5); f = mix(f, vec3(1.0, 0.6, 1.7), vein * 0.8); }\n  }\n  diffuseColor.rgb *= f;\n}\n",
+  "w": "js/render3d/toon.js"
+ },
+ {
+  "k": "\nuniform vec4 uLkA; uniform vec4 uLkB; uniform vec4 uLkC; uniform vec4 uLkSrc; uniform vec4 uLkSrc2; uniform vec4 uLkHSV; uniform vec4 uLkT; uniform vec4 uLkG; uniform vec4 uLkG2; uniform vec4 uLkGh;\nvec3 lkHsv(vec3 c) { vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0); vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g)); vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r)); float d = q.x - min(q.w, q.y); return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + 1e-10)), d / (q.x + 1e-10), q.x); }\nvec3 lkRgb(vec3 c) { vec3 p = abs(fract(c.xxx + vec3(1.0, 2.0 / 3.0, 1.0 / 3.0)) * 6.0 - 3.0); return c.z * mix(vec3(1.0), clamp(p - 1.0, 0.0, 1.0), c.y); }\nvec3 lkX(vec3 c) {   // общий сдвиг оттенка/насыщенности/яркости и тонировка (после полос; и для светящихся частей)\n  if (uLkHSV.w > 0.0) { vec3 k = lkHsv(c); k.x = fract(k.x + uLkHSV.x); k.y = clamp(k.y * uLkHSV.y, 0.0, 1.0); k.z *= uLkHSV.z; c = lkRgb(k); }\n  return mix(c, uLkT.rgb * (0.25 + 1.4 * dot(c, vec3(0.2126, 0.7152, 0.0722))), uLkT.w);\n}\n",
+  "w": "js/render3d/toon.js"
+ },
+ {
+  "k": "\n{\n#if defined(USE_COLOR_ALPHA)\n  outgoingLight = mix(lkX(outgoingLight), outgoingLight, vColor.a);   // светящиеся части питомцев (огонь хвоста, глаза) — того же облика\n#endif\n  float pu = 0.75 + 0.25 * sin(uTime * uLkG2.x * 6.2831); outgoingLight += uLkG.rgb * uLkG.w * lkW * pu;\n  if (uLkGh.w > 0.0) {   // призрак: тело полупрозрачное, светится по краю силуэта, по нему бегут бледные полосы\n    float fr = pow(1.0 - saturate(abs(dot(normal, normalize(vViewPosition)))), 1.6);\n    float sc = 0.78 + 0.22 * sin(vViewPosition.y * 14.0 + uTime * 4.0);\n    outgoingLight = mix(outgoingLight, outgoingLight * 0.45 + uLkGh.rgb * (0.35 + 2.4 * fr) * sc, uLkGh.w);\n    diffuseColor.a *= mix(1.0, clamp((0.3 + 0.8 * fr) * sc, 0.0, 1.0), uLkGh.w);\n  }\n}\n",
   "w": "js/render3d/toon.js"
  },
  {
@@ -7288,6 +7608,74 @@
   "w": "js/ui/hud.js"
  },
  {
+  "k": "Реклама за вознаграждение: {0} за {1} дн. Осталось {2} дн.",
+  "w": "js/ui/looks.js"
+ },
+ {
+  "k": "Только вид — сила не меняется. Осколки Бездны: <b class=\"c-gold\">{0}◆</b>",
+  "w": "js/ui/looks.js"
+ },
+ {
+  "k": "Готовые облики",
+  "w": "js/ui/looks.js"
+ },
+ {
+  "k": "✔ Надет",
+  "w": "js/ui/looks.js"
+ },
+ {
+  "k": "Нажмите, чтобы надеть",
+  "w": "js/ui/looks.js"
+ },
+ {
+  "k": "Свои краски",
+  "w": "js/ui/looks.js"
+ },
+ {
+  "k": "<small>Поверх облика: ткань, кайма и броня меняются по отдельности. Каждая новая краска — {0}◆ один раз.</small>",
+  "w": "js/ui/looks.js"
+ },
+ {
+  "k": "Ткань",
+  "w": "js/ui/looks.js"
+ },
+ {
+  "k": "Кайма",
+  "w": "js/ui/looks.js"
+ },
+ {
+  "k": "Броня",
+  "w": "js/ui/looks.js"
+ },
+ {
+  "k": "Сбросить краски",
+  "w": "js/ui/looks.js"
+ },
+ {
+  "k": "Модель",
+  "w": "js/ui/looks.js"
+ },
+ {
+  "k": "<small>Полупрозрачное тело со светящимся краем. Сочетается с любым обликом и краской.</small>",
+  "w": "js/ui/looks.js"
+ },
+ {
+  "k": "Герой",
+  "w": "js/ui/looks.js"
+ },
+ {
+  "k": "Питомец",
+  "w": "js/ui/looks.js"
+ },
+ {
+  "k": "✔ Включён",
+  "w": "js/ui/looks.js"
+ },
+ {
+  "k": "Включить",
+  "w": "js/ui/looks.js"
+ },
+ {
   "k": "{0} зол. · {1}",
   "w": "js/ui/panel.js"
  },
@@ -7325,6 +7713,10 @@
  },
  {
   "k": "{0} <span class=\"lv\">ур. {1}</span>",
+  "w": "js/ui/panel.js"
+ },
+ {
+  "k": " · предел на вашем уровне (ещё +1 с каждым уровнем героя, до {0})",
   "w": "js/ui/panel.js"
  },
  {
@@ -8132,10 +8524,6 @@
   "w": "js/ui/windows.js"
  },
  {
-  "k": "Герой",
-  "w": "js/ui/windows.js"
- },
- {
   "k": "<span class=\"eq-new\">НОВ</span>",
   "w": "js/ui/windows.js"
  },
@@ -8733,10 +9121,6 @@
  },
  {
   "k": "<b>Режим съёмки</b> <small class=\"muted\">без кнопок, для скриншотов и роликов. Включите АВТО заранее — герой будет сражаться сам</small>",
-  "w": "js/ui/windows.js"
- },
- {
-  "k": "Включить",
   "w": "js/ui/windows.js"
  },
  {
@@ -10236,6 +10620,10 @@
   "w": "js/ui/windows.js"
  },
  {
+  "k": "Облик",
+  "w": "js/ui/windows.js"
+ },
+ {
   "k": "Меню",
   "w": "js/ui/windows.js"
  },
@@ -10281,6 +10669,10 @@
  },
  {
   "k": "+0,5% за каждую находку",
+  "w": "js/ui/windows.js"
+ },
+ {
+  "k": "наряд, краски, призрак",
   "w": "js/ui/windows.js"
  },
  {

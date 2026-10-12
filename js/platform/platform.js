@@ -112,6 +112,12 @@ export const PRODUCTS = {
   energy_big: { title: 'Большой запас энергии', price: '129 ₽', desc: '+150 ⚡ энергии для Летописи битв, Глубин и Жатвы.', consumable: true, icon: '⚡', tag: 'Выгодно' },
   order_seal: { title: 'Печать Ордена · 30 дней', price: '149 ₽', desc: 'Сразу 10 осколков Бездны ◆, потом 30 дней каждый день вместе с дарами источника: 3 ◆ и 20 ⚡. Повторная покупка продлевает срок.', consumable: true, icon: '✠', tag: 'Лучший выбор' },
   day_offer: { title: 'Предложение дня', price: '49 ₽', desc: '30 осколков Бездны ◆, 3000 золота и 30 ⚡ энергии. Один раз, только 24 часа.', consumable: true, once: true, icon: '✶', limited: true },
+  // сборка 66: облики за рубли (окно «Облик»; в лавке не показываются — cosm). Навсегда, переносятся восстановлением покупок
+  look_frost: { title: 'Облик «Ледяной паладин»', price: '99 ₽', desc: 'Облик героя навсегда.', consumable: false, icon: '✦', cosm: 'look:frost' },
+  look_ember: { title: 'Облик «Пепельное пламя»', price: '99 ₽', desc: 'Облик героя навсегда.', consumable: false, icon: '✦', cosm: 'look:ember' },
+  look_void: { title: 'Облик «Дитя Бездны»', price: '149 ₽', desc: 'Облик героя навсегда.', consumable: false, icon: '✦', cosm: 'look:void' },
+  look_ghost: { title: 'Призрак', price: '99 ₽', desc: 'Полупрозрачный светящийся облик героя навсегда.', consumable: false, icon: '✦', cosm: 'ghost:hero' },
+  pet_ghost: { title: 'Призрачный питомец', price: '69 ₽', desc: 'Призрачный облик питомца навсегда.', consumable: false, icon: '✦', cosm: 'ghost:pet' },
   bag_big: { title: 'Большая сумка', price: '149 ₽', desc: 'Навсегда +20 мест в сумке.', consumable: false, icon: '▤' },
 };
 
