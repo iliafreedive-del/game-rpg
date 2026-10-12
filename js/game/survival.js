@@ -510,10 +510,19 @@ const POOL_RINGS = [[1, 0, 0], [0.66, 1.3, 0.27], [0.36, 2.6, 0.53]];
 const drawPool = (c, cam, q) => { const al = Math.min(1, q.t * 2); let ok = false; if (fxReady('gr_burning_ground')) drawGroundGlow(c, cam, q.x, q.y, q.r * 0.95, al * (0.85 + Math.sin(G.time * 7 + q.x) * 0.15)); for (const [k, a, dt] of POOL_RINGS) ok = drawFxSheet(c, cam, poolFx(q, k, a, dt), al) || ok; return ok; };
 const markFx = m => ({ id: 'sk_meteor_target', x: m.x, y: m.y, t: 1 - Math.max(0, m.t / m.T), dur: 1, size: m.R * 2.2, add: 1 });
 // сборка 66: горящая земля и метки метеоров — на плоскость у земли в 3D (render3d/decals.js), чтобы мобы стояли на них, а не под ними
+// морозная аура вокруг героя; flat — рисуем на холст пола (вид сверху, без сплющивания)
+function drawFrost(c, cam, flat) {
+  const S = G.surv; if (!S.w.frost || !S.frostR) return 0;
+  const pl = G.player, [cx, cy] = cam.toScreen(pl.x, pl.y), [rx] = cam.toScreen(pl.x + S.frostR, pl.y), R = Math.abs(rx - cx), pu = 0.75 + 0.25 * Math.sin(G.time * 5), d = flat ? 3 : 2;
+  c.save(); c.translate(cx, cy); if (!flat) c.scale(1, 0.5); const g = c.createRadialGradient(0, 0, R * 0.3, 0, 0, R); g.addColorStop(0, 'rgba(120,200,255,0)'); g.addColorStop(0.8, `rgba(140,215,255,${0.22 * pu})`); g.addColorStop(1, 'rgba(200,240,255,0)');
+  c.fillStyle = g; c.beginPath(); c.arc(0, 0, R, 0, 7); c.fill(); c.strokeStyle = `rgba(200,240,255,${0.55 * pu})`; c.lineWidth = flat ? 4 : 3; c.beginPath(); c.arc(0, 0, R * 0.96, 0, 7); c.stroke();
+  for (let i = 0; i < 10; i++) { const a = G.time * 0.8 + i * 0.628; c.fillStyle = 'rgba(230,250,255,0.9)'; c.fillRect(Math.cos(a) * R * 0.9 - d, Math.sin(a) * R * 0.9 - d, d * 2, d * 2); } c.restore(); return 1;
+}
 export function drawSurvivalGround(c, cam) {
   const S = G.surv; if (!S) return 0; let n = 0;
   if (fxReady('gr_burning_ground')) for (const q of S.pools) if (drawPool(c, cam, q)) n++;
   if (fxReady('sk_meteor_target')) for (const m of S.drops || []) if (drawFxSheet(c, cam, markFx(m), 1)) n++;
+  n += drawFrost(c, cam, true);
   return n;
 }
 export function drawSurvivalFx(ctx, cam) {
@@ -555,11 +564,8 @@ export function drawSurvivalFx(ctx, cam) {
     const [x, y] = cam.toScreen(m.x - 2.2 * k, m.y, 7 * k), [x2, y2] = cam.toScreen(m.x - 2.2 * k - 0.4, m.y, 7 * k + 1.3), ang = Math.atan2(y - y2, x - x2);
     if (fxReady('proj_fireball') && drawProjSheet(ctx, cam, 'proj_fireball', m.x - 2.2 * k, m.y, 7 * k, ang, G.time, 2.6)) continue;
     ctx.strokeStyle = 'rgba(255,150,50,0.6)'; ctx.lineWidth = 14 * z; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x2 + (x2 - x) * 1.5, y2 + (y2 - y) * 1.5); ctx.stroke(); blit(ctx, fireSpr(), x, y, 56 * z); }
-  // морозная аура: голубой круг на земле, пульсирует
-  if (S.w.frost && S.frostR) { const pl = G.player, [cx, cy] = cam.toScreen(pl.x, pl.y), [rx] = cam.toScreen(pl.x + S.frostR, pl.y), R = Math.abs(rx - cx), pu = 0.75 + 0.25 * Math.sin(G.time * 5);
-    ctx.save(); ctx.translate(cx, cy); ctx.scale(1, 0.5); const g = ctx.createRadialGradient(0, 0, R * 0.3, 0, 0, R); g.addColorStop(0, 'rgba(120,200,255,0)'); g.addColorStop(0.8, `rgba(140,215,255,${0.22 * pu})`); g.addColorStop(1, 'rgba(200,240,255,0)');
-    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, R, 0, 7); ctx.fill(); ctx.strokeStyle = `rgba(200,240,255,${0.55 * pu})`; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(0, 0, R * 0.96, 0, 7); ctx.stroke();
-    for (let i = 0; i < 10; i++) { const a = G.time * 0.8 + i * 0.628; ctx.fillStyle = 'rgba(230,250,255,0.9)'; ctx.fillRect(Math.cos(a) * R * 0.9 - 2, Math.sin(a) * R * 0.9 - 2, 4, 4); } ctx.restore(); }
+  // морозная аура: голубой круг на земле, пульсирует; в 3D — на плоскости у земли (drawSurvivalGround): это обруч на полу, дальняя половина прячется за героем
+  if (!fxGround.on) drawFrost(ctx, cam, false);
   // громовержец: молния с неба
   for (const b of S.bolts || []) { const [x0, y0] = cam.toScreen(b.x, b.y, 0), [x1, y1] = cam.toScreen(b.x, b.y, 9), al = Math.min(1, b.t / 0.15);
     ctx.beginPath(); ctx.moveTo(x1, y1); for (let i = 1; i < 8; i++) { const f = i / 8; ctx.lineTo(x1 + (x0 - x1) * f + Math.sin(b.s + i * 2.7 + G.time * 40) * 14 * z, y1 + (y0 - y1) * f); } ctx.lineTo(x0, y0);
