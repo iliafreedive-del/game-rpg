@@ -4,6 +4,7 @@
 import { GAITS, posePet } from './gaits.js';
 import { toon, outline } from '../../toon.js';
 import { OUTLINE } from '../../style.js';
+import { PET_FX, addPetFx } from './petfx.js';
 const CLIPS = { idle: { loop: true }, walk: { loop: true }, attack: { dur: 0.5, hit: 0.5 }, hit: { dur: 0.3 }, death: { dur: 1 }, cast: { dur: 0.5, fire: 0.5 } };
 export function meshyPet(kit, name, fallback) {
   const sk = kit.skin, d = sk && sk.SKINS.on && sk.skinData(name);
@@ -14,7 +15,7 @@ export function meshyPet(kit, name, fallback) {
     b.position.set(at[0] - pa[0], at[1] - pa[1], at[2] - pa[2]); b.userData.rest = b.position.clone();
     (p ? B[p] : root).add(b); B[n] = b; bones.push(b);
   }
-  const mat = toon(0xffffff, { map: d.tex, rim: 0.55, rimColor: 0xffe0b0, ao: 0.8, aoH: 0.4 });
+  const mat = toon(0xffffff, { map: d.tex, rim: 0.55, rimColor: (PET_FX[name] && PET_FX[name].rim) || 0xffe0b0, ao: 0.8, aoH: 0.4 });
   const mesh = new THREE.SkinnedMesh(d.geo, mat); mesh.frustumCulled = false; mesh.castShadow = true; mesh.userData.noBake = true; mesh.userData.noOutline = true;
   root.add(mesh); root.updateMatrixWorld(true); mesh.bind(new THREE.Skeleton(bones));
   const ol = new THREE.SkinnedMesh(d.geo, outline({ width: OUTLINE.mob, color: OUTLINE.heroColor })); ol.frustumCulled = false; ol.userData.isOutline = true; ol.userData.noBake = true;
@@ -25,6 +26,6 @@ export function meshyPet(kit, name, fallback) {
   return {
     root, height: fly ? meta.lift + meta.height : meta.height, radius: 0.3, shadow: Math.min(0.9, (meta.span || 0.6)), materials: [mat], sockets: {}, bones: B, clips: CLIPS,
     anims: { idle: run('idle'), walk: run('walk'), attack: run('attack'), cast: run('attack'), hit: run('hit'), death: run('death') },
-    skin: name,
+    skin: name, fx: addPetFx(name, B),
   };
 }

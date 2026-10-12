@@ -9,6 +9,7 @@ import { LIGHT, CAMERA, HERO } from '../js/render3d/style.js';
 import { PET_MODELS } from '../js/render3d/models/pet/pets.js';
 import { PETS, TIERS } from '../js/data/pets.js';
 import { petMotes, emitPet } from '../js/render3d/cosfx.js';
+import { petFx, PET_FX } from '../js/render3d/models/pet/petfx.js';
 import WARRIOR from '../js/render3d/models/hero/warrior.js';
 import SWORD from '../js/render3d/models/weapon/sword_iron.js';
 import SHIELD from '../js/render3d/models/weapon/shield_round.js';
@@ -20,6 +21,7 @@ renderer.setPixelRatio(Math.min(2, devicePixelRatio || 1));
 renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 const scene = new THREE.Scene(), kit = makeKit(scene);
 kit.skin.SKINS.on = false; kit.fur.FUR.on = false;   // герой — процедурный (без загрузки файлов)
+const MESHY = new URLSearchParams(location.search).get('meshy') === '1';   // ?meshy=1 — питомцы из Meshy, как в игре
 const camera = new THREE.PerspectiveCamera(CAMERA.fov, 1, 0.3, 200);
 const hemi = new THREE.HemisphereLight(), sun = new THREE.DirectionalLight();
 sun.castShadow = true; sun.shadow.mapSize.set(1024, 1024); Object.assign(sun.shadow.camera, { left: -10, right: 10, top: 10, bottom: -10, near: 1, far: 60 }); sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.03;
@@ -47,7 +49,7 @@ const S = { pet: QS.pet || 'fennec', clip: QS.clip || 'attack', cam: 'game', spi
 let pets = [], hero = null, clipT = 0, t = 0, last = performance.now();
 const fx = [];   // всплывающие надписи и снаряды
 function build() {
-  for (const p of pets) { p.a.dispose(); if (p.m) p.m.dispose(); } if (hero) { hero.dispose(); hero = null; }
+  for (const p of pets) { p.a.dispose(); if (p.m) p.m.dispose(); if (p.a.fxMotes) p.a.fxMotes.dispose(); } if (hero) { hero.dispose(); hero = null; }
   const ids = S.pet === 'all' ? Object.keys(PET_MODELS) : [S.pet];
   pets = ids.map((id, i) => {
     const a = new Actor(PET_MODELS[id], kit, scene); a.root.traverse(o => { if (o.isMesh && !o.userData.isOutline) o.castShadow = true; });
@@ -55,7 +57,7 @@ function build() {
   });
   if (S.hero && S.pet !== 'all') { hero = new Actor(WARRIOR, kit, scene); hero.root.scale.setScalar(HERO.scale); hero.equip('handR', SWORD); if (SHIELD) hero.equip('handL', SHIELD); hero.root.traverse(o => { if (o.isMesh && !o.userData.isOutline) o.castShadow = true; }); }
   dummy.visible = S.pet !== 'all' && S.clip === 'attack';
-  if (S.pet === 'all') target.set(0, 0.5, 0); else target.set(-right.x * 0.9, 0.5, -right.z * 0.9); clipT = 0; showInfo();
+  if (S.pet === 'all' || S.clip !== 'attack') target.set(0, 0.75, 0); else target.set(-right.x * 0.9, 0.5, -right.z * 0.9); clipT = 0; showInfo();
 }
 const right = new THREE.Vector3(Math.cos(CAMERA.yaw), 0, -Math.sin(CAMERA.yaw)), fwd = new THREE.Vector3(-Math.sin(CAMERA.yaw), 0, -Math.cos(CAMERA.yaw));
 const env = { wind: new THREE.Vector2(0.6, 0.3) };
@@ -85,7 +87,7 @@ function drive(dt) {
         if (!p.act.done && k >= 0.5) { p.act.done = true; if (solo) hitFx(p, px, py, dPos); }
         a.update(dt, { clip: 'attack', k }, env); if (k >= 1) { p.act = null; a.update(0, { clip: 'idle' }, env); }
       } else a.update(dt, { clip: 'idle' }, env);
-    } else if (S.clip === 'idle') { a.place(sx, sy); a.faceAngle(CAMERA.yaw); a.update(dt, { clip: 'idle' }, env); }
+    } else if (S.clip === 'idle') { a.place(sx, sy); a.faceAngle(CAMERA.yaw + (S.pet === 'all' ? 0 : +(QS.turn ?? 1.1))); a.update(dt, { clip: 'idle' }, env); }
     else {
       a.place(sx, sy); a.faceAngle(CAMERA.yaw);
       const dur = S.clip === 'death' ? 1 : 0.3, hold = S.clip === 'death' ? 1.2 : 0.7, cyc = clipT % (dur + hold), k = Math.min(1, cyc / dur);
@@ -93,7 +95,7 @@ function drive(dt) {
       a.update(dt, { clip: S.clip, k }, env); a.flash(S.clip === 'hit' ? Math.max(0, 1 - k * 4) : 0, 0xffffff);
     }
   }
-  for (const p of pets) { const M = PET_MODELS[p.id].motes; if (!M) continue; if (!p.m) p.m = petMotes(scene, M); const r = p.a.root.position; emitPet(p.m, M, dt, r.x, r.z, p.a.yaw); }
+  for (const p of pets) { if (p.a.model.skin) { petFx(p.a, scene, dt, t); continue; } const M = PET_MODELS[p.id].motes; if (!M) continue; if (!p.m) p.m = petMotes(scene, M); const r = p.a.root.position; emitPet(p.m, M, dt, r.x, r.z, p.a.yaw); }
   for (let i = fx.length - 1; i >= 0; i--) {
     const f = fx[i]; f.t += dt;
     if (f.kind === 'proj') { const k = Math.min(1, f.t / f.dur); f.m.position.lerpVectors(f.from, f.to, k); f.m.position.y += Math.sin(k * Math.PI) * 0.3; if (k >= 1) { scene.remove(f.m); fx.splice(i, 1); f.onHit && f.onHit(); } }
@@ -141,17 +143,22 @@ const setCam = c => { S.cam = c; camR(); };
 const SHORT = { fennec: 'Фенек', crow: 'Ворон', scorpid: 'Скорпид', wisp: 'Огонёк', skull: 'Череп', basilisk: 'Василиск', bat: 'Мышь', golem: 'Голем' };
 chips('pets', [...Object.entries(PETS).map(([k, D]) => [k, D.icon + ' ' + SHORT[k]]), ['all', 'Все']], () => S.pet, k => { S.pet = k; build(); });
 chips('clips', [['idle', 'Стоит'], ['walk', 'Ходит'], ['attack', 'Бьёт'], ['hit', 'Получает удар'], ['death', 'Гибель']], () => S.clip, k => { S.clip = k; clipT = 0; for (const p of pets) { p.act = null; p.cd = 0; } dummy.visible = S.pet !== 'all' && k === 'attack'; });
-const camR = chips('cam', [['game', 'Игровая'], ['free', 'Свободная'], ['close', 'Крупно']], () => S.cam, k => { if (k === 'close') { S.cam = 'free'; dist = S.pet === 'all' ? 7 : 3.2; pitch = 0.3; yaw = CAMERA.yaw; } else S.cam = k; camR(); });
+const camR = chips('cam', [['game', 'Игровая'], ['free', 'Свободная'], ['close', 'Крупно']], () => S.cam, k => { if (k === 'close') { S.cam = 'free'; dist = S.pet === 'all' ? 7 : 4.2; pitch = 0.42; yaw = CAMERA.yaw; } else S.cam = k; camR(); });
 chips('light', Object.entries(LIGHTS), () => S.light, k => { S.light = k; setLight(k); });
 const spinB = document.getElementById('spin'); spinB.onclick = () => { S.spin = !S.spin; if (S.spin && S.cam === 'game') { yaw = CAMERA.yaw; pitch = 0.42; dist = 7; setCam('free'); } spinB.classList.toggle('on', S.spin); };
 const heroB = document.getElementById('hero'); heroB.classList.toggle('on', S.hero); heroB.onclick = () => { S.hero = !S.hero; heroB.classList.toggle('on', S.hero); build(); };
 
 function resize() { const w = innerWidth, h = innerHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); gameDist = w / h < 1 ? 11 * Math.min(1.6, 0.85 / (w / h)) : 11; }
-addEventListener('resize', resize); resize(); setLight(S.light); build();
+addEventListener('resize', resize); resize(); setLight(S.light);
+if (new URLSearchParams(location.search).get('fx') === '0') for (const k in PET_FX) delete PET_FX[k];   // ?fx=0 — как было, для сравнения
+if (MESHY) { kit.skin.SKINS.on = true; await Promise.all(Object.keys(PET_MODELS).map(id => kit.skin.preloadSkin('pet_' + id))); }
+build();
 document.getElementById('load').remove();
 function frame(now) {
   const dt = Math.min(0.05, (now - last) / 1000); last = now; t += dt; U.uTime.value = t;
-  drive(dt); placeCam(dt); U.uCam.value.copy(camera.position); U.uFocus.value.set(0, -50, 0);
+  drive(dt); if (QS.focus && pets[0] && pets[0].a.model.bones && pets[0].a.model.bones[QS.focus]) { pets[0].a.model.bones[QS.focus].getWorldPosition(target); dist = +QS.d || 1.4; pitch = +QS.pitch || 0.12; S.cam = 'free'; if (QS.mark) pets[0].a.root.traverse(o => { if (o.isSprite) { o.material.depthTest = false; o.scale.setScalar(0.06); } }); }   // ?focus=head&d=1.2 — крупно кость (подгонка глаз)
+  placeCam(dt); U.uCam.value.copy(camera.position); U.uFocus.value.set(0, -50, 0);
   renderer.render(scene, camera); requestAnimationFrame(frame);
 }
+window.__lab = { THREE, camera, get pets() { return pets; } };   // подгонка точек по снимку (лучом из пикселя)
 requestAnimationFrame(frame);
