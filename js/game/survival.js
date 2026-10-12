@@ -7,7 +7,7 @@ import { gainXP } from './loot.js';
 import * as C from './combat.js';
 import { getAtlas, drawFrame } from '../core/assets.js';
 import { PX_PER_M } from '../core/iso.js';
-import { drawProjSheet, drawStatusSheet, drawFxSheet, fxReady } from '../render/fxsheets.js';
+import { drawProjSheet, drawStatusSheet, drawFxSheet, fxReady, fxGround } from '../render/fxsheets.js';
 import { rand, rrange } from '../core/util.js';
 const PHONE = typeof matchMedia !== 'undefined' && matchMedia('(pointer: coarse)').matches;
 
@@ -504,10 +504,19 @@ const fireSpr = () => sprite('fire', 48, (x, R) => { const g = x.createRadialGra
 // Золото — тот же кристалл того же размера, только жёлтый (раньше монетка 26 px с крошечным кругом внутри)
 export const SOUL_PX = 20, SOUL_BIG = 2, SOUL_K = 1.8;
 export const gemSprites = () => ({ blue: soulSpr('122,224,255', '#7ae0ff'), pink: soulSpr('255,106,216', '#ff6ad8'), gold: soulSpr('255,205,80', '#ffcf4a') });
+const poolFx = q => ({ id: 'gr_burning_ground', x: q.x, y: q.y, t: G.time + q.x, dur: 1, cyc: 0.8, size: q.r * 2.3, add: 1 });
+const markFx = m => ({ id: 'sk_meteor_target', x: m.x, y: m.y, t: 1 - Math.max(0, m.t / m.T), dur: 1, size: m.R * 2.2, add: 1 });
+// сборка 66: горящая земля и метки метеоров — на плоскость у земли в 3D (render3d/decals.js), чтобы мобы стояли на них, а не под ними
+export function drawSurvivalGround(c, cam) {
+  const S = G.surv; if (!S) return 0; let n = 0;
+  if (fxReady('gr_burning_ground')) for (const q of S.pools) if (drawFxSheet(c, cam, poolFx(q), Math.min(1, q.t * 2))) n++;
+  if (fxReady('sk_meteor_target')) for (const m of S.drops || []) if (drawFxSheet(c, cam, markFx(m), 1)) n++;
+  return n;
+}
 export function drawSurvivalFx(ctx, cam) {
   const S = G.surv; if (!S) return; const z = cam.zoom, zz = Math.max(0.8, z);
-  const gb = fxReady('gr_burning_ground');   // сборка 66: горящая земля — лист круга огня (цикл), пока не загрузился — прежнее пятно
-  for (const q of S.pools) { if (gb && drawFxSheet(ctx, cam, { id: 'gr_burning_ground', x: q.x, y: q.y, t: G.time + q.x, dur: 1, cyc: 0.8, size: q.r * 2.3, add: 1 }, Math.min(1, q.t * 2))) continue; const [x, y] = cam.toScreen(q.x, q.y); ctx.save(); ctx.translate(x, y); ctx.scale(1, 0.5); const g = ctx.createRadialGradient(0, 0, 0, 0, 0, q.r * 45 * z); g.addColorStop(0, 'rgba(255,150,40,0.55)'); g.addColorStop(1, 'rgba(255,60,10,0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, q.r * 45 * z, 0, 7); ctx.fill(); ctx.restore(); }
+  const gb = fxReady('gr_burning_ground');   // сборка 66: горящая земля — лист круга огня (цикл), пока не загрузился — прежнее пятно; в 3D — на плоскости у земли (drawSurvivalGround)
+  for (const q of S.pools) { if (gb && (fxGround.on || drawFxSheet(ctx, cam, poolFx(q), Math.min(1, q.t * 2)))) continue; const [x, y] = cam.toScreen(q.x, q.y); ctx.save(); ctx.translate(x, y); ctx.scale(1, 0.5); const g = ctx.createRadialGradient(0, 0, 0, 0, 0, q.r * 45 * z); g.addColorStop(0, 'rgba(255,150,40,0.55)'); g.addColorStop(1, 'rgba(255,60,10,0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, q.r * 45 * z, 0, 7); ctx.fill(); ctx.restore(); }
   if (!cam.proj) {   // в 3D души и золото лежат в сцене (render3d/renderer3d.js syncGems): мобы и герой их заслоняют; здесь — только 2D-режим
     const W = cam.w || innerWidth, H = cam.h || innerHeight, bob = Math.sin(G.time * 3) * 3, sp = gemSprites();
     for (const g of S.gems) { const [x, y] = cam.toScreen(g.x, g.y, 0.25); if (x < -60 || y < -60 || x > W + 60 || y > H + 60) continue;
@@ -539,7 +548,7 @@ export function drawSurvivalFx(ctx, cam) {
   }
   // метеоры: падают наискосок, на земле — растущая метка
   for (const m of S.drops || []) { const k = Math.max(0, m.t / m.T), [gx, gy] = cam.toScreen(m.x, m.y), [ex, ey] = cam.toScreen(m.x + m.R, m.y);
-    if (!(fxReady('sk_meteor_target') && drawFxSheet(ctx, cam, { id: 'sk_meteor_target', x: m.x, y: m.y, t: 1 - k, dur: 1, size: m.R * 2.2, add: 1 }))) { ctx.save(); ctx.translate(gx, gy); ctx.scale(1, 0.5); ctx.strokeStyle = `rgba(255,140,50,${0.35 + 0.5 * (1 - k)})`; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(0, 0, Math.abs(ex - gx) * (1 - k * 0.6), 0, 7); ctx.stroke(); ctx.restore(); }
+    if (!(fxReady('sk_meteor_target') && (fxGround.on || drawFxSheet(ctx, cam, markFx(m), 1)))) { ctx.save(); ctx.translate(gx, gy); ctx.scale(1, 0.5); ctx.strokeStyle = `rgba(255,140,50,${0.35 + 0.5 * (1 - k)})`; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(0, 0, Math.abs(ex - gx) * (1 - k * 0.6), 0, 7); ctx.stroke(); ctx.restore(); }
     const [x, y] = cam.toScreen(m.x - 2.2 * k, m.y, 7 * k), [x2, y2] = cam.toScreen(m.x - 2.2 * k - 0.4, m.y, 7 * k + 1.3), ang = Math.atan2(y - y2, x - x2);
     if (fxReady('proj_fireball') && drawProjSheet(ctx, cam, 'proj_fireball', m.x - 2.2 * k, m.y, 7 * k, ang, G.time, 2.6)) continue;
     ctx.strokeStyle = 'rgba(255,150,50,0.6)'; ctx.lineWidth = 14 * z; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x2 + (x2 - x) * 1.5, y2 + (y2 - y) * 1.5); ctx.stroke(); blit(ctx, fireSpr(), x, y, 56 * z); }

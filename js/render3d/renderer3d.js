@@ -28,9 +28,13 @@ import { FORGE_HIT } from './models/npc/npc_smith.js';
 import { sfx } from '../core/audio.js';
 import { disposeObject } from './dispose.js';
 import { gemSprites } from '../game/survival.js';
+import { GroundDecals } from './decals.js';
+import { fxGround } from '../render/fxsheets.js';
 
 const params = new URLSearchParams(location.search);
 const SQ = Math.SQRT1_2;
+let decals = null, groundPaint = null;   // сборка 66: эффекты «на полу» под героем и мобами (decals.js)
+export const setGroundPainter = f => { groundPaint = f; };
 let canvas, renderer, scene, camera, kit, W = 800, H = 450, DPR = 1;
 let zone = null, world = null, lights = null, quality = '', post = null;
 let LV = LIGHT.village3;                 // пресет света текущей зоны (presetFor)
@@ -73,7 +77,7 @@ export function init() {
   canvas.addEventListener('webglcontextlost', e => { e.preventDefault(); try { import('../game/game.js').then(m => m.saveNow()); } catch { } clearTimeout(lostT); lostT = setTimeout(() => location.reload(), 6000); });
   canvas.addEventListener('webglcontextrestored', () => { clearTimeout(lostT); rebuildAfterRestore(); });
   scene = new THREE.Scene(); camera = new THREE.PerspectiveCamera(CAMERA.fov, 1, CAMERA.near, CAMERA.far);
-  kit = makeKit(scene);
+  kit = makeKit(scene); decals = new GroundDecals(scene);
   // сборка 46: без проверки ошибок шейдеров браузер компилирует их параллельно, а не ждёт каждый (на Android переход стоял до 20 с); ?debug — проверка включена
   renderer.debug.checkShaderErrors = params.has('debug');
   renderer.info.autoReset = false;                      // считаем все проходы кадра (тень, сцена, постобработка) вместе
@@ -96,7 +100,7 @@ function rebuildAfterRestore() {
   if (lights.moon.shadow.map) { lights.moon.shadow.map.dispose(); lights.moon.shadow.map = null; }
   postKey = ''; zone = null; prepare();
 }
-export function show(on) { if (canvas) canvas.style.display = on ? 'block' : 'none'; G.cam.proj = on ? proj : null; }
+export function show(on) { if (canvas) canvas.style.display = on ? 'block' : 'none'; G.cam.proj = on ? proj : null; fxGround.on = !!(on && decals && groundPaint); }
 
 export function resize(w, h) {
   W = w; H = h; if (!renderer) return;
@@ -526,6 +530,7 @@ export function render() {
   world.ground.update(bl);
   devSpawn();
   world.ground.shadow(lights.moon); world.ground.lod(camTarget.x + SQ * 2, camTarget.z + SQ * 2, userZoom);
+  if (decals && groundPaint) decals.update(G.player.x, G.player.y, groundPaint);
   renderer.info.reset();
   post.render(scene, camera, tAll, LV.exposure ?? 1);
 }

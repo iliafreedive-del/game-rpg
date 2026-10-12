@@ -48,6 +48,9 @@ function softCells(im, m, C, round) {
     x.globalCompositeOperation = 'source-over'; }
   x.globalCompositeOperation = 'source-in'; x.drawImage(im, 0, 0); return c;
 }
+// сборка 66: в 3D листы «на полу» рисует плоскость у земли (render3d/decals.js) — на 2D-холсте поверх они закрывали героя и мобов
+export const fxGround = { on: false };
+export const isGroundFx = e => e.kind === 'sheet' && fxGround.on && (META[real(e.id)] || {}).view === 'ground';
 // лист готов к рисованию? (если нет — заказать загрузку; вызывающий рисует прежний эффект)
 export const fxMeta = id => META[real(id)];
 export function fxReady(id) { id = real(id); if (sheets.has(id)) return true; want(id); return false; }

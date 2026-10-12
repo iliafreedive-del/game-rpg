@@ -8,7 +8,7 @@ import { iconOf } from '../game/items.js';
 import { lvlOk } from '../game/progress.js';
 import { BIOMES } from '../data/biomes.js';
 import * as SV from '../game/survival.js';
-import { drawFxSheet, drawChargeTele, preloadFxSheets, drawProjSheet, drawStatusSheet, drawBeamSheet, telePattern, fxReady, zoneRealm } from './fxsheets.js';
+import { drawFxSheet, drawChargeTele, preloadFxSheets, drawProjSheet, drawStatusSheet, drawBeamSheet, telePattern, fxReady, zoneRealm, fxGround, isGroundFx } from './fxsheets.js';
 import { projSheetOf, mobRageFx } from '../game/combat.js';
 import { GOLD_ICO, artImg } from '../ui/art.js';
 import { appH } from '../ui/fullscreen.js';
@@ -211,6 +211,18 @@ export function renderOverlay() {
   drawProjectiles(false); drawProjectiles(true);
   drawEffects(); drawStatusFx(); drawParticles(); drawBlades(); if (G.surv) SV.drawSurvivalFx(ctx, G.cam);
   placed.length = 0; drawBars(); drawNpcPlates(); drawPlates(); drawPickupLabels(); drawBubbles(); drawTexts(); drawInteractMarker();   // С27: важные подписи первыми
+}
+// сборка 66: эффекты «на полу» для 3D — на холст плоскости у земли (render3d/decals.js), gcam — вид сверху. Возвращает, сколько нарисовано
+export function drawGroundLayer(c, gcam) {
+  let n = 0;
+  for (const e of G.effects) {
+    const k = e.t / e.dur;
+    if (isGroundFx(e)) { if (drawFxSheet(c, gcam, e, e.fade ? 1 - Math.max(0, k - 0.7) / 0.3 : 1)) n++; continue; }
+    const gid = e.kind === 'scorch' ? 'gr_scorch' : e.kind === 'frost' ? 'gr_frost' : null;
+    if (gid && fxReady(gid) && drawFxSheet(c, gcam, { id: gid, x: e.x, y: e.y, t: e.t, dur: e.dur, size: e.r * (gid === 'gr_frost' ? 2.1 : 2.6) }, Math.min(1, (1 - k) * 4) * (gid === 'gr_frost' ? 0.55 : 1))) n++;
+  }
+  if (G.surv) n += SV.drawSurvivalGround(c, gcam);
+  return n;
 }
 export function clearOverlay() { if (ctx) { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height); } }
 
@@ -421,6 +433,7 @@ function drawGroundFx() {   // scorch marks, burning ground, frost — drawn on 
     if (e.kind !== 'scorch' && e.kind !== 'firepool' && e.kind !== 'frost' && e.kind !== 'rain') continue;
     const k = e.t / e.dur, [x, y] = cam.toScreen(e.x, e.y); const R = e.r * 32 * z * Math.SQRT2;
     const gid = e.kind === 'scorch' ? 'gr_scorch' : e.kind === 'frost' ? 'gr_frost' : null;   // сборка 66: подпалина и иней — листы полного комплекта
+    if (gid && fxReady(gid) && fxGround.on) continue;   // в 3D — на плоскости у земли (drawGroundLayer)
     if (gid && fxReady(gid) && drawFxSheet(ctx, cam, { id: gid, x: e.x, y: e.y, t: e.t, dur: e.dur, size: e.r * (gid === 'gr_frost' ? 2.1 : 2.6) }, Math.min(1, (1 - k) * 4) * (gid === 'gr_frost' ? 0.55 : 1))) continue;   // иней полупрозрачный: под ним видно землю
     ctx.save(); ctx.translate(x, y); ctx.scale(1, 0.5);
     if (e.kind === 'scorch') { const g = ctx.createRadialGradient(0, 0, 0, 0, 0, R); g.addColorStop(0, `rgba(20,10,5,${0.55 * (1 - k)})`); g.addColorStop(0.7, `rgba(40,15,5,${0.35 * (1 - k)})`); g.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, R, 0, 7); ctx.fill();
@@ -435,7 +448,7 @@ function drawEffects() {
   const cam = G.cam, z = cam.zoom;
   for (const e of G.effects) {
     const k = e.t / e.dur;
-    if (e.kind === 'sheet') { drawFxSheet(ctx, cam, e, e.fade ? 1 - Math.max(0, k - 0.7) / 0.3 : 1); continue; }   // П21: листы атак зверей (render/fxsheets.js)
+    if (e.kind === 'sheet') { if (!isGroundFx(e)) drawFxSheet(ctx, cam, e, e.fade ? 1 - Math.max(0, k - 0.7) / 0.3 : 1); continue; }   // П21: листы атак зверей (render/fxsheets.js)
     if (e.kind === 'beam') { drawBeamSheet(ctx, cam, e.id, e.x1, e.y1, 1.1, e.x2, e.y2, 1.0, e.t / 0.25, 1.4); continue; }   // сборка 66: цепная молния — лист-луч
     if (e.kind === 'hop') { const q = Math.min(1, k), x = e.x1 + (e.x2 - e.x1) * q, y = e.y1 + (e.y2 - e.y1) * q, [ax, ay] = cam.toScreen(e.x1, e.y1), [bx, by] = cam.toScreen(e.x2, e.y2);   // огонь/искра перескакивает на соседа по дуге
       drawProjSheet(ctx, cam, e.id, x, y, 0.9 + Math.sin(q * Math.PI) * 0.8, Math.atan2(by - ay, bx - ax), q * e.dur * 0.999); continue; }
