@@ -141,7 +141,7 @@ export function drawGroundGlow(ctx, cam, x, y, r, alpha = 1) {
 // снаряд: лист «вправо», поворачивается по полёту (ang — экранный угол), t — время полёта для цикла кадров
 export function drawProjSheet(ctx, cam, id, x, y, z, ang, t, size) {
   const S = sheets.get(real(id)); if (!S) return false;
-  const [sx, sy] = cellOf(S, (t / S.dur) % 1), [gx, gy, ppm] = ppmAt(cam, x, y, z), w = (size || S.meters) * ppm, C = S.C;
+  const [sx, sy] = cellOf(S, S.still != null ? (S.still + 0.5) / S.frames : (t / S.dur) % 1), [gx, gy, ppm] = ppmAt(cam, x, y, z), w = (size || S.meters) * ppm, C = S.C;   // правки 5: still — один кадр без анимации (копьё метателя: лист «крутил» копьё, оно гнулось и пропадало)
   ctx.save(); ctx.translate(gx, gy); ctx.rotate(ang + (S.rot || 0)); if (S.sy) ctx.scale(1, S.sy); ctx.drawImage(S.img, sx, sy, C, C, -w * S.anchor[0], -w * S.anchor[1], w, w); ctx.restore(); return true;   // правки 5: rot — стрела на листе нарисована под углом (у стрелы браконьера ≈ −15°), разворачиваем по полёту; sy — сплющить по толщине (стрела героя: оперение выглядело комично)
 }
 // правки 3: лист в экранных координатах (Летопись битв — свой холст и своя камера сбоку). ids — по порядку предпочтения:
@@ -150,7 +150,7 @@ export function drawProjSheet(ctx, cam, id, x, y, z, ang, t, size) {
 export function drawSheetAt(ctx, ids, k, x, y, w, o = {}) {
   let S = null; for (const i of ids) { if (fxReady(i)) { S = sheets.get(real(i)); break; } }
   if (!S) return null;
-  const [sx, sy] = cellOf(S, S.loop ? ((k % 1) + 1) % 1 : Math.max(0, Math.min(0.999, k))), C = S.C;
+  const [sx, sy] = cellOf(S, S.still != null ? (S.still + 0.5) / S.frames : S.loop ? ((k % 1) + 1) % 1 : Math.max(0, Math.min(0.999, k))), C = S.C;
   ctx.save(); if (o.alpha != null) ctx.globalAlpha = o.alpha; ctx.translate(x, y); if (o.ang) ctx.rotate(o.ang); if (o.flip) ctx.scale(-1, 1);
   if (S.view === 'ground') ctx.scale(1, 0.45);   // лист «на полу» сбоку — сплющенный эллипс
   const an = S.view === 'side' && o.anchor ? o.anchor : S.anchor;   // снаряд сбоку (hw_*) — точка привязки в голове снаряда, а не на полу

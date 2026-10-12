@@ -919,6 +919,8 @@
   "view": "proj",
   "blend": "alpha",
   "meters": 2.2,
+  "still": 0,
+  "rot": 0.155,
   "anchor": [
    0.62,
    0.5
