@@ -731,7 +731,8 @@ W.npc_merchant = () => {
   let tab = 'buy', sel = null; EC.ensureStock();
   modal('Торговка Мира', 'md', b => {
     const P = G.profile;
-    const tabs = el('div', 'tabs big-tabs'); for (const [k, n] of [['buy', 'Купить'], ['sell', 'Продать']]) { const t = el('button', 'tab' + (tab === k ? ' on' : ''), n); t.onclick = () => { tab = k; sel = null; rerender(); }; tabs.appendChild(t); } b.appendChild(tabs);
+    const tabs = el('div', 'tabs big-tabs'); for (const [k, n] of [['buy', 'Купить'], ['sell', 'Продать'], ['look', 'Облик']]) { const t = el('button', 'tab' + (tab === k ? ' on' : ''), n); t.onclick = () => { tab = k; sel = null; rerender(); }; tabs.appendChild(t); } b.appendChild(tabs);
+    if (tab === 'look') { renderLooks(b, rerender); return; }   // облик героя и питомца (ui/looks.js) — то же, что Меню → «Облик»
     b.appendChild(el('p', 'goldc', `Золото: ${fmt(P.gold)}`));
     if (tab === 'buy') {
       const sh = el('div', 'shop');
