@@ -14,7 +14,10 @@ import { CODEX } from '../data/story.js';
 import { gate } from '../game/progress.js';
 import { paintScene } from './hwscenes.js';
 import { ART, artImg } from './art.js';
-import { drawSheetAt } from '../render/fxsheets.js';
+import { drawSheetAt, fxReady } from '../render/fxsheets.js';
+// сборка 66: умения мага в Летописи — те же листы, что в походе (огонь, лёд, молния, метеор)
+const HW_SKILL_FX = { fireball: ['proj_fireball', 'hit_fire_explosion', 'st_burning'], ice_shard: ['proj_ice_shard', 'hit_ice', 'st_chill'], chain: ['beam_lightning', 'hit_lightning', 'st_shock'], meteor: ['sk_meteor_target', 'sk_meteor_fall', 'sk_meteor_impact', 'gr_burning_ground', 'st_burning'] };
+HW_SKILL_FX.undefined = HW_SKILL_FX.null = HW_SKILL_FX.fireball;
 import { makeBattle, stageFoes, arenaView, setArenaLayout, relayoutBattle, hwSkill, HW_MAGE_K } from '../game/hwbattle.js';
 import { current as curQuest } from '../game/quests.js';
 import { xpToNext } from '../game/stats.js';
@@ -167,7 +170,8 @@ async function fight(s) {
   const ci = chOf(s), cls = G.profile.cls || 'warrior', wt = G.profile.gear.weapon ? G.profile.gear.weapon.wt : 'sword';
   setArenaLayout(stack.clientWidth < stack.clientHeight * 1.1);   // сборка 50: телефон вертикально — арена уже, бойцы крупнее
   B = makeBattle({ ...heroSummary(), cls }, stageFoes(s)); const Hu = B.H, foes = B.foes; stack.battle = B;   // stack.battle — для автотестов
-  const nums = [], fx = [], labels = []; let time = 0, last = performance.now(), ended = false;
+  for (const id of HW_SKILL_FX[B.sk.id] || []) fxReady(id);   // сборка 66: листы умения мага грузим к началу боя
+  const nums = [], fx = [], labels = [], under = []; let time = 0, last = performance.now(), ended = false;
   // П5: нарисованный фон ждём (до 1,5 с) вместе с загрузкой 3D — иначе на долю секунды мелькала прежняя процедурная арена
   const artWait = new Promise(r => { const a = artImg(ART.arena(chOf(s) + 1, 'abc'[Math.min(2, Math.floor(((s - 1) % PER_CH) / 10))], stack.clientWidth < stack.clientHeight)); if (a.ok || a.bad) r(); else { a.wait.push(() => r()); a.im.addEventListener('error', () => r(), { once: true }); setTimeout(r, 1500); } });
   try {   // 3D-бойцы; если WebGL нет или он упал — прежние спрайты
@@ -250,9 +254,11 @@ async function fight(s) {
     ctx.restore();
   }
   const PROJ = { arrow: ['#f4e6c0', 3], bolt: ['#7fd0ff', 7], fireball: ['#ff8a2a', 13], shadow: ['#b070ff', 8] };
-  const PSHEET = { arrow: [['hw_arrow', 'proj_arrow'], 1.6], bolt: [['hw_bolt', 'proj_star_bolt'], 1.5], fireball: [['hw_fireball', 'proj_fireball'], 2.0], shadow: [['hw_shadow', 'ct_darkbolt'], 1.8] };
+  const PSHEET = { arrow: [['hw_arrow', 'proj_arrow'], 1.6], bolt: [['hw_bolt', 'proj_star_bolt'], 1.5], fireball: [['proj_fireball', 'hw_fireball'], 2.2], ice: [['proj_ice_shard', 'hw_bolt'], 1.8], shadow: [['hw_shadow', 'ct_darkbolt'], 1.8] };
   function drawProj(p) {
-    if (p.t < 0) return; const [c, r] = PROJ[p.k] || PROJ.bolt;
+    if (p.t < 0 || p.k === 'zap') return;
+    if (p.k === 'meteor') { const [x, y] = P(p.tgt.x, 0, p.tgt.z); if (drawSheetAt(ctx, ['sk_meteor_fall'], p.k01 || 0, x, y, view.pxPerM * 4.2)) return; }   // сборка 66: метеор падает с неба на метку
+    const [c, r] = PROJ[p.k] || PROJ.fireball;
     const sx = p.src.x, sz = p.src.z, k = p.k01 || 0, arc = Math.sin(k * Math.PI) * (p.k === 'arrow' ? 0.8 : 0.3);
     const [x, y] = P(p.x, 1.15 + arc, p.z), [x0, y0] = P(sx + (p.x - sx) * Math.max(0, k - 0.12), 1.15 + Math.sin(Math.max(0, k - 0.12) * Math.PI) * (p.k === 'arrow' ? 0.8 : 0.3), sz + (p.z - sz) * Math.max(0, k - 0.12));
     { const ids = PSHEET[p.k]; if (ids && drawSheetAt(ctx, ids[0], time * 2.5, x, y, view.pxPerM * ids[1], { ang: Math.atan2(y - y0, x - x0), anchor: [0.62, 0.5] })) return; }   // правки 3: снаряд — лист
@@ -271,12 +277,21 @@ async function fight(s) {
       else if (e.k === 'slash') fx.push({ k: 'slash', u: e.u, dir: e.from.x < e.u.x ? 1 : -1, t: 0 });
       else if (e.k === 'boom') fx.push({ k: 'boom', x: e.x, z: e.z, c: e.c, t: 0 });
       else if (e.k === 'volley') fx.push({ k: 'volley', u: e.u, dir: e.dir, t: 0 });
+      else if (e.k === 'zap') fx.push({ k: 'zap', a: e.a, b: e.b, t: 0, D: 0.28 });
+      else if (e.k === 'st') { fx.push({ k: 'st', u: e.u, id: e.id, t: 0, D: e.id === 'st_chill' ? 1.6 : 1.2 }); if (e.hit) fx.push({ k: 'hit', u: e.u, id: e.hit, t: 0, D: 0.3 }); }
+      else if (e.k === 'mark') under.push({ k: 'mark', x: e.u.x, z: e.u.z, t: 0, D: 0.75 });
+      else if (e.k === 'pool') under.push({ k: 'pool', x: e.x, z: e.z, t: 0, D: 2.6 });
       else if (e.k === 'sfx') bus.emit('sfx', e.id);
     }
     const W = cv.width / dpr, Hh = cv.height / dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); bctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, Hh);
     drawBg(W, Hh);
     bctx.fillStyle = 'rgba(0,0,0,0.33)';   // тени под бойцами — на слое фона
     for (const u of [Hu, ...foes, ...(B.pet ? [B.pet] : [])]) { const [x, y] = P(u.x, 0, u.z), r = view.pxPerM * (u === B.pet ? 0.35 : u.type === 'boss' ? 1.1 : u.big ? 0.85 : 0.6); bctx.beginPath(); bctx.ellipse(x, y, r, r * 0.38, 0, 0, 7); bctx.fill(); }
+    for (let i = under.length - 1; i >= 0; i--) {   // сборка 66: метка метеора и горящая земля — на слое фона, бойцы стоят на них
+      const q = under[i]; q.t += dt; if (q.t > q.D) { under.splice(i, 1); continue; } const [x, y] = P(q.x, 0, q.z);
+      if (q.k === 'mark') drawSheetAt(bctx, ['sk_meteor_target'], q.t / q.D, x, y, view.pxPerM * 4.2);
+      else for (const [k, dt] of [[1, 0], [0.66, 0.27], [0.36, 0.53]]) drawSheetAt(bctx, ['gr_burning_ground'], q.t / 0.8 + dt, x, y, view.pxPerM * 5 * k, { alpha: Math.min(1, (q.D - q.t) * 2) });   // как в Жатве: кольцо и внутри ещё два
+    }
     if (stage) stage.draw(dt, state(Hu), foes.map(state), B.pet && { x: B.pet.x, z: B.pet.z, yaw: B.pet.yaw, ...(B.pet.act ? { clip: 'attack', k: B.pet.act.t / B.pet.act.dur } : {}) });
     else {   // без WebGL: спрайты из атласов в тех же точках арены
       const sc = view.pxPerM / 70, units = [Hu, ...foes].sort((a, b) => a.z - b.z);
@@ -289,11 +304,13 @@ async function fight(s) {
     }
     // удары, взрывы, снаряды
     for (let i = fx.length - 1; i >= 0; i--) {
-      const q = fx[i]; q.t += dt; const D = q.k === 'boom' ? 0.5 : 0.25; if (q.t > D) { fx.splice(i, 1); continue; } const p = q.t / D;
+      const q = fx[i]; q.t += dt; const D = q.D || (q.k === 'boom' ? (q.c === 'meteor' ? 0.7 : 0.55) : 0.25); if (q.t > D) { fx.splice(i, 1); continue; } const p = q.t / D;
+      if (q.k === 'zap') { if (q.a.dead && q.a !== Hu && q.a.deadT > 1) continue; const [ax, ay] = P(q.a.x, 1.1, q.a.z), [bx, by] = P(q.b.x, 1.0, q.b.z); drawSheetAt(ctx, ['beam_lightning'], p, ax, ay, Math.hypot(bx - ax, by - ay), { ang: Math.atan2(by - ay, bx - ax), anchor: [0, 0.5], force: 1, h: view.pxPerM * 1.4 }); if (p < 0.3 && !q.hit) { q.hit = 1; fx.push({ k: 'hit', u: q.b, id: 'hit_lightning', t: 0, D: 0.28 }); } continue; }
+      if (q.k === 'st' || q.k === 'hit') { if (q.u.dead && q.k === 'st') continue; const [x, y] = P(q.u.x, q.k === 'hit' ? 1 : 0, q.u.z), big = q.u.big ? 1.35 : 1; drawSheetAt(ctx, [q.id], q.k === 'hit' ? p : q.t / (q.id === 'st_chill' ? 1 : 0.55), x, y, view.pxPerM * (q.k === 'hit' ? 1.8 : 1.7) * big, { alpha: q.k === 'st' ? Math.min(1, (D - q.t) * 3) : 1 }); continue; }
       // правки 3: удары и взрывы — нарисованные листы (hw_* из промта для GPT, пока их нет — общие листы ударов героя), иначе прежние дуги
       if (q.k === 'slash' && q.u) { const [x, y] = P(q.u.x, 0, q.u.z); if (drawSheetAt(ctx, q.u === Hu ? ['hw_slash_foe', 'mob_bite'] : ['hw_slash_hero', 'hit_spark'], p, x, y, view.pxPerM * 2.4, { flip: q.dir < 0 })) continue; }
       if (q.k === 'volley') { const [x, y] = P(q.u.x + q.dir * 0.9, 1.1, q.u.z); drawSheetAt(ctx, ['hw_volley'], p, x, y, view.pxPerM * 2.5, { flip: q.dir < 0, anchor: [0.3, 0.5] }); continue; }
-      if (q.k === 'boom') { const [x, y] = P(q.x, 0, q.z); if (drawSheetAt(ctx, q.c === 'gold' ? ['hw_crush', 'hit_crit'] : ['hw_boom_fire', 'hit_fire_explosion'], p, x, y, view.pxPerM * (q.c === 'gold' ? 4.5 : 4))) continue; }
+      if (q.k === 'boom') { const [x, y] = P(q.x, 0, q.z); if (drawSheetAt(ctx, q.c === 'gold' ? ['hw_crush', 'hit_crit'] : q.c === 'meteor' ? ['sk_meteor_impact', 'hit_fire_explosion'] : ['hit_fire_explosion', 'hw_boom_fire'], p, x, y, view.pxPerM * (q.c === 'gold' ? 4.5 : q.c === 'meteor' ? 6 : 3.6))) continue; }
       if (q.k === 'slash') { if (!q.u) continue; const [x, y] = P(q.u.x, 1.1, q.u.z), R = view.pxPerM * 0.8; ctx.save(); ctx.globalAlpha = 1 - p; ctx.strokeStyle = q.u === Hu ? '#ff9a8a' : '#fff3c0'; ctx.lineWidth = 6 * (1 - p) + 1; ctx.lineCap = 'round'; ctx.beginPath(); ctx.arc(x, y, R, q.dir > 0 ? -2.4 + p * 0.6 : -0.7 - p * 0.6, q.dir > 0 ? -0.4 + p * 0.6 : 1.3 - p * 0.6); ctx.stroke(); ctx.restore(); }
       else { const [x, y] = P(q.x, 0.2, q.z), R = view.pxPerM * (0.6 + 2.2 * p); ctx.save(); ctx.globalCompositeOperation = 'lighter'; const g = ctx.createRadialGradient(x, y, 0, x, y, R); g.addColorStop(0, `rgba(255,240,180,${0.9 * (1 - p)})`); g.addColorStop(0.4, q.c === 'gold' ? `rgba(255,200,80,${0.6 * (1 - p)})` : `rgba(255,110,30,${0.7 * (1 - p)})`); g.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(x, y, R, R * 0.6, 0, 0, 7); ctx.fill(); ctx.restore(); }
     }

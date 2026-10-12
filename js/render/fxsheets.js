@@ -153,8 +153,8 @@ export function drawSheetAt(ctx, ids, k, x, y, w, o = {}) {
   const [sx, sy] = cellOf(S, S.loop ? ((k % 1) + 1) % 1 : Math.max(0, Math.min(0.999, k))), C = S.C;
   ctx.save(); if (o.alpha != null) ctx.globalAlpha = o.alpha; ctx.translate(x, y); if (o.ang) ctx.rotate(o.ang); if (o.flip) ctx.scale(-1, 1);
   if (S.view === 'ground') ctx.scale(1, 0.45);   // лист «на полу» сбоку — сплющенный эллипс
-  const an = S.view === 'side' && o.anchor ? o.anchor : S.anchor;   // снаряд сбоку (hw_*) — точка привязки в голове снаряда, а не на полу
-  ctx.drawImage(S.img, sx, sy, C, C, -w * an[0], -w * an[1], w, w); ctx.restore(); return true;
+  const an = (S.view === 'side' || o.force) && o.anchor ? o.anchor : S.anchor;   // снаряд сбоку (hw_*) — точка привязки в голове снаряда, а не на полу
+  const h = o.h || w; ctx.drawImage(S.img, sx, sy, C, C, -w * an[0], -h * an[1], w, h); ctx.restore(); return true;   // o.h — высота кадра (луч молнии: длина × толщина)
 }
 // состояние на существе (оглушение над головой, кровь, корни, ярость): цикл по времени игры; k — доля разового листа (лёд вокруг замороженного)
 export function drawStatusSheet(ctx, cam, id, x, y, z, size, alpha = 1, k) {
