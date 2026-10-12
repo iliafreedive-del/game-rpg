@@ -168,6 +168,8 @@ p{margin:6px 0}
 /* title & overlays */
 #title{position:fixed;inset:0;z-index:30;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:radial-gradient(ellipse at 50% 40%,#2a1830,#07050a 70%);text-align:center;padding:20px}
 #title h1{margin:0;font:bold clamp(38px,9vw,78px)/1 var(--serif);letter-spacing:.08em;color:#e9c46a;text-shadow:0 0 30px #9a4af0aa,0 4px 0 #3a2410,0 6px 12px #000}
+#title h1 img{display:block;width:min(88vw,640px);height:auto;max-height:26vh;object-fit:contain;filter:drop-shadow(0 6px 14px #000)}   /* логотип Umbrahold; если картинка не загрузилась, остаётся текст из alt */
+@media (max-height:500px){#title h1 img{max-height:19vh}}   /* телефон горизонтально: логотип не выше старого текстового заголовка */
 #title .sub{font:italic clamp(14px,3vw,19px) var(--serif);color:#c9b8e8}
 #title .btn{min-width:220px;font:600 17px var(--serif);padding:12px 20px}
 #title .hero{width:min(34vh,200px);height:min(34vh,200px);background:center/contain no-repeat;filter:drop-shadow(0 0 20px #7a3ad0)}

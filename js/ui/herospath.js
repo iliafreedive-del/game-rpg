@@ -1,4 +1,4 @@
-// «Летопись битв» — a flat, lazy auto-battle mini-game inside DARK ASCENT.
+// «Летопись битв» — a flat, lazy auto-battle mini-game inside UMBRAHOLD.
 // Same hero, same stats and gear: everything you upgrade in the main game makes you stronger here, and rewards
 // (gold, experience, Abyss shards) flow back. Stamina restores by itself → a reason to come back.
 import { G, bus } from '../game/ctx.js';

@@ -4,6 +4,7 @@ import { CLASSES, SLOTS, GROWTH, OLD_AFFIXES } from '../data/items.js';
 import { STORY } from '../data/quests.js';
 import { inClassTree } from '../data/skills.js';
 
+// Игра переименована в Umbrahold, но ключи хранилища остаются старыми: иначе пропадут сохранения игроков.
 export const SAVE_KEY = 'dark_ascent_save_v2';
 export const LEGACY_KEYS = ['dark_ascent_chapter1_save', 'dark_ascent_v03_save'];
 export const SAVE_VERSION = 7;

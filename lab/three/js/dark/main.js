@@ -1,4 +1,4 @@
-// DARK ASCENT — dark-fantasy style demo ("bone, brass and abyss"). Entry point: renderer, night lighting, camera, game loop.
+// UMBRAHOLD — dark-fantasy style demo ("bone, brass and abyss"). Entry point: renderer, night lighting, camera, game loop.
 import * as THREE from '../../vendor/three.module.min.js';
 import { U } from '../toon.js';
 import { FX } from '../fx.js';
