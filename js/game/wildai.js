@@ -7,6 +7,14 @@ import * as C from './combat.js';
 
 const livingMinions = () => G.enemies.reduce((n, o) => n + (!o.dead && o.summoned ? 1 : 0), 0);
 
+// П21: у стай каждого края свой второй приём (через раз с рывком): Фьорды — ледяное дыхание конусом, Пустоши — прыжок на героя,
+// Храм — каменные шипы по прямой. Лес — классический рывок. Удары — в updateEnemyAttack (combat.js), вид — groundFx и render/renderer.js
+const PACK_ALT = { fjord: 'breath', bones: 'pounce', temple: 'quake' };
+function startSpecial(e, P, kind) {
+  const T = kind === 'breath' ? 0.75 : 0.7;
+  e.state = 'attack'; e.atk = { kind, t: 0, hit: false, impact: 0.85 }; e.dir = dirOf(P.x - e.x, P.y - e.y);
+  e.setAnim('attack', e.clipNF('attack') / T); C.enemyTelegraph(e, kind, P); e.cd = e.D.cd * rrange(0.9, 1.2);
+}
 // Подготовка рывка с телеграфом (линия). Удар — в updateEnemyAttack (kind 'lunge'), полёт — lungeTick.
 function startLunge(e, P) {
   e.state = 'attack'; e.atk = { kind: 'lunge', t: 0, hit: false, impact: 0.99 }; e.dir = dirOf(P.x - e.x, P.y - e.y);
@@ -16,10 +24,11 @@ function lungeTick(e, dt, P) {
   const L = e.lunge, Cg = e.D.charge || { speed: 8, mult: 1.3, r: 3.4 }; L.t += dt;
   const sp = Cg.speed, [nx, ny] = G.zone.map.move(e.x, e.y, L.vx * sp * dt, L.vy * sp * dt, e.r);
   const blocked = Math.hypot(nx - e.x, ny - e.y) < sp * dt * 0.3; e.x = nx; e.y = ny;
-  if (!L.hit && Math.hypot(P.x - e.x, P.y - e.y) < e.r + P.r + 0.35) { L.hit = true; C.enemyHitsPlayer(e, Cg.mult, 'phys'); }
+  if (!L.hit && Math.hypot(P.x - e.x, P.y - e.y) < e.r + P.r + 0.35) { L.hit = true; C.enemyHitsPlayer(e, Cg.mult, 'phys'); if (!C.mobStrikeFx(e, P)) C.mobSheet(e, 'charge_crash', P.x, P.y, { size: 2.6 }); }   // П21: бросок попал — укус/клыки, у людей — удар разбега
   if (L.t > (Cg.r || 3.4) / sp + 0.1 || blocked) {
-    if (blocked && Cg.crashStun) { e.st.stun = Cg.crashStun; bus.emit('float', { x: e.x, y: e.y, text: 'Врезался!', color: '#ffd24a' }); C.particles(e.x, e.y, 10, { c: [150, 135, 115], sp: 2, size: 3 }); }
+    if (blocked && Cg.crashStun) { e.st.stun = Cg.crashStun; C.mobSheet(e, 'charge_crash', e.x + L.vx * e.r, e.y + L.vy * e.r, { size: 2.8 * (e.D.size || 1) }); bus.emit('float', { x: e.x, y: e.y, text: 'Врезался!', color: '#ffd24a' }); C.particles(e.x, e.y, 10, { c: [150, 135, 115], sp: 2, size: 3 }); }
     e.lunge = null; e.state = 'idle'; e.setAnim('idle', 5, true); e.cd = Cg.cd ? Math.min(Cg.cd, e.D.cd * 1.6) : e.D.cd;
+    e.recoverT = 0.85;   // П69: после броска зверь «выдыхается» на месте — окно, чтобы по нему попасть (раньше сразу снова кружил)
   }
 }
 function enrageOnce(e, text) {
@@ -32,20 +41,23 @@ export function makeWildAI(AI, ranged) {
     // Стая: кружит вокруг героя, чем больше сородичей рядом — тем быстрее; затем телеграфный бросок.
     pack(e, dt, P, d) {
       if (e.lunge) return lungeTick(e, dt, P);
+      if (e.recoverT > 0) { e.recoverT -= dt; e.dir = dirOf(P.x - e.x, P.y - e.y); e.setAnim('idle', 5, true, e.anim.clip !== 'idle'); return; }
       const map = G.zone.map, los = map.los(e.x, e.y, P.x, P.y);
       let mates = 0; for (const o of G.enemies) if (o !== e && !o.dead && o.D.ai === 'pack' && Math.hypot(o.x - e.x, o.y - e.y) < 7) mates++;
       const boost = 1 + Math.min(3, mates) * 0.07;
       if (d <= e.D.range + P.r && e.cd <= 0) { e.startAttack('attack', P); e.cd = e.D.cd * rrange(0.85, 1.15); return; }
-      if (e.cd <= 0 && d < 4.4 && d > 1.6 && los) { startLunge(e, P); return; }
+      if (e.cd <= 0 && d < 4.4 && d > 1.6 && los) { const alt = PACK_ALT[e.D.realm]; if (alt && (e.altN = (e.altN || 0) + 1) % 2 === 0 && (alt !== 'breath' || d < 3.3)) startSpecial(e, P, alt); else startLunge(e, P); return; }
       if (d > 4.5) { e.moveToward(P.x, P.y, dt, boost); return; }
       e.orbit = e.orbit || (rand() < 0.5 ? 1 : -1);
-      const a = Math.atan2(e.y - P.y, e.x - P.x) + e.orbit * 0.55, rr = clamp(d, 2.6, 3.6);
-      e.moveToward(P.x + Math.cos(a) * rr, P.y + Math.sin(a) * rr, dt, boost, false);
+      // П69: кружит медленнее (было 0,55 рад и с ускорением стаи) — по кружащему волку можно попасть
+      const a = Math.atan2(e.y - P.y, e.x - P.x) + e.orbit * 0.3, rr = clamp(d, 2.6, 3.6);
+      e.moveToward(P.x + Math.cos(a) * rr, P.y + Math.sin(a) * rr, dt, 0.8, false);
       e.dir = dirOf(P.x - e.x, P.y - e.y);
     },
     // Рывок (секач, берсерк): ближний бой + бросок по прямой; секач врезается в препятствие и оглушается.
     charge(e, dt, P, d) {
       if (e.lunge) return lungeTick(e, dt, P);
+      if (e.recoverT > 0) { e.recoverT -= dt; e.dir = dirOf(P.x - e.x, P.y - e.y); e.setAnim('idle', 5, true, e.anim.clip !== 'idle'); return; }
       const Cg = e.D.charge;
       if (e.D.fury && !e.enraged && e.hp < e.maxHP * e.D.fury) enrageOnce(e, 'ЯРОСТЬ!');
       e.chCd = (e.chCd ?? rrange(1, 3)) - dt;
@@ -79,8 +91,8 @@ export function makeWildAI(AI, ranged) {
       e.summonT -= dt;
       if (ph >= 2 && e.summonT <= 0 && livingMinions() < 6) { e.summonT = ph === 3 ? 12 : 16; bus.emit('wildSummon', { e, n: ph === 3 ? 3 : 2, text: 'На помощь!' }); }
       if (e.cd <= 0) {
-        if (d > 3.5 && ph >= 2 && rand() < 0.5) { e.startAttack('slam', P); e.cd = 2.2; return; }
-        if (d <= e.D.range + P.r + 0.3) { const r = rand(); e.startAttack(r < 0.4 ? 'attack' : r < 0.75 ? 'attack2' : 'slam', P); e.cd = e.D.cd * (ph === 3 ? 0.75 : 1); return; }
+        if (d > 3.5 && ph >= 2 && rand() < 0.5) { e.startAttack('slam', P); e.cd = 3.2; return; }   // П51: между лужами ≥ 3 с
+        if (d <= e.D.range + P.r + 0.3) { const r = rand(), k = r < 0.4 ? 'attack' : r < 0.75 ? 'attack2' : 'slam'; e.startAttack(k, P); e.cd = k === 'slam' ? 2.6 : e.D.cd * (ph === 3 ? 0.75 : 1); return; }
       }
       if (d > e.D.range + P.r) e.moveToward(P.x, P.y, dt, ph === 3 ? 1.3 : 1); else { e.dir = dirOf(P.x - e.x, P.y - e.y); e.setAnim('idle', 5, true, e.anim.clip !== 'idle'); }
     },

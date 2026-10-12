@@ -20,12 +20,12 @@ const PROP = {
   puddle: { spr: 'puddle', flat: 1 }, mushrooms: { spr: 'mushrooms', light: { r: 2.5, c: [90, 230, 220], flicker: 0.2 } },
   stalagmite: { spr: 'stalagmite', r: 0.3, tall: 1 }, lavarock: { spr: 'lavarock', r: 0.45, light: { r: 3, c: [255, 110, 40], flicker: 0.5 } },
   crystals: { spr: 'crystals', r: 0.3, light: { r: 3.2, c: [190, 120, 255], flicker: 0.3 } },
-  banner: { spr: 'banner', r: 0.15, tall: 1 }, bookshelf: { spr: 'bookshelf', box: [0.55, 0.2] }, weapon_rack: { spr: 'weapon_rack', box: [0.6, 0.18] },
+  banner: { spr: 'banner', r: 0.15, tall: 1 }, bookshelf: { spr: 'bookshelf', box: [0.55, 0.2] }, weapon_rack: { spr: 'weapon_rack', box: [0.6, 0.18] }, weapon_rack_bow: { spr: 'weapon_rack', box: [0.6, 0.18], model: 'weapon_rack_bow' }, weapon_rack_staff: { spr: 'weapon_rack', box: [0.6, 0.18], model: 'weapon_rack_staff' }, cabinet: { spr: 'bookshelf', box: [0.52, 0.24], model: 'cabinet' },
   statue: { spr: 'statue', r: 0.42, tall: 1 }, throne: { spr: 'throne', r: 0.55 }, rug: { spr: 'rug', flat: 1 }, deadroot: { spr: 'deadtree', r: 0.25, tall: 1 }, deadtree: { spr: 'deadtree', r: 0.25, tall: 1 },
   board_dungeon: { spr: 'board', r: 0.3 },
   well: { spr: 'well', r: 0.62 },
   runebed: { spr: 'runebed', r: 1.1, light: { r: 5, c: [110, 230, 255], flicker: 0.25, z: 0.8 } }, forge: { spr: 'forge', box: [0.75, 0.6], light: { r: 4, c: [255, 120, 40], flicker: 1, dx: 0, dy: 0.2 } },
-  stall: { spr: 'stall', box: [0.95, 0.45] }, market_tent: { spr: 'stall', box: [1.8, 1.25], model: 'market_tent' }, lamp: { spr: 'lamp', r: 0.12, tall: 1, light: { r: 5.5, c: [255, 190, 110], flicker: 0.5, z: 1.9 } },
+  stall: { spr: 'stall', box: [0.95, 0.45] }, market_tent: { spr: 'stall', box: [1.8, 1.25], model: 'market_tent' }, lamp: { spr: 'lamp', tall: 1, light: { r: 5.5, c: [255, 190, 110], flicker: 0.5, z: 1.9 } },   // правки мамы (М18): сквозь фонарь можно пройти — герой цеплялся за столб
   tree_0: { spr: 'tree_0', r: 0.3, tall: 1 }, tree_1: { spr: 'tree_1', r: 0.3, tall: 1 },
   hay: { spr: 'hay', r: 0.45 }, grave: { spr: 'grave', r: 0.2 }, fence_x: { spr: 'fence_x', box: [0.5, 0.08] }, fence_y: { spr: 'fence_y', box: [0.08, 0.5] },
   house_0: { spr: 'house_0', box: [2.85, 2.2], tall: 1 }, house_1: { spr: 'house_1', box: [3.25, 2.4], tall: 1 }, house_2: { spr: 'house_2', box: [2.95, 2.2], tall: 1 },   // под крупные 3D-дома (ART_BIBLE, раздел 7)
@@ -128,7 +128,9 @@ export class Zone {
         }
         case 'roomgate': {
           const open = !!(W.castle && W.castle[o.id]); const tx = Math.floor(o.x), ty = Math.floor(o.y);
-          const flip = m.ch(tx - 1, ty) !== '#';
+          // правки 2 (П23): у северных дверей Цитадели сосед слева — вторая клетка той же двери ('D'), дверь вставала поперёк стены;
+          // теперь сторону задаёт castlegen (flip — проход вдоль X)
+          const flip = o.flip ?? m.ch(tx - 1, ty) !== '#';
           const wideG = (o.span || 1) > 1 || J.castle, tiles = o.tiles || [[tx, ty]];   // сборка 47: в Цитадели — двустворчатая дверь с прямым верхом на весь проход
           const d = this.add({ x: o.x, y: o.y, spr: wideG ? (open ? 'door_square_open' : 'door_square') : open ? 'door_open' : 'gate_sealed', flip, wall: true, opts: wideG ? { span: o.span || 3 } : undefined });
           if (open) for (const [x, y] of tiles) m.setSolid(x, y, 0);
@@ -159,6 +161,10 @@ export class Zone {
           this.inter.push({ id: 'castle_guide', type: 'castleguide', x: o.x, y: o.y, r: 1.8, panel: true, plate: 'Карта цитадели' });
           break;
         }
+        case 'castle_rift': {   // правки 3: Разлом Бездны в Цитадели (js/game/citadel.js) — кольцо Глубин в фиолетовом свете
+          const d = this.add({ x: o.x, y: o.y, spr: 'portal_ring', anim: 'portal' }); const L = this.addLight(o.x, o.y, { r: 5.5, c: [190, 90, 255], flicker: 0.6, z: 1.2 });
+          this.inter.push({ id: 'castle_rift', type: 'rift', x: o.x, y: o.y, r: 1.7, label: 'Закрыть разлом', draw: d, light: L, plate: 'Разлом Бездны' }); break;
+        }
         case 'chest_rich_d': this.add({ x: o.x, y: o.y, spr: 'chest_rich' }); this.map.circles.push({ x: o.x, y: o.y, r: 0.35 }); break;
         case 'sarcophagus_d': this.add({ x: o.x, y: o.y, spr: 'sarcophagus' }); this.map.rects.push({ x0: o.x - 0.45, y0: o.y - 0.9, x1: o.x + 0.45, y1: o.y + 0.9 }); break;
         case 'floor_exit': {
@@ -167,19 +173,23 @@ export class Zone {
           this.inter.push({ id: 'floor_exit', type: 'exit', x: o.x, y: o.y, r: 1.6, label: 'Завершить этаж', draw: d, light: L, hidden: !!o.hidden });
           break;
         }
-        case 'sarcophagus': {
-          const opened = !!W[id];
-          const d = this.add({ x: o.x, y: o.y, spr: opened ? 'sarcophagus_open' : 'sarcophagus' });
+        case 'sarcophagus': {   // П46: при каждом заходе саркофаги снова закрыты; саркофаг с ключом после ключа — обычный, с золотом
+          const keyTaken = o.loot === 'key' && !!W[id], loot = keyTaken ? 'gold' : o.loot;
+          const d = this.add({ x: o.x, y: o.y, spr: 'sarcophagus' });
           this.map.rects.push({ x0: o.x - 0.45, y0: o.y - 0.9, x1: o.x + 0.45, y1: o.y + 0.9 });
-          this.inter.push({ id, type: 'sarc', loot: o.loot, x: o.x, y: o.y, r: 1.6, label: 'Открыть саркофаг', draw: d, done: opened, persist: o.loot === 'key' });
+          this.inter.push({ id, type: 'sarc', loot, x: o.x, y: o.y, r: 1.6, label: 'Открыть саркофаг', draw: d, done: false, persist: loot === 'key' });
           break;
         }
-        case 'chest': {
-          const rich = !!o.rich; const persist = rich; // rich chests are one-time story rewards; regular chests refill each descent
-          const opened = persist && !!W[id];
-          const d = this.add({ x: o.x, y: o.y, spr: (rich ? 'chest_rich' : 'chest') + (opened ? '_open' : '') });
+        case 'stash': {   // бочка/ящик, как в походе: подойти и обыскать (катакомбы, Глубины)
+          if (o.keep) { const d = this.prop({ x: o.x, y: o.y, t: o.kind, rot: o.rot }); this.inter.push({ id, type: 'stash', keep: true, x: o.x, y: o.y, r: 1.3, label: 'Обыскать', draw: d }); break; }   // правки 3: стойки и шкафы обыскивают, но они остаются на месте
+          const d = this.add({ x: o.x, y: o.y, spr: o.kind, hidden: false });   // hidden задан — 3D держит тайник «живым» и прячет, когда обыскали this.map.circles.push({ x: o.x, y: o.y, r: 0.3 });
+          this.inter.push({ id, type: 'stash', x: o.x, y: o.y, r: 1.3, label: 'Обыскать', draw: d }); break;
+        }
+        case 'chest': {   // П46: все сундуки снова полны при каждом заходе; богатый сундук Ордена даёт богатую добычу один раз, дальше — как обычный
+          const look = !!o.rich, rich = look && !W[id];
+          const d = this.add({ x: o.x, y: o.y, spr: look ? 'chest_rich' : 'chest' });
           this.map.circles.push({ x: o.x, y: o.y, r: 0.35 });
-          this.inter.push({ id, type: 'chest', rich, x: o.x, y: o.y, r: 1.4, label: 'Открыть сундук', draw: d, done: opened, persist });
+          this.inter.push({ id, type: 'chest', rich, look, x: o.x, y: o.y, r: 2.0, label: 'Открыть сундук', draw: d, done: false, persist: rich });   // правки мамы (М13): кнопка «Открыть сундук» появляется с 2 м (было 1,4 — приходилось подходить вплотную)
           break;
         }
         case 'altar_medallion': {
@@ -251,7 +261,7 @@ export class Zone {
       } else if (o.t === 'castle') {
         const d = this.add({ x: o.x, y: o.y, spr: J.village ? 'portal_sun' : 'portal_crown', anim: 'portal' });   // сборка 47: в 3D-деревне — каменная арка с солнцем (бывший лесной)
         this.addLight(o.x, o.y, { r: 5, c: [255, 200, 110], flicker: 0.3, z: 1.2 });
-        this.inter.push({ id: 'portal_castle', type: 'portal', to: 'castle', x: o.x, y: o.y, r: 1.8, label: 'Цитадель Ордена', draw: d, reqLevel: 3, plate: 'Цитадель' });
+        this.inter.push({ id: 'portal_castle', type: 'portal', to: 'castle', x: o.x, y: o.y, r: 1.8, label: 'Цитадель Ордена', draw: d, reqLevel: 40, plate: 'Цитадель' });
         this.map.circles.push({ x: o.x, y: o.y - 0.1, r: 0.2 });
       } else if (o.t === 'swordportal' || o.t === 'handsportal') {   // портал с мечами (сборка 44) и с руками (сборка 46): пока только стоят, никуда не ведут
         this.add({ x: o.x, y: o.y, spr: o.t === 'handsportal' ? 'portal_hands' : 'portal_swords', anim: 'portal' });
@@ -267,7 +277,7 @@ export class Zone {
       } else if (o.t === 'depths') {
         const d = this.add({ x: o.x, y: o.y, spr: 'portal_ring', anim: 'portal' }); if (o.rot !== undefined) { d.model = 'portal_ring'; d.rot = o.rot; }   // сборка 47: лицом к своей дороге
         this.addLight(o.x, o.y, { r: 5, c: [120, 200, 255], flicker: 0.3, z: 1.2 });
-        this.inter.push({ id: 'portal_depths', type: 'depths', x: o.x, y: o.y, r: 1.8, label: 'Глубины катакомб', draw: d, reqLevel: 6, plate: 'Глубины' });
+        this.inter.push({ id: 'portal_depths', type: 'depths', x: o.x, y: o.y, r: 1.8, label: 'Глубины катакомб', draw: d, reqLevel: 8, plate: 'Глубины' });
         this.map.circles.push({ x: o.x, y: o.y - 0.1, r: 0.2 });
       } else if (o.t === 'wildportal') {
         const RL = REALMS[o.realm]; const d = this.add({ x: o.x, y: o.y, spr: (J.village && VILLAGE_PORTAL[o.realm]) || RL.portal, anim: 'portal' });
@@ -315,14 +325,15 @@ export class Zone {
           this.inter.push({ id: 'wild_home', type: 'portal', to: 'town', x: o.x, y: o.y, r: 1.6, label: 'Вернуться в деревню', draw: d, plate: 'В деревню' }); break;
         }
         case 'wild_next': {
-          const d = this.add({ x: o.x, y: o.y, spr: VILLAGE_PORTAL[realm] || REALMS[realm].portal, anim: 'portal', hidden: !!o.hidden }); const L = this.addLight(o.x, o.y, { r: 5, c: col, flicker: 0.3, z: 1.2 }); L.on = !o.hidden;   // сборка 47: «Вглубь» — та же арка, что вход в эту локацию из деревни
-          this.inter.push({ id: 'wild_next', type: 'wildnext', x: o.x, y: o.y, r: 1.7, label: 'Вглубь', draw: d, light: L, hidden: !!o.hidden, plate: 'Вглубь' }); break;
+          const sealed = !!o.sealed && !o.hidden;   // П20: арка видна, но погашена и не пускает, пока жив вожак поля / страж святилища
+          const d = this.add({ x: o.x, y: o.y, spr: VILLAGE_PORTAL[realm] || REALMS[realm].portal, anim: 'portal', hidden: !!o.hidden }); const L = this.addLight(o.x, o.y, { r: 5, c: col, flicker: 0.3, z: 1.2 }); L.on = !o.hidden && !sealed;   // сборка 47: «Вглубь» — та же арка, что вход в эту локацию из деревни
+          this.inter.push({ id: 'wild_next', type: 'wildnext', x: o.x, y: o.y, r: 1.7, label: sealed ? 'Вглубь · запечатан' : 'Вглубь', draw: d, light: L, hidden: !!o.hidden, sealed, locked: sealed, lockNote: sealed ? (realm === 'temple' ? 'победите стража святилища' : 'победите вожака поля') : '', plate: sealed ? 'Вглубь · запечатан' : 'Вглубь' }); break;
         }
         case 'wchest': {
           const big = J.wild && J.wild.realm === 'bones' ? 2 : 1;   // в пустошах сундук из шкур в 2 раза больше (сборка 44) — и упор, и дотянуться
           const d = this.add({ x: o.x, y: o.y, spr: o.rich ? 'chest_rich' : 'chest' }); this.map.circles.push({ x: o.x, y: o.y, r: 0.35 * big });
           if (o.rich) this.addLight(o.x, o.y, { r: 3, c: [255, 210, 110], flicker: 0.3, z: 0.8 });
-          this.inter.push({ id: o.id, type: 'chest', rich: !!o.rich, x: o.x, y: o.y, r: 1.4 + 0.5 * (big - 1), label: 'Открыть сундук', draw: d }); break;
+          this.inter.push({ id: o.id, type: 'chest', rich: !!o.rich, x: o.x, y: o.y, r: 2.0 + 0.5 * (big - 1), label: 'Открыть сундук', draw: d }); break;
         }
         case 'fort_door': {   // ворота форта заперты, пока не перебиты лагеря вокруг (game/wild.js openGate)
           const g = J.wild.gate; const d = this.add({ x: o.x, y: o.y, spr: 'banner', model: 'fort_door', rot: 0, hidden: false }); const tiles = [[g.x - 1, g.y], [g.x, g.y], [g.x + 1, g.y]];
@@ -339,8 +350,9 @@ export class Zone {
           this.inter.push({ id: o.id, type: 'echo', x: o.x, y: o.y, r: 1.4, label: o.mine ? 'Эхо вашего падения' : 'Эхо павшего', draw: d, light: L, mine: !!o.mine, lost: o.lost || 0, cls: o.cls, key: o.key, tip: o.tip, name: o.name, lvl: o.lvl, mob: o.mob, dir: o.dir }); break;
         }
         case 'stash': {
-          const d = this.add({ x: o.x, y: o.y, spr: o.kind }); this.map.circles.push({ x: o.x, y: o.y, r: 0.3 });
-          this.inter.push({ id: o.id, type: 'stash', x: o.x, y: o.y, r: 1.3, label: 'Обыскать', draw: d }); break;
+          const d = this.add({ x: o.x, y: o.y, spr: o.kind, hidden: false });   // hidden задан — 3D держит тайник «живым» и прячет, когда обыскали
+          this.map.circles.push({ x: o.x, y: o.y, r: 0.3 });
+          this.inter.push({ id: o.id, type: 'stash', x: o.x, y: o.y, r: 1.9, label: 'Обыскать', draw: d }); break;
         }
         default: this.prop(o);
       }

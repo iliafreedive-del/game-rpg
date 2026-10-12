@@ -3,7 +3,7 @@
 // Пока идёт облёт, game.update зовёт cineTick и больше ничего не делает (мир не живёт, герой стоит).
 import { G, bus } from '../game/ctx.js';
 import { $, el, esc } from '../core/util.js';
-import { gate } from '../game/progress.js';
+import { gate, lvlOk } from '../game/progress.js';
 
 const ease = t => t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2;
 // shots: [{ x, y, zoom = 1.6, move = 1.6, hold = 2.2, text, sub }]
@@ -53,7 +53,7 @@ export function introShots() {
 // порталы деревни: открыт ли сейчас (те же замки, что при входе)
 const PORTALS = ['portal_town', 'portal_temple', 'portal_forest', 'portal_fjord', 'portal_bones', 'portal_depths', 'portal_castle', 'portal_survival'];
 function portalOpen(it) {
-  const P = G.profile; if (it.reqLevel && P.level < it.reqLevel) return false;
+  const P = G.profile; if (!lvlOk(it.reqLevel)) return false;
   const g = it.id === 'portal_town' ? 'catacombs' : it.id === 'portal_survival' ? 'survival' : it.id === 'portal_depths' ? 'depths' : it.type === 'wildportal' ? it.realm : '';
   return !gate(g);
 }
@@ -64,9 +64,9 @@ export function portalShots() {
   const Z = G.zone, shots = [], S = seen();
   for (const id of PORTALS) { const it = Z.inter.find(i => i.id === id); if (it && portalOpen(it)) S[id] = 1; }
   const cat = Z.inter.find(i => i.id === 'portal_town');
-  if (cat) shots.push({ x: cat.x, y: cat.y, zoom: 1.35, move: 1.3, hold: 1.6, text: 'Катакомбы', sub: 'Открыто' });
+  if (cat) shots.push({ x: cat.x, y: cat.y, zoom: 1.35, move: 1.3, hold: 1.6, text: 'Катакомбы', sub: portalOpen(cat) ? 'Открыто' : 'Откроются после заданий в деревне' });   // сборка 59: раньше «Открыто» всегда
   const lock = Z.inter.find(i => i.id === 'portal_forest') || Z.inter.find(i => PORTALS.includes(i.id) && !S[i.id]);
-  if (lock) shots.push({ x: lock.x, y: lock.y, zoom: 1.35, move: 1.3, hold: 1.6, text: lock.plate || lock.label, sub: '🔒 И ещё шесть порталов откроются по ходу истории' });
+  if (lock) shots.push({ x: lock.x, y: lock.y, zoom: 1.35, move: 1.3, hold: 1.6, text: lock.plate || lock.label, sub: '🔒 Остальные порталы откроются по ходу истории' });
   const eld = Z.inter.find(i => i.id === 'elder');
   if (eld) shots.push({ x: eld.x, y: eld.y, zoom: 1.0, move: 1.4, hold: 1.6, text: 'Староста Эдрик ждёт тебя', sub: 'Иди за золотыми стрелками' });
   return shots;

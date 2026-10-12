@@ -12,11 +12,12 @@ let R3 = null, on3 = false;
 export async function initRenderer(canvas) {
   const want3 = mode !== '2d';
   if (want3) {
-    try { const m = await import('../render3d/renderer3d.js'); if (m.webglAvailable()) { R3 = m; } else console.warn('[render] WebGL недоступен — 2D'); }
+    try { const m = await import('../render3d/renderer3d.js'); if (m.webglAvailable()) { R3 = m; } else { console.warn('[render] WebGL недоступен — 2D'); G.webglFail = 'WebGL is off / not supported'; } }
     catch (e) { console.error('[render] 3D не загрузился, остаёмся на 2D', e); }
   }
+  // П42: видеокарта в чёрном списке браузера / WebGL отключён — WebGLRenderer бросает ошибку; тогда 2D, а не зависшая загрузка
+  if (R3) { try { R3.init(); R3.setGroundPainter(R2.drawGroundLayer, R2.uprightFxList); G.render3d = true; } catch (e) { console.error('[render] 3D не запустился, остаёмся на 2D', e); R3 = null; G.webglFail = String(e && e.message || e); const c3 = document.getElementById('game3d'); if (c3) c3.remove(); } }
   R2.initRenderer(canvas, { overlay: !!R3 });
-  if (R3) { R3.init(); G.render3d = true; }
   // поворот экрана/изменение окна: 2D-рендерер сам слушает resize, но 3D-холст надо пересобрать тоже — иначе картинка растягивается
   const again = () => { if (R3 && G.cam) R3.resize(G.cam.w, G.cam.h); };
   addEventListener('resize', () => { again(); setTimeout(again, 120); });
@@ -27,7 +28,8 @@ export async function initRenderer(canvas) {
 let veil = null;
 const VEIL_ART = ['town', 'catacombs', 'depths', 'survival', 'castle', 'forest', 'fjord', 'bones'];   // сборка 58: картинка зоны под «Загрузка…»
 bus.on('zoneLoading', () => { if (!G.zone) return; if (!veil) { veil = document.createElement('div'); veil.id = 'zoneVeil'; veil.innerHTML = '<span>Загрузка…</span>'; document.body.appendChild(veil); }
-  const z = VEIL_ART.includes(G.zoneTo) ? G.zoneTo : ''; veil.style.setProperty('--veil-l', z ? `url(assets/art/gpt/zones/${z}_land.jpg)` : 'none'); veil.style.setProperty('--veil-p', z ? `url(assets/art/gpt/zones/${z}_port.jpg)` : 'none');
+  const z = VEIL_ART.includes(G.zoneTo) ? G.zoneTo : ''; const U = f => `url("${new URL('assets/art/gpt/zones/' + f, document.baseURI).href}")`;   // сборка 59: адрес от страницы — относительный url() в CSS-переменной браузер считал от css/ и картинка не грузилась (404)
+  veil.style.setProperty('--veil-l', z ? U(z + '_land.jpg') : 'none'); veil.style.setProperty('--veil-p', z ? U(z + '_port.jpg') : 'none');
   veil.classList.add('on'); });
 bus.on('zoneEntered', () => { if (veil) veil.classList.remove('on'); });
 bus.on('camZoom', () => { if (!on3) R2.resize(); });   // 2D: масштаб пересчитывается при зуме игрока (3D сам плавно следует)
@@ -44,6 +46,7 @@ export function prepareRender() {
   return R3.prepare();
 }
 export function render() {
+  if (G.hwOpen) return;   // Летопись закрывает экран целиком (непрозрачный фон): мир под ней не рисуем — видеокарта занята только боем
   const z = G.zone, use3 = !!(R3 && z && G.player && R3.supports(z, G.profile));
   if (use3 !== on3) {   // переключение 3D ⇄ 2D при смене зоны
     on3 = use3; R3.show(use3); if (!use3) R2.clearOverlay(); R2.resize();

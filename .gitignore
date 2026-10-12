@@ -4,3 +4,5 @@ shots/
 lab/tmp/
 art_meshy/raw/
 dist/
+qa_out/
+qa_baseline/

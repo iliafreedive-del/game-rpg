@@ -12,6 +12,7 @@ import { walls as templeWalls, swap as templeSwap, liveDef as templeLive, temple
 import { SKINS } from './glbskin.js';
 import { portalsReady } from './portalglb.js';
 import { altarReady } from './altarglb.js';
+import { shared, disposeObject } from './dispose.js';
 
 const hash = (x, y) => { let h = (Math.round(x * 31) * 374761393 + Math.round(y * 31) * 668265263) >>> 0; h = (h ^ (h >>> 13)) * 1274126177 >>> 0; return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
 const warned = new Set();
@@ -23,7 +24,8 @@ const cacheVer = () => (SKINS.on ? 's' : '-') + (portalsReady() ? 'p' : '-') + (
 const DYN = new Set(['door', 'door_open', 'door_arch', 'door_arch_open', 'door_square', 'door_square_open', 'gate_sealed', 'chest', 'chest_open', 'chest_rich', 'chest_rich_open', 'sarcophagus', 'sarcophagus_open', 'altar', 'altar_medallion', 'portal', 'portal_ring', 'portal_spire', 'portal_gate', 'portal_crown', 'portal_maw', 'portal_bone', 'portal_skulls', 'portal_white', 'portal_bones', 'portal_sun', 'portal_swords', 'portal_skull', 'portal_hands', 'portal_verdant']);
 // порода дерева по позиции: взвешенный выбор из TREE_KINDS (tree_0 — лиственные, tree_1 — хвойные)
 // Фьорды: только ели и сосны (лиственных там нет)
-function pickFj(h) { return h < 0.5 ? 'tree_fir_blue' : h < 0.92 ? 'tree_pine_tall' : 'deadtree'; }
+// правки 3: Фьорды — только ели в снегу, трёх ростов (обычная, высокая, молодая); сухих деревьев и сосен без снега нет
+function pickFj(h) { return h < 0.45 ? 'tree_fir_snow' : h < 0.75 ? 'tree_fir_snow_tall' : 'tree_fir_snow_small'; }
 const pickW = (L, h) => { let t = h * L.reduce((a, k) => a + k[1], 0); for (const [id, w] of L) { if ((t -= w) < 0) return id; } return L[0][0]; };
 // Костяные пустоши: камни, столбы и деревья — свои формы; поворот и размер — по позиции
 const STEPPE_FREE = new Set(['sand_spire', 'sand_spire_b', 'sand_tooth', 'sand_mesa', 'sand_rock', 'sand_rock_b', 'tree_acacia', 'tree_acacia_b', 'tree_acacia_c', 'bush_dry', 'agave', 'tumbleweed']);
@@ -63,10 +65,10 @@ export class PropLayer {
       if (d.model) { push(MODEL[d.model] || d.model, d.x, d.y, d.rot || 0, d.s || 1, d.opts); continue; }
       if (!PROPS[d.spr]) { if (!warned.has(d.spr)) { warned.add(d.spr); console.warn('[3D] нет модели предмета «' + d.spr + '» — не показан'); } continue; }
       if (mode === 'town' && d.spr === 'deadtree') { const bt = boneDeadTree(PROPS, kit); if (bt) { extra0[bt.id] = bt; push(bt.id, d.x, d.y, hash(d.x, d.y) * 6.283 + (d.yaw || 0), d.s || 1.15); continue; } }   // сухое дерево пустошей (Meshy)
-      const h = hash(d.x, d.y), isTree = d.spr === 'tree_0' || d.spr === 'tree_1' || (d.spr === 'deadtree' && !fj);
+      const h = hash(d.x, d.y), isTree = d.spr === 'tree_0' || d.spr === 'tree_1' || d.spr === 'deadtree';   // правки 3: во Фьордах и сухое дерево карты — ель в снегу
       const light = zone.lights.find(L => Math.hypot(L.x - d.x, L.y - d.y) < 0.3);
       const var3 = ((d.spr === 'rocks' || d.spr === 'deadtree') && open && !light) || STEPPE_FREE.has(d.spr);   // камни и сухие деревья поля — разные формы, повороты, размеры
-      push(isTree ? (fj ? pickFj(hash(d.x * 3.1 + 1, d.y * 1.7 + 2)) : pickTree(d.spr, hash(d.x * 3.1 + 1, d.y * 1.7 + 2))) : var3 ? (STEPPE_FREE.has(d.spr) ? d.spr : bn && d.spr === 'rocks' ? pickW(STEPPE_ROCKS, hash(d.x * 2.3 + 5, d.y * 1.9 + 1)) : pickTree(d.spr, hash(d.x * 2.3 + 5, d.y * 1.9 + 1))) : d.spr, d.x, d.y, isTree || var3 || d.s ? h * 6.283 : 0, isTree ? 1.0 + hash(d.y * 1.3, d.x * 0.7) * 0.75 : var3 ? 0.7 + hash(d.y, d.x) * 0.9 : d.s || 1, light ? { color: new THREE.Color(light.c[0] / 255, light.c[1] / 255, light.c[2] / 255) } : null);
+      push(isTree ? (fj ? pickFj(hash(d.x * 3.1 + 1, d.y * 1.7 + 2)) : pickTree(d.spr, hash(d.x * 3.1 + 1, d.y * 1.7 + 2))) : var3 ? (STEPPE_FREE.has(d.spr) ? d.spr : bn && d.spr === 'rocks' ? pickW(STEPPE_ROCKS, hash(d.x * 2.3 + 5, d.y * 1.9 + 1)) : pickTree(d.spr, hash(d.x * 2.3 + 5, d.y * 1.9 + 1))) : d.spr, d.x, d.y, isTree || var3 || d.s ? h * 6.283 : 0, isTree ? (fj ? 0.75 : 1.0) + hash(d.y * 1.3, d.x * 0.7) * (fj ? 1.0 : 0.75) : var3 ? 0.7 + hash(d.y, d.x) * 0.9 : d.s || 1, light ? { color: new THREE.Color(light.c[0] / 255, light.c[1] / 255, light.c[2] / 255) } : null);
     }
     // сборка 47: деревья выше — в среднем ≈6 м (три роста героя), от 4,5 до 8+ м: множитель 1,0–1,75 (был 0,85–1,4), чаща 1,15–1,95
     if (wild) {   // стены форта по тайлам 'D' (лицом наружу) и густая чаща по тайлам 'x'
@@ -82,7 +84,11 @@ export class PropLayer {
           const far = ty === 5 || tx === 5, near = ty === 59 || tx === 59;
           const id = far ? (h < 0.75 ? 'tw_wall_b' : 'tw_wall_a') : near ? (h < 0.6 ? 'tw_wall_lo' : 'tw_wall_c') : h < 0.5 ? 'tw_wall_a' : h < 0.78 ? 'tw_wall_c' : h < 0.9 ? 'tw_wall_b' : 'tw_wall_lo';
           push(id, tx + 0.5, ty + 0.5, hz ? (h < 0.5 ? 0 : Math.PI) : (h < 0.5 ? Math.PI / 2 : -Math.PI / 2), 1);
-        } else if (tp) continue;   // кусты храма поставил Zone (statics), деревьев по 'x' нет
+        } else if (tp) {   // кусты храма поставил Zone (statics); правки 3: за наружной стеной — роща, чтобы не было лысой полосы земли до обрыва
+          if (c !== 'x' || (tx > 4 && ty > 4 && tx < m.w - 4 && ty < m.h - 4)) continue;
+          const h = hash(tx * 1.9 + 3, ty * 2.3 - 1), front = tx >= m.w - 4 || ty >= m.h - 4;
+          if (h < (front ? 0.2 : 0.5) && tx > 0 && ty > 0 && tx < m.w - 1 && ty < m.h - 1) push(pickTree(h > 0.25 ? 'tree_1' : 'tree_0', hash(tx * 2.1, ty * 1.3 + 5)) + '_far', tx + 0.25 + hash(tx, ty + 9) * 0.5, ty + 0.25 + hash(ty, tx + 4) * 0.5, h * 40, 1.0 + hash(ty, tx) * 0.6);
+        }
         else if (c === 'D') {
           const ext = [[1, 0], [0, 1], [-1, 0], [0, -1]].find(([dx, dy]) => { const n = m.ch(tx + dx, ty + dy); return n === '.' || n === 'x' || n === '~'; }) || [0, 1];
           push(fj ? 'fort_wall' : bn ? 'tusk_fence' : 'palisade', tx + 0.5, ty + 0.5, Math.atan2(ext[0], ext[1]), 1);
@@ -90,13 +96,13 @@ export class PropLayer {
           const h = hash(tx * 1.9 + 3, ty * 2.3 - 1), edge = tx < 3 || ty < 3 || tx >= m.w - 3 || ty >= m.h - 3;
           if (bn) { const back = tx < 3 || ty < 3; if (h < (edge ? (back ? 0.55 : 0.3) : 0.1)) { const big = back && h < 0.3, id = big ? pickW(STEPPE_SPIRES, hash(tx * 2.1, ty * 1.3 + 5)) : h < 0.08 ? pickW(STEPPE_TREES, hash(tx, ty * 3.3)) + '_far' : pickW(STEPPE_ROCKS, hash(tx * 1.3, ty)); push(id, tx + 0.2 + hash(tx, ty + 9) * 0.6, ty + 0.2 + hash(ty, tx + 4) * 0.6, h * 40, big ? 1.1 + hash(ty, tx) * 0.8 : 0.9 + hash(ty, tx) * 0.6); } continue; }   // пустоши: край — стена из красных столбов и останцев
           const frontE = tx >= m.w - 3 || ty >= m.h - 3;   // ближний к камере край — реже: деревья там закрывают героя и мобов (сборка 18)
-          if (h < (edge ? (frontE ? 0.22 : 0.6) : fj ? 0.09 : 0.06)) { const id = fj ? (h < 0.2 ? 'rocks' : hash(tx, ty) < 0.5 ? 'tree_fir_blue' : 'tree_pine_tall') : pickTree(h > 0.3 ? 'tree_1' : 'tree_0', hash(tx * 2.1, ty * 1.3 + 5)); push(id === 'rocks' ? id : id + '_far', tx + 0.2 + hash(tx, ty + 9) * 0.6, ty + 0.2 + hash(ty, tx + 4) * 0.6, h * 40, id === 'rocks' ? 1.2 + h : 1.15 + hash(ty, tx) * 0.8); }
+          if (h < (edge ? (frontE ? 0.22 : 0.6) : fj ? 0.09 : 0.06)) { const id = fj ? (h < 0.2 ? 'rocks' : pickFj(hash(tx, ty))) : pickTree(h > 0.3 ? 'tree_1' : 'tree_0', hash(tx * 2.1, ty * 1.3 + 5)); push(id === 'rocks' ? id : id + '_far', tx + 0.2 + hash(tx, ty + 9) * 0.6, ty + 0.2 + hash(ty, tx + 4) * 0.6, h * 40, id === 'rocks' ? 1.2 + h : 1.15 + hash(ty, tx) * 0.8); }
         }
       }
     }
     if (dungeon) for (const w of wallPieces(zone)) push(w.id === 'dwall_lo' ? 'dwall_lo' : w.v < 0.62 ? 'dwall_hi' : w.v < 0.86 ? 'dwall_buttress' : 'dwall_niche', w.x, w.y, w.rot, 1);
     const VC = zone.json.viewClear || [], clearOf = (x, y) => VC.some(c => { const dx = x - c.x, dy = y - c.y, al = (dx + dy) / Math.SQRT2; return al > -2.5 && al < c.len + 4 && Math.abs(dx - dy) / Math.SQRT2 < c.lat + 1; });
-    if (wantBackdrop && open) {  // лес за краем карты
+    if (wantBackdrop && open && !(zone.json.wild && zone.json.wild.islands)) {  // лес за краем карты (у походов-островов за краем — бездна)
       const m = zone.map, G = zone.json.big ? 3.8 : 3.4, ring = zone.json.big ? 17 : 11;
       for (let y = -ring; y < m.h + ring; y += G) for (let x = -ring; x < m.w + ring; x += G) {
         if (x > -1.5 && y > -1.5 && x < m.w + 1.5 && y < m.h + 1.5) continue;
@@ -108,7 +114,7 @@ export class PropLayer {
         }
         const h = hash(x + 3, y - 7); if (h > (wild ? (x > m.w || y > m.h ? 0.22 : 0.5) : 0.7)) { if (zone.json.village) push(h > 0.85 ? 'fern' : 'bush', x + (hash(x, y) - 0.5) * 2, y + (hash(y, x) - 0.5) * 2, h * 30, 1.3 + hash(x * 2, y) * 0.8); continue; }   // деревня: просвет в лесу за краем — кусты, а не пустота
         if (bn) { const h2 = hash(x * 2.3, y * 1.1 + 5), front = x > m.w || y > m.h; if (front && h2 < 0.5) { push(pickW(STEPPE_ROCKS, h2 * 2), x + (hash(x, y) - 0.5) * 2, y + (hash(y, x) - 0.5) * 2, h * 6.28, 1 + h2); continue; } push(h2 < 0.5 ? pickW(STEPPE_SPIRES, h2 * 2) : h2 < 0.8 ? pickW(STEPPE_TREES, h2) + '_far' : pickW(STEPPE_ROCKS, h2), x + (hash(x, y) - 0.5) * 2, y + (hash(y, x) - 0.5) * 2, h * 6.28, h2 < 0.5 ? 1.3 + hash(x * 2, y) * 1.1 : 1 + hash(x * 2, y) * 0.5); continue; }   // за краем пустошей — каньон из столбов и акации
-        push((fj ? (hash(x * 2.3, y * 1.1 + 5) < 0.5 ? 'tree_fir_blue' : 'tree_pine_tall') : pickTree(h > 0.4 ? 'tree_1' : 'tree_0', hash(x * 2.3, y * 1.1 + 5))) + '_far', x + (hash(x, y) - 0.5) * 2, y + (hash(y, x) - 0.5) * 2, h * 6.28, 1 + hash(x * 2, y) * 0.6);
+        push((fj ? pickFj(hash(x * 2.3, y * 1.1 + 5)) : pickTree(h > 0.4 ? 'tree_1' : 'tree_0', hash(x * 2.3, y * 1.1 + 5))) + '_far', x + (hash(x, y) - 0.5) * 2, y + (hash(y, x) - 0.5) * 2, h * 6.28, 1 + hash(x * 2, y) * 0.6);
       }
     }
     if (wantBackdrop && open) this.scatterDecor(zone, push, fj);
@@ -198,7 +204,7 @@ export class PropLayer {
     const ol = this.outlineFor(def); if (ol) addOutlines(model.root, ol);
     model.root.traverse(o => { if (o.isMesh && !o.userData.isOutline) { o.castShadow = def.shadow !== false && !def.shadowProxy; o.receiveShadow = true; } });
     if (def.shadowProxy) { const pm = new THREE.Mesh(def.shadowProxy(this.kit), proxyMat()); pm.castShadow = true; pm.layers.set(1); pm.userData.isOutline = true; model.root.add(pm); }
-    this.items.push(g); if (model.update) this.dyn.push(model); else if (key) BUILT.set(key, model.root);
+    this.items.push(g); if (model.update) this.dyn.push(model); else if (key) { model.root.traverse(o => shared(o.geometry)); BUILT.set(key, model.root); }
     if (model.root.userData.smoke) { g.updateMatrixWorld(true); for (const p of model.root.userData.smoke) this.smoke.push({ p: model.root.localToWorld(new THREE.Vector3(p[0], p[1], p[2])), dark: !!p[3] }); }   // [x, y, z, тёмный дым горна]
     return g;
   }
@@ -209,7 +215,7 @@ export class PropLayer {
       const root = def.build(this.kit).root; root.updateMatrixWorld(true);
       const meshes = []; root.traverse(o => { if (o.isMesh) { const g = o.geometry.clone(); g.applyMatrix4(o.matrixWorld); meshes.push({ geo: g, mat: o.material }); } });
       const bs = new THREE.Box3().setFromObject(root).getBoundingSphere(new THREE.Sphere());
-      B = { meshes, r: bs.radius, proxy: def.shadowProxy ? def.shadowProxy(this.kit) : null }; if (key) BATCHED.set(key, B);
+      B = { meshes, r: bs.radius, proxy: def.shadowProxy ? def.shadowProxy(this.kit) : null }; if (key) { for (const x of meshes) shared(x.geo); shared(B.proxy); BATCHED.set(key, B); }
     }
     const ol = this.outlineFor(def), meshes = B.meshes;
     const parts = meshes.map(({ geo, mat }) => {
@@ -231,9 +237,11 @@ export class PropLayer {
   // оставляем в instanced-мешах только то, что рядом с камерой
   // оставляем в instanced-мешах только то, что попадает в кадр (пирамида видимости камеры + запас на высоту кроны)
   cull(camera, force) {
-    const k = camera.position.x * 1.0 + camera.position.z * 1.0 + camera.rotation.y * 7;
-    if (!force && Math.abs(k - this.lastK) < 0.35) return;
-    this.lastK = k;
+    // П41/П53/П54 (сборка 60): раньше ключом была сумма x + z камеры — при камере под 45° она не меняется, когда герой идёт
+    // вправо-влево по экрану, и деревья, не попавшие в кадр, так и не появлялись, пока не сдвинешься иначе. Теперь — расстояние
+    const cp = camera.position, L = this.lastP || (this.lastP = new THREE.Vector3());
+    if (!force && this.lastK === 0 && L.distanceToSquared(cp) < 0.35 * 0.35) return;
+    this.lastK = 0; L.copy(cp);
     this.pv.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse); this.fr.setFromProjectionMatrix(this.pv);
     const m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), p = new THREE.Vector3(), s = new THREE.Vector3(), sp = new THREE.Sphere();
     for (const b of this.batches) {
@@ -251,5 +259,5 @@ export class PropLayer {
   }
   setQuality(q) { this.quality = q; const k = QUALITY[q] ? QUALITY[q].decor : 1; if (k !== this.decorK) { this.decorK = k; this.lastK = 1e9; } }
   update(t) { this.syncLive(); for (const d of this.dyn) d.update(t); }
-  dispose() { for (const o of this.items) { o.removeFromParent(); if (o.isInstancedMesh) o.dispose(); } this.items = []; }
+  dispose() { for (const o of this.items) disposeObject(o); this.items = []; }   // кеш BUILT/BATCHED помечен shared() — его геометрии остаются
 }

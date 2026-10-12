@@ -19,7 +19,7 @@ async function detect() {
 }
 function pick(l) { l = String(l || 'ru').slice(0, 2).toLowerCase(); if (['be', 'kk', 'uk', 'uz', 'ru'].includes(l)) return 'ru'; return LANGS.includes(l) ? l : (LANGS.includes('en') ? 'en' : 'ru'); }
 (async () => {
-  const lang = pick(await detect()); window.__LANG = lang; document.documentElement.lang = lang;
+  const lang = pick(await detect()); window.__LANG = lang; document.documentElement.lang = lang; if (window.__bootStep) window.__bootStep();
   if (lang !== 'ru') {
     try {   // тексты index.html (титульный экран, подсказки кнопок)
       const D = await fetch(`js_${lang}/html.json`).then(r => r.json());
@@ -27,6 +27,11 @@ function pick(l) { l = String(l || 'ru').slice(0, 2).toLowerCase(); if (['be', '
       for (const e of document.querySelectorAll('[title]')) if (D[e.title]) e.title = D[e.title];
       if (D[document.title]) document.title = D[document.title];
     } catch (e) { console.warn('html i18n', e); }
+  }
+  { // сборка 64: все модули игры — параллельно (список кладёт сборка, tools/i18n/build_langs.mjs); vendor общий для всех языков
+    const base = lang === 'ru' ? 'js/' : `js_${lang}/`;
+    const mods = (window.__MODS || []).slice().sort((a, b) => b.startsWith('vendor/') - a.startsWith('vendor/'));   // самые большие (three.js) — первыми
+    for (const m of mods) { const l = document.createElement('link'); l.rel = 'modulepreload'; l.href = (m.startsWith('vendor/') ? 'js/' : base) + m; document.head.appendChild(l); }
   }
   await import(lang === 'ru' ? './js/main.js' : `./js_${lang}/main.js`);
 })();

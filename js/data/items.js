@@ -86,7 +86,12 @@ export const AFFIXES = {
   ias:      { name: v => `+${v}% к скорости атаки`, g: 'WJ', r: l => [3, 5 + (l >> 2)], w: 7 },
   armor:    { name: v => `+${v} к защите`, g: 'AO', r: l => [2 + l, 5 + l * 2], w: 10 },
   mp:       { name: v => `+${v} к мане`, g: 'AJW', r: l => [5 + l * 2, 12 + l * 4], w: 6 },
+  // С35 (правки 2): свойства «под билд» — для одной ветви навыков героя (b), только с синей редкости (minR). Ветвь выбирается из веток класса
+  brDmg:    { name: (v, bn) => `+${v}% к урону навыков «${bn}»`, g: 'WJ', r: l => [6 + (l >> 1), 10 + l], w: 4, branch: true, minR: 2 },
+  brCd:     { name: (v, bn) => `−${v}% к перезарядке навыков «${bn}»`, g: 'AJ', r: l => [6, 12 + (l >> 2)], w: 3, branch: true, minR: 2 },
+  brMana:   { name: (v, bn) => `−${v}% маны на навыки «${bn}»`, g: 'AOJ', r: l => [8, 15 + (l >> 2)], w: 3, branch: true, minR: 2 },
 };
+export const BR_CAP = { brDmg: 60, brCd: 40, brMana: 50 };   // предел суммы по ветви, %
 // ключи старых свойств — вычищаются из сохранений (save.js, v6→v7) и не учитываются в характеристиках
 export const OLD_AFFIXES = ['dmgFlat', 'crit', 'critDmg', 'armorPct', 'str', 'dex', 'int', 'vit', 'fire', 'cold', 'light', 'regen', 'leech', 'goldFind', 'skill'];
 export const AFFIX_GROUP = slot => slot === 'weapon' ? 'W' : slot === 'offhand' ? 'O' : (slot === 'amulet' || slot === 'ring') ? 'J' : 'A';

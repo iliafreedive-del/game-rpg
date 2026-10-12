@@ -16,7 +16,7 @@ const STAY = new Set(['stash', 'cache']);   // тайники двигаются
 /** J — карта зоны (rows, objects); solidCh — символы стен. Меняет J.objects на месте, возвращает число сдвинутых/убранных. */
 export function declutter(J, solidCh = '# SDG', skip = null) {
   const rows = J.rows, wall = (x, y) => { const r = rows[Math.floor(y)]; const c = r ? r[Math.floor(x)] : undefined; return c === undefined || solidCh.includes(c); };
-  const rOf = o => (skip && skip.has(o.t)) ? 0 : R[o.t] ?? (FIXED.has(o.t) ? FIXED_R : 0);
+  const rOf = o => (skip && skip.has(o.t)) ? 0 : o.keep ? 0 : R[o.t] ?? (FIXED.has(o.t) ? FIXED_R : 0);   // правки 3: стойки и шкафы-тайники (keep) стоят у стены, как обычная обстановка
   // от центра до ближайшей стены (по клеткам вокруг), м
   const wallGap = (x, y, r) => { let g = 9; for (let ty = Math.floor(y - r - 1); ty <= y + r + 1; ty++) for (let tx = Math.floor(x - r - 1); tx <= x + r + 1; tx++) if (wall(tx + 0.5, ty + 0.5)) g = Math.min(g, Math.hypot(Math.max(tx - x, 0, x - tx - 1), Math.max(ty - y, 0, y - ty - 1))); return g; };
   const placed = [], out = []; let fixed = 0;

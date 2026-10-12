@@ -31,7 +31,7 @@ export default { id: 'market_tent', kind: 'prop', outline: false,
       const c = document.createElement('canvas'); c.width = 512; c.height = 160; const x = c.getContext('2d');
       x.fillStyle = '#3a1e12'; x.fillRect(0, 0, 512, 160); x.strokeStyle = '#d6a548'; x.lineWidth = 8; x.strokeRect(8, 8, 496, 144);
       x.fillStyle = '#ffd98a'; x.font = 'bold 84px Georgia, serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.shadowColor = '#000'; x.shadowBlur = 6; x.fillText('ТОРГОВКА', 256, 86);
-      const tex = new THREE.CanvasTexture(c); tex.anisotropy = 4;
+      const tex = new THREE.CanvasTexture(c); tex.anisotropy = 4; tex.colorSpace = THREE.SRGBColorSpace;   // С21: без него вывеска бледная и серая
       const sign = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 0.69), new THREE.MeshBasicMaterial({ map: tex, side: THREE.DoubleSide, toneMapped: false }));
       sign.position.set(0, 3.2, 1.75); sign.userData.noOutline = true; root.add(sign);
       const frame = new THREE.Mesh(merge([bbox(2.3, 0.79, 0.08, 0.02, 0x4a3018, [0, 3.2, 1.7], 0, { top: 0x8a6a40, tex: 'wood' })]), kit.propMat(this)); root.add(frame);

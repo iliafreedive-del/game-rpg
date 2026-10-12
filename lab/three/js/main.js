@@ -1,4 +1,4 @@
-// DARK ASCENT — Three.js stylised-graphics prototype. Entry point: renderer, lighting presets, camera, game loop.
+// UMBRAHOLD — Three.js stylised-graphics prototype. Entry point: renderer, lighting presets, camera, game loop.
 import * as THREE from '../vendor/three.module.min.js';
 import { U } from './toon.js';
 import { buildWorld, ARENA, heightAt } from './world.js';

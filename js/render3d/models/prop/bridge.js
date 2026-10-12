@@ -1,6 +1,6 @@
 // Деревянный мост через ручей: настил из досок поперёк, две продольные балки, сваи в воду, перила с раскосами.
 // Длина — opts.len (вдоль X, задаёт генератор деревни по ширине ручья), ширина 2,8 м. Настил почти вровень с землёй.
-export default { id: 'bridge', kind: 'prop', outline: false,
+export default { id: 'bridge', kind: 'prop', outline: false, shadow: false,   // без отбрасываемой тени: на склоне обрыва под мостом она ложилась кривым пятном
   build(kit, opts = {}) {
     const { THREE, part, merge, bbox, geo } = kit, L = [], R = geo.rng(5), len = opts.len || 5, BW = opts.w ? opts.w - 0.15 : 2.8, T = 0x4a3220, TL = 0x9a7448;
     const n = Math.round(len / 0.32);

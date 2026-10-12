@@ -15,7 +15,9 @@ FRAMES = 24          # кадров на цикл анимации
 # по моделям: h — рост в игре, arm — руки из Т-позы вниз (градусов), el — локти вперёд (левый, правый);
 # staff — посох отдельной сеткой без скина (в правую кисть); props — меч и щит кусками меша, которые риг Meshy поставил на пол
 CFG = {
-  'mage_staff': {'h': 2.2, 'arm': 74, 'el': (-18, -42), 'staff': True},   # маг: рост со шляпой — как у прежней модели; правая держит посох перед собой
+  # маг: рост со шляпой — как у прежней модели; правая держит посох перед собой. Правки 3: ладонь выше, локоть согнут сильнее
+  # и отведён назад (как на референсе — посох держат у груди, а не на вытянутой вниз руке); back — плечо назад, градусов
+  'mage_staff': {'h': 2.2, 'arm': 74, 'el': (-18, -118), 'back': (0, 30), 'staff': True},
   'warrior_knight': {'h': 2.0, 'arm': 72, 'el': (-30, -28), 'props': True},   # воин «Violet Vanguard»: рост с рогами — как у прежней модели
 }
 
@@ -107,7 +109,8 @@ def main(src, name, *more):
             W[i] = w
         return W
     # поза покоя: руки вниз (левая рука модели — +X), локти чуть вперёд
-    pose = {'LeftArm': axis_rot([0, 0, 1], -ARM_DOWN), 'RightArm': axis_rot([0, 0, 1], ARM_DOWN),
+    BK = C.get('back', (0, 0))
+    pose = {'LeftArm': axis_rot([1, 0, 0], BK[0]) @ axis_rot([0, 0, 1], -ARM_DOWN), 'RightArm': axis_rot([1, 0, 0], BK[1]) @ axis_rot([0, 0, 1], ARM_DOWN),
             'LeftForeArm': axis_rot([1, 0, 0], EL_BEND[0]), 'RightForeArm': axis_rot([1, 0, 0], EL_BEND[1])}
     Wp = world(T0, R0, S0, pose); W0 = world(T0, R0, S0)
     skin = j['skins'][0]; joints = skin['joints']; IBM = acc(skin['inverseBindMatrices']).reshape(-1, 4, 4).transpose(0, 2, 1)

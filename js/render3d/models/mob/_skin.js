@@ -3,11 +3,23 @@
 // o.bow — лук в кулаке ставится перпендикулярно предплечью (вертикально, рукоятью к цели), когда рука поднята для выстрела;
 // o.restDown = { grip } — в покое и на ходу оружие опущено навершием вниз (держит у навершия, доля длины от низа — grip),
 // к удару разворачивается обратно в боевой хват.
+// o.regrip = { bone, at, to, rot } — предмет переставлен в кулак: точка древка at (координаты модели в покое) встаёт в to (центр кулака),
+// предмет повёрнут на rot (углы Эйлера в системе модели). Правки 3: у Захара (атамана) топор висел рядом с ладонью, головой к плечу
 export function mobSkin(kit, m, name, o = {}) {
   const S = kit.skin;
   if (!(S && S.SKINS.on && S.skinLoaded(name))) return m;
-  const { bow, restDown, ...so } = o;
-  m = S.attachSkin(kit, m, name, { noEquip: ['handR', 'handL'], rim: 0.6, rimColor: kit.MOB.rimColor.skel, ...so });
+  const { bow, restDown, regrip, ...so } = o;
+  m = S.attachSkin(kit, m, name, { noEquip: ['handR', 'handL'], rim: 0.6, rimColor: kit.MOB.rimColor.skel, bodyPos: true, ...so });
+  if (m.skin && regrip) for (const regrip of [].concat(o.regrip)) {   // правки 4: можно списком — у Рубаки два топора
+    let sk = null; m.root.traverse(x => { if (x.isSkinnedMesh && !x.userData.isOutline) sk = x.skeleton; });
+    const wb = sk && sk.getBoneByName(regrip.bone), J = S.skinMeta(name).bones.find(b => b[0] === regrip.bone);
+    if (wb && J) {
+      const { THREE } = kit, q = new THREE.Quaternion().setFromEuler(new THREE.Euler(...regrip.rot));
+      if (regrip.spin) q.premultiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(...regrip.spin.slice(0, 3)).normalize(), regrip.spin[3]));   // spin — довернуть вокруг оси (система модели), например вокруг древка
+      const Jp = new THREE.Vector3(...regrip.to).sub(new THREE.Vector3(...regrip.at).sub(new THREE.Vector3(...J[2])).applyQuaternion(q));   // новый сустав: J' = to − R·(at − J)
+      wb.quaternion.copy(q); wb.position.add(Jp.sub(new THREE.Vector3(...J[2])));   // у костей шкуры поворот покоя нулевой — смещение в системе модели
+    }
+  }
   if (!m.skin || !(bow || restDown)) return m;
   const { THREE } = kit, meta = S.skinMeta(name);
   let skel = null; m.root.traverse(x => { if (x.isSkinnedMesh && !x.userData.isOutline) skel = x.skeleton; });

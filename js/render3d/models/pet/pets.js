@@ -1,6 +1,7 @@
 // Питомцы каравана (сборка 58, js/data/pets.js): восемь маленьких процедурных моделей на своих простых ригах.
 // Вперёд — +Z. Летуны (ворон, огонёк, череп, мышь) висят в воздухе сами (тело поднято в модели, качается).
 // Клипы: idle / walk / attack (укус или выстрел, hit 0.5) / hit / death / cast. Рост — с крупную кошку: сверху камеры их видно.
+import { meshyPet } from './petrig.js';
 const CLIPS = { idle: { loop: true }, walk: { loop: true }, attack: { dur: 0.5, hit: 0.5 }, hit: { dur: 0.3 }, death: { dur: 1 }, cast: { dur: 0.5, fire: 0.5 } };
 
 function base(kit, o = {}) {
@@ -184,6 +185,7 @@ export const PET_MOTES = {
   bat:    { at: [0, 1.5, 0], rate: 6, colA: 0xd090ff, colB: 0x400080, grav: 0.4, size: 0.08, k: 1.5, sp: 0.3, up: -0.1, wobble: 0.2 },
   golem:  { at: [0, 0.95, 0.25], rate: 4, colA: 0xffc060, colB: 0xff4000, grav: -0.8, size: 0.07, k: 1.8, sp: 0.15, up: 0.3 },
 };
-const def = (id, fn) => ({ id: 'pet_' + id, kind: 'npc', outline: 'mob', fly: !!FLY[id], build: fn, motes: PET_MOTES[id] });
+// сборка 60: если загружена модель из Meshy (assets/models/pet_<id>.*) — она на своём скелете (petrig.js), иначе эта процедурная
+const def = (id, fn) => ({ id: 'pet_' + id, kind: 'npc', outline: 'mob', fly: !!FLY[id], build: kit => meshyPet(kit, 'pet_' + id, () => fn(kit)), motes: PET_MOTES[id] });
 export const PET_MODELS = { fennec: def('fennec', fennec), crow: def('crow', crow), scorpid: def('scorpid', scorpid), wisp: def('wisp', wisp), skull: def('skull', skull), basilisk: def('basilisk', basilisk), bat: def('bat', bat), golem: def('golem', golem) };
 export { base, done, wing, membrane, feathers, halo };   // особые питомцы (pets_premium.js) строятся теми же заготовками

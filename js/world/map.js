@@ -5,7 +5,7 @@ export class GridMap {
     this.solid = new Uint8Array(this.w * this.h);
     for (let y = 0; y < this.h; y++) for (let x = 0; x < this.w; x++) {
       const c = this.rows[y][x];
-      this.solid[y * this.w + x] = (c === '#' && !json.walkableHash) || c === 'x' || c === '~' || c === 'D' || c === 'S' || c === 'G' || (json.village && (c === 'F' || c === 'V' || c === 'K' || c === 'n' || c === ';')) ? 1 : 0;   // деревня: поля, луг и дорога за ручьём — непроходимы, мост 'b' — проходим
+      this.solid[y * this.w + x] = (c === '#' && !json.walkableHash) || c === 'x' || c === '~' || c === 'v' || c === 'D' || c === 'S' || c === 'G' || (json.village && (c === 'F' || c === 'V' || c === 'K' || c === 'n' || c === ';')) ? 1 : 0;   // деревня: поля, луг и дорога за ручьём — непроходимы, мост 'b' — проходим
     }
     this.circles = [];           // static circle colliders {x,y,r}
     this.rects = [];             // static box colliders {x0,y0,x1,y1}

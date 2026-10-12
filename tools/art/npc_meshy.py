@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Жители деревни из Meshy (Т-поза) → поза «руки вниз» → скелет героя (glb_rig.py) → assets/models/<имя>.bin/.json/.webp.
-  python3 tools/art/npc_meshy.py <имя> <файл.glb>          имя: npc_elder | npc_fortune | npc_merchant | npc_smith
+  python3 tools/art/npc_meshy.py <имя> <файл.glb>          имя: npc_elder | npc_fortune | npc_merchant | npc_smith | npc_caravan
 То же, что pose_npc.py + glb_rig.py для Элвина, но суставы задаются долями (рост и размах рук модели), а не подбираются руками,
 и у модели может не быть оружия. У кузнеца молот — отдельные куски справа от тела: молот поворачивается бойком вперёд и
 вкладывается в правый кулак (хват у конца рукояти — так держат молот кузнецы, удар идёт с плеча, молот отскакивает).
@@ -28,6 +28,9 @@ NPC = {
   'npc_smith': dict(outHeight=1.8, arm=dict(shoulder=0.30, elbow=0.56, wrist=0.74, knuckle=0.87), armY=0.17, armZ=0.0,
                     y=dict(ankle=0.08, knee=0.24, hip=0.42, waist=0.52, neck=0.74), legX=0.075, curl=150, elbow=55, girth=1.4,
                     weapon=dict(minX=0.25, grip=0.13, spin=90, dir=[-0.3, 0.75, 0.6])),
+  # караванщик Кофи: синий тюрбан, борода, песочный халат с бирюзовым кушаком, шаровары, туфли с загнутыми носами
+  'npc_caravan': dict(outHeight=1.8, arm=dict(shoulder=0.29, elbow=0.50, wrist=0.70, knuckle=0.84), armY=0.2, armZ=0.0,
+                      y=dict(ankle=0.07, knee=0.22, hip=0.40, waist=0.52, neck=0.78), legX=0.09, curl=55, elbow=25, girth=1.3),
 }
 
 

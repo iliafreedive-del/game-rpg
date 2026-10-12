@@ -55,22 +55,40 @@ const def = {
     };
     const legL = mkLeg(0.13), legR = mkLeg(-0.13);
 
-    let gp = Math.random();
+    // Шкура ghoul_m (K = 1) ходит как горилла: всегда пригнута, корпус сильно наклонён вперёд, руки длинные, опора на кулаки,
+    // каждая рука шагает с противоположной ногой (правая — с левой), голова поднята и смотрит вперёд.
+    // Повороты костей шкуры считаются от позы покоя процедурного упыря (glbskin снимает её при K = 0), поэтому всё, что
+    // у шкуры сверх покоя (наклон, присед, руки к земле), прибавляется только после захвата: model.skinPose(1).
+    // Процедурный упырь (K = 0, «Новые модели» выключены) ходит по-прежнему.
+    // наклон сверх покоя (+ на ходу), присед, кулак впереди плеча (на ходу / стоя), размах руки, подъём кулака, локоть прямее
+    const GC = { lean: 1.1, leanW: 0.15, crouch: 0.16, reach: 0.15, reach0: 0.1, swing: 0.9, lift: 2.2, el0: 0.25 };
+    let K = 0, gp = Math.random();
     function solve(a, sp, wu, lu, hurt = 0) {
       const w = clamp(sp / 1.6), cyc = clamp(sp / (SP.cyc * 3.2), 0, 1);
       if (sp > 0.25) gp = ((gp + (a.back ? -1 : 1) * a.dt * sp / 1.5) % 1 + 1) % 1;
       const th = gp * 6.283, s = Math.sin(th);
-      const hipY = SP.hip - 0.05 * w + 0.025 * w * Math.abs(Math.cos(th - 1.9)) - wu * 0.08 + lu * 0.03;
+      const hipY = SP.hip - (0.05 + 0.04 * K) * w - GC.crouch * K + (0.025 + 0.01 * K) * w * Math.abs(Math.cos(th - 1.9)) - wu * 0.08 + lu * 0.03;
+      const fts = [];
       [[legR, 0], [legL, 0.5]].forEach(([lg, off], i) => {
-        const ft = footTarget(gp + off, SP.stride * (0.5 + 0.5 * cyc), SP.lift);
+        const ft = footTarget(gp + off, SP.stride * (0.5 + 0.5 * cyc), SP.lift); fts.push(ft);
         let dz = ft.z * w + (i ? -0.03 : 0.03) * (1 - w); const lift = ft.y * w;
         dz += (i === 0 ? 0.18 : -0.1) * wu + (i === 0 ? 0.25 : -0.15) * lu;
         lg.position.y = hipY; legIK(lg, lg.knee, lg.foot, SP.L1, SP.L2, hipY - SP.ankle, dz, lift, ft.pitch * w);
       });
-      body.rotation.set(0.6 + 0.08 * w + wu * 0.4 - lu * 0.5 - hurt * 0.4, Math.cos(th) * 0.2 * w, Math.sin(th) * 0.12 * w); body.position.y = hipY + 0.02 - wu * 0.08;
-      head.rotation.set(-0.45 - wu * 0.2 + hurt * 0.3, -body.rotation.y * 0.5, Math.sin(a.t * 2.4) * 0.08);
-      armL.rotation.set(-s * 0.8 * w - 0.4 - wu * 1.3 + lu * 1.9, 0, 0.2 + wu * 0.25); armR.rotation.set(s * 0.8 * w - 0.4 - wu * 1.3 + lu * 1.9, 0, -0.2 - wu * 0.25);
-      elL.rotation.x = elR.rotation.x = -0.5 - 0.4 * w - wu * 0.5 + lu * 0.7;
+      const D = K * (GC.lean + GC.leanW * w);   // наклон шкуры сверх покоя
+      body.rotation.set(0.6 + D + 0.08 * w * (1 - K) + wu * 0.4 - lu * 0.5 - hurt * 0.4, Math.cos(th) * (0.2 - 0.06 * K) * w, Math.sin(th) * 0.12 * w); body.position.y = hipY + 0.02 - wu * 0.08;
+      head.rotation.set(-0.45 - D * 0.85 - wu * 0.2 + hurt * 0.3, -body.rotation.y * 0.5, Math.sin(a.t * 2.4) * 0.08);
+      if (K) {
+        // рука к вертикали в мире: опора на кулак чуть впереди плеча, кулак стоит на земле и уходит назад, пока тело идёт вперёд
+        // (ft.z — та же траектория, что у стопы); в переносе локоть сгибается и кулак поднимается
+        const arm = ft => -0.4 - D - (GC.reach + ft.z * GC.swing) * w - GC.reach0 * (1 - w) - wu * 1.3 + lu * 1.9;
+        const el = ft => -0.5 + GC.el0 - ft.y * GC.lift * w - wu * 0.5 + lu * 0.7;
+        armR.rotation.set(arm(fts[1]), 0, -0.2 - wu * 0.25); armL.rotation.set(arm(fts[0]), 0, 0.2 + wu * 0.25);
+        elR.rotation.x = el(fts[1]); elL.rotation.x = el(fts[0]);
+      } else {
+        armL.rotation.set(-s * 0.8 * w - 0.4 - wu * 1.3 + lu * 1.9, 0, 0.2 + wu * 0.25); armR.rotation.set(s * 0.8 * w - 0.4 - wu * 1.3 + lu * 1.9, 0, -0.2 - wu * 0.25);
+        elL.rotation.x = elR.rotation.x = -0.5 - 0.4 * w - wu * 0.5 + lu * 0.7;
+      }
       spin.rotation.set(0, 0, 0); spin.position.y = 0.5;
     }
     const HIT = 0.5;
@@ -94,11 +112,20 @@ const def = {
       sockets: { head },
       bones: { spin, body, head, armR, armL, elR, elL, legL, legR, kneeL: legL.knee, kneeR: legR.knee, footL: legL.foot, footR: legR.foot },
       clips: { idle: { loop: true }, walk: { loop: true }, attack: { dur: 0.5, hit: HIT }, hit: { dur: 0.25 }, death: { dur: 0.9 }, cast: { dur: 0.6, fire: 0.5 } },
-      anims,
+      anims, skinPose: v => { K = v; },
     };
   },
 };
 // сборка 57: модель ghoul_m поверх рига
 const rigBuild = def.build;
-def.build = kit => mobSkin(kit, rigBuild(kit), 'ghoul_m', { rimColor: kit.MOB.rimColor.ghoul });
+def.build = kit => {
+  const m = mobSkin(kit, rigBuild(kit), 'ghoul_m', { rimColor: kit.MOB.rimColor.ghoul });
+  if (!m.skin) return m;
+  m.skinPose(1);
+  // плечо у модели высоко, а локоть почти сразу под ним (плечо ~0.3 м, предплечье с кистью ~0.4) — руки короткие для упора
+  // в землю, и плечо выглядит «ближе к локтю». Локоть шкуры опускается вдоль плеча: плечо длиннее, рука достаёт до земли
+  const UA = 0.12;
+  m.root.traverse(x => { if (x.isBone && (x.name === 'elL' || x.name === 'elR')) x.position.multiplyScalar(1 + UA / x.position.length()); });
+  return m;
+};
 export default def;

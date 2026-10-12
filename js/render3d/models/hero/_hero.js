@@ -219,7 +219,7 @@ export function heroModel(kit, V = {}) {
         const wind = env && env.wind ? env.wind : new THREE.Vector2(0, 0);
         if (cape) { cape.update(dt, capeAnchor.matrixWorld, root.matrixWorld, wind, t); cape.mesh.visible = actor.root.visible; }
       },
-      dispose() { if (cape) cape.mesh.removeFromParent(); },
+      dispose() { if (cape) { cape.mesh.removeFromParent(); cape.geo.dispose(); } },
     };
   }
 }

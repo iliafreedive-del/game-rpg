@@ -1,4 +1,4 @@
-Продолжаем работу над игрой Dark Ascent (репозиторий iliafreedive-del/game-rpg).
+Продолжаем работу над игрой Umbrahold (репозиторий iliafreedive-del/game-rpg).
 
 ВЕТКА: работай только в `content/new-location` (от `claude/keen-heisenberg-5n65rs`). Другой диалог параллельно делает 3D-графику — НЕ трогай `lab/three/`, `js/render/`, `docs/ART_BIBLE.md`, `docs/MODEL_SPEC.md`. Пиши по-русски, коротко.
 

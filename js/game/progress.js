@@ -11,7 +11,11 @@ export const BOSS_LEVEL = 7;
 // выше «до» не растёт — перекачанный герой получает всё меньше опыта (killXP в loot.js) и уходит дальше.
 // Катакомбы до первого прохождения — 1–7 (комната задаёт «от»), Хранитель 6–8, Палач 7–10; Глубины и походы — от уровня этажа/поля до него +3.
 export const CATA_MAX = 7;
-export const bandLevel = (min, max) => Math.max(min, Math.min(max, ((G.profile && G.profile.level) || 1) + 1));
+// перед релизом: порог уровня портала/поля; в админке («Все порталы открыты») — любой уровень
+export const lvlOk = need => !need || (G.profile && ((G.profile.cheat && G.profile.cheat.open) || G.profile.level >= need));
+// П57 (правки 2): перекачанный герой больше не проходит зону «одной левой». Боссы, стражи и сюжетные враги (boss = true) всегда
+// на уровень выше героя (без потолка зоны); рядовые — в коридоре, но не ниже «герой − 3» (опыта с них уже ×0,3 — повод идти дальше)
+export const bandLevel = (min, max, boss) => { const h = (G.profile && G.profile.level) || 1; return boss ? Math.max(min, h + 1) : Math.max(min, Math.min(max, h + 1), h - 3); };
 const F = () => G.profile.story.flags;
 export const hasSkill = () => G.profile.slots.some(Boolean) || Object.keys(G.profile.skills).length > 0;
 const forts = realm => { const S = G.profile.wild && G.profile.wild[realm]; return S && S.stat ? S.stat.forts || 0 : 0; };
@@ -22,7 +26,7 @@ const forts = realm => { const S = G.profile.wild && G.profile.wild[realm]; retu
 const stIdx = id => STORY.findIndex(q => q.id === id);
 export function earlyLock(kind) {
   const s = G.profile && G.profile.story; if (!s) return false;
-  const need = kind === 'upg' ? 'hw_elvin' : kind === 'shop' ? 'meet_merchant' : 'elder_task';
+  const need = kind === 'upg' ? 'hw_elvin' : kind === 'shop' ? 'meet_merchant' : kind === 'pet' ? 'meet_kofi' : 'elder_task';   // 'pet' — подарок Кофи (сборка 60, П15)
   return s.stage < stIdx(need);
 }
 // сборка 55: первый урок у Элвина платный (55 зол.): после него остаётся ровно на первое зелье здоровья у Миры (30).
@@ -41,14 +45,21 @@ export function lockToast(kind) {
   bus.emit('toast', { text: kind === 'upg' ? 'Усиления откроются после Летописи битв' : 'Откроется чуть позже', sub: 'Сначала пройдите обучение — идите по стрелке', kind: 'warn' }); bus.emit('sfx', 'deny');
 }
 // null — можно, иначе { text, sub }
+// сборка 59: обучение не обойти — Летопись, Жатва и катакомбы открываются своим шагом сюжета (раньше вход открывался по навыку,
+// и в Жатву/катакомбы можно было зайти до задания: шаг потом засчитывался сам или стрелка вела не туда)
+const early = id => G.profile.story && G.profile.story.stage < stIdx(id);
+const EARLY = { text: 'Рано', sub: 'Сначала задания в деревне — идите по золотой стрелке' };
 export function gate(name, extra) {
   const P = G.profile;
+  if (P.cheat && P.cheat.open) return null;   // правки 3: админка — все порталы открыты
+  if ((name === 'catacombs' && early('find_portal')) || (name === 'survival' && early('surv_try')) || (name === 'hw' && early('hw_try'))) return EARLY;
   switch (name) {
     case 'catacombs': return hasSkill() ? null : { text: 'Сначала выберите навык', sub: 'Поговорите с наставником в деревне (у него значок «+») и выучите первое умение' };
     case 'temple': return null;   // Разрушенный храм (портал с руками): открыт сразу со 2 уровня (уровень проверяет портал)
     case 'forest': return !hasSkill() ? { text: 'Сначала выберите навык', sub: 'Наставник в деревне учит первым умениям' } : !F().medallion && !P.world.hasMedallion ? { text: 'Лес пока закрыт', sub: 'Принесите старосте Амулет хранителя из катакомб — он откроет тропу в лес' } : null;
-    case 'bones': return !F().bossKilled ? { text: 'Пустоши закрыты', sub: 'Сначала победите Палача Бездны в катакомбах' } : forts('fjord') < 1 ? { text: 'Костяные пустоши закрыты', sub: 'Сначала отбейте форт ярла во Фьордах — умирающий ётун расскажет, где четвёртая печать' } : null;
-    case 'fjord': return !F().bossKilled ? { text: 'Фьорды закрыты', sub: 'Сначала победите Палача Бездны в катакомбах' } : forts('forest') < 1 ? { text: 'Фьорды закрыты', sub: 'Сначала отбейте разбойничий острог в Старом Лесу' } : null;
+    // правки 3: вторыми открываются Пустоши (после острога Леса), третьими — Фьорды (после руин Пустошей); кто уже был во Фьордах, не закрываем
+    case 'bones': return !F().bossKilled ? { text: 'Пустоши закрыты', sub: 'Сначала победите Палача Бездны в катакомбах' } : forts('forest') < 1 && forts('fjord') < 1 ? { text: 'Костяные пустоши закрыты', sub: 'Сначала отбейте разбойничий острог в Старом Лесу' } : null;
+    case 'fjord': return !F().bossKilled ? { text: 'Фьорды закрыты', sub: 'Сначала победите Палача Бездны в катакомбах' } : forts('bones') < 1 && forts('fjord') < 1 ? { text: 'Фьорды закрыты', sub: 'Сначала отбейте Древние руины в Костяных пустошах — Костяной исполин расскажет, где последняя печать' } : null;
     case 'depths': return F().bossKilled ? null : { text: 'Пока закрыто', sub: 'Сначала победите Палача Бездны в катакомбах' };
     case 'survival': return F().bossKilled || !P.survIntro ? null : { text: 'Староста: «Портал Жатвы не удержать дольше трёх минут»', sub: 'Он откроется снова после победы над Палачом Бездны в катакомбах' };   // сборка 47: один забег-знакомство до Палача
     case 'bossgate': return P.level >= BOSS_LEVEL ? null : { text: `Печать не поддаётся: нужен ${BOSS_LEVEL} уровень`, sub: `У вас ${P.level}. Наберите силу в катакомбах и Старом Лесу, улучшите вещи у кузнеца` };
@@ -62,6 +73,14 @@ export function gate(name, extra) {
   }
   return null;
 }
+// П37 (правки 2): Старый Лес до победы над Палачом — только первые три поля (там задания старосты: Шатун-людоед, волки);
+// дальше в лес и к острогу — после Палача Бездны. null — можно
+export const FOREST_FREE = 3;
+export function wildDepthGate(realm, depth) {
+  if (G.profile.cheat && G.profile.cheat.open) return null;
+  if (realm === 'forest' && depth > FOREST_FREE && !(G.profile.story.flags.bossKilled)) return { text: 'Чаща не пускает дальше', sub: `Пока жив Палач Бездны, в лес можно только до ${FOREST_FREE}-го поля. Сломайте печать в катакомбах` };
+  return null;
+}
 // Текст «что делать дальше» для подсказок
 export function nextStep() {
   const P = G.profile;
@@ -69,7 +88,7 @@ export function nextStep() {
   if (!F().medallion && !P.world.hasMedallion) return 'Катакомбы: ключ → дверь → победить Хранителя → амулет старосте';
   if (!F().bossKilled) return P.level < BOSS_LEVEL ? `Прокачайтесь до ${BOSS_LEVEL} уровня (катакомбы, Старый Лес)` : 'Победите Палача Бездны';
   if (forts('forest') < 1) return 'Отбейте острог в Старом Лесу';
-  if (forts('fjord') < 1) return 'Отбейте форт во Фьордах';
   if (forts('bones') < 1) return 'Костяные пустоши: дойдите до руин и победите вождя';
+  if (forts('fjord') < 1) return 'Отбейте форт во Фьордах';
   return 'Идите глубже: Глубины, Жатва Бездны, Цитадель';
 }

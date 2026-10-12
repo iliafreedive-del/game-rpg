@@ -11,6 +11,7 @@ import * as THREE from '../vendor/three.module.min.js';
 import { toon, outline } from './toon.js';
 import { OUTLINE } from './style.js';
 import { clamp, smooth, lerp } from './rig.js';
+import { shared } from './dispose.js';
 
 const ss = (a, b, x) => { x = Math.min(1, Math.max(0, (x - a) / (b - a))); return x * x * (3 - 2 * x); };
 const CACHE = new Map();
@@ -68,7 +69,7 @@ function beastRig(kit, name, H) {
   g.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(si, 4)); g.setAttribute('skinWeight', new THREE.Float32BufferAttribute(sw, 4));
   g.computeBoundingSphere(); D.og = outlineGeo(g);
   D.rig = { col, hipY, kneeY, zNeck, zTail, tailY: tn ? ty / tn : H * 0.6, L };
-  CACHE.set(ck, D); return D;
+  shared(D.g); shared(D.og); CACHE.set(ck, D); return D;
 }
 
 /** Зверь Meshy на риге прежнего процедурного зверя. o: { height — рост (м), radius, shadow, tint, rimColor } */
@@ -172,7 +173,7 @@ function scorpRig(kit, name, H) {
   g.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(si, 4)); g.setAttribute('skinWeight', new THREE.Float32BufferAttribute(sw, 4));
   g.computeBoundingSphere(); D.og = outlineGeo(g);
   D.rig = { claws: [0, 1].map(s => claws[s]?.pivot || new THREE.Vector3((s ? -1 : 1) * W * 0.15, H * 0.2, L * 0.2)), legs: legs.map(l => ({ side: l.side, k: l.k, fan: l.fan, pivot: l.ch.pivot })), L, W };
-  CACHE.set(ck, D); return D;
+  shared(D.g); shared(D.og); CACHE.set(ck, D); return D;
 }
 
 /** Скорпион Meshy на своём простом риге. o: { height — рост с поднятым хвостом (м), radius, shadow, tint, rimColor } */

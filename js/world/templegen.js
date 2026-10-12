@@ -1,9 +1,9 @@
-// «Разрушенный храм» (портал с руками): каменный лабиринт 6×6 залов, на каждой глубине — новый (сид по глубине).
+// «Разрушенный храм» (портал с руками): каменный лабиринт 6×6 залов, при каждом заходе — новый (сид захода, С34).
 // Залы 8×8 м, стены в 1 тайл ('D'), проходы — арки и проломы шириной 4 м и больше, лишних ступенек нет: пол ровный.
 // Центр — святилище 2×2 зала: мини-босс (поля 1–5), Осквернитель (6-я локация), Падший бог (каждая 12-я).
 // Символы: ',' плиты храма · '.' трава заросшего двора · 'x' кусты (только в углах залов и за стенами) · 'D' стена.
 // Что дальше рисует 3D: стены — props.js (temple: глыбы, обломанные куски, опоры), арки и колонны — объекты tw_*.
-import { REALMS, WILD_MOBS, moodOf, wildLevel, isWildBoss, isWildFort, fieldVariant, locationName } from '../data/wild.js';
+import { REALMS, WILD_MOBS, moodOf, wildLevel, isWildBoss, isWildFort, fieldVariant, locationName, packSpawns, slows } from '../data/wild.js';
 
 function rng(seed) { let s = seed >>> 0; return () => { s = (s + 0x6D2B79F5) >>> 0; let t = s; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
 const W = 64, H = 64, CS = 9, NX = 6, NY = 6, X0 = 5, Y0 = 5;   // стены на X0 + i·CS: 5, 14, … 59
@@ -11,9 +11,9 @@ const SANCT = [2, 3];   // святилище — залы (2..3, 2..3)
 // старт и выход по номеру лабиринта: каждый раз из другого угла
 const ROUTES = [[[0, 5], [5, 0]], [[5, 5], [0, 0]], [[0, 0], [5, 5]], [[5, 0], [0, 5]], [[0, 3], [5, 2]], [[0, 5], null]];
 
-export function generateTemple(depth) {
+export function generateTemple(depth, seed = (Math.random() * 4294967296) >>> 0) {
   const RL = REALMS.temple, mood = moodOf('temple', depth), boss = isWildBoss(depth), isFort = isWildFort(depth), variant = fieldVariant(depth);
-  const R = rng(6007 + depth * 7919), ri = (a, b) => a + Math.floor(R() * (b - a + 1));
+  const R = rng((6007 + depth * 7919) ^ Math.imul(seed >>> 0, 2654435761)), ri = (a, b) => a + Math.floor(R() * (b - a + 1));
   const g = Array.from({ length: H }, () => Array(W).fill('x'));
   const set = (x, y, c) => { if (x >= 0 && y >= 0 && x < W && y < H) g[y][x] = c; };
   const at = (x, y) => (x < 0 || y < 0 || x >= W || y >= H) ? 'x' : g[y][x];
@@ -93,7 +93,7 @@ export function generateTemple(depth) {
   const objects = [], spawns = [], lvl = wildLevel('temple', depth);
   const exitCell = ROUTES[variant][1], exit = exitCell ? [ccx(exitCell[0]) - 0.5, ccy(exitCell[1]) - 0.5] : [X0 + 3 * CS + 0.5, Y0 + 3 * CS + 3.9];   // святилище: выход проявится у ног поверженного босса
   objects.push({ t: 'wild_home', x: start[0] - 1.5, y: start[1] + 0.5 });
-  objects.push({ t: 'wild_next', x: exit[0], y: exit[1], hidden: isFort });   // в святилище-«форте» выход появляется после босса
+  objects.push({ t: 'wild_next', x: exit[0], y: exit[1], hidden: isFort, sealed: !isFort });   // в святилище-«форте» выход появляется после босса; П20: на поле «Вглубь» запечатан, пока жив страж святилища
   placed.push([start[0], start[1], 4.5], [exit[0], exit[1], 3.5]);
   objects.push(...archs);
   for (const [x, y] of rubble) if (free(x, y)) objects.push({ t: 'rubble', x, y, nocol: 1 });
@@ -144,8 +144,8 @@ export function generateTemple(depth) {
     }
     if (nCamp < maxCamp && R() < 0.75) {
       const t = pool[ri(0, pool.length - 1)], MT = WILD_MOBS[t], n = MT.ai === 'giant' ? 1 : Math.min(4, ri(2, 3) + (depth >= 6 ? 1 : 0));
-      spawns.push([t, cx, cy, n, 2.2, lvl]); campPts.push([cx, cy]); nCamp++;
-      if (MT.ai !== 'giant' && depth >= 3 && R() < 0.3) { const t2 = pool[ri(0, pool.length - 1)]; if (WILD_MOBS[t2].ai !== 'giant') spawns.push([t2, cx, cy, 1, 2.5, lvl]); }
+      packSpawns(spawns, t, cx, cy, n, 2.2, lvl, pool, R); campPts.push([cx, cy]); nCamp++;
+      if (MT.ai !== 'giant' && depth >= 3 && R() < 0.3) { const t2 = pool[ri(0, pool.length - 1)]; if (WILD_MOBS[t2].ai !== 'giant' && !(slows(t) && slows(t2))) spawns.push([t2, cx, cy, 1, 2.5, lvl]); }
     } else if (R() < 0.6) { const x = x0 + 1.2 + R() * 5.6, y = y0 + 1.2 + R() * 5.6; if (free(x, y) && !near(x, y, 1.6)) { objects.push({ t: 'stash', id: 'wts' + i + '_' + j, x, y, kind: R() < 0.5 ? 'crate' : 'barrel' }); placed.push([x, y, 1.6]); } }
   }
   // схрон для ноши — в одном из дальних залов
@@ -163,8 +163,8 @@ export function generateTemple(depth) {
 
   const rows = g.map(r => r.join('')), total = spawns.reduce((a, s) => a + s[3], 0);
   return {
-    name: `${RL.name} · ${locationName('temple', depth)} · глубина ${depth}`, floorN: 1400 + depth,
-    wild: { camps: campPts, realm: 'temple', depth, mood, boss, fort: null, gate: null, kind: isFort ? 'fort' : 'field', variant, locName: locationName('temple', depth), archPiers, temple: true },
+    name: `${RL.name} · ${locationName('temple', depth)} · глубина ${depth}`, floorN: 1400 + depth, seed,
+    wild: { camps: campPts, realm: 'temple', depth, mood, boss, fort: null, gate: null, kind: isFort ? 'fort' : 'field', variant, locName: locationName('temple', depth), archPiers, temple: true, islands: true /* правки 3: храм — остров, как поля: за краем обрыв, без «леса в воздухе» */ },
     w: W, h: H, rows, objects, torches: [], spawns, total, rooms: {}, start, boss, level: lvl, story: [],
   };
 }

@@ -16,6 +16,8 @@ export const ART = {
 };
 // расходники: имя значка в атласе icons → отдельная картинка
 export const ITEM_ART = { potion_hp: 'potion_hp', potion_mp: 'potion_mp', scroll: 'scroll' };
+// П4-2: золото — стопка монет, как на панели валют (в атласе icons старые «пузырьки»)
+export const GOLD_ICO = `${BASE}ui/gold_64.png`;
 
 const imgs = new Map();
 // одна картинка на путь; ok — загрузилась, bad — ошибка (больше не пробуем, без бесконечного onerror)

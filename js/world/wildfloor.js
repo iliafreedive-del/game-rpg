@@ -51,6 +51,8 @@ export function buildWildFloor(zone) {
   for (let j = 0; j < J.h; j++) for (let i = 0; i < J.w; i++) {
     const ch = J.rows[j][i];
     if (ch === '~') { x.fillStyle = rgb(M.water, 0.9 + rnd() * 0.2); diamond(i, j); x.fill(); continue; }
+    if (ch === 'v') continue;   // пропасть (правки 2): пустота
+    if (ch === 'h' || ch === 'b') { x.fillStyle = rgb([112, 82, 52], 0.9 + rnd() * 0.15); diamond(i, j); x.fill(); continue; }   // мост
     const base = (i * 7 + j * 13) % 7 === 0 ? M.alt : M.ground;
     let k = 0.965 + rnd() * 0.07;
     if (ch === ',') { x.fillStyle = realm === 'fjord' ? rgb([150, 154, 164], k) : rgb([112, 92, 62], k); }

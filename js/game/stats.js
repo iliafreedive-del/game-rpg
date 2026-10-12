@@ -1,14 +1,29 @@
 // Derived character stats from attributes, gear and skills. Pure: stats(profile) → object.
 import { SETS } from '../data/sets.js';
-import { WEAPONS, CLASSES, AFFIXES } from '../data/items.js';
+import { WEAPONS, CLASSES, AFFIXES, BR_CAP } from '../data/items.js';
 import { SKILLS, PASSIVE_K as K } from '../data/skills.js';
 import { upgMult } from './items.js';
-import { G } from './ctx.js';
+import { G, bus } from './ctx.js';
 import { DECOR } from '../data/upgrades.js';
 import { ENEMIES, scaleHP } from '../data/enemies.js';
 export const hasBoon = id => !!(G.run && G.run.boons && G.run.boons.includes(id));
+export const boonN = id => (G.run && G.run.boons) ? G.run.boons.filter(x => x === id).length : 0;   // правки 3: уровень дара (до 3)
 
-export const xpToNext = l => Math.round(75 * Math.pow(l, 1.75) * Math.pow(1.1, l - 1) * (l > 1 ? 2 : 1))   // сборка 47: со 2-го уровня опыта нужно вдвое больше (6 ур. за полчаса — слишком быстро)   // сборка 20: ×1,1 за уровень (как цены) — топ — это долгий фарм;   // чуть круче прежнего: до босса (ур. 6) приходится заглянуть в лес и перепройти катакомбы;
+// сборка 62 (кривая до 80 уровня, скил rpg: «быстро в начале, дольше потом, но без обрыва»): до 10 ур. — как было.
+// Дальше старая формула росла как 1,1^ур. (на 30 ур. — 11 тыс. скелетов за уровень, на 50-м — 116 тыс.), теперь убийств на уровень
+// растёт плавно: ≈ 590 на 10-м, 1150 на 30-м, 2000 на 80-м (опыт врага растёт с его уровнем, scaleXP).
+export const SPELL_K = 0.11;
+export const MAX_LEVEL = 100;   // правки 3: пока 100, потом с новым контентом — выше
+const xpOld = l => Math.round(75 * Math.pow(l, 1.75) * Math.pow(1.1, l - 1) * (l > 1 ? 2 : 1));
+// правки 3 (одобрено): опыта на уровень вдвое больше — множитель плавно растёт от ×1 на 10-м до ×2 к 20-му, без скачка после 10-го
+export const XP_STRETCH = l => Math.min(2, 1 + Math.max(0, l - 10) / 10);
+export const xpToNext = l => l <= 10 ? xpOld(l) : Math.round(xpOld(10) * Math.pow(l / 10, 0.6) * (1 + 0.25 * l) / 3.5 * XP_STRETCH(l));
+// сборка 62: «мощь уровня» — с 11-го уровня каждый уровень даёт +3% здоровья и +2% урона сверх очков характеристик,
+// чтобы рост был заметен и герой не отставал от урона врагов (раньше к 80 ур. враг убивал за 4 удара вместо 24 на 10-м)
+// Как очки совершенствования в Diablo 4 (очко за каждую четверть полосы опыта): с 10-го уровня мощь растёт и внутри уровня —
+// каждая четверть полосы даёт четверть прибавки (+0,75% здоровья, +0,5% урона), чтобы рост чувствовался каждые 10–35 минут игры
+export const powerQuarter = p => p.level >= 10 && p.level < MAX_LEVEL ? Math.min(3, Math.floor((p.xp || 0) / xpToNext(p.level) * 4)) : 0;
+export const levelPower = (l, q = 0) => { const k = Math.max(0, (l || 1) - 10 + q / 4); return { hp: 1 + 0.03 * k, dmg: 1 + 0.02 * k }; };
 export const rank = (p, id) => p.skills[id] || 0;
 
 export function branchBonus(p, branch) {
@@ -26,7 +41,7 @@ export function stats(p, gearOverride) {
   const gear = gearOverride || p.gear;
   const s = { str: p.attrs.str, dex: p.attrs.dex, int: p.attrs.int, vit: p.attrs.vit,
     dmgPct: 0, dmgFlat: 0, ias: 0, crit: 0, critDmg: 0, armor: 0, hp: 0, mp: 0, fire: 0, cold: 0, light: 0,
-    resFire: 0, resCold: 0, resLight: 0, regen: 0, leech: 0, goldFind: 0, block: 0, effects: {} };
+    resFire: 0, resCold: 0, resLight: 0, regen: 0, leech: 0, goldFind: 0, block: 0, effects: {}, br: { brDmg: {}, brCd: {}, brMana: {} } };
   let armorItems = 0;
   for (const [slot, it] of Object.entries(gear)) {
     if (!it) continue;
@@ -35,6 +50,7 @@ export function stats(p, gearOverride) {
       if (a.k === 'armorPct') armPct += a.v;
       else if (a.k === 'resAll' || a.k === 'resFire' || a.k === 'resCold' || a.k === 'resLight') { }   // сопротивления убраны
       else if (a.k === 'skill') { }
+      else if (AFFIXES[a.k] && AFFIXES[a.k].branch && a.b) { const B = s.br[a.k]; B[a.b] = Math.min(BR_CAP[a.k], (B[a.b] || 0) + a.v); }   // С35: свойства ветви навыков
       else if (a.k in s && AFFIXES[a.k]) s[a.k] += a.v;   // сборка 47: только нынешние свойства вещей
     }
     armorItems += arm * (1 + armPct / 100);
@@ -61,8 +77,8 @@ export function stats(p, gearOverride) {
   const base = w ? w.dmg : [1, 3];
   const um = w ? upgMult(w) : 1;
   const attr = W.scale === 'str' ? s.str : W.scale === 'dex' ? s.dex : s.int;
-  const attrMult = 1 + attr * (W.scale === 'int' ? 0.018 : 0.02);   // сборка 47: маг 0,025 → 0,018
-  const help = (p.boosts && p.boosts.helpUntil > Date.now()) ? 1.15 : 1;   // подмога Ордена после трёх поражений подряд (js/platform/offers.js)
+  const attrMult = 1 + attr * (W.scale === 'int' ? 0.018 : W.scale === 'dex' ? 0.016 : 0.02);   // правки 3: лучник +3 ловкости за уровень — коэффициент ниже, чтобы не обгонял воина к 100-му   // сборка 47: маг 0,025 → 0,018
+  const help = (p.boosts && p.boosts.helpUntil > Date.now()) ? (p.boosts.helpK || 1.15) : 1;   // П22: за рекламу ×1,3   // подмога Ордена после трёх поражений подряд (js/platform/offers.js)
   const mult = attrMult * (1 + s.dmgPct / 100) * (1 + (mastery * 0.08 + marks * 0.08) * K) * help;
   s.dmgMin = Math.max(1, Math.round((base[0] * um + s.dmgFlat) * mult));
   s.dmgMax = Math.max(s.dmgMin, Math.round((base[1] * um + s.dmgFlat) * mult));
@@ -78,22 +94,27 @@ export function stats(p, gearOverride) {
   const U = p.upg || {}; const tr = (p.castle && p.castle.trophy) || 0;
   const DB = { hp: 0, dmg: 0, xp: 0, critDmg: 0, regen: 0, gold: 0 };
   if (p.castle && p.castle.decor) for (const id of Object.values(p.castle.decor)) { const D = DECOR[id]; if (D) for (const k in D.bonus) DB[k] += D.bonus[k]; }
-  if (p.nemesis) for (const t of p.nemesis.trophies) { DB.dmg += t.bonus; DB.gold += t.bonus; }   // трофеи немезисов
+  if (p.nemesis) for (const t of p.nemesis.trophies) { const b = Math.min(3.5, t.bonus); DB.dmg += b; DB.gold += b; }   // С19: старые трофеи сверх 5-го ранга — тоже до +3,5%   // трофеи немезисов
   const codex = Object.keys(p.codex || {}).length; DB.dmg += codex * 0.5;   // коллекция вещей (сборка 21): +0,5% урона и здоровья за запись
   s.decor = DB; s.maxHP = Math.round((s.maxHP + DB.hp) * (1 + codex * 0.005)); s.codex = codex; s.critMult += DB.critDmg / 100; s.mpRegen += DB.regen; s.goldFind += DB.gold;
   { const m = 1 + (U.dmg || 0) * 0.04 + tr * 0.03 + DB.dmg / 100; s.dmgMin = Math.round(s.dmgMin * m); s.dmgMax = Math.round(s.dmgMax * m); s.spellPower *= m; }
-  s.maxHP += (U.hp || 0) * 12; s.maxMP += (U.mp || 0) * 8; s.hpRegen += (U.regen || 0) * 0.4;
+  s.maxHP += (U.hp || 0) * 12; s.maxMP += (U.mp || 0) * 10; s.mpRegen += (U.mp || 0) * 0.1; s.hpRegen += (U.regen || 0) * 0.4;
   s.critChance = Math.min(0.75, s.critChance + (U.crit || 0) * 0.006); s.critMult += (U.critDmg || 0) * 0.06;
   s.aps = +(s.aps * (1 + (U.aps || 0) * 0.02)).toFixed(2); s.moveMul = 1 + (U.move || 0) * 0.02; s.goldFind += tr * 5;
   if (G.run && G.run.boons) {   // run-only boons from «Дары Бездны»
-    if (hasBoon('giant')) { s.dmgMin = Math.round(s.dmgMin * 1.15); s.dmgMax = Math.round(s.dmgMax * 1.15); s.spellPower *= 1.15; }   // сборка 47: дары скромнее
-    if (hasBoon('frenzy')) s.aps = +(s.aps * 1.12).toFixed(2);
-    if (hasBoon('eagle')) { s.critChance = Math.min(0.75, s.critChance + 0.05); s.critMult += 0.2; }
-    if (hasBoon('vitality')) s.maxHP = Math.round(s.maxHP * 1.15);
-    if (hasBoon('glass')) { s.dmgMin = Math.round(s.dmgMin * 1.4); s.dmgMax = Math.round(s.dmgMax * 1.4); s.spellPower *= 1.4; s.maxHP = Math.round(s.maxHP * 0.7); }   // проклятый дар: урон ценой здоровья
-    if (hasBoon('bloodpact')) { s.aps = +(s.aps * 1.25).toFixed(2); s.hpRegen = 0; }   // проклятый дар: скорость ценой лечения
+    if (hasBoon('giant')) { const m = 1 + 0.015 * boonN('giant'); s.dmgMin = Math.round(s.dmgMin * m); s.dmgMax = Math.round(s.dmgMax * m); s.spellPower *= m; }   // сборка 47: дары скромнее
+    if (hasBoon('frenzy')) s.aps = +(s.aps * (1 + 0.012 * boonN('frenzy'))).toFixed(2);
+    if (hasBoon('eagle')) { s.critChance = Math.min(0.75, s.critChance + 0.005 * boonN('eagle')); s.critMult += 0.02 * boonN('eagle'); }
+    if (hasBoon('vitality')) s.maxHP = Math.round(s.maxHP * (1 + 0.015 * boonN('vitality')));
+    if (hasBoon('glass')) { const n = boonN('glass'), m = 1 + 0.04 * n; s.dmgMin = Math.round(s.dmgMin * m); s.dmgMax = Math.round(s.dmgMax * m); s.spellPower *= m; s.maxHP = Math.round(s.maxHP * (1 - 0.03 * n)); }   // проклятый дар: урон ценой здоровья
+    if (hasBoon('bloodpact')) { s.aps = +(s.aps * (1 + 0.025 * boonN('bloodpact'))).toFixed(2); s.hpRegen = 0; }   // проклятый дар: скорость ценой лечения
   }
-  s.block = Math.min(0.5, s.block);
+  { const LP = levelPower(p.level, powerQuarter(p)); s.maxHP = Math.round(s.maxHP * LP.hp); s.dmgMin = Math.round(s.dmgMin * LP.dmg); s.dmgMax = Math.round(s.dmgMax * LP.dmg); s.spellPower *= LP.dmg; s.lvlPower = LP; }
+  // правки 3 («игра за воина и за мага — одна сложность, разный стиль»): сила заклинаний считается от урона оружия (как у навыков воина
+  // и лучника — «% урона оружия»), а не от интеллекта отдельно. Раньше заклинания не росли от посоха, а удар посохом считал интеллект дважды:
+  // маг был сильнее всех в начале и улетал вперёд к концу. SPELL_K подобран так, что маг по урону идёт вровень с воином на уровнях 1–100.
+  s.spellPower = Math.max(1.2, (s.dmgMin + s.dmgMax) / 2 * SPELL_K * (1 + (W.spell || 0)));   // 1,2 — первые уровни с серым посохом
+  s.block = Math.min(0.5, s.block); s.helpOn = help > 1;
   // сборка 49: «запас прочности» (EHP = здоровье / (1 − снижение урона)) — броня и здоровье в одних единицах; враги на 1 уровень выше героя
   s.ehp = Math.round(s.maxHP / (1 - damageReduction(s.armor, (p.level || 1) + 1)));
   // "DPS" summary used by compare panel
@@ -111,6 +132,8 @@ export function hitsToKill(s, p) {
   const hit = (s.dmgMin + s.dmgMax) / 2 * (1 + s.critChance * (s.critMult - 1)) * (1 - 0.9 * arm / (arm + 50 + 10 * (p.level || 1)));
   return Math.max(1, Math.ceil(hp / Math.max(1, hit)));
 }
+// С36: временное усиление (подмога Ордена) кончается ровно по таймеру — раньше держалось до следующего пересчёта характеристик
+{ const t = setInterval(() => { const P = G.profile; if (!P || !G.stats || !P.attrs) return; if (!!G.stats.helpOn !== !!(P.boosts && P.boosts.helpUntil > Date.now())) { G.stats = stats(P); bus.emit('statsChanged'); } }, 1000); if (t.unref) t.unref(); }
 export const damageReduction = (armor, enemyLvl) => armor / (armor + 50 + 10 * enemyLvl);
 
 export function meetsReq(p, it, st) {
@@ -142,8 +165,9 @@ export function usefulness(p, item) {
   const a = stats(p); const g = { ...p.gear, [slot]: item };
   const b = stats(p, g);
   const dpsK = (b.dps / Math.max(1, a.dps) - 1) * 100;
-  const spK = p.cls === 'mage' ? (b.spellDps / Math.max(1, a.spellDps) - 1) * 100 : -999;
-  const main = Math.max(dpsK, spK);
+  // П33: у мага посох почти не меняет силу заклинаний, и max(урон, заклинания) давал 0 у любого посоха хуже надетого — стрелки не было.
+  // Теперь урон и заклинания складываются поровну: хуже посох — ▼, лучше — ▲
+  const main = p.cls === 'mage' ? (dpsK + (b.spellDps / Math.max(1, a.spellDps) - 1) * 100) / 2 : dpsK;
   if (slot === 'weapon') return main;
   return main + (b.ehp / Math.max(1, a.ehp) - 1) * 100 + (b.maxMP - a.maxMP) * 0.1;   // сборка 49: броня и здоровье — через запас прочности, в % как и урон
 }

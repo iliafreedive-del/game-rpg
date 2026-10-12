@@ -5,7 +5,7 @@
 // Возвращает { leafTree(lobes, trunkH, bend, density), bush(lobes, density), pine(tiers, density) }.
 export function foliage(kit, seed = 5, opts = {}) {
   const { THREE } = kit, { rng, paint } = kit.geo, FOLIAGE = { ...kit.FOLIAGE, ...opts };   // opts — порода: оттенки листвы/хвои, коры, насыщенность
-  const SAT = FOLIAGE.sat ?? 1, LT = FOLIAGE.light ?? 0;
+  const SAT = FOLIAGE.sat ?? 1, LT = FOLIAGE.light ?? 0, SNOW = FOLIAGE.snow || 0, SNOW_C = new THREE.Color(0.93, 0.96, 1.0);
   const cr = rng(seed), V = (x, y, z) => new THREE.Vector3(x, y, z), UPV = V(0, 1, 0);
   const clamp01 = x => Math.min(1, Math.max(0, x));
   const SOLID = [0.96, 0.96];
@@ -35,8 +35,7 @@ export function foliage(kit, seed = 5, opts = {}) {
   const lobeSet = (lobes, y0, y1, density) => {
     for (const [x, y, z, r] of lobes) {
       const c = V(x, y, z);
-      // заполнитель внутри доли: средне-зелёный (не чёрный), чтобы сквозь просветы не было «дыр»
-      raw(paint(new THREE.IcosahedronGeometry(r * 0.52, 0), hsl(FOLIAGE.leafHue + 0.02, 0.5, 0.16), { top: hsl(FOLIAGE.leafHue, 0.55, 0.26) }).translate(x, y, z));
+      // правки 4 (П4-4): заполнителя-икосаэдра внутри доли больше нет совсем — у «дальних» крон (_far, все деревья за краем острова) он торчал сквозь редкую листву гранёными шарами
       const n = Math.round(density * r * r * 0.75 + 8);
       for (let i = 0; i < n; i++) {
         const d = V(cr() - .5, cr() - .35, cr() - .5).normalize(), pos = c.clone().addScaledVector(d, r * (0.62 + cr() * 0.3)), hgt = clamp01((pos.y - y0) / (y1 - y0));
@@ -66,24 +65,27 @@ export function foliage(kit, seed = 5, opts = {}) {
       lobeSet(lobes, 0.1, 1.2, density);
       return finish();
     },
-    // ель: ярусы лап-карточек, свисающих наружу и вниз; ствол и заполнитель-конус средне-зелёные
+    // ель: ярусы лап-карточек, свисающих наружу и вниз
     pine(tiers = 5, density = 1, wide = 1) {
-      limb(V(0, 0, 0), V(0, 1.4, 0), 0.16, 0.08, BARK, BARK_L);
       const top = 0.95 + tiers * 0.46;
-      raw(paint(new THREE.ConeGeometry(0.62 * wide, top - 0.7, 7), hsl(FOLIAGE.pineHue, 0.45, 0.17), { top: hsl(FOLIAGE.pineHue - 0.02, 0.5, 0.3) }).translate(0, 0.7 + (top - 0.7) / 2, 0));
+      // правки 4 (П4-5): гладкого зелёного конуса-заполнителя больше нет — его плоские грани торчали сквозь лапы. Лапы держит тонкий ствол до макушки
+      limb(V(0, 0, 0), V(0, top + 0.3, 0), 0.16, 0.03, BARK, BARK_L);
       for (let t = 0; t < tiers; t++) {
         const y = 0.95 + t * 0.46, R = (1.1 - t * (0.75 / tiers)) * wide, n = Math.max(6, Math.round((13 - t * 1.5) * density));
+        if (SNOW) raw(paint(new THREE.ConeGeometry(R * 0.66, 0.3, 6, 1, true), SNOW_C.clone().multiplyScalar(0.8), { top: SNOW_C.clone() }).rotateY(t * 0.9).translate(0, y + 0.06, 0));   // снежная шапка на ярусе (правки 3)
         for (let k = 0; k < n; k++) {
           const a = k / n * 6.283 + t * 0.7 + (cr() - .5) * 0.3, out = V(Math.cos(a), 0, Math.sin(a));
           const pos = out.clone().multiplyScalar(R * (0.55 + cr() * 0.15)).add(V(0, y - 0.05 + (cr() - .5) * 0.1, 0));
           const sun = clamp01(-out.x * 0.5 + out.z * 0.6);
           const base = hsl(FOLIAGE.pineHue + 0.01, 0.45, 0.2 + t * 0.015), tip = hsl(FOLIAGE.pineTipHue + 0.03 - sun * 0.04 + cr() * 0.03, 0.58, 0.4 + t * 0.03 + sun * 0.12);
-          // лапа смотрит наружу-вверх, низ карточки свисает
-          card(pos, out.clone().multiplyScalar(0.55).addScaledVector(UPV, 0.8).normalize(), (1.15 - t * (0.6 / tiers)) * Math.sqrt(wide) * (0.9 + cr() * 0.25), base, tip, V(0, y, 0), 0.25);
+          if (SNOW) tip.lerp(SNOW_C, SNOW * (0.75 + 0.25 * cr()));   // правки 3: ели Фьордов в снегу — верх каждой лапы белый
+          // лапа смотрит наружу-вверх, низ карточки свисает; верхние ярусы — круче и уже (правки 3: макушка не сплющена)
+          const hi = t / Math.max(1, tiers - 1);
+          card(pos, out.clone().multiplyScalar(0.55 + 0.5 * hi).addScaledVector(UPV, 0.8 - 0.35 * hi).normalize(), (1.15 - t * (0.6 / tiers)) * Math.sqrt(wide) * (0.9 + cr() * 0.25), base, tip, V(0, y, 0), 0.25);
         }
       }
-      card(V(0, top + 0.25, 0), V(0.3, 1, 0.3).normalize(), 0.7, hsl(FOLIAGE.pineHue, 0.5, 0.25), hsl(FOLIAGE.pineTipHue, 0.6, 0.5), V(0, top, 0));
-      card(V(0, top + 0.25, 0), V(-0.3, 1, -0.3).normalize(), 0.7, hsl(FOLIAGE.pineHue, 0.5, 0.25), hsl(FOLIAGE.pineTipHue, 0.6, 0.5), V(0, top, 0));
+      for (let k = 0; k < 4; k++) { const a = k * 1.571 + 0.4, out = V(Math.cos(a), 0, Math.sin(a));   // верхушка: четыре почти вертикальные лапы вокруг конуса, а не плоская звезда над ним
+        card(out.clone().multiplyScalar(0.16 * wide).add(V(0, top + 0.12, 0)), out.clone().addScaledVector(UPV, 0.35).normalize(), 0.62, hsl(FOLIAGE.pineHue, 0.5, 0.25), SNOW ? SNOW_C.clone() : hsl(FOLIAGE.pineTipHue, 0.6, 0.48), V(0, top, 0), 0.1); }
       return finish();
     },
   };

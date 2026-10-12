@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # Архив для Cloudflare (сборка 47+): копия игры во временную папку, текстуры внутри .glb — JPEG → WebP (качество 82),
-# атлас props_0.png — 256 цветов; в репозитории файлы не меняются. Итог — dist/dark-ascent-cloudflare.zip (~15 МБ вместо 18).
+# атлас props_0.png — 256 цветов; в репозитории файлы не меняются. Итог — dist/umbrahold-cloudflare.zip (~15 МБ вместо 18).
 # Нужен gltf-transform: GT=/путь/к/gltf-transform tools/build_zip.sh  (npm i @gltf-transform/cli). Без него — архив без сжатия.
 set -euo pipefail
 cd "${SRC:-$(dirname "$0")/..}"   # SRC=/путь/dist/en — английская копия (tools/i18n/build_en.mjs)
-OUT=${OUT:-dist/dark-ascent-cloudflare.zip}; STAGE=$(mktemp -d)
+OUT=${OUT:-dist/umbrahold-cloudflare.zip}; STAGE=$(mktemp -d)
 cp -r _headers index.html boot.js manifest.webmanifest css js assets "$STAGE"/; for d in js_*; do [ -d "$d" ] && cp -r "$d" "$STAGE"/; done
 if [ -n "${GT:-}" ] && [ -x "$GT" ]; then
   find "$STAGE/assets/models" -name '*.glb' | while read -r f; do t="${f%.glb}.tmp.glb"; "$GT" webp "$f" "$t" --quality 82 >/dev/null 2>&1 && mv "$t" "$f" || rm -f "$t"; done
@@ -16,5 +16,14 @@ from PIL import Image
 p = sys.argv[1]; im = Image.open(p)
 if im.mode == 'RGBA': im.quantize(256, method=Image.Quantize.FASTOCTREE, dither=Image.Dither.NONE).save(p, optimize=True)
 PY
+# сборка 61: JPGQ=75 — нарисованные фоны (assets/art/gpt/**/*.jpg, 1920×1080) пережимаются в архиве: −8 МБ, чтобы архив влез в лимит GitHub 100 МБ
+if [ -n "${JPGQ:-}" ]; then python3 - "$STAGE/assets/art/gpt" "$JPGQ" <<'PY'
+import sys, glob, os, io
+from PIL import Image
+for f in glob.glob(sys.argv[1] + '/**/*.jpg', recursive=True):
+    b = io.BytesIO(); Image.open(f).save(b, 'JPEG', quality=int(sys.argv[2]), optimize=True, progressive=True)
+    if len(b.getvalue()) < os.path.getsize(f): open(f, 'wb').write(b.getvalue())
+PY
+fi
 rm -f "$OUT"; (cd "$STAGE" && zip -qr - .) > "$OUT"
 echo "$STAGE"; ls -l "$OUT"

@@ -58,15 +58,15 @@ CFG = {
   'f_jarl_m': {'rig': 'skel', 'h': 2.0, 'spin': 0.5, 'items': [('handR', 'axe')]},
   'f_boss_m': {'rig': 'boss', 'h': 2.3, 'spin': 0.9, 'items': [('handR', 'axe')], 'aim': [0, -0.12, 1]},   # как у Палача: в покое вперёд, замах над головой, удар перед собой
   # каменные стражи Разрушенного храма (пак «каменная»): А-поза, оружия нет — бьют кулаками
-  't_warden_m': {'rig': 'skel', 'h': 1.95, 'spin': 0.5, 'items': [], 'ov': {'apose': 1, 'tipmin': 0.36, 'shy': 0.76}},
-  't_golem_m': {'rig': 'skel', 'h': 2.0, 'spin': 0.5, 'items': [], 'ov': {'apose': 1, 'tipmin': 0.15, 'shy': 0.8, 'armr': 0.14, 'hip': 0.44, 'knee': 0.22}},
-  't_priest_m': {'rig': 'skel', 'h': 2.0, 'lift': 0.2, 'spin': 0.78, 'items': [], 'ov': {'apose': 1, 'tipmin': 0.36, 'shy': 0.77, 'armr': 0.07}},
-  't_knight_m': {'rig': 'skel', 'h': 1.95, 'spin': 0.5, 'items': [], 'ov': {'apose': 1, 'tipmin': 0.34, 'shy': 0.76, 'armr': 0.11}},
-  't_thrower_m': {'rig': 'skel', 'h': 1.9, 'spin': 0.5, 'items': [], 'ov': {'apose': 1, 'tipmin': 0.22, 'shy': 0.66, 'armr': 0.12, 'hip': 0.4, 'knee': 0.2, 'neck': 0.02}},
-  't_mb_king_m': {'rig': 'skel', 'h': 2.0, 'spin': 0.5, 'items': [], 'ov': {'apose': 1, 'tipmin': 0.34, 'shy': 0.76, 'armr': 0.11}},
-  't_mb_lancer_m': {'rig': 'skel', 'h': 2.0, 'spin': 0.5, 'items': [], 'ov': {'apose': 1, 'tipmin': 0.36, 'shy': 0.76, 'armr': 0.07}},
-  't_mb_colossus_m': {'rig': 'skel', 'h': 2.0, 'spin': 0.5, 'items': [], 'ov': {'apose': 1, 'tipmin': 0.12, 'shy': 0.8, 'armr': 0.15, 'hip': 0.42, 'knee': 0.22}},
-  't_boss_m': {'rig': 'boss', 'h': 2.3, 'spin': 0.9, 'items': [], 'ov': {'apose': 1, 'tipmin': 0.12, 'shy': 0.8, 'armr': 0.15, 'hip': 0.42, 'knee': 0.22}},
+  't_warden_m': {'rig': 'skel', 'h': 1.95, 'spin': 0.5, 'items': [], 'split': True, 'ov': {'apose': 1, 'tipmin': 0.36, 'shy': 0.76}},
+  't_golem_m': {'rig': 'skel', 'h': 2.0, 'spin': 0.5, 'items': [], 'split': True, 'ov': {'shr': 0.22, 'apose': 1, 'tipmin': 0.15, 'shy': 0.8, 'armr': 0.14, 'hip': 0.44, 'knee': 0.22}},
+  't_priest_m': {'rig': 'skel', 'h': 2.0, 'lift': 0.2, 'spin': 0.78, 'items': [], 'split': True, 'ov': {'apose': 1, 'tipmin': 0.36, 'shy': 0.77, 'armr': 0.07}},
+  't_knight_m': {'rig': 'skel', 'h': 1.95, 'spin': 0.5, 'items': [], 'split': True, 'ov': {'shr': 0.17, 'apose': 1, 'tipmin': 0.34, 'shy': 0.76, 'armr': 0.11}},
+  't_thrower_m': {'rig': 'skel', 'h': 1.9, 'spin': 0.5, 'items': [], 'split': True, 'ov': {'thz': 0.15, 'apose': 1, 'tipin': 1.3, 'tipmin': 0.22, 'shy': 0.66, 'armr': 0.12, 'hip': 0.4, 'knee': 0.2, 'neck': 0.02}},
+  't_mb_king_m': {'rig': 'skel', 'h': 2.0, 'spin': 0.5, 'items': [], 'split': True, 'ov': {'apose': 1, 'tipin': 1.25, 'tipmin': 0.34, 'shy': 0.76, 'armr': 0.11}},
+  't_mb_lancer_m': {'rig': 'skel', 'h': 2.0, 'spin': 0.5, 'items': [], 'split': True, 'ov': {'apose': 1, 'tipmin': 0.36, 'shy': 0.76, 'armr': 0.07}},
+  't_mb_colossus_m': {'rig': 'skel', 'h': 2.0, 'spin': 0.5, 'items': [], 'split': True, 'ov': {'shr': 0.22, 'apose': 1, 'tipmin': 0.12, 'shy': 0.8, 'armr': 0.15, 'hip': 0.42, 'knee': 0.22}},
+  't_boss_m': {'rig': 'boss', 'h': 2.3, 'spin': 0.9, 'items': [], 'split': True, 'ov': {'shr': 0.22, 'apose': 1, 'tipmin': 0.12, 'shy': 0.8, 'armr': 0.15, 'hip': 0.42, 'knee': 0.22}},
   'boss_m': {'rig': 'boss', 'h': 2.3, 'spin': 0.9, 'items': [('handR', 'axe')], 'turn': True, 'aim': [0, -0.12, 1]},   # turn — предмет повёрнут на 180° вокруг древка (просьба пользователя, сборка 57)
 }
 # хват по длине (доля от нижнего конца) для древковых: у процедурных axe_great — 20 %, staff_bone — 29 %
@@ -173,6 +173,59 @@ def joints(P, T, ov):
     if m.any(): J['neck'][2] = J['top'][2] = float(np.median(P[m, 2]))
     return J, yarm
 
+def split_parts(P, N, UV, T, W, body, items, bn, J, H, ov):
+    """правки 2 (П19): руки не срастаются с рёбрами и ногами. У сеток Meshy после ремеша рука, прижатая к боку, и кулак у бедра —
+    одна сетка с телом: треугольники между ними тянулись при каждом шаге и тащили текстуру. Части тела — туловище, две руки, две ноги;
+    треугольник принадлежит части большинства своих вершин. Где сходятся части, которым сходиться нельзя (рука — туловище ниже плеча,
+    рука — нога, нога — нога, нога — туловище ниже паха), вершина раздваивается: каждая часть уходит со своей копией. Веса вершины —
+    только костей её части (и соседней части у самого сустава: плечо, пах), без примеси далёких костей"""
+    parts = ['T', 'AL', 'AR', 'LL', 'LR']
+    bpart = np.array([parts.index(('A' if b[:-1] in ('arm', 'el', 'hand', 'wpn') else 'L') + b[-1]) if b[:-1] in ('arm', 'el', 'hand', 'wpn', 'leg', 'knee', 'foot') else 0 for b in bn])
+    prim = bpart[np.argmax(W, 1)]; tl = prim[T]
+    lab = np.where(tl[:, 1] == tl[:, 2], tl[:, 1], tl[:, 0])   # большинство из трёх (все разные — первая)
+    def joint_zone(pa, pb, X):
+        """можно ли частям pa и pb сходиться в точках X (плечо — у сустава плеча; нога — у таза, выше середины бедра)"""
+        a, b = sorted((pa, pb))
+        if a == 0 and b in (1, 2): sd = 'L' if b == 1 else 'R'; return np.linalg.norm(X - J['arm' + sd], axis=1) < ov.get('shr', 0.13) * H   # shr — радиус плеча (у големов наплечники шире)
+        if a == 0 and b in (3, 4): sd = 'L' if b == 3 else 'R'; k = ov.get('thz', 0.5); return X[:, 1] > J['knee' + sd][1] + k * (J['leg' + sd][1] - J['knee' + sd][1])   # thz — доля бедра от колена, где нога ещё сходится с тазом
+        return np.zeros(len(X), bool)
+    # метки треугольников у каждой вершины
+    nv = len(P); vt = [[] for _ in range(nv)]
+    for t, (a, b, c) in enumerate(T):
+        vt[a].append(t); vt[b].append(t); vt[c].append(t)
+    newP, newN, newUV, newW, newB = [], [], [], [], []; T = T.copy(); allowed = [None] * nv; extra = []
+    for v in range(nv):
+        ls = sorted(set(lab[vt[v]].tolist())) if vt[v] else [prim[v]]
+        if not body[v]: continue
+        # кластеры меток: сливаются части, которым здесь можно сходиться
+        cl = [[l] for l in ls]
+        for i in range(len(cl)):
+            for k in range(i + 1, len(cl)):
+                if cl[i] and cl[k] and any(joint_zone(x, y, P[v:v + 1])[0] for x in cl[i] for y in cl[k]): cl[i] += cl[k]; cl[k] = []
+        cl = [c for c in cl if c]
+        allowed[v] = set(cl[0])
+        for c in cl[1:]:
+            nvx = nv + len(extra); extra.append((v, set(c)))
+            for t in vt[v]:
+                if lab[t] in c: T[t][T[t] == v] = nvx
+    if extra:
+        src = np.array([e[0] for e in extra])
+        P = np.concatenate([P, P[src]]); N = np.concatenate([N, N[src]]); UV = np.concatenate([UV, UV[src]]); W = np.concatenate([W, W[src]])
+        body = np.concatenate([body, np.ones(len(src), bool)]); items = [np.concatenate([m, np.zeros(len(src), bool)]) for m in items]
+        allowed += [e[1] for e in extra]
+    # веса: только кости своих частей; у сустава — и соседней части
+    for v in range(len(P)):
+        if not body[v] or allowed[v] is None: continue
+        A = set(allowed[v])
+        for q in range(5):
+            if q not in A and any(joint_zone(x, q, P[v:v + 1])[0] for x in A): A.add(q)
+        keep = np.isin(bpart, list(A)); w = W[v] * keep
+        if w.sum() < 1e-6:
+            own = list(allowed[v])[0]; w = np.zeros(len(bn)); w[np.where(bpart == own)[0][np.argmax(W[v][bpart == own]) if (W[v][bpart == own]).any() else 0]] = 1
+        W[v] = w / w.sum()
+    print('П19: раздвоено вершин %d (части не срастаются)' % len(extra))
+    return P, N, UV, T, W, body, items
+
 def main(src, name, debug=None):
     C = CFG[name]; rig = C['rig']; P, N, UV, T, img = load(src)
     comp = components(P, T); ks = np.unique(comp)
@@ -274,6 +327,7 @@ def main(src, name, debug=None):
     W = np.zeros((len(P), len(bn)))
     bi = np.array([BI[n] for n in names]); idxb = np.where(body)[0]
     W[idxb, bi[o[:, 0]]] = 1 - w2; W[idxb, bi[o[:, 1]]] += w2
+    if C.get('split'): P, N, UV, T, W, body, items = split_parts(P, N, UV, T, W, body, items, bn, J, H, C.get('ov', {}))
     # ---- поза покоя: руки вниз как у процедурного моба
     ARMS = {'skel': SKEL_ARMS, 'boss': BOSS_ARMS, 'ghoul': GHOUL_ARMS}[rig]
     Rb = {b: np.eye(3) for b in bn}; Jp = {b: np.array(a, float) for b, _, a in BONES}

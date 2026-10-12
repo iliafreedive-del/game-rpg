@@ -1,4 +1,4 @@
-# Dark Ascent · Art Bible (3D)
+# Umbrahold · Art Bible (3D)
 
 Утверждено: основной вариант — `lab/three/torch.html` («Torch-вид»). Все числа живут в одном месте: `js/render3d/style.js` (копия `lab/three/js/style.js`, перенесённая в игру; демо в `lab/three` заморожены как эталон).
 Эта страница только описывает решения. Если число расходится с `style.js`, прав `style.js`. Как делать модели по этому стилю: `docs/MODEL_SPEC.md`.

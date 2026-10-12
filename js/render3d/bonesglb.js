@@ -6,6 +6,8 @@ import * as THREE from '../vendor/three.module.min.js';
 import { GLTFLoader } from '../vendor/GLTFLoader.js';
 import { toon } from './toon.js';
 import { SKINS } from './glbskin.js';
+import { shared } from './dispose.js';
+import { openGeometry, insideMesh } from './chestglb.js';
 
 const BASE = new URL('../../assets/models/bones/', import.meta.url).href;
 const PACKS = ['01_giant_landmarks', '02_sandstone', '03_trees', '04_small_plants', '05_buildings', '06_ritual_fences', '07_camp_props', '08_ancient_ruins'];
@@ -28,7 +30,7 @@ function loadPack(p) {
       const pa = o.geometry.attributes.position, ys = Float32Array.from({ length: pa.count }, (_, i) => pa.getY(i)).sort(), lo = ys[Math.floor(ys.length * 0.01)];
       if (SINK[o.name]) o.geometry.translate(0, -SINK[o.name], 0);
       else if (lo > ys[ys.length - 1] * 0.03) o.geometry.translate(0, -lo, 0);
-      OBJ.set(o.name, { geometry: o.geometry, mat });
+      OBJ.set(o.name, { geometry: shared(o.geometry), mat });
     });
   });
   PACK_WAIT.set(p, w); return w;
@@ -107,15 +109,24 @@ export function swap(lists, PROPS, kit) {
 }
 
 // сундуки с добычей (сборка 42: «сундуки орков на них поменяй все сундуки с лутом») — предметы «на лету» (PropLayer.syncLive):
-// сундук из шкур Meshy; открытый — тот же (модель цельная: срезанная крышка выглядела дырой — «ломается текстура», сборка 43),
+// сундук из шкур Meshy; открытый — та же модель с откинутой крышкой и тёмной полостью вместо дыры (правки 4; в сборке 43 срезанная
+// крышка без полости выглядела дырой — «ломается текстура»),
 // богатый — крупнее (у него и так свет). Только в пустошах и при «Новых моделях»
 const CHESTS = { chest: 2.2, chest_open: 2.2, chest_rich: 2.6, chest_rich_open: 2.6 };   // сборка 44: в 2 раза больше
-const LIVE = new Map();
+const LIVE = new Map(), HIDE_IN = { w: 0.72, d: 0.52, cx: 0.02, cz: -0.25, y0: 0.2, y1: 0.47, shell: 0x5a340e };   // полость сундука из шкур (м модели)
+let OPEN = null;
 export function liveDef(want) {
   const k = CHESTS[want]; if (!k || !bonesReady() || !OBJ.has('chest_hide')) return null;
   if (LIVE.has(want)) return LIVE.get(want);
-  const O = OBJ.get('chest_hide');
+  const O = OBJ.get('chest_hide'), open = /_open$/.test(want);
+  // правки 4 (П4-9): открытый был той же закрытой моделью — теперь крышка откинута, внутри тёмная полость с монетами (chestglb.js)
+  if (open && !OPEN) { const G = openGeometry(O.geometry, { seam: 0.47, back: -0.6, ang: 1.75, inner: HIDE_IN }); OPEN = [shared(G.body), shared(G.lid)]; }
   const def = { id: 'bn:' + want, kind: 'prop', outline: false,
-    build() { const root = new THREE.Group(), m = new THREE.Mesh(O.geometry, O.mat); m.scale.setScalar(k); root.add(m); return { root }; } };
+    build() {
+      const root = new THREE.Group(), g = new THREE.Group(); g.scale.setScalar(k); root.add(g);
+      if (!open) g.add(new THREE.Mesh(O.geometry, O.mat));
+      else g.add(new THREE.Mesh(OPEN[0], O.mat), new THREE.Mesh(OPEN[1], O.mat), insideMesh({ ...HIDE_IN, rich: want === 'chest_rich_open' }));
+      return { root };
+    } };
   LIVE.set(want, def); return def;
 }

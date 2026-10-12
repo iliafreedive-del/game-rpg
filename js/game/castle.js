@@ -20,8 +20,10 @@ export function C() {
   return P.castle;
 }
 // ---- regenerating counters (work offline)
+// С15: часы телефона переведены назад — отметка времени «в будущем»: прижимаем к «сейчас», иначе счётчики стоят часами, а алтарь отнимает золото
+export const unFuture = (obj, k = 'at') => { if (obj && obj[k] > Date.now()) obj[k] = Date.now(); return obj; };
 function regen(obj, max, periodMs) {
-  const now = Date.now(); if (obj.n >= max) { obj.at = now; return obj; }
+  const now = Date.now(); unFuture(obj); if (obj.n >= max) { obj.at = now; return obj; }
   const k = Math.floor((now - obj.at) / periodMs);
   if (k > 0) { obj.n = Math.min(max, obj.n + k); obj.at = obj.n >= max ? now : obj.at + k * periodMs; }
   return obj;
@@ -35,13 +37,13 @@ export function torches() {
   if (P.hw && P.hw.en && !P.enMerged) { P.torch.n = Math.max(P.torch.n, P.hw.en.n | 0); P.enMerged = 1; }   // старые сохранения: энергия Летописи и факелы — в одну
   return regen(P.torch, TORCH_MAX, TORCH_MS);
 }
-export function enAds() { const P = G.profile; P.enAds = P.enAds || { at: 0, n: 0 }; if (Date.now() - P.enAds.at >= EN_AD_WIN) { P.enAds.at = 0; P.enAds.n = 0; } return P.enAds; }
+export function enAds() { const P = G.profile; P.enAds = unFuture(P.enAds || { at: 0, n: 0 }); if (Date.now() - P.enAds.at >= EN_AD_WIN) { P.enAds.at = 0; P.enAds.n = 0; } return P.enAds; }
 export const enAdsLeft = () => EN_AD_MAX - enAds().n;
 export const enAdsReset = () => { const a = enAds(); return a.at ? Math.max(0, a.at + EN_AD_WIN - Date.now()) : 0; };
 export function enAdGrant() { const a = enAds(); if (!a.at) a.at = Date.now(); a.n++; addTorches(EN_AD); }
 export function spendEnergy(n = 1) { const t = torches(); if (t.n < n) return false; if (t.n >= TORCH_MAX) t.at = Date.now(); t.n -= n; bus.emit('hud'); bus.emit('save'); return true; }
 export function seals() { C(); return regen(G.profile.seals, SEAL_MAX, SEAL_MS); }
-export function nextIn(obj, ms) { return obj.n >= (ms === TORCH_MS ? TORCH_MAX : SEAL_MAX) ? 0 : Math.max(0, obj.at + ms - Date.now()); }
+export function nextIn(obj, ms) { unFuture(obj); return obj.n >= (ms === TORCH_MS ? TORCH_MAX : SEAL_MAX) ? 0 : Math.max(0, obj.at + ms - Date.now()); }
 export function spendTorch() { const t = torches(); if (t.n <= 0) return false; if (t.n >= TORCH_MAX) t.at = Date.now(); t.n--; bus.emit('hud'); bus.emit('save'); return true; }
 export function addTorches(n) { const t = torches(); t.n = Math.min(EN_CAP, t.n + n); bus.emit('hud'); bus.emit('save'); }
 
@@ -53,10 +55,11 @@ export function addShards(n, x, y) {
 }
 bus.on('kill', e => {
   if (!G.profile) return;
-  const ch = e.D.boss ? 1 : e.D.elite ? 1 : e.champion ? 0.35 : e.story === 'floorboss' ? 1 : 0.015;
+  if (e.repeat) { addShards(e.D.boss ? 8 : 5, e.x, e.y); return; }   // П45: возродившийся Хранитель — 5 осколков, Палач — 8
+  const ch = e.D.boss ? 1 : e.D.elite ? 1 : e.champion ? 0.175 : e.story === 'floorboss' ? 1 : 0.015;
   if (rand() < ch) addShards(e.D.boss ? rint(4, 7) : e.D.elite ? rint(2, 4) : 1, e.x, e.y);
 });
-bus.on('chest', () => { if (rand() < 0.25) addShards(1, G.player.x, G.player.y); });
+bus.on('chest', () => { if (rand() < 0.125) addShards(1, G.player.x, G.player.y); });
 
 // ---- rooms
 export function canUnlock(id) {
@@ -77,8 +80,8 @@ export function unlock(id) {
 // ---- gold altar
 export const altarRate = () => { const P = G.profile, l = P.castle.altar || 0; return l ? Math.round((35 + 25 * l) * (1 + P.level * 0.08)) : 0; };   // gold per hour
 export const altarUpgCost = () => { const l = G.profile.castle.altar; return { gold: Math.round(250 * Math.pow(1.6, l)), shards: 2 * l }; };
-export function altarStored() { const P = G.profile; C(); if (!P.castle.altar) return 0; const h = Math.min(8, (Date.now() - P.castle.altarAt) / H); return Math.floor(altarRate() * h); }
-export function altarCollect(mult = 1) { const g = altarStored(); if (!g) return 0; const P = G.profile; P.gold += g * mult; P.castle.altarAt = Date.now(); bus.emit('sfx', 'coin'); bus.emit('toast', { text: `Алтарь: +${g * mult} золота`, kind: 'good' }); bus.emit('hud'); bus.emit('save'); return g; }
+export function altarStored() { const P = G.profile; C(); if (!P.castle.altar) return 0; unFuture(P.castle, 'altarAt'); const h = Math.min(8, (Date.now() - P.castle.altarAt) / H); return Math.floor(altarRate() * h); }
+export function altarCollect(mult = 1) { const g = altarStored(); if (!g) return 0; const P = G.profile; P.gold += g * mult; P.castle.altarAt = Date.now(); P.castle.taken = (P.castle.taken || 0) + 1; bus.emit('sfx', 'coin'); bus.emit('toast', { text: `Алтарь: +${g * mult} золота`, kind: 'good' }); bus.emit('hud'); bus.emit('save'); return g; }
 export function altarUpgrade() {
   const P = G.profile, c = altarUpgCost(); if (P.castle.altar >= 10) return false;
   if (P.gold < c.gold || P.shards < c.shards) { bus.emit('toast', { text: `Нужно ${c.gold} золота и ${c.shards} осколков`, kind: 'warn' }); bus.emit('sfx', 'deny'); return false; }
@@ -95,7 +98,7 @@ export function trophyUpgrade() {
 export const CHEST_SHARDS = 8;
 export function openTreasury() {
   const P = G.profile; if (P.shards < CHEST_SHARDS) { bus.emit('toast', { text: `Нужно ${CHEST_SHARDS} осколков`, kind: 'warn' }); bus.emit('sfx', 'deny'); return false; }
-  P.shards -= CHEST_SHARDS;
+  P.shards -= CHEST_SHARDS; P.castle.chests = (P.castle.chests || 0) + 1;
   const roll = rand(); const it = roll < 0.07 ? makeItem({ epic: pickEpic(P.cls), ilvl: P.level + 1, cls: P.cls }) : makeItem({ slot: ['weapon', 'head', 'chest', 'amulet'][rint(0, 3)], ilvl: P.level + 1, rarity: roll < 0.45 ? 2 : 1, cls: P.cls });
   delete it.req; const e = autoEquip(it); const gold = 30 * P.level; P.gold += gold;
   bus.emit('reward', { title: 'Сундук Бездны', sub: roll < 0.07 ? 'ДЖЕКПОТ!' : 'Сокровищница', gold, xp: 0, potions: 0, scrolls: 0, skillPts: 0, items: [e] });
@@ -109,7 +112,7 @@ export const TRIALS = [
   { id: 't4', name: 'Магистр Морвен', type: 'boss', lvl: 8, req: 18 },   // финал Главы IV (js/data/story.js)
 ];
 export function trialReward(t) {
-  const P = G.profile; const gold = Math.round(80 * P.level * (1 + t.lvl * 0.3)); P.gold += gold;
+  const P = G.profile; const gold = Math.round(80 * P.level * (1 + t.lvl * 0.3)); P.gold += gold; P.castle.trialWins = (P.castle.trialWins || 0) + 1;   // правки 3: поручения Цитадели (js/game/citadel.js)
   const shards = rint(2, 4) + t.lvl; P.shards += shards;
   const items = [];
   if (rand() < 0.35 + t.lvl * 0.08) { const slot = ['weapon', 'head', 'chest', 'amulet'][rint(0, 3)]; const it = rand() < 0.05 + t.lvl * 0.02 ? makeItem({ epic: pickEpic(P.cls), ilvl: P.level + 1, cls: P.cls }) : makeItem({ slot, ilvl: P.level + 1, rarity: rand() < 0.4 ? 2 : 1, cls: P.cls }); delete it.req; items.push(autoEquip(it)); }

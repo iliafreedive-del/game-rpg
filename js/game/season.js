@@ -5,8 +5,10 @@
 import { G, bus } from './ctx.js';
 import { makeItem, maxRarityFor } from './items.js';
 import { autoEquip } from './character.js';
+import { mergeGroups, mergeCost } from './economy.js';
 import { BASES, CLASSES, RARITY } from '../data/items.js';
 import { platform } from '../platform/platform.js';
+import { floorForLevel } from '../world/floorgen.js';
 
 // ---------------------------------------------------------------- путь сезона
 export const SEASON_LEVELS = 30;
@@ -70,7 +72,7 @@ export const WEEKLY_RULES = [
 export const weekNo = () => Math.floor((Date.now() / 864e5 + 3) / 7);   // неделя с понедельника
 export const weeklyRule = () => WEEKLY_RULES[weekNo() % WEEKLY_RULES.length];
 export function weeklyState() { const P = G.profile, w = weekNo(); if (!P.weekly || P.weekly.week !== w) P.weekly = { week: w, best: 0, done: false }; return P.weekly; }
-export const weeklyFloor = lvl => Math.max(2, Math.round((lvl - 1) / 0.85));   // этаж, уровень врагов которого ≈ уровню героя
+export const weeklyFloor = lvl => floorForLevel(lvl);   // этаж, уровень врагов которого ≈ уровню героя
 // Круги Бездны (сборка 45, после Главы IV): выбранный круг делает Глубины злее и богаче.
 // Круг 0 — как раньше. Множители на круг k: HP ×1,45^k, урон ×1,28^k, золото и опыт ×(1 + 0,55k), +5k% к шансу вещи.
 export const CIRCLE_MAX = 10;
@@ -90,10 +92,11 @@ export function finishWeekly(time) {
 // ---------------------------------------------------------------- «до цели»: одна ближайшая цель на главном экране
 export function nextGoalLine() {
   const P = G.profile; if (!P) return '';
-  const groups = (P.bag || []).reduce((m, it) => { if (!it.locked && it.rarity < 4) { const k = it.slot + ':' + it.rarity; m[k] = (m[k] || 0) + 1; } return m; }, {});
-  const two = Object.entries(groups).find(([, n]) => n % 3 === 2);
-  if (Object.values(groups).some(n => n >= 3)) return '⚒ Кузнец: можно слить 3 вещи в 1 лучше';
-  if (two) { const [slot, r] = two[0].split(':'); return `⚒ Ещё 1 ${['серая', 'зелёная', 'синяя', 'золотая'][r]} вещь (${{ weapon: 'оружие', head: 'шлем', chest: 'доспех', amulet: 'амулет' }[slot]}) — и слияние`; }
+  // П52: напоминание по тем же правилам, что у кузнеца (класс, 🔒, уровень героя для следующей редкости, золото) — раньше звало, когда слить было нельзя
+  const groups = mergeGroups().filter(g => !g.capLvl);
+  if (groups.some(g => g.can && P.gold >= mergeCost(g.rarity))) return '⚒ Кузнец: можно слить 3 вещи в 1 лучше';
+  const two = groups.find(g => g.n % 3 === 2);
+  if (two) return `⚒ Ещё 1 ${['серая', 'зелёная', 'синяя', 'золотая'][two.rarity]} вещь (${{ weapon: 'оружие', head: 'шлем', chest: 'доспех', amulet: 'амулет' }[two.slot]}) — и слияние`;
   const s = seasonLevel(); if (s.lvl < SEASON_LEVELS) return `🏆 Сезон: ${s.into}/${s.need} до ступени ${s.lvl + 1} (${seasonReward(s.lvl + 1).label})`;
   return '';
 }

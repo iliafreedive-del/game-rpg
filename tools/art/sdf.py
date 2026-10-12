@@ -1,4 +1,4 @@
-"""DARK ASCENT asset pipeline: orthographic isometric SDF ray-marcher.
+"""UMBRAHOLD asset pipeline: orthographic isometric SDF ray-marcher.
 Renders procedurally modelled characters/props to RGBA sprites with consistent
 lighting, so every in-game asset shares one art style (pre-rendered 3D, D1/D2 approach)."""
 import numpy as np

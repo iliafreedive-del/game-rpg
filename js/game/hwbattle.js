@@ -1,13 +1,49 @@
 // «Летопись битв» (сборка 44): логика боя «герой против отряда из 2–4 врагов» без DOM и рендера — её же гоняет tools/qa/hw_sim.mjs.
 // Ходы по очереди, как в браузерных автобоях: по инициативе (скорость атаки) ходит один боец за раз. Ближний бой — подбежал,
 // ударил, отскочил на своё место; стрелок и маг бьют издалека снарядом. Арена в метрах: герой слева (x < 0), отряд справа, z — глубина.
+import { HW_CURVE } from '../data/hwcurve.js';
 
 export const ARENA = { heroX: -5.4, foeX0: 1.6, foeX1: 5.4, zMax: 2.4 };
 // сборка 50: на вертикальном экране арена уже — бойцы крупнее (по ширине влезает ±HALF_X, на телефоне это давало мелких человечков)
 const WIDE = { heroX: -5.4, foeX0: 1.6, foeX1: 5.4, zMax: 2.4, halfX: 8.6 }, NARROW = { heroX: -3.4, foeX0: 0.5, foeX1: 2.9, zMax: 2.0, halfX: 5.2 };
 let HALF_X = WIDE.halfX;
 export function setArenaLayout(narrow) { const L = narrow ? NARROW : WIDE; ARENA.heroX = L.heroX; ARENA.foeX0 = L.foeX0; ARENA.foeX1 = L.foeX1; ARENA.zMax = L.zMax; HALF_X = L.halfX; }
+// сборка 59: телефон повернули посреди боя — арена под новый экран, бойцы переносятся пропорционально (герой на своём краю, отряд на своём)
+export const arenaNarrow = () => HALF_X === NARROW.halfX;
+export function relayoutBattle(B, narrow) {
+  if (narrow === arenaNarrow()) return false;
+  const o = narrow ? WIDE : NARROW, n = narrow ? NARROW : WIDE, kx = (n.foeX1 - n.heroX) / (o.foeX1 - o.heroX), kz = n.zMax / o.zMax;
+  const mp = p => { if (p) { p.x = n.heroX + (p.x - o.heroX) * kx; p.z *= kz; } };
+  setArenaLayout(narrow);
+  for (const u of [B.H, ...B.foes, ...(B.pet ? [B.pet] : [])]) { mp(u); mp(u.home); if (u.act) { mp(u.act.from); mp(u.act.to); } }
+  return true;
+}
 const RUN = 10, BACK_T = 0.4, PAUSE = 0.15;
+
+// сборка 60 (П9): умение героя в Летописи — то, что выбрано перед боем из выученных активных. fx: smash — удар по цели и брызги вокруг
+// (R 99 — по всем), volley — n снарядов по случайным врагам, ball — снаряд с взрывом (aoe). every — раз в сколько ходов героя.
+// Новые умения добавляются строкой сюда; ранг умения +12% силы за ранг.
+// правки 3: урон мага в Летописи — от урона посоха (сила заклинаний теперь тоже от оружия), с поправкой на медленный посох (1 удар/с против 1,5 у меча)
+export const HW_MAGE_K = 1.75;
+export const HW_SKILLS = {
+  whirlwind: { fx: 'smash', mul: 2.0, splash: 0.9, R: 99, every: 4 },
+  leap: { fx: 'smash', mul: 2.6, splash: 0.9, R: 2.6, every: 4 },
+  warcry: { fx: 'smash', mul: 1.8, splash: 0.7, R: 3, every: 4 },
+  volley: { fx: 'volley', n: 3, mul: 0.95, every: 4 },
+  pierce_shot: { fx: 'volley', n: 1, mul: 2.6, every: 3 },
+  arrow_rain: { fx: 'volley', n: 6, mul: 0.6, every: 5 },
+  fireball: { fx: 'ball', proj: 'fireball', mul: 2.1, aoe: 3, amul: 0.6, every: 4 },
+  meteor: { fx: 'ball', proj: 'fireball', mul: 3.0, aoe: 3.5, amul: 0.9, every: 5 },
+  ice_shard: { fx: 'ball', proj: 'bolt', mul: 1.7, aoe: 0, every: 3 },
+  frost_nova: { fx: 'ball', proj: 'bolt', mul: 1.3, aoe: 99, amul: 1.0, every: 5 },
+  chain: { fx: 'volley', proj: 'bolt', n: 3, mul: 1.2, every: 4 },
+  thunder: { fx: 'ball', proj: 'bolt', mul: 3.4, aoe: 2.5, amul: 1.2, every: 6 },
+};
+const HW_DEFAULT = { warrior: { name: 'Сокрушение', fx: 'smash', mul: 2.2, splash: 0.8, R: 2.6, every: 4 }, archer: { name: 'Залп', fx: 'volley', n: 3, mul: 0.95, every: 4 }, mage: { name: 'Огненный шар', fx: 'ball', proj: 'fireball', mul: 2.1, aoe: 3, amul: 0.6, every: 4 } };
+export function hwSkill(cls, id, rank = 1, name) {
+  const b = (id && HW_SKILLS[id]) || HW_DEFAULT[cls] || HW_DEFAULT.warrior;
+  return { ...b, id: id || null, name: name || b.name || 'Умение', mul: b.mul * (1 + 0.12 * Math.max(0, rank - 1)) };
+}
 
 // расстановка отряда: ближний бой — первая линия, стрелки и маги — вторая; босс — в центре первой линии
 export function formation(foes) {
@@ -24,14 +60,21 @@ export function formation(foes) {
 }
 
 // hero: { hp, dmg, aps, crit, critMult, armor, spell, cls }; foes: [{ type, name, lvl, hp, dmg, aps, ranged, boss, big }]
+// перед релизом: в Летописи лучник и маг стоят на месте и не уворачиваются, как в обычном бою, а у воина блок и латы — в одинаковых вещах
+// воин выигрывал этап 22 в 100% боёв, маг в 5%. Поправка класса уравнивает силу (подобрана tools/qa по «силе отряда на 50% побед»)
+export const HW_CLASS = { warrior: { hp: 1, dmg: 1 }, archer: { hp: 1.2, dmg: 1.2 }, mage: { hp: 1.45, dmg: 1.45 } };
 export function makeBattle(hero, foes, rnd = Math.random) {
+  { const K = HW_CLASS[hero.cls] || HW_CLASS.warrior; hero = { ...hero, hp: Math.round(hero.hp * K.hp), dmg: hero.dmg * K.dmg }; }
   const rr = (a, b) => a + (b - a) * rnd();
   const ev = [];   // события для рендера: { k: 'num'|'proj'|'label'|'slash'|'boom'|'sfx', ... }
   const H = { side: 'h', ...hero, max: hero.hp, x: ARENA.heroX, z: 0, home: { x: ARENA.heroX, z: 0 }, ranged: hero.cls !== 'warrior', reach: 1.25, ini: 0.6, n: 0 };
   for (const f of foes) Object.assign(f, { side: 'f', max: f.hp, reach: f.big ? 1.9 : 1.35, ini: rr(0, 0.5), act: null, flash: 0, hitT: 0, dead: false, deadT: 0 });
   formation(foes);
   const all = [H, ...foes];
-  const B = { H, foes, all, ev, time: 0, over: null, pause: 0.6, projs: [], skillEvery: 4, skillIn: 3 };
+  const SK = hero.skill || hwSkill(hero.cls);
+  // П4-3: питомец стоит на поле рядом с героем (чуть впереди и за ним — не закрывает полосу здоровья), в ход героя прыгает к врагу и кусает (дальний — стреляет)
+  const PT = hero.pet ? { side: 'p', x: ARENA.heroX + 1.1, z: -1.2, home: { x: ARENA.heroX + 1.1, z: -1.2 }, yaw: Math.PI / 2, act: null, ranged: !!hero.pet.ranged } : null;
+  const B = { H, foes, all, ev, time: 0, over: null, pause: 0.6, projs: [], sk: SK, skillEvery: SK.every, skillIn: SK.every - 1, pet: PT };
   const alive = () => foes.filter(f => !f.dead);
   const redu = lvl => H.armor / (H.armor + 50 + 10 * lvl);
   const yawTo = (a, b) => Math.atan2(b.x - a.x, b.z - a.z);
@@ -43,12 +86,20 @@ export function makeBattle(hero, foes, rnd = Math.random) {
       dst.dodge = 0.35; ev.push({ k: 'num', u: dst, s: 'Уворот!', c: '#9fe38e', big: 1 }); ev.push({ k: 'sfx', id: 'dodge' }); return;
     }
     let d, crit = false;
-    if (src === H) { d = H.dmg * mul * rr(0.88, 1.12); crit = rnd() < H.crit; if (crit) d *= H.critMult; }
+    if (o.pet) d = H.pet.dmg * rr(0.88, 1.12);   // правки 3: питомец в Летописи
+    else if (src === H) { d = H.dmg * mul * rr(0.88, 1.12); crit = rnd() < H.crit; if (crit) d *= H.critMult; }
     else d = src.dmg * mul * rr(0.88, 1.12) * (1 - redu(src.lvl));
     d = Math.max(1, Math.round(d)); dst.hp -= d; dst.flash = 0.16; dst.hitT = 0.28;
     ev.push({ k: 'num', u: dst, s: crit ? d + ' Крит' : String(d), c: dst === H ? '#ff6a5a' : crit ? '#ffd24a' : '#fff', big: crit ? 2 : o.big ? 1 : 0 });
     ev.push({ k: 'sfx', id: dst === H ? 'hurt' : crit ? 'heavy' : 'hit' });
     if (dst.hp <= 0) { dst.hp = 0; if (dst !== H) { dst.dead = true; dst.deadT = 0; ev.push({ k: 'sfx', id: 'bones' }); } }
+  }
+  function petHit(v) { if (v.dead) v = alive()[0]; if (!v) return; ev.push({ k: 'label', u: v, s: H.pet.icon || '🐾' }); damage(H, v, 1, { pet: 1, sure: true }); if (!PT.ranged) ev.push({ k: 'slash', u: v, from: PT }); }
+  function stepPet(dt) {   // П4-3: ближний — прыжок к цели и обратно, дальний — снаряд со своего места
+    const a = PT.act; a.t += dt; const k = Math.min(1, a.t / a.dur), v = a.tgt; PT.yaw = yawTo(PT, v);
+    if (!a.hit && k >= 0.5) { a.hit = true; if (PT.ranged) B.projs.push({ k: 'bolt', src: PT, tgt: v.dead ? alive()[0] || v : v, x: PT.x, z: PT.z, t: 0, d: 0.35, pet: 1 }); else petHit(v); }
+    if (!PT.ranged) { const g = k < 0.5 ? k * 2 : 2 - k * 2, e = g * g * (3 - 2 * g), tx = v.x - 1.1, tz = v.z; PT.x = PT.home.x + (tx - PT.home.x) * e; PT.z = PT.home.z + (tz - PT.home.z) * e; }
+    if (k >= 1) { PT.act = null; PT.x = PT.home.x; PT.z = PT.home.z; PT.yaw = Math.PI / 2; }
   }
   const splash = (src, c, R, mul) => { for (const f of alive()) if (f !== c && Math.hypot(f.x - c.x, f.z - c.z) < R) damage(src, f, mul, { sure: true }); };
 
@@ -65,7 +116,7 @@ export function makeBattle(hero, foes, rnd = Math.random) {
     if (u === H) { H.n++; if (--B.skillIn <= 0) { skill = true; B.skillIn = B.skillEvery; } }
     const kind = u.ranged ? 'shoot' : 'melee';
     u.act = { kind, skill, tgt, ph: kind === 'melee' ? 'go' : 'aim', t: 0, fired: false, from: { x: u.x, z: u.z } };
-    if (skill) ev.push({ k: 'label', u, s: { warrior: 'Сокрушение', archer: 'Залп', mage: 'Огненный шар' }[H.cls] || 'Умение' });
+    if (skill) ev.push({ k: 'label', u, s: SK.name });
     if (kind === 'melee') {   // встать перед целью, чуть со стороны своего края
       const dir = u.side === 'h' ? -1 : 1, R = (u.reach + (tgt.big ? 0.5 : 0)) * (skill ? 1.1 : 1);
       u.act.to = { x: tgt.x + dir * R, z: tgt.z + (u.side === 'h' ? 0 : rr(-0.25, 0.25)) };
@@ -75,10 +126,11 @@ export function makeBattle(hero, foes, rnd = Math.random) {
 
   function fire(u) {   // снаряд или удар
     const a = u.act, t = a.tgt;
+    if (u === H && PT && H.pet.dmg > 0) { const L = alive(), v = L.length ? L[rnd() * L.length | 0] : null; if (v) { if (PT.act && !PT.act.hit) petHit(PT.act.tgt); PT.act = { t: 0, dur: 0.5, tgt: v, hit: false }; } }   // правки 3: питомец бьёт вместе с героем (П4-3: удар — когда долетит)
     if (u === H && a.skill) {
-      if (H.cls === 'warrior') { damage(H, t, 2.2, { sure: true, big: 1 }); splash(H, t, 2.6, 0.8); ev.push({ k: 'boom', x: t.x, z: t.z, c: 'gold' }); }
-      else if (H.cls === 'archer') { const L = alive(); for (let i = 0; i < 3; i++) { const v = L[(i + (rnd() * L.length | 0)) % L.length]; B.projs.push({ k: 'arrow', src: u, tgt: v, x: u.x, z: u.z, t: -i * 0.12, d: 0.42, mul: 0.95 }); } }
-      else B.projs.push({ k: 'fireball', src: u, tgt: t, x: u.x, z: u.z, t: 0, d: 0.55, mul: 2.1 * Math.max(1, H.spell / 1.2), aoe: 3, amul: 0.6 });
+      if (SK.fx === 'smash') { damage(H, t, SK.mul, { sure: true, big: 1 }); splash(H, t, SK.R, SK.splash); ev.push({ k: 'boom', x: t.x, z: t.z, c: 'gold' }); }
+      else if (SK.fx === 'volley') { const L = alive(); for (let i = 0; i < SK.n; i++) { const v = L[(i + (rnd() * L.length | 0)) % L.length]; B.projs.push({ k: SK.proj || 'arrow', src: u, tgt: v, x: u.x, z: u.z, t: -i * 0.12, d: 0.42, mul: SK.mul }); } if (!SK.proj && L[0]) ev.push({ k: 'volley', u, dir: L[0].x < u.x ? -1 : 1 }); }   // сборка 66: вспышка залпа у лука (hw_volley)
+      else B.projs.push({ k: SK.proj || 'fireball', src: u, tgt: t, x: u.x, z: u.z, t: 0, d: 0.55, mul: SK.mul, aoe: SK.aoe, amul: SK.amul });   // правки 3: сила заклинаний уже в уроне мага (HW_MAGE_K)
       return;
     }
     if (a.kind === 'melee') { damage(u, t, u.boss && rnd() < 0.3 ? 1.5 : 1); ev.push({ k: 'slash', u: t, from: u }); return; }
@@ -117,12 +169,14 @@ export function makeBattle(hero, foes, rnd = Math.random) {
       const k = Math.min(1, p.t / p.d); p.x = p.src.x + (p.tgt.x - p.src.x) * k; p.z = p.src.z + (p.tgt.z - p.src.z) * k; p.k01 = k;
       if (k >= 1) {
         B.projs.splice(i, 1);
+        if (p.pet) { petHit(p.tgt); continue; }
         if (!p.tgt.dead) damage(p.src, p.tgt, p.mul, { big: !!p.aoe, sure: !!p.aoe });
         if (p.aoe) { splash(p.src, p.tgt, p.aoe, p.amul); ev.push({ k: 'boom', x: p.tgt.x, z: p.tgt.z, c: 'fire' }); }
       }
     }
-    const busy = all.find(u => u.act);
-    if (busy) stepAct(busy, dt);
+    if (PT && PT.act) stepPet(dt);
+    const busy = all.find(u => u.act) || (PT && PT.act);
+    if (busy && busy !== PT) stepAct(busy, dt);
     else if (!B.projs.length) {
       B.pause -= dt;
       if (B.pause <= 0 && H.hp > 0 && alive().length) {
@@ -161,16 +215,19 @@ const KIND = {   // множители к «обычному врагу» эта
 };
 const COUNT = [2, 2, 3, 3, 2, 3, 3, 4, 4, 3];
 // сборка 47: первые 10 этапов круче (новичок не проходит дальше 3–4-го без наставника), дальше — прежний темп
-export const HW_TUNE = { hp0: 20, hpK: 1.15, dmg0: 3.6, dmgK: 1.12, hpE: 1.45, dmgE: 1.32, hpM: 1.2, dmgM: 1.14 };
-export function stageFoes(s) {
+// сборка 62 (кривая до 80 уровня): этапы 11–30 — +12% здоровья и +10% урона за этап (было 15/12, стена на 17–23-м у героя 10 ур.),
+// с 31-го — +5% / +4,2% (было 9,5/7,5: глава 2 закрывалась навсегда). Симуляция типичного героя: ур. 10 → этап ~18, 20 → 29, 40 → 69, 60 → 89, 80 → 99–117
+export const HW_TUNE = { hp0: 20, hpK: 1.12, dmg0: 3.6, dmgK: 1.10, hpE: 1.45, dmgE: 1.32, hpM: 1.2, dmgM: 1.14, hpC: 1.05, dmgC: 1.042 };
+export function stageFoes(s, raw) {
   const ci = Math.min(CHAPTER_POOLS.length - 1, Math.floor((s - 1) / 30)), pool = CHAPTER_POOLS[ci], k = (s - 1) % 10;
   const a = Math.min(s, 30) - 1, b = Math.max(0, s - 30), T = HW_TUNE;
   const e = Math.min(s, 4) - 1, m = Math.max(0, Math.min(s, 10) - 4), a2 = Math.max(0, a - 9);   // 1–4: резкий рост, 5–10: средний, дальше — прежний
-  const hpM = T.hp0 * Math.pow(T.hpE, e) * Math.pow(T.hpM, m) * Math.pow(T.hpK, a2) * Math.pow(1.095, b), dmgM = T.dmg0 * Math.pow(T.dmgE, e) * Math.pow(T.dmgM, m) * Math.pow(T.dmgK, a2) * Math.pow(1.075, b);
+  const hpM = T.hp0 * Math.pow(T.hpE, e) * Math.pow(T.hpM, m) * Math.pow(T.hpK, a2) * Math.pow(T.hpC, b), dmgM = T.dmg0 * Math.pow(T.dmgE, e) * Math.pow(T.dmgM, m) * Math.pow(T.dmgK, a2) * Math.pow(T.dmgC, b);
   const kinds = [];
   if (k === 4) kinds.push('guard_boss'); if (k === 9) kinds.push('boss');
   for (let i = kinds.length; i < COUNT[k]; i++) kinds.push(pool[(s + i * 3) % pool.length]);
-  return kinds.map(id => { const K = KIND[id]; return { type: K.type || id, name: K.name, lvl: 1 + Math.floor(s * 0.6) + (K.boss ? 2 : 0), hp: Math.round(hpM * K.hp), dmg: dmgM * K.dmg, aps: K.aps, ranged: !!K.ranged, big: !!K.big, boss: !!K.boss }; });
+  const cm = raw ? 1 : (HW_CURVE[s - 1] || 1);   // правки 3: таблица силы этапов под уровень героя (data/hwcurve.js)
+  return kinds.map(id => { const K = KIND[id]; return { type: K.type || id, name: K.name, lvl: 1 + Math.floor(s * 0.6) + (K.boss ? 2 : 0), hp: Math.round(hpM * K.hp * cm), dmg: dmgM * K.dmg * cm, aps: K.aps, ranged: !!K.ranged, big: !!K.big, boss: !!K.boss }; });
 }
 
 // ---- вид на арену (общий для 3D-камеры и 2D-слоя): ортографическая камера под углом THETA, x ∈ ±HALF_X влезает по ширине,

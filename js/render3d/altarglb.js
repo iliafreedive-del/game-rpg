@@ -6,6 +6,7 @@ import * as THREE from '../vendor/three.module.min.js';
 import { GLTFLoader } from '../vendor/GLTFLoader.js';
 import { toon } from './toon.js';
 import { SKINS } from './glbskin.js';
+import { shared } from './dispose.js';
 
 // red — высота (доля), ниже которой основание тёмно-красное, чтобы не сливалось с брусчаткой; glow — яркость оранжевых рун
 // wheel — колесо, которое крутится на опорах: оно отделяется по связным кускам сетки, целиком лежащим в box [x0,y0,z0, x1,y1,z1]; ось — X через axis [y, z]
@@ -61,7 +62,7 @@ function load(name) {
         const w = wheelTris(o.geometry, A.wheel), I = o.geometry.index.array, [ay, az] = A.wheel.axis;
         O.geometry = subGeo(o.geometry, I, w.map(x => 1 - x)); O.wheel = subGeo(o.geometry, I, w, ay, az); O.axis = A.wheel.axis;
       }
-      OBJ.set(name, O);
+      shared(O.geometry); shared(O.wheel); OBJ.set(name, O);
     });
     return OBJ.has(name);
   }).catch(e => { console.warn(name + '.glb', e); return false; });

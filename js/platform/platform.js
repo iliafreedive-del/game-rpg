@@ -64,8 +64,9 @@ class YandexProvider {
   }
   async consume(token) { try { await this.payments.consumePurchase(token); return true; } catch { return false; } }
   async getPurchases() { try { return (await this.payments.getPurchases()).map(p => ({ productId: p.productID, token: p.purchaseToken })); } catch { return []; } }
-  async cloudLoad() { try { const d = await this.player.getData(['save']); return d.save ? JSON.parse(d.save) : null; } catch { return null; } }
-  async cloudSave(p) { try { await this.player.setData({ save: JSON.stringify(p) }, false); return true; } catch { return false; } }
+  // правки по скилам (С11): «облака нет» (null) и «облако не ответило» ({ error }) — разные ответы: при сбое игра не пишет в облако, пока не прочитает его
+  async cloudLoad() { let d; try { d = await this.player.getData(['save']); } catch (e) { console.warn('cloud load', e); return { error: 1 }; } try { return d && d.save ? JSON.parse(d.save) : null; } catch { return null; } }
+  async cloudSave(p, flush) { try { await this.player.setData({ save: JSON.stringify(p) }, !!flush); return true; } catch { return false; } }   // flush — сразу на сервер (сворачивание, «Начать заново»)
   async requestReview() {
     try { const { value } = await this.ysdk.feedback.canReview(); if (!value) return false; const r = await this.ysdk.feedback.requestReview(); return !!(r && r.feedbackSent); } catch { return false; }
   }
@@ -91,9 +92,15 @@ export const PRODUCTS = {
   abyss_set: { title: 'Сет Бездны', price: '990 ₽', desc: 'Мифический сет из трёх вещей для Кругов Бездны. Уровень героя + 3.', consumable: true, once: true, icon: '◉', gear: { kind: 'set', rarity: 4 } },
   season_pass: { title: 'Знамя сезона', price: '199 ₽', desc: 'Вторая дорожка пути сезона на этот месяц: по награде на каждой ступени.', consumable: true, icon: '⚑' },
   potion_pack: { title: 'Сундук зелий', price: '49 ₽', desc: '15 зелий здоровья и 10 зелий маны.', consumable: true, icon: '✚' },
-  gold_perk: { title: 'Кошель Ордена', price: '79 ₽', desc: 'Навсегда +25% к находимому золоту.', consumable: false, icon: '⛁' },
-  no_ads: { title: 'Без обязательной рекламы', price: '99 ₽', desc: 'Отключает межуровневую рекламу. Бонусы за просмотр остаются по желанию.', consumable: false, icon: '⊘' },
-  gold_small: { title: 'Мешочек золота', price: '19 ₽', desc: '600 золота.', consumable: true, icon: '⛁' },
+  gold_perk: { title: 'Кошель Ордена', price: '79 ₽', desc: 'Навсегда +5% к находимому золоту.', consumable: false, icon: '⛁' },
+  // правки 3: «Без обязательной рекламы» убрана из лавки (купленное раньше работает — P.iap.noAds); мешочки золота и осколков по ценам владельца
+  gold_small: { title: 'Мешочек золота', price: '5 ₽', desc: '600 золота.', consumable: true, icon: '⛁' },
+  gold_mid: { title: 'Кошель золота', price: '15 ₽', desc: '2000 золота.', consumable: true, icon: '⛁' },
+  gold_big: { title: 'Сундучок золота', price: '40 ₽', desc: '5000 золота.', consumable: true, icon: '⛁' },
+  gold_huge: { title: 'Казна Ордена', price: '150 ₽', desc: '20 000 золота.', consumable: true, icon: '⛁' },
+  shards_small: { title: 'Мешочек осколков', price: '15 ₽', desc: '10 осколков Бездны ◆.', consumable: true, icon: '◆' },
+  shards_mid: { title: 'Кошель осколков', price: '59 ₽', desc: '50 осколков Бездны ◆.', consumable: true, icon: '◆' },
+  shards_big: { title: 'Сундук осколков', price: '149 ₽', desc: '150 осколков Бездны ◆.', consumable: true, icon: '◆' },
   energy_pack: { title: 'Запас энергии', price: '49 ₽', desc: '+50 ⚡ энергии для Летописи битв, Глубин и Жатвы.', consumable: true, icon: '⚡' },
   bag_big: { title: 'Большая сумка', price: '149 ₽', desc: 'Навсегда +20 мест в сумке.', consumable: false, icon: '▤' },
 };
