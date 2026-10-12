@@ -28,7 +28,7 @@ export class GroundDecals {
 
 // сборка 66: «объёмные» листы, что стоят на земле (шипы новы, языки пламени, взрывы, удары мобов), — щитами к камере в 3D-сцене:
 // стоящее за героем прячется за ним. Щит сдвинут к камере на NUDGE м (экранное место то же): эффект в точке героя не уходит ему за спину.
-const NUDGE = 0.6, POOL = 32;
+const NUDGE = 0.6, POOL = 32, _toCam = new THREE.Vector3(), _up = new THREE.Vector3();
 export class FxBillboards {
   constructor(scene) {
     this.scene = scene; this.pool = []; this.base = new Map();   // картинка листа -> текстура (копии на щитах делят её в видеопамяти)
@@ -53,7 +53,11 @@ export class FxBillboards {
       t.repeat.set((fl ? -C : C) / W, C / H); t.offset.set((f.sx + (fl ? C : 0)) / W, 1 - (f.sy + C) / H);
       m.opacity = f.alpha; m.blending = f.add ? THREE.AdditiveBlending : THREE.NormalBlending;
       s.center.set(S.anchor[0], 1 - S.anchor[1]); s.scale.set(f.size, f.size, 1);
-      s.position.set(f.x, f.z || 0, f.y); const d = camera.position.clone().sub(s.position).normalize().multiplyScalar(NUDGE); s.position.add(d);
+      // правки 5: щит смотрит в камеру, и его низ уходил под землю — земля срезала эффект ровной линией («обрубленный край снизу»).
+      // Сдвигаем щит к камере вдоль луча взгляда (на экране он на том же месте) настолько, чтобы нижний край оказался над полом
+      s.position.set(f.x, f.z || 0, f.y); const d = _toCam.copy(camera.position).sub(s.position).normalize();
+      const below = f.size * (1 - S.anchor[1]) * _up.setFromMatrixColumn(camera.matrixWorld, 1).y - (f.z || 0) + 0.05;
+      s.position.addScaledVector(d, Math.max(NUDGE, below > 0 && d.y > 0.05 ? below / d.y : 0));
       s.visible = true;
     }
     for (let i = n; i < this.pool.length; i++) this.pool[i].visible = false;
