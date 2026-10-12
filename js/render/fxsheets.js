@@ -26,7 +26,7 @@ function want(id) {
   if (GRID4.has(id)) m = { ...m, cols: 4, rows: 4, frames: 16 };
   const im = new Image(); im.decoding = 'async'; pending.set(id, im);
   im.onload = () => { if (pending.get(id) !== im) return; pending.delete(id); const C = m.cols ? im.naturalWidth / m.cols : 0; sheets.set(id, { ...m, img: C ? softCells(im, { ...m, id }, C, ROUND.has(id)) : im, C }); };   // кадр — по картинке: ПК 192, телефон 128
-  im.onerror = () => { pending.delete(id); console.warn('[fx] missing sheet', id); };
+  im.onerror = () => { if (pending.get(id) !== im) return; pending.delete(id); console.warn('[fx] missing sheet', id); };   // сборка 67: отменённая при смене зоны загрузка (src='') не сносит новую того же листа
   // правки 5: стоячие листы (корни лешего, оплетание героя, вихрь, шипы, состояния) на телефоне с кадром 128 px растянуты — «пиксельные». Им — полный кадр
   // (+3 МБ памяти на лист; грузятся только листы своего края и выученных навыков)
   const lo = PHONE && m.view !== 'upright';

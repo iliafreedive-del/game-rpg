@@ -4,7 +4,7 @@ const L = (window.__LANG && window.__LANG !== 'ru') ? '/js_' + window.__LANG : '
 const M = await import(L + '/platform/monetize.js'), PF = await import(L + '/platform/platform.js'), EV = await import(L + '/platform/events.js'), DQ = await import(L + '/game/daily.js');
 const G = window.__G, P = G.profile;
 P.tutorial.prologue = 1; P.level = Math.max(P.level, 12); P.stats.playTime = 4000;
-const { STORY } = await import(L + '/data/quests.js'); P.story.stage = Math.max(P.story.stage, STORY.findIndex(q => q.id === 'meet_kofi') + 1);
+const { STORY } = await import(L + '/data/quests.js'); P.story.stage = Math.max(P.story.stage, STORY.findIndex(q => q.id === 'elder_task') + 1);
 const gm = await import(L + '/game/game.js'); await gm.loadZone('town', {}); await sleep(2500);
 document.querySelectorAll('.modal-bg').forEach(m => m.remove()); G.modalOpen = false;
 PF.platform.flags = { event: 'shards2' };
