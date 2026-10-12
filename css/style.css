@@ -997,3 +997,18 @@ html.rm *,html.rm *::before,html.rm *::after{animation-duration:.01ms!important;
   .cbtn[data-kb]::after{content:attr(data-kb)}
   #btnAct[data-kb]::before{content:attr(data-kb);display:inline-block;margin-right:7px;padding:0 5px;border-radius:4px;background:#0006;border:1px solid #1a100699;font:bold 11px/16px sans-serif;color:#fff3cf;vertical-align:1px}
 }
+/* правки 5: окно перед боем Летописи — текст крупнее и занимает место (было мелко, по бокам пусто). Размеры от экрана: ПК и телефон */
+.hw-pre{width:min(960px,100%);padding:clamp(12px,2.2vw,26px) clamp(12px,3vw,40px)}
+.hw-pre .hw-banner{font-size:clamp(22px,3.4vw,38px)}
+.hw-pre .hw-vs{gap:clamp(8px,2vw,28px);margin:clamp(6px,1.4vw,16px) 0}
+.hw-pre .hw-vs b{font-size:clamp(20px,3.2vw,36px);margin-bottom:4px}
+.hw-pre .hw-vs span{font-size:clamp(16px,2.2vw,24px);line-height:1.35}
+.hw-pre .hw-foes{font-size:clamp(15px,2vw,22px)!important}
+.hw-pre .hw-vsx{font-size:clamp(34px,6vw,72px)}
+.hw-pre p{font-size:clamp(15px,1.9vw,20px)}
+.hw-pre p.good,.hw-pre p.bad{font-size:clamp(18px,2.6vw,30px)}
+.hw-pre .hw-sk{font-size:clamp(15px,2vw,22px);gap:clamp(6px,1vw,12px)}
+.hw-pre .hw-sk .btn{font-size:clamp(14px,1.8vw,20px);padding:clamp(7px,1vw,12px) clamp(10px,1.4vw,18px)}
+.hw-pre .hw-sk .btn small{font-size:.78em}
+.hw-pre .hw-nav .btn{font-size:clamp(16px,2.2vw,24px);padding:clamp(9px,1.2vw,14px) clamp(18px,2.6vw,34px)}
+@media (orientation:landscape) and (max-height:500px){.hw-pre .hw-banner{font-size:22px}.hw-pre .hw-vs b{font-size:20px}.hw-pre .hw-vs span,.hw-pre .hw-foes{font-size:15px!important}.hw-pre .hw-vsx{font-size:34px}.hw-pre .hw-vs{margin:2px 0}.hw-pre p{margin:3px 0}}
