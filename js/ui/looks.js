@@ -2,7 +2,8 @@
 // призрак и корона пламени для героя и питомца. Только вид. Открывается из меню; герой перекрашивается сразу (окно полупрозрачное снизу).
 import { G, bus } from '../game/ctx.js';
 import { el, esc } from '../core/util.js';
-import { HERO_LOOKS, DYES, HERO_MODELS, GHOST, CROWN, DYE_PRICE, MODEL_PRICE } from '../data/cosmetics.js';
+import { HERO_LOOKS, DYES, HERO_MODELS, GHOST, CROWN, DYE_PRICE, MODEL_PRICE, PET_SKINS, PET_SKIN_GET } from '../data/cosmetics.js';
+import { PETS } from '../data/pets.js';
 import * as CO from '../game/cosmetics.js';
 import { platform } from '../platform/platform.js';
 
@@ -90,6 +91,20 @@ export function renderLooks(b, redraw) {
   }
 
   // ---- призрак
+  // ---- облик питомца (того, что сейчас рядом)
+  const pid = (P.pets && P.pets.active) || null, PS = pid && PET_SKINS[pid];
+  if (PS) {
+    b.appendChild(el('h3', '', 'Облик питомца: ' + esc(PETS[pid].name)));
+    const g2 = el('div', 'lk-grid'), cur = CO.petSkinOf(pid);
+    for (const [id, [name]] of [[null, ['Как есть']], ...Object.entries(PS)]) {
+      const own = !id || CO.petSkinOwned(pid, id), on = cur === id, card = el('div', 'lk-card' + (on ? ' on' : ''), `<b>${esc(name)}</b>`);
+      if (own) { card.appendChild(el('div', 'lk-st' + (on ? ' ok' : ''), on ? '✔ Надет' : 'Нажмите, чтобы надеть')); card.onclick = () => { CO.setPetSkin(pid, id); bus.emit('sfx', 'click'); redraw(); }; }
+      else getButtons(card, `pskin:${pid}:${id}`, PET_SKIN_GET(id), name, () => CO.buyPetSkin(pid, id), redraw);
+      g2.appendChild(card);
+    }
+    b.appendChild(g2);
+  }
+
   const toggles = (kind, T, title, note, rows) => {
     b.appendChild(el('h3', '', title));
     b.appendChild(el('p', 'muted', `<small>${note}</small>`));

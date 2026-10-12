@@ -21,7 +21,7 @@ export const wheelReady = () => { const P = G.profile; if (P.wheelFree > Date.no
 
 const SHARD = new Image(); SHARD.src = 'assets/art/gpt/ui/shard_64.png';
 
-export function openWheel(modal, closeModal) {
+export function openWheel(modal, closeModal, onLook) {   // onLook — кнопка «Облик» (гадалка шьёт облики героя и питомца, ui/looks.js)
   let spinning = false, angle = 0;
   modal('Колесо Фортуны', 'sm reward', b => {
     const P = G.profile;
@@ -57,5 +57,6 @@ export function openWheel(modal, closeModal) {
     row.append(free, adButton('▶ Крутить за рекламу', 'wheel', 60 * 60e3, () => spin()));
     b.appendChild(row);
     b.appendChild(el('p', 'muted', '<small>Бесплатно — раз в 8 часов, за рекламу — раз в час.</small>'));
+    if (onLook) { const r2 = el('div', 'row'); r2.style.justifyContent = 'center'; const lk = el('button', 'btn', '🎭 Облик героя и питомца'); lk.onclick = () => { if (!spinning) onLook(); }; r2.appendChild(lk); b.appendChild(r2); }
   });
 }

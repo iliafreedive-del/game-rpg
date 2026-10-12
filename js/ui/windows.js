@@ -110,7 +110,7 @@ export function openWindow(name, arg) {
   if (name === 'herospath') { openHeroPath(); return; }
   const f = W[name]; if (f) { f(arg); if (cur && !cur.reopen) cur.reopen = () => W[name](arg); }
 }
-bus.on('openNPC', id => { if (id === 'fortune') { openWheel(modal, closeModal); return; } W['npc_' + id](); });
+bus.on('openNPC', id => { if (id === 'fortune') { openWheel(modal, closeModal, () => W.looks()); return; } W['npc_' + id](); });
 bus.on('openBoard', () => W.board()); bus.on('openWheel', () => openWheel(modal, closeModal)); bus.on('openHeroPath', () => openHeroPath()); bus.on('openDepths', () => W.depths()); bus.on('openWild', r => W.wild(r)); bus.on('wildCleared', later(r => W.wildResult(r)));
 bus.on('floorResult', later(r => floorResult(r)));   // П11: окна от событий ждут, пока закроют открытое
 bus.on('boonChoice', later(() => boonChoice()));
@@ -1430,7 +1430,7 @@ W.menu = () => modal('Меню', 'md', b => {
     ['inventory', '🎒', 'Герой', 'снаряжение и сумка', 'dotInv'], ['character', '🛡', 'Персонаж', 'характеристики', 'dotChar'], ['skills', '✦', 'Навыки', 'умения и кнопки', 'dotSkill'],
     ['journal', '📜', 'Задания', 'сюжет и ежедневные'], ['map', '🗺', 'Карта', 'текущая локация'],
     ['herospath', '⚔', 'Летопись битв', 'автобои', 'dotHW'], ['shrine', '🎁', 'Источник силы', 'дары, сила источника', 'dotGift'], ['season', '🏆', 'Путь сезона', SE.seasonName() + ' · 30 ступеней', 'dotSeason'], ['codex', '📖', 'Коллекция', '+0,5% за каждую находку'],
-    ['looks', '🎭', 'Облик', 'наряд, краски, призрак'], ['help', '❓', 'Справка', 'подсказки и обучение'], ['settings', '⚙', 'Настройки', 'звук, графика'],
+    ['help', '❓', 'Справка', 'подсказки и обучение'], ['settings', '⚙', 'Настройки', 'звук, графика'],
   ];
   const g = el('div', 'menu-grid');
   for (const [id, ic, name, sub, badge] of tiles) {
