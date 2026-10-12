@@ -1,45 +1,34 @@
 // Фьорды (правки 5): «совсем там мало всего, убери круглые камни, скалы по краям, лодки викингов с полосатыми парусами, полуразвалившиеся».
+// Камни и утёсы — без нарисованной фактуры (правки 5: «не надо как в клеточку подземелья»), только цвет граней и снег
 // Угловатые сине-серые скалы со снежными шапками (вместо круглых валунов rocks), высокие утёсы для кромки над бездной,
 // рунные камни, разбитые драккары с рваным полосатым парусом и перевёрнутые лодки. Всё batch и низкополигональное.
-const ROCK = [[0x2c3440, 0x5a6a7c], [0x343a44, 0x6a7482], [0x283038, 0x4e5e6e]], SNOW = 0xeef4fa;
+const SNOW = 0xeef4fa;
 
-// скала из наклонных граней: столб из 5-угольных ярусов, сверху снежная шапка
-function crag(kit, L, seed, tiers, o = {}) {
-  const { THREE, geo } = kit, R = geo.rng(seed); let y = 0, ox = 0, oz = 0;
-  tiers.forEach(([r0, r1, h], i) => {
-    const g = new THREE.CylinderGeometry(r1, r0, h, o.seg || 5, 1); geo.jitter(g, Math.min(r0, r1) * 0.22, geo.rng(seed + i * 11));
-    g.scale(1, 1, o.flat || 0.8); g.rotateY(R() * 6.28); g.translate(ox, y + h / 2, oz);
-    const [c0, c1] = ROCK[(seed + i) % 3]; L.push(geo.paint(g, c0, { top: i === tiers.length - 1 ? SNOW : c1, tex: 'rock' }));
-    y += h * 0.94; ox += (R() - 0.5) * r1 * 0.35 + (o.lean || 0); oz += (R() - 0.5) * r1 * 0.3;
-  });
-  for (let k = 0; k < (o.rubble ?? 3); k++) {   // осыпь у подножия — плоские угловатые обломки
-    const a = R() * 6.28, r = tiers[0][0] * (1 + R() * 0.4), s = 0.18 + R() * 0.22, g = new THREE.CylinderGeometry(s, s * 1.2, s * 0.8, 5, 1);
-    geo.jitter(g, s * 0.3, R); g.rotateY(R() * 6.28); g.translate(Math.cos(a) * r, s * 0.3, Math.sin(a) * r); L.push(geo.paint(g, 0x2c3440, { top: R() < 0.5 ? SNOW : 0x6a7482, tex: 'rock' }));
-  }
+// пик как на референсе пользователя: тёмно-серый гранёный конус, снег только на макушке (резкая граница), снежная «юбка» у подножия
+const DARK = [0x3a3f48, 0x434852, 0x353a42];
+function peak(kit, L, seed, r, h, x = 0, z = 0, skirt = true) {
+  const { THREE, geo } = kit, R = geo.rng(seed), g = new THREE.ConeGeometry(r, h, 7, 3);
+  geo.jitter(g, r * 0.2, R); g.rotateY(R() * 6.28); g.translate(x, h / 2 - 0.05, z);
+  const s0 = h * (0.52 + R() * 0.12); L.push(geo.paint(g, DARK[seed % 3], { top: SNOW, y0: s0, y1: s0 + h * 0.05 }));
+  if (skirt) { const k = new THREE.CylinderGeometry(r * 1.15, r * 1.4, 0.14, 8, 1); geo.jitter(k, r * 0.12, R); k.translate(x, 0.03, z); L.push(geo.paint(k, 0xdfe8f2, { top: SNOW })); }
 }
+// утёс: главный пик и 1–3 пика поменьше вокруг
+function crag(kit, L, seed, peaks) { peaks.forEach(([r, h, x, z], i) => peak(kit, L, seed + i * 13, r, h, x, z, i === 0)); }
 const def = (id, fn, extra = {}) => ({ id, kind: 'prop', batch: true, outline: false, tint: 0.12, ao: 0.7, aoH: 1.1, ...extra,
   build(kit) { const L = []; fn(kit, L); const root = new kit.THREE.Group(); root.add(new kit.THREE.Mesh(kit.merge(L), kit.propMat(this))); return { root }; } });
 
-// угловатые камни поля (замена круглых rocks): плиты и глыбы, на верхушке снег
-const slab = (id, seed) => def(id, (kit, L) => {
-  const { THREE, geo } = kit, R = geo.rng(seed);
-  for (let i = 0; i < 3; i++) {
-    const r = [0.55, 0.36, 0.26][i], h = r * (1.1 + R() * 0.9), g = new THREE.CylinderGeometry(r * (0.35 + R() * 0.3), r, h, 4, 1);   // острые 4-гранные, выше — не «шары»
-    geo.jitter(g, r * 0.25, R); g.rotateY(R() * 6.28); g.rotateZ((R() - 0.5) * 0.5);
-    g.translate(i ? (R() - 0.3) * 0.9 : 0, h * 0.45, i ? (R() - 0.3) * 0.7 : 0);
-    const [c0, c1] = ROCK[(i + seed) % 3]; L.push(geo.paint(g, c0, { top: R() < 0.3 ? SNOW : c1, tex: 'rock' }));
-  }
-});
+// камни поля (замена круглых rocks): невысокие гранёные пики, макушка в снегу
+const slab = (id, seed, peaks) => def(id, (kit, L) => crag(kit, L, seed, peaks));
 
 // рунный камень: плоская плита с высеченной светящейся руной и шапкой снега
 const runestone = def('fj_runestone', (kit, L) => {
   const { THREE, geo, part } = kit, R = geo.rng(91);
   const g = new THREE.BoxGeometry(0.9, 1.9, 0.32, 1, 3, 1); geo.jitter(g, 0.07, R); g.translate(0, 0.9, 0); g.rotateZ(0.06);
-  L.push(geo.paint(g, 0x303844, { top: 0x7a8696, tex: 'rock' }));
+  L.push(geo.paint(g, 0x303844, { top: 0x7a8696 }));
   L.push(part(new THREE.BoxGeometry(0.95, 0.12, 0.38), SNOW, [0.05, 1.86, 0], [0, 0, 0.08]));
   for (const [x, y, w, h, a] of [[0, 1.25, 0.05, 0.55, 0], [0, 1.38, 0.05, 0.26, 0.8], [0, 1.38, 0.05, 0.26, -0.8], [0, 0.78, 0.05, 0.3, 0.5], [0, 0.78, 0.05, 0.3, -0.5]])
     L.push(part(new THREE.BoxGeometry(w, h, 0.02), 0x8ad8ff, [x + 0.05, y, 0.17], [0, 0, a], 1, { emit: true }));
-  L.push(part(new THREE.CylinderGeometry(0.5, 0.65, 0.18, 6), 0x2c3440, [0, 0.05, 0], 0, 1, { top: SNOW, tex: 'rock' }));
+  L.push(part(new THREE.CylinderGeometry(0.5, 0.65, 0.18, 6), 0x2c3440, [0, 0.05, 0], 0, 1, { top: SNOW }));
 }, { tint: 0.08 });
 
 // корпус драккара: кольца-шпангоуты вдоль длины (X), борта сходятся к носу и корме, концы задраны вверх.
@@ -108,10 +97,10 @@ const boat = def('fj_boat', (kit, L) => {
 }, { side: 'double', tint: 0.06 });
 
 export const FJORD_PROPS = [
-  slab('fj_rock_a', 3), slab('fj_rock_b', 8), slab('fj_rock_c', 14),
-  def('fj_crag', (kit, L) => crag(kit, L, 5, [[1.1, 0.85, 1.4], [0.85, 0.6, 1.3], [0.6, 0.25, 1.2]])),
-  def('fj_crag_b', (kit, L) => crag(kit, L, 9, [[1.3, 1.05, 1.1], [1.0, 0.7, 1.6], [0.7, 0.45, 1.0], [0.45, 0.12, 0.8]], { lean: 0.1 })),
-  def('fj_crag_c', (kit, L) => crag(kit, L, 17, [[1.6, 1.3, 1.2], [1.3, 1.1, 0.9], [1.1, 0.5, 0.8]], { flat: 0.6, rubble: 5 })),   // широкий утёс-стена
+  slab('fj_rock_a', 3, [[0.55, 1.0, 0, 0], [0.3, 0.55, 0.55, 0.25]]), slab('fj_rock_b', 8, [[0.45, 1.3, 0, 0]]), slab('fj_rock_c', 14, [[0.5, 0.8, 0, 0], [0.32, 0.6, -0.45, 0.3], [0.22, 0.35, 0.3, -0.4]]),
+  def('fj_crag', (kit, L) => crag(kit, L, 5, [[1.3, 3.6, 0, 0], [0.7, 1.8, 1.0, 0.5]])),
+  def('fj_crag_b', (kit, L) => crag(kit, L, 9, [[1.1, 4.2, 0, 0], [0.8, 2.6, -0.9, 0.6], [0.5, 1.4, 0.8, -0.7]])),
+  def('fj_crag_c', (kit, L) => crag(kit, L, 17, [[1.5, 3.0, 0, 0], [1.0, 2.3, 1.3, -0.2], [0.9, 2.0, -1.2, 0.3], [0.6, 1.2, 0.2, 1.0]])),   // гряда-стена
   runestone, longship, boat,
 ];
 export const FJ_ROCKS = [['fj_rock_a', 1], ['fj_rock_b', 1], ['fj_rock_c', 1]];
