@@ -114,6 +114,15 @@ function groundMaterial(snow = false, forest = false, puddles = 1, steppe = fals
     gr = mix(gr, vec3(0.6, 0.72, 0.86), smoothstep(0.55, 0.8, nz2.g) * 0.55);
     ms = mix(vec3(0.3, 0.34, 0.42) * (0.8 + nz.r * 0.5), gr * 0.9, step(0.56, nz2.r) * 0.85);
     dt = mix(vec3(0.46, 0.42, 0.4), vec3(0.74, 0.74, 0.76), nz.g) * (0.85 + nz2.r * 0.3);
+    // правки 5: «во фьордах не везде монотонная белая земля» — крупные проталины (мёрзлый мох, бурая земля, тёмный камень)
+    // и замёрзшие лужи голубым льдом; только шум в шейдере, без новой геометрии
+    float pa = texture2D(tNoise, wp * 0.047 + 0.23).r + (nz2.b - 0.5) * 0.14, pb = texture2D(tNoise, wp * 0.061 + 0.61).b + (nz2.g - 0.5) * 0.2;
+    float thaw = smoothstep(0.54, 0.58, pa), rim = smoothstep(0.49, 0.54, pa) * (1.0 - thaw);
+    vec3 earth = mix(vec3(0.2, 0.29, 0.16) * (0.8 + nz.g * 0.45), vec3(0.32, 0.22, 0.15) * (0.85 + nz.r * 0.3), smoothstep(0.38, 0.62, nz.b));
+    earth = mix(earth, vec3(0.2, 0.22, 0.27) * (0.85 + nz2.g * 0.3), smoothstep(0.6, 0.66, nz2.r) * 0.8);
+    gr = mix(gr * (1.0 - rim * 0.18), earth, thaw * 0.92);
+    float icy = smoothstep(0.62, 0.66, pb) * (1.0 - thaw);
+    gr = mix(gr, mix(vec3(0.34, 0.54, 0.74), vec3(0.6, 0.78, 0.92), smoothstep(0.35, 0.65, nz2.g)), icy * 0.85);
   }
   if (uForest > 0.5) {   // Старый Лес: светлый жёлто-зелёный луг, бурая подстилка под деревьями и тёплые коричневые тропы — земля не сливается с кронами
     gr = mix(vec3(0.46, 0.6, 0.22), vec3(0.7, 0.76, 0.32), smoothstep(0.3, 0.75, nz.r)) * (0.9 + texture2D(tGrass, wp * 0.21).g * 0.3);
