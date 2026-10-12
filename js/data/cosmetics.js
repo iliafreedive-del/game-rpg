@@ -22,6 +22,8 @@ export const HERO_LOOKS = {
 };
 // призрак (сборка 59): полупрозрачное тело со светящимся краем — для героя и для питомца, сочетается с любым обликом и краской
 export const GHOST = { hero: { name: 'Призрак', get: { rub: 'look_ghost', ads: 120, days: 7 } }, pet: { name: 'Призрачный питомец', get: { rub: 'pet_ghost', ads: 80, days: 7 } } };
+// огненная корона: парит над головой, как нимб — у героя и у питомца отдельно
+export const CROWN = { hero: { name: 'Корона пламени', get: { rub: 'crown_hero', ads: 100, days: 7 } }, pet: { name: 'Корона пламени питомца', get: { rub: 'crown_pet', ads: 60, days: 7 } } };
 export const DYE_PRICE = 8;      // ◆ за каждую краску, кроме исходной (открывается для этого героя)
 export const MODEL_PRICE = 25;   // ◆ за другую модель класса
 // другая модель того же класса (уже лежат в assets/models, в сборку попадали и раньше)
