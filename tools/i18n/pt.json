@@ -2923,5 +2923,7 @@
  "{0} д {1} ч": "{0} d {1} h",
  "<small>↻ Новые задания через {0}</small>": "<small>↻ Novas tarefas em {0}</small>",
  "Зелье здоровья (R)": "Poção de Vida (R)",
- "Зелье маны (F)": "Poção de Mana (F)"
+ "Зелье маны (F)": "Poção de Mana (F)",
+ "Облик питомца: ": "Visual do mascote: ",
+ "🎭 Облик героя и питомца": "🎭 Visual do herói e do mascote"
 }

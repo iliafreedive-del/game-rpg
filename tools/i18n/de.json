@@ -2923,5 +2923,7 @@
  "{0} д {1} ч": "{0} T. {1} h",
  "<small>↻ Новые задания через {0}</small>": "<small>↻ Neue Aufgaben in {0}</small>",
  "Зелье здоровья (R)": "Heiltrank (R)",
- "Зелье маны (F)": "Manatrank (F)"
+ "Зелье маны (F)": "Manatrank (F)",
+ "Облик питомца: ": "Aussehen des Begleiters: ",
+ "🎭 Облик героя и питомца": "🎭 Aussehen von Held und Begleiter"
 }

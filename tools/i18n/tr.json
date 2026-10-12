@@ -2923,5 +2923,7 @@
  "{0} д {1} ч": "{0} gün {1} sa",
  "<small>↻ Новые задания через {0}</small>": "<small>↻ Yeni görevler {0} sonra</small>",
  "Зелье здоровья (R)": "Can İksiri (R)",
- "Зелье маны (F)": "Mana İksiri (F)"
+ "Зелье маны (F)": "Mana İksiri (F)",
+ "Облик питомца: ": "Evcil görünümü: ",
+ "🎭 Облик героя и питомца": "🎭 Kahraman ve evcil görünümü"
 }

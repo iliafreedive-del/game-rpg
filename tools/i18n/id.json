@@ -2923,5 +2923,7 @@
  "{0} д {1} ч": "{0} hr {1} j",
  "<small>↻ Новые задания через {0}</small>": "<small>↻ Tugas baru dalam {0}</small>",
  "Зелье здоровья (R)": "Ramuan Nyawa (R)",
- "Зелье маны (F)": "Ramuan Mana (F)"
+ "Зелье маны (F)": "Ramuan Mana (F)",
+ "Облик питомца: ": "Tampilan peliharaan: ",
+ "🎭 Облик героя и питомца": "🎭 Tampilan pahlawan & peliharaan"
 }
