@@ -285,6 +285,19 @@ function enemyActor(e, def, scale) {
   a.update(0, { clip: 'idle' }, env); a.blend = 1; a.snap.clear(); a.flash(0, 0xffffff);
   return a;
 }
+// правки 5: размер тела по модели (в покое, без поворота): длинный зверь — морда далеко впереди центра. Игра (combat.js bodyD) бьёт и подсвечивает
+// удар от морды и не пускает героя внутрь. Только у вытянутых моделей (длина больше 1,8 ширины) — у людей и скелетов круг e.r, как раньше
+const _bb = new THREE.Box3();
+function bodyOf(a, scale, e) {
+  if (a.body0 === undefined) {
+    const r = a.root, p = r.position.clone(), ry = r.rotation.y, s = r.scale.x; r.position.set(0, 0, 0); r.rotation.y = 0; r.scale.setScalar(1); r.updateMatrixWorld(true);
+    _bb.setFromObject(a.model.root); r.position.copy(p); r.rotation.y = ry; r.scale.setScalar(s); r.updateMatrixWorld(true);
+    const f = _bb.max.z, b = -_bb.min.z, w = Math.max(-_bb.min.x, _bb.max.x);
+    a.body0 = isFinite(f) && f + b > 3.6 * w ? { f, b, w } : null;
+  }
+  const B = a.body0; if (!B || B.f * scale < e.r + 0.15) return null;
+  return { f: B.f * scale, b: B.b * scale, w: Math.max(e.r, Math.min(B.w * scale, B.f * scale * 0.45)) };   // полуширина — по модели (у быка бока шире круга e.r)
+}
 function syncEnemies(dt) {
   const fn = ++frameNo;
   for (const e of G.enemies) {
@@ -294,6 +307,7 @@ function syncEnemies(dt) {
     let a = enemyActor(e, def, scale); a.seen = fn;
     // правки 2 (П17–18): моб собран запасной моделью, пока его модель грузилась, — пересобрать, когда догрузилась
     if (def.ready && SKINS.on) { if (a.fb === undefined) a.fb = !def.ready(kit); else if (a.fb && def.ready(kit)) { a.dispose(); actors.delete(e); a = getActor(e, def, { scale }); a.isEnemy = true; a.def = def; a.seen = fn; a.fb = false; } }
+    e.body = bodyOf(a, scale, e);
     const c = measure(a, e, dt), an = e.anim; let clip = 'idle', k, impact, speed = 0;
     if (e.dead) { clip = 'death'; k = an.prog; }
     else if (e.state === 'attack') { clip = e.D.proj ? 'cast' : (e.atk && e.atk.kind) || 'attack';   /* у босса: attack2, slam, roar */ k = an.prog; impact = e.atk ? e.atk.impact : undefined; }

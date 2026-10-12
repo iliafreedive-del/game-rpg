@@ -477,7 +477,7 @@ function tapTarget(sx, sy) {
   let best = null, bd = 1e9;
   for (const off of [20, 45, 75]) {
     const [wx, wy] = G.cam.toWorld(sx, sy + off);
-    for (const e of G.enemies) { if (e.dead || e.hidden) continue; const d = Math.hypot(e.x - wx, e.y - wy) - 1.4 - (e.r || 0.4); if (d < 0 && d < bd) { bd = d; best = e; } }
+    for (const e of G.enemies) { if (e.dead || e.hidden) continue; const d = C.bodyD(e, wx, wy) - 1.4 - (e.r || 0.4); if (d < 0 && d < bd) { bd = d; best = e; } }
     for (const it of G.zone.inter) { if (it.done || it.hidden || !LOOT_TAP.has(it.type)) continue; const d = Math.hypot(it.x - wx, it.y - wy) - 1.1; if (d < 0 && d < bd) { bd = d; best = it; } }
   }
   return best;
@@ -626,7 +626,7 @@ export function update(dt) {
   if (mouse.aim && !G.modalOpen) aimAt(mouse.x, mouse.y);
   if (pl.focus && (pl.focus.dead || !G.enemies.includes(pl.focus))) pl.focus = null;
   const W = G.stats, rng = W.ranged ? W.range : W.range + 0.2;
-  const inRange = e => e && !e.dead && Math.hypot(e.x - pl.x, e.y - pl.y) <= rng + e.r && C.sees(pl, e);   // П60: стрелку и магу — чистый выстрел, не впритирку к углу
+  const inRange = e => e && !e.dead && C.bodyD(e, pl.x, pl.y) <= rng + e.r && C.sees(pl, e);   // П60: стрелку и магу — чистый выстрел, не впритирку к углу
   // кнопка атаки: стоя — бьёт ближайшего, если никого рядом — подводит к врагу
   if (input.attackHeld && !moving && canAct) {
     const t = inRange(pl.focus) ? pl.focus : C.nearestEnemy(pl.x, pl.y, rng + 1, e => inRange(e));
@@ -659,7 +659,7 @@ export function update(dt) {
   if (G.zoneId !== 'town') G.zone.map.buildFlow(Math.floor(pl.x), Math.floor(pl.y), G.time);
   G.meleeBusy = 0; for (const e of G.enemies) if (!e.dead && (e.state === 'attack' || e.lunge) && !e.D.proj && !e.D.boss && !e.D.elite && !e.D.mini && Math.hypot(e.x - pl.x, e.y - pl.y) < 5) G.meleeBusy++;   // П69: занятые удары (см. Enemy.update)
   for (const e of G.enemies) e.update(dt, pl);
-  separate(G.enemies, G.zone.map);
+  separate(G.enemies, G.zone.map); bodyPush(pl, G.enemies, G.zone.map);
   if (G.zoneId === 'survival') SV.updateSurvival(dt);
   for (let i = G.enemies.length - 1; i >= 0; i--) if (G.enemies[i].remove) G.enemies.splice(i, 1);
   for (const n of G.npcs) n.update(dt, pl);
@@ -709,6 +709,14 @@ function separate(list, map) {
       const dx = b.x - a.x, dy = b.y - a.y, rr = (a.r + b.r) * 0.95, dd = dx * dx + dy * dy; if (dd >= rr * rr || dd < 1e-6) continue;
       const dd2 = Math.sqrt(dd), push = Math.min(0.05, (rr - dd2) * 0.5), nx = dx / dd2 * push, ny = dy / dd2 * push;
       [a.x, a.y] = map.move(a.x, a.y, -nx, -ny, a.r * 0.9); [b.x, b.y] = map.move(b.x, b.y, nx, ny, b.r * 0.9); } }
+}
+// правки 5: герой не заходит внутрь длинного зверя (кабан, бык, медведь…): выталкиваем из его капсулы (combat.js bodyPt) — встаёт перед мордой или сбоку
+function bodyPush(pl, list, map) {
+  if (pl.dead) return;
+  for (const e of list) { if (e.dead || !e.body) continue;
+    const [bx, by] = C.bodyPt(e, pl.x, pl.y), dx = pl.x - bx, dy = pl.y - by, d = Math.hypot(dx, dy), need = e.body.w + pl.r * 0.8;
+    if (d >= need) continue; const [nx, ny] = d > 1e-4 ? [dx / d, dy / d] : [Math.cos(Math.atan2(pl.y - e.y, pl.x - e.x)), Math.sin(Math.atan2(pl.y - e.y, pl.x - e.x))];
+    const k = need - d < 0.4 ? need - d : 0.12; [pl.x, pl.y] = map.move(pl.x, pl.y, nx * k, ny * k, pl.r); }   // упёрся — сразу на край; моб развернулся и герой глубоко «в теле» — отходит плавно, не рывком
 }
 // без автоатаки стоя — деревня и спокойная Цитадель; в испытании и в Разломе Бездны (правки 3) герой бьёт сам, как в подземелье
 const calmZone = () => G.zoneId === 'town' || (G.zoneId === 'castle' && !G.trial && !G.rift);
