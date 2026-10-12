@@ -7,7 +7,7 @@ import { gainXP } from './loot.js';
 import * as C from './combat.js';
 import { getAtlas, drawFrame } from '../core/assets.js';
 import { PX_PER_M } from '../core/iso.js';
-import { drawProjSheet, drawStatusSheet, drawFxSheet, fxReady, fxGround, drawGroundGlow } from '../render/fxsheets.js';
+import { drawProjSheet, drawStatusSheet, drawFxSheet, fxReady, fxGround, drawGroundGlow, statusBillboard } from '../render/fxsheets.js';
 import { rand, rrange } from '../core/util.js';
 const PHONE = typeof matchMedia !== 'undefined' && matchMedia('(pointer: coarse)').matches;
 
@@ -525,6 +525,13 @@ export function drawSurvivalGround(c, cam) {
   n += drawFrost(c, cam, true);
   return n;
 }
+// сборка 66 (ОС-14): танцующие клинки в 3D — щиты в сцене (render3d/decals.js): за героем клинок прячется за ним
+export function survivalUpright(L) {
+  const S = G.surv; if (!S || !S.bladePts) return; const bid = S.evo.evo_blades ? 'sv_evo_blades' : 'sv_orbit_blade'; if (!fxReady(bid)) return;
+  for (const [bx, by] of S.bladePts) { const b = statusBillboard(bid, bx, by, 0.3, S.evo.evo_blades ? 1.6 : 1.2); if (b) { b.add = true; L.push(b); } }
+}
+// прежний рисунок клинка (лист не загрузился) в 3D: за спиной героя, где его заслоняет фигура, не рисуем
+export const hiddenBehind = (cam, x, y) => { const P = G.player; if (!fxGround.on || !P || x + y >= P.x + P.y) return false; const [sx] = cam.toScreen(x, y), [px] = cam.toScreen(P.x, P.y); return Math.abs(sx - px) < 26 * cam.zoom; };
 export function drawSurvivalFx(ctx, cam) {
   const S = G.surv; if (!S) return; const z = cam.zoom, zz = Math.max(0.8, z);
   const gb = fxReady('gr_burning_ground');   // сборка 66: горящая земля — лист круга огня (цикл), пока не загрузился — прежнее пятно; в 3D — на плоскости у земли (drawSurvivalGround)
@@ -576,6 +583,6 @@ export function drawSurvivalFx(ctx, cam) {
     ctx.save(); ctx.globalCompositeOperation = 'source-over'; ctx.translate(x, y - 44 - b); ctx.fillStyle = '#7ae0ff'; ctx.strokeStyle = '#06222c'; ctx.lineWidth = 3; ctx.shadowColor = '#7ae0ff'; ctx.shadowBlur = 12;
     ctx.beginPath(); ctx.moveTo(-12, -16); ctx.lineTo(12, -16); ctx.lineTo(0, 4); ctx.closePath(); ctx.stroke(); ctx.fill(); ctx.restore(); ctx.globalCompositeOperation = 'lighter';
   }
-  if (S.bladePts) { const bid = S.evo.evo_blades ? 'sv_evo_blades' : 'sv_orbit_blade', ok = fxReady(bid); for (const [bx, by, a] of S.bladePts) { if (ok && drawStatusSheet(ctx, cam, bid, bx, by, 0.3, S.evo.evo_blades ? 1.6 : 1.2)) continue; const [x, y] = cam.toScreen(bx, by, 0.9); blit(ctx, bladeSpr(), x, y, 60 * z, a * 3); blit(ctx, bladeSpr(), x, y, 40 * z, a * 3); } }
+  if (S.bladePts) { const bid = S.evo.evo_blades ? 'sv_evo_blades' : 'sv_orbit_blade', ok = fxReady(bid); if (!(ok && fxGround.on)) for (const [bx, by, a] of S.bladePts) { if (hiddenBehind(cam, bx, by)) continue; if (ok && drawStatusSheet(ctx, cam, bid, bx, by, 0.3, S.evo.evo_blades ? 1.6 : 1.2)) continue; const [x, y] = cam.toScreen(bx, by, 0.9); blit(ctx, bladeSpr(), x, y, 60 * z, a * 3); blit(ctx, bladeSpr(), x, y, 40 * z, a * 3); } }
   ctx.globalCompositeOperation = 'source-over';
 }

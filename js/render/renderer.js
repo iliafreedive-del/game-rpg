@@ -241,6 +241,7 @@ function drawFloorRings(c, gcam) {
 export function uprightFxList() {
   const L = [];
   for (const e of G.effects) if (isUprightFx(e)) { const k = e.t / e.dur, b = fxBillboard(e, e.fade ? 1 - Math.max(0, k - 0.7) / 0.3 : 1, G.cam); if (b) { L.push(b); if (BLAST_FX.has(e.id)) L.push({ ...b, add: true, alpha: b.alpha * 0.45 }); } }   // взрыв: поверх копия сложением — горячее ядро (в 3D-сцене иначе тусклее прежнего)
+  if (G.surv) SV.survivalUpright(L);
   return L;
 }
 export function clearOverlay() { if (ctx) { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height); } }
@@ -740,6 +741,7 @@ function drawBlades() {
   const b = G.run && G.run.blades; if (!b || !(G.run.boons || []).includes('blades')) return;
   const z = G.cam.zoom; ctx.globalCompositeOperation = 'lighter';
   for (const [x, y, a] of b) {
+    if (SV.hiddenBehind(G.cam, x, y)) continue;   // ОС-14: в 3D клинок за спиной героя не рисуем поверх него
     const [sx, sy] = G.cam.toScreen(x, y, 1.0);
     ctx.save(); ctx.translate(sx, sy); ctx.rotate(a * 3);
     const g = ctx.createRadialGradient(0, 0, 0, 0, 0, 22 * z); g.addColorStop(0, 'rgba(255,255,255,0.9)'); g.addColorStop(0.4, 'rgba(200,190,255,0.5)'); g.addColorStop(1, 'rgba(120,90,255,0)');
