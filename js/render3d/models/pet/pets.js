@@ -132,3 +132,4 @@ function golem(kit) {
 const FLY = { crow: 1, wisp: 1, skull: 1, bat: 1 };
 const def = (id, fn) => ({ id: 'pet_' + id, kind: 'npc', outline: 'mob', fly: !!FLY[id], build: fn });
 export const PET_MODELS = { fennec: def('fennec', fennec), crow: def('crow', crow), scorpid: def('scorpid', scorpid), wisp: def('wisp', wisp), skull: def('skull', skull), basilisk: def('basilisk', basilisk), bat: def('bat', bat), golem: def('golem', golem) };
+export { base, done, wing };   // особые питомцы (pets_premium.js) строятся теми же заготовками
