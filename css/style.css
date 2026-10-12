@@ -232,9 +232,13 @@ p{margin:6px 0}
 @keyframes spin{to{transform:rotate(360deg)}}
 .rw-t{position:relative;font:bold 22px var(--serif);color:#ffe08a;text-shadow:0 0 14px #c88a10,0 2px 2px #000}
 .rw-items{display:flex;flex-direction:column;gap:8px;margin:8px 0}
-.rw-card{display:grid;grid-template-columns:64px 1fr;gap:10px;align-items:center;padding:10px;border-radius:8px;background:#0007;border:1px solid #3a2e30;animation:rwin .5s ease-out backwards}
+.rw-card{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:10px;border-radius:8px;background:#0007;border:1px solid #3a2e30;animation:rwin .5s ease-out backwards}
 .rw-card:nth-child(2){animation-delay:.15s}.rw-card:nth-child(3){animation-delay:.3s}
 .rw-card .btn{grid-column:1 / -1}
+/* MacBook (Safari): сетка карточки награды считала высоту меньше содержимого — сравнение и «Надеть» вылезали под умение и вниз окна. Теперь flex с переносом: иконка 64 px, текст рядом, остальное строками во всю ширину */
+.rw-card>.slot,.rw-card>canvas{flex:0 0 64px;width:64px;height:64px}
+.rw-card>div:not([class]){flex:1 1 0;min-width:0}
+.rw-card>.rw-eq,.rw-card>.row,.rw-card>.btn{flex:1 1 100%;min-width:0}
 .rw-card.r1{border-color:#2a7a34;box-shadow:0 0 12px #5fd16a33}.rw-card.r2{border-color:#2b56a8;box-shadow:0 0 16px #6ea8ff33}.rw-card.r3{border-color:#8d6c10;box-shadow:0 0 22px #f2cf4a66}
 @keyframes rwin{from{transform:translateY(12px) scale(.9);opacity:0}}
 .pet-rv .pet-rv-ic{position:relative;font-size:76px;line-height:1.1;filter:drop-shadow(0 0 18px #ffb040) drop-shadow(0 4px 4px #000);animation:petrv 1.6s ease-in-out infinite}
@@ -728,6 +732,8 @@ canvas#game{filter:saturate(1.22) contrast(1.08) brightness(1.06)}
 }
 #fsHint{position:absolute;left:50%;bottom:calc(10px + var(--safe-b));transform:translateX(-50%);width:min(92vw,420px);font-size:12px;line-height:1.35;color:#cbbfa8;background:#0008;border:1px solid #4a3b2a;border-radius:8px;padding:6px 10px}
 #fsHint b{color:var(--gold)}.fs-ic{color:#6aa8ff}
+#title:has(.class-card) #fsHint{display:none}
+@media (max-height:460px){#title:has(#fsHint) .ctl-tip{display:none}}   /* телефон горизонтально: подсказка управления и подсказка «на весь экран» не помещались обе и ложились друг на друга; управление есть в «Помощи» */   /* iPhone горизонтально: подсказка «На экран Домой» ложилась на описания героев — на выборе героя её не показываем, она есть на титуле */
 
 /* сборка 44: портрет героя слева наверху — он же кнопка меню (вместо «Герой» и «Меню» справа) */
 #portrait{width:64px;height:64px;border:0;background-color:#120a1a;background-size:cover;background-position:center 30%;box-shadow:0 0 0 2px #e8c26a,0 0 0 4px #2a1a08,0 0 0 5px #8a6a2e,0 3px 12px #000c,0 0 16px #b48cff44;transition:transform .1s}
