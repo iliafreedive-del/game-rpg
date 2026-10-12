@@ -27,7 +27,7 @@ import { iconURL } from './ui/icons.js';
 import { initFullscreen } from './ui/fullscreen.js';
 import { qa, initQA } from './core/qa.js';
 
-export const BUILD = '2026-10-11 · сборка 65';   // видно на титульном экране и в настройках: так проверяют, что загрузилась свежая версия
+export const BUILD = '2026-10-12 · сборка 66';   // видно на титульном экране и в настройках: так проверяют, что загрузилась свежая версия
 const CORE = ['props', 'icons'];
 // hero sheets are big (HD): load only the chosen class
 export const CLASS_ATLAS = { warrior: ['hero_body', 'hero_sword', 'hero_axe', 'hero_greatsword', 'hero_shield'], archer: ['hero_archer_body', 'hero_archer_bow'], mage: ['hero_mage_body', 'hero_mage_staff'] };
