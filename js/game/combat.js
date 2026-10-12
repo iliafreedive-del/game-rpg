@@ -6,7 +6,7 @@ import { effRank, damageReduction, hasBoon, boonN } from './stats.js';
 import { getAtlas } from '../core/assets.js';
 import { dirOf, dirVec } from '../core/iso.js';
 import { rand, rrange, rint, clamp, angDiff } from '../core/util.js';
-import { fxReady, fxMeta } from '../render/fxsheets.js';
+import { fxReady, fxMeta, fxKeep } from '../render/fxsheets.js';
 
 export const atlasOf = n => getAtlas(n);
 const R = id => effRank(G.profile, id);
@@ -97,7 +97,7 @@ export function damageEnemy(e, amount, o = {}) {
   }
   // overload sparks
   const ov = R('overload'); if (ov && o.src !== 'dot' && o.src !== 'spark' && rand() < ov * 0.10 * PK) {
-    const t = nearestEnemy(e.x, e.y, 5, x => x !== e); if (t) { lightningArc(e.x, e.y, t.x, t.y); damageEnemy(t, dmg * 0.5 * S.elem.light, { elem: 'light', src: 'spark', canCrit: false }); }
+    const t = nearestEnemy(e.x, e.y, 5, x => x !== e); if (t) { if (!hop('sk_overload_spark', e.x, e.y, t.x, t.y)) lightningArc(e.x, e.y, t.x, t.y); damageEnemy(t, dmg * 0.5 * S.elem.light, { elem: 'light', src: 'spark', canCrit: false }); }
   }
   if (G.run && G.run.boons && (o.src === 'melee' || o.src === 'weapon') && !e.dead && e.hp > 0) {
     if (hasBoon('burn') && rand() < 0.35) applyIgnite(e, dmg);
@@ -115,19 +115,19 @@ function applyIgnite(e, base) {
   const dur = 3 + ip * PK; const total = base * 0.4 * (1 + ip * 0.5 * PK) * G.stats.elem.fire;
   e.st.burn = dur; e.st.burnDps = Math.max(e.st.burnDps || 0, total / dur);
 }
-function applyChill(e) {
+function applyChill(e, quiet) {   // quiet — попадание уже нарисовано (ледяной снаряд)
   const dc = R('deep_cold');
   e.st.slow = Math.max(e.st.slow, 0.3 + dc * 0.1 * PK); e.st.slowT = 2.5 + dc * PK;
   e.st.chill++; e.st.chillT = 3 + dc * PK;
-  effect({ kind: 'shatter', x: e.x, y: e.y, r: 0.5, dur: 0.5, seed: rand() * 6 });
-  if (e.st.chill >= 3) { effect({ kind: 'shatter', x: e.x, y: e.y, r: 1.1, dur: 1.2, seed: rand() * 6 }); e.st.chill = 0; e.st.frozen = (e.D.boss ? 0.6 : e.D.elite ? 1 : 1.5) + dc * 0.3 * PK; float(e.x, e.y, 'Заморожен', '#aee8ff'); bus.emit('sfx', 'freeze'); }
+  if (!quiet && !sheet('hit_ice', e.x, e.y, { z: 0.9 * (e.D.size || 1) })) effect({ kind: 'shatter', x: e.x, y: e.y, r: 0.5, dur: 0.5, seed: rand() * 6 });
+  if (e.st.chill >= 3) { if (!fxReady('st_frozen')) effect({ kind: 'shatter', x: e.x, y: e.y, r: 1.1, dur: 1.2, seed: rand() * 6 }); e.st.chill = 0; e.st.frozen = e.st.frozenMax = (e.D.boss ? 0.6 : e.D.elite ? 1 : 1.5) + dc * 0.3 * PK; float(e.x, e.y, 'Заморожен', '#aee8ff'); bus.emit('sfx', 'freeze'); }
 }
 export function killEnemy(e, o = {}) {
   e.dead = true; e.hp = 0; e.state = 'dead'; e.setAnim('death', 9); e.teleg = null;
   if (e.D.boss || e.D.elite || e.champion) { hitStop(e.D.boss ? 0.16 : 0.1); G.cam.kick(e.D.boss ? 0.6 : 0.35); }
   const S = G.stats;
-  if (e.st.burn > 0 && R('burn_explode')) { const dmg = (10 + 6 * Math.max(1, R('fireball'))) * S.spellPower * S.elem.fire * 0.8 * PK; explosion(e.x, e.y, 2, dmg, 'fire', true, e); }
-  if (e.st.frozen > 0 && R('shatter')) { for (let k = 0; k < 4; k++) { const a = k * Math.PI / 2 + 0.4; spawnProj({ kind: 'shard', x: e.x, y: e.y, vx: Math.cos(a) * 12, vy: Math.sin(a) * 12, owner: 'p', dmg: (9 + 5 * Math.max(1, R('ice_shard'))) * S.spellPower * S.elem.cold * 0.6 * PK, elem: 'cold', range: 5 }); } }
+  if (e.st.burn > 0 && R('burn_explode')) { const dmg = (10 + 6 * Math.max(1, R('fireball'))) * S.spellPower * S.elem.fire * 0.8 * PK; explosion(e.x, e.y, 2, dmg, 'fire', true, e, 'sk_burn_explode'); }
+  if (e.st.frozen > 0 && R('shatter')) { sheet('sk_shatter', e.x, e.y); for (let k = 0; k < 4; k++) { const a = k * Math.PI / 2 + 0.4; spawnProj({ kind: 'shard', x: e.x, y: e.y, vx: Math.cos(a) * 12, vy: Math.sin(a) * 12, owner: 'p', dmg: (9 + 5 * Math.max(1, R('ice_shard'))) * S.spellPower * S.elem.cold * 0.6 * PK, elem: 'cold', range: 5 }); } }
   e.st.frozen = 0; e.st.stun = 0;   // сборка 62: убитый во льду/оглушении стоял статуей навсегда (смерть не проигрывалась, труп не убирался, удары проходили насквозь)
   if (S.effects.bloodShield) G.player.shield = Math.min(S.maxHP * 0.3, G.player.shield + S.maxHP * 0.1);
   if (hasBoon('vitality')) G.player.hp = Math.min(S.maxHP, G.player.hp + S.maxHP * 0.002 * boonN('vitality'));
@@ -144,7 +144,10 @@ export function explosion(x, y, r, dmg, elem, ignite, except, fx) {
   for (const t of G.enemies) { if (t.dead || t === except) continue; if (Math.hypot(t.x - x, t.y - y) < r + t.r) { damageEnemy(t, dmg, { elem, src: 'spell' }); if (ignite && !t.dead) applyIgnite(t, dmg); } }
   bus.emit('sfx', 'boom'); G.cam.kick(0.25);
 }
-export function lightningArc(x1, y1, x2, y2) { effect({ kind: 'bolt', x1, y1, x2, y2, dur: 0.28, seed: rand() * 1000 }); particles(x2, y2, 6, { c: [210, 200, 255], z: 1, sp: 3, size: 2.5, life: 0.35 }); }
+// сборка 66: молния между целями — лист-луч из полного комплекта и вспышка попадания; пока не загрузился — прежняя ломаная линия
+// сборка 66: лист «перескакивает» с одной цели на другую (огонь «Распространения», искра «Перегрузки»)
+export function hop(id, x1, y1, x2, y2) { if (!fxReady(id)) return false; effect({ kind: 'hop', id, x1, y1, x2, y2, dur: fxMeta(id).dur || 0.3 }); return true; }
+export function lightningArc(x1, y1, x2, y2) { if (fxReady('beam_lightning')) { effect({ kind: 'beam', id: 'beam_lightning', x1, y1, x2, y2, dur: 0.28 }); sheet('hit_lightning', x2, y2, { z: 0.5 }); } else effect({ kind: 'bolt', x1, y1, x2, y2, dur: 0.28, seed: rand() * 1000 }); particles(x2, y2, 6, { c: [210, 200, 255], z: 1, sp: 3, size: 2.5, life: 0.35 }); }
 
 // ------------------------------------------------------------------ statuses
 export function tickStatus(e, dt) {
@@ -153,12 +156,12 @@ export function tickStatus(e, dt) {
   if (e.dead) return;
   if (s.burn > 0) {
     s.burn -= dt; s.burnAcc = (s.burnAcc || 0) + s.burnDps * dt; s.burnTick = (s.burnTick || 0) + dt;
-    if (rand() < dt * 8) particles(e.x + rrange(-0.2, 0.2), e.y + rrange(-0.2, 0.2), 1, { c: [255, 130, 40], z: rrange(0.4, 1.4), sp: 0.3, vz: 1.5, g: -1, size: 3, life: 0.5 });
+    if (rand() < dt * (fxReady('st_burning') ? 2 : 8)) particles(e.x + rrange(-0.2, 0.2), e.y + rrange(-0.2, 0.2), 1, { c: [255, 130, 40], z: rrange(0.4, 1.4), sp: 0.3, vz: 1.5, g: -1, size: 3, life: 0.5 });
     if (s.burnTick >= 0.5) {
       s.burnTick = 0; const d = Math.round(s.burnAcc); s.burnAcc = 0;
       if (d > 0) damageEnemy(e, d, { elem: 'fire', src: 'dot', canCrit: false });
       const fs = R('fire_spread');
-      if (fs && !e.dead && (s.spreadT = (s.spreadT || 0) + 0.5) >= 1) { s.spreadT = 0; for (const o of G.enemies) if (o !== e && !o.dead && o.st.burn <= 0 && Math.hypot(o.x - e.x, o.y - e.y) < 2 && rand() < fs * 0.25 * PK) { o.st.burn = s.burn; o.st.burnDps = s.burnDps * 0.8; float(o.x, o.y, 'Поджог', '#ff9a4a'); } }
+      if (fs && !e.dead && (s.spreadT = (s.spreadT || 0) + 0.5) >= 1) { s.spreadT = 0; for (const o of G.enemies) if (o !== e && !o.dead && o.st.burn <= 0 && Math.hypot(o.x - e.x, o.y - e.y) < 2 && rand() < fs * 0.25 * PK) { o.st.burn = s.burn; o.st.burnDps = s.burnDps * 0.8; hop('sk_fire_jump', e.x, e.y, o.x, o.y); float(o.x, o.y, 'Поджог', '#ff9a4a'); } }
     }
     if (s.burn <= 0) s.burnDps = 0;
   }
@@ -315,7 +318,7 @@ export function castSkill(id, aim) {
     case 'fireball': fire = () => { spawnProj({ kind: 'fireball', x: P.x, y: P.y, vx: Math.cos(ang) * 11, vy: Math.sin(ang) * 11, owner: 'p', dmg: (7 + r * 4) * sp * S.elem.fire, elem: 'fire', range: 9, aoe: 1.4, ignite: true }); bus.emit('sfx', 'fire'); }; break;
     case 'ice_shard': fire = () => { spawnProj({ kind: 'shard', x: P.x, y: P.y, vx: Math.cos(ang) * 15, vy: Math.sin(ang) * 15, owner: 'p', dmg: (6 + r * 3) * sp * S.elem.cold, elem: 'cold', range: 9, chill: true }); bus.emit('sfx', 'ice'); }; dur = 0.42; break;
     case 'chain': fire = () => { chainLightning(P, tgt, (8 + r * 4) * sp * S.elem.light, 2 + (r >> 1)); }; dur = 0.45; break;
-    case 'thunder': fire = () => { effect({ kind: 'ring', x: P.x, y: P.y, r: 5, dur: 0.5, c: [190, 170, 255] }); setTimeoutGame(0.4, () => { const d = (8 + Math.max(1, R('chain')) * 4) * sp * S.elem.light * 2; for (const e of G.enemies) if (!e.dead && Math.hypot(e.x - G.player.x, e.y - G.player.y) < 5) { lightningArc(e.x - 0.8, e.y - 3, e.x, e.y); damageEnemy(e, d, { elem: 'light', src: 'spell' }); shock(e); } G.cam.kick(0.5); bus.emit('sfx', 'thunder'); }); }; dur = 0.55; break;
+    case 'thunder': fire = () => { if (!sheet('sk_thunder_charge', P.x, P.y, { size: 10.5 })) effect({ kind: 'ring', x: P.x, y: P.y, r: 5, dur: 0.5, c: [190, 170, 255] }); setTimeoutGame(0.4, () => { const d = (8 + Math.max(1, R('chain')) * 4) * sp * S.elem.light * 2; for (const e of G.enemies) if (!e.dead && Math.hypot(e.x - G.player.x, e.y - G.player.y) < 5) { if (!sheet('sk_thunder_strike', e.x, e.y, { size: 2.5 * (e.D.size || 1) })) lightningArc(e.x - 0.8, e.y - 3, e.x, e.y); damageEnemy(e, d, { elem: 'light', src: 'spell' }); shock(e); } G.cam.kick(0.5); bus.emit('sfx', 'thunder'); }); }; dur = 0.55; break;
     case 'whirlwind': {
       const wt = P.weaponType(); clip = wt === 'greatsword' ? 'sweep2' : 'slash2'; dur = 0.5; impact = 0.5;
       fire = () => { if (!sheet('sk_whirlwind', P.x, P.y, { size: 5.2 })) effect({ kind: 'ring', x: P.x, y: P.y, r: 2.2, dur: 0.35, c: [255, 235, 200] }); for (const e of G.enemies) if (!e.dead && Math.hypot(e.x - P.x, e.y - P.y) < 2.2 + e.r) damageEnemy(e, rollWeapon(S) * (1.4 + r * 0.2), { src: 'melee', knock: 1.2, kx: P.x, ky: P.y, pierce: WEAPONS[wt].pierce || 0 }); bus.emit('sfx', 'whirl'); G.cam.kick(0.2); };
@@ -341,15 +344,15 @@ export function castSkill(id, aim) {
     case 'meteor': {
       const tp = tgt ? { x: tgt.x, y: tgt.y } : aim ? aim : { x: P.x + Math.cos(ang) * 6, y: P.y + Math.sin(ang) * 6 };
       dur = 0.55;
-      fire = () => { effect({ kind: 'meteor', x: tp.x, y: tp.y, r: 2.2, dur: 0.75 }); bus.emit('sfx', 'fire');
-        setTimeoutGame(0.75, () => { const d = (22 + r * 10) * sp * S.elem.fire; explosion(tp.x, tp.y, 2.3, d, 'fire', true); G.cam.kick(0.6); effect({ kind: 'firepool', x: tp.x, y: tp.y, r: 2, dur: 3 });
+      fire = () => { if (sheet('sk_meteor_target', tp.x, tp.y, { size: 5 })) sheet('sk_meteor_fall', tp.x, tp.y, { size: 4 }); else effect({ kind: 'meteor', x: tp.x, y: tp.y, r: 2.2, dur: 0.75 }); bus.emit('sfx', 'fire');
+        setTimeoutGame(0.75, () => { const d = (22 + r * 10) * sp * S.elem.fire; explosion(tp.x, tp.y, 2.3, d, 'fire', true, null, 'sk_meteor_impact'); G.cam.kick(0.6); burningGround(tp.x, tp.y, 2, 3);
           for (let k = 1; k <= 6; k++) setTimeoutGame(k * 0.5, () => { for (const e of G.enemies) if (!e.dead && Math.hypot(e.x - tp.x, e.y - tp.y) < 2 + e.r) damageEnemy(e, d * 0.12, { elem: 'fire', src: 'dot', canCrit: false, quiet: true }); }); }); };
       break;
     }
     case 'frost_nova': {
       dur = 0.45; impact = 0.5;
-      fire = () => { effect({ kind: 'ring', x: P.x, y: P.y, r: 3.6, dur: 0.5, c: [150, 225, 255] }); effect({ kind: 'frost', x: P.x, y: P.y, r: 3.6, dur: 2.5 }); bus.emit('sfx', 'freeze');
-        for (let i = 0; i < 6; i++) { const a = i / 6 * 6.283; effect({ kind: 'shatter', x: P.x + Math.cos(a) * 2.2, y: P.y + Math.sin(a) * 2.2, r: 0.8, dur: 1, seed: a }); }
+      fire = () => { if (!sheet('sk_frost_nova_ring', P.x, P.y, { size: 7.6 })) effect({ kind: 'ring', x: P.x, y: P.y, r: 3.6, dur: 0.5, c: [150, 225, 255] }); effect({ kind: 'frost', x: P.x, y: P.y, r: 3.6, dur: 2.5 }); bus.emit('sfx', 'freeze');
+        for (let i = 0; i < 6; i++) { const a = i / 6 * 6.283, x = P.x + Math.cos(a) * 2.2, y = P.y + Math.sin(a) * 2.2; if (!sheet('sk_frost_nova_spikes', x, y)) effect({ kind: 'shatter', x, y, r: 0.8, dur: 1, seed: a }); }
         for (const e of G.enemies) if (!e.dead && Math.hypot(e.x - P.x, e.y - P.y) < 3.6 + e.r) { damageEnemy(e, (8 + r * 4) * sp * S.elem.cold, { elem: 'cold', src: 'spell' }); if (!e.dead) { applyChill(e); applyChill(e); } } };
       break;
     }
@@ -415,7 +418,7 @@ export function updateProjectiles(dt) {
           p.hit.add(e);
           if (p.aoe) { explosion(p.x, p.y, p.aoe, p.dmg, p.elem, p.ignite); p.dead = true; break; }
           damageEnemy(e, p.dmg, { elem: p.elem === 'magic' ? 'phys' : p.elem, src: p.src || 'spell', pierce: p.elem === 'magic' ? 1 : 0 }); projHitFx(p, e.x, e.y, 0.9 * (e.D.size || 1));
-          if (p.chill && !e.dead) applyChill(e);
+          if (p.chill && !e.dead) applyChill(e, true);
           if (p.petSlow && !e.dead) { const s = e.st, k = e.D.boss ? 0.5 : 1; s.slow = Math.min(0.32 * k, (s.slowT > 0 ? s.slow : 0) + 0.08 * k); s.slowT = 1.5; }   // правки 3: ледяная стрела костяного пса — замедление копится понемногу
           if (p.explosive && rand() < 0.25 * PK) explosion(p.x, p.y, 1.8, p.dmg * 0.7, 'fire', false, null, 'sk_explosive_arrow');
           if ((p.pierce || 0) > 0) { p.pierce--; continue; }
@@ -430,11 +433,11 @@ export function updateProjectiles(dt) {
 }
 // сборка 61: снаряды и попадания — листы GPT. Снаряд врага — по его краю (стрела скелета костяная, браконьера — с оперением леса)
 export function projSheetOf(p) {
-  if (p.owner === 'p') return p.src === 'pet' ? null : { arrow: 'proj_arrow', bolt: 'proj_star_bolt', fireball: 'proj_fireball', pierce: 'proj_pierce_shot' }[p.kind] || null;
+  if (p.owner === 'p') return p.src === 'pet' ? null : { arrow: 'proj_arrow', bolt: 'proj_star_bolt', fireball: 'proj_fireball', pierce: 'proj_pierce_shot', shard: 'proj_ice_shard' }[p.kind] || null;
   const realm = p.src && p.src.D && p.src.D.realm;
   return { arrow: realm === 'forest' ? 'fr_poacher_arrow' : realm ? null : 'ct_bone_arrow', darkbolt: 'ct_darkbolt', rock: 'tm_rock_throw', bone: 'bn_bone_javelin', shard: 'fj_icicle' }[p.kind] || null;
 }
-const PROJ_HIT = { proj_arrow: 'hit_arrow', proj_star_bolt: 'hit_star_bolt', proj_pierce_shot: 'hit_pierce_shot', fr_poacher_arrow: 'fr_arrow_hit', ct_bone_arrow: 'hit_arrow', ct_darkbolt: 'ct_darkbolt_hit', tm_rock_throw: 'tm_rock_impact', fj_icicle: 'fj_icicle_hit' };
+const PROJ_HIT = { proj_ice_shard: 'hit_ice', proj_arrow: 'hit_arrow', proj_star_bolt: 'hit_star_bolt', proj_pierce_shot: 'hit_pierce_shot', fr_poacher_arrow: 'fr_arrow_hit', ct_bone_arrow: 'hit_arrow', ct_darkbolt: 'ct_darkbolt_hit', tm_rock_throw: 'tm_rock_impact', fj_icicle: 'fj_icicle_hit' };
 function projHitFx(p, x, y, z = 0.9) { const h = PROJ_HIT[projSheetOf(p)]; return !!h && sheet(h, x, y, { z: z * 0.6, ex: x - p.vx, ey: y - p.vy }); }
 function projEnd(p, wall) {
   p.dead = true;
@@ -512,7 +515,20 @@ export function preloadMobFx() {
     if (F && F.tele) Object.values(F.tele).forEach(fxReady);
     if (e.D.proj) { const s = projSheetOf({ owner: 'e', kind: e.D.proj, src: e }); if (s) { fxReady(s); fxReady(PROJ_HIT[s] || s); } } }
 }
-bus.on('zoneEntered', () => preloadMobFx());
+// сборка 66: листы полного комплекта под навыки героя — держать в памяти только выученные (render/fxsheets.js fxKeep)
+const SKILL_FX = {
+  fireball: ['st_burning'], ignite_plus: ['st_burning'], fire_spread: ['st_burning', 'sk_fire_jump'], burn_explode: ['sk_burn_explode'],
+  meteor: ['sk_meteor_', 'gr_burning_ground'], ice_shard: ['proj_ice_shard', 'hit_ice', 'st_chill', 'st_frozen'], deep_cold: ['st_chill'],
+  ice_armor: ['st_ice_armor', 'hit_ice'], shatter: ['sk_shatter'], frost_nova: ['sk_frost_nova_', 'gr_frost', 'hit_ice', 'st_chill', 'st_frozen'],
+  chain: ['beam_lightning', 'hit_lightning'], conduct: ['st_shock'], overload: ['sk_overload_spark'], thunder: ['sk_thunder_'],
+};
+export function preloadSkillFx() { const ids = new Set(); for (const [k, v] of Object.entries(SKILL_FX)) if (R(k) > 0) v.forEach(i => ids.add(i)); fxKeep([...ids]); }
+// горящая земля после метеора: лист круга огня и языки пламени по краю (пока листы не загрузились — прежнее пятно)
+function burningGround(x, y, r, t) {
+  if (!sheet('gr_burning_ground', x, y, { size: r * 2.25, dur: t, cyc: 0.8, fade: true })) { effect({ kind: 'firepool', x, y, r, dur: t }); return; }
+  for (let i = 0; i < 6; i++) { const a = i / 6 * 6.283 + rand() * 0.4; sheet('gr_burning_ground_flames', x + Math.cos(a) * r * 0.8, y + Math.sin(a) * r * 0.8, { dur: t, cyc: 0.6 + rand() * 0.2, fade: true }); }
+}
+bus.on('zoneEntered', () => { preloadMobFx(); if (G.profile) preloadSkillFx(); });
 export const mobRageFx = e => (e.enraged && ATK_FX[e.type] && ATK_FX[e.type].rage) || null;
 function mobAtkFx(e, kind, tg) {
   const id = atkFxId(e, kind); if (!id) return false;
@@ -612,7 +628,7 @@ export function enemyHitsPlayer(e, mult, elem) {
   if (e.D.boss || e.D.elite) hitStop(e.D.boss ? 0.07 : 0.05);
   // ice armor / thorns react to melee attackers
   if (Math.hypot(P.x - e.x, P.y - e.y) < 3) {
-    if (R('ice_armor') && !e.dead && rand() < PK) applyChill(e);
+    if (R('ice_armor') && !e.dead && rand() < PK) { sheet('st_ice_armor', P.x, P.y, { z: 0.2, ex: e.x, ey: e.y }); applyChill(e); }
     if (G.stats.effects.thorns && !e.dead) damageEnemy(e, e.D.dmg[1] * e.dmgMul * 0.3, { canCrit: false, quiet: false, src: 'thorns' });
   }
 }

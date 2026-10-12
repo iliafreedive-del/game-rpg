@@ -129,7 +129,7 @@ export function makeBattle(hero, foes, rnd = Math.random) {
     if (u === H && PT && H.pet.dmg > 0) { const L = alive(), v = L.length ? L[rnd() * L.length | 0] : null; if (v) { if (PT.act && !PT.act.hit) petHit(PT.act.tgt); PT.act = { t: 0, dur: 0.5, tgt: v, hit: false }; } }   // правки 3: питомец бьёт вместе с героем (П4-3: удар — когда долетит)
     if (u === H && a.skill) {
       if (SK.fx === 'smash') { damage(H, t, SK.mul, { sure: true, big: 1 }); splash(H, t, SK.R, SK.splash); ev.push({ k: 'boom', x: t.x, z: t.z, c: 'gold' }); }
-      else if (SK.fx === 'volley') { const L = alive(); for (let i = 0; i < SK.n; i++) { const v = L[(i + (rnd() * L.length | 0)) % L.length]; B.projs.push({ k: SK.proj || 'arrow', src: u, tgt: v, x: u.x, z: u.z, t: -i * 0.12, d: 0.42, mul: SK.mul }); } }
+      else if (SK.fx === 'volley') { const L = alive(); for (let i = 0; i < SK.n; i++) { const v = L[(i + (rnd() * L.length | 0)) % L.length]; B.projs.push({ k: SK.proj || 'arrow', src: u, tgt: v, x: u.x, z: u.z, t: -i * 0.12, d: 0.42, mul: SK.mul }); } if (!SK.proj && L[0]) ev.push({ k: 'volley', u, dir: L[0].x < u.x ? -1 : 1 }); }   // сборка 66: вспышка залпа у лука (hw_volley)
       else B.projs.push({ k: SK.proj || 'fireball', src: u, tgt: t, x: u.x, z: u.z, t: 0, d: 0.55, mul: SK.mul, aoe: SK.aoe, amul: SK.amul });   // правки 3: сила заклинаний уже в уроне мага (HW_MAGE_K)
       return;
     }
