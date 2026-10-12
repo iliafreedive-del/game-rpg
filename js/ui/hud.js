@@ -66,12 +66,14 @@ export function initHUD() {
     const map = { KeyI: 'inventory', KeyB: 'inventory', KeyC: 'character', KeyK: 'skills', KeyJ: 'journal', KeyM: 'map', Escape: 'settings' };
     if (map[code]) return openWindow(map[code]);
     if (code.startsWith('Digit')) { const i = +code.slice(5) - 1; if (i >= 0 && i < 4 && G.profile.slots[i]) { const recent = performance.now() - mouse.t < 4000; C.castSkill(G.profile.slots[i], recent ? (([x, y]) => ({ x, y }))(G.cam.toWorld(mouse.x, mouse.y + 20)) : undefined); } }
-    if (code === 'KeyQ') usePotion('hp'); if (code === 'KeyE') usePotion('mp');
+    // правки 5: E — взаимодействовать (двери, разговор, сундуки, порталы), R и F — зелья здоровья и маны, 1–4 — умения
+    if (code === 'KeyR') pot('hp'); if (code === 'KeyF') pot('mp');
     if (code === 'ShiftLeft' || code === 'ShiftRight') G.player.dodge(input.wx, input.wy);
-    if (code === 'KeyF' || code === 'Enter') { if (G.focus) interact(G.focus); }
+    if (code === 'KeyE' || code === 'Enter') { if (G.focus) interact(G.focus); }
     if (code === 'KeyT') useScroll();
   };
   drawIcon($('potHP').querySelector('canvas'), 'potion_hp'); drawIcon($('potMP').querySelector('canvas'), 'potion_mp');
+  for (const [id, k] of [['potHP', 'R'], ['potMP', 'F'], ['btnAct', 'E'], ['btnDodge', '⇧']]) { const b = $(id); if (b) b.dataset.kb = k; }   // правки 5: клавиша на кнопке (видна только на ПК, style.css .kb / [data-kb])
   withArt(ART.item('scroll'), im => { const b = $('btnScroll'), sv = b.querySelector('svg'); if (sv) sv.replaceWith(Object.assign(im.cloneNode(), { className: 'art-scroll', alt: '' })); });   // сборка 58: нарисованный свиток вместо контура
   const cl = G.profile.cls || 'warrior'; $('portrait').style.backgroundImage = `url(assets/sprites/${cl === 'warrior' ? 'portrait' : 'portrait_' + cl}.png)`;
   bus.on('hud', () => { lastHud = 0; });
@@ -109,7 +111,7 @@ function refreshSkills() {
     if (!id || !G.profile.skills[id]) { b.classList.add('empty'); b.innerHTML = '<span style="font:bold 20px serif;color:#8a7a5a">+</span>'; b.title = 'Пустая ячейка — откройте навыки'; continue; }
     b.classList.remove('empty'); b.title = SKILLS[id].name;
     const c = document.createElement('canvas'); c.width = c.height = 72; skillIcon(c, id); b.appendChild(c);
-    b.appendChild(el('div', 'cd')); b.appendChild(el('span', 'mana', SKILLS[id].mana));
+    b.appendChild(el('div', 'cd')); b.appendChild(el('span', 'mana', SKILLS[id].mana)); b.appendChild(el('span', 'kb', String(i + 1)));   // правки 5: на ПК — цифра клавиши умения
   }
 }
 

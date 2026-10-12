@@ -73,6 +73,7 @@ async function boot() {
     track(fresh ? 'start_new' : 'start_continue', { cls: p.cls });
     if (!fresh && !p.tutorial.un) unlockAll();   // старые сохранения (до обучения кнопками): все кнопки боя открыты. Сборка 59: раньше — при любой перезагрузке, и посреди обучения разом появлялись все кнопки
     const crypt = !fresh && !p.tutorial.prologue;   // сборка 59: перезагрузка посреди пролога — снова в склеп, а не в деревню без пролога
+    G.heroHidden = fresh;   // правки 5: новая игра — облёт деревни без героя: он «стоял слева от площади», хотя просыпается в склепе
     await loadZone(crypt ? 'depths' : 'town', crypt ? { floor: 0 } : undefined);
     $('title').remove(); startMusic('town');
     bus.on('zoneEntered', z => startMusic(z));
@@ -90,6 +91,7 @@ async function boot() {
       if (p.tutorial.on === undefined) p.tutorial.on = true;   // сборка 49: без вопроса «Показать подсказки?» — сразу в игру; выключить можно в «Справке»
       await cinema(introShots());
       await loadZone('depths', { floor: 0 });
+      G.heroHidden = false;
       intro();
     }
   };
@@ -106,7 +108,7 @@ async function boot() {
     const n = el('button', 'btn gold', 'Начать игру'); n.onclick = newGame; btns.append(n);
   }
   btns.appendChild(el('div', 'muted', `<small>Версия: ${BUILD}</small>`));
-  btns.appendChild(el('div', 'muted ctl-tip', '<small>Телефон: ведите пальцем в любом месте экрана — герой пойдёт; коснитесь врага или сундука — побежит к нему; рывок и зелья справа · ПК: WASD, Shift — рывок</small>'));
+  btns.appendChild(el('div', 'muted ctl-tip', '<small>Телефон: ведите пальцем в любом месте экрана — герой пойдёт; коснитесь врага или сундука — побежит к нему; рывок и зелья справа · ПК: WASD, E — действие, R/F — зелья, 1–4 — умения, Shift — рывок</small>'));
   if (G.webglFail) btns.appendChild(el('div', 'muted', '<small>' + esc('3D-графика недоступна на этом устройстве — игра в 2D. Причина: ') + esc(G.webglFail) + '</small>'));   // П42
 }
 

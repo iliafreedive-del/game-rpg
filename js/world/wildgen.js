@@ -16,6 +16,7 @@ const GIANT_FOOT = {
   giant_spine: { r: 4.6, boxes: [[-4.0, -0.7, 4.0, 0.7]] },
   tusk_arch: { r: 3.4, boxes: [[-2.6, -0.5, -1.6, 0.5], [1.6, -0.5, 2.6, 0.5]] },
   giant_fallen: { r: 4.4, boxes: [[-3.2, -1.4, 1.2, 1.2], [1.2, -0.3, 3.0, 2.0]] },
+  fj_longship: { r: 3.6, boxes: [[-3.5, -1.0, 3.5, 1.0]] }, fj_boat: { r: 1.9, boxes: [[-1.7, -0.7, 1.7, 0.7]] }, fj_runestone: { r: 0.8, boxes: [[-0.45, -0.2, 0.45, 0.2]] },   // правки 5: Фьорды
 };
 // какие скелеты чаще на каком поле (варианты 0–5): степь, долина черепов, балки, хребет великана, курганы, руины
 const GIANTS_BY_VARIANT = [['giant_skull', 'tusk_arch', 'giant_ribs'], ['giant_skull', 'giant_skull', 'giant_fallen'], ['tusk_arch', 'giant_spine', 'giant_skull'], ['giant_ribs', 'giant_spine', 'giant_fallen'], ['giant_fallen', 'giant_skull', 'giant_ribs'], ['giant_ribs', 'giant_skull']];   // масштабный лагерь: стены, башни, ворота, длинный дом, шатры
@@ -247,16 +248,28 @@ function build(RL, mood, depth, boss, seed, attempt, force) {
   }
 
   // --- Костяные пустоши: скелеты великанов-ориентиры (1–3 на поле), коллайдеры по следу модели с учётом поворота
+  const boxesAt = (t, x, y, rot) => GIANT_FOOT[t].boxes.map(([x0, y0, x1, y1]) => { const c = Math.cos(rot), s = Math.sin(rot), P = [[x0, y0], [x1, y0], [x0, y1], [x1, y1]].map(([lx, lz]) => [x + lx * c + lz * s, y - lx * s + lz * c]); return [Math.min(...P.map(p => p[0])), Math.min(...P.map(p => p[1])), Math.max(...P.map(p => p[0])), Math.max(...P.map(p => p[1]))]; });
+  const boxFree = b => { for (let ty = Math.floor(b[1]) - 1; ty <= Math.floor(b[3]) + 1; ty++) for (let tx = Math.floor(b[0]) - 1; tx <= Math.floor(b[2]) + 1; tx++) { if (at(tx, ty) !== '.' || inFort(tx, ty, 2) || prot[ty * W + tx]) return false; } return true; };
   if (bn) {
     const list = GIANTS_BY_VARIANT[variant], nG = isFort ? 1 : 2 + (R() < 0.5 ? 1 : 0);
-    const boxesAt = (t, x, y, rot) => GIANT_FOOT[t].boxes.map(([x0, y0, x1, y1]) => { const c = Math.cos(rot), s = Math.sin(rot), P = [[x0, y0], [x1, y0], [x0, y1], [x1, y1]].map(([lx, lz]) => [x + lx * c + lz * s, y - lx * s + lz * c]); return [Math.min(...P.map(p => p[0])), Math.min(...P.map(p => p[1])), Math.max(...P.map(p => p[0])), Math.max(...P.map(p => p[1]))]; });
-    const boxFree = b => { for (let ty = Math.floor(b[1]) - 1; ty <= Math.floor(b[3]) + 1; ty++) for (let tx = Math.floor(b[0]) - 1; tx <= Math.floor(b[2]) + 1; tx++) { if (at(tx, ty) !== '.' || inFort(tx, ty, 2) || prot[ty * W + tx]) return false; } return true; };
     for (let k = 0, got = 0; k < 80 && got < nG; k++) {
       const t = list[(got + k) % list.length], F = GIANT_FOOT[t], rot = R() < 0.5 ? 0 : Math.PI / 2;
       const p = pick((x, y) => dist(x, y, start[0], start[1]) > 9 + F.r && dist(x, y, exit[0], exit[1]) > 5 + F.r && !near(x, y, F.r + 3) && free(x, y, 1));
       if (!p) continue; const boxes = boxesAt(t, p[0], p[1], rot); if (!boxes.every(boxFree)) continue;
       got++; placed.push([p[0], p[1], F.r + 1]); objects.push({ t, x: p[0], y: p[1], rot, boxes });
       for (let j = 0; j < 4; j++) { const a = R() * 6.28, d = F.r + 0.6 + R() * 1.5; objects.push({ t: j % 2 ? 'skulls' : 'bones', x: p[0] + Math.cos(a) * d, y: p[1] + Math.sin(a) * d, deco: 1 }); }   // кости вокруг
+    }
+  }
+  // правки 5: Фьорды — «совсем там мало всего»: разбитые драккары с рваным полосатым парусом, перевёрнутые лодки, рунные камни
+  if (realm === 'fjord') {
+    const want = [['fj_longship', isFort ? 1 : 2 + (R() < 0.4 ? 1 : 0)], ['fj_boat', 2], ['fj_runestone', 3]];
+    const rimAt = (x, y, r) => { for (let a = 0; a < 8; a++) { const tx = Math.floor(x + Math.cos(a * 0.785) * r), ty = Math.floor(y + Math.sin(a * 0.785) * r); if (at(tx, ty) === 'v') return true; } return false; };   // драккары и лодки — у кромки над бездной, если не нашлось места — где получится
+    const boxIn = b => { for (let ty = Math.floor(b[1]); ty <= Math.floor(b[3]); ty++) for (let tx = Math.floor(b[0]); tx <= Math.floor(b[2]); tx++) { if (at(tx, ty) !== '.' || inFort(tx, ty, 2) || prot[ty * W + tx]) return false; } return true; };   // без запаса в клетку: островки узкие
+    for (const [t, n] of want) for (let k = 0, got = 0; k < 200 && got < n; k++) {
+      const F = GIANT_FOOT[t], rot = [0, Math.PI / 2, Math.PI, -Math.PI / 2][ri(0, 3)];
+      const p = pick((x, y) => dist(x, y, start[0], start[1]) > 7 + F.r && dist(x, y, exit[0], exit[1]) > 5 + F.r && !near(x, y, F.r + 2) && free(x, y, 1) && (t === 'fj_runestone' || k > 140 || rimAt(x, y, F.r + 2.5)));
+      if (!p) continue; const boxes = boxesAt(t, p[0], p[1], rot); if (!boxes.every(boxIn)) continue;
+      got++; placed.push([p[0], p[1], F.r + 1]); objects.push({ t, x: p[0], y: p[1], rot, boxes });
     }
   }
 
@@ -342,7 +355,7 @@ function build(RL, mood, depth, boss, seed, attempt, force) {
   let nF = 0; const CAMP_CLEAR = 5;   // вокруг лагеря — пусто: мобов видно, есть где драться
   for (let i = 0; i < nFlora * 2; i++) {
     const p = pick((x, y) => !inFort(x, y, 1) && !portalView(x, y) && free(x, y, 0) && !near(x, y, 3.5) && !prot[Math.floor(y) * W + Math.floor(x)] && !campPts.some(c => dist(x, y, c[0], c[1]) < CAMP_CLEAR) && !(miniAt && dist(x, y, miniAt[0], miniAt[1]) < CAMP_CLEAR));
-    if (p) { const t = flora[ri(0, flora.length - 1)]; if (t === 'sand_mesa' && !free(p[0], p[1], 2)) continue; placed.push([p[0], p[1], t === 'sand_mesa' ? 3.6 : 3.5]); objects.push({ t, x: p[0], y: p[1] }); if (++nF >= nFlora) break; }
+    if (p) { const t = flora[ri(0, flora.length - 1)]; if (t === 'sand_mesa' && !free(p[0], p[1], 2)) continue; placed.push([p[0], p[1], t === 'sand_mesa' ? 3.6 : 3.5]); objects.push(bn && (t === 'deadtree' || t === 'agave') ? { t, x: p[0], y: p[1], nocol: 1 } : { t, x: p[0], y: p[1] }); if (++nF >= nFlora) break; }   // правки 5: сухие кусты и агавы пустошей — сквозь них можно пройти (игрок в них упирался)
   }
   for (let i = 0; i < (bn ? 16 : 8); i++) { const p = pick((x, y) => free(x, y, 0)); if (p) objects.push({ t: realm === 'fjord' ? 'skulls' : bn && i % 3 === 0 ? 'skulls' : 'bones', x: p[0], y: p[1], deco: 1 }); }
   // П55: кромка над бездной не лысая — у ближнего к камере обрыва низкий декор без коллайдера (кусты, папоротник, камешки)

@@ -10,7 +10,9 @@ export function chest(kit, def, { open = false, rich = false } = {}) {
   else {
     for (const z of [-1, 1]) L.push(bbox(W, 0.45, T, 0.015, WD, [0, 0.225, z * (D - T) / 2], 0, { top: WDL, tex: 'woodH' }));
     for (const x of [-1, 1]) L.push(bbox(T, 0.45, D, 0.015, WD, [x * (W - T) / 2, 0.225, 0], 0, { top: WDL, tex: 'woodH' }));
-    L.push(...chestInside(THREE, part, { w: W - 2 * T, d: D - 2 * T, y0: 0.2, y1: 0.43, rich, gem: PAL.abyss }));
+    // правки 5: тёмная полость стояла вплотную к доскам стенок (общая плоскость) — у открытого сундука «дрожала» текстура внутри, когда герой ходит рядом.
+    // Полость на 2 см уже проёма: плоскости больше не совпадают
+    L.push(...chestInside(THREE, part, { w: W - 2 * T - 0.04, d: D - 2 * T - 0.04, y0: 0.2, y1: 0.43, rich, gem: PAL.abyss }));
   }
   for (const x of [-W * 0.32, W * 0.32]) {
     if (!open) L.push(bbox(0.08, 0.47, D + 0.02, 0.01, BAND, [x, 0.235, 0], 0, { top: BANDL, tex: 'gold' }));
@@ -46,6 +48,6 @@ export function chestInside(THREE, part, { w, d, y0, y1, rich = false, gem = 0x9
   L.push(part(new THREE.OctahedronGeometry(r * 1.15, 0), rich ? gem : 0xe0303a, [-0.4 * w / 2, top, -0.05 * d], [0.4, 0.3, 0], [1, 1.3, 1], { emit: true }),
     part(new THREE.OctahedronGeometry(r * 0.9, 0), rich ? 0x60e0a0 : 0x40a0ff, [0.55 * w / 2, top - hh * 0.3, 0.05 * d], [0.2, 0.8, 0.3], 1, { emit: true }),
     part(new THREE.CylinderGeometry(r * 0.9, r * 0.6, r * 2.3, 7), GOLD, [0.05 * w / 2, top + r * 0.9, -0.2 * d / 2], [0.25, 0, -0.2], 1, { top: 0xfff0a0 }));   // кубок
-  if (trim) for (const z of [-1, 1]) L.push(part(new THREE.BoxGeometry(w, h * 0.06, 0.012), 0xc8921c, [0, y1 - h * 0.06, z * (d / 2 - 0.012)], 0, 1, { top: 0xffe070, tex: 'gold' }));   // узорная кайма по кромке изнутри
+  if (trim) for (const z of [-1, 1]) L.push(part(new THREE.BoxGeometry(w - 0.04, h * 0.06, 0.012), 0xc8921c, [0, y1 - h * 0.06, z * (d / 2 - 0.022)], 0, 1, { top: 0xffe070, tex: 'gold' }));   // правки 5: с зазором от стенки полости (не в одной плоскости)   // узорная кайма по кромке изнутри
   return L;
 }

@@ -32,7 +32,7 @@ export class GroundDecals {
 
 // сборка 66: «объёмные» листы, что стоят на земле (шипы новы, языки пламени, взрывы, удары мобов), — щитами к камере в 3D-сцене:
 // стоящее за героем прячется за ним. Щит сдвинут к камере на NUDGE м (экранное место то же): эффект в точке героя не уходит ему за спину.
-const NUDGE = 0.6, POOL = 32;
+const NUDGE = 0.6, POOL = 32, _toCam = new THREE.Vector3(), _up = new THREE.Vector3();
 export class FxBillboards {
   constructor(scene) {
     this.scene = scene; this.pool = []; this.base = new Map();   // картинка листа -> текстура (копии на щитах делят её в видеопамяти)

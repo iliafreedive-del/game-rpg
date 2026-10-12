@@ -25,6 +25,7 @@ const PLACE = { catacombs: 'Катакомбы', castle: 'Цитадель', sur
 export const placeName = () => G.zoneId === 'depths' && G.run ? (G.run.floor ? `Глубины, этаж ${G.run.floor}` : 'Глубины') : G.zoneId === 'wild' && G.wild ? `Поход, глубина ${G.wild.depth || 1}` : PLACE[G.zoneId] || '';
 export const stamp = (item, who, extra) => { if (item && !item.from) item.from = { who, where: placeName(), t: Date.now(), ...extra }; return item; };
 export function dropItem(x, y, item) {
+  if (G.zoneId === 'depths' && G.run && G.run.floor === 0) return;   // правки 5: в склепе пробуждения вещи не падают — первое оружие дарит староста
   const a = rand() * Math.PI * 2, r = 0.4 + rand() * 0.8;
   let px = x + Math.cos(a) * r, py = y + Math.sin(a) * r;
   if (!G.zone.map.free(px, py, 0.1)) { px = x; py = y; }

@@ -265,6 +265,7 @@ function drawTrail(P) {   // afterimages of the dodge roll
   ctx.filter = 'none'; ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
 }
 function drawHero(P, x, y, ghost) {
+  if (G.heroHidden) return;   // правки 5: облёт деревни перед прологом — героя в деревне не видно
   if (!ghost) drawTrail(P);
   if (!ghost && G.surv) { const z = G.cam.zoom; ctx.save(); ctx.translate(x, y); ctx.scale(1, 0.5); ctx.strokeStyle = 'rgba(255,215,90,0.9)'; ctx.lineWidth = 3; ctx.shadowColor = '#ffd24a'; ctx.shadowBlur = 10; ctx.beginPath(); ctx.arc(0, 0, 30 * z, 0, 7); ctx.stroke(); ctx.restore(); }
   const f = `${P.anim.clip}_${P.dir}_${P.anim.frame}`;
@@ -593,7 +594,7 @@ function drawBars() {
   for (const e of G.enemies) {
     if (e.dead || e.D.boss) continue;
     const show = e.hp < e.maxHP || e.D.elite || e.champion;
-    const [x, y] = cam.toScreen(e.x, e.y, e.D.mini ? 1.9 * (e.D.scale || 1) + 0.3 : e.D.elite ? 2.6 : 2.05); const w = (e.D.elite || e.champion ? 60 : 38) * Math.min(1.2, z);
+    const [x, y] = cam.toScreen(e.x, e.y, (cam.proj ? 1.15 : 1) * (e.D.mini ? 1.9 * (e.D.scale || 1) + 0.3 : e.D.elite ? 2.6 : 2.05))   /* правки 5: в 3D мобы на 15% выше — полоска тоже */; const w = (e.D.elite || e.champion ? 60 : 38) * Math.min(1.2, z);
     lvlTag(e, x - w / 2 - 3, y + 4, z);   // правки 3: уровень у каждого моба, цвет — насколько он сильнее героя
     if (!show) continue;
     ctx.fillStyle = 'rgba(0,0,0,0.7)'; ctx.fillRect(x - w / 2 - 1, y - 1, w + 2, 6);
@@ -656,11 +657,11 @@ function drawInteractMarker() {
 }
 
 // quest guide: a golden arrow on the ground pointing toward the current objective
-function drawGuide() { drawMoveTo(); drawArrow(G.guide, 'gv', '255,210,90'); drawBeacon(G.guide); if (G.huntGuide && G.huntGuide !== G.guide) drawArrow(G.huntGuide, 'hgv', '255,70,50', 0.27); }
+function drawGuide() { if (G.heroHidden) return; drawMoveTo(); drawArrow(G.guide, 'gv', '255,210,90'); drawBeacon(G.guide); if (G.huntGuide && G.huntGuide !== G.guide) drawArrow(G.huntGuide, 'hgv', '255,70,50', 0.27); }
 // сборка 60 (П1): стрелка у героя гаснет за 4 м до цели, и саркофаг с ключом пробегали мимо (рядом стоит сундук поярче).
 // Теперь над целью задания в подземелье прыгает золотой указатель «▼», а под ней пульсирует кольцо — видно, что открыть надо именно это
 function drawBeacon(t) {
-  const P = G.player; if (!t || !P || P.dead || t.type === 'portal' || t.type === 'npc' || G.zoneId !== 'catacombs' || t.done || !G.zone.inter.includes(t)) return;
+  const P = G.player; if (!t || !P || P.dead || t.type === 'portal' || t.type === 'npc' || (G.zoneId !== 'catacombs' && t !== G.tutSarc) || t.done || !G.zone.inter.includes(t)) return;
   const d = Math.hypot(t.x - P.x, t.y - P.y); if (d > 11) return;
   const cam = GC || G.cam, z = cam.zoom, b = Math.abs(Math.sin(G.time * 3.2)) * 14 * z, [gx, gy] = cam.toScreen(t.x, t.y), [x, y] = cam.toScreen(t.x, t.y, 2.3);
   if (onFloor()) { ctx.save(); ctx.translate(gx, gy); iso(); const p = (G.time * 0.9) % 1;

@@ -922,6 +922,12 @@ html.rm *,html.rm *::before,html.rm *::after{animation-duration:.01ms!important;
 @keyframes ldshine{from{transform:translateX(-100%)}to{transform:translateX(260%)}}
 
 #portrait.gear-hint,.menu-tile.gear-hint{animation:gearh 1s ease-in-out infinite alternate}@keyframes gearh{from{box-shadow:0 0 0 2px #ffd24a88}to{box-shadow:0 0 0 4px #ffd24a,0 0 26px 6px #ffae00}}   /* сборка 61: задание «Осмотреть снаряжение» */
+/* правки 5: оранжевая стрелка к окну героя — пока подарок старосты в сумке (tutorial.js) */
+.gift-arrow{position:fixed;z-index:300;width:62px;height:40px;margin-top:-20px;pointer-events:none;animation:giftar .8s ease-in-out infinite alternate;filter:drop-shadow(0 0 6px #ff8a00) drop-shadow(0 2px 3px #000)}
+.gift-arrow::before{content:'';position:absolute;inset:0;background:#ff8a1c;clip-path:polygon(0 50%,42% 0,42% 30%,100% 30%,100% 70%,42% 70%,42% 100%)}
+.gift-arrow.flip{margin-left:-62px}.gift-arrow.flip::before{transform:scaleX(-1)}
+@keyframes giftar{from{translate:4px 0}to{translate:16px 0}}
+.gift-arrow.flip{animation-name:giftarf}@keyframes giftarf{from{translate:-4px 0}to{translate:-16px 0}}
 /* крестики «закрыть» везде крупнее и заметнее: светлый значок на тёмной плашке с золотой рамкой, всегда поверх содержимого */
 .mx,.ic-x,.pn-x{font:700 22px/1 sans-serif;color:#fff;background:#2a1f14e6;border:1.5px solid #c9a24a;box-shadow:0 2px 6px #000a;touch-action:manipulation;cursor:pointer;display:grid;place-items:center;padding:0}
 .mx{width:42px;height:42px;position:relative;z-index:2}
@@ -1011,3 +1017,28 @@ body.ad-banner #joyZone{bottom:var(--banner-h,56px)}
 .lad-row.top1 i{color:#ffd24a}.lad-row.top2 i{color:#d8dce8}.lad-row.top3 i{color:#d8925a}
 .lad-row.me{border-color:#ffd24a;background:linear-gradient(90deg,#4a3410,#1a1418);box-shadow:0 0 10px #ffd24a44}
 .lad-row.me b,.lad-row.me span{color:#ffd96a}
+/* правки 5: на ПК на кнопках видно клавишу — 1–4 на умениях, R/F на зельях, E на кнопке действия, ⇧ на рывке */
+.kb{display:none}
+@media (hover:hover) and (pointer:fine){
+  .cbtn .kb,.cbtn[data-kb]::after{display:block;position:absolute;top:2px;left:50%;transform:translateX(-50%);min-width:14px;padding:0 3px;border-radius:4px;background:#000c;border:1px solid #d8a84a99;font:bold 10px/13px sans-serif;color:#ffe9b0;text-align:center;pointer-events:none;z-index:2}
+  .cbtn[data-kb]::after{content:attr(data-kb)}
+  #btnAct[data-kb]::before{content:attr(data-kb);display:inline-block;margin-right:7px;padding:0 5px;border-radius:4px;background:#0006;border:1px solid #1a100699;font:bold 11px/16px sans-serif;color:#fff3cf;vertical-align:1px}
+}
+/* правки 5: окно перед боем Летописи — текст крупнее и занимает место (было мелко, по бокам пусто). Размеры от экрана: ПК и телефон */
+.hw-pre{width:min(960px,100%);padding:clamp(12px,2.2vw,26px) clamp(12px,3vw,40px)}
+.hw-pre .hw-banner{font-size:clamp(22px,3.4vw,38px)}
+.hw-pre .hw-vs{gap:clamp(8px,2vw,28px);margin:clamp(6px,1.4vw,16px) 0}
+.hw-pre .hw-vs b{font-size:clamp(20px,3.2vw,36px);margin-bottom:4px}
+.hw-pre .hw-vs span{font-size:clamp(16px,2.2vw,24px);line-height:1.35}
+.hw-pre .hw-foes{font-size:clamp(15px,2vw,22px)!important}
+.hw-pre .hw-vsx{font-size:clamp(34px,6vw,72px)}
+.hw-pre p{font-size:clamp(15px,1.9vw,20px)}
+.hw-pre p.good,.hw-pre p.bad{font-size:clamp(18px,2.6vw,30px)}
+.hw-pre .hw-sk{font-size:clamp(15px,2vw,22px);gap:clamp(6px,1vw,12px)}
+.hw-pre .hw-sk .btn{font-size:clamp(16px,2.2vw,24px);padding:clamp(9px,1.2vw,15px) clamp(12px,1.8vw,22px);border-radius:10px}
+.hw-pre .hw-sk .btn small{font-size:.78em}
+.hw-pre .hw-nav{gap:clamp(10px,1.6vw,20px);margin-top:clamp(8px,1.4vw,16px)}.hw-pre .hw-nav .btn{font-size:clamp(19px,2.8vw,30px);padding:clamp(12px,1.5vw,18px) clamp(24px,3.4vw,46px);border-radius:12px;min-width:clamp(130px,16vw,210px)}
+@media (orientation:landscape) and (max-height:500px){.hw-pre .hw-banner{font-size:22px}.hw-pre .hw-vs b{font-size:20px}.hw-pre .hw-vs span,.hw-pre .hw-foes{font-size:15px!important}.hw-pre .hw-vsx{font-size:34px}.hw-pre .hw-vs{margin:2px 0}.hw-pre p{margin:3px 0}}
+@media (orientation:landscape) and (max-height:500px){.hw-pre{padding:6px 14px}.hw-pre .hw-banner{font-size:19px}.hw-pre .hw-foes{columns:2;column-gap:14px}.hw-pre p.good,.hw-pre p.bad{font-size:16px}
+  .hw-pre .hw-sk .btn{font-size:14px;padding:6px 10px}.hw-pre .hw-sk{gap:5px;margin:2px 0 4px}.hw-pre .hw-nav{margin-top:4px}.hw-pre .hw-nav .btn{font-size:17px;padding:8px 22px;min-width:120px}}
+@media (min-height:501px) and (max-height:820px) and (min-width:900px){.hw-pre{padding-top:12px;padding-bottom:14px}.hw-pre .hw-banner{font-size:30px}.hw-pre .hw-vs{margin:4px 0}.hw-pre .hw-vs b{font-size:30px}.hw-pre .hw-vs span,.hw-pre .hw-foes{font-size:20px!important;line-height:1.25}.hw-pre .hw-vsx{font-size:58px}.hw-pre p.good,.hw-pre p.bad{font-size:24px;margin:4px 0}.hw-pre .hw-sk .btn{padding:9px 16px;font-size:21px}}

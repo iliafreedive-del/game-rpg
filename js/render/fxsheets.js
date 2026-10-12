@@ -142,7 +142,7 @@ export function drawGroundGlow(ctx, cam, x, y, r, alpha = 1) {
 export function drawProjSheet(ctx, cam, id, x, y, z, ang, t, size) {
   const S = sheets.get(real(id)); if (!S) return false;
   const [sx, sy] = cellOf(S, (t / S.dur) % 1), [gx, gy, ppm] = ppmAt(cam, x, y, z), w = (size || S.meters) * ppm, C = S.C;
-  ctx.save(); ctx.translate(gx, gy); ctx.rotate(ang); ctx.drawImage(S.img, sx, sy, C, C, -w * S.anchor[0], -w * S.anchor[1], w, w); ctx.restore(); return true;
+  ctx.save(); ctx.translate(gx, gy); ctx.rotate(ang + (S.rot || 0)); if (S.sy) ctx.scale(1, S.sy); ctx.drawImage(S.img, sx, sy, C, C, -w * S.anchor[0], -w * S.anchor[1], w, w); ctx.restore(); return true;   // правки 5: rot — стрела на листе нарисована под углом (у стрелы браконьера ≈ −15°), разворачиваем по полёту; sy — сплющить по толщине (стрела героя: оперение выглядело комично)
 }
 // правки 3: лист в экранных координатах (Летопись битв — свой холст и своя камера сбоку). ids — по порядку предпочтения:
 // рисуется первый уже загруженный (остальные заказываются), k — доля анимации 0..1 (у цикла — любое число), w — ширина кадра в px,

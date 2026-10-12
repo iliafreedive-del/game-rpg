@@ -120,7 +120,8 @@ export function liveDef(want) {
   if (LIVE.has(want)) return LIVE.get(want);
   const O = OBJ.get('chest_hide'), open = /_open$/.test(want);
   // правки 4 (П4-9): открытый был той же закрытой моделью — теперь крышка откинута, внутри тёмная полость с монетами (chestglb.js)
-  if (open && !OPEN) { const G = openGeometry(O.geometry, { seam: 0.47, back: -0.6, ang: 1.75, inner: HIDE_IN }); OPEN = [shared(G.body), shared(G.lid)]; }
+  // правки 5: крышка откидывалась на 100° за заднюю кромку и «висела» за сундуком — теперь петля на самой кромке, угол ~70°
+  if (open && !OPEN) { const G = openGeometry(O.geometry, { seam: 0.47, back: -0.52, ang: 1.2, inner: HIDE_IN }); OPEN = [shared(G.body), shared(G.lid)]; }
   const def = { id: 'bn:' + want, kind: 'prop', outline: false,
     build() {
       const root = new THREE.Group(), g = new THREE.Group(); g.scale.setScalar(k); root.add(g);

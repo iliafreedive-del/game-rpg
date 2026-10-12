@@ -208,7 +208,7 @@ export function attachSkin(kit, model, name, o = {}) {
     // оказывается внутри капюшона и груди. Левая рука с луком — на этой линии впереди, правая — на ней же у щеки.
     const SL = rsPos(byName.armL, new THREE.Vector3()), head = rsPos(Hd, new THREE.Vector3()), tc = rsPos(T, new THREE.Vector3());
     const chest = V[1].set(0, 0, 1).applyQuaternion(rsQuat(T, Q[1])).setY(0).normalize();   // куда смотрит грудь
-    const line = head.clone().addScaledVector(chest, o.cheek ?? 0.27); line.y = SL.y + 0.04;
+    const line = head.clone().addScaledVector(chest, o.cheek ?? 0.27); line.y = SL.y + (o.lineDy ?? 0.04);   // lineDy — высота линии стрелы от плеча (правки 5: у лучника ниже — стрела из середины лука)
     const reach = SL.distanceTo(rsPos(byName.elL, V[11])) + V[11].distanceTo(rsPos(bowHand, V[0]));
     const fwd = Math.sqrt(Math.max(0.01, reach * reach * 0.9 - (line.x - SL.x) ** 2 - (line.y - SL.y) ** 2));   // рука почти прямая
     const TL = new THREE.Vector3(line.x, line.y, SL.z + fwd);

@@ -71,6 +71,9 @@ function refill(list, defs, ms, nOf) {
     const d = pool[Math.floor(Math.random() * pool.length)]; list[i] = { id: d.id, stat: d.stat, n: nOf(d), base: P.stats[d.stat] || 0, claimed: false }; ch = true; }
   if (ch) bus.emit('save');
 }
+// правки 5: когда обновится весь список — ежедневные в полночь, недельные в понедельник (weekNo из season.js), мс
+export const dailyResetIn = () => { const d = new Date(); d.setHours(24, 0, 0, 0); return d - Date.now(); };
+export const weeklyResetIn = () => (weekKey() + 1) * 7 * 864e5 - 3 * 864e5 - Date.now();
 export const dqReward = () => ({ gold: 40 + G.profile.level * 20, potions: 1 });
 export function claimDaily(id) {
   const P = G.profile; const list = dailyQuests(); const q = list.find(x => x.id === id); if (!q || !q.done || q.claimed) return false;

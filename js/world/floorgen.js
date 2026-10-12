@@ -10,13 +10,14 @@ export const floorLevel = f => f <= 10 ? 1 + Math.round(f * 0.85 + Math.max(0, f
 export const floorForLevel = l => { let f = 2; while (floorLevel(f + 1) <= l && f < 5000) f++; return f; };   // самый глубокий этаж, враги которого не выше уровня l
 export const parTime = (f, total) => 70 + total * 7;   // seconds for the ★★★ "fast" star
 
+// правки 5: саркофаг отодвинут от точки появления — к нему надо подойти по стрелке (шаг обучения «подойдите — его можно открыть»)
 function prologue() {
   const W = 26, H = 16, g = Array.from({ length: H }, () => Array(W).fill('#'));
   const carve = (x0, y0, w, h) => { for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) g[y][x] = '.'; };
   carve(2, 4, 6, 7); carve(8, 6, 6, 2); carve(14, 3, 9, 9);
   const rows = g.map(r => r.join(''));
   return { name: 'Пролог · Склеп пробуждения', floorN: 0, prologue: true, dungeon: true, w: W, h: H, rows,
-    objects: [{ t: 'floor_exit', x: 21, y: 7.5, hidden: true }, { t: 'candles', x: 3.5, y: 5 }, { t: 'bones', x: 6, y: 9.5 }, { t: 'sarcophagus', id: 'p_sarc', x: 4.5, y: 9.2, loot: 'gold' }, { t: 'brazier', x: 18.5, y: 3.8 }, { t: 'pillar', x: 15.5, y: 4.5 }, { t: 'pillar', x: 15.5, y: 10.5 }, { t: 'skulls', x: 20, y: 10.5 }],
+    objects: [{ t: 'floor_exit', x: 21, y: 7.5, hidden: true }, { t: 'candles', x: 3.5, y: 5 }, { t: 'bones', x: 3.2, y: 9.9 }, { t: 'sarcophagus', id: 'p_sarc', x: 6.6, y: 9.4, loot: 'gold' }, { t: 'brazier', x: 18.5, y: 3.8 }, { t: 'pillar', x: 15.5, y: 4.5 }, { t: 'pillar', x: 15.5, y: 10.5 }, { t: 'skulls', x: 20, y: 10.5 }],
     torches: [[5, 3], [18, 2]], spawns: [['skel_warrior', 17.5, 7.5, 3, 1.5, 1]], total: 3,
     rooms: { r0: [2, 4, 6, 7], r1: [14, 3, 9, 9] }, start: [4.5, 7.5], boss: false, level: 1, story: [] };
 }

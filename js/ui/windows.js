@@ -145,9 +145,9 @@ export function pumpRewards() {
 }
 function showReward(r) {
   bus.emit('sfx', r.items.some(i => i.item.rarity >= 3) ? 'epicDrop' : 'levelup');
-  // сборка 47: первый меч от старосты — окно не закрыть, пока не нажато «Надеть»
-  const must = r.title === 'Поговорить со старостой' && r.items.some(en => en.bagged && en.item.slot === 'weapon');
-  let okBtn = null;
+  // правки 5: подарок старосты (оружие) — в окне награды только «Забрать», вещь уходит в сумку; надеть её игрок идёт сам
+  // по оранжевой стрелке (портрет → «Герой» → вещь → «Надеть», tutorial.js giftArrow). Раньше «Надеть» было прямо здесь, а потом шаг
+  // «Осмотреть снаряжение» снова звал в сумку, где мигал снятый старый клинок
   const m = modal(r.sub || 'Награда', 'sm reward', b => {
     const top = r.items.reduce((a, i) => Math.max(a, i.item.rarity), 0);
     const head = el('div', 'rw-head', `<div class="rw-rays r${top}"></div><div class="rw-t">${esc(r.title)}</div>`);
@@ -157,13 +157,12 @@ function showReward(r) {
       const it = en.item;
       const c = el('div', 'rw-card r' + it.rarity, `<div class="slot r${it.rarity}"><img src="${iconURL(iconOf(it))}"></div><div><div class="it-name" style="color:${RARITY[it.rarity].color}">${esc(it.name)}</div><div class="it-type">${RARITY[it.rarity].name} · ${it.wt ? WEAPONS[it.wt].name : SLOT_NAMES[it.slot]}</div>${it.dmg ? `<div class="it-stat">Урон ${it.dmg[0]}–${it.dmg[1]}</div>` : it.armor ? `<div class="it-stat">Защита ${it.armor}</div>` : ''}${it.affixes.slice(0, 3).map(a => `<div class="it-aff">${esc(affixText(a))}</div>`).join('')}${epicOf(it) ? `<div class="it-epic">★ ${esc(epicOf(it).desc)}</div>` : ''}</div>`);
       if (en.equipped) c.appendChild(el('div', 'rw-eq good', '✔ Надето'));
+      else if (en.bagged && it.gift) c.appendChild(el('div', 'rw-eq goldc', '🎒 Лежит в сумке. Наденьте сами: портрет героя → «Герой» → эта вещь → «Надеть»'));
       else if (en.bagged) {
         const rows = (en.cmp || []).map(r => `<div class="cmp ${r.delta > 0 ? 'up' : r.delta < 0 ? 'dn' : ''}"><span>${esc(r.label)}</span><b>${r.before}${r.suf} → ${r.after}${r.suf} ${r.delta > 0 ? '▲' : r.delta < 0 ? '▼' : ''}</b></div>`).join('');
         c.appendChild(el('div', 'rw-eq', `<div class="muted" style="margin:4px 0">Сейчас надето: «${esc(en.old ? en.old.name : '—')}»</div>${rows}`));
-        const br = el('div', 'row'); br.style.cssText = 'justify-content:center;margin-top:6px';
-        const wear = el('button', 'btn gold sm', 'Надеть'); wear.onclick = () => { if (CH.equipFromBag(it)) { br.replaceWith(el('div', 'rw-eq good', '✔ Надето · прежняя вещь в сумке')); if (must && okBtn) { okBtn.disabled = false; cur.lock = false; } } };
-        const keep = el('button', 'btn sm', 'В сумку'); keep.onclick = () => br.replaceWith(el('div', 'rw-eq muted', 'Лежит в сумке — сравните и продайте, когда понадобится'));
-        if (must) { br.append(wear); c.appendChild(el('div', 'rw-eq goldc', '☝ Нажмите «Надеть» — новый меч сильнее')); } else br.append(wear, keep); c.appendChild(br);
+        // правки 5: «больше в заданиях или выпадении предметов не надо в окне предлагать надеть, только забрать» — надевают в окне героя
+        c.appendChild(el('div', 'rw-eq muted', '🎒 В сумке. Надеть — портрет героя → «Герой» → эта вещь'));
       } else c.appendChild(el('div', 'rw-eq muted', `Сумка полна — вещь продана за ${en.sold} зол.`));
       box.appendChild(c);
     }
@@ -177,8 +176,8 @@ function showReward(r) {
     if (loot.length) b.appendChild(el('div', 'rw-loot', loot.join(' · ')));
     if (r.note) b.appendChild(el('p', 'muted', esc(r.note)));
     const q = Q.current(); if (q) b.appendChild(el('p', 'muted', `Следующее задание: <b class="goldc">${esc(q.title)}</b>`));
-    const row = el('div', 'row'); row.style.justifyContent = 'center'; const ok = el('button', 'btn gold', 'Забрать'); ok.onclick = () => { closeModal(); if (r.back) r.back(); }; okBtn = ok; if (must) ok.disabled = true; row.appendChild(ok); b.appendChild(row);
-  }, { lock: must });
+    const row = el('div', 'row'); row.style.justifyContent = 'center'; const ok = el('button', 'btn gold', 'Забрать'); ok.onclick = () => { closeModal(); if (r.back) r.back(); }; row.appendChild(ok); b.appendChild(row);
+  });
   m.bg.classList.add('rw-bg');
 }
 
@@ -254,7 +253,7 @@ W.inventory = (arg = {}) => {
     const mrg = new Set(EC.mergeGroups().filter(g => g.can).flatMap(g => g.list));   // П47: что можно слить — значок ⚒
     const cell = (it, slot, arrow) => {
       const d = el('button', 'eq-slot r' + (it ? it.rarity : 'x'), it ? `<img src="${iconURL(iconOf(it))}"><span class="eq-lv">${it.ilvl}</span>${it.upg ? `<span class="eq-up">+${it.upg}</span>` : ''}${arrow ? `<span class="eq-ar ${ARW[arrow][0]}">${ARW[arrow][1]}</span>` : ''}${it.isNew ? '<span class="eq-new">НОВ</span>' : ''}${mrg && mrg.has(it) ? '<span class="eq-mrg" title="Можно слить у кузнеца">⚒</span>' : ''}` : `<span class="ph">${esc(SLOT_NAMES[slot] || '')}</span>`);
-      if (it) d.onclick = () => itemCard(it, slot); return d;
+      if (it) d.onclick = () => itemCard(it, slot); if (it && it.gift && !slot && P.bag.includes(it)) d.classList.add('gift'); return d;
     };
     // ---- кукла героя: четыре ячейки вокруг портрета, подписи под ними
     const wrap = el('div', 'eq-wrap'), left = el('div', 'eq-left'), right = el('div', 'eq-right'); wrap.append(left, right); b.appendChild(wrap);
@@ -305,7 +304,7 @@ W.inventory = (arg = {}) => {
       ${rows.length ? `<div class="ic-cmp"><b>Если надеть:</b>${rows.map(r => `<span class="${r.delta > 0 ? 'good' : 'bad'}">${r.delta > 0 ? '▲' : '▼'} ${r.label} ${r.inv ? `${r.before} → ${r.after}` : `${r.delta > 0 ? '+' : ''}${Math.round(r.delta * 100) / 100}${r.suf}`}</span>`).join('')}</div>${rows.some(r => r.label === 'Запас прочности') ? `<p class="muted ic-why"><small>${EHP_SHORT}</small></p>` : ''}` : ''}
       ${!ok.ok ? `<div class="bad ic-why">${esc(ok.why)}</div>` : ''}${inBag && mergeNote(it) ? `<div class="${mergeNote(it)[0]} ic-why" style="font-size:12px">⚒ ${mergeNote(it)[1]}</div>` : ''}`;
     const btns = el('div', 'ic-btns');
-    if (inBag) { const eqb = el('button', 'btn gold', ok.ok ? 'Надеть' : 'Нельзя надеть'); eqb.disabled = !ok.ok; eqb.onclick = () => { CH.equip(it.id); ov.remove(); rerender(); }; btns.appendChild(eqb);
+    if (inBag) { const eqb = el('button', 'btn gold', ok.ok ? 'Надеть' : 'Нельзя надеть'); eqb.disabled = !ok.ok; if (it.gift) eqb.classList.add('gift-wear'); eqb.onclick = () => { CH.equip(it.id); ov.remove(); rerender(); }; btns.appendChild(eqb);
       const sell = el('button', 'btn', `Продать · ${fmt(sellValue(it))} зол.`); sell.onclick = () => { EC.sellItem(it.id); ov.remove(); rerender(); }; btns.appendChild(sell); }
     else { const un = el('button', 'btn', 'Снять'); un.onclick = () => { CH.unequip(slot); ov.remove(); rerender(); }; btns.appendChild(un); }
     box.appendChild(btns);
@@ -494,12 +493,13 @@ W.journal = (arg = {}) => {
       if (hs.done) b.appendChild(el('p', 'muted', `<small>Завершено охот: ${hs.done}</small>`));
       b.appendChild(el('p', 'muted', `<small>Таймер — справа вверху под золотом. Награда: золото, опыт, осколки Бездны ◆ и именной трофей.</small>`));
     } else if (tab === 'daily') {
-      const r = DQ.dqReward(); nextNote(b, dq); for (const q of dq.filter(q => !q.claimed)) b.appendChild(card(q.title, q.cur, q.n, { gold: r.gold, potions: r.potions }, q.claimed ? 'claimed' : q.done ? 'done' : 'go', () => DQ.claimDaily(q.id), q.next));
+      const r = DQ.dqReward(); nextNote(b, dq, DQ.dailyResetIn()); for (const q of dq.filter(q => !q.claimed)) b.appendChild(card(q.title, q.cur, q.n, { gold: r.gold, potions: r.potions }, q.claimed ? 'claimed' : q.done ? 'done' : 'go', () => DQ.claimDaily(q.id), q.next));
       b.appendChild(el('p', 'muted', '<small>Выполненное задание уходит — через час на его месте новое. Три за сутки — «Сундук дня» с редкой вещью.</small>'));
     } else if (tab === 'weekly') {
-      const r = DQ.wqReward(); nextNote(b, wq); for (const q of wq.filter(q => !q.claimed)) b.appendChild(card(q.title, q.cur, q.n, { gold: r.gold, shards: r.shards }, q.claimed ? 'claimed' : q.done ? 'done' : 'go', () => DQ.claimWeekly(q.id), q.next));
+      const r = DQ.wqReward(); nextNote(b, wq, DQ.weeklyResetIn()); for (const q of wq.filter(q => !q.claimed)) b.appendChild(card(q.title, q.cur, q.n, { gold: r.gold, shards: r.shards }, q.claimed ? 'claimed' : q.done ? 'done' : 'go', () => DQ.claimWeekly(q.id), q.next));
       b.appendChild(el('p', 'muted', '<small>Трудные задания: выполненное уходит, новое — через сутки. Дают осколки Бездны для Цитадели.</small>'));
     } else {
+      { const c = Q.repCooling(); b.appendChild(el('p', c.length ? 'good' : 'muted', `<small>${c.length ? '✔ Новый контракт через ' + leftTxt(Math.min(...c)) : '↻ Сданный контракт вернётся через 2 дня'}</small>`)); }   // правки 5
       for (const rr of Q.repList()) { const s = Q.repState(rr); b.appendChild(card(rr.title, s.cur, rr.n, rr.reward || { gold: rr.gold }, s.done ? 'done' : 'go', () => Q.claimRep(rr.id))); }
       b.appendChild(el('p', 'muted', `<small>Самые трудные: счёт идёт с начала игры. Сданный контракт возвращается через двое суток.${coolNote()}</small>`));
     }
@@ -593,7 +593,7 @@ W.settings = () => modal('Настройки', 'sm', b => {
     }
   }
   b.appendChild(el('h3', '', 'Управление'));
-  b.appendChild(el('p', 'muted', 'Телефон/планшет: ведите пальцем в любом месте экрана — это джойстик; касание врага — выбрать цель и подбежать к нему, касание сундука или саркофага — подбежать и открыть. Навыки, рывок и зелья справа. Герой бьёт сам, когда враг рядом: ваше дело — двигаться, уклоняться и пить зелья. Щипок двумя пальцами — камера ближе/дальше. ПК: WASD/стрелки или зажатая правая кнопка мыши — движение, левая кнопка мыши — удар в точку, колесо мыши — камера ближе/дальше, Пробел — атака, 1–4 — навыки, Shift — уклонение, Q/E — зелья, F — действие, I/C/K/J/M — окна, T — свиток.'));
+  b.appendChild(el('p', 'muted', 'Телефон/планшет: ведите пальцем в любом месте экрана — это джойстик; касание врага — выбрать цель и подбежать к нему, касание сундука или саркофага — подбежать и открыть. Навыки, рывок и зелья справа. Герой бьёт сам, когда враг рядом: ваше дело — двигаться, уклоняться и пить зелья. Щипок двумя пальцами — камера ближе/дальше. ПК: WASD/стрелки или зажатая правая кнопка мыши — движение, левая кнопка мыши — удар в точку, колесо мыши — камера ближе/дальше, Пробел — атака, 1–4 — навыки, Shift — уклонение, E — действие (двери, разговор, сундуки, порталы), R/F — зелья здоровья и маны, I/C/K/J/M — окна, T — свиток.'));
   const row = el('div', 'row'); row.style.marginTop = '10px';
   const sv = el('button', 'btn', 'Сохранить'); sv.onclick = () => { if (saveNow(true)) bus.emit('toast', { text: 'Игра сохранена', kind: 'good' }); else bus.emit('toast', { text: 'Не удалось сохранить', sub: 'Браузер не даёт записать (приватный режим или нет места)', kind: 'warn' }); }; row.appendChild(sv);   // С14
   const rp = el('button', 'btn', 'Восстановить покупки'); rp.onclick = () => restorePurchases(); row.appendChild(rp);
@@ -844,11 +844,12 @@ W.npc_trainer = () => {
 // Доска объявлений: ежедневные, недельные (крупнее) и долгие контракты (самые трудные, повторяются бесконечно)
 const qChips = r => `<div class="q-rw">${r.gold ? `<span class="chip g">💰 ${fmt(r.gold)}</span>` : ''}${r.shards ? `<span class="chip s">◆ ${r.shards}</span>` : ''}${r.potions ? `<span class="chip p">❤ ${r.potions}</span>` : ''}${r.xp ? `<span class="chip x">✦ ${r.xp} опыта</span>` : ''}${r.item ? `<span class="chip i">★ вещь</span>` : ''}${r.skillPts ? `<span class="chip k">+${r.skillPts} навык</span>` : ''}</div>`;
 // правки 3: выполненное задание уходит — на его месте новое через час (ежедневное) / сутки (недельное) / двое суток (долгий контракт)
-const leftTxt = ms => { const m = Math.ceil(ms / 60000); return m >= 60 ? `${Math.floor(m / 60)} ч${m % 60 ? ' ' + (m % 60) + ' мин' : ''}` : `${m} мин`; };
+const leftTxt = ms => { const m = Math.max(1, Math.ceil(ms / 60000)); return m >= 2880 ? `${Math.floor(m / 1440)} д ${Math.floor(m / 60) % 24} ч` : m >= 60 ? `${Math.floor(m / 60)} ч${m % 60 ? ' ' + (m % 60) + ' мин' : ''}` : `${m} мин`; };
 const claimedTxt = next => next ? `✔ Новое через ${leftTxt(next)}` : '✔ Получено';
 const coolNote = () => { const c = Q.repCooling(); return c.length ? ` Сданных контрактов: ${c.length} — ближайший вернётся через ${leftTxt(Math.min(...c))}.` : ''; };
 // П4-6: сданные задания не висят в списке — только строка, когда придёт новое
-const nextNote = (b, list) => { const c = list.filter(q => q.claimed && q.next); if (c.length) b.appendChild(el('p', 'good', `<small>${claimedTxt(Math.min(...c.map(q => q.next)))}</small>`)); };
+// правки 5: без сданных — когда обновится весь список (ежедневные в полночь, недельные в понедельник)
+const nextNote = (b, list, reset) => { const c = list.filter(q => q.claimed && q.next); if (c.length) b.appendChild(el('p', 'good', `<small>${claimedTxt(Math.min(...c.map(q => q.next)))}</small>`)); else if (reset) b.appendChild(el('p', 'muted', `<small>↻ Новые задания через ${leftTxt(reset)}</small>`)); };
 function qCard(title, cur, max, rw, state, onClaim, onGo, next) {
   const d = el('div', 'q-card' + (state === 'done' ? ' hot' : state === 'claimed' ? ' claimed' : ''), `<div class="q-t">${esc(title)}</div><div class="q-prog"><div class="pbar"><i style="width:${Math.min(100, cur / max * 100)}%"></i></div><span>${cur}/${max}</span></div>${qChips(rw)}`);
   const btn = el('button', 'btn sm ' + (state === 'done' ? 'gold' : ''), state === 'done' ? 'Забрать' : state === 'claimed' ? claimedTxt(next) : 'Перейти');
@@ -864,12 +865,13 @@ W.board = () => {
     for (const [id, name] of [['daily', 'Ежедневные'], ['weekly', 'Недельные'], ['contracts', 'Долгие']]) { const t = el('button', 'q-tab' + (tab === id ? ' on' : ''), `${name}${cnt[id] ? `<i>${cnt[id]}</i>` : ''}`); t.onclick = () => { tab = W._boardTab = id; rerender(); }; tabs.appendChild(t); }
     b.appendChild(tabs);
     if (tab === 'daily') {
-      const r = DQ.dqReward(); nextNote(b, dq); for (const q of dq.filter(q => !q.claimed)) b.appendChild(qCard(q.title, q.cur, q.n, { gold: r.gold, potions: r.potions }, q.claimed ? 'claimed' : q.done ? 'done' : 'go', () => DQ.claimDaily(q.id), closeModal, q.next));
+      const r = DQ.dqReward(); nextNote(b, dq, DQ.dailyResetIn()); for (const q of dq.filter(q => !q.claimed)) b.appendChild(qCard(q.title, q.cur, q.n, { gold: r.gold, potions: r.potions }, q.claimed ? 'claimed' : q.done ? 'done' : 'go', () => DQ.claimDaily(q.id), closeModal, q.next));
       b.appendChild(el('p', 'muted', '<small>Выполненное задание уходит — через час на его месте новое. Три за сутки — «Сундук дня».</small>'));
     } else if (tab === 'weekly') {
-      const r = DQ.wqReward(); nextNote(b, wq); for (const q of wq.filter(q => !q.claimed)) b.appendChild(qCard(q.title, q.cur, q.n, { gold: r.gold, shards: r.shards }, q.claimed ? 'claimed' : q.done ? 'done' : 'go', () => DQ.claimWeekly(q.id), closeModal, q.next));
+      const r = DQ.wqReward(); nextNote(b, wq, DQ.weeklyResetIn()); for (const q of wq.filter(q => !q.claimed)) b.appendChild(qCard(q.title, q.cur, q.n, { gold: r.gold, shards: r.shards }, q.claimed ? 'claimed' : q.done ? 'done' : 'go', () => DQ.claimWeekly(q.id), closeModal, q.next));
       b.appendChild(el('p', 'muted', '<small>Крупные цели: выполненное уходит, новое — через сутки. Золото и осколки Бездны для Цитадели.</small>'));
     } else {
+      { const c = Q.repCooling(); b.appendChild(el('p', c.length ? 'good' : 'muted', `<small>${c.length ? '✔ Новый контракт через ' + leftTxt(Math.min(...c)) : '↻ Сданный контракт вернётся через 2 дня'}</small>`)); }   // правки 5
       for (const rr of Q.repList()) { const s = Q.repState(rr); b.appendChild(qCard(rr.title, s.cur, rr.n, rr.reward || { gold: rr.gold }, s.done ? 'done' : 'go', () => Q.claimRep(rr.id), closeModal)); }
       b.appendChild(el('p', 'muted', `<small>Самые трудные: счёт идёт с начала игры. Сданный контракт возвращается через двое суток.${coolNote()}</small>`));
     }
