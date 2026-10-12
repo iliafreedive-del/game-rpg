@@ -10,6 +10,7 @@ import { makeItem, upgradeCost as upgradeCost0, maxRarityFor } from '../../js/ga
 const FIX = process.env.CARRY === '1',   // перенос закалки на новую вещь — пользователь отказался, в игре его нет; цены — из игры
       _x = 0, PK = l => l <= 20 ? Math.pow(1.1, l - 1) : Math.pow(1.1, 19) * l / 20;
 const upgradeCost = upgradeCost0;
+const GK = L => process.env.OLDGOLD === '1' ? 1 : 1 + Math.max(0, L - 20) / 40;   // loot.js goldLvl: золото с врагов после 20-го; OLDGOLD=1 — как до сборки 66
 import { CLASSES, GROWTH } from '../../js/data/items.js';
 import { ENEMIES, scaleHP, scaleDmg, scaleXP } from '../../js/data/enemies.js';
 import { makeBattle, stageFoes } from '../../js/game/hwbattle.js';
@@ -58,9 +59,9 @@ function run(cls) {
     // ---- доход за уровень
     const kills = xpToNext(L) / (15 * scaleXP(L + 1) * 0.8);   // смесь врагов похода, опыт ≈ 15 (скелет 12, драугр 16, берсерк 20)
     const h = kills * 4 / 3600; hours += h; const days = h / HPD;
-    let inc = kills * 5 * (1 + 0.12 * L) * 0.75 * 0.6 * 1.1;   // золото с врагов (+10% чемпионы)
+    let inc = kills * 5 * (1 + 0.12 * L) * GK(L) * 0.75 * 0.6 * 1.1;   // золото с врагов (+10% чемпионы)
     inc += kills * 0.03 * (4 + 3 * (L + 1));                      // продажа серых вещей
-    const forts = kills / 200; inc += forts * 9 * (1 + 0.15 * L) * 9.5;   // командир форта: 7 кучек, босс — 12
+    const forts = kills / 200; inc += forts * 9 * (1 + 0.15 * L) * GK(L) * 9.5;   // командир форта: 7 кучек, босс — 12
     inc += days * (120 + 160 * L + (150 + 60 * L) * 3 / 7 + 1280 * (1 + 0.08 * L) + 240 + 140 * L + 67 * L);   // день: задания, сундук дня, неделя, алтарь, дозор, сезон
     gold += inc; totalGold += inc;
     // ---- вещи: форт (зелёная/синяя, каждый второй с 40 ур. — эпическое оружие), сундук дня (зелёная), неделя (синяя+)

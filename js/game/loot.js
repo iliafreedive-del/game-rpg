@@ -33,12 +33,15 @@ export function dropItem(x, y, item) {
 }
 export function dropPotion(x, y, kind = 'hp') { G.pickups.push({ id: uid('p'), kind: 'potion', potion: kind, x: x + rand() - 0.5, y: y + rand() - 0.5, t: 0, taken: false, fly: true }); }
 
+// золото с врага по его уровню: +12% за уровень, а после 20-го ещё ×(1 + (ур.−20)/40) — к 60-му ×2, к 100-му ×3.
+// Цены кузнеца после 20-го растут быстрее (items.js upgradeCost), без этого уровень игры на 60-м окупал лишь 0,6 закалки (на 10–20-м — одну)
+export const goldLvl = L => (1 + 0.12 * (L - 1)) * (1 + Math.max(0, L - 20) / 40);
 const rollRarity = table => weighted(table.map((w, i) => [i, w]));
 export function enemyLoot(e) {
   // Items come only from quests, contracts and the shop (design decision: fewer, meaningful rewards).
   const D = e.D, L = e.lvl;
   const piles = D.boss ? 6 : D.elite ? 4 : e.champion ? 2 : (rand() < 0.6 ? 1 : 0);
-  for (let i = 0; i < piles; i++) dropGold(e.x, e.y, rint(D.gold[0], D.gold[1]) * (1 + 0.12 * (L - 1)) * 0.75 / (D.boss || D.elite ? piles / 2 : 1) * (e.repeat ? 0.5 : 1));   // П45: повторная победа над возродившимся боссом — золота вдвое меньше   // сборка 47: золота −25%
+  for (let i = 0; i < piles; i++) dropGold(e.x, e.y, rint(D.gold[0], D.gold[1]) * goldLvl(L) * 0.75 / (D.boss || D.elite ? piles / 2 : 1) * (e.repeat ? 0.5 : 1));   // П45: повторная победа над возродившимся боссом — золота вдвое меньше   // сборка 47: золота −25%
   if (rand() < (D.boss ? 1 : D.elite ? 0.35 : e.champion ? 0.2 : 0.015)) dropPotion(e.x, e.y, rand() < 0.7 ? 'hp' : 'mp');
   // вещи: редкие и заметные. Рядовой враг почти никогда, чемпион — иногда, страж и босс — всегда
   const ch = (D.boss ? 1 : D.elite ? 0.5 : e.champion ? 0.12 : G.zoneId === 'wild' ? 0.03 : 0.025) / (e.respawned ? 3 : 1) * (e.repeat ? 0.5 : 1) * (G.profile.boosts.blessUntil > Date.now() ? BLESS_ITEMS : 1) * rm('items') * (1 + 0.05 * ((G.run && G.run.circle) || 0));
