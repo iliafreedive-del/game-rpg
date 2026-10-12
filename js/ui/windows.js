@@ -108,7 +108,7 @@ export function openWindow(name, arg) {
   if (name === 'herospath') { openHeroPath(); return; }
   const f = W[name]; if (f) { f(arg); if (cur && !cur.reopen) cur.reopen = () => W[name](arg); }
 }
-bus.on('openNPC', id => { if (id === 'fortune') { openWheel(modal, closeModal); return; } W['npc_' + id](); });
+bus.on('openNPC', id => { if (id === 'fortune') { openWheel(modal, closeModal, () => W.looks()); return; } W['npc_' + id](); });
 bus.on('openBoard', () => W.board()); bus.on('openWheel', () => openWheel(modal, closeModal)); bus.on('openHeroPath', () => openHeroPath()); bus.on('openDepths', () => W.depths()); bus.on('openWild', r => W.wild(r)); bus.on('wildCleared', later(r => W.wildResult(r)));
 bus.on('floorResult', later(r => floorResult(r)));   // П11: окна от событий ждут, пока закроют открытое
 bus.on('boonChoice', later(() => boonChoice()));
@@ -731,8 +731,7 @@ W.npc_merchant = () => {
   let tab = 'buy', sel = null; EC.ensureStock();
   modal('Торговка Мира', 'md', b => {
     const P = G.profile;
-    const tabs = el('div', 'tabs big-tabs'); for (const [k, n] of [['buy', 'Купить'], ['sell', 'Продать'], ['look', 'Облик']]) { const t = el('button', 'tab' + (tab === k ? ' on' : ''), n); t.onclick = () => { tab = k; sel = null; rerender(); }; tabs.appendChild(t); } b.appendChild(tabs);
-    if (tab === 'look') { renderLooks(b, rerender); return; }   // облик героя и питомца (ui/looks.js) — то же, что Меню → «Облик»
+    const tabs = el('div', 'tabs big-tabs'); for (const [k, n] of [['buy', 'Купить'], ['sell', 'Продать']]) { const t = el('button', 'tab' + (tab === k ? ' on' : ''), n); t.onclick = () => { tab = k; sel = null; rerender(); }; tabs.appendChild(t); } b.appendChild(tabs);
     b.appendChild(el('p', 'goldc', `Золото: ${fmt(P.gold)}`));
     if (tab === 'buy') {
       const sh = el('div', 'shop');
