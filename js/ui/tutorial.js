@@ -212,7 +212,7 @@ export function initTutorial() {
   bus.on('menuOpened', () => { T().tips.hero = 1; });
   bus.on('invOpened', () => {
     if (!hintsOn()) return; const t = T(); if (t.tips.inv1) return; t.tips.inv1 = 1; bus.emit('save');
-    if (gearStep()) { const g = document.querySelector('.eq-grid .eq-slot.gift'); if (g) pointAt(null, 'Справа — сумка. Нажмите на новое оружие (оранжевая стрелка) и «Надеть». ▲ — лучше надетого', { time: 14 }); return; }
+    if (gearStep()) { const g = document.querySelector('.eq-grid .eq-slot.gift'); if (g) pointAt(null, 'Справа — сумка. Нажмите на новое оружие — туда показывает оранжевая стрелка', { time: 14, win: true }); return; }
     const g = document.querySelector('.eq-grid .eq-slot') || document.querySelector('.eq-doll .eq-slot');
     pointAt(g, 'Слева — что надето, справа — сумка. Нажмите на вещь: ▲ — лучше надетой, ▼ — хуже. Там же «Надеть» и «Продать»', { time: 12, win: true });
   });
@@ -223,8 +223,11 @@ export function initTutorial() {
       const vis = e => e && e.offsetParent !== null && e.getBoundingClientRect().width ? e : null;
       return vis(document.querySelector('.ic-box .gift-wear')) || (document.querySelector('.ic-ov') ? null : vis(document.querySelector('.eq-grid .eq-slot.gift')))
         || vis(document.querySelector('.menu-tile[data-w="inventory"]')) || (G.modalOpen ? null : vis($('portrait'))); };
+    let cmpShown = false;
     setInterval(() => { const e = target();
       if (!e) { if (ar) { ar.remove(); ar = null; } return; }
+      // карточка подарка открыта: показать, на что смотреть — зелёная ▲ и урон «было → стало» (правки 5)
+      if (!cmpShown && e.classList.contains('gift-wear')) { cmpShown = true; pointAt(null, 'Зелёная ▲ — эта вещь лучше надетой: урон стал выше. Нажмите «Надеть»', { time: 14, win: true }); }
       if (!ar) { ar = el('div', 'gift-arrow'); document.body.appendChild(ar); }
       const r = e.getBoundingClientRect(), right = r.right + 70 < innerWidth;   // стрелка справа от цели и смотрит влево; у правого края — слева, смотрит вправо
       ar.classList.toggle('flip', !right); ar.style.top = (r.top + r.height / 2) + 'px'; ar.style.left = (right ? r.right + 4 : r.left - 4) + 'px'; }, 200); }

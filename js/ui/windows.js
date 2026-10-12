@@ -158,10 +158,8 @@ function showReward(r) {
       else if (en.bagged) {
         const rows = (en.cmp || []).map(r => `<div class="cmp ${r.delta > 0 ? 'up' : r.delta < 0 ? 'dn' : ''}"><span>${esc(r.label)}</span><b>${r.before}${r.suf} → ${r.after}${r.suf} ${r.delta > 0 ? '▲' : r.delta < 0 ? '▼' : ''}</b></div>`).join('');
         c.appendChild(el('div', 'rw-eq', `<div class="muted" style="margin:4px 0">Сейчас надето: «${esc(en.old ? en.old.name : '—')}»</div>${rows}`));
-        const br = el('div', 'row'); br.style.cssText = 'justify-content:center;margin-top:6px';
-        const wear = el('button', 'btn gold sm', 'Надеть'); wear.onclick = () => { if (CH.equipFromBag(it)) br.replaceWith(el('div', 'rw-eq good', '✔ Надето · прежняя вещь в сумке')); };
-        const keep = el('button', 'btn sm', 'В сумку'); keep.onclick = () => br.replaceWith(el('div', 'rw-eq muted', 'Лежит в сумке — сравните и продайте, когда понадобится'));
-        br.append(wear, keep); c.appendChild(br);
+        // правки 5: «больше в заданиях или выпадении предметов не надо в окне предлагать надеть, только забрать» — надевают в окне героя
+        c.appendChild(el('div', 'rw-eq muted', '🎒 В сумке. Надеть — портрет героя → «Герой» → эта вещь'));
       } else c.appendChild(el('div', 'rw-eq muted', `Сумка полна — вещь продана за ${en.sold} зол.`));
       box.appendChild(c);
     }
