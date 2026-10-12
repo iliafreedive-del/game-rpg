@@ -7,7 +7,7 @@ import { OUTLINE, QUALITY } from './style.js';
 import { fbm } from './geo.js';
 import { wallPieces } from './dungeon.js';
 import { STEPPE_ROCKS, STEPPE_SPIRES, STEPPE_TREES } from './models/prop/_steppe.js';
-import { FJ_ROCKS, FJ_CRAGS } from './models/prop/_fjord.js';
+import { FJ_ROCKS, FJ_CRAGS, FO_ROCKS } from './models/prop/_fjord.js';
 import { swap as bonesSwap, liveDef as bonesLive, boneDeadTree } from './bonesglb.js';
 import { walls as templeWalls, swap as templeSwap, liveDef as templeLive, templeReady } from './templeglb.js';
 import { SKINS } from './glbskin.js';
@@ -69,7 +69,7 @@ export class PropLayer {
       const h = hash(d.x, d.y), isTree = d.spr === 'tree_0' || d.spr === 'tree_1' || d.spr === 'deadtree';   // правки 3: во Фьордах и сухое дерево карты — ель в снегу
       const light = zone.lights.find(L => Math.hypot(L.x - d.x, L.y - d.y) < 0.3);
       const var3 = ((d.spr === 'rocks' || d.spr === 'deadtree') && open && !light) || STEPPE_FREE.has(d.spr);   // камни и сухие деревья поля — разные формы, повороты, размеры
-      push(isTree ? (fj ? pickFj(hash(d.x * 3.1 + 1, d.y * 1.7 + 2)) : pickTree(d.spr, hash(d.x * 3.1 + 1, d.y * 1.7 + 2))) : var3 ? (STEPPE_FREE.has(d.spr) ? d.spr : bn && d.spr === 'rocks' ? pickW(STEPPE_ROCKS, hash(d.x * 2.3 + 5, d.y * 1.9 + 1)) : fj && d.spr === 'rocks' ? pickW(FJ_ROCKS, hash(d.x * 2.3 + 5, d.y * 1.9 + 1)) : pickTree(d.spr, hash(d.x * 2.3 + 5, d.y * 1.9 + 1))) : d.spr, d.x, d.y, isTree || var3 || d.s ? h * 6.283 : 0, isTree ? (fj ? 0.75 : 1.0) + hash(d.y * 1.3, d.x * 0.7) * (fj ? 1.0 : 0.75) : var3 ? 0.7 + hash(d.y, d.x) * 0.9 : d.s || 1, light ? { color: new THREE.Color(light.c[0] / 255, light.c[1] / 255, light.c[2] / 255) } : null);
+      push(isTree ? (fj ? pickFj(hash(d.x * 3.1 + 1, d.y * 1.7 + 2)) : pickTree(d.spr, hash(d.x * 3.1 + 1, d.y * 1.7 + 2))) : var3 ? (STEPPE_FREE.has(d.spr) ? d.spr : bn && d.spr === 'rocks' ? pickW(STEPPE_ROCKS, hash(d.x * 2.3 + 5, d.y * 1.9 + 1)) : fj && d.spr === 'rocks' ? pickW(FJ_ROCKS, hash(d.x * 2.3 + 5, d.y * 1.9 + 1)) : wildForest && d.spr === 'rocks' ? pickW(FO_ROCKS, hash(d.x * 2.3 + 5, d.y * 1.9 + 1)) : pickTree(d.spr, hash(d.x * 2.3 + 5, d.y * 1.9 + 1))) : d.spr, d.x, d.y, isTree || var3 || d.s ? h * 6.283 : 0, isTree ? (fj ? 0.75 : 1.0) + hash(d.y * 1.3, d.x * 0.7) * (fj ? 1.0 : 0.75) : var3 ? 0.7 + hash(d.y, d.x) * 0.9 : d.s || 1, light ? { color: new THREE.Color(light.c[0] / 255, light.c[1] / 255, light.c[2] / 255) } : null);
     }
     // сборка 47: деревья выше — в среднем ≈6 м (три роста героя), от 4,5 до 8+ м: множитель 1,0–1,75 (был 0,85–1,4), чаща 1,15–1,95
     if (wild) {   // стены форта по тайлам 'D' (лицом наружу) и густая чаща по тайлам 'x'

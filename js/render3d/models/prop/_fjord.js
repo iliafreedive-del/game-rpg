@@ -98,9 +98,9 @@ const boat = def('fj_boat', (kit, L) => {
 
 // второй референс пользователя: серые слоистые камни разной формы (плиты, уступы, осколки-шпили, глыбы), снег лежит на верхних гранях.
 // Снег — цвет вершин по нормали грани (вверх смотрит — белая), без текстур
-function snowy(kit, g, rock, seed, k = 0.55) {
+function snowy(kit, g, rock, seed, k = 0.55, top = 0xe4f0fa) {
   const { THREE, geo } = kit, R = geo.rng(seed), n = g.index ? g.toNonIndexed() : g; n.deleteAttribute('uv'); n.computeVertexNormals();
-  const p = n.attributes.position, col = new Float32Array(p.count * 4), a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3(), cr = new THREE.Color(), cs = new THREE.Color(0xe4f0fa);
+  const p = n.attributes.position, col = new Float32Array(p.count * 4), a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3(), cr = new THREE.Color(), cs = new THREE.Color(top);
   for (let f = 0; f < p.count; f += 3) {
     a.fromBufferAttribute(p, f); b.fromBufferAttribute(p, f + 1); c.fromBufferAttribute(p, f + 2); const ny = b.sub(a).cross(c.sub(a)).normalize().y;
     const v = 0.85 + R() * 0.3, snow = ny > k - R() * 0.15; cr.set(rock).multiplyScalar(v); const C = snow ? cs : cr;
@@ -110,7 +110,7 @@ function snowy(kit, g, rock, seed, k = 0.55) {
 }
 const STONE = [0x5a5650, 0x4e4c48, 0x625c54];
 const box = (THREE, w, h, d, x, y, z, ry = 0, rz = 0) => new THREE.BoxGeometry(w, h, d, 2, 2, 2).rotateZ(rz).rotateY(ry).translate(x, y, z);
-const stone = (id, seed, fn) => def(id, (kit, L) => { const { THREE, geo } = kit, R = geo.rng(seed); fn(THREE, R).forEach((g, i) => { geo.jitter(g, 0.12, geo.rng(seed + i)); L.push(snowy(kit, g, STONE[(seed + i) % 3], seed + i * 3)); }); }, { tint: 0.1 });
+const stone = (id, seed, fn, pal = STONE, top, k, jit = 0.12) => def(id, (kit, L) => { const { THREE, geo } = kit, R = geo.rng(seed); fn(THREE, R).forEach((g, i) => { geo.jitter(g, jit, geo.rng(seed + i)); L.push(snowy(kit, g, pal[(seed + i) % pal.length], seed + i * 3, k, top)); }); }, { tint: 0.1 });
 const STONES = [
   stone('fj_stone_ledge', 31, (T, R) => [box(T, 1.6, 0.35, 1.1, 0, 0.17, 0, 0.2), box(T, 1.2, 0.3, 0.8, 0.15, 0.48, -0.05, 0.5), box(T, 0.7, 0.28, 0.5, -0.1, 0.76, 0.05, 0.1)]),   // слоистый уступ
   stone('fj_stone_slab', 37, (T, R) => [box(T, 1.5, 0.4, 0.9, 0, 0.2, 0, 0.3, 0.12), box(T, 0.6, 0.3, 0.5, 0.5, 0.45, 0.1, 0.9, -0.1)]),   // наклонная плита
@@ -119,12 +119,26 @@ const STONES = [
   stone('fj_stone_block', 61, (T, R) => [box(T, 0.7, 1.5, 0.6, 0, 0.75, 0, 0.2, 0.05), box(T, 0.5, 0.6, 0.5, 0.35, 0.3, 0.25, 0.7)]),   // столб
 ];
 
+// Старый Лес (правки 5, референс пользователя): светло-серые гранёные камни — валуны, столбы-стопки, скальные стенки, плиты, галька —
+// со светло-зелёным мхом и травой на верхних гранях; без текстур
+const FOREST_STONE = [0xb4b8c4, 0xa6aab8, 0xbcc0ca], MOSS = 0x9cc83c;
+const lump = (T, r, x, y, z, sy = 0.75) => new T.IcosahedronGeometry(r, 0).scale(1, sy, 0.9).translate(x, y + r * sy * 0.55, z);
+const tier = (T, r0, r1, h, x, y, z) => new T.CylinderGeometry(r1, r0, h, 7, 1).translate(x, y + h / 2, z);
+const FOREST_STONES = [
+  stone('fo_rock_boulder', 71, (T) => [lump(T, 0.7, 0, -0.1, 0), lump(T, 0.32, 0.65, -0.05, 0.3)], FOREST_STONE, MOSS, 0.5, 0.14),
+  stone('fo_rock_cap', 73, (T) => [tier(T, 0.85, 0.8, 0.45, 0, 0, 0), tier(T, 0.75, 0.6, 0.3, 0.05, 0.42, 0)], FOREST_STONE, MOSS, 0.6, 0.1),   // плоский камень с моховой шапкой
+  stone('fo_rock_pillar', 79, (T) => [tier(T, 0.42, 0.4, 0.4, 0, 0, 0), tier(T, 0.44, 0.4, 0.38, 0.03, 0.38, 0), tier(T, 0.4, 0.38, 0.38, -0.02, 0.74, 0.02), tier(T, 0.42, 0.38, 0.36, 0.02, 1.1, 0)], FOREST_STONE, MOSS, 0.55, 0.06),   // столб-стопка, мох по уступам
+  stone('fo_rock_wall', 83, (T) => [box(T, 0.6, 1.6, 0.6, -0.7, 0.8, 0, 0.2), box(T, 0.55, 1.3, 0.5, -0.15, 0.65, 0.1, 0.5), box(T, 0.6, 1.8, 0.55, 0.4, 0.9, -0.05, 0.1), box(T, 0.5, 1.1, 0.5, 0.9, 0.55, 0.1, 0.7), box(T, 0.4, 0.5, 0.4, 0.2, 0.25, 0.45, 0.3)], FOREST_STONE, MOSS, 0.55, 0.1),   // скальная стенка из блоков
+  stone('fo_rock_pebbles', 89, (T) => [lump(T, 0.22, 0, -0.03, 0), lump(T, 0.15, 0.4, -0.02, 0.2), lump(T, 0.12, -0.3, -0.02, 0.3), lump(T, 0.18, 0.15, -0.03, -0.35)], FOREST_STONE, MOSS, 0.7, 0.05),
+];
+export const FO_ROCKS = [['fo_rock_boulder', 1.2], ['fo_rock_cap', 1], ['fo_rock_pillar', 0.6], ['fo_rock_wall', 0.6], ['fo_rock_pebbles', 0.8]];
+
 export const FJORD_PROPS = [
   slab('fj_rock_a', 3, [[0.55, 1.0, 0, 0], [0.3, 0.55, 0.55, 0.25]]), slab('fj_rock_b', 8, [[0.45, 1.3, 0, 0]]), slab('fj_rock_c', 14, [[0.5, 0.8, 0, 0], [0.32, 0.6, -0.45, 0.3], [0.22, 0.35, 0.3, -0.4]]),
   def('fj_crag', (kit, L) => crag(kit, L, 5, [[1.3, 3.6, 0, 0], [0.7, 1.8, 1.0, 0.5]])),
   def('fj_crag_b', (kit, L) => crag(kit, L, 9, [[1.1, 4.2, 0, 0], [0.8, 2.6, -0.9, 0.6], [0.5, 1.4, 0.8, -0.7]])),
   def('fj_crag_c', (kit, L) => crag(kit, L, 17, [[1.5, 3.0, 0, 0], [1.0, 2.3, 1.3, -0.2], [0.9, 2.0, -1.2, 0.3], [0.6, 1.2, 0.2, 1.0]])),   // гряда-стена
-  runestone, longship, boat, ...STONES,
+  runestone, longship, boat, ...STONES, ...FOREST_STONES,
 ];
 export const FJ_ROCKS = [['fj_rock_a', 1], ['fj_rock_b', 1], ['fj_rock_c', 1], ['fj_stone_ledge', 1], ['fj_stone_slab', 1], ['fj_stone_shard', 0.8], ['fj_stone_chunk', 1], ['fj_stone_block', 0.8]];
 export const FJ_CRAGS = [['fj_crag', 1], ['fj_crag_b', 1], ['fj_crag_c', 1.2], ['fj_stone_shard', 0.6]];
