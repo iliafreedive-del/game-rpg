@@ -730,6 +730,8 @@ canvas#game{filter:saturate(1.22) contrast(1.08) brightness(1.06)}
 }
 #fsHint{position:absolute;left:50%;bottom:calc(10px + var(--safe-b));transform:translateX(-50%);width:min(92vw,420px);font-size:12px;line-height:1.35;color:#cbbfa8;background:#0008;border:1px solid #4a3b2a;border-radius:8px;padding:6px 10px}
 #fsHint b{color:var(--gold)}.fs-ic{color:#6aa8ff}
+#title:has(.class-card) #fsHint{display:none}
+@media (max-height:460px){#title:has(#fsHint) .ctl-tip{display:none}}   /* телефон горизонтально: подсказка управления и подсказка «на весь экран» не помещались обе и ложились друг на друга; управление есть в «Помощи» */   /* iPhone горизонтально: подсказка «На экран Домой» ложилась на описания героев — на выборе героя её не показываем, она есть на титуле */
 
 /* сборка 44: портрет героя слева наверху — он же кнопка меню (вместо «Герой» и «Меню» справа) */
 #portrait{width:64px;height:64px;border:0;background-color:#120a1a;background-size:cover;background-position:center 30%;box-shadow:0 0 0 2px #e8c26a,0 0 0 4px #2a1a08,0 0 0 5px #8a6a2e,0 3px 12px #000c,0 0 16px #b48cff44;transition:transform .1s}
