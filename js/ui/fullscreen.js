@@ -71,7 +71,7 @@ export function initFullscreen() {
     androidHint();
   } else if (!coarse() && canFs()) {
     const h = hint('На весь экран: клавиша <b>F11</b> или ');
-    if (!h) return; const b = document.createElement('button'); b.className = 'btn sm'; b.textContent = '⛶ На весь экран';
+    if (!h) return; h.classList.add('pc'); const b = document.createElement('button'); b.className = 'btn sm'; b.textContent = '⛶ На весь экран';
     b.onclick = () => { requestFs(); h.remove(); }; h.appendChild(b);
   }
 }
