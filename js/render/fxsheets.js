@@ -132,6 +132,12 @@ export function drawFxFlat(ctx, cam, fx, alpha = 1) {
   ctx.save(); ctx.globalAlpha = alpha; ctx.globalCompositeOperation = 'lighter'; groundBasis(ctx, cam, fx.x, fx.y, 0);
   ctx.drawImage(imgOf(S, id, fx.realm), sx, sy, C, C, -m * 0.5, -m * 0.62, m, m); ctx.restore(); return true;
 }
+// пятно жара на полу (круг радиуса r м, мягкий край) — подложка под огонь, чтобы середина светилась
+export function drawGroundGlow(ctx, cam, x, y, r, alpha = 1) {
+  ctx.save(); ctx.globalAlpha = alpha; ctx.globalCompositeOperation = 'lighter'; groundBasis(ctx, cam, x, y, 0);
+  const g = ctx.createRadialGradient(0, 0, 0, 0, 0, r); g.addColorStop(0, 'rgba(255,170,60,0.55)'); g.addColorStop(0.6, 'rgba(255,90,20,0.35)'); g.addColorStop(1, 'rgba(255,40,0,0)');
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, r, 0, 7); ctx.fill(); ctx.restore();
+}
 // снаряд: лист «вправо», поворачивается по полёту (ang — экранный угол), t — время полёта для цикла кадров
 export function drawProjSheet(ctx, cam, id, x, y, z, ang, t, size) {
   const S = sheets.get(real(id)); if (!S) return false;
