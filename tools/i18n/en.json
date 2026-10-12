@@ -2787,5 +2787,6 @@
  " (вы)": " (you)",
  "Пока в таблице никого нет — станьте первым!": "Nobody on the board yet — be the first!",
  "Таблица игроков появится в Яндекс Играх.": "The player leaderboard will appear on Yandex Games.",
- "<small>Рекорды записываются сами, когда вы их бьёте. Таблица обновляется раз в минуту.</small>": "<small>Records are saved automatically when you beat them. The board refreshes once a minute.</small>"
+ "<small>Рекорды записываются сами, когда вы их бьёте. Таблица обновляется раз в минуту.</small>": "<small>Records are saved automatically when you beat them. The board refreshes once a minute.</small>",
+ " · предел на вашем уровне (ещё +1 с каждым уровнем героя, до {0})": " · cap for your level (+1 with each hero level, up to {0})"
 }

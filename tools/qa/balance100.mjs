@@ -19,9 +19,9 @@ import { PETS, TRAIN_STEP, trainCost, petUpCost } from '../../js/data/pets.js';
 let seed = 7; Math.random = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
 
 const ONLY = process.argv[2], HPD = +(process.argv[3] || 2);   // часов игры в день
-import { UPGRADES } from '../../js/data/upgrades.js';
-const UPG = Object.fromEntries(['dmg', 'hp', 'aps'].map(k => [k, [UPGRADES[k].base, UPGRADES[k].mul, UPGRADES[k].max]]));
-const upgCost = (id, l) => Math.round(UPG[id][0] * Math.pow(UPG[id][1], l));
+import { UPGRADES, upgCost as upgCost0E, upgMax as upgMaxE } from '../../js/data/upgrades.js';
+const UPG = Object.fromEntries(['dmg', 'hp', 'aps'].map(k => [k, 1]));
+const upgCost = upgCost0E;   // цены и потолки Элвина — из игры (data/upgrades.js upgCost, upgMax по уровню героя)
 const mergeCost = (r, L) => Math.round([40, 200, 900, 4000][r] * PK(L));
 const WB = (cls, L) => ({ warrior: L >= 6 ? 'knight_sword' : L >= 3 ? 'long_sword' : 'short_sword', archer: L >= 5 ? 'long_bow' : L >= 3 ? 'hunter_bow' : 'short_bow', mage: L >= 4 ? 'rune_staff' : 'oak_staff' }[cls]);
 const AB = { head: L => L >= 4 ? 'helm' : 'cap', chest: L => L >= 6 ? 'plate' : L >= 3 ? 'mail' : 'jerkin', amulet: () => 'amulet' };
@@ -79,7 +79,7 @@ function run(cls) {
     // ---- траты: жадно по пользе на монету
     for (let guard = 0; guard < 400; guard++) {
       const base = score(S_of(P()), cls), opts = [];
-      for (const id in UPG) if (up[id] < UPG[id][2]) opts.push({ c: upgCost(id, up[id]), f: () => up[id]++, u: () => up[id]-- });
+      for (const id in UPG) if (up[id] < upgMaxE(id, { level: L })) opts.push({ c: upgCost(id, up[id]), f: () => up[id]++, u: () => up[id]-- });
       for (const s in gear) { const it = gear[s]; if (it && (it.upg || 0) < 10) opts.push({ c: upgradeCost(it), f: () => it.upg++, u: () => it.upg-- }); }
       if (L + 1 >= 60 && epicW >= 3 && gear.weapon.rarity === 3) { const w = gear.weapon; opts.push({ c: mergeCost(3, L + 1), f: () => { w.rarity = 4; w._m = 1; }, u: () => { w.rarity = 3; delete w._m; }, merge: 'w' }); }
       for (const s of ['head', 'chest', 'amulet']) if (L + 1 >= 35 && blue[s] >= 3 && gear[s] && gear[s].rarity === 2) { const it = gear[s]; opts.push({ c: mergeCost(2, L + 1), f: () => { it.rarity = 3; }, u: () => { it.rarity = 2; }, merge: s }); }

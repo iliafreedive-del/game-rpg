@@ -2787,5 +2787,6 @@
  " (вы)": " (tu)",
  "Пока в таблице никого нет — станьте первым!": "Ancora nessuno in classifica: sii il primo!",
  "Таблица игроков появится в Яндекс Играх.": "La classifica dei giocatori apparirà su Yandex Games.",
- "<small>Рекорды записываются сами, когда вы их бьёте. Таблица обновляется раз в минуту.</small>": "<small>I record si salvano da soli quando li batti. La classifica si aggiorna una volta al minuto.</small>"
+ "<small>Рекорды записываются сами, когда вы их бьёте. Таблица обновляется раз в минуту.</small>": "<small>I record si salvano da soli quando li batti. La classifica si aggiorna una volta al minuto.</small>",
+ " · предел на вашем уровне (ещё +1 с каждым уровнем героя, до {0})": " · limite al tuo livello (+1 a ogni livello dell'eroe, fino a {0})"
 }

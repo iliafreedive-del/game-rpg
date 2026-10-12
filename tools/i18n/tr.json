@@ -2787,5 +2787,6 @@
  " (вы)": " (siz)",
  "Пока в таблице никого нет — станьте первым!": "Tabloda henüz kimse yok — ilk siz olun!",
  "Таблица игроков появится в Яндекс Играх.": "Oyuncu sıralaması Yandex Games'te görünecek.",
- "<small>Рекорды записываются сами, когда вы их бьёте. Таблица обновляется раз в минуту.</small>": "<small>Rekorlar kırdığınızda kendiliğinden kaydedilir. Tablo dakikada bir yenilenir.</small>"
+ "<small>Рекорды записываются сами, когда вы их бьёте. Таблица обновляется раз в минуту.</small>": "<small>Rekorlar kırdığınızda kendiliğinden kaydedilir. Tablo dakikada bir yenilenir.</small>",
+ " · предел на вашем уровне (ещё +1 с каждым уровнем героя, до {0})": " · seviyene göre sınır (her kahraman seviyesinde +1, en fazla {0})"
 }

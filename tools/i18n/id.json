@@ -2787,5 +2787,6 @@
  " (вы)": " (Anda)",
  "Пока в таблице никого нет — станьте первым!": "Belum ada yang tercatat — jadilah yang pertama!",
  "Таблица игроков появится в Яндекс Играх.": "Papan peringkat pemain akan muncul di Yandex Games.",
- "<small>Рекорды записываются сами, когда вы их бьёте. Таблица обновляется раз в минуту.</small>": "<small>Rekor tersimpan otomatis saat Anda memecahkannya. Papan diperbarui sekali per menit.</small>"
+ "<small>Рекорды записываются сами, когда вы их бьёте. Таблица обновляется раз в минуту.</small>": "<small>Rekor tersimpan otomatis saat Anda memecahkannya. Papan diperbarui sekali per menit.</small>",
+ " · предел на вашем уровне (ещё +1 с каждым уровнем героя, до {0})": " · batas untuk level Anda (+1 tiap level pahlawan, hingga {0})"
 }

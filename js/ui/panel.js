@@ -2,7 +2,7 @@
 // The game keeps running (no pause). Everything shows the price and the effect up front.
 import { G, bus } from '../game/ctx.js';
 import { $, el, esc, fmt, ICO } from '../core/util.js';
-import { UPGRADES, upgCost, upgHave, ROOMS, DECOR } from '../data/upgrades.js';
+import { UPGRADES, upgCost, upgHave, upgMax, ROOMS, DECOR } from '../data/upgrades.js';
 import { REPEATABLE } from '../data/quests.js';
 import { REALMS } from '../data/wild.js';
 import * as CH from '../game/character.js';
@@ -77,8 +77,8 @@ function render(force) {
     if (rankOk) sk.classList.add('nudge');
     let nudged = rankOk;
     for (const [id, U] of Object.entries(UPGRADES)) {
-      const l = (P.upg && P.upg[id]) || 0, max = l >= U.max, cost = upgCost(id, l), can = !upLock && !max && upgHave(P, id) >= cost;
-      const r = row(U.icon, `${U.name} <span class="lv">ур. ${l}</span>`, max ? U.fmt(l) + ' · максимум' : `${U.fmt(l)} → <span class="good">${U.fmt(l + 1)}</span>`, max ? '—' : upLock ? '🔒' : U.shards ? `${cost}◆` : `${fmt(cost)}`, can, () => buyUpg(id));
+      const l = (P.upg && P.upg[id]) || 0, top = upgMax(id, P), max = l >= top, cost = upgCost(id, l), can = !upLock && !max && upgHave(P, id) >= cost;
+      const r = row(U.icon, `${U.name} <span class="lv">ур. ${l}</span>`, max ? U.fmt(l) + (top < U.max ? ` · предел на вашем уровне (ещё +1 с каждым уровнем героя, до ${U.max})` : ' · максимум') : `${U.fmt(l)} → <span class="good">${U.fmt(l + 1)}</span>`, max ? '—' : upLock ? '🔒' : U.shards ? `${cost}◆` : `${fmt(cost)}`, can, () => buyUpg(id));
       r.querySelector('.pn-btn').classList.add('cost');   // крупная цена и осколок на всю кнопку (а не мелкая цифра посреди пустой кнопки)
       if (elvStep && can && !nudged && !U.shards) { r.querySelector('.pn-btn').classList.add('nudge'); r.classList.add('hot'); nudged = true; }
       box.appendChild(r);
@@ -215,7 +215,7 @@ function render(force) {
 function buyUpg(id) {
   const P = G.profile; P.upg = P.upg || {}; const l = P.upg[id] || 0, cost = upgCost(id, l);
   if (earlyLock('upg')) { bus.emit('sfx', 'deny'); return; }
-  if (l >= UPGRADES[id].max || upgHave(P, id) < cost) { bus.emit('sfx', 'deny'); if (UPGRADES[id].shards && l < UPGRADES[id].max) bus.emit('toast', { text: `Нужно ${cost}◆ осколков Бездны`, sub: 'Осколки дают боссы Летописи, Жатва, недельные задания и Путь сезона', kind: 'warn' }); return; }
+  if (l >= upgMax(id, P) || upgHave(P, id) < cost) { bus.emit('sfx', 'deny'); if (UPGRADES[id].shards && l < upgMax(id, P)) bus.emit('toast', { text: `Нужно ${cost}◆ осколков Бездны`, sub: 'Осколки дают боссы Летописи, Жатва, недельные задания и Путь сезона', kind: 'warn' }); return; }
   { const q = Q.current(); if (q && q.id === 'hw_elvin') P.story.flags.upgBought = true; if (q && q.id === 'surv_elvin') P.story.flags.upgBought2 = true; }   // шаги обучения «Усилить героя у Элвина»
   if (UPGRADES[id].shards) P.shards -= cost; else P.gold -= cost; P.upg[id] = l + 1; G.stats = stats(P); bus.emit('statsChanged'); bus.emit('sfx', 'anvil'); bus.emit('save');
   bus.emit('float', { x: G.player.x, y: G.player.y, text: `${UPGRADES[id].name} ↑`, color: '#9fe38e', z: 2.4 });
