@@ -8,6 +8,7 @@ import { grassTex } from '../js/render3d/textures.js';
 import { LIGHT, CAMERA, HERO } from '../js/render3d/style.js';
 import { PET_MODELS } from '../js/render3d/models/pet/pets.js';
 import { PETS, TIERS } from '../js/data/pets.js';
+import { petMotes, emitPet } from '../js/render3d/cosfx.js';
 import WARRIOR from '../js/render3d/models/hero/warrior.js';
 import SWORD from '../js/render3d/models/weapon/sword_iron.js';
 import SHIELD from '../js/render3d/models/weapon/shield_round.js';
@@ -46,7 +47,7 @@ const S = { pet: QS.pet || 'fennec', clip: QS.clip || 'attack', cam: 'game', spi
 let pets = [], hero = null, clipT = 0, t = 0, last = performance.now();
 const fx = [];   // всплывающие надписи и снаряды
 function build() {
-  for (const p of pets) p.a.dispose(); if (hero) { hero.dispose(); hero = null; }
+  for (const p of pets) { p.a.dispose(); if (p.m) p.m.dispose(); } if (hero) { hero.dispose(); hero = null; }
   const ids = S.pet === 'all' ? Object.keys(PET_MODELS) : [S.pet];
   pets = ids.map((id, i) => {
     const a = new Actor(PET_MODELS[id], kit, scene); a.root.traverse(o => { if (o.isMesh && !o.userData.isOutline) o.castShadow = true; });
@@ -92,6 +93,7 @@ function drive(dt) {
       a.update(dt, { clip: S.clip, k }, env); a.flash(S.clip === 'hit' ? Math.max(0, 1 - k * 4) : 0, 0xffffff);
     }
   }
+  for (const p of pets) { const M = PET_MODELS[p.id].motes; if (!M) continue; if (!p.m) p.m = petMotes(scene, M); const r = p.a.root.position; emitPet(p.m, M, dt, r.x, r.z, p.a.yaw); }
   for (let i = fx.length - 1; i >= 0; i--) {
     const f = fx[i]; f.t += dt;
     if (f.kind === 'proj') { const k = Math.min(1, f.t / f.dur); f.m.position.lerpVectors(f.from, f.to, k); f.m.position.y += Math.sin(k * Math.PI) * 0.3; if (k >= 1) { scene.remove(f.m); fx.splice(i, 1); f.onHit && f.onHit(); } }

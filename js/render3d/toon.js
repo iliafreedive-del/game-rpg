@@ -266,7 +266,7 @@ export function addOutlines(root, mat) {
 // облик — это три цвета, свечение полосы A и общий сдвиг оттенка. Для питомцев (цвета вершин) обычно хватает сдвига,
 // насыщенности, яркости и тонировки. Один материал — одна программа: смена облика меняет только числа (uniform).
 const LOOK_PARS = /* glsl */`
-uniform vec4 uLkA; uniform vec4 uLkB; uniform vec4 uLkC; uniform vec4 uLkSrc; uniform vec4 uLkSrc2; uniform vec4 uLkHSV; uniform vec4 uLkT; uniform vec4 uLkG; uniform vec4 uLkG2;
+uniform vec4 uLkA; uniform vec4 uLkB; uniform vec4 uLkC; uniform vec4 uLkSrc; uniform vec4 uLkSrc2; uniform vec4 uLkHSV; uniform vec4 uLkT; uniform vec4 uLkG; uniform vec4 uLkG2; uniform vec4 uLkGh;
 vec3 lkHsv(vec3 c) { vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0); vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g)); vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r)); float d = q.x - min(q.w, q.y); return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + 1e-10)), d / (q.x + 1e-10), q.x); }
 vec3 lkRgb(vec3 c) { vec3 p = abs(fract(c.xxx + vec3(1.0, 2.0 / 3.0, 1.0 / 3.0)) * 6.0 - 3.0); return c.z * mix(vec3(1.0), clamp(p - 1.0, 0.0, 1.0), c.y); }
 vec3 lkX(vec3 c) {   // общий сдвиг оттенка/насыщенности/яркости и тонировка (после полос; и для светящихся частей)
@@ -296,6 +296,12 @@ const LOOK_GLOW = /* glsl */`
   outgoingLight = mix(lkX(outgoingLight), outgoingLight, vColor.a);   // светящиеся части питомцев (огонь хвоста, глаза) — того же облика
 #endif
   float pu = 0.75 + 0.25 * sin(uTime * uLkG2.x * 6.2831); outgoingLight += uLkG.rgb * uLkG.w * lkW * pu;
+  if (uLkGh.w > 0.0) {   // призрак: тело полупрозрачное, светится по краю силуэта, по нему бегут бледные полосы
+    float fr = pow(1.0 - saturate(abs(dot(normal, normalize(vViewPosition)))), 1.6);
+    float sc = 0.78 + 0.22 * sin(vViewPosition.y * 14.0 + uTime * 4.0);
+    outgoingLight = mix(outgoingLight, outgoingLight * 0.45 + uLkGh.rgb * (0.35 + 2.4 * fr) * sc, uLkGh.w);
+    diffuseColor.a *= mix(1.0, clamp((0.3 + 0.8 * fr) * sc, 0.0, 1.0), uLkGh.w);
+  }
 }
 `;
 const _lc = new THREE.Color();
@@ -305,7 +311,8 @@ const lkVec = (u, col, ref, w = 1) => { if (col == null) { u.value.set(0, 0, 0, 
 export function applyLook(m, look) {
   if (!m) return;
   if (!m.userData.look) {
-    const u = m.userData.look = { uLkA: { value: new THREE.Vector4() }, uLkB: { value: new THREE.Vector4() }, uLkC: { value: new THREE.Vector4() }, uLkSrc: { value: new THREE.Vector4(0.71, 0.07, 0.635, 0) }, uLkSrc2: { value: new THREE.Vector4(0.06, 0.05, 0.04, 0.0) }, uLkHSV: { value: new THREE.Vector4(0, 1, 1, 0) }, uLkT: { value: new THREE.Vector4() }, uLkG: { value: new THREE.Vector4() }, uLkG2: { value: new THREE.Vector4(0.5, 1, 0, 0) } };
+    const u = m.userData.look = { uLkA: { value: new THREE.Vector4() }, uLkB: { value: new THREE.Vector4() }, uLkC: { value: new THREE.Vector4() }, uLkSrc: { value: new THREE.Vector4(0.71, 0.07, 0.635, 0) }, uLkSrc2: { value: new THREE.Vector4(0.06, 0.05, 0.04, 0.0) }, uLkHSV: { value: new THREE.Vector4(0, 1, 1, 0) }, uLkT: { value: new THREE.Vector4() }, uLkG: { value: new THREE.Vector4() }, uLkG2: { value: new THREE.Vector4(0.5, 1, 0, 0) }, uLkGh: { value: new THREE.Vector4() } };
+    m.userData.baseTransparent = m.transparent;
     const ob = m.onBeforeCompile, key = m.customProgramCacheKey;
     m.onBeforeCompile = (sh, r) => {
       ob.call(m, sh, r); Object.assign(sh.uniforms, u, { uTime: U.uTime });
@@ -323,4 +330,7 @@ export function applyLook(m, look) {
   _lc.set(L.tint ?? 0xffffff); u.uLkT.value.set(_lc.r, _lc.g, _lc.b, L.tint != null ? (L.tintK ?? 0.6) : 0);
   _lc.set(L.glow ?? 0); u.uLkG.value.set(_lc.r, _lc.g, _lc.b, L.glow != null ? (L.glowK ?? 0.5) : 0);
   u.uLkG2.value.set(L.pulse ?? 0.5, L.glowAll ? 0 : 1, 0, 0);
+  // ghost: цвет свечения призрака (true — голубой); материал становится прозрачным (смена прозрачности — одна перекомпиляция)
+  const gh = L.ghost; _lc.set(gh === true ? 0x8ae8ff : gh || 0); u.uLkGh.value.set(_lc.r, _lc.g, _lc.b, gh ? (L.ghostK ?? 1) : 0);
+  if (m.transparent !== !!gh && !m.userData.baseTransparent) { m.transparent = !!gh; m.needsUpdate = true; }
 }

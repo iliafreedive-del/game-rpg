@@ -4,7 +4,10 @@
 import * as THREE from '../vendor/three.module.min.js';
 import { G, bus } from '../game/ctx.js';
 import { PX_PER_M } from '../core/iso.js';
-import { U, setSmoothFade } from './toon.js';
+import { U, setSmoothFade, applyLook } from './toon.js';
+import { heroLook, heroModel, petGhost } from '../game/cosmetics.js';
+import { make as makeWarrior } from './models/hero/warrior.js';
+import { make as makeMage } from './models/hero/mage.js';
 import { makeKit, preloadModels } from './kit.js';
 import { Actor, setOutlinesVisible } from './actor.js';
 import { preloadBones, bonesReady, preloadBoneTrees } from './bonesglb.js';
@@ -21,9 +24,10 @@ import { HEROES, MOBS, NPCS, WEAPONS, WEAPON_MODEL, OFFHAND_MODEL } from './regi
 import { PET_MODELS } from './models/pet/pets.js';
 import { LIGHT, CAMERA, QUALITY, SHADOW, HERO } from './style.js';
 import { zoomNow } from '../core/camzoom.js';
-import { SKINS, skinLoaded } from './glbskin.js';
+import { SKINS, skinLoaded, preloadSkin } from './glbskin.js';
 import { Post } from './post.js';
 import { Sparks } from './sparks.js';
+import { petMotes, emitPet } from './cosfx.js';
 import { FORGE_HIT } from './models/npc/npc_smith.js';
 import { sfx } from '../core/audio.js';
 
@@ -145,7 +149,7 @@ function applyQuality(force) {
 
 // ---------------------------------------------------------------- мир зоны
 function disposeWorld() {
-  for (const a of actors.values()) a.dispose(); actors.clear();
+  for (const a of actors.values()) { a.dispose(); if (a.motes) a.motes.dispose(); } actors.clear();
   for (const l of swarmPool.values()) for (const a of l) a.dispose(); swarmPool.clear();
   if (!world) return;
   world.ground.dispose(); world.props.dispose(); world.glow.removeFromParent(); world.pool.removeFromParent(); if (world.atmo) world.atmo.dispose(); if (world.critters) world.critters.dispose(); world = null;
@@ -227,15 +231,27 @@ function getActor(key, def, o = {}) {
 }
 function flashOf(e) { return e.flash > 0 ? Math.min(1, e.flash * 8) : 0; }
 
+let cosmVer = 0; bus.on('cosm', () => cosmVer++);
+const ALT = {};   // другие модели класса: тот же герой с другой «шкурой»
+const altDef = (cls, name) => ALT[name] || (ALT[name] = cls === 'mage' ? makeMage(name) : makeWarrior(name));
 const HERO_SKIN = { archer: 'archer_raven', warrior: 'warrior_knight', mage: 'mage_staff' };   // класс → модель из assets/models (tools/art/glb_rig.py)
 function syncPlayer(dt) {
   const P = G.player; if (!P) return;
   const cls = (G.profile && G.profile.cls) || 'warrior';
   // «Новые модели» (Настройки): готовая модель художника поверх рига (glbskin.js). Переключили или модель догрузилась — пересобрать героя
   SKINS.on = !(G.profile && G.profile.settings && G.profile.settings.skins === false);
-  let a = getActor(P, HEROES[cls], { scale: HERO.scale });
-  const sk = HERO_SKIN[cls];
-  if (sk && !!a.model.skin !== SKINS.on && (!SKINS.on || skinLoaded(sk))) { a.dispose(); actors.delete(P); a = getActor(P, HEROES[cls], { scale: HERO.scale }); }
+  // облик (js/game/cosmetics.js): другая модель класса качается, только когда её надели; пока качается — прежняя
+  const alt = SKINS.on && heroModel(G.profile); let def = HEROES[cls];
+  if (alt) { if (skinLoaded(alt)) def = altDef(cls, alt); else preloadSkin(alt); }
+  let a = getActor(P, def, { scale: HERO.scale });
+  if (a.def !== def) { a.dispose(); actors.delete(P); a = getActor(P, def, { scale: HERO.scale }); }
+  const sk = def.skin || HERO_SKIN[cls];
+  if (sk && !!a.model.skin !== SKINS.on && (!SKINS.on || skinLoaded(sk))) { a.dispose(); actors.delete(P); a = getActor(P, def, { scale: HERO.scale }); }
+  if (a.cosmVer !== cosmVer) {   // перекраска — только при смене облика или новой модели (одни числа в шейдере)
+    a.cosmVer = cosmVer; const L = heroLook(G.profile);
+    if (a.model.skinMat) applyLook(a.model.skinMat, L);
+    a.root.traverse(o => { if (o.userData.isOutline) o.visible = !(L && L.ghost); });
+  }
   const wt = P.weaponType(), key = wt + cls;
   if (a.gear !== key) { a.gear = key; const wm = WEAPONS[WEAPON_MODEL[wt] || 'sword_iron'], off = OFFHAND_MODEL[cls] ? WEAPONS[OFFHAND_MODEL[cls]] : null; if (wt === 'bow') { a.equip('handL', wm); a.equip('handR', null); } else { a.equip('handR', wm); a.equip('handL', off); } }
   const c = measure(a, P, dt), an = P.anim; let clip = 'idle', k, impact, speed = 0;
@@ -312,10 +328,16 @@ function syncNpcs(dt) {
 // питомец героя (сборка 58, js/game/pets.js): новая модель — когда сменили зверька (G.pet — новый объект)
 function syncPet(dt) {
   const p = G.pet;
-  for (const [k, a] of actors) if (a.isPet && k !== p) { a.dispose(); actors.delete(k); }
+  for (const [k, a] of actors) if (a.isPet && k !== p) { a.dispose(); if (a.motes) a.motes.dispose(); actors.delete(k); }
   if (!p || !PET_MODELS[p.id]) return;
   const a = getActor(p, PET_MODELS[p.id]); a.isPet = true; a.turnRate = 12;
+  if (a.cosmVer !== cosmVer) {   // призрачный питомец (облик)
+    a.cosmVer = cosmVer; const gh = petGhost(G.profile);
+    for (const m of a.mats) if (gh || m.userData.look) applyLook(m, gh ? { ghost: true } : null);
+    a.root.traverse(o => { if (o.userData.isOutline) o.visible = !gh; });
+  }
   a.place(p.x, p.y); a.faceAngle(Math.PI / 2 - p.ang);
+  const M = a.def.motes; if (M) { if (!a.motes) a.motes = petMotes(scene, M); emitPet(a.motes, M, dt, p.x, p.y, a.yaw); }
   a.update(dt, p.act ? { clip: 'attack', k: Math.min(1, p.act.t / p.act.dur) } : p.speed > 0.4 ? { clip: 'walk', speed: p.speed } : { clip: 'idle' }, env);
 }
 let sparks = null;   // искры кузни (sparks.js) — создаются при первом ударе

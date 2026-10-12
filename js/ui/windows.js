@@ -49,6 +49,7 @@ import { setVolumes } from '../core/audio.js';
 import { resize } from '../render/index.js';
 import { zoomRange, zoomNow, setZoom } from '../core/camzoom.js';
 import { hintLog, hintsOn, setHints, MILESTONES, milestones } from './tutorial.js';
+import { renderLooks } from './looks.js';
 
 let cur = null;   // {name, bg, render}
 // сборка 47: окно с lock (первый меч, смерть в Жатве) закрывается только своей кнопкой — closeModal(true).
@@ -1108,12 +1109,14 @@ bus.on('zoneEntered', id => { const P = G.profile; P.lore = P.lore || {}; const 
   const show = () => { if (cur) { setTimeout(show, 800); return; } modal(L[0], 'sm reward', b => { b.appendChild(artHead(ART.zone(id))); b.appendChild(el('p', 'lore', esc(L[1]))); const r = el('div', 'row'); r.style.justifyContent = 'center'; const ok = el('button', 'btn gold', 'Вперёд'); ok.onclick = closeModal; r.appendChild(ok); b.appendChild(r); }); cur.bg.classList.add('rw-bg'); }; setTimeout(show, 600); });
 
 // ---------------------------------------------------------------- main menu: big labelled tiles instead of a row of tiny icons
+// облики (сборка 59, ui/looks.js)
+W.looks = () => { modal('Облик', 'md', b => renderLooks(b, rerender)); };
 W.menu = () => modal('Меню', 'md', b => {
   const tiles = [
     ['inventory', '🎒', 'Герой', 'снаряжение и сумка', 'dotInv'], ['character', '🛡', 'Персонаж', 'характеристики', 'dotChar'], ['skills', '✦', 'Навыки', 'умения и кнопки', 'dotSkill'],
     ['journal', '📜', 'Задания', 'сюжет и ежедневные'], ['map', '🗺', 'Карта', 'текущая локация'],
     ['herospath', '⚔', 'Летопись битв', 'автобои', 'dotHW'], ['shrine', '🎁', 'Источник силы', 'дары, сила источника', 'dotGift'], ['season', '🏆', 'Путь сезона', SE.seasonName() + ' · 30 ступеней', 'dotSeason'], ['codex', '📖', 'Коллекция', '+0,5% за каждую находку'],
-    ['help', '❓', 'Справка', 'подсказки и обучение'], ['settings', '⚙', 'Настройки', 'звук, графика'],
+    ['looks', '🎭', 'Облик', 'наряд, краски, призрак'], ['help', '❓', 'Справка', 'подсказки и обучение'], ['settings', '⚙', 'Настройки', 'звук, графика'],
   ];
   const g = el('div', 'menu-grid');
   for (const [id, ic, name, sub, badge] of tiles) {

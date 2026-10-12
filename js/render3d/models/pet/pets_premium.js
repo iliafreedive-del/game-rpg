@@ -1,27 +1,6 @@
 // Особые питомцы (облики за рубли или за просмотры рекламы, js/data/cosmetics.js): те же правила, что у питомцев каравана
 // (pets.js): процедурные, свой простой риг, клипы idle / walk / attack / hit / death / cast. Файлов не качают.
-import { base, done } from './pets.js';
-
-// перепончатое крыло (как у летучей мыши): лоскут-форма с зубчатым задним краем и «пальцами»-костями; s — сторона (−1 / 1)
-function membrane(kit, b, parent, s, L, color, top, bone, p) {
-  const { THREE } = b, sh = new THREE.Shape(), X = x => x * s;
-  sh.moveTo(0, 0.04); sh.lineTo(X(L * 0.45), 0.16 * L); sh.lineTo(X(L), 0.05 * L);
-  sh.quadraticCurveTo(X(L * 0.82), -0.2 * L, X(L * 0.72), -0.42 * L); sh.quadraticCurveTo(X(L * 0.55), -0.24 * L, X(L * 0.42), -0.4 * L);
-  sh.quadraticCurveTo(X(L * 0.3), -0.2 * L, X(L * 0.14), -0.3 * L); sh.lineTo(0, -0.08);
-  const g = new THREE.ShapeGeometry(sh, 6); g.rotateX(Math.PI / 2);   // форма в XY → горизонтально, передний край вперёд (+Z)
-  if (s > 0) { const ix = g.index.array; for (let i = 0; i < ix.length; i += 3) { const t = ix[i]; ix[i] = ix[i + 1]; ix[i + 1] = t; } }   // лицевая сторона — вверх у обоих
-  g.computeVertexNormals();
-  const fingers = [[L, 0.05], [L * 0.72, -0.42], [L * 0.42, -0.4]].map(([x, y]) => kit.tube([[0, 0, 0], [X(x * 0.5), y * 0.3 + 0.02, 0], [X(x), y, 0]], 0.022, 0.008, bone, { top }, 5));
-  const grp = b.M(parent, [kit.part(g, color, [0, 0, 0], 0, 1, { top })], p);
-  const fg = kit.merge(fingers); fg.rotateX(Math.PI / 2); grp.add(new THREE.Mesh(fg, b.mat));
-  return grp;
-}
-// перьевое крыло: веер из вытянутых перьев, кончики светлее
-function feathers(kit, b, parent, s, L, color, tip, p) {
-  const { THREE } = b, list = [];
-  for (let i = 0; i < 7; i++) { const a = 0.15 - i * 0.2, l = L * (0.55 + 0.45 * Math.sin((i + 1) / 8 * Math.PI)); const g = new THREE.ConeGeometry(0.045, l, 4); g.rotateZ(-Math.PI / 2 * s); g.translate(s * l / 2, 0, 0); g.rotateY(a * s); list.push(kit.part(g, i % 2 ? tip : color, [s * 0.02, 0, -i * 0.012], 0, [1, 0.35, 1], { top: tip, emit: true })); }
-  return b.M(parent, list, p);
-}
+import { base, done, membrane, feathers } from './pets.js';
 
 // Дракончик Бездны: тёмно-фиолетовый, перепончатые крылья, рожки, светящееся брюхо и пасть (выдыхает пламя при атаке)
 function dragon(kit) {
@@ -77,5 +56,10 @@ function spiritwolf(kit) {
   }, { height: 0.7 });
 }
 const FLY = { phoenix: 1 };
-const def = (id, fn) => ({ id: 'pet_' + id, kind: 'npc', outline: 'mob', fly: !!FLY[id], build: fn });
+const MOTES = {
+  dragon: { at: [0, 0.88, 0.9], rate: 5, colA: 0xffd060, colB: 0xff3000, grav: -1, size: 0.08, k: 2, sp: 0.1, up: 0.3 },
+  phoenix: { at: [0, 1.65, -0.7], rate: 18, colA: 0xffe070, colB: 0xff2000, grav: -0.6, size: 0.13, k: 2.3, sp: 0.2, up: 0.1 },
+  spiritwolf: { at: [0, 0.6, 0], rate: 8, colA: 0xd0f8ff, colB: 0x3080ff, grav: -0.6, size: 0.12, k: 1.4, sp: 0.35, up: 0.3, wobble: 0.3 },
+};
+const def = (id, fn) => ({ id: 'pet_' + id, kind: 'npc', outline: 'mob', fly: !!FLY[id], build: fn, motes: MOTES[id] });
 export const PREMIUM_PET_MODELS = { dragon: def('dragon', dragon), phoenix: def('phoenix', phoenix), spiritwolf: def('spiritwolf', spiritwolf) };

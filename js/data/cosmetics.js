@@ -14,12 +14,16 @@ export const DYES = {
 export const HERO_LOOKS = {
   base:    { name: 'Как есть', look: null, get: null },
   blood:   { name: 'Кровавый страж', look: { a: 0x8a0a18, b: 0x26262c, c: 0x2a1e22, glow: 0xff2010, glowK: 0.35 }, get: { shards: 40 } },
-  frost:   { name: 'Ледяной паладин', look: { a: 0x1450c8, b: 0xd0d6e0, c: 0x9ad0f0, glow: 0x60c0ff, glowK: 0.3 }, get: { rub: 'look_frost' } },
+  frost:   { name: 'Ледяной паладин', look: { a: 0x1450c8, b: 0xd0d6e0, c: 0x9ad0f0, glow: 0x60c0ff, glowK: 0.3 }, get: { rub: 'look_frost', ads: 100, days: 7 } },
   ember:   { name: 'Пепельное пламя', look: { a: 0x1a0604, b: 0xb05a2a, c: 0x2a2422, glow: 0xff5a10, glowK: 0.35, pulse: 0.8 }, get: { rub: 'look_ember', ads: 150, days: 7 } },
   holy:    { name: 'Светоносный', look: { a: 0xd8d4cc, b: 0xffc840, c: 0xe8e8e4, glow: 0xffe090, glowK: 0.25 }, get: { shards: 60 } },
   emerald: { name: 'Изумрудный лес', look: { a: 0x0c6a34, b: 0xd8ceb0, c: 0x7a4a20 }, get: { shards: 30 } },
   void:    { name: 'Дитя Бездны', look: { a: 0x2a0a4a, b: 0x26262c, c: 0x1e1e26, glow: 0xb050ff, glowK: 0.5, pulse: 0.4 }, get: { rub: 'look_void', ads: 200, days: 7 } },
 };
+// призрак (сборка 59): полупрозрачное тело со светящимся краем — для героя и для питомца, сочетается с любым обликом и краской
+export const GHOST = { hero: { name: 'Призрак', get: { rub: 'look_ghost', ads: 120, days: 7 } }, pet: { name: 'Призрачный питомец', get: { rub: 'pet_ghost', ads: 80, days: 7 } } };
+export const DYE_PRICE = 8;      // ◆ за каждую краску, кроме исходной (открывается для этого героя)
+export const MODEL_PRICE = 25;   // ◆ за другую модель класса
 // другая модель того же класса (уже лежат в assets/models, в сборку попадали и раньше)
 export const HERO_MODELS = {
   warrior: { warrior_knight: 'Рыцарь Ордена', warrior_vanguard: 'Фиолетовый авангард' },

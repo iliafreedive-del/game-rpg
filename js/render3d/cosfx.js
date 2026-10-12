@@ -20,7 +20,7 @@ function dotTex() {
 }
 
 // ---------------------------------------------------------------- частицы (общий маленький пул на эффект)
-class Motes {
+export class Motes {
   constructor(scene, n, o) {
     this.n = n; this.o = o; this.i = 0;
     this.pos = new Float32Array(n * 3); this.col = new Float32Array(n * 3); this.vel = new Float32Array(n * 3); this.life = new Float32Array(n); this.max = new Float32Array(n);
@@ -291,4 +291,16 @@ export class Extra {
     else { this.root.rotation.y = t * 0.8; this.root.scale.y = 1 + Math.sin(t * 9) * 0.12; }
   }
   dispose() { this.root.removeFromParent(); this.root.traverse(o => o.geometry && o.geometry.dispose()); this.mat.dispose(); if (this.motes) this.motes.dispose(); }
+}
+
+// искры питомца (PET_MOTES в models/pet/pets.js): точка at в системе питомца, поворот — yaw актёра, масштаб — модели
+export function petMotes(scene, M) { const m = new Motes(scene, 40, M); m.acc = 0; return m; }
+export function emitPet(m, M, dt, x, y, yaw, scale = 1) {
+  m.acc += dt * M.rate;
+  const c = Math.cos(yaw), s = Math.sin(yaw), [ax, ay, az] = M.at;
+  while (m.acc >= 1) {
+    m.acc--; const wx = x + (ax * c + az * s) * scale, wz = y + (-ax * s + az * c) * scale, r = M.sp;
+    m.emit(wx + (Math.random() - 0.5) * r, ay * scale + (Math.random() - 0.5) * r, wz + (Math.random() - 0.5) * r, (Math.random() - 0.5) * 0.3, M.up + Math.random() * 0.4, (Math.random() - 0.5) * 0.3, 0.5 + Math.random() * 0.6);
+  }
+  m.update(dt);
 }
