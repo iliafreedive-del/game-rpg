@@ -16,7 +16,7 @@ const CSS = `
 .lk-btns{display:flex;gap:5px;flex-wrap:wrap}.lk-btns .btn{padding:5px 9px;font-size:12px;min-height:30px}
 .lk-dyes{display:flex;gap:7px;flex-wrap:wrap;margin:4px 0 10px;align-items:center}
 .lk-dye{width:34px;height:34px;border-radius:50%;border:2px solid #0009;position:relative;padding:0;cursor:pointer}
-.lk-dye.on{outline:3px solid #f0d08a;outline-offset:1px}.lk-dye.lock::after{content:'${DYE_PRICE}◆';position:absolute;inset:auto -6px -8px auto;font:700 10px sans-serif;color:#f0c050;background:#000c;border-radius:6px;padding:0 3px}
+.lk-dye.on{outline:3px solid #f0d08a;outline-offset:1px}.lk-dye.lock::after{content:'${DYE_PRICE}\\25C6';position:absolute;inset:auto -6px -8px auto;font:700 10px sans-serif;color:#f0c050;background:#000c;border-radius:6px;padding:0 3px}
 .lk-lbl{font-size:12px;color:#a49a88;margin-top:2px}
 .lk-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:4px 0 10px}
 .ad-bar{position:relative;overflow:hidden}.ad-bar i{position:absolute;left:0;top:0;bottom:0;background:rgba(90,192,112,.35)}.ad-bar span{position:relative}
