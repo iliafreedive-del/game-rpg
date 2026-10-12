@@ -342,7 +342,7 @@ function build(RL, mood, depth, boss, seed, attempt, force) {
   let nF = 0; const CAMP_CLEAR = 5;   // вокруг лагеря — пусто: мобов видно, есть где драться
   for (let i = 0; i < nFlora * 2; i++) {
     const p = pick((x, y) => !inFort(x, y, 1) && !portalView(x, y) && free(x, y, 0) && !near(x, y, 3.5) && !prot[Math.floor(y) * W + Math.floor(x)] && !campPts.some(c => dist(x, y, c[0], c[1]) < CAMP_CLEAR) && !(miniAt && dist(x, y, miniAt[0], miniAt[1]) < CAMP_CLEAR));
-    if (p) { const t = flora[ri(0, flora.length - 1)]; if (t === 'sand_mesa' && !free(p[0], p[1], 2)) continue; placed.push([p[0], p[1], t === 'sand_mesa' ? 3.6 : 3.5]); objects.push(bn && (t === 'deadtree' || t === 'agave') ? { t, x: p[0], y: p[1], nocol: 1 } : { t, x: p[0], y: p[1] });   // правки 5: сухие кусты и агавы пустошей — сквозь них можно пройти (игрок в них упирался) if (++nF >= nFlora) break; }
+    if (p) { const t = flora[ri(0, flora.length - 1)]; if (t === 'sand_mesa' && !free(p[0], p[1], 2)) continue; placed.push([p[0], p[1], t === 'sand_mesa' ? 3.6 : 3.5]); objects.push(bn && (t === 'deadtree' || t === 'agave') ? { t, x: p[0], y: p[1], nocol: 1 } : { t, x: p[0], y: p[1] }); if (++nF >= nFlora) break; }   // правки 5: сухие кусты и агавы пустошей — сквозь них можно пройти (игрок в них упирался)
   }
   for (let i = 0; i < (bn ? 16 : 8); i++) { const p = pick((x, y) => free(x, y, 0)); if (p) objects.push({ t: realm === 'fjord' ? 'skulls' : bn && i % 3 === 0 ? 'skulls' : 'bones', x: p[0], y: p[1], deco: 1 }); }
   // П55: кромка над бездной не лысая — у ближнего к камере обрыва низкий декор без коллайдера (кусты, папоротник, камешки)
