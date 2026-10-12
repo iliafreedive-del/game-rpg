@@ -5,7 +5,7 @@ import * as THREE from '../vendor/three.module.min.js';
 import { G, bus } from '../game/ctx.js';
 import { PX_PER_M } from '../core/iso.js';
 import { U, setSmoothFade, outline, applyLook } from './toon.js';
-import { heroLook, heroModel, petGhost } from '../game/cosmetics.js';
+import { heroLook, heroModel, petLook } from '../game/cosmetics.js';
 import { make as makeWarrior } from './models/hero/warrior.js';
 import { make as makeMage } from './models/hero/mage.js';
 import { makeKit, preloadModels } from './kit.js';
@@ -369,8 +369,8 @@ function syncPet(dt) {
   const a = getActor(p, PET_MODELS[p.id]); a.isPet = true; a.turnRate = 12;
   if (!a.petGlow) { petGlow(a); a.root.scale.setScalar(PET_SCALE); }
   if (a.cosmVer !== cosmVer) {   // призрачный питомец (облик)
-    a.cosmVer = cosmVer; const gh = petGhost(G.profile);
-    for (const m of a.mats) if (gh || m.userData.look) applyLook(m, gh ? { ghost: true } : null);
+    a.cosmVer = cosmVer; const L = petLook(p.id, G.profile), gh = !!(L && L.ghost);
+    for (const m of a.mats) if (L || m.userData.look) applyLook(m, L);
     a.root.traverse(o => { if (o.userData.isOutline) o.visible = !gh; });
   }
   a.place(p.x, p.y); a.faceAngle(Math.PI / 2 - p.ang);

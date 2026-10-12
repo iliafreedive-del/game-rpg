@@ -87,7 +87,7 @@ function drive(dt) {
         if (!p.act.done && k >= 0.5) { p.act.done = true; if (solo) hitFx(p, px, py, dPos); }
         a.update(dt, { clip: 'attack', k }, env); if (k >= 1) { p.act = null; a.update(0, { clip: 'idle' }, env); }
       } else a.update(dt, { clip: 'idle' }, env);
-    } else if (S.clip === 'idle') { a.place(sx, sy); a.faceAngle(CAMERA.yaw + (S.pet === 'all' ? 0 : 1.1)); a.update(dt, { clip: 'idle' }, env); }
+    } else if (S.clip === 'idle') { a.place(sx, sy); a.faceAngle(CAMERA.yaw + (S.pet === 'all' ? 0 : +(QS.turn ?? 1.1))); a.update(dt, { clip: 'idle' }, env); }
     else {
       a.place(sx, sy); a.faceAngle(CAMERA.yaw);
       const dur = S.clip === 'death' ? 1 : 0.3, hold = S.clip === 'death' ? 1.2 : 0.7, cyc = clipT % (dur + hold), k = Math.min(1, cyc / dur);
@@ -156,7 +156,9 @@ build();
 document.getElementById('load').remove();
 function frame(now) {
   const dt = Math.min(0.05, (now - last) / 1000); last = now; t += dt; U.uTime.value = t;
-  drive(dt); placeCam(dt); U.uCam.value.copy(camera.position); U.uFocus.value.set(0, -50, 0);
+  drive(dt); if (QS.focus && pets[0] && pets[0].a.model.bones && pets[0].a.model.bones[QS.focus]) { pets[0].a.model.bones[QS.focus].getWorldPosition(target); dist = +QS.d || 1.4; pitch = +QS.pitch || 0.12; S.cam = 'free'; if (QS.mark) pets[0].a.root.traverse(o => { if (o.isSprite) { o.material.depthTest = false; o.scale.setScalar(0.06); } }); }   // ?focus=head&d=1.2 — крупно кость (подгонка глаз)
+  placeCam(dt); U.uCam.value.copy(camera.position); U.uFocus.value.set(0, -50, 0);
   renderer.render(scene, camera); requestAnimationFrame(frame);
 }
+window.__lab = { THREE, camera, get pets() { return pets; } };   // подгонка точек по снимку (лучом из пикселя)
 requestAnimationFrame(frame);
