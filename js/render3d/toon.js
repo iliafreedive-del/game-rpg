@@ -27,6 +27,10 @@ if (uHFog > 0.0) {
   float hn = texture2D(tHNoise, hfW.xz * 0.04 + vec2(uHTime * 0.006, uHTime * 0.004)).r * 0.6 + texture2D(tHNoise, hfW.xz * 0.11 - vec2(uHTime * 0.01, 0.0)).g * 0.4;
   float hf = uHFog * (1.0 - smoothstep(-0.2, 2.6 + hn * 1.8, hfW.y)) * (0.35 + 1.1 * hn);
   if (uHFogC.z > 0.0) hf *= mix(0.2, 1.0, smoothstep(uHFogC.z * 0.55, uHFogC.z, length(hfW.xz - uHFogC.xy)));
+  if (uHFogC.z < 0.0) {   // правки 5: походы (лес, пустоши) — по ветру изредка пролетают плотные полосы дымки; сила полос = −uHFogC.z
+    float sn = texture2D(tHNoise, vec2(hfW.x + hfW.z, (hfW.z - hfW.x) * 3.5) * 0.03 + vec2(-uHTime * 0.035, uHTime * 0.004)).r;
+    hf += -uHFogC.z * smoothstep(0.6, 0.82, sn) * (1.0 - smoothstep(0.2, 3.4, hfW.y));
+  }
   gl_FragColor.rgb = mix(gl_FragColor.rgb, uHFogCol, clamp(hf, 0.0, 0.4));
 }
 `;

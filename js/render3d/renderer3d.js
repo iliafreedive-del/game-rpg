@@ -205,8 +205,12 @@ function setZone(z) {
   const town = z.id === 'town', wild = z.id === 'wild', open = town || wild, fj = wild && z.json.wild.realm === 'fjord', bn = wild && z.json.wild.realm === 'bones';
   const ground = wild ? buildGround(scene, z, { abyss: z.json.wild.realm || 'forest', snow: fj, steppe: bn, forest: !fj && !bn, kindOf: wildKind, stoneCh: '\u0000', grassK: bn ? 0.24 : 0.15, islands: !!z.json.wild.islands, farColor: fj ? 0xb4c6d8 : bn ? 0x6a3420 : 0x0f2418, margin: 6 }) : town ? buildGround(scene, z, { margin: z.json.big ? 14 : 3, farColor: z.json.village ? 0x22341c : undefined }) : buildDungeonFloor(scene, z, LV.look), props = new PropLayer(scene, kit, z, open);
   // деревня: дым из труб, стелющийся туман, куры и собаки
-  U.uHFog.value = town && z.json.village ? 0.24 : 0;   // туман у земли — только в деревне
-  if (z.json.center) U.uHFogC.value.set(z.json.center[0], z.json.center[1], 17); else U.uHFogC.value.set(0, 0, 0);   // в центре деревни тумана почти нет
+  // туман у земли: деревня; правки 5 — и походы: Старый лес — зеленоватая дымка, Пустоши — жёлтая песчаная, с пролетающими по ветру полосами (toon.js HFOG_F).
+  // Считается в тех же шейдерах — без лишних частиц и проходов
+  const wf = wild && (z.json.wild.realm || 'forest') === 'forest';
+  U.uHFog.value = town && z.json.village ? 0.24 : wf ? 0.2 : bn ? 0.18 : 0;
+  U.uHFogCol.value.set(wf ? 0x9cc8a4 : bn ? 0xe6c88e : 0xb4c8c0);
+  if (z.json.center) U.uHFogC.value.set(z.json.center[0], z.json.center[1], 17); else U.uHFogC.value.set(0, 0, wf || bn ? -0.45 : 0);   // в центре деревни тумана почти нет
   const atmo = town && z.json.village ? new Atmo(scene, z, props.smoke) : null, critters = town && z.json.village ? new Critters(scene, kit, z) : null;
   world = { ground, props, atmo, critters, ...lightSets(z) };
   props.cull(camera, true); applyQuality(true); ground.setQuality(quality); spawned = false;
