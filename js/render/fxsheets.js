@@ -27,7 +27,9 @@ function want(id) {
   const im = new Image(); im.decoding = 'async'; pending.set(id, im);
   im.onload = () => { if (pending.get(id) !== im) return; pending.delete(id); const C = m.cols ? im.naturalWidth / m.cols : 0; sheets.set(id, { ...m, img: C ? softCells(im, { ...m, id }, C, ROUND.has(id)) : im, C }); };   // кадр — по картинке: ПК 192, телефон 128
   im.onerror = () => { pending.delete(id); console.warn('[fx] missing sheet', id); };
-  im.src = BASE + (PHONE ? m.file.replace(/^assets\/art\/fx\//, 'art/fx/m/') : m.file.replace(/^assets\//, ''));
+  // правки 5: большие стоячие листы (корни лешего, вихрь, шипы — от 3 м) на телефоне с кадром 128 px растянуты в 3–4 раза — «пиксельные». Им — полный кадр
+  const lo = PHONE && !(m.view === 'upright' && (m.meters || 0) >= 3);
+  im.src = BASE + (lo ? m.file.replace(/^assets\/art\/fx\//, 'art/fx/m/') : m.file.replace(/^assets\//, ''));
 }
 // правки 3: у многих листов GPT рисунок доходит до края кадра (вспышки, удары, вихрь) — в игре и Летописи был виден
 // жёсткий квадрат. Один раз при загрузке каждый кадр гасится к краям: мягкая рамка ~12 % кадра у всех листов,
@@ -41,6 +43,9 @@ function softCells(im, m, C, round) {
   for (const [x0, y0, x1, y1] of [[0, 0, e, 0], [n, 0, n - e, 0], [0, 0, 0, e], [0, n, 0, n - e]]) { const g = y.createLinearGradient(x0, y0, x1, y1); g.addColorStop(0, 'rgba(0,0,0,1)'); g.addColorStop(1, 'rgba(0,0,0,0)'); y.fillStyle = g; y.fillRect(0, 0, n, n); }
   if (round) { const cx = (m.anchor ? m.anchor[0] : 0.5) * n, cy = (m.anchor ? m.anchor[1] : 0.5) * n, g = y.createRadialGradient(cx, cy, 0, cx, cy, n * 0.49);
     g.addColorStop(0, '#000'); g.addColorStop(0.3 / 0.49, '#000'); g.addColorStop(1, 'rgba(0,0,0,0)'); y.globalCompositeOperation = 'destination-in'; y.fillStyle = g; y.fillRect(0, 0, n, n); }
+  // правки 5: у стоячего листа низ рисунка — ровная полоса земли («обрубленный плоский низ»); гасим её плавно от точки привязки вниз
+  if (m.view === 'upright' && m.anchor) { y.globalCompositeOperation = 'destination-out'; const a = m.anchor[1] * n, g = y.createLinearGradient(0, a - n * 0.16, 0, Math.min(n, a + n * 0.08));
+    g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,1)'); y.fillStyle = g; y.fillRect(0, a - n * 0.16, n, n); }
   const c = document.createElement('canvas'); c.width = W; c.height = H; const x = c.getContext('2d');
   for (let r = 0; r * C < H - 1; r++) for (let k = 0; k * C < W - 1; k++) x.drawImage(cm, k * C, r * C, C, C);
   if (SEAM.has(m.id)) { x.globalCompositeOperation = 'destination-out'; const h = H * 0.035;   // склейка GPT на 1/3 и 2/3 высоты: жёсткий срез рисунка — гасим полосой
