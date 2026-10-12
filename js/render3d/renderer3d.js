@@ -8,7 +8,7 @@ import { U, setSmoothFade, outline, applyLook } from './toon.js';
 import { heroLook, heroModel, petGhost } from '../game/cosmetics.js';
 import { make as makeWarrior } from './models/hero/warrior.js';
 import { make as makeMage } from './models/hero/mage.js';
-import { makeKit, preloadModels } from './kit.js';
+import { makeKit, preloadModels, zoneModels, bgModels, mobAssets, assetLoaded, wantAssets } from './kit.js';
 import { Actor, setOutlinesVisible } from './actor.js';
 import { preloadBones, bonesReady, preloadBoneTrees } from './bonesglb.js';
 import { preloadPortals, portalsReady } from './portalglb.js';
@@ -299,10 +299,14 @@ function enemyActor(e, def, scale) {
   a.update(0, { clip: 'idle' }, env); a.blend = 1; a.snap.clear(); a.flash(0, 0xffffff);
   return a;
 }
+// сборка 66: модель моба, пришедшая после сборки зоны, подменяет запасную на месте (как у каменных мобов храма — def.ready);
+// пока не пришла — её файлы заказываются вне очереди. Проверка идёт только у мобов с запасной моделью (a.fb)
+for (const d of Object.values(MOBS)) if (!d.ready) { const A = mobAssets(d.id); if (A.length) d.ready = () => { for (const n of A) if (!assetLoaded(n)) { wantAssets(A); return false; } return true; }; }
+const mobDef = e => MOBS[e.model || e.type] || MOBS[e.D && e.D.model3d];
 function syncEnemies(dt) {
   const fn = ++frameNo;
   for (const e of G.enemies) {
-    let def = MOBS[e.model || e.type] || MOBS[e.D && e.D.model3d];   // e.model — свой вид при том же типе (Страж глубин, сборка 57); model3d — чужая модель на время (мобы храма)
+    let def = mobDef(e);   // e.model — свой вид при том же типе (Страж глубин, сборка 57); model3d — чужая модель на время (мобы храма)
     if (!def) { if (!warned.has(e.type)) { warned.add(e.type); console.warn('[3D] нет модели моба «' + e.type + '» — показан скелет-воин'); } def = MOBS.skel_warrior; }
     const scale = (e.champion ? 1.25 : 1) * (e.bigMul || 1) * (def === MOBS[e.model || e.type] || (e.D && def === MOBS[e.D.model3d]) ? 1 : e.r / 0.34);
     let a = enemyActor(e, def, scale); a.seen = fn;
@@ -329,7 +333,8 @@ function syncNpcs(dt) {
       const al = (n.alpha ?? 1) * (0.34 + Math.sin(tAll * 2 + n.x) * 0.06); for (const m of a.mats) { m.transparent = true; m.opacity = al; m.depthWrite = false; }
       a.place(n.x, n.y); a.faceAngle(yawOfDir(n.dir)); a.update(dt, { clip: 'idle' }, env); continue;
     }
-    const def = NPCS[n.model] || NPCS.npc_elder, a = getActor(n, def);
+    const def = NPCS[n.model] || NPCS.npc_elder; let a = getActor(n, def);
+    if (!a.model.skin && !a.reskin && SKINS.on && skinLoaded(def.id)) { a.dispose(); actors.delete(n); a = getActor(n, def); a.reskin = true; }   // сборка 66: шкура жителя догрузилась после сборки деревни
     a.place(n.x, n.y);
     // наставник с мечом (новая модель) бьёт чучело: удар 0.7 с, пауза 0.9 с; герой рядом или разговор — поворачивается к нему
     const P = G.player, near = P && Math.hypot(P.x - n.x, P.y - n.y) < 3.5;
@@ -512,6 +517,7 @@ const settle = (p, ms) => Promise.race([p.catch(() => false), new Promise(r => s
 export function prepare() {
   const Z = G.zone; if (!Z || !G.player || !renderer) return Promise.resolve();
   const t0 = performance.now();
+  bgModels(false);   // сборка 66: фоновая догрузка моделей не делит канал со сменой зоны
   warming = (async () => {
     // паки Meshy (порталы деревни, пустоши) — до сборки мира, чтобы слой предметов не пересобирался уже на глазах
     SKINS.on = !(G.profile && G.profile.settings && G.profile.settings.skins === false);
@@ -521,7 +527,7 @@ export function prepare() {
     if (SKINS.on && Z.id === 'town' && Z.json.village) packs.push(preloadBoneTrees());   // сухое дерево пустошей у входа в катакомбы   // источник силы из Meshy
     if (SKINS.on && Z.id === 'wild' && Z.json.wild.realm === 'bones' && !bonesReady()) packs.push(preloadBones());
     if (SKINS.on && Z.id === 'wild' && Z.json.wild.realm === 'temple' && !templeReady()) packs.push(preloadTemple());
-    if (SKINS.on) packs.push(preloadModels(G.profile && G.profile.cls));   // сборка 51: модели героев и зверей (качаются с титульного экрана)
+    if (SKINS.on) packs.push(zoneModels(G.profile && G.profile.cls, Z, G.enemies, mobDef));   // сборка 66: только модели этой зоны (kit.js), остальное — фоном
     if (packs.length) await settle(Promise.all(packs), 8000);
     if (G.zone !== Z) return;
     if (Z !== zone) setZone(Z);
@@ -532,7 +538,7 @@ export function prepare() {
     if (G.zone !== Z) return;
     const seen = new Set(); scene.traverse(o => { const ms = o.material ? [].concat(o.material) : []; for (const m of ms) for (const k of ['map', 'normalMap', 'alphaMap', 'emissiveMap']) { const t = m[k]; if (t && t.isTexture && !seen.has(t)) { seen.add(t); try { renderer.initTexture(t); } catch { } } } });
     world.props.cull(camera, true); renderer.render(scene, camera);
-  })().finally(() => { warming = null; if (params.has('debug')) console.info('[3d] зона готова', Z.id, Math.round(performance.now() - t0) + ' мс'); });
+  })().finally(() => { warming = null; bgModels(SKINS.on); if (params.has('debug')) console.info('[3d] зона готова', Z.id, Math.round(performance.now() - t0) + ' мс'); });
   return warming;
 }
 const _blobs = Array.from({ length: 11 }, () => ({ x: 0, z: 0, r: 0, w: 1 })), put = (b, x, z, r, w) => { b.x = x; b.z = z; b.r = r; b.w = w; };

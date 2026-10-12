@@ -172,7 +172,7 @@ async function fight(s) {
   const artWait = new Promise(r => { const a = artImg(ART.arena(chOf(s) + 1, 'abc'[Math.min(2, Math.floor(((s - 1) % PER_CH) / 10))], stack.clientWidth < stack.clientHeight)); if (a.ok || a.bad) r(); else { a.wait.push(() => r()); a.im.addEventListener('error', () => r(), { once: true }); setTimeout(r, 1500); } });
   try {   // 3D-бойцы; если WebGL нет или он упал — прежние спрайты
     const M = await import('../render3d/hwstage.js');
-    if (M.webglOK() && !(new URLSearchParams(location.search).get('render') === '2d')) { stage = M.createStage({ cls, wt, foes, ci, pet: B.pet && Hu.pet.id }); curStage = stage; glcv.replaceWith(stage.canvas); glcv = stage.canvas; resize(); }
+    if (M.webglOK() && !(new URLSearchParams(location.search).get('render') === '2d')) { await M.stageModels(foes); stage = M.createStage({ cls, wt, foes, ci, pet: B.pet && Hu.pet.id }); curStage = stage; glcv.replaceWith(stage.canvas); glcv = stage.canvas; resize(); }
   } catch (e) { console.warn('[hw] 3D недоступно, спрайты', e); stage = null; }
   await artWait;
   if (!root || !root.contains(stack)) { disposeStage(); return; }

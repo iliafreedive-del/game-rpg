@@ -61,6 +61,7 @@ async function boot() {
   const btns = $('titleBtns'); btns.classList.remove('hidden'); $('title').classList.add('ready'); if (window.__bootOk) window.__bootOk();   // сборка 58: фон загрузки (лестница) → титульный (Тихий Брод)
   const start = async (p) => {
     btns.innerHTML = '<div class="muted">Вход в мир…</div>';
+    startPreload(p.cls || 'warrior');   // сборка 66: модель героя выбранного класса — сразу (новый герой: на титуле класс ещё не известен)
     await core;
     await loadGroup(CLASS_ATLAS[p.cls || 'warrior']).catch(() => { });
     const dv = deviceVolumes(); if (dv) { p.settings.sfx = dv.sfx; p.settings.music = dv.music; }   // громкость — настройка устройства (одна для всех героев)

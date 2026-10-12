@@ -2,7 +2,7 @@
 // сверху-сбоку (≈32°), герой слева, отряд из 2–4 врагов справа в две линии. Фон рисует 2D-слой под этим холстом (hwscenes.js),
 // поверх — полосы здоровья, имена, цифры и снаряды (herospath.js); здесь только бойцы и их тени.
 import * as THREE from '../vendor/three.module.min.js';
-import { makeKit } from './kit.js';
+import { makeKit, mobsReady } from './kit.js';
 import { Actor } from './actor.js';
 import { HEROES, MOBS, WEAPONS, WEAPON_MODEL, OFFHAND_MODEL } from './registry.js';
 import { U } from './toon.js';
@@ -30,6 +30,8 @@ function sharedRenderer() {
   return (shared = r);
 }
 
+// сборка 66: модели мобов качаются по зонам — бойцов Летописи дождаться (до 3 с), иначе бой начнётся с запасными моделями
+export const stageModels = foes => mobsReady(foes.map(f => MOBS[f.type] ? f.type : 'skel_warrior'), 3000);
 export function createStage({ cls, wt, foes, ci, pet }) {
   const renderer = sharedRenderer(), canvas = renderer.domElement;
   const scene = new THREE.Scene(), kit = makeKit(scene), L = LIGHTS[ci] || LIGHTS[0];
