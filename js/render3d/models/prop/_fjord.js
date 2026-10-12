@@ -1,0 +1,118 @@
+// Фьорды (правки 5): «совсем там мало всего, убери круглые камни, скалы по краям, лодки викингов с полосатыми парусами, полуразвалившиеся».
+// Угловатые сине-серые скалы со снежными шапками (вместо круглых валунов rocks), высокие утёсы для кромки над бездной,
+// рунные камни, разбитые драккары с рваным полосатым парусом и перевёрнутые лодки. Всё batch и низкополигональное.
+const ROCK = [[0x2c3440, 0x5a6a7c], [0x343a44, 0x6a7482], [0x283038, 0x4e5e6e]], SNOW = 0xeef4fa;
+
+// скала из наклонных граней: столб из 5-угольных ярусов, сверху снежная шапка
+function crag(kit, L, seed, tiers, o = {}) {
+  const { THREE, geo } = kit, R = geo.rng(seed); let y = 0, ox = 0, oz = 0;
+  tiers.forEach(([r0, r1, h], i) => {
+    const g = new THREE.CylinderGeometry(r1, r0, h, o.seg || 5, 1); geo.jitter(g, Math.min(r0, r1) * 0.22, geo.rng(seed + i * 11));
+    g.scale(1, 1, o.flat || 0.8); g.rotateY(R() * 6.28); g.translate(ox, y + h / 2, oz);
+    const [c0, c1] = ROCK[(seed + i) % 3]; L.push(geo.paint(g, c0, { top: i === tiers.length - 1 ? SNOW : c1, tex: 'rock' }));
+    y += h * 0.94; ox += (R() - 0.5) * r1 * 0.35 + (o.lean || 0); oz += (R() - 0.5) * r1 * 0.3;
+  });
+  for (let k = 0; k < (o.rubble ?? 3); k++) {   // осыпь у подножия — плоские угловатые обломки
+    const a = R() * 6.28, r = tiers[0][0] * (1 + R() * 0.4), s = 0.18 + R() * 0.22, g = new THREE.CylinderGeometry(s, s * 1.2, s * 0.8, 5, 1);
+    geo.jitter(g, s * 0.3, R); g.rotateY(R() * 6.28); g.translate(Math.cos(a) * r, s * 0.3, Math.sin(a) * r); L.push(geo.paint(g, 0x2c3440, { top: R() < 0.5 ? SNOW : 0x6a7482, tex: 'rock' }));
+  }
+}
+const def = (id, fn, extra = {}) => ({ id, kind: 'prop', batch: true, outline: false, tint: 0.12, ao: 0.7, aoH: 1.1, ...extra,
+  build(kit) { const L = []; fn(kit, L); const root = new kit.THREE.Group(); root.add(new kit.THREE.Mesh(kit.merge(L), kit.propMat(this))); return { root }; } });
+
+// угловатые камни поля (замена круглых rocks): плиты и глыбы, на верхушке снег
+const slab = (id, seed) => def(id, (kit, L) => {
+  const { THREE, geo } = kit, R = geo.rng(seed);
+  for (let i = 0; i < 3; i++) {
+    const r = [0.55, 0.36, 0.26][i], h = r * (0.7 + R() * 0.6), g = new THREE.CylinderGeometry(r * (0.6 + R() * 0.3), r, h, 5, 1);
+    geo.jitter(g, r * 0.25, R); g.rotateY(R() * 6.28); g.rotateZ((R() - 0.5) * 0.5);
+    g.translate(i ? (R() - 0.3) * 0.9 : 0, h * 0.45, i ? (R() - 0.3) * 0.7 : 0);
+    const [c0, c1] = ROCK[(i + seed) % 3]; L.push(geo.paint(g, c0, { top: R() < 0.6 ? SNOW : c1, tex: 'rock' }));
+  }
+});
+
+// рунный камень: плоская плита с высеченной светящейся руной и шапкой снега
+const runestone = def('fj_runestone', (kit, L) => {
+  const { THREE, geo, part } = kit, R = geo.rng(91);
+  const g = new THREE.BoxGeometry(0.9, 1.9, 0.32, 1, 3, 1); geo.jitter(g, 0.07, R); g.translate(0, 0.9, 0); g.rotateZ(0.06);
+  L.push(geo.paint(g, 0x303844, { top: 0x7a8696, tex: 'rock' }));
+  L.push(part(new THREE.BoxGeometry(0.95, 0.12, 0.38), SNOW, [0.05, 1.86, 0], [0, 0, 0.08]));
+  for (const [x, y, w, h, a] of [[0, 1.25, 0.05, 0.55, 0], [0, 1.38, 0.05, 0.26, 0.8], [0, 1.38, 0.05, 0.26, -0.8], [0, 0.78, 0.05, 0.3, 0.5], [0, 0.78, 0.05, 0.3, -0.5]])
+    L.push(part(new THREE.BoxGeometry(w, h, 0.02), 0x8ad8ff, [x + 0.05, y, 0.17], [0, 0, a], 1, { emit: true }));
+  L.push(part(new THREE.CylinderGeometry(0.5, 0.65, 0.18, 6), 0x2c3440, [0, 0.05, 0], 0, 1, { top: SNOW, tex: 'rock' }));
+}, { tint: 0.08 });
+
+// корпус драккара: кольца-шпангоуты вдоль длины (X), борта сходятся к носу и корме, концы задраны вверх.
+// skip(i, j) — выломанные доски (пробоина)
+function hull(kit, len, wid, dep, skip = () => false) {
+  const { THREE } = kit, N = 18, M = 6, P = [], I = [];
+  for (let i = 0; i <= N; i++) {
+    const t = i / N * 2 - 1, w = wid * Math.pow(Math.max(0, 1 - Math.pow(Math.abs(t), 1.8)), 0.55) + 0.03, d = dep * (1 - 0.35 * t * t), sh = 0.55 * Math.pow(t, 4);
+    for (let j = 0; j <= M; j++) { const a = (j / M - 0.5) * Math.PI; P.push(t * len / 2, dep - Math.cos(a) * d + sh + (1 - Math.cos(a)) * sh * 0.4, Math.sin(a) * w); }
+  }
+  for (let i = 0; i < N; i++) for (let j = 0; j < M; j++) { if (skip(i, j)) continue; const a = i * (M + 1) + j, b = a + 1, c = a + M + 1, d = c + 1; I.push(a, c, b, b, c, d); }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); g.setIndex(I); g.computeVertexNormals(); return g;
+}
+const SHIELD = [0xb8282a, 0xe8dcc0, 0x2a4a8a, 0xd6a548];
+
+// разбитый драккар: корпус накренился и ушёл в снег, в борту пробоина, мачта сломана и завалилась, рваный полосатый парус,
+// щиты по борту (часть сорвана), нос с завитком, рядом оторванные доски. Длинная ось — X (≈7,2 м)
+const longship = def('fj_longship', (kit, L) => {
+  const { THREE, geo, part, tube } = kit, R = geo.rng(77), LEN = 7.2, WID = 1.15, DEP = 0.95;
+  const H = [];
+  H.push(geo.paint(hull(kit, LEN, WID, DEP, (i, j) => i >= 10 && i <= 12 && j >= 4), 0x4a3020, { top: 0x7a5434, tex: 'woodH' }));
+  for (let i = 1; i < 18; i += 2) { const t = i / 18 * 2 - 1, x = t * LEN / 2, w = WID * Math.pow(Math.max(0, 1 - Math.pow(Math.abs(t), 1.8)), 0.55); if (i === 11) continue; H.push(part(new THREE.BoxGeometry(0.09, 0.07, w * 2), 0x5a3a24, [x, DEP + 0.5 * Math.pow(t, 4) - 0.1, 0], 0, 1, { tex: 'wood' })); }   // скамьи гребцов
+  for (const s of [-1, 1]) for (let k = 0; k < 7; k++) {   // щиты по борту; у пробоины сорваны
+    const t = -0.62 + k * 0.2; if (s > 0 && (k === 4 || k === 5)) continue; if (R() < 0.15) continue;
+    const x = t * LEN / 2, w = WID * Math.pow(Math.max(0, 1 - Math.pow(Math.abs(t), 1.8)), 0.55) + 0.05, c = SHIELD[(k + (s > 0 ? 1 : 0)) % 4];
+    H.push(part(new THREE.CylinderGeometry(0.27, 0.27, 0.04, 10), c, [x, DEP + 0.5 * Math.pow(t, 4) - 0.08, s * w], [Math.PI / 2 + s * 0.15, 0, (R() - 0.5) * 0.4], 1, { tex: 'wood' }));
+    H.push(part(new THREE.SphereGeometry(0.07, 6, 4), 0x8a8a90, [x, DEP + 0.5 * Math.pow(t, 4) - 0.08, s * (w + 0.03)], 0, [1, 1, 0.5], { tex: 'iron' }));
+  }
+  // нос — завиток (голова змея), корма — простой завиток
+  H.push(tube([[LEN / 2 - 0.05, DEP + 0.5, 0], [LEN / 2 + 0.25, DEP + 1.1, 0], [LEN / 2 + 0.15, DEP + 1.6, 0], [LEN / 2 - 0.15, DEP + 1.7, 0]], 0.12, 0.07, 0x4a3020, { top: 0x7a5434, tex: 'wood' }, 6));
+  H.push(part(new THREE.ConeGeometry(0.11, 0.35, 5), 0x6a4a2a, [LEN / 2 - 0.3, DEP + 1.66, 0], [0, 0, Math.PI / 2 + 0.3], 1, { tex: 'wood' }));
+  H.push(tube([[-LEN / 2 + 0.05, DEP + 0.5, 0], [-LEN / 2 - 0.2, DEP + 1.0, 0], [-LEN / 2 - 0.05, DEP + 1.35, 0]], 0.11, 0.05, 0x4a3020, { top: 0x7a5434, tex: 'wood' }, 6));
+  // сломанная мачта: обломок торчит, верх с реем и парусом завалился за борт
+  H.push(part(new THREE.CylinderGeometry(0.1, 0.12, 1.5, 7), 0x4a3424, [0.3, DEP + 0.6, 0], 0, 1, { top: 0x8a6a48, tex: 'wood' }));
+  const mast = [], sail = [];
+  mast.push(part(new THREE.CylinderGeometry(0.08, 0.1, 3.2, 7), 0x4a3424, [0, 1.6, 0], 0, 1, { tex: 'wood' }));
+  mast.push(part(new THREE.CylinderGeometry(0.06, 0.06, 3.4, 6), 0x4a3424, [0, 3.0, 0], [0, 0, Math.PI / 2], 1, { tex: 'wood' }));   // рей
+  // парус: вертикальные полосы красный/белый, нижний край рваный, полотнище провисает
+  const SW = 3.2, SH = 2.3, NS = 8;
+  for (let k = 0; k < NS; k++) {
+    const x0 = -SW / 2 + k * SW / NS, x1 = x0 + SW / NS, torn = 0.35 + R() * (k % 3 === 1 ? 1.1 : 0.5), g = new THREE.PlaneGeometry(SW / NS, SH - torn, 1, 3);
+    const p = g.attributes.position; for (let i = 0; i < p.count; i++) { const yy = p.getY(i), v = (yy + (SH - torn) / 2) / (SH - torn); p.setZ(i, Math.sin((1 - v) * Math.PI * 0.8) * 0.35 + (R() - 0.5) * 0.05); if (v < 0.01) p.setY(i, yy + (R() - 0.5) * 0.25); }
+    g.translate(x0 + SW / NS / 2, 2.95 - (SH - torn) / 2, 0.05);
+    sail.push(geo.paint(g, k % 2 ? 0xe8dcc8 : 0x9a1e1e, { tex: 'cloth' }));
+  }
+  const top = kit.merge([...mast, ...sail]);
+  top.rotateX(1.25); top.rotateY(0.35); top.translate(0.3, DEP + 1.1, 0.25);   // верх мачты рухнул поперёк борта
+  H.push(top);
+  // корпус накренён и ушёл в снег по скулу
+  for (const g of H) { g.rotateX(0.2); g.rotateZ(0.04); g.translate(0, -0.35, 0); L.push(g); }
+  // оторванные доски и бочонок рядом, сугроб у борта
+  for (let k = 0; k < 4; k++) L.push(part(new THREE.BoxGeometry(1.1 + R() * 0.6, 0.05, 0.2), 0x5a3a24, [-1.5 + k * 1.1 + R() * 0.3, 0.04, 1.6 + R() * 0.5], [0, R() * 1.5, (R() - 0.5) * 0.2], 1, { top: 0x7a5434, tex: 'woodH' }));
+  L.push(part(new THREE.SphereGeometry(1, 9, 5, 0, 6.283, 0, Math.PI / 2), 0xd8e4f0, [0.6, -0.05, -1.05], 0, [2.6, 0.45, 0.7], { top: SNOW }));
+  L.push(part(new THREE.CylinderGeometry(0.26, 0.26, 0.6, 8), 0x5a3a24, [2.3, 0.26, 1.5], [Math.PI / 2, 0.6, 0], 1, { tex: 'wood' }));
+}, { side: 'double', tint: 0.05, aoH: 1.6 });
+
+// перевёрнутая лодка: днище кверху, в нём дыра, рядом весло
+const boat = def('fj_boat', (kit, L) => {
+  const { THREE, geo, part } = kit, R = geo.rng(19);
+  const g = geo.paint(hull(kit, 3.2, 0.62, 0.5, (i, j) => i >= 6 && i <= 7 && j === 3), 0x4a3020, { top: 0x6a4a2c, tex: 'woodH' });
+  g.rotateX(Math.PI); g.translate(0, 0.62, 0); g.rotateZ(0.08); L.push(g);
+  L.push(part(new THREE.BoxGeometry(2.0, 0.04, 0.1), 0x6a4a2c, [0.4, 0.04, 0.95], [0, 0.4, 0], 1, { tex: 'wood' }), part(new THREE.BoxGeometry(0.4, 0.03, 0.18), 0x6a4a2c, [1.35, 0.04, 1.35], [0, 0.4, 0], 1, { tex: 'wood' }));
+  L.push(part(new THREE.SphereGeometry(1, 8, 4, 0, 6.283, 0, Math.PI / 2), 0xd8e4f0, [-0.3, 0.05, -0.1], 0, [1.6, 0.3, 0.9], { top: SNOW }));
+  for (let k = 0; k < 2; k++) L.push(part(new THREE.CylinderGeometry(0.22, 0.22, 0.03, 10), SHIELD[k * 2], [-1.6 - k * 0.4, 0.03, 0.6 + k * 0.3], [0, 0, 0], 1, { tex: 'wood' }));
+  void R;
+}, { side: 'double', tint: 0.06 });
+
+export const FJORD_PROPS = [
+  slab('fj_rock_a', 3), slab('fj_rock_b', 8), slab('fj_rock_c', 14),
+  def('fj_crag', (kit, L) => crag(kit, L, 5, [[1.1, 0.85, 1.4], [0.85, 0.6, 1.3], [0.6, 0.25, 1.2]])),
+  def('fj_crag_b', (kit, L) => crag(kit, L, 9, [[1.3, 1.05, 1.1], [1.0, 0.7, 1.6], [0.7, 0.45, 1.0], [0.45, 0.12, 0.8]], { lean: 0.1 })),
+  def('fj_crag_c', (kit, L) => crag(kit, L, 17, [[1.6, 1.3, 1.2], [1.3, 1.1, 0.9], [1.1, 0.5, 0.8]], { flat: 0.6, rubble: 5 })),   // широкий утёс-стена
+  runestone, longship, boat,
+];
+export const FJ_ROCKS = [['fj_rock_a', 1], ['fj_rock_b', 1], ['fj_rock_c', 1]];
+export const FJ_CRAGS = [['fj_crag', 1], ['fj_crag_b', 1], ['fj_crag_c', 1.2]];

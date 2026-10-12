@@ -7,6 +7,7 @@ import { OUTLINE, QUALITY } from './style.js';
 import { fbm } from './geo.js';
 import { wallPieces } from './dungeon.js';
 import { STEPPE_ROCKS, STEPPE_SPIRES, STEPPE_TREES } from './models/prop/_steppe.js';
+import { FJ_ROCKS, FJ_CRAGS } from './models/prop/_fjord.js';
 import { swap as bonesSwap, liveDef as bonesLive, boneDeadTree } from './bonesglb.js';
 import { walls as templeWalls, swap as templeSwap, liveDef as templeLive, templeReady } from './templeglb.js';
 import { SKINS } from './glbskin.js';
@@ -68,7 +69,7 @@ export class PropLayer {
       const h = hash(d.x, d.y), isTree = d.spr === 'tree_0' || d.spr === 'tree_1' || d.spr === 'deadtree';   // правки 3: во Фьордах и сухое дерево карты — ель в снегу
       const light = zone.lights.find(L => Math.hypot(L.x - d.x, L.y - d.y) < 0.3);
       const var3 = ((d.spr === 'rocks' || d.spr === 'deadtree') && open && !light) || STEPPE_FREE.has(d.spr);   // камни и сухие деревья поля — разные формы, повороты, размеры
-      push(isTree ? (fj ? pickFj(hash(d.x * 3.1 + 1, d.y * 1.7 + 2)) : pickTree(d.spr, hash(d.x * 3.1 + 1, d.y * 1.7 + 2))) : var3 ? (STEPPE_FREE.has(d.spr) ? d.spr : bn && d.spr === 'rocks' ? pickW(STEPPE_ROCKS, hash(d.x * 2.3 + 5, d.y * 1.9 + 1)) : pickTree(d.spr, hash(d.x * 2.3 + 5, d.y * 1.9 + 1))) : d.spr, d.x, d.y, isTree || var3 || d.s ? h * 6.283 : 0, isTree ? (fj ? 0.75 : 1.0) + hash(d.y * 1.3, d.x * 0.7) * (fj ? 1.0 : 0.75) : var3 ? 0.7 + hash(d.y, d.x) * 0.9 : d.s || 1, light ? { color: new THREE.Color(light.c[0] / 255, light.c[1] / 255, light.c[2] / 255) } : null);
+      push(isTree ? (fj ? pickFj(hash(d.x * 3.1 + 1, d.y * 1.7 + 2)) : pickTree(d.spr, hash(d.x * 3.1 + 1, d.y * 1.7 + 2))) : var3 ? (STEPPE_FREE.has(d.spr) ? d.spr : bn && d.spr === 'rocks' ? pickW(STEPPE_ROCKS, hash(d.x * 2.3 + 5, d.y * 1.9 + 1)) : fj && d.spr === 'rocks' ? pickW(FJ_ROCKS, hash(d.x * 2.3 + 5, d.y * 1.9 + 1)) : pickTree(d.spr, hash(d.x * 2.3 + 5, d.y * 1.9 + 1))) : d.spr, d.x, d.y, isTree || var3 || d.s ? h * 6.283 : 0, isTree ? (fj ? 0.75 : 1.0) + hash(d.y * 1.3, d.x * 0.7) * (fj ? 1.0 : 0.75) : var3 ? 0.7 + hash(d.y, d.x) * 0.9 : d.s || 1, light ? { color: new THREE.Color(light.c[0] / 255, light.c[1] / 255, light.c[2] / 255) } : null);
     }
     // сборка 47: деревья выше — в среднем ≈6 м (три роста героя), от 4,5 до 8+ м: множитель 1,0–1,75 (был 0,85–1,4), чаща 1,15–1,95
     if (wild) {   // стены форта по тайлам 'D' (лицом наружу) и густая чаща по тайлам 'x'
@@ -95,8 +96,12 @@ export class PropLayer {
         } else if (c === 'x') {
           const h = hash(tx * 1.9 + 3, ty * 2.3 - 1), edge = tx < 3 || ty < 3 || tx >= m.w - 3 || ty >= m.h - 3;
           if (bn) { const back = tx < 3 || ty < 3; if (h < (edge ? (back ? 0.55 : 0.3) : 0.1)) { const big = back && h < 0.3, id = big ? pickW(STEPPE_SPIRES, hash(tx * 2.1, ty * 1.3 + 5)) : h < 0.08 ? pickW(STEPPE_TREES, hash(tx, ty * 3.3)) + '_far' : pickW(STEPPE_ROCKS, hash(tx * 1.3, ty)); push(id, tx + 0.2 + hash(tx, ty + 9) * 0.6, ty + 0.2 + hash(ty, tx + 4) * 0.6, h * 40, big ? 1.1 + hash(ty, tx) * 0.8 : 0.9 + hash(ty, tx) * 0.6); } continue; }   // пустоши: край — стена из красных столбов и останцев
+          if (fj && (m.ch(tx - 1, ty) === 'v' || m.ch(tx, ty - 1) === 'v')) {   // правки 5: дальняя кромка Фьордов над бездной — утёсы, а не валуны
+            if (h < 0.4) push(pickW(FJ_CRAGS, hash(tx * 2.1, ty * 1.3 + 5)), tx + 0.2 + hash(tx, ty + 9) * 0.6, ty + 0.2 + hash(ty, tx + 4) * 0.6, h * 40, 0.9 + hash(ty, tx) * 0.8);
+            continue;
+          }
           const frontE = tx >= m.w - 3 || ty >= m.h - 3;   // ближний к камере край — реже: деревья там закрывают героя и мобов (сборка 18)
-          if (h < (edge ? (frontE ? 0.22 : 0.6) : fj ? 0.09 : 0.06)) { const id = fj ? (h < 0.2 ? 'rocks' : pickFj(hash(tx, ty))) : pickTree(h > 0.3 ? 'tree_1' : 'tree_0', hash(tx * 2.1, ty * 1.3 + 5)); push(id === 'rocks' ? id : id + '_far', tx + 0.2 + hash(tx, ty + 9) * 0.6, ty + 0.2 + hash(ty, tx + 4) * 0.6, h * 40, id === 'rocks' ? 1.2 + h : 1.15 + hash(ty, tx) * 0.8); }
+          if (h < (edge ? (frontE ? 0.22 : 0.6) : fj ? 0.09 : 0.06)) { const id = fj ? (h < 0.2 ? (edge && h < 0.12 ? pickW(FJ_CRAGS, hash(tx, ty * 1.7)) : pickW(FJ_ROCKS, hash(tx * 1.3, ty))) : pickFj(hash(tx, ty))) : pickTree(h > 0.3 ? 'tree_1' : 'tree_0', hash(tx * 2.1, ty * 1.3 + 5)); const rk = id === 'rocks' || id.startsWith('fj_'); push(rk ? id : id + '_far', tx + 0.2 + hash(tx, ty + 9) * 0.6, ty + 0.2 + hash(ty, tx + 4) * 0.6, h * 40, rk ? 1.2 + h : 1.15 + hash(ty, tx) * 0.8); }
         }
       }
     }
