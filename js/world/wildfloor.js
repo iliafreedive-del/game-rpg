@@ -40,9 +40,11 @@ export function setPropsPalette(snow) {
 }
 
 // Пол поля. Совместим с Zone/renderer: zone.floor + zone.floorImgs.
-export function buildWildFloor(zone) {
+export function buildWildFloor(zone, only3d = false) {
   const J = zone.json, M = J.wild.mood, realm = J.wild.realm, fort = J.wild.fort;
   const W = (J.w + J.h) * 32, H = (J.w + J.h) * 16 + 34, ox = J.h * 32;
+  // сборка 66 (лаги в походах): в 3D этот пол не рисуется — холст 6144×3106 (≈76 МБ памяти, ~1 с рисования) при каждом входе в поход не нужен
+  if (only3d) { zone.floor = { w: W, h: H, scale: 1, ox }; zone.floorImgs = []; zone.fog = M.fog; zone.biome = { id: 'wild_' + realm, particles: M.particles, light: null }; zone.dark = false; return; }
   const c = document.createElement('canvas'); c.width = W; c.height = H; const x = c.getContext('2d');
   let s = J.floorN * 131 + 7; const rnd = () => (s = (s * 16807) % 2147483647) / 2147483647;
   const P = (u, v) => [ox + (u - v) * 32, (u + v) * 16];

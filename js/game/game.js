@@ -110,7 +110,7 @@ export async function loadZone(id, how = {}) {
   } else if (id === 'wild') {
     const json = generateWild(how.realm, how.depth); addEchoes(json);
     declutter(json, 'xD~v', WILD_DECOR); zone = new Zone('wild', json, P);
-    await prepareWildAtlases(how.realm); setPropsPalette(how.realm === 'fjord'); buildWildFloor(zone);
+    await prepareWildAtlases(how.realm); setPropsPalette(how.realm === 'fjord'); buildWildFloor(zone, !!G.render3d);
   } else if (id === 'depths') {
     const json = generateFloor(how.floor ?? 1, how.weekly ? 7001 + weekNo() * 104729 : undefined);   // С34: этаж свой при каждом заходе, у недельного испытания — один на всю неделю
     if (how.weekly) { const R = weeklyRule(); json.name = 'Испытание недели · ' + R.name; json.weekly = R.id; if (R.count) json.spawns = json.spawns.map(s => { const n = s.slice(); if (!n[6]) n[3] = n[3] * R.count; return n; }); }   // сборка 21

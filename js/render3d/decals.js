@@ -42,6 +42,13 @@ export class FxBillboards {
     t = new THREE.Texture(img); t.colorSpace = THREE.SRGBColorSpace; t.premultiplyAlpha = true; t.generateMipmaps = false; t.minFilter = THREE.LinearFilter; t.needsUpdate = true;
     this.base.set(img, t); return t;
   }
+  // сборка 66 (лаг при умениях мобов): копия текстуры для щита — с общим источником, но БЕЗ clone(): clone() ставит needsUpdate
+  // источнику, и весь лист эффекта (768² и больше) заново заливался в видеопамять при каждом новом щите (замер icespikes66.js: 6 волн умений — 7 лишних заливок листов, ≈3,3 Мпикс; до PR #21 — 33 и 16 Мпикс)
+  slotTex(img) {
+    const b = this.baseTex(img), t = new THREE.Texture(); t.source = b.source;
+    for (const k of ['colorSpace', 'premultiplyAlpha', 'generateMipmaps', 'minFilter', 'magFilter', 'flipY', 'wrapS', 'wrapT']) t[k] = b[k];
+    t.version = 1; return t;   // версия > 0 — three зальёт источник один раз (по source.version), дальше только привяжет
+  }
   item(i) {
     let s = this.pool[i]; if (s) return s;
     const mat = new THREE.SpriteMaterial({ transparent: true, premultipliedAlpha: true, depthWrite: false, toneMapped: false, fog: false });
@@ -54,7 +61,7 @@ export class FxBillboards {
       const f = list[i], S = f.S, s = this.item(i), m = s.material;
       // сборка 66: у щита своя копия текстуры на каждый лист (своё смещение кадра); копии кэшируются — раньше при смене листа на щите
       // копия создавалась заново и картинка листа целиком снова грузилась в видеопамять (дождь клинков: десятки Мпикс в секунду, лаги)
-      if (s.userData.img !== S.img) { const T = s.userData.tex || (s.userData.tex = new Map()); let t = T.get(S.img); if (!t) { t = this.baseTex(S.img).clone(); t.needsUpdate = true; T.set(S.img, t); } if (!m.map) m.needsUpdate = true; m.map = t; s.userData.img = S.img; }
+      if (s.userData.img !== S.img) { const T = s.userData.tex || (s.userData.tex = new Map()); let t = T.get(S.img); if (!t) { t = this.slotTex(S.img); T.set(S.img, t); } if (!m.map) m.needsUpdate = true; m.map = t; s.userData.img = S.img; }
       const W = S.img.width, H = S.img.height, C = S.C, t = m.map, fl = !!f.flip;
       t.repeat.set((fl ? -C : C) / W, C / H); t.offset.set((f.sx + (fl ? C : 0)) / W, 1 - (f.sy + C) / H);
       m.opacity = f.alpha; m.blending = f.add ? THREE.AdditiveBlending : THREE.NormalBlending;
