@@ -2885,5 +2885,10 @@
  "Питомец": "Evcil",
  "✔ Включён": "✔ Açık",
  "Облик": "Görünüm",
- "наряд, краски, призрак": "kıyafet, boya, hayalet"
+ "наряд, краски, призрак": "kıyafet, boya, hayalet",
+ "Корона пламени питомца": "Evcil Alev Tacı",
+ "Огненная корона над головой героя навсегда.": "Kahramanın başının üstünde ateşten bir taç, kalıcı.",
+ "Огненная корона над питомцем навсегда.": "Evcil hayvanın üstünde ateşten bir taç, kalıcı.",
+ "Полупрозрачное тело со светящимся краем. Сочетается с любым обликом и краской.": "Parlayan kenarlı yarı saydam beden. Her görünüm ve boyayla uyumlu.",
+ "Огненная корона парит над головой, как нимб.": "Ateşten bir taç bir hale gibi başın üstünde süzülür."
 }

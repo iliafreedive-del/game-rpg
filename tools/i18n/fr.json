@@ -2885,5 +2885,10 @@
  "Питомец": "Familier",
  "✔ Включён": "✔ Activé",
  "Облик": "Apparence",
- "наряд, краски, призрак": "tenue, teintures, spectre"
+ "наряд, краски, призрак": "tenue, teintures, spectre",
+ "Корона пламени питомца": "Couronne de flammes du familier",
+ "Огненная корона над головой героя навсегда.": "Une couronne de feu au-dessus de la tête du héros, pour toujours.",
+ "Огненная корона над питомцем навсегда.": "Une couronne de feu au-dessus du familier, pour toujours.",
+ "Полупрозрачное тело со светящимся краем. Сочетается с любым обликом и краской.": "Corps translucide au contour lumineux. Compatible avec toute apparence et teinture.",
+ "Огненная корона парит над головой, как нимб.": "Une couronne de feu flotte au-dessus de la tête comme un nimbe."
 }

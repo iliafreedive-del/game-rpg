@@ -2885,5 +2885,10 @@
  "Питомец": "Pet",
  "✔ Включён": "✔ On",
  "Облик": "Looks",
- "наряд, краски, призрак": "outfit, dyes, ghost"
+ "наряд, краски, призрак": "outfit, dyes, ghost",
+ "Корона пламени питомца": "Pet Flame Crown",
+ "Огненная корона над головой героя навсегда.": "A fiery crown above the hero's head, forever.",
+ "Огненная корона над питомцем навсегда.": "A fiery crown above the pet, forever.",
+ "Полупрозрачное тело со светящимся краем. Сочетается с любым обликом и краской.": "Translucent body with a glowing edge. Works with any look and dye.",
+ "Огненная корона парит над головой, как нимб.": "A fiery crown floats above the head like a halo."
 }
