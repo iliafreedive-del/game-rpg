@@ -24,10 +24,10 @@ const def = (id, fn, extra = {}) => ({ id, kind: 'prop', batch: true, outline: f
 const slab = (id, seed) => def(id, (kit, L) => {
   const { THREE, geo } = kit, R = geo.rng(seed);
   for (let i = 0; i < 3; i++) {
-    const r = [0.55, 0.36, 0.26][i], h = r * (0.7 + R() * 0.6), g = new THREE.CylinderGeometry(r * (0.6 + R() * 0.3), r, h, 5, 1);
+    const r = [0.55, 0.36, 0.26][i], h = r * (1.1 + R() * 0.9), g = new THREE.CylinderGeometry(r * (0.35 + R() * 0.3), r, h, 4, 1);   // острые 4-гранные, выше — не «шары»
     geo.jitter(g, r * 0.25, R); g.rotateY(R() * 6.28); g.rotateZ((R() - 0.5) * 0.5);
     g.translate(i ? (R() - 0.3) * 0.9 : 0, h * 0.45, i ? (R() - 0.3) * 0.7 : 0);
-    const [c0, c1] = ROCK[(i + seed) % 3]; L.push(geo.paint(g, c0, { top: R() < 0.6 ? SNOW : c1, tex: 'rock' }));
+    const [c0, c1] = ROCK[(i + seed) % 3]; L.push(geo.paint(g, c0, { top: R() < 0.3 ? SNOW : c1, tex: 'rock' }));
   }
 });
 

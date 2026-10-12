@@ -262,11 +262,12 @@ function build(RL, mood, depth, boss, seed, attempt, force) {
   }
   // правки 5: Фьорды — «совсем там мало всего»: разбитые драккары с рваным полосатым парусом, перевёрнутые лодки, рунные камни
   if (realm === 'fjord') {
-    const want = [['fj_longship', isFort ? 1 : 1 + (R() < 0.6 ? 1 : 0)], ['fj_boat', 2], ['fj_runestone', 3]];
+    const want = [['fj_longship', isFort ? 1 : 2 + (R() < 0.4 ? 1 : 0)], ['fj_boat', 2], ['fj_runestone', 3]];
+    const rimAt = (x, y, r) => { for (let a = 0; a < 8; a++) { const tx = Math.floor(x + Math.cos(a * 0.785) * r), ty = Math.floor(y + Math.sin(a * 0.785) * r); if (at(tx, ty) === 'v') return true; } return false; };   // драккары и лодки — у кромки над бездной, если не нашлось места — где получится
     const boxIn = b => { for (let ty = Math.floor(b[1]); ty <= Math.floor(b[3]); ty++) for (let tx = Math.floor(b[0]); tx <= Math.floor(b[2]); tx++) { if (at(tx, ty) !== '.' || inFort(tx, ty, 2) || prot[ty * W + tx]) return false; } return true; };   // без запаса в клетку: островки узкие
     for (const [t, n] of want) for (let k = 0, got = 0; k < 200 && got < n; k++) {
       const F = GIANT_FOOT[t], rot = [0, Math.PI / 2, Math.PI, -Math.PI / 2][ri(0, 3)];
-      const p = pick((x, y) => dist(x, y, start[0], start[1]) > 7 + F.r && dist(x, y, exit[0], exit[1]) > 5 + F.r && !near(x, y, F.r + 2) && free(x, y, 1));
+      const p = pick((x, y) => dist(x, y, start[0], start[1]) > 7 + F.r && dist(x, y, exit[0], exit[1]) > 5 + F.r && !near(x, y, F.r + 2) && free(x, y, 1) && (t === 'fj_runestone' || k > 140 || rimAt(x, y, F.r + 2.5)));
       if (!p) continue; const boxes = boxesAt(t, p[0], p[1], rot); if (!boxes.every(boxIn)) continue;
       got++; placed.push([p[0], p[1], F.r + 1]); objects.push({ t, x: p[0], y: p[1], rot, boxes });
     }
