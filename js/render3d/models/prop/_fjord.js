@@ -96,12 +96,35 @@ const boat = def('fj_boat', (kit, L) => {
   void R;
 }, { side: 'double', tint: 0.06 });
 
+// второй референс пользователя: серые слоистые камни разной формы (плиты, уступы, осколки-шпили, глыбы), снег лежит на верхних гранях.
+// Снег — цвет вершин по нормали грани (вверх смотрит — белая), без текстур
+function snowy(kit, g, rock, seed, k = 0.55) {
+  const { THREE, geo } = kit, R = geo.rng(seed), n = g.index ? g.toNonIndexed() : g; n.deleteAttribute('uv'); n.computeVertexNormals();
+  const p = n.attributes.position, col = new Float32Array(p.count * 4), a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3(), cr = new THREE.Color(), cs = new THREE.Color(0xe4f0fa);
+  for (let f = 0; f < p.count; f += 3) {
+    a.fromBufferAttribute(p, f); b.fromBufferAttribute(p, f + 1); c.fromBufferAttribute(p, f + 2); const ny = b.sub(a).cross(c.sub(a)).normalize().y;
+    const v = 0.85 + R() * 0.3, snow = ny > k - R() * 0.15; cr.set(rock).multiplyScalar(v); const C = snow ? cs : cr;
+    for (let j = 0; j < 3; j++) col.set([C.r, C.g, C.b, 1], (f + j) * 4);
+  }
+  n.setAttribute('color', new THREE.BufferAttribute(col, 4)); return n;
+}
+const STONE = [0x5a5650, 0x4e4c48, 0x625c54];
+const box = (THREE, w, h, d, x, y, z, ry = 0, rz = 0) => new THREE.BoxGeometry(w, h, d, 2, 2, 2).rotateZ(rz).rotateY(ry).translate(x, y, z);
+const stone = (id, seed, fn) => def(id, (kit, L) => { const { THREE, geo } = kit, R = geo.rng(seed); fn(THREE, R).forEach((g, i) => { geo.jitter(g, 0.12, geo.rng(seed + i)); L.push(snowy(kit, g, STONE[(seed + i) % 3], seed + i * 3)); }); }, { tint: 0.1 });
+const STONES = [
+  stone('fj_stone_ledge', 31, (T, R) => [box(T, 1.6, 0.35, 1.1, 0, 0.17, 0, 0.2), box(T, 1.2, 0.3, 0.8, 0.15, 0.48, -0.05, 0.5), box(T, 0.7, 0.28, 0.5, -0.1, 0.76, 0.05, 0.1)]),   // слоистый уступ
+  stone('fj_stone_slab', 37, (T, R) => [box(T, 1.5, 0.4, 0.9, 0, 0.2, 0, 0.3, 0.12), box(T, 0.6, 0.3, 0.5, 0.5, 0.45, 0.1, 0.9, -0.1)]),   // наклонная плита
+  stone('fj_stone_shard', 43, (T, R) => [box(T, 0.55, 2.2, 0.5, 0, 1.1, 0, 0.3, 0.06), box(T, 0.4, 1.6, 0.4, 0.38, 0.8, 0.15, 0.8, -0.1), box(T, 0.35, 1.2, 0.35, -0.3, 0.6, 0.2, 1.3, 0.12), box(T, 0.3, 0.9, 0.3, 0.1, 0.45, -0.35, 0.4, 0)]),   // шпиль из осколков
+  stone('fj_stone_chunk', 53, (T, R) => [box(T, 0.9, 0.8, 0.8, 0, 0.4, 0, 0.4, 0.08), box(T, 0.6, 0.5, 0.55, 0.45, 0.25, 0.3, 1.1)]),   // глыба
+  stone('fj_stone_block', 61, (T, R) => [box(T, 0.7, 1.5, 0.6, 0, 0.75, 0, 0.2, 0.05), box(T, 0.5, 0.6, 0.5, 0.35, 0.3, 0.25, 0.7)]),   // столб
+];
+
 export const FJORD_PROPS = [
   slab('fj_rock_a', 3, [[0.55, 1.0, 0, 0], [0.3, 0.55, 0.55, 0.25]]), slab('fj_rock_b', 8, [[0.45, 1.3, 0, 0]]), slab('fj_rock_c', 14, [[0.5, 0.8, 0, 0], [0.32, 0.6, -0.45, 0.3], [0.22, 0.35, 0.3, -0.4]]),
   def('fj_crag', (kit, L) => crag(kit, L, 5, [[1.3, 3.6, 0, 0], [0.7, 1.8, 1.0, 0.5]])),
   def('fj_crag_b', (kit, L) => crag(kit, L, 9, [[1.1, 4.2, 0, 0], [0.8, 2.6, -0.9, 0.6], [0.5, 1.4, 0.8, -0.7]])),
   def('fj_crag_c', (kit, L) => crag(kit, L, 17, [[1.5, 3.0, 0, 0], [1.0, 2.3, 1.3, -0.2], [0.9, 2.0, -1.2, 0.3], [0.6, 1.2, 0.2, 1.0]])),   // гряда-стена
-  runestone, longship, boat,
+  runestone, longship, boat, ...STONES,
 ];
-export const FJ_ROCKS = [['fj_rock_a', 1], ['fj_rock_b', 1], ['fj_rock_c', 1]];
-export const FJ_CRAGS = [['fj_crag', 1], ['fj_crag_b', 1], ['fj_crag_c', 1.2]];
+export const FJ_ROCKS = [['fj_rock_a', 1], ['fj_rock_b', 1], ['fj_rock_c', 1], ['fj_stone_ledge', 1], ['fj_stone_slab', 1], ['fj_stone_shard', 0.8], ['fj_stone_chunk', 1], ['fj_stone_block', 0.8]];
+export const FJ_CRAGS = [['fj_crag', 1], ['fj_crag_b', 1], ['fj_crag_c', 1.2], ['fj_stone_shard', 0.6]];
