@@ -71,7 +71,7 @@ function placeLine() {
   for (const e of [$('btnAct'), ...document.querySelectorAll('#pad > *'), hand]) { const r = e && (e === hand ? e.getBoundingClientRect() : rectOf(e)); if (r && r.top > H * 0.45) top = Math.min(top, r.top); }
   line.style.bottom = Math.max(line._def, top < Infinity ? H - top + 10 : 0) + 'px';
 }
-function followHand() { placeLine(); if (!hand || !hand._sel) return; const r = rectOf(hand._sel); if (r) placeHand(r); }
+function followHand() { placeLine(); if (!hand || !hand._sel) return; const r = rectOf(hand._sel); if (r) placeHand(r); else if (!handWin) hideHand(); }   // правки 5: кнопка исчезла (саркофаг уже открыт) — палец не висит в пустоте
 addEventListener('resize', () => setTimeout(followHand, 120));
 // подсказка исчезает сама: по времени, по нажатию нужной кнопки или по событию
 function handTick() {
