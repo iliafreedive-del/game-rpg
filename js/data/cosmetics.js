@@ -38,7 +38,7 @@ export const PET_SKINS = {
   wisp:     { fire: ['Огненный', { hue: 0.68 }], void: ['Бездны', { hue: 0.4 }], blood: ['Кровавый', { hue: 0.62, sat: 1.4 }] },
   skull:    { gold: ['Золотой', { tint: 0xffc840, tintK: 0.85 }], frost: ['Ледяной', { hue: 0.27 }], blood: ['Кровавый', { hue: 0.67, tint: 0xa01010, tintK: 0.4 }] },
   basilisk: { ruby: ['Рубиновый', { hue: 0.68 }], azure: ['Лазурный', { hue: 0.33 }], gold: ['Золотой', { tint: 0xffc840, tintK: 0.8 }] },
-  bat:      { blood: ['Кровавая', { hue: 0.2, sat: 1.3 }], frost: ['Ледяная', { hue: 0.85 }], gold: ['Золотая', { tint: 0xffc840, tintK: 0.8 }] },
+  bat:      { blood: ['Кровавая', { tint: 0xd01818, tintK: 0.75, glow: 0xff1010, glowK: 0.08, glowAll: true }], frost: ['Ледяная', { tint: 0x9ad8ff, tintK: 0.75 }], gold: ['Золотая', { tint: 0xffc840, tintK: 0.8 }] },
   golem:    { obsidian: ['Обсидиан', { val: 0.3, sat: 0.4, glow: 0xff5010, glowK: 0.05, glowAll: true }], frost: ['Ледяной', { hue: 0.5, sat: 0.7 }], jade: ['Нефритовый', { hue: 0.33 }] },
   dragon:   { fire: ['Огненный', { tint: 0xff4a10, tintK: 0.65 }], frost: ['Ледяной', { tint: 0x8ad8ff, tintK: 0.7 }], gold: ['Золотой', { tint: 0xffc840, tintK: 0.8 }] },
   phoenix:  { frost: ['Ледяной', { hue: 0.55 }], void: ['Бездны', { hue: 0.75 }], soul: ['Душ', { hue: 0.4 }] },
