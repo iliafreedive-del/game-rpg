@@ -109,10 +109,12 @@ export { BRANCHES };
 // One-step gear flow for a browser game: new item goes straight onto the hero if it's better;
 // the replaced (or worse) piece is sold automatically. No inventory juggling.
 // Награда не продаётся и не надевается молча: пустой слот — надеваем, иначе вещь идёт в сумку, а окно награды предлагает «Надеть» / «В сумку» с сравнением
-export function autoEquip(it, force) {
+// правки 5: снятая вещь уходит в сумку без метки «НОВ» — она не новая (раньше после замены старый клинок мигал в сумке, будто его надо надеть)
+// bag — вещь только в сумку, без надевания (подарок старосты: надеть его игрок учится сам в окне героя)
+export function autoEquip(it, force, bag = false) {
   const P = G.profile, slot = it.slot, old = P.gear[slot]; const e = { item: it };
-  const ok = canEquip(it).ok;
-  if (ok && (!old || force)) { P.gear[slot] = it; e.equipped = true; if (old) { old.isNew = true; if (P.bag.length < P.bagSize) P.bag.push(old); else P.gold += sellValue(old); } recalc(); bus.emit('equipChanged', slot); }
+  const ok = canEquip(it).ok && !bag;
+  if (ok && (!old || force)) { P.gear[slot] = it; e.equipped = true; if (old) { old.isNew = false; if (P.bag.length < P.bagSize) P.bag.push(old); else P.gold += sellValue(old); } recalc(); bus.emit('equipChanged', slot); }
   else { it.isNew = true; if (P.bag.length < P.bagSize) { P.bag.push(it); e.bagged = true; } else { const v = sellValue(it); P.gold += v; e.sold = v; e.soldNew = true; } bus.emit('hud'); }
   if (old && !e.equipped) { e.old = old; e.cmp = compare(P, it, slot).slice(0, 4); }
   return e;
@@ -120,6 +122,6 @@ export function autoEquip(it, force) {
 // надеть вещь из сумки: прежняя уходит в сумку
 export function equipFromBag(it) {
   const P = G.profile, i = P.bag.indexOf(it); if (i < 0) return false; const old = P.gear[it.slot];
-  P.gear[it.slot] = it; P.bag.splice(i, 1); if (old) { old.isNew = true; P.bag.push(old); }
+  P.gear[it.slot] = it; P.bag.splice(i, 1); if (old) { old.isNew = false; P.bag.push(old); }
   it.isNew = false; recalc(); bus.emit('equipChanged', it.slot); bus.emit('sfx', 'equip'); bus.emit('hud'); return true;
 }

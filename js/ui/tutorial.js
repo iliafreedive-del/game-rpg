@@ -109,10 +109,11 @@ function placeTick() {
   // зум камеры: сборка 59 — подсказка в деревне, в катакомбах и в Жатве (по разу в каждой), а не через 15 минут где-то в подземелье.
   // В деревне — когда пролог позади и герой постоял ~6 с без окон; в катакомбах и Жатве — через ~6 с после входа, если рядом нет боя
   // сборка 60 (П7): сначала в первом подземелье (катакомбы), потом один раз в деревне; не поверх окна и не поверх панели NPC (Элвин)
-  { const zk = { town: 'town', catacombs: 'cata' }[G.zoneId], zs = (t.zoomAt = t.zoomAt || {});
+  // правки 5: первую подсказку о зуме даёт склеп пробуждения сразу после ходьбы (game.js tutorialTick) — здесь только напоминание в деревне
+  { const zk = { town: 'town' }[G.zoneId], zs = (t.zoomAt = t.zoomAt || {});
     zoomTicks = zk && !G.modalOpen && !G.panelTarget && !G.hwOpen && !hand && !line ? zoomTicks + 1 : 0;
     const calm = !(G.enemies || []).some(e => !e.dead && e.aggro);
-    if (zk && !zs[zk] && !t.zoomSeen && zoomTicks > 14 && calm && (G.zoneId !== 'town' || zs.cata)) { zs[zk] = 1; bus.emit('save');
+    if (zk && !zs[zk] && !t.zoomSeen && zoomTicks > 14 && calm && (zs.cata || zs.crypt)) { zs[zk] = 1; bus.emit('save');
       // своя фраза в каждом месте — не повтор одной и той же строки
       const how = touch() ? { in: 'разведите два пальца на экране', out: 'сведите два пальца' } : { in: 'колесо мыши от себя', out: 'колесо мыши на себя' };
       const txt = { town: `Помните: камеру можно приблизить (${how.in}) или отдалить (${how.out}) — издалека видно больше`, cata: `Камеру можно приблизить (${how.in}) или отдалить (${how.out}) — отдалите, чтобы видеть больше вокруг` }[zk];   // М3
@@ -163,18 +164,23 @@ function remindTick() {
     if (!e) goldNoted = Math.min(goldNoted, P.gold); }
 }
 
+// правки 5: подсказка о зуме в склепе пробуждения — сразу после первых шагов (game.js tutorialTick)
+export function zoomHint() { const t = T(), zs = (t.zoomAt = t.zoomAt || {}); if (zs.crypt || t.zoomSeen) return false; zs.crypt = 1; bus.emit('save');
+  const how = touch() ? { in: 'разведите два пальца на экране', out: 'сведите два пальца' } : { in: 'колесо мыши от себя', out: 'колесо мыши на себя' };
+  if (pointAt(null, `Камеру можно отдалить (${how.out}) — видно больше вокруг. Приблизить — ${how.in}`, { time: 6 })) zoomLine = true; return true; }
+export const hintShown = () => !!(hand || line);
 export async function intro() {
   const t = T(); if (t.introDone) return; t.introDone = true; bus.emit('save');
   // первые секунды в склепе: только движение. Остальному учим по ходу.
   if (G.run && G.run.floor === 0) return;   // сборка 49: в склепе это говорит пролог (tutorialTick в game.js) — без повтора
-  pointAt('joyZone', touch() ? 'Ведите пальцем в любом месте экрана — герой пойдёт. Коснитесь врага или сундука — побежит к нему' : 'Идите: WASD или зажмите правую кнопку мыши', { time: 10 });
+  pointAt('joyZone', touch() ? 'Ведите пальцем в любом месте экрана — герой пойдёт. Коснитесь врага или сундука — побежит к нему' : 'Идите: WASD или зажмите правую кнопку мыши', { time: 6 });
 }
 
 export function initTutorial() {
   bus.on('tutorialRestart', () => { const t = T(); t.on = true; t.off = false; t.introDone = false; t.tips = {}; t.un = {}; intro(); });
   bus.on('tutHand', o => pointAt(o.sel, o.text, o));
   bus.on('zoneEntered', () => { zoomTicks = 0; });   // сборка 59: подсказку о зуме считать заново в каждой локации
-  bus.on('camZoom', () => { if (G.profile) { T().zoomSeen = 1; bus.emit('save'); } });   // уже нашёл зум сам — подсказка не нужна
+  bus.on('camZoom', () => { if (G.profile) { T().zoomSeen = 1; bus.emit('save'); } if (zoomLine) hideHand(); });   // правки 5: попробовал зум — подсказка о нём гаснет   // уже нашёл зум сам — подсказка не нужна
   // нажал подсказанную кнопку — палец убираем сразу
   for (const id of ['btnDodge', 'potHP', 'potMP', 'btnAuto', 'btnScroll', 'btnAct', 'portrait', 'sk0']) { const e = $(id); if (e) e.addEventListener('pointerdown', hideHand); }
   setInterval(() => { if (!G.profile || !G.zoneReady) return; handTick(); if (G.cinema) return; revealTick(); placeTick(); remindTick(); }, 400);   // во время облёта камеры подсказок нет
@@ -186,13 +192,14 @@ export function initTutorial() {
     if (q.id !== 'meet_merchant') return;   // Мира: научить зелью и рывку
     // сборка 49: «одно новое за раз» — объясняем только то, чего игрок ещё не видел (обычно оба уже открыты в склепе)
     const newPot = unlock0('pot'), newDodge = unlock0('dodge');
-    if (newPot) pointSoon('potHP', touch() ? 'Красная кнопка — зелье здоровья. Нажмите в бою, когда мало жизни' : 'Зелье здоровья: кнопка Q или красная кнопка. Пейте в бою, когда мало жизни', { time: 7 });
+    if (newPot) pointSoon('potHP', touch() ? 'Красная кнопка — зелье здоровья. Нажмите в бою, когда мало жизни' : 'Зелье здоровья: клавиша R или красная кнопка. Пейте в бою, когда мало жизни', { time: 7 });
     if (newDodge) setTimeout(() => pointAt('btnDodge', touch() ? 'Рывок! Нажмите, чтобы отпрыгнуть от удара врага (красный круг)' : 'Рывок: Shift — отпрыгнуть от удара врага (красный круг)', { key: 'dodge2', time: 8 }), newPot ? 8000 : 300);
   });
   bus.on('panel', it => { if (!it || it.id !== 'trainer') return; setTimeout(() => { if (canLearnNow()) pointAt('tBtnSkills', 'Нажмите «Навыки» — там изучают умения', { key: 'tbtn' }); }, 400); });
-  // сборка 60 (П32): окно героя — портрет → «Герой» → сумка и сравнение. Учим на шаге «Осмотреть снаряжение»
+  // сборка 60 (П32): окно героя — портрет → «Герой» → сумка и сравнение. Правки 5: шаг «Надеть подарок старосты» — оружие лежит в сумке,
+  // оранжевая стрелка ведёт по шагам (giftArrow ниже), строка подсказки — без пальца, чтобы палец и стрелка не спорили
   const gearStep = () => { const q = G.profile && STORY[G.profile.story.stage]; return q && q.id === 'hero_gear'; };
-  const portraitHint = () => { if (gearStep() && !G.modalOpen) pointAt('portrait', 'Нажмите на портрет — это окно героя', { time: 12 }); };
+  const portraitHint = () => { if (gearStep() && !G.modalOpen) pointAt(null, 'Оружие старосты в сумке. Нажмите на портрет героя — туда показывает оранжевая стрелка', { time: 12 }); };
   bus.on('questNew', q => { if (q && q.id === 'hero_gear') setTimeout(function again(n = 0) { if (G.modalOpen && n < 30) return setTimeout(() => again(n + 1), 700); portraitHint(); }, 900); });
   // сборка 61: задание «Осмотреть снаряжение» висит, а куда жать — не видно. Пока оно не выполнено: портрет (а в меню — плитка «Герой»)
   // мигает золотом, и палец повторяется раз в 20 с, если игрок его пропустил
@@ -202,12 +209,25 @@ export function initTutorial() {
     if (pt) pt.classList.toggle('gear-hint', on && !G.modalOpen); if (tile) tile.classList.toggle('gear-hint', on);
     if (!on || G.modalOpen || hand || line) { gearAt = performance.now(); return; }
     if (performance.now() - gearAt > 20000) { gearAt = performance.now(); portraitHint(); } }, 500);
-  bus.on('menuOpened', () => { T().tips.hero = 1; if (gearStep()) pointAt(document.querySelector('.menu-tile[data-w="inventory"]'), '«Герой» — надетые вещи и сумка', { time: 12, win: true }); });
+  bus.on('menuOpened', () => { T().tips.hero = 1; });
   bus.on('invOpened', () => {
     if (!hintsOn()) return; const t = T(); if (t.tips.inv1) return; t.tips.inv1 = 1; bus.emit('save');
+    if (gearStep()) { const g = document.querySelector('.eq-grid .eq-slot.gift'); if (g) pointAt(null, 'Справа — сумка. Нажмите на новое оружие (оранжевая стрелка) и «Надеть». ▲ — лучше надетого', { time: 14 }); return; }
     const g = document.querySelector('.eq-grid .eq-slot') || document.querySelector('.eq-doll .eq-slot');
     pointAt(g, 'Слева — что надето, справа — сумка. Нажмите на вещь: ▲ — лучше надетой, ▼ — хуже. Там же «Надеть» и «Продать»', { time: 12, win: true });
   });
+  // правки 5: «рыжая стрелка прям указывающая на инвентарь» — пока подарок старосты в сумке, оранжевая стрелка показывает следующее нажатие:
+  // портрет → плитка «Герой» в меню → оружие в сумке → «Надеть» в карточке вещи. Живёт поверх окон, не ловит касания
+  { let ar = null;
+    const target = () => { if (!gearStep() || !G.zoneReady || loading() || G.cinema) return null;
+      const vis = e => e && e.offsetParent !== null && e.getBoundingClientRect().width ? e : null;
+      return vis(document.querySelector('.ic-box .gift-wear')) || (document.querySelector('.ic-ov') ? null : vis(document.querySelector('.eq-grid .eq-slot.gift')))
+        || vis(document.querySelector('.menu-tile[data-w="inventory"]')) || (G.modalOpen ? null : vis($('portrait'))); };
+    setInterval(() => { const e = target();
+      if (!e) { if (ar) { ar.remove(); ar = null; } return; }
+      if (!ar) { ar = el('div', 'gift-arrow'); document.body.appendChild(ar); }
+      const r = e.getBoundingClientRect(), right = r.right + 70 < innerWidth;   // стрелка справа от цели и смотрит влево; у правого края — слева, смотрит вправо
+      ar.classList.toggle('flip', !right); ar.style.top = (r.top + r.height / 2) + 'px'; ar.style.left = (right ? r.right + 4 : r.left - 4) + 'px'; }, 200); }
   bus.on('skillsOpened', () => setTimeout(() => { const b = document.querySelector('.tal-learn.ok'); if (b) pointAt(b, 'Нажмите «Изучить»', { key: 'learn', win: true }); }, 350));
   // метки времени «первых минут» (видно в «Справке»: тестер присылает скриншот)
   bus.on('kill', () => mark('kill1'));

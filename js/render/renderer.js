@@ -252,6 +252,7 @@ function drawTrail(P) {   // afterimages of the dodge roll
   ctx.filter = 'none'; ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
 }
 function drawHero(P, x, y, ghost) {
+  if (G.heroHidden) return;   // правки 5: облёт деревни перед прологом — героя в деревне не видно
   if (!ghost) drawTrail(P);
   if (!ghost && G.surv) { const z = G.cam.zoom; ctx.save(); ctx.translate(x, y); ctx.scale(1, 0.5); ctx.strokeStyle = 'rgba(255,215,90,0.9)'; ctx.lineWidth = 3; ctx.shadowColor = '#ffd24a'; ctx.shadowBlur = 10; ctx.beginPath(); ctx.arc(0, 0, 30 * z, 0, 7); ctx.stroke(); ctx.restore(); }
   const f = `${P.anim.clip}_${P.dir}_${P.anim.frame}`;
@@ -641,11 +642,11 @@ function drawInteractMarker() {
 }
 
 // quest guide: a golden arrow on the ground pointing toward the current objective
-function drawGuide() { drawMoveTo(); drawArrow(G.guide, 'gv', '255,210,90'); drawBeacon(G.guide); if (G.huntGuide && G.huntGuide !== G.guide) drawArrow(G.huntGuide, 'hgv', '255,70,50', 0.27); }
+function drawGuide() { if (G.heroHidden) return; drawMoveTo(); drawArrow(G.guide, 'gv', '255,210,90'); drawBeacon(G.guide); if (G.huntGuide && G.huntGuide !== G.guide) drawArrow(G.huntGuide, 'hgv', '255,70,50', 0.27); }
 // сборка 60 (П1): стрелка у героя гаснет за 4 м до цели, и саркофаг с ключом пробегали мимо (рядом стоит сундук поярче).
 // Теперь над целью задания в подземелье прыгает золотой указатель «▼», а под ней пульсирует кольцо — видно, что открыть надо именно это
 function drawBeacon(t) {
-  const P = G.player; if (!t || !P || P.dead || t.type === 'portal' || t.type === 'npc' || G.zoneId !== 'catacombs' || t.done || !G.zone.inter.includes(t)) return;
+  const P = G.player; if (!t || !P || P.dead || t.type === 'portal' || t.type === 'npc' || (G.zoneId !== 'catacombs' && t !== G.tutSarc) || t.done || !G.zone.inter.includes(t)) return;
   const d = Math.hypot(t.x - P.x, t.y - P.y); if (d > 11) return;
   const cam = G.cam, z = cam.zoom, b = Math.abs(Math.sin(G.time * 3.2)) * 14 * z, [gx, gy] = cam.toScreen(t.x, t.y), [x, y] = cam.toScreen(t.x, t.y, 2.3);
   ctx.save(); ctx.translate(gx, gy); ctx.scale(1, 0.5); const p = (G.time * 0.9) % 1;

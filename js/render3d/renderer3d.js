@@ -271,6 +271,7 @@ function syncPlayer(dt) {
   else if (G.surv && G.surv.fireT > 0 && !c.moving) { clip = (wt === 'sword' || wt === 'axe' || wt === 'greatsword') ? 'attack' : 'cast'; k = 1 - G.surv.fireT / 0.4; if (wt === 'bow') k = 0.62 + 0.38 * k; }
   else if (c.moving) { clip = 'walk'; speed = c.v; }
   a.turnRate = 34;   // герой разворачивается почти мгновенно (как в Archero)
+  a.setVisible(!G.heroHidden);   // правки 5: пока камера облетает деревню перед прологом, героя там нет (он ещё в склепе)
   a.place(P.x, P.y); a.faceAngle(yawOfDir(P.dir));
   a.update(dt, { clip, k, impact, speed, combo: (P.combo - 1) & 1 }, env); a.flash(flashOf(P), 0xffffff);
 }
@@ -384,7 +385,9 @@ function syncSwarm(dt) {
     }
     const c = measure(a, e, dt);
     a.place(e.x, e.y); a.faceAngle(yawOfDir(e.dir));
-    const hitting = e.hitCd > 0.6; a.update(dt, e.act ? { clip: 'attack', k: Math.min(1, e.act.t / e.act.dur) } : hitting ? { clip: 'attack', k: (0.9 - e.hitCd) / 0.3 } : { clip: 'walk', speed: Math.max(1.2, c.v) }, env);   // e.act — приём стража (замах перед рывком/ударом) a.flash(e.flash > 0 ? Math.min(1, e.flash * 8) : 0, 0xffffff);
+    // правки 5: стрелок Жатвы — натягивает лук (cast) перед выстрелом и стоит (idle), когда не идёт; раньше всегда «шёл» на месте
+    const hitting = e.hitCd > 0.6, aim = e.shoot && e.shotCd < 0.5;
+    a.update(dt, e.act ? { clip: 'attack', k: Math.min(1, e.act.t / e.act.dur) } : e.shoot && (aim || hitting) ? { clip: 'cast', k: aim ? (0.5 - Math.max(0, e.shotCd)) / 0.5 * 0.62 : 0.62 + (0.9 - e.hitCd) / 0.3 * 0.38 } : hitting ? { clip: 'attack', k: (0.9 - e.hitCd) / 0.3 } : e.shoot && !c.moving ? { clip: 'idle' } : { clip: 'walk', speed: Math.max(1.2, c.v) }, env);   // e.act — приём стража (замах перед рывком/ударом) a.flash(e.flash > 0 ? Math.min(1, e.flash * 8) : 0, 0xffffff);
   }
 }
 // правки 3: души и золото Жатвы — в сцене у самой земли, с проверкой глубины: мобы и герой их заслоняют

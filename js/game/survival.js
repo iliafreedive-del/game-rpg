@@ -171,8 +171,9 @@ export function updateSurvival(dt) {
     let vx = pl.x - e.x, vy = pl.y - e.y; const d = Math.hypot(vx, vy) || 1; vx /= d; vy /= d;
     if (e.g) { const v = guardAI(e, d, vx, vy, dt); vx = v[0]; vy = v[1]; }
     if (e.shoot) {   // стрелок держит дистанцию 5–8 м и раз в 2,6 с пускает медленный снаряд в героя: от него можно увернуться
-      if (d < 5) { vx = -vx * 0.6; vy = -vy * 0.6; } else if (d < 8) { vx *= 0.05; vy *= 0.05; }
-      e.shotCd = (e.shotCd ?? 1 + rand() * 1.5) - dt;
+      e.shotCd = (e.shotCd ?? 1 + rand() * 1.5) - dt; if (d >= 11 && e.shotCd < 0.5) e.shotCd = 0.5;   // далеко — ждёт с опущенным луком
+      // правки 5: перед выстрелом (натяжение, 0,5 с) и сразу после стрелок стоит, а не перебирает ногами на месте
+      if ((e.shotCd < 0.5 && d < 11) || e.hitCd > 0.5) { vx = 0; vy = 0; } else if (d < 5) { vx = -vx * 0.6; vy = -vy * 0.6; } else if (d < 8) { vx = 0; vy = 0; }
       if (e.shotCd <= 0 && d < 11) { e.shotCd = 2.6; e.hitCd = 0.9; const sp = e.shoot === 'arrow' ? 8 : 6;
         S.eprojs.push({ kind: e.shoot, x: e.x, y: e.y, vx: (pl.x - e.x) / d * sp, vy: (pl.y - e.y) / d * sp, dmg: e.dmg, life: 2.4 }); bus.emit('sfx', e.shoot === 'arrow' ? 'bow' : 'cast'); }
     }

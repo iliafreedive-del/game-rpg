@@ -43,7 +43,7 @@ import { updatePet } from './pets.js';
 import { SKILLS } from '../data/skills.js';
 import { rand, rrange } from '../core/util.js';
 import { pollMove, input, mouse, tapAim, tapMove } from '../core/input.js';
-import { elvinBuy } from '../ui/tutorial.js';
+import { elvinBuy, zoomHint, hintShown, hideHand } from '../ui/tutorial.js';
 import { canLearnNow } from './character.js';
 import { gate, BOSS_LEVEL, nextStep, earlyLock, lockToast, bandLevel, CATA_MAX, wildDepthGate, lvlOk } from './progress.js';
 import { platform } from '../platform/platform.js';
@@ -133,7 +133,8 @@ export async function loadZone(id, how = {}) {
     if (roomy || gen) await buildFloorCanvas(zone); else await loadFloor(zone);   // рисованный пол — только под ручную карту
   }
   if (G.run && G.run.boons) G.lastBoons = G.run.boons.slice();
-  G.zone = zone; G.zoneId = id; G.run = null; if (id !== 'wild') G.wild = null; G.revives = 0;   // не больше 2 воскрешений за заход (подземелье, глубины, поход)
+  G.zone = zone; G.zoneId = id; G.run = null; G.tut = null; G.tutSarc = null;   // правки 5: пролог заново (гибель) — обучение склепа с начала, без ссылки на саркофаг старой зоны
+  if (id !== 'wild') G.wild = null; G.revives = 0;   // не больше 2 воскрешений за заход (подземелье, глубины, поход)
   if (id === 'catacombs') {
     const W = P.world.opened;
     { const kid = (zone.json.objects.find(o => o.loot === 'key') || {}).id; if (kid && W[kid]) P.world.hasKey = true; }   // repair: opened key sarcophagus always means we hold the key (П46: он снова закрыт, но ключ уже у героя)
@@ -523,17 +524,28 @@ function boonTick(dt) {
   }
 }
 const touch = () => matchMedia('(pointer:coarse)').matches;
+// правки 5: пролог по шагам — ходьба (подсказка гаснет, как только герой прошёл пару шагов, а не висит 10 с посередине), сразу за ней
+// подсказка о зуме камеры, потом стрелка к саркофагу «подойдите — его можно открыть» (чтобы люди поняли, что вещи вокруг открываются),
+// потом бой. Враг заметил героя раньше — шаги про зум и саркофаг пропускаются
 function tutorialTick() {
-  const T = G.tut || (G.tut = { step: 0, t: 0 }); T.t += G.dt || 0.016;
-  const say = (text, sub) => bus.emit('toast', { text, sub, kind: 'quest' });
-  const point = (sel, text) => bus.emit('tutHand', { sel, text, time: 10 });
-  if (T.step === 0 && G.time - G.run.t0 > 0.8) { T.step = 1; point('joyZone', touch() ? 'Ведите пальцем в любом месте экрана — герой пойдёт. Коснитесь врага или сундука — побежит к нему' : 'Идите: WASD или зажмите правую кнопку мыши'); }
-  else if (T.step === 1 && G.enemies.some(e => e.aggro)) { T.step = 2; point(null, 'Подойдите к врагу — герой бьёт сам. Ваше дело — двигаться и уклоняться'); }   // П31: без кнопки удара
-  else if (T.step === 2 && G.run.kills >= 1) { T.step = 3; say('Отлично! Добейте остальных');
+  const T = G.tut || (G.tut = { step: 0, t: 0, walk: 0 }); T.t += G.dt || 0.016;
+  const pl = G.player, say = (text, sub) => bus.emit('toast', { text, sub, kind: 'quest' });
+  const point = (sel, text, time = 10) => bus.emit('tutHand', { sel, text, time });
+  const sarc = G.zone.inter.find(i => i.id === 'p_sarc'), fight = G.enemies.some(e => e.aggro);
+  if (fight && T.step >= 1 && T.step < 5) { T.step = 5; G.tutSarc = null; }
+  if (T.step === 0 && G.time - G.run.t0 > 0.8) { T.step = 1; T.x = pl.x; T.y = pl.y; T.s = T.t; point('joyZone', touch() ? 'Ведите пальцем в любом месте экрана — герой пойдёт. Коснитесь врага или сундука — побежит к нему' : 'Идите: WASD или зажмите правую кнопку мыши', 6); }
+  else if (T.step === 1) { T.walk += Math.hypot(pl.x - T.x, pl.y - T.y); T.x = pl.x; T.y = pl.y;
+    if (T.walk > 2 || T.t - T.s > 6) { if (T.walk > 2) hideHand(); T.step = 2; T.s = T.t; } }
+  else if (T.step === 2 && T.t - T.s > 0.5) { T.step = 3; T.s = T.t; if (!zoomHint()) T.s -= 4.5; }
+  else if (T.step === 3 && (T.t - T.s > 5 || (T.t - T.s > 1.5 && !hintShown()))) { T.step = 4;
+    if (sarc && !sarc.done) { G.tutSarc = sarc; point(null, 'Видите саркофаг? Подойдите к нему по стрелке — его можно открыть' + (touch() ? '' : ' (клавиша E)'), 8); } }
+  else if (T.step === 4 && (!sarc || sarc.done)) { T.step = 5; G.tutSarc = null; if (sarc && sarc.done) say('Саркофаги и сундуки открываются', 'Внутри золото, иногда зелья. Дальше — по стрелке'); }
+  else if (T.step === 5 && fight) { T.step = 6; point(null, 'Подойдите к врагу — герой бьёт сам. Ваше дело — двигаться и уклоняться'); }   // П31: без кнопки удара
+  else if (T.step === 6 && G.run.kills >= 1) { T.step = 7; say('Отлично! Добейте остальных');
     // сборка 49 («новое — без настоящей угрозы»): оставшийся скелет — учитель: медленный подсвеченный замах, удар почти без урона.
     // Его замах открывает кнопку рывка с пальцем (revealTick в tutorial.js) — рывок учится не под настоящим ударом.
     if (!G.profile.tutorial.un.dodge) { const tch = G.enemies.find(e => !e.dead); if (tch) tch.teacher = true; } }
-  else if (T.step === 3 && G.enemies.every(e => e.dead)) { T.step = 4; const ex = G.zone.inter.find(i => i.id === 'floor_exit'); if (ex) { ex.hidden = false; ex.draw.hidden = false; ex.light.on = true; } say('Портал открыт — идите к свету', 'Золотые стрелки на земле укажут путь'); }
+  else if (T.step === 7 && G.enemies.every(e => e.dead)) { T.step = 8; const ex = G.zone.inter.find(i => i.id === 'floor_exit'); if (ex) { ex.hidden = false; ex.draw.hidden = false; ex.light.on = true; } say('Портал открыт — идите к свету', 'Золотые стрелки на земле укажут путь'); }
 }
 export function finishFloor() {
   const r = G.run, P = G.profile; if (!r) return;
@@ -727,6 +739,8 @@ function updateMarkers() {
     if (!t && q.id === 'medallion' && G.profile.world.hasKey) t = G.zone.inter.find(i => i.type === 'door' && !i.done) || G.enemies.find(e => e.story === 'elite' && !e.dead) || G.zone.inter.find(i => i.id === 'medallion');
   }
   if (G.zoneId === 'depths') { const ex = G.zone.inter.find(i => i.id === 'floor_exit'); t = ex && !ex.hidden ? ex : G.enemies.find(e => e.story === 'floorboss' && !e.dead) || null; }
+  if (G.zoneId === 'depths' && G.run && G.run.floor === 0 && t === null) {   // правки 5: пролог — сначала к саркофагу, потом к врагам (стрелка вела в никуда)
+    const pl = G.player; t = G.tutSarc && !G.tutSarc.done ? G.tutSarc : G.tut && G.tut.step >= 5 ? G.enemies.filter(e => !e.dead).sort((a, b) => Math.hypot(a.x - pl.x, a.y - pl.y) - Math.hypot(b.x - pl.x, b.y - pl.y))[0] || null : null; }
   if (G.zoneId === 'wild') {
     const home = G.zone.inter.find(i => i.id === 'wild_home'), next = G.zone.inter.find(i => i.id === 'wild_next' && !i.hidden), fort = G.zone.wildGate;
     const outside = fort && !fort.open ? G.enemies.filter(e => !e.dead && !e.summoned && !e.story).sort((a, b) => Math.hypot(a.x - G.player.x, a.y - G.player.y) - Math.hypot(b.x - G.player.x, b.y - G.player.y))[0] : null;

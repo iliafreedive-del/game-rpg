@@ -914,6 +914,12 @@ html.rm *,html.rm *::before,html.rm *::after{animation-duration:.01ms!important;
 @keyframes ldshine{from{transform:translateX(-100%)}to{transform:translateX(260%)}}
 
 #portrait.gear-hint,.menu-tile.gear-hint{animation:gearh 1s ease-in-out infinite alternate}@keyframes gearh{from{box-shadow:0 0 0 2px #ffd24a88}to{box-shadow:0 0 0 4px #ffd24a,0 0 26px 6px #ffae00}}   /* сборка 61: задание «Осмотреть снаряжение» */
+/* правки 5: оранжевая стрелка к окну героя — пока подарок старосты в сумке (tutorial.js) */
+.gift-arrow{position:fixed;z-index:300;width:62px;height:40px;margin-top:-20px;pointer-events:none;animation:giftar .8s ease-in-out infinite alternate;filter:drop-shadow(0 0 6px #ff8a00) drop-shadow(0 2px 3px #000)}
+.gift-arrow::before{content:'';position:absolute;inset:0;background:#ff8a1c;clip-path:polygon(0 50%,42% 0,42% 30%,100% 30%,100% 70%,42% 70%,42% 100%)}
+.gift-arrow.flip{margin-left:-62px}.gift-arrow.flip::before{transform:scaleX(-1)}
+@keyframes giftar{from{translate:4px 0}to{translate:16px 0}}
+.gift-arrow.flip{animation-name:giftarf}@keyframes giftarf{from{translate:-4px 0}to{translate:-16px 0}}
 /* крестики «закрыть» везде крупнее и заметнее: светлый значок на тёмной плашке с золотой рамкой, всегда поверх содержимого */
 .mx,.ic-x,.pn-x{font:700 22px/1 sans-serif;color:#fff;background:#2a1f14e6;border:1.5px solid #c9a24a;box-shadow:0 2px 6px #000a;touch-action:manipulation;cursor:pointer;display:grid;place-items:center;padding:0}
 .mx{width:42px;height:42px;position:relative;z-index:2}
@@ -984,3 +990,10 @@ html.rm *,html.rm *::before,html.rm *::after{animation-duration:.01ms!important;
 .hw-stage{container-type:size}
 .hw-num{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;line-height:1;font-size:62cqw;padding-top:3cqw}
 .hw-stage.locked .hw-num{font-size:60cqw;padding-top:0}
+/* правки 5: на ПК на кнопках видно клавишу — 1–4 на умениях, R/F на зельях, E на кнопке действия, ⇧ на рывке */
+.kb{display:none}
+@media (hover:hover) and (pointer:fine){
+  .cbtn .kb,.cbtn[data-kb]::after{display:block;position:absolute;top:2px;left:50%;transform:translateX(-50%);min-width:14px;padding:0 3px;border-radius:4px;background:#000c;border:1px solid #d8a84a99;font:bold 10px/13px sans-serif;color:#ffe9b0;text-align:center;pointer-events:none;z-index:2}
+  .cbtn[data-kb]::after{content:attr(data-kb)}
+  #btnAct[data-kb]::before{content:attr(data-kb);display:inline-block;margin-right:7px;padding:0 5px;border-radius:4px;background:#0006;border:1px solid #1a100699;font:bold 11px/16px sans-serif;color:#fff3cf;vertical-align:1px}
+}
