@@ -213,8 +213,11 @@ export function initTutorial() {
   bus.on('invOpened', () => {
     if (!hintsOn()) return; const t = T(); if (t.tips.inv1) return; t.tips.inv1 = 1; bus.emit('save');
     if (gearStep()) { const g = document.querySelector('.eq-grid .eq-slot.gift'); if (g) pointAt(null, 'Справа — сумка. Нажмите на новое оружие — туда показывает оранжевая стрелка', { time: 14, win: true }); return; }
-    const g = document.querySelector('.eq-grid .eq-slot') || document.querySelector('.eq-doll .eq-slot');
-    pointAt(g, 'Слева — что надето, справа — сумка. Нажмите на вещь: ▲ — лучше надетой, ▼ — хуже. Там же «Надеть» и «Продать»', { time: 12, win: true });
+    // правки 5: палец — только на вещь лучше надетой (▲). Раньше показывал на первую вещь сумки, а там лежал снятый старый клинок с ▼ —
+    // игрок надевал его обратно
+    const up = [...document.querySelectorAll('.eq-grid .eq-slot')].find(d => d.querySelector('.eq-ar.good'));
+    if (up) pointAt(up, 'Эта вещь лучше надетой — зелёная ▲. Нажмите на неё и «Надеть»', { time: 12, win: true });
+    else pointAt(null, 'Слева — что надето, справа — сумка. ▲ — вещь лучше надетой, ▼ — хуже: такую не надевайте, лучше продайте', { time: 12, win: true });
   });
   // правки 5: «рыжая стрелка прям указывающая на инвентарь» — пока подарок старосты в сумке, оранжевая стрелка показывает следующее нажатие:
   // портрет → плитка «Герой» в меню → оружие в сумке → «Надеть» в карточке вещи. Живёт поверх окон, не ловит касания
