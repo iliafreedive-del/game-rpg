@@ -319,6 +319,7 @@
  },
  "fr_poacher_arrow": {
   "file": "assets/art/fx/fr_poacher_arrow.webp",
+  "rot": 0.27,
   "cols": 4,
   "rows": 4,
   "frames": 16,
