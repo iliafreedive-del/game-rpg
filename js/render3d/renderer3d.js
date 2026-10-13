@@ -35,7 +35,7 @@ import { sfx } from '../core/audio.js';
 import { disposeObject } from './dispose.js';
 import { gemSprites } from '../game/survival.js';
 import { GroundDecals, FxBillboards } from './decals.js';
-import { fxGround, BLAST_FX } from '../render/fxsheets.js';
+import { fxGround, BLAST_FX, uprightImgs } from '../render/fxsheets.js';
 
 const params = new URLSearchParams(location.search);
 const SQ = Math.SQRT1_2;
@@ -598,7 +598,7 @@ export function render() {
   devSpawn();
   world.ground.shadow(lights.moon); world.ground.lod(camTarget.x + SQ * 2, camTarget.z + SQ * 2, userZoom);
   if (decals && groundPaint) decals.update(G.player.x, G.player.y, groundPaint);
-  if (bills && uprightList) bills.update(uprightList(), camera);
+  if (bills && uprightList) { const ul = uprightList(); bills.update(ul, camera); if (!ul.length) bills.prewarm(renderer, uprightImgs()); }
   renderer.info.reset();
   post.render(scene, camera, tAll, LV.exposure ?? 1);
 }
