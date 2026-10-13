@@ -1,7 +1,8 @@
 // Icon helpers: atlas item icons → cached data URLs; procedural skill icons in the same palette.
 import { getAtlas } from '../core/assets.js';
 import { SKILLS, BRANCHES } from '../data/skills.js';
-import { ART, ITEM_ART, GOLD_ICO, artImg, withArt } from './art.js';
+import { ART, ITEM_ART, GOLD_ICO, artImg, withArt, gearArt } from './art.js';
+import { iconOf } from '../game/items.js';
 
 const cache = new Map();
 export function iconURL(name, size = 96) {
@@ -14,6 +15,8 @@ export function iconURL(name, size = 96) {
   const s = Math.min(size / w, size / h) * 0.95; x.drawImage(A.sheets[si], sx, sy, w, h, (size - w * s) / 2, (size - h * s) / 2, w * s, h * s);
   const url = c.toDataURL(); cache.set(k, url); return url;
 }
+// значок вещи: нарисованный рисунок по виду и редкости, иначе прежний из атласа
+export const itemURL = it => gearArt(it) || iconURL(iconOf(it));
 export function drawIcon(canvas, name) {
   const A = getAtlas('icons'); const x = canvas.getContext('2d'); x.clearRect(0, 0, canvas.width, canvas.height);
   canvas.dataset.ic = name;

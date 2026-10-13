@@ -1085,3 +1085,5 @@ body.ad-banner #joyZone{bottom:var(--banner-h,56px)}
 @media (orientation:landscape) and (max-height:500px){.hw-pre{padding:6px 14px}.hw-pre .hw-banner{font-size:19px}.hw-pre .hw-foes{columns:2;column-gap:14px}.hw-pre p.good,.hw-pre p.bad{font-size:16px}
   .hw-pre .hw-sk .btn{font-size:14px;padding:6px 10px}.hw-pre .hw-sk{gap:5px;margin:2px 0 4px}.hw-pre .hw-nav{margin-top:4px}.hw-pre .hw-nav .btn{font-size:17px;padding:8px 22px;min-width:120px}}
 @media (min-height:501px) and (max-height:820px) and (min-width:900px){.hw-pre{padding-top:12px;padding-bottom:14px}.hw-pre .hw-banner{font-size:30px}.hw-pre .hw-vs{margin:4px 0}.hw-pre .hw-vs b{font-size:30px}.hw-pre .hw-vs span,.hw-pre .hw-foes{font-size:20px!important;line-height:1.25}.hw-pre .hw-vsx{font-size:58px}.hw-pre p.good,.hw-pre p.bad{font-size:24px;margin:4px 0}.hw-pre .hw-sk .btn{padding:9px 16px;font-size:21px}}
+/* нарисованная экипировка (assets/art/gpt/gear): предмет во всю ячейку */
+.slot img[src*="/gear/"],.iv-slot img[src*="/gear/"],.eq-slot img[src*="/gear/"]{width:96%;height:96%;filter:drop-shadow(0 2px 2px #000c)}
