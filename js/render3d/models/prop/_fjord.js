@@ -2,6 +2,7 @@
 // Камни и утёсы — без нарисованной фактуры (правки 5: «не надо как в клеточку подземелья»), только цвет граней и снег
 // Угловатые сине-серые скалы со снежными шапками (вместо круглых валунов rocks), высокие утёсы для кромки над бездной,
 // рунные камни, разбитые драккары с рваным полосатым парусом и перевёрнутые лодки. Всё batch и низкополигональное.
+import { ROCKS2_PROPS, FO_ROCKS2, FJ_ROCKS2, FJ_CRAGS2 } from './_rocks2.js';
 const SNOW = 0xeef4fa;
 
 // пик как на референсе пользователя: тёмно-серый гранёный конус, снег только на макушке (резкая граница), снежная «юбка» у подножия
@@ -144,14 +145,16 @@ const FOREST_STONES = [
   stone('fo_rock_wall', 83, (T) => [box(T, 0.6, 1.6, 0.6, -0.7, 0.8, 0, 0.2), box(T, 0.55, 1.3, 0.5, -0.15, 0.65, 0.1, 0.5), box(T, 0.6, 1.8, 0.55, 0.4, 0.9, -0.05, 0.1), box(T, 0.5, 1.1, 0.5, 0.9, 0.55, 0.1, 0.7), box(T, 0.4, 0.5, 0.4, 0.2, 0.25, 0.45, 0.3)], FOREST_STONE, MOSS, 0.55, 0.1),   // скальная стенка из блоков
   stone('fo_rock_pebbles', 89, (T) => [lump(T, 0.22, 0, -0.03, 0), lump(T, 0.15, 0.4, -0.02, 0.2), lump(T, 0.12, -0.3, -0.02, 0.3), lump(T, 0.18, 0.15, -0.03, -0.35)], FOREST_STONE, MOSS, 0.7, 0.05),
 ];
-export const FO_ROCKS = [['fo_rock_boulder', 1.2], ['fo_rock_cap', 1], ['fo_rock_pillar', 0.6], ['fo_rock_wall', 0.6], ['fo_rock_pebbles', 0.8]];
+// 13 октября: камни леса и Фьордов — новый набор (_rocks2.js): больше граней и форм, мох/трава в лесу, снег на ¾ верха во Фьордах;
+// острые пики-утёсы (fj_crag*, fj_rock_a–c) и осколки-шпили больше не ставятся
+export const FO_ROCKS = FO_ROCKS2;
 
 export const FJORD_PROPS = [
   slab('fj_rock_a', 3, [[0.55, 1.0, 0, 0], [0.3, 0.55, 0.55, 0.25]]), slab('fj_rock_b', 8, [[0.45, 1.3, 0, 0]]), slab('fj_rock_c', 14, [[0.5, 0.8, 0, 0], [0.32, 0.6, -0.45, 0.3], [0.22, 0.35, 0.3, -0.4]]),
   def('fj_crag', (kit, L) => crag(kit, L, 5, [[1.3, 3.6, 0, 0], [0.7, 1.8, 1.0, 0.5]])),
   def('fj_crag_b', (kit, L) => crag(kit, L, 9, [[1.1, 4.2, 0, 0], [0.8, 2.6, -0.9, 0.6], [0.5, 1.4, 0.8, -0.7]])),
   def('fj_crag_c', (kit, L) => crag(kit, L, 17, [[1.5, 3.0, 0, 0], [1.0, 2.3, 1.3, -0.2], [0.9, 2.0, -1.2, 0.3], [0.6, 1.2, 0.2, 1.0]])),   // гряда-стена
-  runestone, longship, longshipB, longshipSplit, boat, ...STONES, ...FOREST_STONES,
+  runestone, longship, longshipB, longshipSplit, boat, ...STONES, ...FOREST_STONES, ...ROCKS2_PROPS,
 ];
-export const FJ_ROCKS = [['fj_rock_a', 1], ['fj_rock_b', 1], ['fj_rock_c', 1], ['fj_stone_ledge', 1], ['fj_stone_slab', 1], ['fj_stone_shard', 0.8], ['fj_stone_chunk', 1], ['fj_stone_block', 0.8]];
-export const FJ_CRAGS = [['fj_crag', 1], ['fj_crag_b', 1], ['fj_crag_c', 1.2], ['fj_stone_shard', 0.6]];
+export const FJ_ROCKS = FJ_ROCKS2;
+export const FJ_CRAGS = FJ_CRAGS2;
