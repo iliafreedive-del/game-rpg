@@ -717,7 +717,7 @@ function passIcon(r) {
   if (r.k === 'scroll') return iconURL('scroll');
   return iconURL(CLASSES[P.cls || 'warrior'].main);
 }
-function passAmount(r) { const P = G.profile; return r.k === 'gold' ? fmtShort(r.n * P.level) : r.k === 'item' ? 'вещь' : '×' + r.n; }
+function passAmount(r) { const P = G.profile; return r.k === 'gold' ? fmtShort(r.n * P.level) : r.k === 'item' ? 'вещь' : String(r.n); }
 function priceLabel(id) { const pr = platform.p.catalogPrice(id); return !pr ? '' : typeof pr === 'string' ? esc(pr) : `${esc(pr.value)} ${pr.img ? `<img class="cur" src="${esc(pr.img)}" alt="${esc(pr.code)}">` : esc(pr.code)}`; }
 W.season = () => modal('Путь сезона · ' + SE.seasonName(), 'md', b => {
   const L = SE.seasonLevel(), tier = SE.passTier();
@@ -742,10 +742,9 @@ W.season = () => modal('Путь сезона · ' + SE.seasonName(), 'md', b =>
     row.appendChild(el('div', 'pr-lv', `<i>${l}</i>`));
     for (const t of SE.TRACKS) {
       const R = SE.seasonReward(l, t), got = SE.isClaimed(l, t), open = SE.trackOpen(t), can = SE.canClaim(l, t);
-      const [main, ...rest] = R.list;
       const c = el('div', `pc t-${t}${R.big ? ' lv-big' : R.mid ? ' lv-mid' : ''}${got ? ' got' : can ? ' can' : ''}${open ? '' : ' locked'}`,
-        `<div class="pc-main${main.k === 'item' ? ' r' + main.n : ''}"><img src="${passIcon(main)}" alt="" draggable="false"><span>${passAmount(main)}</span></div>` +
-        `<div class="pc-more">${rest.map(r => `<span><img src="${passIcon(r)}" alt="" draggable="false">${passAmount(r)}</span>`).join('')}</div>` +
+        // правка: значок слева, число крупно рядом — строка на каждую награду, клетка во всю ширину
+        R.list.map((r, i) => `<div class="pc-it${i ? '' : ' main'}${r.k === 'item' ? ' r' + r.n : ''}"><img src="${passIcon(r)}" alt="" draggable="false"><span>${passAmount(r)}</span></div>`).join('') +
         (got ? '<em class="pc-ok">✔</em>' : !open ? '<em class="pc-lk">🔒</em>' : ''));
       c.title = R.list.map(SE.rewardLabel).join(', ');
       c.onclick = () => {
