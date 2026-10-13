@@ -2974,5 +2974,11 @@
  "Забрать всё ({0})": "Claim all ({0})",
  "Забрать всё": "Claim all",
  "<small>Знамя Магистра открывает обе платные дорожки. Купленное Знамя действует до конца месяца; награды пройденных ступеней можно забрать сразу после покупки.</small>": "<small>The Master's Banner unlocks both paid tracks. A bought banner lasts until the end of the month; rewards for tiers already reached can be claimed right after purchase.</small>",
- "2026-10-13 · сборка 70": "2026-10-13 · build 70"
+ "2026-10-13 · сборка 70": "2026-10-13 · build 70",
+ "Завтра: день {0} даров источника — {1}": "Tomorrow: day {0} of the Wellspring's boons — {1}",
+ "золотая вещь": "gold item",
+ "синяя вещь": "blue item",
+ "свиток, зелья и осколки": "a scroll, potions and shards",
+ "золото": "gold",
+ "Сундук Ордена и задания дня тоже обновятся": "The Order Chest and daily tasks will refresh too"
 }

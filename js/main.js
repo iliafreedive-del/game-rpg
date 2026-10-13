@@ -14,7 +14,7 @@ import { loadZone, update, saveNow } from './game/game.js';
 import { initHUD, updateHUD } from './ui/hud.js';
 import { initPanel } from './ui/panel.js';
 import { initTutorial, intro, unlockAll } from './ui/tutorial.js';
-import { cinema, introShots, portalShots } from './ui/cinema.js';
+import { cinema, portalShots } from './ui/cinema.js';
 import * as CS from './game/castle.js';
 import { initPlatform, platform, gameplay } from './platform/platform.js';
 import { restorePurchases } from './platform/monetize.js';
@@ -73,8 +73,10 @@ async function boot() {
     const fresh = !p.tutorial.prologue && p.story.stage === 0 && !p.xp && p.level === 1;
     track(fresh ? 'start_new' : 'start_continue', { cls: p.cls });
     if (!fresh && !p.tutorial.un) unlockAll();   // старые сохранения (до обучения кнопками): все кнопки боя открыты. Сборка 59: раньше — при любой перезагрузке, и посреди обучения разом появлялись все кнопки
-    const crypt = !fresh && !p.tutorial.prologue;   // сборка 59: перезагрузка посреди пролога — снова в склеп, а не в деревню без пролога
-    G.heroHidden = fresh;   // правки 5: новая игра — облёт деревни без героя: он «стоял слева от площади», хотя просыпается в склепе
+    // сборка 59: перезагрузка посреди пролога — снова в склеп, а не в деревню без пролога.
+    // План продвижения: новая игра тоже сразу в склеп — первый бой раньше деревни; деревня (≈70 с на медленной сети) докачивается
+    // и строится после пролога. Облёт деревни в начале убран: он ждал загрузки всей деревни до первого шага героя
+    const crypt = !p.tutorial.prologue;
     await loadZone(crypt ? 'depths' : 'town', crypt ? { floor: 0 } : undefined);
     $('title').remove(); startMusic('town');
     bus.on('zoneEntered', z => startMusic(z));
@@ -90,9 +92,6 @@ async function boot() {
     // новая игра: сначала облёт деревни («вау» и загадка), потом склеп пробуждения
     if (fresh) {
       if (p.tutorial.on === undefined) p.tutorial.on = true;   // сборка 49: без вопроса «Показать подсказки?» — сразу в игру; выключить можно в «Справке»
-      await cinema(introShots());
-      await loadZone('depths', { floor: 0 });
-      G.heroHidden = false;
       intro();
     }
   };

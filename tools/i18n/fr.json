@@ -2974,5 +2974,11 @@
  "Забрать всё ({0})": "Tout récupérer ({0})",
  "Забрать всё": "Tout récupérer",
  "<small>Знамя Магистра открывает обе платные дорожки. Купленное Знамя действует до конца месяца; награды пройденных ступеней можно забрать сразу после покупки.</small>": "<small>La Bannière du Maître ouvre les deux lignes payantes. Une bannière achetée dure jusqu'à la fin du mois ; les récompenses des paliers déjà atteints se récupèrent dès l'achat.</small>",
- "2026-10-13 · сборка 70": "2026-10-13 · version 70"
+ "2026-10-13 · сборка 70": "2026-10-13 · version 70",
+ "Завтра: день {0} даров источника — {1}": "Demain : jour {0} des dons de la Source — {1}",
+ "золотая вещь": "objet doré",
+ "синяя вещь": "objet bleu",
+ "свиток, зелья и осколки": "parchemin, potions et éclats",
+ "золото": "or",
+ "Сундук Ордена и задания дня тоже обновятся": "Le Coffre de l'Ordre et les quêtes du jour seront aussi renouvelés"
 }
