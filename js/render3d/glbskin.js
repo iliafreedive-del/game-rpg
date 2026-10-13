@@ -249,7 +249,7 @@ export function attachSkin(kit, model, name, o = {}) {
     const N = 16, LIFE = 0.22, pos = new Float32Array(N * 2 * 3), col = new Float32Array(N * 2 * 4), idx = [];
     for (let i = 0; i < N - 1; i++) { const a = i * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
     const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.BufferAttribute(col, 4)); g.setIndex(idx);
-    const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, depthWrite: false, side: THREE.DoubleSide }));
+    const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, depthWrite: false, side: THREE.DoubleSide, forceSinglePass: true }));
     m.frustumCulled = false; m.renderOrder = 5; m.userData.noOutline = true; m.visible = false; kit.scene.add(m);
     const c = new THREE.Color(o.trail.color ?? 0xffffff), S = [], free = [];   // точки следа переиспользуются (С39: без выделений памяти в кадре)
     trail = (dt, actor) => {

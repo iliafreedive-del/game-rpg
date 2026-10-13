@@ -40,7 +40,9 @@ export function hfogTex() { if (!U.tHNoise.value && typeof document !== 'undefin
 const fadeMats = [];
 export function setSmoothFade(on) {
   U.uFadeSmooth.value = on ? 1 : 0;
-  for (const m of fadeMats) { if (m.alphaToCoverage !== !!on) { m.alphaToCoverage = !!on; m.needsUpdate = true; } }
+  // сборка 68: alpha-to-coverage только включается и обратно не выключается. Без MSAA оно ни на что не влияет (uFadeSmooth = 0 — дизеринг),
+  // а выключение пересобирало шейдеры всех растворяемых предметов: «Авто» снижал качество посреди игры — деревня вставала рывком
+  if (on) for (const m of fadeMats) { if (!m.alphaToCoverage) { m.alphaToCoverage = true; m.needsUpdate = true; } }
 }
 let _ramp = null;
 export function ramp() {
