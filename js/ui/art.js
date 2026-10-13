@@ -16,6 +16,10 @@ export const ART = {
 };
 // расходники: имя значка в атласе icons → отдельная картинка
 export const ITEM_ART = { potion_hp: 'potion_hp', potion_mp: 'potion_mp', scroll: 'scroll' };
+// экипировка: свой рисунок на вид вещи × редкость (assets/art/gpt/gear/<вид>_<редкость 0–4>.webp, два листа Glif, нарезка tools/art/gear_slice.py)
+export const GEAR_ART = { short_sword: 'sword', long_sword: 'sword', knight_sword: 'sword', claymore: 'greatsword', zweihander: 'greatsword', hand_axe: 'axe', war_axe: 'axe',
+  short_bow: 'bow', hunter_bow: 'bow', long_bow: 'bow', oak_staff: 'staff', rune_staff: 'staff', cap: 'hood', helm: 'helm', jerkin: 'vest', mail: 'plate', plate: 'plate', amulet: 'amulet' };
+export const gearArt = it => it && GEAR_ART[it.base] ? `${BASE}gear/${GEAR_ART[it.base]}_${Math.max(0, Math.min(4, it.rarity | 0))}.webp` : '';
 // П4-2: золото — стопка монет, как на панели валют (в атласе icons старые «пузырьки»)
 export const GOLD_ICO = `${BASE}ui/gold_64.png`;
 

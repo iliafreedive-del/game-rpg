@@ -12,7 +12,7 @@ import * as CS from '../game/castle.js';
 import * as CT from '../game/citadel.js';
 import * as DQ from '../game/daily.js';
 import { upgradeCost, MAX_UPG, iconOf } from '../game/items.js';
-import { iconURL } from './icons.js';
+import { iconURL, itemURL } from './icons.js';
 import { openWindow, W } from './windows.js';
 import { watchRewarded, offerToken } from '../platform/monetize.js';
 import { startTrial } from '../game/game.js';
@@ -91,7 +91,7 @@ function render(force) {
     box.appendChild(el('div', 'pn-sub', 'Закалка надетого'));
     for (const slot of ['weapon', 'head', 'chest', 'amulet']) {
       const it = P.gear[slot]; if (!it) continue; const u = it.upg || 0, c = upgradeCost(it);
-      box.appendChild(row(`<img src="${iconURL(iconOf(it))}">`, `${esc(it.name)} <span class="lv">+${u}</span>`, it.dmg ? 'урон' : 'защита', u >= MAX_UPG ? 'макс.' : `+${u + 1} · ${fmt(c)}`, u < MAX_UPG && P.gold >= c, () => EC.upgrade(it.id)));
+      box.appendChild(row(`<img src="${itemURL(it)}">`, `${esc(it.name)} <span class="lv">+${u}</span>`, it.dmg ? 'урон' : 'защита', u >= MAX_UPG ? 'макс.' : `+${u + 1} · ${fmt(c)}`, u < MAX_UPG && P.gold >= c, () => EC.upgrade(it.id)));
     }
     const b = el('button', 'btn sm', 'Закалка вещей из сумки'); b.onclick = () => W.npc_smith('upg'); box.appendChild(b);
   } else if (T.id === 'merchant') {

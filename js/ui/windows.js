@@ -13,7 +13,7 @@ import { iconOf, affixText, epicOf, sellValue, upgradeCost, reforgeCost, MAX_UPG
 import * as CH from '../game/character.js';
 import * as EC from '../game/economy.js';
 import * as Q from '../game/quests.js';
-import { iconURL, skillCanvas, branchImg } from './icons.js';
+import { iconURL, itemURL, skillCanvas, branchImg } from './icons.js';
 import { ART, artTag, artHead } from './art.js';
 import { drawMap, seen, seenKey } from './hud.js';
 import { offers, buy, restorePurchases, dailyStatus, claimDaily, chestStatus, chestSkip, chestSkipsLeft, openOrderChest, DAILY, LOGIN_DAYS, watchRewarded, offerToken, blessing, blessLeft, BLESS_MIN, BLESS_CAP, BLESS_DAY, blessToday, sealActive, sealDaysLeft, SEAL_DAY, dayOffer, startDayOffer } from '../platform/monetize.js';
@@ -156,7 +156,7 @@ function showReward(r) {
     const box = el('div', 'rw-items');
     for (const en of r.items) {
       const it = en.item;
-      const c = el('div', 'rw-card r' + it.rarity, `<div class="slot r${it.rarity}"><img src="${iconURL(iconOf(it))}"></div><div><div class="it-name" style="color:${RARITY[it.rarity].color}">${esc(it.name)}</div><div class="it-type">${RARITY[it.rarity].name} · ${it.wt ? WEAPONS[it.wt].name : SLOT_NAMES[it.slot]}</div>${it.dmg ? `<div class="it-stat">Урон ${it.dmg[0]}–${it.dmg[1]}</div>` : it.armor ? `<div class="it-stat">Защита ${it.armor}</div>` : ''}${it.affixes.slice(0, 3).map(a => `<div class="it-aff">${esc(affixText(a))}</div>`).join('')}${epicOf(it) ? `<div class="it-epic">★ ${esc(epicOf(it).desc)}</div>` : ''}</div>`);
+      const c = el('div', 'rw-card r' + it.rarity, `<div class="slot r${it.rarity}"><img src="${itemURL(it)}"></div><div><div class="it-name" style="color:${RARITY[it.rarity].color}">${esc(it.name)}</div><div class="it-type">${RARITY[it.rarity].name} · ${it.wt ? WEAPONS[it.wt].name : SLOT_NAMES[it.slot]}</div>${it.dmg ? `<div class="it-stat">Урон ${it.dmg[0]}–${it.dmg[1]}</div>` : it.armor ? `<div class="it-stat">Защита ${it.armor}</div>` : ''}${it.affixes.slice(0, 3).map(a => `<div class="it-aff">${esc(affixText(a))}</div>`).join('')}${epicOf(it) ? `<div class="it-epic">★ ${esc(epicOf(it).desc)}</div>` : ''}</div>`);
       if (en.equipped) c.appendChild(el('div', 'rw-eq good', '✔ Надето'));
       else if (en.bagged && it.gift) c.appendChild(el('div', 'rw-eq goldc', '🎒 Лежит в сумке. Наденьте сами: портрет героя → «Герой» → эта вещь → «Надеть»'));
       else if (en.bagged) {
@@ -186,7 +186,7 @@ function showReward(r) {
 function slotEl(it, ph, cls = '') {
   const d = el('div', 'slot ' + cls + (it ? ' r' + it.rarity : ''));
   if (it) {
-    d.innerHTML = `<img alt="" src="${iconURL(iconOf(it))}">${it.upg ? `<span class="up">+${it.upg}</span>` : ''}${it.isNew ? '<span class="new"></span>' : ''}`;
+    d.innerHTML = `<img alt="" src="${itemURL(it)}">${it.upg ? `<span class="up">+${it.upg}</span>` : ''}${it.isNew ? '<span class="new"></span>' : ''}`;
     if (!meetsReq(G.profile, it, G.stats)) d.classList.add('req');
   } else d.innerHTML = `<span class="ph">${esc(ph || '')}</span>`;
   return d;
@@ -253,7 +253,7 @@ W.inventory = (arg = {}) => {
     const S = G.stats, C = CLASSES[P.cls || 'warrior'];
     const mrg = new Set(EC.mergeGroups().filter(g => g.can).flatMap(g => g.list));   // П47: что можно слить — значок ⚒
     const cell = (it, slot, arrow) => {
-      const d = el('button', 'eq-slot r' + (it ? it.rarity : 'x'), it ? `<img src="${iconURL(iconOf(it))}"><span class="eq-lv">${it.ilvl}</span>${it.upg ? `<span class="eq-up">+${it.upg}</span>` : ''}${arrow ? `<span class="eq-ar ${ARW[arrow][0]}">${ARW[arrow][1]}</span>` : ''}${it.isNew ? '<span class="eq-new">НОВ</span>' : ''}${mrg && mrg.has(it) ? '<span class="eq-mrg" title="Можно слить у кузнеца">⚒</span>' : ''}` : `<span class="ph">${esc(SLOT_NAMES[slot] || '')}</span>`);
+      const d = el('button', 'eq-slot r' + (it ? it.rarity : 'x'), it ? `<img src="${itemURL(it)}"><span class="eq-lv">${it.ilvl}</span>${it.upg ? `<span class="eq-up">+${it.upg}</span>` : ''}${arrow ? `<span class="eq-ar ${ARW[arrow][0]}">${ARW[arrow][1]}</span>` : ''}${it.isNew ? '<span class="eq-new">НОВ</span>' : ''}${mrg && mrg.has(it) ? '<span class="eq-mrg" title="Можно слить у кузнеца">⚒</span>' : ''}` : `<span class="ph">${esc(SLOT_NAMES[slot] || '')}</span>`);
       if (it) d.onclick = () => itemCard(it, slot); if (it && it.gift && !slot && P.bag.includes(it)) d.classList.add('gift'); return d;
     };
     // ---- кукла героя: четыре ячейки вокруг портрета, подписи под ними
@@ -300,7 +300,7 @@ W.inventory = (arg = {}) => {
     const rows = inBag ? compare(P, it, tslot).filter(r => typeof r.delta === 'number' && r.delta !== 0).slice(0, 6) : [];
     const ok = inBag ? CH.canEquip(it) : { ok: true };
     box.innerHTML = `<div class="ic-top"><button class="ic-x" aria-label="Закрыть">✕</button></div><div class="cc ${eq ? 'two' : ''}">
-      <div class="cc-col">${head(it, inBag ? 'Эта вещь' : '')}<div class="iv-slot big r${it.rarity}"><img src="${iconURL(iconOf(it))}"></div><div class="ic-stats">${lines(it)}</div></div>
+      <div class="cc-col">${head(it, inBag ? 'Эта вещь' : '')}<div class="iv-slot big r${it.rarity}"><img src="${itemURL(it)}"></div><div class="ic-stats">${lines(it)}</div></div>
       ${eq ? `<div class="cc-col dim">${head(eq, 'Надето сейчас')}<div class="ic-stats">${lines(eq)}</div></div>` : ''}</div>
       ${rows.length ? `<div class="ic-cmp"><b>Если надеть:</b>${rows.map(r => `<span class="${r.delta > 0 ? 'good' : 'bad'}">${r.delta > 0 ? '▲' : '▼'} ${r.label} ${r.inv ? `${r.before} → ${r.after}` : `${r.delta > 0 ? '+' : ''}${Math.round(r.delta * 100) / 100}${r.suf}`}</span>`).join('')}</div>${rows.some(r => r.label === 'Запас прочности') ? `<p class="muted ic-why"><small>${EHP_SHORT}</small></p>` : ''}` : ''}
       ${!ok.ok ? `<div class="bad ic-why">${esc(ok.why)}</div>` : ''}${inBag && mergeNote(it) ? `<div class="${mergeNote(it)[0]} ic-why" style="font-size:12px">⚒ ${mergeNote(it)[1]}</div>` : ''}`;
@@ -1018,7 +1018,7 @@ function offerContents(b, id) {
   if (pack.length) b.appendChild(el('div', 'of-pack', pack.map(([ic, n, t]) => `<div class="of-x"><img src="${iconURL(ic)}" alt=""><b>×${fmt(n)}</b><small>${t}</small></div>`).join('')));
   for (const it of items) {
     const cur = P.gear[it.slot], rows = compare(P, it, it.slot).filter(r => typeof r.delta === 'number' && r.delta !== 0).slice(0, 4);
-    b.appendChild(el('div', 'rw-card r' + it.rarity, `<div class="slot r${it.rarity}"><img src="${iconURL(iconOf(it))}">${it.upg ? `<span class="up">+${it.upg}</span>` : ''}</div><div><div class="it-name" style="color:${RARITY[it.rarity].color}">${esc(it.name)}</div><div class="it-type">${RARITY[it.rarity].name} · ${it.wt ? WEAPONS[it.wt].name : SLOT_NAMES[it.slot]} · ⚔ ${itemPower(it)}</div>${it.affixes.slice(0, 3).map(a => `<div class="it-aff">${esc(affixText(a))}</div>`).join('')}${epicOf(it) ? `<div class="it-epic">★ ${esc(epicOf(it).desc)}</div>` : ''}
+    b.appendChild(el('div', 'rw-card r' + it.rarity, `<div class="slot r${it.rarity}"><img src="${itemURL(it)}">${it.upg ? `<span class="up">+${it.upg}</span>` : ''}</div><div><div class="it-name" style="color:${RARITY[it.rarity].color}">${esc(it.name)}</div><div class="it-type">${RARITY[it.rarity].name} · ${it.wt ? WEAPONS[it.wt].name : SLOT_NAMES[it.slot]} · ⚔ ${itemPower(it)}</div>${it.affixes.slice(0, 3).map(a => `<div class="it-aff">${esc(affixText(a))}</div>`).join('')}${epicOf(it) ? `<div class="it-epic">★ ${esc(epicOf(it).desc)}</div>` : ''}
       <div class="rw-eq"><div class="muted" style="margin:4px 0">Сейчас надето: «${esc(cur ? cur.name : '—')}»${cur ? ` · ⚔ ${itemPower(cur)}` : ''}</div>${rows.map(r => `<div class="cmp ${r.delta > 0 ? 'up' : 'dn'}"><span>${esc(r.label)}</span><b>${r.before}${r.suf} → ${r.after}${r.suf} ${r.delta > 0 ? '▲' : '▼'}</b></div>`).join('')}</div></div>`));
   }
 }
