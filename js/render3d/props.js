@@ -10,6 +10,7 @@ import { wallPieces } from './dungeon.js';
 import { STEPPE_ROCKS, STEPPE_SPIRES, STEPPE_TREES } from './models/prop/_steppe.js';
 import { FJ_ROCKS, FJ_CRAGS, FO_ROCKS } from './models/prop/_fjord.js';
 import { swap as bonesSwap, liveDef as bonesLive, boneDeadTree } from './bonesglb.js';
+import { swap as forestSwap } from './forestglb.js';
 import { walls as templeWalls, swap as templeSwap, liveDef as templeLive, templeReady } from './templeglb.js';
 import { SKINS } from './glbskin.js';
 import { portalsReady } from './portalglb.js';
@@ -140,7 +141,8 @@ export class PropLayer {
       }
     }
     if (wantBackdrop && open) this.scatterDecor(zone, push, fj);
-    const extra = { ...extra0, ...(bn ? bonesSwap(lists, PROPS, kit) : {}), ...(this.tp ? templeSwap(lists) : {}) };   // храм — пак «каменная»   // Костяные пустоши: предметы из паков Meshy (только там, bonesglb.js)
+    const fwhere = mode === 'town' && zone.json.village ? 'town' : wildForest ? 'forest' : fj ? 'fjord' : null;   // сборка 71: деревья Meshy (forestglb.js)
+    const extra = { ...extra0, ...(bn ? bonesSwap(lists, PROPS, kit) : {}), ...(fwhere ? forestSwap(lists, PROPS, fwhere) : {}), ...(this.tp ? templeSwap(lists) : {}) };   // храм — пак «каменная»   // Костяные пустоши: предметы из паков Meshy (только там, bonesglb.js)
     for (const [id, list] of lists) {
       const def = PROPS[id] || extra[id];
       if (def.batch) this.addBatch(def, list); else for (const it of list) this.addSingle(def, it);
