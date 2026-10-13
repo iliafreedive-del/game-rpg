@@ -4,6 +4,7 @@
 import * as THREE from '../vendor/three.module.min.js';
 import { G, bus } from '../game/ctx.js';
 import { PX_PER_M } from '../core/iso.js';
+import { perfNote } from '../ui/perflog.js';
 import { U, setSmoothFade, outline, applyLook } from './toon.js';
 import { heroLook, heroModel, petLook, heroCrown, petCrown } from '../game/cosmetics.js';
 import { make as makeWarrior } from './models/hero/warrior.js';
@@ -141,8 +142,8 @@ function governor(dt) {
   // и только если и это не помогло — ступенька качества ниже (раньше ждали падения ниже 38 к/с — в деревне рывки успевали стать заметны)
   govSlow = ms > 19 ? govSlow + 1 : 0;
   if (govSlow >= 2) { govSlow = 0;
-    if (govScale > 0.75 && DPR * 0.85 >= 1) { govScale = govScale > 0.9 ? 0.85 : 0.72; applyQuality(true); }
-    else { govLevel = quality === 'high' ? 'med' : 'lite'; govScale = 1; applyQuality(); } }   // сборка 55: не ниже «экономного» — вид не меняется
+    if (govScale > 0.75 && DPR * 0.85 >= 1) { govScale = govScale > 0.9 ? 0.85 : 0.72; applyQuality(true); perfNote(`«Авто»: разрешение ×${govScale} (кадр ${Math.round(ms)} мс)`); }
+    else { govLevel = quality === 'high' ? 'med' : 'lite'; govScale = 1; applyQuality(); perfNote(`«Авто»: качество ${govLevel} (кадр ${Math.round(ms)} мс)`); } }   // сборка 55: не ниже «экономного» — вид не меняется
 }
 function applyQuality(force) {
   const q = qualityNow(); if (q === quality && !force) return; quality = q;

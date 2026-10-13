@@ -1,5 +1,6 @@
 // Modal windows. All fit the viewport with internal scrolling; the game pauses while one is open.
 import { runFpsTest } from './fpstest.js';
+import { copyPerfLog } from './perflog.js';
 import { SETS, bonusText } from '../data/sets.js';
 import { setCounts } from '../game/stats.js';
 import { G, bus, inCombat } from '../game/ctx.js';
@@ -555,7 +556,8 @@ W.settings = () => modal('Настройки', 'sm', b => {
     v.append(inv, fav); b.appendChild(v);
   }
   const q = el('div', 'attr', '<b>Качество графики</b>'); for (const [k, n] of [['low', 'Низкое'], ['auto', 'Авто'], ['med', 'Среднее'], ['high', 'Высокое']]) { const bt = el('button', 'btn sm' + (s.quality === k ? ' gold' : ''), n); bt.onclick = () => { s.quality = k; resize(); bus.emit('save'); rerender(); }; q.appendChild(bt); } b.appendChild(q);
-  { const ft = el('button', 'btn sm', '⏱ Тест скорости (FPS)'); ft.onclick = () => { closeModal(); runFpsTest(html => modal('Тест скорости', 'sm', bb => { bb.appendChild(el('div', '', html)); })); }; b.appendChild(ft); }   // сборка 47
+  { const ft = el('button', 'btn sm', '⏱ Тест скорости (FPS)'); ft.onclick = () => { closeModal(); runFpsTest(html => modal('Тест скорости', 'sm', bb => { bb.appendChild(el('div', '', html)); const cp = el('button', 'btn gold', '📋 Скопировать журнал скорости'); cp.onclick = copyPerfLog; bb.appendChild(cp); })); }; b.appendChild(ft);
+    const pl = el('button', 'btn sm', '📋 Скопировать журнал скорости'); pl.title = 'FPS, рывки и события за последние ~13 минут игры — вставьте текст в чат'; pl.onclick = copyPerfLog; b.appendChild(pl); }   // сборка 68   // сборка 47
   { let cur = '3d'; try { cur = localStorage.getItem('da_render') || '3d'; } catch { } if (new URLSearchParams(location.search).get('render')) cur = new URLSearchParams(location.search).get('render');
     const g = el('div', 'attr', '<b>Графика</b>'); for (const [k, n] of [['3d', '3D (по умолчанию)'], ['2d', 'Классика 2D']]) { const bt = el('button', 'btn sm' + (cur === k ? ' gold' : ''), n); bt.onclick = () => { try { localStorage.setItem('da_render', k); } catch { } saveNow(); const u = new URL(location.href); u.searchParams.delete('render'); location.href = u.toString(); }; g.appendChild(bt); } b.appendChild(g); b.appendChild(el('p', 'muted', '<small>Смена графики перезапускает игру (прогресс сохраняется). Лучник и маг пока всегда в 2D.</small>')); }
   { const nm = el('div', 'attr', '<b>Новые модели</b> <small class="muted">(герои)</small>'); const bn = el('button', 'btn sm', s.skins !== false ? 'Вкл' : 'Выкл'); bn.onclick = () => { s.skins = s.skins === false; bus.emit('save'); rerender(); }; nm.appendChild(bn); b.appendChild(nm); }

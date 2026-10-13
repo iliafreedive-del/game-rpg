@@ -20,6 +20,7 @@ import { initPlatform, platform, gameplay } from './platform/platform.js';
 import { restorePurchases } from './platform/monetize.js';
 import { initAnalytics, wireAnalytics, track } from './platform/analytics.js';
 import { wireEvents } from './platform/events.js';
+import { startPerfLog } from './ui/perflog.js';
 import { dozorPending, initDozor } from './game/daily.js';
 import { showDozor } from './ui/windows.js';
 import { $, el, esc } from './core/util.js';
@@ -28,7 +29,7 @@ import { iconURL } from './ui/icons.js';
 import { initFullscreen } from './ui/fullscreen.js';
 import { qa, initQA } from './core/qa.js';
 
-export const BUILD = '2026-10-13 · сборка 68';   // видно на титульном экране и в настройках: так проверяют, что загрузилась свежая версия
+export const BUILD = '2026-10-13 · сборка 69';   // видно на титульном экране и в настройках: так проверяют, что загрузилась свежая версия
 const CORE = ['props', 'icons'];
 // hero sheets are big (HD): load only the chosen class
 export const CLASS_ATLAS = { warrior: ['hero_body', 'hero_sword', 'hero_axe', 'hero_greatsword', 'hero_shield'], archer: ['hero_archer_body', 'hero_archer_bow'], mage: ['hero_mage_body', 'hero_mage_staff'] };
@@ -65,7 +66,7 @@ async function boot() {
     await core;
     await loadGroup(CLASS_ATLAS[p.cls || 'warrior']).catch(() => { });
     const dv = deviceVolumes(); if (dv) { p.settings.sfx = dv.sfx; p.settings.music = dv.music; }   // громкость — настройка устройства (одна для всех героев)
-    G.profile = p; G.stats = stats(p); wireAnalytics(); wireEvents(); setVolumes(p.settings.sfx, p.settings.music); resize();
+    G.profile = p; G.stats = stats(p); wireAnalytics(); wireEvents(); startPerfLog(); setVolumes(p.settings.sfx, p.settings.music); resize();
     btns.innerHTML = '<div class="muted">Вход в мир…</div>';
     initQuests(); initHunts(); initHUD(); initPanel(); CS.C(); initTutorial();
     await mons;
