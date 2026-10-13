@@ -2973,5 +2973,6 @@
  "Откроется, когда путь дойдёт до этой ступени": "Unlocks when the path reaches this tier",
  "Забрать всё ({0})": "Claim all ({0})",
  "Забрать всё": "Claim all",
- "<small>Знамя Магистра открывает обе платные дорожки. Купленное Знамя действует до конца месяца; награды пройденных ступеней можно забрать сразу после покупки.</small>": "<small>The Master's Banner unlocks both paid tracks. A bought banner lasts until the end of the month; rewards for tiers already reached can be claimed right after purchase.</small>"
+ "<small>Знамя Магистра открывает обе платные дорожки. Купленное Знамя действует до конца месяца; награды пройденных ступеней можно забрать сразу после покупки.</small>": "<small>The Master's Banner unlocks both paid tracks. A bought banner lasts until the end of the month; rewards for tiers already reached can be claimed right after purchase.</small>",
+ "2026-10-13 · сборка 70": "2026-10-13 · build 70"
 }
