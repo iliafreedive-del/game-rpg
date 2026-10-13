@@ -19,10 +19,10 @@ export const upgHave = (P, id) => UPGRADES[id].shards ? (P.shards || 0) : P.gold
 
 // Citadel rooms: unlock with gold + Abyss shards (shards drop randomly from elites, bosses, chests).
 export const ROOMS = {
-  altar:    { name: 'Алтарь золота', lvl: 3, gold: 300, shards: 0, desc: 'Копит золото, пока вас нет (до 8 часов). Чем выше уровень алтаря — тем больше.' },
-  trial:    { name: 'Зал испытаний', lvl: 5, gold: 800, shards: 5, desc: 'Бои со стражами без спуска в подземелье. Печати испытаний восстанавливаются сами.' },
-  treasury: { name: 'Сокровищница Бездны', lvl: 7, gold: 1500, shards: 10, desc: 'Сундуки за осколки: редкие и эпические вещи вашего класса.' },
-  trophy:   { name: 'Зал трофеев', lvl: 9, gold: 2500, shards: 20, desc: 'Трофеи дают постоянный бонус к урону и золоту.' },
+  altar:    { name: 'Алтарь золота', lvl: 5, gold: 300, shards: 0, desc: 'Копит золото, пока вас нет (до 8 часов). Чем выше уровень алтаря — тем больше.' },
+  trial:    { name: 'Зал испытаний', lvl: 6, gold: 800, shards: 5, desc: 'Бои со стражами без спуска в подземелье. Печати испытаний восстанавливаются сами.' },
+  treasury: { name: 'Сокровищница Бездны', lvl: 9, gold: 1500, shards: 10, desc: 'Сундуки за осколки: редкие и эпические вещи вашего класса.' },
+  trophy:   { name: 'Зал трофеев', lvl: 12, gold: 2500, shards: 20, desc: 'Трофеи дают постоянный бонус к урону и золоту.' },
 };
 
 // Citadel decor (Sims-lite): buy an item for a glowing socket; every piece gives a small permanent bonus.
@@ -38,7 +38,7 @@ export const DECOR = {
 export const SOCKETS = [
   { id: 'h1', room: 'hall', x: 13.2, y: 22.5 }, { id: 'h2', room: 'hall', x: 20.8, y: 22.5 }, { id: 'h3', room: 'hall', x: 13.2, y: 24.8 }, { id: 'h4', room: 'hall', x: 20.8, y: 24.8 },
   { id: 'a1', room: 'altar', x: 3.2, y: 19.4 }, { id: 'a2', room: 'altar', x: 8.4, y: 25.6 },
-  { id: 't1', room: 'trial', x: 30.5, y: 15.8 }, { id: 't2', room: 'trial', x: 30.5, y: 28.2 },
+  { id: 't1', room: 'trial', x: 27, y: 20.4 }, { id: 't2', room: 'trial', x: 27, y: 24.6 },   // 13 октября: были за стенами зала (y 15,8 и 28,2), до них не дойти
   { id: 'r1', room: 'treasury', x: 4.2, y: 8.8 }, { id: 'r2', room: 'treasury', x: 11.8, y: 8.8 },
   { id: 'p1', room: 'trophy', x: 22.2, y: 8.8 }, { id: 'p2', room: 'trophy', x: 29.8, y: 8.8 },
 ];

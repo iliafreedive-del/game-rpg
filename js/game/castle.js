@@ -103,7 +103,7 @@ export function openTreasury() {
   P.shards -= CHEST_SHARDS; P.castle.chests = (P.castle.chests || 0) + 1;
   const roll = rand(); const it = roll < 0.07 ? makeItem({ epic: pickEpic(P.cls), ilvl: P.level + 1, cls: P.cls }) : makeItem({ slot: ['weapon', 'head', 'chest', 'amulet'][rint(0, 3)], ilvl: P.level + 1, rarity: roll < 0.45 ? 2 : 1, cls: P.cls });
   delete it.req; const e = autoEquip(it); const gold = 30 * P.level; P.gold += gold;
-  bus.emit('reward', { title: 'Сундук Бездны', sub: roll < 0.07 ? 'ДЖЕКПОТ!' : 'Сокровищница', gold, xp: 0, potions: 0, scrolls: 0, skillPts: 0, items: [e] });
+  bus.emit('reward', { title: 'Сундук Бездны', sub: it.rarity >= 3 ? 'ДЖЕКПОТ!' : 'Сокровищница'   /* 13 окт.: до 40 ур. эпик режется лестницей редкости — «джекпот» только за настоящий */, gold, xp: 0, potions: 0, scrolls: 0, skillPts: 0, items: [e] });
   bus.emit('sfx', 'chest'); bus.emit('save'); return true;
 }
 // ---- trial hall: fight a guardian right in the citadel (auto-battle friendly)
