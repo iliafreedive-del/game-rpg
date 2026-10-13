@@ -619,6 +619,42 @@ canvas#game{filter:saturate(1.22) contrast(1.08) brightness(1.06)}
 .season-list .sl span{flex:1}
 .season-list .sl.mid{border-color:#4a7ab8}.season-list .sl.big{border-color:#d6a548;background:#3a2c12}
 .season-list .sl.open{box-shadow:0 0 8px #d6a54866}.season-list .sl.got{opacity:.5}
+/* сборка 68: пропуск сезона в три дорожки — бесплатная / Знамя сезона / Знамя Магистра */
+.pass-head,.pass-row{display:grid;grid-template-columns:34px repeat(3,minmax(0,1fr));gap:5px}
+.pass-head{margin:4px 0 5px}
+.pass-head .ph{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:5px 3px;border-radius:8px;text-align:center;font-size:12px;line-height:1.15;min-height:54px}
+.pass-head .ph b{font:600 13px Georgia}.pass-head .ph .btn{padding:3px 8px;min-height:0;font-size:12px}
+.ph.free{background:linear-gradient(#3a3242,#262030);border:1px solid #6a5d78}.ph.free b{color:#e8dfc8}
+.ph.mid{background:linear-gradient(#24385a,#18243a);border:1px solid #5b8bd0}.ph.mid b{color:#bcd6ff}
+.ph.ult{background:linear-gradient(#4a2a5e,#2a1636);border:1px solid #d6a548;box-shadow:0 0 10px #d6a54840}.ph.ult b{color:#ffd877}
+.pass-list{display:flex;flex-direction:column;gap:5px;max-height:46vh;overflow:auto;padding:2px 2px 4px}
+.pass-row .pr-lv{display:flex;align-items:center;justify-content:center;position:relative}
+.pass-row .pr-lv:before{content:'';position:absolute;top:-6px;bottom:-6px;width:4px;background:#2c2438;left:50%;transform:translateX(-50%)}
+.pass-row.reached .pr-lv:before{background:#d6a548}
+.pass-row .pr-lv i{position:relative;font-style:normal;font-weight:700;font-size:12px;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#2a2234;border:2px solid #4a3d5a;color:#aaa}
+.pass-row.reached .pr-lv i{background:#5a4214;border-color:#ffd877;color:#fff}
+.pass-row.next .pr-lv i{border-color:#ffd877;color:#ffd877}
+.pc{position:relative;border-radius:8px;padding:5px 3px 4px;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;min-height:76px;background:#1c1724;border:1px solid #3a3150;user-select:none}
+.pc.t-mid{background:#1a2132;border-color:#3a4a68}.pc.t-ult{background:#24162c;border-color:#5a3a6a}
+.pc.lv-mid{border-color:#5b8bd0}.pc.lv-big{border-color:#d6a548;background-image:radial-gradient(circle at 50% 35%,#d6a54833,transparent 70%)}
+.pc-main{display:flex;flex-direction:column;align-items:center;line-height:1}
+.pc-main img{width:34px;height:34px;object-fit:contain;filter:drop-shadow(0 2px 2px #000)}
+.pc-main span{font:700 12px system-ui,sans-serif;color:#fff;text-shadow:0 1px 2px #000;margin-top:1px}
+.pc-main[class*=" r"] img{width:36px;height:36px;padding:2px;border-radius:7px;border:2px solid;filter:none}
+.pc-main.r2 img{background:radial-gradient(#6ea8ff99,#16243e);border-color:#6ea8ff;box-shadow:0 0 8px #6ea8ff88}.pc-main.r2 span{color:#8fbcff}
+.pc-main.r3 img{background:radial-gradient(#f2cf4aaa,#3e2e10);border-color:#f2cf4a;box-shadow:0 0 9px #f2cf4a88}.pc-main.r3 span{color:#f2cf4a}
+.pc-main.r4 img{background:radial-gradient(#ff5a4aaa,#3e1210);border-color:#ff5a4a;box-shadow:0 0 10px #ff5a4a99}.pc-main.r4 span{color:#ff7a6a}
+.pc-more{display:flex;flex-wrap:wrap;justify-content:center;gap:1px 5px;font-size:10.5px;color:#d8d0e4;line-height:1.2}
+.pc-more span{display:inline-flex;align-items:center;gap:1px;white-space:nowrap}
+.pc-more img{width:14px;height:14px;object-fit:contain}
+.pc.locked .pc-main,.pc.locked .pc-more{opacity:.55}
+.pc-lk{position:absolute;top:2px;right:3px;font-style:normal;font-size:11px}
+.pc.got{opacity:.45}.pc-ok{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-style:normal;font-size:26px;color:#7be07b;text-shadow:0 0 6px #000}
+.pc.can{border-color:#ffd877;box-shadow:0 0 10px #ffd87788,inset 0 0 12px #ffd87733;animation:pcGlow 1.6s ease-in-out infinite}
+@keyframes pcGlow{50%{box-shadow:0 0 16px #ffd877aa,inset 0 0 14px #ffd87755}}
+.pass-row:not(.reached) .pc{filter:saturate(.75)}
+.pass-all{display:block;margin:8px auto 2px;min-width:200px}
+@media (max-height:500px){.pass-list{max-height:40vh}.pc{min-height:64px}.pc-main img{width:28px;height:28px}}
 .codex-grid .mg-c{min-height:26px;cursor:default}
 #goalLine{font:600 11px/1.3 sans-serif;color:#ffe2a0;text-shadow:0 1px 2px #000;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:min(62vw,420px)}/* сборка 59: одной строкой */
 /* «Охота»: таймер до следующей тревоги / активное чудовище */

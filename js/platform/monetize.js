@@ -11,6 +11,7 @@ import { earlyLock, lockToast } from '../game/progress.js';
 import { SETS } from '../data/sets.js';
 import * as CS from '../game/castle.js';
 import { track } from './analytics.js';
+import { grantPass, passTier } from '../game/season.js';
 
 const MIN = 60 * 1000;
 export const OFFERS = {
@@ -81,6 +82,7 @@ export async function buy(productId) {
   const P = G.profile, def = PRODUCTS[productId];
   if (earlyLock('extra')) { lockToast('extra'); return false; }   // сборка 47: покупки — после обучения
   if (def.once && P.iap.tx['once_' + productId]) { bus.emit('toast', { text: 'Этот набор уже куплен', kind: 'warn' }); return false; }
+  if (def.pass && passTier() >= def.pass) { bus.emit('toast', { text: 'Знамя этого сезона уже куплено', kind: 'warn' }); return false; }
   if (!def.consumable && (def.cosm ? P.cosm && P.cosm.own && P.cosm.own[def.cosm] : P.iap[flagOf(productId)])) { bus.emit('toast', { text: 'Уже куплено', kind: 'warn' }); return false; }
   const wasPaused = G.paused; G.paused = true; gameplay(false); const r = await platform.p.purchase(productId); G.paused = wasPaused;
   // сборка 66: в Метрику — цена из каталога (рубли или валюта портала), чтобы видеть выручку по товарам
@@ -148,7 +150,7 @@ export async function grantPurchase(productId, token) {
       const items = grantGear(PRODUCTS[productId], takePreview(productId)); P.iap.tx['once_' + productId] = 1;
       bus.emit('reward', { title: PRODUCTS[productId].title, sub: 'Покупка получена', gold: 0, xp: 0, potions: 0, scrolls: 0, skillPts: 0, items });
       break; }
-    case 'season_pass': P.seasonPass = P.seasonPass || {}; P.seasonPass[new Date().getFullYear() + '-' + (new Date().getMonth() + 1)] = 1; break;
+    case 'season_pass': case 'season_ultra': grantPass(PRODUCTS[productId].pass); break;
     case 'energy_pack': { const t = CS.torches(); t.n += 50; break; }   // сборка 47: можно сверх запаса
     case 'energy_big': { const t = CS.torches(); t.n += 150; break; }
     case 'order_seal': { const S = (P.iap.seal = P.iap.seal || { until: 0, last: 0 }); S.until = Math.max(now(), S.until || 0) + 30 * DAY; CS.addShards(10); break; }   // продлевает срок
