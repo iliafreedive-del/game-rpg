@@ -723,12 +723,21 @@ function drawPlates() {
 
 function drawBlades() {
   const b = G.run && G.run.blades; if (!b || !(G.run.boons || []).includes('blades')) return;
-  const z = G.cam.zoom; ctx.globalCompositeOperation = 'lighter';
+  // правки 5: «очень прозрачные, сделай покрупнее и более видимыми» — плотный стальной клинок с тёмным контуром и сиреневым ореолом, в 2 раза крупнее
+  const z = G.cam.zoom, L = 34 * z, W = 6 * z;
   for (const [x, y, a] of b) {
     const [sx, sy] = G.cam.toScreen(x, y, 1.0);
     ctx.save(); ctx.translate(sx, sy); ctx.rotate(a * 3);
-    const g = ctx.createRadialGradient(0, 0, 0, 0, 0, 22 * z); g.addColorStop(0, 'rgba(255,255,255,0.9)'); g.addColorStop(0.4, 'rgba(200,190,255,0.5)'); g.addColorStop(1, 'rgba(120,90,255,0)');
-    ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(0, 0, 22 * z, 6 * z, 0, 0, 7); ctx.fill(); ctx.restore();
+    ctx.globalCompositeOperation = 'lighter';   // ореол и след вращения
+    const g = ctx.createRadialGradient(0, 0, 0, 0, 0, L * 1.1); g.addColorStop(0, 'rgba(220,210,255,0.55)'); g.addColorStop(0.5, 'rgba(150,120,255,0.3)'); g.addColorStop(1, 'rgba(120,90,255,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(0, 0, L * 1.1, L * 0.45, 0, 0, 7); ctx.fill();
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.lineJoin = 'round'; ctx.strokeStyle = '#1c1630'; ctx.lineWidth = Math.max(1.5, 2.2 * z);
+    ctx.beginPath(); ctx.moveTo(L, 0); ctx.lineTo(-L * 0.25, -W); ctx.lineTo(-L * 0.3, 0); ctx.lineTo(-L * 0.25, W); ctx.closePath();   // лезвие
+    const st = ctx.createLinearGradient(0, -W, 0, W); st.addColorStop(0, '#ffffff'); st.addColorStop(0.45, '#d9dcef'); st.addColorStop(0.55, '#8f93b8'); st.addColorStop(1, '#5d5f86');
+    ctx.fillStyle = st; ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#c9a24a'; ctx.beginPath(); ctx.rect(-L * 0.36, -W * 1.7, W * 0.9, W * 3.4); ctx.fill(); ctx.stroke();   // гарда
+    ctx.fillStyle = '#4a3326'; ctx.beginPath(); ctx.rect(-L * 0.68, -W * 0.55, L * 0.3, W * 1.1); ctx.fill(); ctx.stroke();   // рукоять
+    ctx.restore();
   }
-  ctx.globalCompositeOperation = 'source-over';
 }
