@@ -206,7 +206,7 @@ function build(RL, mood, depth, boss, seed, attempt, force) {
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (at(x, y) === '.' && !seen[y * W + x]) g[y][x] = 'x';   // глухие карманы — чаща
   const free = (x, y, m = 0) => { for (let dy = -m; dy <= m; dy++) for (let dx = -m; dx <= m; dx++) { const c = at(Math.floor(x) + dx, Math.floor(y) + dy); if (c !== '.' && !(c === ',' && inFort(x, y))) return false; } return seen[Math.floor(y) * W + Math.floor(x)] === 1; };
   const vOfPt = (x, y) => { let best = null, bd = 1e9; for (const v of live) { if (v.fort) { if (x >= L.plat.x0 && x <= L.plat.x1 && y >= L.plat.y0 && y <= L.plat.y1) return v; continue; } const d = Math.hypot((x - v.x) / v.rx, (y - v.y) / v.ry); if (d < bd) { bd = d; best = v; } } return bd < 1.3 ? best : null; };
-  const rows = g.map(r => r.join(''));
+  let rows = g.map(r => r.join(''));
   const objects = [], spawns = [], lvl = wildLevel(realm, depth);
   const placed = [];   // занятые точки декора/камп
   const near = (x, y, r) => placed.some(p => dist(p[0], p[1], x, y) < r);
@@ -386,6 +386,32 @@ function build(RL, mood, depth, boss, seed, attempt, force) {
   const KEEPO = new Set(['wild_home', 'wild_next', 'bridge', 'wchest', 'cache', 'stash', 'fort_tower', 'fort_gate', 'fort_door', 'fort_hall', 'tent', 'banner', 'statue', 'brazier']);
   const onPath = (x, y) => { for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) { const X = Math.floor(x) + dx, Y = Math.floor(y) + dy; if (X >= 0 && Y >= 0 && X < W && Y < H && prot[Y * W + X] && Math.hypot(X + 0.5 - x, Y + 0.5 - y) < 1.9) return true; } return false; };
   for (let i = objects.length - 1; i >= 0; i--) { const o = objects[i]; if (!KEEPO.has(o.t) && !o.nocol && !o.deco && !inFort(o.x, o.y, 1) && onPath(o.x, o.y)) objects.splice(i, 1); }
+  // правки 5: «объект большой места мало, а эта штука в воздухе висит» — под большой постройкой у кромки острова наращиваем землю на всё её пятно
+  // (с запасом). Чужой остров не пристраиваем: клетка пропасти становится землёй, только если рядом (2 клетки) нет суши другого острова и моста
+  const GROW = { bone_hut: o => o.r + 1.0, tent: () => 2.6, hide_rack: () => 1.9, cart: () => 1.9, cart_load: () => 1.9, log_stack: () => 1.8, barrel_stack: () => 1.6, plank_pile: () => 1.7, war_banner: () => 1.2, bone_totem: () => 1.2, statue: () => 1.6 };
+  const onPathRaw = (x, y) => !!prot[Math.floor(y) * W + Math.floor(x)];
+  if (objects.some(o => GROW[o.t])) {
+    const lab = new Int32Array(W * H).fill(-1); let nl = 0;
+    for (let y0 = 0; y0 < H; y0++) for (let x0 = 0; x0 < W; x0++) { const c0 = at(x0, y0); if (c0 === 'v' || c0 === 'h' || lab[y0 * W + x0] >= 0) continue; const q = [[x0, y0]]; lab[y0 * W + x0] = nl; for (let i = 0; i < q.length; i++) { const [x, y] = q[i]; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const X = x + dx, Y = y + dy, c = at(X, Y); if (c === 'v' || c === 'h' || lab[Y * W + X] >= 0) continue; lab[Y * W + X] = nl; q.push([X, Y]); } } nl++; }
+    let grown = 0;
+    for (const o of objects) {
+      const f = GROW[o.t]; if (!f) continue; const r = f(o), me = lab[Math.floor(o.y) * W + Math.floor(o.x)]; if (me < 0) continue;
+      for (let ty = Math.floor(o.y - r); ty <= Math.floor(o.y + r); ty++) for (let tx = Math.floor(o.x - r); tx <= Math.floor(o.x + r); tx++) {
+        if (tx < 1 || ty < 1 || tx >= W - 1 || ty >= H - 1 || g[ty][tx] !== 'v') continue;
+        const cx = Math.max(tx, Math.min(o.x, tx + 1)), cy = Math.max(ty, Math.min(o.y, ty + 1)); if (dist(cx, cy, o.x, o.y) > r) continue;   // клетка задевает пятно
+        let ok = true; for (let dy = -2; dy <= 2 && ok; dy++) for (let dx = -2; dx <= 2; dx++) { const c = at(tx + dx, ty + dy), l = lab[(ty + dy) * W + tx + dx]; if (c === 'h' || (c !== 'v' && l >= 0 && l !== me)) { ok = false; break; } }
+        if (ok) { g[ty][tx] = '.'; grown++; }
+      }
+    }
+    // у моста землю не наращиваем (мост должен остаться мостом) — такую постройку отодвигаем от кромки до 2,5 м, иначе не ставим
+    const voidIn = (x, y, r) => { for (let ty = Math.floor(y - r); ty <= Math.floor(y + r); ty++) for (let tx = Math.floor(x - r); tx <= Math.floor(x + r); tx++) { const c = at(tx, ty); if (c !== 'v' && c !== 'h') continue; const cx = Math.max(tx, Math.min(x, tx + 1)), cy = Math.max(ty, Math.min(y, ty + 1)); if (dist(cx, cy, x, y) < r) return true; } return false; };
+    for (let i = objects.length - 1; i >= 0; i--) {
+      const o = objects[i], f = GROW[o.t]; if (!f || !voidIn(o.x, o.y, f(o) - 0.4)) continue; let q = null;
+      for (const k of [1, 1.8, 2.5]) { for (let a = 0; a < 12 && !q; a++) { const x = o.x + Math.cos(a * 0.5236) * k, y = o.y + Math.sin(a * 0.5236) * k; if (at(Math.floor(x), Math.floor(y)) === '.' && !voidIn(x, y, f(o) - 0.4) && !onPathRaw(x, y)) q = [x, y]; } if (q) break; }
+      if (q) { o.x = q[0]; o.y = q[1]; } else objects.splice(i, 1);
+    }
+    if (grown) rows = g.map(r => r.join(''));
+  }
   const total = spawns.reduce((a, s) => a + s[3], 0);
   return {
     name: `${RL.name} · ${locationName(realm, depth)} · глубина ${depth}`, floorN: (realm === 'fjord' ? 1200 : bn ? 1300 : 1100) + depth, seed,
