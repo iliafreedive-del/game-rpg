@@ -4,7 +4,7 @@ import { copyPerfLog } from './perflog.js';
 import { SETS, bonusText } from '../data/sets.js';
 import { setCounts } from '../game/stats.js';
 import { G, bus, inCombat } from '../game/ctx.js';
-import { $, el, esc, fmt, ICO } from '../core/util.js';
+import { $, el, esc, fmt, fmtShort, ICO } from '../core/util.js';
 import { SLOTS, SLOT_NAMES, RARITY, WEAPONS, BASE, CLASSES, RARITY_SHORT } from '../data/items.js';
 import { SKILLS, BRANCHES, classSkillOrder, unlockLevel, MASTERY_MAX, MASTERY_STEP } from '../data/skills.js';
 import { STORY, REPEATABLE, DIALOG, CHAPTER, chapterOf } from '../data/quests.js';
@@ -710,17 +710,59 @@ function mergeTab(b) {
   b.appendChild(bag);
 }
 // ---------------------------------------------------------------- путь сезона и коллекция (сборка 21)
+// сборка 68: три дорожки, как в пропусках других игр — бесплатная, «Знамя сезона» и «Знамя Магистра»; у каждой клетки по 2–4 награды
+const PASS_IC = { gold: 'assets/art/gpt/ui/gold_64.png', shards: 'assets/art/gpt/ui/shard_64.png', energy: 'assets/art/gpt/ui/energy_64.png' };
+function passIcon(r) {
+  const P = G.profile;
+  if (PASS_IC[r.k]) return PASS_IC[r.k];
+  if (r.k === 'hp' || r.k === 'mp') return iconURL('potion_' + r.k);
+  if (r.k === 'scroll') return iconURL('scroll');
+  return iconURL(CLASSES[P.cls || 'warrior'].main);
+}
+function passAmount(r) { const P = G.profile; return r.k === 'gold' ? fmtShort(r.n * P.level) : r.k === 'item' ? 'вещь' : String(r.n); }
+function priceLabel(id) { const pr = platform.p.catalogPrice(id); return !pr ? '' : typeof pr === 'string' ? esc(pr) : `${esc(pr.value)} ${pr.img ? `<img class="cur" src="${esc(pr.img)}" alt="${esc(pr.code)}">` : esc(pr.code)}`; }
 W.season = () => modal('Путь сезона · ' + SE.seasonName(), 'md', b => {
-  const S = SE.season(), L = SE.seasonLevel(), P = G.profile;
-  b.appendChild(el('div', 'row', `<b class="goldc" style="font:600 17px Georgia">Ступень ${L.lvl} из ${SE.SEASON_LEVELS}</b><span class="muted">${L.need ? `${L.into}/${L.need} очков до следующей` : 'Путь пройден!'}</span>`));
+  const L = SE.seasonLevel(), tier = SE.passTier();
+  b.appendChild(el('div', 'row', `<b class="goldc" style="font:600 17px Georgia">Ступень ${L.lvl} из ${SE.SEASON_LEVELS}</b><span class="muted">${L.need ? `${L.into}/${L.need} очков до следующей` : 'Путь пройден!'} · до конца сезона ${SE.seasonDaysLeft()} дн.</span>`));
   b.appendChild(el('div', 'pb season-pb', `<i style="width:${L.need ? L.into / L.need * 100 : 100}%"></i>`));
-  b.appendChild(el('p', 'muted', 'Очки сезона дают только задания: задание дня — 100, все три за день — ещё 50, отметка входа — 10, недельное задание — 150. Выполняя 70% заданий дня, путь проходится примерно за 3 недели. Новый месяц — новый сезон.'));
-  const list = el('div', 'season-list');
-  for (let l = 1; l <= SE.SEASON_LEVELS; l++) { const r = SE.seasonReward(l), got = !!S.claimed[l], open = L.lvl >= l;
-    const row = el('div', 'sl' + (r.big ? ' big' : r.mid ? ' mid' : '') + (got ? ' got' : open ? ' open' : ''), `<i>${l}</i><span>${r.label}${r.gold ? ` · ${r.gold * P.level} зол.` : ''}</span>`);
-    if (open && !got) { const bt = el('button', 'btn sm gold', 'Забрать'); bt.onclick = () => { SE.claimSeason(l); rerender(); }; row.appendChild(bt); } else row.appendChild(el('em', '', got ? '✔' : '🔒'));
-    list.appendChild(row); }
+  b.appendChild(el('p', 'muted', '<small>Очки сезона дают только задания: задание дня — 100, все три за день — ещё 50, отметка входа — 10, недельное задание — 150. Награды каждой ступени — на всех открытых дорожках. Новый месяц — новый сезон.</small>'));
+  const head = el('div', 'pass-head');
+  head.appendChild(el('div', 'ph-lv', ''));
+  head.appendChild(el('div', 'ph free', '<b>Бесплатно</b><small>для всех</small>'));
+  for (const t of ['mid', 'ult']) {
+    const id = SE.PASS_PRODUCT[t], pr = PRODUCTS[id], own = SE.trackOpen(t);
+    const h = el('div', 'ph ' + t, `<b>${esc(pr.title)}</b>`);
+    if (own) h.appendChild(el('small', 'good', '✔ открыто'));
+    else if (platform.p.hasProduct(id)) { const bt = el('button', 'btn sm gold', priceLabel(id)); bt.onclick = () => buy(id).then(rerender); h.appendChild(bt); }
+    else h.appendChild(el('small', 'muted', 'скоро'));
+    head.appendChild(h);
+  }
+  b.appendChild(head);
+  const list = el('div', 'pass-list');
+  for (let l = 1; l <= SE.SEASON_LEVELS; l++) {
+    const row = el('div', 'pass-row' + (L.lvl >= l ? ' reached' : '') + (l === L.lvl + 1 ? ' next' : ''));
+    row.appendChild(el('div', 'pr-lv', `<i>${l}</i>`));
+    for (const t of SE.TRACKS) {
+      const R = SE.seasonReward(l, t), got = SE.isClaimed(l, t), open = SE.trackOpen(t), can = SE.canClaim(l, t);
+      const c = el('div', `pc t-${t}${R.big ? ' lv-big' : R.mid ? ' lv-mid' : ''}${got ? ' got' : can ? ' can' : ''}${open ? '' : ' locked'}`,
+        // правка: значок слева, число крупно рядом — строка на каждую награду, клетка во всю ширину
+        R.list.map((r, i) => `<div class="pc-it k-${r.k}${i ? '' : ' main'}${r.k === 'item' ? ' r' + r.n : ''}"><img src="${passIcon(r)}" alt="" draggable="false"><span>${passAmount(r)}</span></div>`).join('') +
+        (got ? '<em class="pc-ok">✔</em>' : !open ? '<em class="pc-lk">🔒</em>' : ''));
+      c.title = R.list.map(SE.rewardLabel).join(', ');
+      c.onclick = () => {
+        if (can) { SE.claimSeason(l, t); rerender(); }
+        else if (!open && platform.p.hasProduct(SE.PASS_PRODUCT[t])) buy(SE.PASS_PRODUCT[t]).then(rerender);
+        else bus.emit('toast', { text: `Ступень ${l}: ${c.title}`, sub: got ? 'Уже забрано' : L.lvl < l ? 'Откроется, когда путь дойдёт до этой ступени' : '', kind: 'info' });
+      };
+      row.appendChild(c);
+    }
+    list.appendChild(row);
+  }
   b.appendChild(list);
+  const n = SE.seasonClaimable(), all = el('button', 'btn gold pass-all', n ? `Забрать всё (${n})` : 'Забрать всё');
+  all.disabled = !n; all.onclick = () => { SE.claimSeason(); rerender(); };
+  b.appendChild(all);
+  if (!tier) b.appendChild(el('p', 'muted', '<small>Знамя Магистра открывает обе платные дорожки. Купленное Знамя действует до конца месяца; награды пройденных ступеней можно забрать сразу после покупки.</small>'));
 });
 W.codex = () => modal('Коллекция', 'md', b => {
   const P = G.profile; SE.codexScan(); const n = SE.codexCount(P), bases = SE.codexBases(P.cls);
@@ -957,7 +999,7 @@ W.shrine = () => modal('Источник силы', 'md', b => {
     if (p.cosm) continue;   // облики продаются в окне «Облик»
     if (p.gear && !gearToday.includes(id)) continue;   // П67: из снаряжения — только товары дня, открытые по уровню
     if (id === 'day_offer' && !dOff) continue;   // сборка 66: предложение дня — только пока идут его 24 часа
-    const owned = (p.once && P.iap.tx['once_' + id]) || (!p.consumable && P.iap[{ gold_perk: 'goldPerk', no_ads: 'noAds', bag_big: 'bagBig' }[id]]);
+    const owned = (p.pass && SE.passTier() >= p.pass) || (p.once && P.iap.tx['once_' + id]) || (!p.consumable && P.iap[{ gold_perk: 'goldPerk', no_ads: 'noAds', bag_big: 'bagBig' }[id]]);
     const extra = id === 'order_seal' && sealActive() ? `<div class="good"><small>Действует ещё ${sealDaysLeft()} дн. · каждый день ${SEAL_DAY.shards} ◆ и ${SEAL_DAY.energy} ⚡ с дарами источника</small></div>` : id === 'day_offer' && dOff ? `<div class="goldc"><small>Осталось ${Math.floor(dOff.left / 3600e3)} ч ${Math.floor(dOff.left / 60e3) % 60} мин</small></div>` : '';
     const o = el('div', 'offer' + (p.tag || p.limited ? ' hot' : ''), `<div class="ic">${esc(p.icon || '⛁')}</div><div class="tx">${p.tag ? `<em class="of-tag">${esc(p.tag)}</em>` : ''}<b>${esc(p.title)}</b><div class="muted">${esc(p.desc)}</div>${extra}</div>`);
     const pr = platform.p.catalogPrice(id), price = typeof pr === 'string' ? esc(pr) : `${esc(pr.value)} ${pr.img ? `<img class="cur" src="${esc(pr.img)}" alt="${esc(pr.code)}">` : esc(pr.code)}`;
