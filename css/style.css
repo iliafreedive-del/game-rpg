@@ -646,6 +646,12 @@ canvas#game{filter:saturate(1.22) contrast(1.08) brightness(1.06)}
 .pc-it.r3 img{background:radial-gradient(#f2cf4aaa,#3e2e10);border-color:#f2cf4a}.pc-it.r3 span{color:#f2cf4a}
 .pc-it.r4 img{background:radial-gradient(#ff5a4aaa,#3e1210);border-color:#ff5a4a}.pc-it.r4 span{color:#ff7a6a}
 .pc.locked .pc-it{opacity:.6}
+.pc-it.k-shards img{transform:scale(1.4)}   /* кристалл узкий в своей картинке — крупнее, вровень с монетами */
+@media (min-width:900px){   /* ПК: клетки широкие — значки и числа крупнее, два столбца без пустоты посередине */
+  .pc{grid-template-columns:repeat(2,max-content);justify-content:space-evenly;gap:4px 18px;padding:7px 8px}
+  .pc-it img{width:30px;height:30px}.pc-it span{font-size:19px}
+  .pc-it.main img{width:36px;height:36px}.pc-it.main span{font-size:23px}
+}
 .pc-lk{position:absolute;top:3px;right:4px;font-style:normal;font-size:12px}
 .pc.got{opacity:.45}.pc-ok{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-style:normal;font-size:30px;color:#7be07b;text-shadow:0 0 6px #000}
 .pc.can{border-color:#ffd877;box-shadow:0 0 10px #ffd87788,inset 0 0 12px #ffd87733;animation:pcGlow 1.6s ease-in-out infinite}

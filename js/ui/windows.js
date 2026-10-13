@@ -744,7 +744,7 @@ W.season = () => modal('Путь сезона · ' + SE.seasonName(), 'md', b =>
       const R = SE.seasonReward(l, t), got = SE.isClaimed(l, t), open = SE.trackOpen(t), can = SE.canClaim(l, t);
       const c = el('div', `pc t-${t}${R.big ? ' lv-big' : R.mid ? ' lv-mid' : ''}${got ? ' got' : can ? ' can' : ''}${open ? '' : ' locked'}`,
         // правка: значок слева, число крупно рядом — строка на каждую награду, клетка во всю ширину
-        R.list.map((r, i) => `<div class="pc-it${i ? '' : ' main'}${r.k === 'item' ? ' r' + r.n : ''}"><img src="${passIcon(r)}" alt="" draggable="false"><span>${passAmount(r)}</span></div>`).join('') +
+        R.list.map((r, i) => `<div class="pc-it k-${r.k}${i ? '' : ' main'}${r.k === 'item' ? ' r' + r.n : ''}"><img src="${passIcon(r)}" alt="" draggable="false"><span>${passAmount(r)}</span></div>`).join('') +
         (got ? '<em class="pc-ok">✔</em>' : !open ? '<em class="pc-lk">🔒</em>' : ''));
       c.title = R.list.map(SE.rewardLabel).join(', ');
       c.onclick = () => {
