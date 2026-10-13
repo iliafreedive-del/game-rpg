@@ -20,7 +20,8 @@ const framed = () => { try { return window.top !== window.self; } catch { return
 // по-прежнему отступают на env(safe-area-inset-bottom). Вызывается из resize рендерера (js/render/renderer.js).
 export function appH() {
   const de = document.documentElement; let h = 0;
-  if (iPhone() && standalone()) { const full = innerHeight >= innerWidth ? Math.max(screen.width, screen.height) : Math.min(screen.width, screen.height); if (full > innerHeight && full - innerHeight < 120) h = full; }
+  // правки 5: снимок с iPhone показал, что окно и правда короче экрана — растянутые до экрана слои обрезались снизу (кнопки, «×1»).
+  // Слои больше не растягиваем: всё помещается в окно. Чёрную полосу убирает строка состояния «black» (index.html) — окно начинается под ней и идёт до низа
   de.classList.toggle('ios-pwa', !!h); if (h) de.style.setProperty('--app-h', h + 'px');
   return h;
 }

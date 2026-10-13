@@ -913,7 +913,7 @@ html.rm *,html.rm *::before,html.rm *::after{animation-duration:.01ms!important;
 .mb::-webkit-scrollbar-thumb,.npc-panel::-webkit-scrollbar-thumb{background:linear-gradient(#ffd96a,#c08a2a);border-radius:5px;border:1px solid #0008}
 .mb::-webkit-scrollbar-track,.npc-panel::-webkit-scrollbar-track{background:#0005;border-radius:5px}
 .sc-host{position:relative}
-.sc-hint{position:absolute;right:12px;width:34px;height:34px;border-radius:50%;display:grid;place-items:center;font:700 15px sans-serif;color:#2a1a00;background:radial-gradient(#ffe9a0,#d8a84a);box-shadow:0 2px 8px #000c,0 0 12px #ffd24a88;opacity:0;pointer-events:none;transition:opacity .2s;z-index:3}
+.sc-hint{position:absolute;right:8px;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font:700 13px sans-serif;color:#2a1a00;background:radial-gradient(#ffe9a0,#d8a84a);box-shadow:0 2px 8px #000c,0 0 12px #ffd24a88;opacity:0;pointer-events:none;transition:opacity .2s;z-index:3}
 .sc-hint.on{opacity:.92;pointer-events:auto}
 .sc-hint.up{top:52px}.sc-hint.dn{bottom:10px;animation:scbob 1.4s ease-in-out infinite}
 @keyframes scbob{0%,100%{transform:translateY(0)}50%{transform:translateY(4px)}}

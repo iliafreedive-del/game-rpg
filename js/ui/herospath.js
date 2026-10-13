@@ -248,9 +248,14 @@ async function fight(s) {
   function cdLine(W) {
     if (Hu.hp <= 0 || B.over) return; const sk = B.sk, n = B.skillEvery, got = n - B.skillIn, narrow = W < 620, x = 12, y = narrow ? 84 : 24, w = 112;
     ctx.save(); ctx.textAlign = 'left'; ctx.font = '600 13px Georgia'; ctx.lineWidth = 3; ctx.strokeStyle = '#000';
-    const ic = { smash: '⚔', volley: '➶', ball: '✹' }[sk.fx] || '✦', t = `${ic} ${sk.name}`; ctx.strokeText(t, x, y); ctx.fillStyle = '#ffd77a'; ctx.fillText(t, x, y);
+    // правки 5: «на следующем ходу!» висела отдельно от полоски — теперь одна плашка: имя умения и срок в одной строке, полоска под ними
+    const ic = { smash: '⚔', volley: '➶', ball: '✹' }[sk.fx] || '✦', t = `${ic} ${sk.name}`, ready = B.skillIn <= 1, lt = ready ? 'на следующем ходу!' : `через ${B.skillIn} хода`;
+    const tw = ctx.measureText(t).width; ctx.font = '600 11px Georgia'; const lw = ctx.measureText(lt).width; ctx.font = '600 13px Georgia';
+    const pw = Math.max(w, tw + 8 + lw) + 14; ctx.fillStyle = 'rgba(12,8,6,0.62)'; ctx.beginPath(); (ctx.roundRect ? ctx.roundRect(x - 7, y - 16, pw, 37, 7) : ctx.rect(x - 7, y - 16, pw, 37)); ctx.fill();
+    ctx.strokeStyle = 'rgba(216,168,74,0.55)'; ctx.lineWidth = 1; ctx.stroke(); ctx.lineWidth = 3; ctx.strokeStyle = '#000';
+    ctx.strokeText(t, x, y); ctx.fillStyle = '#ffd77a'; ctx.fillText(t, x, y);
+    ctx.font = '600 11px Georgia'; ctx.strokeText(lt, x + tw + 8, y); ctx.fillStyle = ready ? '#ffe9a0' : '#d8c8a8'; ctx.fillText(lt, x + tw + 8, y);
     const sw = (w - (n - 1) * 3) / n; for (let i = 0; i < n; i++) { ctx.fillStyle = 'rgba(0,0,0,0.7)'; ctx.fillRect(x + i * (sw + 3) - 1, y + 6, sw + 2, 9); ctx.fillStyle = i < got ? (B.skillIn <= 1 ? '#ffd24a' : '#c8962e') : '#3a2f28'; ctx.fillRect(x + i * (sw + 3), y + 7, sw, 7); }
-    const ready = B.skillIn <= 1, lt = ready ? 'на следующем ходу!' : `через ${B.skillIn} хода`; ctx.font = '600 11px Georgia'; ctx.strokeText(lt, x + w + 8, y + 14); ctx.fillStyle = ready ? '#ffe9a0' : '#d8c8a8'; ctx.fillText(lt, x + w + 8, y + 14);
     ctx.restore();
   }
   const PROJ = { arrow: ['#f4e6c0', 3], bolt: ['#7fd0ff', 7], fireball: ['#ff8a2a', 13], shadow: ['#b070ff', 8] };

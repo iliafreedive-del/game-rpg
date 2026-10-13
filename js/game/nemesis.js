@@ -131,6 +131,9 @@ function drawBar() {
   b.style.display = 'block'; const pct = Math.round((W.greed || 0) * 100);
   b.querySelector('.t').textContent = `🎒 Ноша: ${W.carry || 0} зол.${pct > 8 ? ` · жадность ${pct}%` : ''}`;
   b.querySelector('i').style.width = pct + '%';
+  // правки 5: на вертикальном телефоне плашка «Ноша» не наезжает на панель ресурсов — встаёт под неё, если они пересекаются
+  { b.style.top = ''; const gb = document.getElementById('goldBox'), port = innerHeight > innerWidth && innerWidth <= 760;
+    if (port && gb && gb.offsetParent) { const r = gb.getBoundingClientRect(), q = b.getBoundingClientRect(); if (q.right > r.left && q.top < r.bottom && q.bottom > r.top) b.style.top = Math.round(r.bottom + 6) + 'px'; } }
   // цель похода — только несколько секунд после того, как сменилась, потом прячется (не висит на экране постоянно)
   const g = b.querySelector('.g'), gt = goalText();
   if (g.textContent !== gt) { g.textContent = gt; g.classList.add('show'); clearTimeout(goalTimer); goalTimer = setTimeout(() => g.classList.remove('show'), 7000); }
