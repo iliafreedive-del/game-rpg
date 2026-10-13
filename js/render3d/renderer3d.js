@@ -101,7 +101,7 @@ export function init() {
   const sc = lights.moon.shadow.camera; sc.left = sc.bottom = -SHADOW.half; sc.right = sc.top = SHADOW.half; sc.near = 1; sc.far = 90;
   lights.moon.shadow.bias = SHADOW.bias; lights.moon.shadow.normalBias = SHADOW.normalBias; lights.moon.shadow.intensity = SHADOW.intensity; sc.updateProjectionMatrix(); sc.layers.enable(1);   // слой 1 — заменители теней крон
   U.uWindStr.value = 1;
-  window.__R3 = { scene, camera, renderer, actors, post, lights, get zone() { return zone; }, get world() { return world; } };
+  window.__R3 = { scene, camera, renderer, actors, post, lights, get zone() { return zone; }, get world() { return world; }, get floorUps() { return decals ? decals.ups || 0 : 0; } };
 }
 // three.js сам пересоздаёт свои буферы и текстуры при следующем кадре; мир зоны, цели постобработки и карту тени собираем заново
 function rebuildAfterRestore() {
@@ -172,7 +172,7 @@ function disposeWorld() {
   for (const a of actors.values()) { a.dispose(); if (a.motes) a.motes.dispose(); if (a.fxMotes) a.fxMotes.dispose(); } actors.clear();
   for (const P of [swarmPool, enemyPool]) { for (const l of P.values()) for (const a of l) a.dispose(); P.clear(); }
   if (!world) return;
-  world.ground.dispose(); world.props.dispose(); disposeObject(world.glow); disposeObject(world.pool); if (world.atmo) world.atmo.dispose(); if (world.critters) world.critters.dispose(); world = null;
+  world.ground.dispose(); world.props.dispose(); disposeObject(world.plates); disposeObject(world.glow); disposeObject(world.pool); if (world.atmo) world.atmo.dispose(); if (world.critters) world.critters.dispose(); world = null;
 }
 const hex = c => (c[0] << 16) | (c[1] << 8) | c[2];
 // пресет света по зоне: деревня, подземелье (с биомом глубин), цитадель/арена
@@ -218,23 +218,50 @@ function setZone(z) {
   U.uHFogCol.value.set(wf ? 0x9cc8a4 : bn ? 0xe6c88e : 0xb4c8c0);
   if (z.json.center) U.uHFogC.value.set(z.json.center[0], z.json.center[1], 17); else U.uHFogC.value.set(0, 0, wf || bn ? -0.45 : 0);   // в центре деревни тумана почти нет
   const atmo = town && z.json.village ? new Atmo(scene, z, props.smoke) : null, critters = town && z.json.village ? new Critters(scene, kit, z) : null;
-  world = { ground, props, atmo, critters, ...lightSets(z) };
+  world = { ground, props, atmo, critters, plates: plateRings(z), ...lightSets(z) };
   props.cull(camera, true); applyQuality(true); ground.setQuality(quality); spawned = false;
   // Костяные пустоши: паки окружения Meshy грузятся при первом входе; пока грузятся — прежние предметы, потом слой пересобирается
   // порталы деревни из Meshy (сборка 44): пак грузится при первом входе в деревню, до загрузки — прежние арки
   if (town && z.json.village && kit.skin.SKINS.on && !(portalsReady() && altarReady())) Promise.all([preloadPortals(), preloadAltar(), preloadBoneTrees()]).then(([ok, ok2, ok3]) => {
     ok = ok || ok2 || ok3;
     if (!ok || !world || zone !== z) return;
-    world.props.dispose(); world.props = new PropLayer(scene, kit, z, open); world.props.cull(camera, true); applyQuality(true);
+    swapProps(z, open);
   });
   if (wild && z.json.wild.realm === 'temple' && kit.skin.SKINS.on && !templeReady()) preloadTemple().then(ok => {   // Разрушенный храм: пак «каменная»
     if (!ok || !world || zone !== z) return;
-    world.props.dispose(); world.props = new PropLayer(scene, kit, z, open); world.props.cull(camera, true); applyQuality(true);
+    swapProps(z, open);
   });
   if (bn && kit.skin.SKINS.on && !bonesReady()) preloadBones().then(ok => {
     if (!ok || !world || zone !== z) return;
-    world.props.dispose(); world.props = new PropLayer(scene, kit, z, open); world.props.cull(camera, true); applyQuality(true);
+    swapProps(z, open);
   });
+}
+
+// сборка 71: пак Meshy догрузился, когда зона уже на экране (на медленной сети prepare() ждёт его 8 с и показывает зону с прежними
+// предметами). Раньше новый слой подменял прежний в том же кадре — шейдеры и текстуры собирались разом, кадр стоял до 6 с (журнал
+// сборки 70: 00:23, «худш 6298мс»). Теперь новый слой собирается невидимым, шейдеры — фоном (compileAsync), и только потом подмена
+async function swapProps(z, open) {
+  const np = new PropLayer(scene, kit, z, open), vis = np.items.map(o => o.visible);
+  for (const o of np.items) o.visible = false;
+  await settle(renderer.compileAsync(scene, camera), 6000);
+  if (!world || zone !== z) { np.dispose(); return; }
+  const seen = new Set(); for (const g of np.items) g.traverse(o => { for (const m of o.material ? [].concat(o.material) : []) for (const k of ['map', 'normalMap', 'alphaMap', 'emissiveMap']) { const t = m[k]; if (t && t.isTexture && !seen.has(t)) { seen.add(t); try { renderer.initTexture(t); } catch { } } } });
+  world.props.dispose(); world.props = np; np.items.forEach((o, i) => { o.visible = vis[i]; }); np.cull(camera, true); applyQuality(true);
+}
+// сборка 71: светящиеся круги у табличек (порталы, доска, источник, лестница) — кольца в 3D-сцене. Раньше их рисовал холст «эффектов
+// на полу» (decals.js), и в деревне, где несколько кругов всегда рядом с героем, холст 1024² перерисовывался и заливался в видеокарту
+// 20 раз в секунду — FPS в деревне 35–50 вместо 60 (журнал сборки 70). Размер и цвет — как у круга на холсте (render/renderer.js drawPlates)
+function plateRings(z) {
+  const g = new THREE.Group(), list = (z.inter || []).filter(it => it.plate); if (!list.length) return g;
+  const geo = new THREE.RingGeometry(0.955, 1.08, 56).rotateX(-Math.PI / 2);
+  const mat = new THREE.MeshBasicMaterial({ color: 0xffcd5a, transparent: true, opacity: 0.5, depthWrite: false, toneMapped: false, fog: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 });
+  for (const it of list) { const m = new THREE.Mesh(geo, mat); m.position.set(it.x, 0.07, it.y); m.renderOrder = 5; m.userData.it = it; g.add(m); }
+  scene.add(g); return g;
+}
+function updatePlates() {
+  const g = world.plates; if (!g || !g.children.length) return;
+  g.children[0].material.opacity = 0.5 + Math.sin(G.time * 3) * 0.2;
+  for (const m of g.children) m.visible = !m.userData.it.hidden && fxGround.on;
 }
 
 // ---------------------------------------------------------------- персонажи
@@ -585,7 +612,7 @@ export function render() {
   applyQuality();
   updateCamera(dt); updateLights(tAll, dt);
   { const adt = dt * (G.timeScale ?? 1); syncPlayer(adt); syncEnemies(adt); syncSwarm(adt); syncGems(); syncNpcs(dt); syncPet(adt); } cullActors();   // С22: в стоп-кадре удара анимации тоже замирают
-  world.props.cull(camera); world.props.update(tAll);
+  world.props.cull(camera); world.props.update(tAll); updatePlates();
   if (world.atmo) world.atmo.update(dt, tAll, G.cam.x, G.cam.y, G.player.x, G.player.y);
   if (world.critters) world.critters.update(dt, tAll, G.player, G.cam.x, G.cam.y);
   // примятая трава: герой и до 10 живых врагов — в готовые объекты (без выделений в кадре)
