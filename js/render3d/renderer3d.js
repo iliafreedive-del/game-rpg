@@ -363,8 +363,9 @@ function syncNpcs(dt) {
       const al = (n.alpha ?? 1) * (0.34 + Math.sin(tAll * 2 + n.x) * 0.06); for (const m of a.mats) { m.transparent = true; m.opacity = al; m.depthWrite = false; }
       a.place(n.x, n.y); a.faceAngle(yawOfDir(n.dir)); a.update(dt, { clip: 'idle' }, env); continue;
     }
-    const def = NPCS[n.model] || NPCS.npc_elder; let a = getActor(n, def);
-    if (!a.model.skin && !a.reskin && SKINS.on && skinLoaded(def.id)) { a.dispose(); actors.delete(n); a = getActor(n, def); a.reskin = true; }   // сборка 66: шкура жителя догрузилась после сборки деревни
+    // правки 5: «сделать нпс такого же роста как герой» — жители в том же масштабе, что и герой (модели одной высоты, герой был ×1,1)
+    const def = NPCS[n.model] || NPCS.npc_elder; let a = getActor(n, def, { scale: HERO.scale });
+    if (!a.model.skin && !a.reskin && SKINS.on && skinLoaded(def.id)) { a.dispose(); actors.delete(n); a = getActor(n, def, { scale: HERO.scale }); a.reskin = true; }   // сборка 66: шкура жителя догрузилась после сборки деревни
     a.place(n.x, n.y);
     // наставник с мечом (новая модель) бьёт чучело: удар 0.7 с, пауза 0.9 с; герой рядом или разговор — поворачивается к нему
     const P = G.player, near = P && Math.hypot(P.x - n.x, P.y - n.y) < 3.5;
