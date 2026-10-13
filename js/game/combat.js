@@ -92,7 +92,7 @@ export function damageEnemy(e, amount, o = {}) {
   dmg = Math.max(1, Math.round(dmg));
   e.hp -= dmg; e.flash = 0.12; G.lastCombat = G.time; e.lastSrc = o.src;
   if (!e.aggro || e.ret) { e.aggro = true; e.ret = false; bus.emit('aggro', e); }   // сборка 62: и того, кто шёл «домой» с флагом агро (раньше не реагировал на удары)   // попал по врагу — он (и ближайшие соседи) тут же бросаются в бой
-  const col = o.elem === 'poison' ? '#9ae66a' : o.src === 'pet' ? '#e8d8b0' : o.elem === 'fire' ? '#ff9a4a' : o.elem === 'cold' ? '#8fdcff' : o.elem === 'light' ? '#d0c2ff' : crit ? '#ffd23a' : '#ffffff';
+  const col = o.elem === 'poison' ? '#9ae66a' : o.src === 'pet' ? '#e8d8b0' : o.elem === 'fire' ? '#ff9a4a' : o.elem === 'cold' ? '#8fdcff' : o.elem === 'light' ? '#d0c2ff' : crit ? '#ffd23a' : G.player && G.player.warcry > G.time && o.src !== 'dot' ? '#ffa94a' : '#ffffff';   // под «Боевым кличем» цифры оранжевые — прибавку видно
   if (!o.quiet) float(e.x, e.y, crit ? dmg + '!' : dmg, col, { big: crit ? 1 : 0, z: e.D.boss ? 3.2 : 1.9 });
   if (o.src === 'melee' || (crit && o.src === 'weapon')) sheet(crit ? 'hit_crit' : 'hit_spark', e.x, e.y, { z: 0.55 * (e.D.size || 1), ex: G.player.x, ey: G.player.y });   // сборка 61: искра удара / крит
   if (o.src === 'melee') hitStop(crit ? 0.06 : 0.03); else if (crit && o.src === 'weapon') hitStop(0.04);
@@ -223,7 +223,8 @@ function dummyHit(P, wt, W, dur) {
     const S = G.stats; if (!S || G.zoneId !== 'town') return;
     let v = S.dmgMin + Math.random() * (S.dmgMax - S.dmgMin); if (wt === 'staff') v *= 1 + (WEAPONS.staff.spell || 0);   // правки 3: интеллект уже в уроне посоха — второй раз не умножаем
     const crit = Math.random() < S.critChance; if (crit) v *= S.critMult;
-    float(o.x, o.y, Math.round(v) + (crit ? '!' : ''), crit ? '#ffd23a' : '#fff', { z: 2.1, big: crit ? 1 : 0, life: 0.9 });
+    const wc = P.warcry > G.time; if (wc) v *= P.warcryMul || 1.25;   // правки 5: манекен учитывает «Боевой клич» (раньше его прибавку тут не считали)
+    float(o.x, o.y, Math.round(v) + (crit ? '!' : ''), crit ? '#ffd23a' : wc ? '#ffa94a' : '#fff', { z: 2.1, big: crit ? 1 : 0, life: 0.9 });
     bus.emit('sfx', 'hit');
   }, dur * 1000 * (W.impact || 0.5));
 }
