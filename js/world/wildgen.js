@@ -16,6 +16,7 @@ const GIANT_FOOT = {
   giant_spine: { r: 4.6, boxes: [[-4.0, -0.7, 4.0, 0.7]] },
   tusk_arch: { r: 3.4, boxes: [[-2.6, -0.5, -1.6, 0.5], [1.6, -0.5, 2.6, 0.5]] },
   giant_fallen: { r: 4.4, boxes: [[-3.2, -1.4, 1.2, 1.2], [1.2, -0.3, 3.0, 2.0]] },
+  giant_buried: { r: 6.2, boxes: [[-5.7, -1.5, -2.3, 1.9], [-2.4, -2.0, 3.8, 1.9], [-0.6, 2.3, 5.0, 3.7]], clear: [[-6.4, -2.9, 5.6, 4.3]] },   // Старый Лес: великан в земле (_buried_giant.js)
   fj_longship: { r: 3.6, boxes: [[-3.5, -1.0, 3.5, 1.0]], clear: [[-3.9, -1.5, 3.9, 3.9]] }, fj_longship_b: { r: 3.6, boxes: [[-3.5, -1.0, 3.5, 1.0]], clear: [[-3.9, -1.6, 3.9, 1.6]] }, fj_longship_split: { r: 4.6, boxes: [[-4.6, -1.1, -1.2, 0.8], [1.2, -0.6, 4.6, 1.5]], clear: [[-5.0, -1.9, 5.0, 2.2]] }, fj_boat: { r: 1.9, boxes: [[-1.7, -0.7, 1.7, 0.7]] }, fj_runestone: { r: 0.8, boxes: [[-0.45, -0.2, 0.45, 0.2]] },   // правки 5: Фьорды
 };
 // какие скелеты чаще на каком поле (варианты 0–5): степь, долина черепов, балки, хребет великана, курганы, руины
@@ -260,6 +261,30 @@ function build(RL, mood, depth, boss, seed, attempt, force) {
       for (let j = 0; j < 4; j++) { const a = R() * 6.28, d = F.r + 0.6 + R() * 1.5; objects.push({ t: j % 2 ? 'skulls' : 'bones', x: p[0] + Math.cos(a) * d, y: p[1] + Math.sin(a) * d, deco: 1 }); }   // кости вокруг
     }
   }
+  // Старый Лес: великан, почти ушедший в землю (картинка 13 октября) — один на поле, не в форте. Он больше перешейка, поэтому
+  // может лечь и на тропу между полянами: годится место, где кости не отрезают от старта ни одной клетки земли (обход по траве)
+  if (realm === 'forest' && !isFort) {
+    const t = 'giant_buried', F = GIANT_FOOT[t], WALK = new Set(['.', ',', 'h', 'b']);
+    const cells = (b, fn) => { for (let ty = Math.floor(b[1]); ty <= Math.floor(b[3]); ty++) for (let tx = Math.floor(b[0]); tx <= Math.floor(b[2]); tx++) if (!fn(tx, ty)) return false; return true; };
+    const reach = block => {   // сколько проходимых клеток достижимо от старта, если клетки block заняты
+      const seen2 = new Uint8Array(W * H), q = [Math.floor(start[1]) * W + Math.floor(start[0])]; seen2[q[0]] = 1; let n = 0;
+      while (q.length) { const c = q.pop(), x = c % W, y = (c - x) / W; n++; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const X = x + dx, Y = y + dy, k = Y * W + X; if (X < 0 || Y < 0 || X >= W || Y >= H || seen2[k] || block.has(k) || !WALK.has(at(X, Y))) continue; seen2[k] = 1; q.push(k); } }
+      return n;
+    };
+    const base = reach(new Set());
+    const glades = live.filter(v => !v.fort && ['fight', 'leaf', 'rest'].includes(role.get(v))).sort(() => R() - 0.5);
+    for (let k = 0; k < glades.length * 12; k++) {
+      const v = glades[k % glades.length], rot = k < glades.length * 8 ? 0 : R() < 0.5 ? Math.PI / 2 : -Math.PI / 2;   // череп лицом к камере; если не встал — боком
+      const p = pickIn(v, (x, y) => dist(x, y, start[0], start[1]) > 6 + F.r && dist(x, y, exit[0], exit[1]) > 4 + F.r && !near(x, y, 4) && free(x, y, 1), 6, 0.3);
+      if (!p) continue; const boxes = boxesAt(t, p[0], p[1], rot);
+      if (!boxes.every(b => cells(b, (x, y) => at(x, y) === '.' && !inFort(x, y, 2)))) continue;   // кости — на траве
+      let wet = 0; boxesAt(t, p[0], p[1], rot, F.clear).forEach(b => cells(b, (x, y) => (wet += at(x, y) !== '.' && at(x, y) !== 'x', true)));
+      if (wet > 3) continue;   // холм — не над водой и пропастью (кромка в пару клеток не видна)
+      const block = new Set(); boxes.forEach(b => cells(b, (x, y) => (block.add(y * W + x), true)));
+      if (reach(block) < base - block.size - 4) continue;   // ничего, кроме пары клеток в углу, не отрезано
+      placed.push([p[0], p[1], F.r + 1]); objects.push({ t, x: p[0], y: p[1], rot, boxes }); break;
+    }
+  }
   // правки 5: Фьорды — «совсем там мало всего»: разбитые драккары с рваным полосатым парусом, перевёрнутые лодки, рунные камни
   if (realm === 'fjord') {
     // правки 5: драккары разные — с парусом, без паруса, разломанный пополам (половины врозь); вид по кругу с случайного
@@ -383,7 +408,7 @@ function build(RL, mood, depth, boss, seed, attempt, force) {
   objects.push({ t: bn ? 'bonfire' : 'brazier', x: start[0] + 1.5, y: start[1] - 1.5 }, { t: bn ? 'bonfire' : 'brazier', x: exit[0] - 2.2, y: exit[1] - 1.6 });
 
   // перешейки, мосты и подходы к ним ничем не загорожены (обстановка лагерей разлетается на пару метров)
-  const KEEPO = new Set(['wild_home', 'wild_next', 'bridge', 'wchest', 'cache', 'stash', 'fort_tower', 'fort_gate', 'fort_door', 'fort_hall', 'tent', 'banner', 'statue', 'brazier']);
+  const KEEPO = new Set(['wild_home', 'wild_next', 'bridge', 'wchest', 'cache', 'stash', 'fort_tower', 'fort_gate', 'fort_door', 'fort_hall', 'tent', 'banner', 'statue', 'brazier', 'giant_buried']);   // великана в лесу ставим с проверкой обхода
   const onPath = (x, y) => { for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) { const X = Math.floor(x) + dx, Y = Math.floor(y) + dy; if (X >= 0 && Y >= 0 && X < W && Y < H && prot[Y * W + X] && Math.hypot(X + 0.5 - x, Y + 0.5 - y) < 1.9) return true; } return false; };
   for (let i = objects.length - 1; i >= 0; i--) { const o = objects[i]; if (!KEEPO.has(o.t) && !o.nocol && !o.deco && !inFort(o.x, o.y, 1) && onPath(o.x, o.y)) objects.splice(i, 1); }
   // правки 5: «объект большой места мало, а эта штука в воздухе висит» — под большой постройкой у кромки острова наращиваем землю на всё её пятно
