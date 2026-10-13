@@ -2974,5 +2974,11 @@
  "Забрать всё ({0})": "Pegar tudo ({0})",
  "Забрать всё": "Pegar tudo",
  "<small>Знамя Магистра открывает обе платные дорожки. Купленное Знамя действует до конца месяца; награды пройденных ступеней можно забрать сразу после покупки.</small>": "<small>O Estandarte do Mestre libera as duas trilhas pagas. O estandarte comprado vale até o fim do mês; as recompensas dos níveis já alcançados podem ser pegas logo após a compra.</small>",
- "2026-10-13 · сборка 70": "2026-10-13 · versão 70"
+ "2026-10-13 · сборка 70": "2026-10-13 · versão 70",
+ "Завтра: день {0} даров источника — {1}": "Amanhã: dia {0} das dádivas da Fonte — {1}",
+ "золотая вещь": "item dourado",
+ "синяя вещь": "item azul",
+ "свиток, зелья и осколки": "pergaminho, poções e fragmentos",
+ "золото": "ouro",
+ "Сундук Ордена и задания дня тоже обновятся": "O Baú da Ordem e as tarefas do dia também serão renovados"
 }

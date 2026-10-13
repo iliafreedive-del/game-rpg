@@ -2974,5 +2974,11 @@
  "Забрать всё ({0})": "Reclamar todo ({0})",
  "Забрать всё": "Reclamar todo",
  "<small>Знамя Магистра открывает обе платные дорожки. Купленное Знамя действует до конца месяца; награды пройденных ступеней можно забрать сразу после покупки.</small>": "<small>El Estandarte del Maestro abre las dos líneas de pago. El estandarte comprado dura hasta fin de mes; las recompensas de los niveles ya alcanzados se reclaman justo tras la compra.</small>",
- "2026-10-13 · сборка 70": "2026-10-13 · versión 70"
+ "2026-10-13 · сборка 70": "2026-10-13 · versión 70",
+ "Завтра: день {0} даров источника — {1}": "Mañana: día {0} de los dones del Manantial — {1}",
+ "золотая вещь": "objeto dorado",
+ "синяя вещь": "objeto azul",
+ "свиток, зелья и осколки": "pergamino, pociones y fragmentos",
+ "золото": "oro",
+ "Сундук Ордена и задания дня тоже обновятся": "El Cofre de la Orden y las tareas diarias también se renovarán"
 }

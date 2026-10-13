@@ -49,7 +49,7 @@ import { gate, BOSS_LEVEL, nextStep, earlyLock, lockToast, bandLevel, CATA_MAX, 
 import { platform } from '../platform/platform.js';
 import { cineTick, inCinema, cinema, portalShots, newPortalShots } from '../ui/cinema.js';
 import { CAMERA } from '../render3d/style.js';
-import { maybeInterstitial, dailyStatus, blessed } from '../platform/monetize.js';
+import { maybeInterstitial, dailyStatus, blessed, loginReward, todayKey, LOGIN_DAYS } from '../platform/monetize.js';
 
 G.npcs = [];
 let saveTimer = 0, saveQueued = false, meterAcc = 0, questT = 0;
@@ -194,6 +194,11 @@ export async function loadZone(id, how = {}) {
   bus.emit('zoneEntered', id); bus.emit('hud'); requestSave();
   if (id === 'town' && G.profile.tutorial.prologue && !earlyLock('extra')) setTimeout(() => { const d = dailyStatus();   // сборка 59: пока Источник закрыт обучением — не звать к нему
   if (d.claimable) bus.emit('toast', { text: 'Дары источника ждут!', sub: `День ${d.day} из 28 — алтарь на площади`, kind: 'quest' }); else if (!blessed()) bus.emit('toast', { text: 'Источник силы на площади', sub: 'Сила источника: +25% золота и опыта на 10 минут', kind: 'info' }); }, 2500);   // сборка 19
+  // зацепка на завтра (план продвижения): после 10 минут игры, раз в день, при возвращении в деревню — что ждёт завтра
+  // (и во время обучения: первая сессия важнее всего). Дар сегодня не забран — завтра будет этот же день календаря (пропуск не сбрасывает)
+  if (id === 'town' && P.tutorial.prologue && performance.now() > 6e5 && P.tmrw !== todayKey()) setTimeout(() => { const d = dailyStatus();
+    if (G.zoneId !== 'town') return; P.tmrw = todayKey(); requestSave(); const n = d.claimable ? d.day : d.day % LOGIN_DAYS + 1, r = loginReward(n);
+    bus.emit('toast', { text: `Завтра: день ${n} даров источника — ${r.item ? (r.item >= 3 ? 'золотая вещь' : 'синяя вещь') : r.mid ? 'свиток, зелья и осколки' : 'золото'}`, sub: 'Сундук Ордена и задания дня тоже обновятся', kind: 'quest' }); }, 6500);
   if (id === 'town' && P.tutorial.prologue && !Q.current()) setTimeout(() => { if (G.zoneId === 'town') bus.emit('toast', { text: 'Дальше: ' + nextStep(), kind: 'info' }); }, 2200);   // сборка 59: пока идёт сюжет, цель — в трекере задания (тост «Дальше» ей противоречил)
   if (id === 'town' && P.tutorial.prologue) {   // сборка 49: новый портал показываем камерой, когда он открылся (ждём, пока закроются окна)
     let tries = 0; const tryShow = () => { if (G.zoneId !== 'town' || ++tries > 40) return; if (G.cinema || G.modalOpen || G.paused || G.memPending) { setTimeout(tryShow, 1000); return; } const sh = newPortalShots(); if (sh.length) cinema(sh); };
