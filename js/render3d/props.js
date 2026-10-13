@@ -118,16 +118,17 @@ export class PropLayer {
             continue;
           }
           const frontE = tx >= m.w - 3 || ty >= m.h - 3;   // ближний к камере край — реже: деревья там закрывают героя и мобов (сборка 18)
-          if (h < (edge ? (frontE ? 0.22 : 0.6) : fj ? 0.09 : 0.06)) { const id = fj ? (h < 0.2 ? (edge && h < 0.12 ? pickW(FJ_CRAGS, hash(tx, ty * 1.7)) : pickW(FJ_ROCKS, hash(tx * 1.3, ty))) : pickFj(hash(tx, ty))) : pickTree(h > 0.3 ? 'tree_1' : 'tree_0', hash(tx * 2.1, ty * 1.3 + 5)); const rk = id === 'rocks' || id.startsWith('fj_'); push(rk ? id : id + '_far', tx + 0.2 + hash(tx, ty + 9) * 0.6, ty + 0.2 + hash(ty, tx + 4) * 0.6, h * 40, rk ? 1.2 + h : 1.15 + hash(ty, tx) * 0.8); }
+          if (h < (edge ? (frontE ? 0.22 : zone.json.village ? 0.45 : 0.6) : fj ? 0.09 : 0.06)) { const id = fj ? (h < 0.2 ? (edge && h < 0.12 ? pickW(FJ_CRAGS, hash(tx, ty * 1.7)) : pickW(FJ_ROCKS, hash(tx * 1.3, ty))) : pickFj(hash(tx, ty))) : pickTree(h > 0.3 ? 'tree_1' : 'tree_0', hash(tx * 2.1, ty * 1.3 + 5)); const rk = id === 'rocks' || id.startsWith('fj_'); push(rk ? id : id + '_far', tx + 0.2 + hash(tx, ty + 9) * 0.6, ty + 0.2 + hash(ty, tx + 4) * 0.6, h * 40, rk ? 1.2 + h : 1.15 + hash(ty, tx) * 0.8); }
         }
       }
     }
     if (dungeon) for (const w of wallPieces(zone)) push(w.id === 'dwall_lo' ? 'dwall_lo' : w.v < 0.62 ? 'dwall_hi' : w.v < 0.86 ? 'dwall_buttress' : 'dwall_niche', w.x, w.y, w.rot, 1);
     const VC = zone.json.viewClear || [], clearOf = (x, y) => VC.some(c => { const dx = x - c.x, dy = y - c.y, al = (dx + dy) / Math.SQRT2; return al > -2.5 && al < c.len + 4 && Math.abs(dx - dy) / Math.SQRT2 < c.lat + 1; });
     if (wantBackdrop && open && !(zone.json.wild && zone.json.wild.islands)) {  // лес за краем карты (у походов-островов за краем — бездна)
-      const m = zone.map, G = zone.json.big ? 3.8 : 3.4, ring = zone.json.big ? 17 : 11;
+      const m = zone.map, G = zone.json.big ? 3.8 : 3.4, vil = !!zone.json.village, ring = zone.json.big ? 17 : 11, GM = zone.json.big ? 14 : 3;   // GM — край земли деревни (ground.js margin)
       for (let y = -ring; y < m.h + ring; y += G) for (let x = -ring; x < m.w + ring; x += G) {
         if (x > -1.5 && y > -1.5 && x < m.w + 1.5 && y < m.h + 1.5) continue;
+        if (vil && (x > m.w + 6 || y > m.h + 6)) continue;   // сборка 71: ближний к камере край деревни туда не виден — один ряд леса, без лишних деревьев и кустов-комков
         if (zone.json.village) { const ex = Math.max(0, Math.min(m.w - 1, Math.round(x))), ey = Math.max(0, Math.min(m.h - 1, Math.round(y))); let wet = false; for (let k = -3; k <= 3 && !wet; k++) { const c1 = m.ch(Math.max(0, Math.min(m.w - 1, ex + k)), ey), c2 = m.ch(ex, Math.max(0, Math.min(m.h - 1, ey + k))); wet = c1 === '~' || c2 === '~'; } if (wet) continue; }   // продолжение ручья за краем — без деревьев в воде
         if (clearOf(x, y)) {   // «конус взгляда» на мельницу/завал за рекой: вместо деревьев (закрыли бы) — низкие кусты, папоротник, камни
           for (let k = 0; k < 3; k++) { const h3 = hash(x * 3.1 + k, y * 1.3 - k); push(h3 < 0.5 ? 'bush' : 'fern', x + (h3 - 0.5) * 3.4, y + (hash(y + k, x) - 0.5) * 3.4, h3 * 30, 0.9 + h3 * 0.8); }
@@ -136,7 +137,9 @@ export class PropLayer {
         }
         const h = hash(x + 3, y - 7); if (h > (wild ? (x > m.w || y > m.h ? 0.22 : 0.5) : 0.7)) { if (zone.json.village) push(h > 0.85 ? 'fern' : 'bush', x + (hash(x, y) - 0.5) * 2, y + (hash(y, x) - 0.5) * 2, h * 30, 1.3 + hash(x * 2, y) * 0.8); continue; }   // деревня: просвет в лесу за краем — кусты, а не пустота
         if (bn) { const h2 = hash(x * 2.3, y * 1.1 + 5), front = x > m.w || y > m.h; if (front && h2 < 0.5) { push(pickW(STEPPE_ROCKS, h2 * 2), x + (hash(x, y) - 0.5) * 2, y + (hash(y, x) - 0.5) * 2, h * 6.28, 1 + h2); continue; } push(h2 < 0.5 ? pickW(STEPPE_SPIRES, h2 * 2) : h2 < 0.8 ? pickW(STEPPE_TREES, h2) + '_far' : pickW(STEPPE_ROCKS, h2), x + (hash(x, y) - 0.5) * 2, y + (hash(y, x) - 0.5) * 2, h * 6.28, h2 < 0.5 ? 1.3 + hash(x * 2, y) * 1.1 : 1 + hash(x * 2, y) * 0.5); continue; }   // за краем пустошей — каньон из столбов и акации
-        push((fj ? pickFj(hash(x * 2.3, y * 1.1 + 5)) : pickTree(h > 0.4 ? 'tree_1' : 'tree_0', hash(x * 2.3, y * 1.1 + 5))) + '_far', x + (hash(x, y) - 0.5) * 2, y + (hash(y, x) - 0.5) * 2, h * 6.28, 1 + hash(x * 2, y) * 0.6);
+        const tid = (fj ? pickFj(hash(x * 2.3, y * 1.1 + 5)) : pickTree(h > 0.4 ? 'tree_1' : 'tree_0', hash(x * 2.3, y * 1.1 + 5))) + '_far', n0 = lists.has(tid) ? lists.get(tid).length : 0;
+        push(tid, x + (hash(x, y) - 0.5) * 2, y + (hash(y, x) - 0.5) * 2, h * 6.28, 1 + hash(x * 2, y) * 0.6);
+        if (vil && lists.has(tid) && lists.get(tid).length > n0) { const it = lists.get(tid)[n0]; if (it.x < -GM + 0.6 || it.y < -GM + 0.6 || it.x > m.w + GM - 0.6 || it.y > m.h + GM - 0.6) it.h = -0.4; }   // сборка 71: за краем земли дерево стоит на дальней плоскости (−0,4), а не висит над ней
       }
     }
     if (wantBackdrop && open) this.scatterDecor(zone, push, fj);
@@ -272,7 +275,7 @@ export class PropLayer {
         sp.center.set(it.x, 2.2 * it.s, it.y); sp.radius = b.r * it.s + 4;   // запас: тень от предмета за краем кадра падает в кадр
         if (it.q !== undefined && it.q > this.decorK) continue;
         if (!this.fr.intersectsSphere(sp)) continue;
-        m.compose(p.set(it.x, 0, it.y), q.setFromEuler(e.set(0, it.rot, 0)), s.setScalar(it.s));
+        m.compose(p.set(it.x, it.h || 0, it.y), q.setFromEuler(e.set(0, it.rot, 0)), s.setScalar(it.s));
         for (const { im, proxy } of b.parts) if (!proxy) { im.setMatrixAt(n, m); if (it.col && im.instanceColor) im.setColorAt(n, it.col); }
         n++;
       }
