@@ -81,12 +81,13 @@ export class Zone {
   }
   addLight(x, y, o) { const L = { x: x + (o.dx || 0), y: y + (o.dy || 0), z: o.z || 1, r: o.r, c: o.c, flicker: o.flicker || 0, on: true, seed: rand() * 10 }; this.lights.push(L); return L; }
   add(d) { this.statics.push(d); return d; }
+  onChest(x, y, r) { return !!this._chests && this._chests.some(([cx, cy, cr]) => (x - cx) ** 2 + (y - cy) ** 2 < (cr + r * 0.75) ** 2); }
   prop(o) {
     const P = PROP[o.t]; if (!P) return null;
     // правки 5: на островах походов предмет не висит над обрывом — сдвигаем вглубь вместе с коллизией, не помещается — не ставим (world/footing.js)
     if (this.id === 'wild' && this.json.wild && this.json.wild.islands && !o.boxes && !o.circles && !P.flat && !/bridge/.test(o.t)) {   // мост и должен висеть над пропастью
       const r = Math.max(footOf(P.model || o.t, o.s || (/tree|rock/.test(P.spr) ? 1.7 : 1)), (P.r || 0) * (o.s || 1) + 0.1, P.box ? Math.max(...P.box) + 0.1 : 0), p = fit(this.map, o.x, o.y, r);
-      if (!p) { (this.footDrop ||= []).push(o.t); return null; } if (p[0] !== o.x || p[1] !== o.y) { (this.footMove ||= []).push(o.t); o = { ...o, x: p[0], y: p[1] }; }
+      if (!p || (o.t !== 'wchest' && /tree|rock|bush|fern|spire|tooth|mesa|agave|stalag|crystal|mushroom/.test(P.spr + (P.model || '')) && this.onChest(p[0], p[1], r))) { (this.footDrop ||= []).push(o.t); return null; } if (p[0] !== o.x || p[1] !== o.y) { (this.footMove ||= []).push(o.t); o = { ...o, x: p[0], y: p[1] }; }
     }
     const d = this.add({ x: o.x, y: o.y, spr: P.spr, tall: P.tall, flat: P.flat });
     if (P.model || o.rot !== undefined) { d.model = P.model || o.t; d.rot = o.rot || 0; }
@@ -314,7 +315,9 @@ export class Zone {
     const m = this.map, realm = J.wild.realm, fj = realm === 'fjord', bn = realm === 'bones', put = [];
     // правки 5: деревья, камни и кусты чащи не висят над обрывом острова: пятно в 3D-размере (до ×1,8) целиком на земле, центр — на клетке чащи
     const isl = !!J.wild.islands, onX = (x, y) => m.ch(Math.floor(x), Math.floor(y)) === 'x';
-    const deco = d => { if (isl) { const p = fit(m, d.x, d.y, footOf(d.spr, d.s ? d.s * 1.2 : 1.8), onX); if (!p) { (this.footDrop ||= []).push(d.spr); return; } if (p[0] !== d.x || p[1] !== d.y) (this.footMove ||= []).push(d.spr); d.x = p[0]; d.y = p[1]; } this.add(d); };   // put — уже посаженные деревья: между соседними не меньше ~1,7 м
+    // правки 5: «сундук в дерево влился» — деревья, камни и кусты не растут на сундуке (пятно кроны/основания не заходит на него)
+    const chestK = bn ? 2 : 1; this._chests = isl ? J.objects.filter(o => o.t === 'wchest').map(o => [o.x, o.y, 0.7 * chestK]) : null;
+    const deco = d => { if (isl) { const p = fit(m, d.x, d.y, footOf(d.spr, d.s ? d.s * 1.2 : 1.8), onX); if (!p || this.onChest(p[0], p[1], footOf(d.spr, d.s ? d.s * 1.2 : 1.8))) { (this.footDrop ||= []).push(d.spr); return; } if (p[0] !== d.x || p[1] !== d.y) (this.footMove ||= []).push(d.spr); d.x = p[0]; d.y = p[1]; } this.add(d); };   // put — уже посаженные деревья: между соседними не меньше ~1,7 м
     for (let y = 0; y < m.h; y++) for (let x = 0; x < m.w; x++) {
       const c = m.ch(x, y), h = hash(x, y);
       if (c === 'D') { this.add({ x: x + 0.5, y: y + 0.5, spr: 'wall_' + (h % 4), wall: true }); continue; }
