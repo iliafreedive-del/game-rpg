@@ -56,7 +56,7 @@ export function pointAt(sel, text, opt = {}) {
   hideHand();
   if (r) { hand = el('div', 'hand'); hand._sel = sel; placeHand(r); document.body.appendChild(hand); }
   line = el('div', 'hint-line ' + (mid || !r ? 'mid' : 'bot'), (key === 'shards' ? ICO.big : '') + text); document.body.appendChild(line); placeLine();   // П44: крупный осколок в подсказке про осколки
-  handKey = key || sel || text; handUntil = performance.now() + time * 1000; handWin = win && sel ? (typeof sel === 'string' ? $(sel) : sel) : null;
+  handKey = key || sel || text; handUntil = performance.now() + time * 1000; handWin = win && sel ? (typeof sel === 'string' ? $(sel) : sel) : null; placeLine();
   bus.emit('sfx', 'quest');
   return true;
 }
@@ -66,6 +66,9 @@ function placeHand(r) { hand.style.left = (r.left + r.width / 2) + 'px'; hand.st
 // П4-15: строка подсказки внизу не наезжает на кнопку действия и кнопки боя — встаёт над ними (и над пальцем, если он внизу)
 function placeLine() {
   if (!line || !line.classList.contains('bot')) return;
+  // правки 5: подсказка в окне (наставник: «Нажмите …») не закрывает текст над кнопкой — встаёт сразу под своей кнопкой (или над ней, если снизу места нет)
+  if (handWin && handWin.isConnected) { const r = handWin.getBoundingClientRect(), h = line.offsetHeight || 40, H = innerHeight - (parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--safe-b')) || 0);
+    line.style.bottom = 'auto'; line.style.top = (r.bottom + 34 + h < H ? r.bottom + 34 : Math.max(8, r.top - h - 34)) + 'px'; return; }
   if (line._def == null) line._def = parseFloat(getComputedStyle(line).bottom) || 150;
   let top = Infinity; const H = innerHeight;
   for (const e of [$('btnAct'), ...document.querySelectorAll('#pad > *'), hand]) { const r = e && (e === hand ? e.getBoundingClientRect() : rectOf(e)); if (r && r.top > H * 0.45) top = Math.min(top, r.top); }
@@ -234,7 +237,7 @@ export function initTutorial() {
       if (!ar) { ar = el('div', 'gift-arrow'); document.body.appendChild(ar); }
       const r = e.getBoundingClientRect(), right = r.right + 70 < innerWidth;   // стрелка справа от цели и смотрит влево; у правого края — слева, смотрит вправо
       ar.classList.toggle('flip', !right); ar.style.top = (r.top + r.height / 2) + 'px'; ar.style.left = (right ? r.right + 4 : r.left - 4) + 'px'; }, 200); }
-  bus.on('skillsOpened', () => setTimeout(() => { const b = document.querySelector('.tal-learn.ok'); if (b) pointAt(b, 'Нажмите «Изучить»', { key: 'learn', win: true }); }, 350));
+  bus.on('skillsOpened', () => setTimeout(() => { const b = document.querySelector('.tal-learn.ok'); if (b) pointAt(b, `Нажмите «${(b.childNodes[0] && b.childNodes[0].textContent.trim()) || 'Изучить'}»`, { key: 'learn', win: true }); }, 350));
   // метки времени «первых минут» (видно в «Справке»: тестер присылает скриншот)
   bus.on('kill', () => mark('kill1'));
   bus.on('questComplete', () => mark('quest1'));
