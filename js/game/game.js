@@ -254,13 +254,18 @@ function spawnFloor(zone) {
       let px = x, py = y;
       for (let k = 0; k < 10; k++) { const tx = x + rrange(-spread, spread), ty = y + rrange(-spread, spread); if (zone.map.free(tx, ty, 0.4)) { px = tx; py = ty; break; } }
       const rr = ({ boss: 0.8, elite_guard: 0.55, beast: 0.5 })[type] || 0.35; [px, py] = zone.map.nearestFree(px, py, rr);
-      const e = new Enemy(type, px, py, tag ? lvl : bandLevel(lvl, lvl + 3), { story: tag || null, champion: !tag && rand() < Math.min(0.3, 0.05 + zone.json.floorN * 0.01) });   // сборка 62: не больше 30% чемпионов (на 100-м этаже были бы все)   // сборка 47: герой +1 в пределах этаж..этаж+3; страж — ровно уровня этажа (был «герой +1» всегда — прокачка не помогала)
+      const pro = !!zone.json.prologue;
+      const e = new Enemy(type, px, py, pro ? 1 : tag ? lvl : bandLevel(lvl, lvl + 3), { story: tag || null, champion: !pro && !tag && rand() < Math.min(0.3, 0.05 + zone.json.floorN * 0.01) });   // сборка 62: не больше 30% чемпионов (на 100-м этаже были бы все)   // сборка 47: герой +1 в пределах этаж..этаж+3; страж — ровно уровня этажа (был «герой +1» всегда — прокачка не помогала)
       if (tag === 'floorboss') e.name = type === 'boss' ? `Палач Глубин · этаж ${zone.json.floorN}` : `Страж глубин · этаж ${zone.json.floorN}`;
       if (tag === 'floorboss') {   // страж: HP ×1,8 и урон ×1,3 за 5 этажей от стража 5-го (раньше уровень² и Палач (база ×3,2) на 10/20/… давали ×9 за 5 этажей)
         // сборка 62: ×1,8 за 5 этажей — только до 10-го (дальше росло как 1,8^k: стена на 15–20-м, к 100-му — ×70 000); глубже страж растёт с уровнем этажа
         const k = Math.min(1, (zone.json.floorN - 5) / 5), boss = type === 'boss', L = zone.json.floorN > 10 ? floorLevel(10) + 1 : lvl;   // L — уровень, к которому приводим (раньше — всегда lvl)
         e.maxHP = Math.round(e.maxHP * 1.8 ** k * scaleHP(6) / scaleHP(L) * (boss ? 0.31 : 1)); e.hp = e.maxHP;
         e.dmgMul *= 1.3 ** k * scaleDmg(6) / scaleDmg(L) * (boss ? 0.78 : 1);
+      }
+      if (pro) {   // сборка 72: склеп пробуждения — враг умирает примерно за 5 обычных ударов героя любого класса и бьёт по 1–2 (герой ~100 HP)
+        const S = G.stats, avg = S ? (S.dmgMin + S.dmgMax) / 2 : 5;
+        e.armor = 0; e.maxHP = Math.max(8, Math.round(avg * 4.6)); e.hp = e.maxHP; e.dmgMul = 0.35;
       }
       if (tag === 'floorboss' && type === 'elite_guard') e.model = 'elite_warlord';   // сборка 57: свой вид (полководец с секирой)
       G.enemies.push(e);
