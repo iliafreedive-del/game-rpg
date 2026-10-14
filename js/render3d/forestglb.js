@@ -71,7 +71,7 @@ function bakeCards() {
   const dir = new THREE.Vector3(Math.sin(CAM_YAW) * Math.cos(CAM_PITCH), Math.sin(CAM_PITCH), Math.cos(CAM_YAW) * Math.cos(CAM_PITCH)),
     right = new THREE.Vector3(0, 1, 0).cross(dir).normalize(), up = dir.clone().cross(right).normalize();
   const mat = new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide }), cells = {};
-  const prev = { rt: R.getRenderTarget(), auto: R.autoClear, col: R.getClearColor(new THREE.Color()), a: R.getClearAlpha(), sh: R.shadowMap.enabled };
+  const prev = { rt: R.getRenderTarget(), auto: R.autoClear, col: R.getClearColor(new THREE.Color()), a: R.getClearAlpha(), sh: R.shadowMap.enabled, vp: R.getViewport(new THREE.Vector4()), sc: R.getScissor(new THREE.Vector4()) };
   R.setRenderTarget(rt); R.setClearColor(0x000000, 0); R.clear(); R.autoClear = false; R.shadowMap.enabled = false;
   let k = 0;
   for (const name of CARD_SPECIES) for (const turn of [0, 2.27]) {
@@ -84,12 +84,13 @@ function bakeCards() {
     const cam = new THREE.OrthographicCamera(-half, half, half, -half, -10, 10);
     cam.position.copy(dir).multiplyScalar(5).addScaledVector(right, cu).addScaledVector(up, cv); cam.up.copy(up); cam.lookAt(cam.position.clone().sub(dir));
     const cx = k % 4, cy = Math.floor(k / 4);
-    R.setViewport(cx * CELL, cy * CELL, CELL, CELL); R.setScissor(cx * CELL, cy * CELL, CELL, CELL); R.setScissorTest(true);
+    const pr = R.getPixelRatio(), c0 = CELL / pr;   // setViewport/setScissor умножают на pixelRatio экрана — в цель рисуем в её пикселях
+    R.setViewport(cx * c0, cy * c0, c0, c0); R.setScissor(cx * c0, cy * c0, c0, c0); R.setScissorTest(true);
     R.render(sc, cam); sc.remove(m);
     (cells[name] ||= []).push({ cx, cy, u0: cu - half, u1: cu + half, v0: cv - half, v1: cv + half });
     k++;
   }
-  R.setScissorTest(false); R.setViewport(0, 0, R.domElement.width, R.domElement.height); R.setRenderTarget(prev.rt); R.autoClear = prev.auto; R.setClearColor(prev.col, prev.a); R.shadowMap.enabled = prev.sh;
+  R.setScissorTest(false); R.setViewport(prev.vp); R.setScissor(prev.sc); R.setRenderTarget(prev.rt); R.autoClear = prev.auto; R.setClearColor(prev.col, prev.a); R.shadowMap.enabled = prev.sh;
   const tex = rt.texture;
   const cardMat = new THREE.MeshBasicMaterial({ map: tex, alphaTest: 0.45, side: THREE.DoubleSide, fog: true });
   return (ATLAS = { cells, mat: cardMat, dir, right, up });
@@ -102,9 +103,13 @@ function cardOf(name, variant, hk, wk, base) {
     build() {
       const A = bakeCards(), c = A && A.cells[name] && A.cells[name][variant % A.cells[name].length];
       const root = new THREE.Group(); if (!c) return { root };
-      // прямоугольник в плоскости камеры (её поворот не меняется), низ картинки — у основания дерева
-      const q = [[c.u0, c.v0], [c.u1, c.v0], [c.u1, c.v1], [c.u0, c.v1]], pos = [], uv = [];
-      for (const [u, w] of q) { const p = A.right.clone().multiplyScalar(u).addScaledVector(A.up, w); pos.push(p.x * H * wk, p.y * H, p.z * H * wk); }
+      // вертикальный прямоугольник поперёк взгляда камеры (её поворот не меняется): высота на экране = высота × cos(наклона), поэтому
+      // картинка растянута по высоте на 1 / cos — на экране дерево как в 3D
+      // крона спереди на экране ниже основания ствола (она ближе к камере) — прямоугольник выдвинут к камере на D, чтобы низ картинки
+      // лёг на землю, а не ушёл под неё: на экране точка та же (луч камеры), меняется только глубина
+      const q = [[c.u0, c.v0], [c.u1, c.v0], [c.u1, c.v1], [c.u0, c.v1]], pos = [], uv = [], sp = Math.sin(CAM_PITCH), cp = Math.cos(CAM_PITCH),
+        D = Math.max(0, -c.v0) / sp, hx = Math.sin(CAM_YAW), hz = Math.cos(CAM_YAW);
+      for (const [u, w] of q) { const p = A.right.clone().multiplyScalar(u); pos.push((p.x + hx * D) * H * wk, (w + D * sp) / cp * H, (p.z + hz * D) * H * wk); }
       for (const [a, b] of [[0, 0], [1, 0], [1, 1], [0, 1]]) uv.push((c.cx + a) / 4, (c.cy + b) / 4);
       const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex([0, 1, 2, 0, 2, 3]);
       root.add(new THREE.Mesh(g, A.mat)); return { root };

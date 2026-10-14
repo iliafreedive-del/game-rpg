@@ -419,7 +419,7 @@ export function generateVillage(plan0 = PLAN) {
   }
 
   // сборка 71: деревья-акценты у дорог и площадей (модели Meshy — js/render3d/forestglb.js; без «Новых моделей» — обычные деревья):
-  // на траве в 1,5–3,5 м от дороги, не на ней; не ближе 6 м друг к другу, не у зданий, полей, воды и порталов (дворы и места NPC — не вплотную), не закрывают цели
+  // на траве в 2,5–4,5 м от дороги (широкая колея не задевает), не ближе 14 м к старту героя (первый кадр игры) и 5 м к NPC; не ближе 6 м друг к другу, не у зданий, полей, воды и порталов (дворы и места NPC — не вплотную), не закрывают цели
   { const roadAt = (x, y, r) => { for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) if (Math.hypot(dx, dy) <= r + 0.01 && U(x + dx, y + dy) === 1) return true; return false; };
     const acc = [];
     const cells = []; for (let ty = 4; ty < H - 4; ty++) for (let tx = 4; tx < W - 4; tx++) cells.push([tx, ty, hh(tx, ty, 9)]);
@@ -427,7 +427,7 @@ export function generateVillage(plan0 = PLAN) {
     for (const [tx, ty] of cells) {
       if (acc.length >= 22) break;
       const x = tx + 0.25 + hh(tx, ty, 11) * 0.5, y = ty + 0.25 + hh(tx, ty, 12) * 0.5;
-      if (at(tx, ty) !== '.' || U(tx, ty) !== 0 || roadAt(tx, ty, 1) || !roadAt(tx, ty, 3) || nearPortal(x, y, 6.2) || inClear(x, y)) continue;
+      if (at(tx, ty) !== '.' || U(tx, ty) !== 0 || roadAt(tx, ty, 2) || !roadAt(tx, ty, 4) || nearPortal(x, y, 6.2) || inClear(x, y) || Math.hypot(x - plan.start[0], y - plan.start[1]) < 14 || npcs.some(n => Math.hypot(n.x - x, n.y - y) < 5)) continue;
       let ok = true; for (let dy = -2; dy <= 2 && ok; dy++) for (let dx = -2; dx <= 2; dx++) { const uu = U(tx + dx, ty + dy), c = at(tx + dx, ty + dy), nb = Math.abs(dx) <= 1 && Math.abs(dy) <= 1; if (uu === 4 || uu === 6 || ((uu === 5 || uu === 7) && nb) || c === '~' || c === 'b' || c === ';') { ok = false; break; } }
       if (!ok || trees.some(t => (t.x - x) ** 2 + (t.y - y) ** 2 < 3.4 * 3.4) || acc.some(t => (t.x - x) ** 2 + (t.y - y) ** 2 < 36) || mills.some(m => Math.hypot(m.x - x, m.y - y) < 5.5)) continue;
       if (targets.some(p => occludes({ x, y, w: 2.6, d: 2.6, h: 6 }, p))) continue;
