@@ -652,6 +652,8 @@ export function prepare() {
     if (packs.length) await settle(Promise.all(packs), 8000);
     if (G.zone !== Z) return;
     if (Z !== zone) setZone(Z);
+    // сборка 72: «Авто» в новой зоне начинает заново — раньше, снизив качество в бою Жатвы, оно так и оставалось «экономным» до конца игры
+    if ((govLevel || govScale < 1) && (!G.profile || !G.profile.settings || (G.profile.settings.quality || 'auto') === 'auto')) { govLevel = null; govScale = 1; govSlow = 0; govAcc = 0; govN = 0; perfNote('«Авто»: новая зона — качество снова обычное'); }
     applyQuality(); updateCamera(0); syncPlayer(0); syncEnemies(0); syncNpcs(0);   // герой, враги и жители — сразу, чтобы их шейдеры тоже собрались заранее
     await settle(renderer.compileAsync(scene, camera), 6000);
     // сборка 47: текстуры и буферы зоны — в видеопамять тоже под шторкой (compileAsync собирает только шейдеры; лес на телефоне

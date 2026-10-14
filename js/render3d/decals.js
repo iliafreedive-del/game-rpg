@@ -3,7 +3,7 @@
 // только «камера» — вид сверху на квадрат SIZE×SIZE м вокруг героя. Холст заливается в текстуру, только когда на полу что-то есть.
 import * as THREE from '../vendor/three.module.min.js';
 const PHONE = typeof matchMedia !== 'undefined' && matchMedia('(pointer: coarse)').matches;
-const SIZE = 32, PX = PHONE ? 512 : 1024, K = PX / SIZE;
+const SIZE = 32, PX = PHONE ? 512 : 768, K = PX / SIZE;   // сборка 72: на ПК 768² вместо 1024² — каждая заливка в видеокарту почти вдвое легче (журнал: при «пол» 30+ FPS 48–53 и в бою подземелий)
 export class GroundDecals {
   constructor(scene) {
     this.cv = document.createElement('canvas'); this.cv.width = this.cv.height = PX; this.ctx = this.cv.getContext('2d');
