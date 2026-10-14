@@ -1,10 +1,8 @@
 #!/bin/sh
-# Пак деревьев Meshy (сборка 71): лист «Low Poly Forest Trees» с Яндекс Диска → assets/models/trees/trees.glb.
-# Деревья-акценты (js/render3d/forestglb.js): ближние — почти полное качество (допуск 0,02, грани плоские — делает forestglb.js),
-# «_mid» (0,08) — остальной лес на карте, «_lo» (0,18) — лес за краем карты и тень. Сухая ель «:x» — три повёрнутые копии, сучья во все стороны.
+# Пак деревьев Meshy → assets/models/trees/trees.glb (js/render3d/forestglb.js). Сборка 72: только ель и ель в снегу (лист «Low Poly
+# Forest Trees» с Яндекс Диска): «_mid» (0,08) — на карте,
+# «_lo» (0,18) — за краем карты, у края деревни и тень. Грани плоские делает forestglb.js.
 #   sh tools/art/trees_build.sh <Meshy_AI_Low_Poly_Forest_Trees_*.glb>   (meshoptimizer — см. tools/art/tree_pack.mjs)
-N=0.02; D=0.08; F=0.18
+D=0.08; F=0.18
 SEED=2000 node tools/art/tree_pack.mjs "$1" assets/models/trees/trees.glb \
-  birch=0:0::$N spruce=1:0::$N pine=2:0::$N oak=3:0::$N rowan=4:0::$N birch_small=5:0::$N deadfir=6:0:x:$N log=7:0::$N spruce_snow=1:0:snow:$N \
-  birch_mid=0:0::$D spruce_mid=1:0::$D pine_mid=2:0::$D oak_mid=3:0::$D rowan_mid=4:0::$D birch_small_mid=5:0::$D deadfir_mid=6:0:x:$D log_mid=7:0::$D spruce_snow_mid=1:0:snow:$D \
-  birch_lo=0:0::$F spruce_lo=1:0::$F pine_lo=2:0::$F oak_lo=3:0::$F rowan_lo=4:0::$F birch_small_lo=5:0::$F deadfir_lo=6:0:x:$F log_lo=7:0::$F spruce_snow_lo=1:0:snow:$F
+  spruce_mid=1:0::$D spruce_snow_mid=1:0:snow:$D spruce_lo=1:0::$F spruce_snow_lo=1:0:snow:$F

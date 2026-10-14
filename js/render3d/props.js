@@ -146,7 +146,7 @@ export class PropLayer {
     }
     if (wantBackdrop && open) this.scatterDecor(zone, push, fj);
     const fwhere = mode === 'town' && zone.json.village ? 'town' : wildForest ? 'forest' : fj ? 'fjord' : null;   // сборка 71: деревья Meshy (forestglb.js)
-    const extra = { ...extra0, ...(bn ? bonesSwap(lists, PROPS, kit) : {}), ...(fwhere ? forestSwap(lists, PROPS, fwhere, zone.map, zone.statics) : {}), ...(this.tp ? templeSwap(lists) : {}) };   // храм — пак «каменная»   // Костяные пустоши: предметы из паков Meshy (только там, bonesglb.js)
+    const extra = { ...extra0, ...(bn ? bonesSwap(lists, PROPS, kit) : {}), ...(fwhere ? forestSwap(lists, PROPS, fwhere, zone.map) : {}), ...(this.tp ? templeSwap(lists) : {}) };   // храм — пак «каменная»   // Костяные пустоши: предметы из паков Meshy (только там, bonesglb.js)
     for (const [id, list] of lists) {
       const def = PROPS[id] || extra[id];
       if (def.batch) this.addBatch(def, list); else for (const it of list) this.addSingle(def, it);
