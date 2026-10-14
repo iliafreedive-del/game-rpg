@@ -7,7 +7,7 @@ import { gainXP } from './loot.js';
 import * as C from './combat.js';
 import { getAtlas, drawFrame } from '../core/assets.js';
 import { PX_PER_M } from '../core/iso.js';
-import { drawProjSheet, drawStatusSheet, drawFxSheet, fxReady, fxGround, drawGroundGlow, statusBillboard, fxMeta } from '../render/fxsheets.js';
+import { drawProjSheet, drawStatusSheet, drawFxSheet, flatTook, fxReady, fxGround, drawGroundGlow, statusBillboard, fxMeta } from '../render/fxsheets.js';
 import { rand, rrange } from '../core/util.js';
 const PHONE = typeof matchMedia !== 'undefined' && matchMedia('(pointer: coarse)').matches;
 
@@ -522,7 +522,7 @@ function drawFrost(c, cam, flat) {
 export function drawSurvivalGround(c, cam) {
   const S = G.surv; if (!S) return 0; let n = 0;
   if (fxReady('gr_burning_ground')) for (const q of S.pools) if (drawPool(c, cam, q)) n++;
-  if (fxReady('sk_meteor_target')) for (const m of S.drops || []) if (drawFxSheet(c, cam, markFx(m), 1)) n++;
+  if (fxReady('sk_meteor_target')) for (const m of S.drops || []) if (drawFxSheet(c, cam, markFx(m), 1) && !flatTook()) n++;
   n += drawFrost(c, cam, true);
   return n;
 }

@@ -58,7 +58,7 @@ function softCells(im, m, C, round) {
 export const fxGround = { on: false };
 // и «объёмные» листы на земле (без высоты z) — щитами в 3D (decals.js FxBillboards); fxBillboard отдаёт кадр для щита
 // сборка 71: загруженные «стоячие» листы — их картинки щиты заранее заливают в видеопамять (decals.js prewarm), без рывка на первом касте
-export function uprightImgs() { const a = []; for (const S of sheets.values()) if (S.view === 'upright') a.push(S.img); return a; }
+export function uprightImgs() { const a = []; for (const S of sheets.values()) if (S.view === 'upright' || S.view === 'ground') a.push(S.img); return a; }   // сборка 72: и листы «на полу» — они теперь тоже плоскости в 3D
 export const isUprightFx = e => e.kind === 'sheet' && fxGround.on && !(e.z > 0.3) && (META[real(e.id)] || {}).view === 'upright';
 export function fxBillboard(fx, alpha, cam) {
   const S = sheets.get(real(fx.id)); if (!S) return null;
@@ -119,10 +119,17 @@ function groundBasis(ctx, cam, x, y, a) {
   ctx.transform(ux - ox, uy - oy, vx - ox, vy - oy, ox, oy);
 }
 const ppmAt = (cam, x, y, z) => { const [gx, gy] = cam.toScreen(x, y, z), [hx, hy] = cam.toScreen(x, y, z + 1); return [gx, gy, Math.hypot(hx - gx, hy - gy) / 0.866]; };
+// сборка 72 (просадка в Жатве и катакомбах): лист «на полу» больше не рисуется на холст пола — он уходит в 3D плоскостью со своим
+// кадром листа (decals.js FxBillboards.flat). Холст пола 768² заливался в видеокарту каждые 4 кадра, пока на земле есть хоть что-то:
+// в Жатве — от каждого взмаха главного удара (sv_main_warrior), в журнале скорости при «пол» 30+ FPS падал до 48–53 в любой зоне.
+// Пока холст пола рисуется (ctx === flatSink.ctx), drawFxSheet складывает такие листы в flatSink.L; took — этот вызов ушёл в 3D, а не на холст
+export const flatSink = { ctx: null, L: [], took: false };
+export const flatTook = () => flatSink.took;
 // разовый/циклический эффект-лист. fx: { id, x, y, a, t, dur, realm, size (м), z, ex, ey (откуда удар — для разворота) }
 export function drawFxSheet(ctx, cam, fx, alpha = 1) {
-  const id = real(fx.id), S = sheets.get(id); if (!S) return false;
+  flatSink.took = false; const id = real(fx.id), S = sheets.get(id); if (!S) return false;
   const k = fx.cyc ? fx.t / fx.cyc : fx.t / fx.dur, [sx, sy] = cellOf(S, k), img = imgOf(S, id, fx.realm), m = fx.size || S.meters, C = S.C;
+  if (S.view === 'ground' && ctx === flatSink.ctx) { flatSink.L.push({ S: { img, C, anchor: S.anchor }, sx, sy, x: fx.x, y: fx.y, a: fx.a || 0, size: m, alpha, add: !!fx.add }); flatSink.took = true; return true; }
   ctx.save(); ctx.globalAlpha = alpha; if (fx.add) ctx.globalCompositeOperation = 'lighter';   // правки 3: add — сложением цветов (Жатва: ярко на тёмной арене)   // листы с чёрным фоном переведены в альфу (blend 'add' в json): обычное наложение — сложение на светлой траве выцветало до белого
   if (S.view === 'ground') { groundBasis(ctx, cam, fx.x, fx.y, fx.a || 0); ctx.drawImage(img, sx, sy, C, C, -m * S.anchor[0], -m * S.anchor[1], m, m); }
   else {   // «объём»: стоит вертикально, повёрнут к герою лицом; нарисован «вправо» — разворачиваем, если удар идёт справа налево

@@ -8,7 +8,7 @@ import { iconOf } from '../game/items.js';
 import { lvlOk } from '../game/progress.js';
 import { BIOMES } from '../data/biomes.js';
 import * as SV from '../game/survival.js';
-import { drawFxSheet, drawChargeTele, preloadFxSheets, drawProjSheet, drawStatusSheet, drawBeamSheet, telePattern, fxReady, zoneRealm, fxGround, isGroundFx, isUprightFx, fxBillboard, statusBillboard, BLAST_FX, drawFxFlat } from './fxsheets.js';
+import { drawFxSheet, flatTook, drawChargeTele, preloadFxSheets, drawProjSheet, drawStatusSheet, drawBeamSheet, telePattern, fxReady, zoneRealm, fxGround, isGroundFx, isUprightFx, fxBillboard, statusBillboard, BLAST_FX, drawFxFlat } from './fxsheets.js';
 import { projSheetOf, mobRageFx } from '../game/combat.js';
 import { GOLD_ICO, artImg } from '../ui/art.js';
 import { appH } from '../ui/fullscreen.js';
@@ -217,10 +217,10 @@ export function drawGroundLayer(c, gcam) {
   let n = 0;
   for (const e of G.effects) {
     const k = e.t / e.dur;
-    if (isGroundFx(e)) { if (drawFxSheet(c, gcam, e, e.fade ? 1 - Math.max(0, k - 0.7) / 0.3 : 1)) n++; continue; }
+    if (isGroundFx(e)) { if (drawFxSheet(c, gcam, e, e.fade ? 1 - Math.max(0, k - 0.7) / 0.3 : 1) && !flatTook()) n++; continue; }   // сборка 72: лист «на полу» — плоскость в 3D, холст не пачкает
     if (e.kind === 'sheet' && BLAST_FX.has(e.id) && !(e.z > 0.3)) { if (drawFxFlat(c, gcam, e, 0.75 * (1 - k))) n++; continue; }
     const gid = e.kind === 'scorch' ? 'gr_scorch' : e.kind === 'frost' ? 'gr_frost' : null;
-    if (gid && fxReady(gid) && drawFxSheet(c, gcam, { id: gid, x: e.x, y: e.y, t: e.t, dur: e.dur, size: e.r * (gid === 'gr_frost' ? 2.1 : 2.6) }, Math.min(1, (1 - k) * 4) * (gid === 'gr_frost' ? 0.55 : 1))) n++;
+    if (gid && fxReady(gid) && drawFxSheet(c, gcam, { id: gid, x: e.x, y: e.y, t: e.t, dur: e.dur, size: e.r * (gid === 'gr_frost' ? 2.1 : 2.6) }, Math.min(1, (1 - k) * 4) * (gid === 'gr_frost' ? 0.55 : 1)) && !flatTook()) n++;
   }
   if (G.surv) n += SV.drawSurvivalGround(c, gcam);
   return n + drawFloorRings(c, gcam);
@@ -383,7 +383,7 @@ function drawTelegraphs() {
     const tg = e.teleg; if (!tg || e.dead) continue;
     const p = Math.min(1, e.anim.prog / (e.atk ? e.atk.impact : 1));
     if (tg.sheet === 'charge' && drawChargeTele(ctx, cam, tg, p, tg.realm)) { FL_N++; continue; }   // П21: разбег — полоса шевронов вместо красной
-    if (tg.teleSheet && drawFxSheet(ctx, cam, { id: tg.teleSheet, x: tg.x, y: tg.y, t: p * 0.999, dur: 1, size: tg.r * 2.2 })) { FL_N++; continue; }   // сборка 61: метка-лист (корни, вихрь, колья)
+    if (tg.teleSheet && drawFxSheet(ctx, cam, { id: tg.teleSheet, x: tg.x, y: tg.y, t: p * 0.999, dur: 1, size: tg.r * 2.2 })) { if (!flatTook()) FL_N++; continue; }   // сборка 61: метка-лист (корни, вихрь, колья)
     ctx.save(); const [x, y] = cam.toScreen(tg.x, tg.y);
     ctx.translate(x, y); iso();
     const R = tg.r * 32 * z * Math.SQRT2;   // world metre → screen along iso diagonal

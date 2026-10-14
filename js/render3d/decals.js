@@ -20,12 +20,13 @@ export class GroundDecals {
   // сборка 66 (лаги при дожде клинков): холст 1024² заливался в видеопамять каждый кадр, пока на полу что-то есть; теперь — через кадр
   // (листы и так идут ~16 кадров/с), а пустой пол не перерисовывается
   update(cx, cy, paint) {
-    if (this.dirty && (this.skip = (this.skip + 1) % 4)) return;   // сборка 72: раз в 4 кадра (15 в секунду — как идут кадры листов эффектов); круги и метки теперь кольца в 3D (renderer3d.js markRings)
+    if (this.dirty && (this.skip = (this.skip + 1) % 4)) return false;   // сборка 72: раз в 4 кадра (15 в секунду — как идут кадры листов эффектов); круги и метки теперь кольца в 3D (renderer3d.js markRings)
     this.x0 = Math.round(cx) - SIZE / 2; this.y0 = Math.round(cy) - SIZE / 2;
     const c = this.ctx; c.setTransform(1, 0, 0, 1, 0, 0); c.globalAlpha = 1; c.globalCompositeOperation = 'source-over';
     if (this.dirty) c.clearRect(0, 0, PX, PX);
     const n = paint(c, this.cam); this.dirty = n > 0; this.mesh.visible = n > 0 || !this.warm; this.warm = true;   // ОС-16: в первый кадр плоскость видна (пустая) — шейдер собирается сразу, а не рывком при первом эффекте
     if (n > 0) { this.mesh.position.set(this.x0 + SIZE / 2, 0.07, this.y0 + SIZE / 2); this.tex.needsUpdate = true; this.ups = (this.ups || 0) + 1; }
+    return true;   // сборка 72: пол перерисован в этом кадре (листы «на полу» для FxBillboards.flat собраны заново)
   }
   dispose() { this.mesh.geometry.dispose(); this.mesh.material.dispose(); this.tex.dispose(); }
 }
@@ -35,7 +36,7 @@ export class GroundDecals {
 // ОС-15: щит «влетает» в цель — стоит почти в её середине (NUDGE мал): ближняя к камере часть фигуры заслоняет эффект, остальное видно.
 // Низ листа (нарисованная земля под эффектом) раньше уходил под пол и срезался ровной линией; теперь глубина пикселя щита не дальше
 // пола на этом луче (шейдер ниже): пол щит не режет, а герой и мобы — заслоняют. Правки 5 решали срез сдвигом щита к камере — он больше не нужен
-const NUDGE = 0.3, POOL = 48;   // сборка 72: клинки Жатвы — до 36 щитов (ореол, клинок, сияние, след)
+const NUDGE = 0.3, POOL = 48, FLATS = 32;   // сборка 72: клинки Жатвы — до 36 щитов (ореол, клинок, сияние, след)
 const U = { uGround: { value: new THREE.Vector4() }, uProj: { value: new THREE.Matrix4() } }, _n = new THREE.Vector3(), _o = new THREE.Vector3();
 function floorDepth(m) {
   m.onBeforeCompile = sh => {
@@ -46,9 +47,11 @@ function floorDepth(m) {
   };
   m.customProgramCacheKey = () => 'fxFloorDepth';
 }
+const FLAT_GEO = new THREE.BufferGeometry();   // квадрат на полу: (0..1, 0, 0..1), uv по строкам кадра листа сверху вниз
+FLAT_GEO.setAttribute('position', new THREE.Float32BufferAttribute([0, 0, 0, 1, 0, 0, 0, 0, 1, 1, 0, 1], 3)); FLAT_GEO.setAttribute('uv', new THREE.Float32BufferAttribute([0, 1, 1, 1, 0, 0, 1, 0], 2)); FLAT_GEO.setIndex([0, 2, 1, 1, 2, 3]);
 export class FxBillboards {
   constructor(scene) {
-    this.scene = scene; this.pool = []; this.base = new Map();   // картинка листа -> текстура (копии на щитах делят её в видеопамяти)
+    this.scene = scene; this.pool = []; this.flats = []; this.base = new Map();   // картинка листа -> текстура (копии на щитах делят её в видеопамяти)
   }
   baseTex(img) {
     let t = this.base.get(img); if (t) return t;
@@ -67,8 +70,8 @@ export class FxBillboards {
   // Листы, которые fxsheets отпустил при смене края, раньше так и оставались в видеопамяти — теперь их текстуры освобождаются
   prewarm(renderer, imgs) {
     if ((this.tick = (this.tick || 0) + 1) % 60 === 0 && this.base.size > imgs.length) {
-      const live = new Set(imgs);
-      for (const [img, t] of this.base) if (!live.has(img)) { t.dispose(); this.base.delete(img); for (const s of this.pool) { const T = s.userData.tex, st = T && T.get(img); if (st) { st.dispose(); T.delete(img); } if (s.userData.img === img) s.userData.img = null; } }
+      const live = new Set(imgs); for (const s of this.flats) if (s.visible && s.userData.img) live.add(s.userData.img);
+      for (const [img, t] of this.base) if (!live.has(img)) { t.dispose(); this.base.delete(img); for (const s of [...this.pool, ...this.flats]) { const T = s.userData.tex, st = T && T.get(img); if (st) { st.dispose(); T.delete(img); } if (s.userData.img === img) s.userData.img = null; } }
     }
     for (const img of imgs) if (!this.base.has(img)) { try { renderer.initTexture(this.baseTex(img)); } catch { } return; }
   }
@@ -76,6 +79,27 @@ export class FxBillboards {
     let s = this.pool[i]; if (s) return s;
     const mat = new THREE.SpriteMaterial({ transparent: true, premultipliedAlpha: true, depthWrite: false, toneMapped: false, fog: false });
     floorDepth(mat); s = new THREE.Sprite(mat); s.renderOrder = 10; s.frustumCulled = false; s.userData.img = null; this.scene.add(s); this.pool[i] = s; return s;
+  }
+  // сборка 72: листы «на полу» (взмах Жатвы, вихрь, подпалина, иней, метки) — плоскости у земли со своим кадром листа, а не рисунок на холсте пола:
+  // холст больше не заливается в видеокарту ради каждого взмаха. Квадрат 1×1 ложится на пол матрицей: ось u — поворот листа a, v — поперёк, размер m
+  flatItem(i) {
+    let s = this.flats[i]; if (s) return s;
+    const mat = new THREE.MeshBasicMaterial({ transparent: true, premultipliedAlpha: true, depthWrite: false, toneMapped: false, fog: false, polygonOffset: true, polygonOffsetFactor: -6, polygonOffsetUnits: -6 });
+    s = new THREE.Mesh(FLAT_GEO, mat); s.matrixAutoUpdate = false; s.renderOrder = 6; s.frustumCulled = false; s.visible = false; s.userData.img = null; this.scene.add(s); this.flats[i] = s; return s;
+  }
+  // list — [{ S, sx, sy, x, y, a, size, alpha, add }] (fxsheets.js flatSink)
+  flat(list) {
+    const n = Math.min(list.length, FLATS);
+    for (let i = 0; i < n; i++) {
+      const f = list[i], S = f.S, s = this.flatItem(i), m = s.material;
+      if (s.userData.img !== S.img) { const T = s.userData.tex || (s.userData.tex = new Map()); let t = T.get(S.img); if (!t) { t = this.slotTex(S.img); T.set(S.img, t); } if (!m.map) m.needsUpdate = true; m.map = t; s.userData.img = S.img; }
+      const W = S.img.width, H = S.img.height, C = S.C; m.map.repeat.set(C / W, C / H); m.map.offset.set(f.sx / W, 1 - (f.sy + C) / H);
+      m.opacity = f.alpha;   // обычное смешение даже у листов «сложением»: на прозрачном холсте пола сложение и было обычным наложением на землю (иначе блекнет)
+      const M = f.size, c = Math.cos(f.a) * M, sn = Math.sin(f.a) * M, ax = S.anchor[0], ay = S.anchor[1];
+      s.matrix.set(c, 0, -sn, f.x - c * ax + sn * ay, 0, 1, 0, 0.08, sn, 0, c, f.y - sn * ax - c * ay, 0, 0, 0, 1); s.matrixWorldNeedsUpdate = true;
+      s.visible = true;
+    }
+    for (let i = n; i < this.flats.length; i++) this.flats[i].visible = false;
   }
   // list — [{ S (лист из fxsheets), x, y, z, k, size, alpha, flip, add }]
   update(list, camera) {
