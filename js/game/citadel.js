@@ -11,7 +11,7 @@ import { Enemy } from './entities.js';
 import { rint } from '../core/util.js';
 
 const H = 3600e3;
-export const START_LVL = 40, RIFT_LVL = 40, RIFT_MS = 8 * H, NUDGE_MS = 90 * 60e3;   // перед релизом: Цитадель и её поручения — с 40 ур. (было 3 и 5): порталы открываются до 40-го
+export const START_LVL = 5, RIFT_LVL = 7, RIFT_MS = 8 * H, NUDGE_MS = 90 * 60e3;   // 13 октября: Цитадель снова с 5 ур. (до этого с 40-го — до неё не доходили), Разлом с 7-го
 export const RIFT_POS = [17, 15.4];   // северный проход из зала к галерее (js/world/castlegen.js)
 const cs = () => CS.C();
 const n = k => cs()[k] || 0;
@@ -20,17 +20,28 @@ const afford = c => G.profile.gold >= c.gold && (G.profile.shards || 0) >= c.sha
 
 // ---- поручения: выполняются по настоящему состоянию Цитадели, по порядку; шаг ждёт свой уровень
 export const CQ = [
-  { id: 'enter', lvl: 3, title: 'Войти в Цитадель Ордена', text: 'Эдрик: «Орден оставил стражу крепость. Солнечная арка в деревне ведёт в Цитадель — загляни».', done: () => n('visits') > 0, now: () => true, reward: { gold: 300, shards: 3 } },
-  { id: 'altar', lvl: 3, title: 'Разжечь Алтарь золота', text: 'Откройте Алтарь золота в западном крыле: он копит золото до 8 часов, даже когда вас нет в игре.', done: () => n('altar') > 0, now: can('altar'), reward: { shards: 3 } },
-  { id: 'take', lvl: 3, title: 'Забрать золото с алтаря', text: 'Алтарь уже копит. Вернитесь в Цитадель через час-другой и заберите золото.', done: () => n('taken') > 0, now: () => CS.altarStored() >= CS.altarRate(), reward: { gold: 100, shards: 2 } },
-  { id: 'decor', lvl: 3, title: 'Обставить главный зал', text: 'Светящиеся круги в зале — места для украшений. Каждое украшение даёт постоянный бонус.', done: () => Object.keys(cs().decor || {}).length > 0, now: () => Object.values(DECOR).some(afford), reward: { shards: 3 } },
-  { id: 'trial', lvl: 5, title: 'Открыть Зал испытаний', text: 'Восточное крыло: стражи прошлого бьются прямо в Цитадели — без спуска в подземелье.', done: () => n('trial') > 0, now: can('trial'), reward: { shards: 4 } },
-  { id: 'trialwin', lvl: 5, title: 'Пройти испытание', text: 'Победите стража в Зале испытаний. Вход — печать испытаний, они восстанавливаются сами.', done: () => n('trialWins') > 0, now: () => CS.seals().n > 0, reward: { gold: 400, shards: 3 } },
-  { id: 'rift', lvl: 5, title: 'Закрыть Разлом Бездны', text: 'В северном проходе Цитадели трещит Разлом Бездны. Подойдите к нему и отбейте три волны.', done: () => n('rifts') > 0, now: () => riftOpen(), reward: { shards: 4 } },
-  { id: 'treasury', lvl: 7, title: 'Открыть Сокровищницу Бездны', text: 'Северо-западное крыло: сундуки за осколки Бездны, в них вещи вашего класса.', done: () => n('treasury') > 0, now: can('treasury'), reward: { shards: 8 } },
-  { id: 'chest', lvl: 7, title: 'Открыть сундук Бездны', text: 'Сундук в Сокровищнице стоит 8 осколков. Внутри — вещь вашего класса, иногда эпическая.', done: () => n('chests') > 0, now: () => (G.profile.shards || 0) >= CS.CHEST_SHARDS, reward: { gold: 600 } },
-  { id: 'trophyroom', lvl: 9, title: 'Открыть Зал трофеев', text: 'Северо-восточное крыло: трофеи дают постоянный бонус к урону и золоту.', done: () => n('trophy') > 0, now: can('trophy'), reward: { shards: 10 } },
-  { id: 'trophy', lvl: 9, title: 'Поставить новый трофей', text: 'Улучшите трофей в Зале трофеев: +3% урона и +5% золота навсегда.', done: () => n('trophy') >= 2, now: () => afford(CS.trophyCost()), reward: { gold: 800, shards: 5 } },
+  { id: 'enter', lvl: 5, title: 'Войти в Цитадель Ордена', text: 'Эдрик: «Орден оставил стражу крепость. Солнечная арка в деревне ведёт в Цитадель — загляни».', done: () => n('visits') > 0, now: () => true, reward: { gold: 300, shards: 3 } },
+  { id: 'altar', lvl: 5, title: 'Разжечь Алтарь золота', text: 'Откройте Алтарь золота в западном крыле: он копит золото до 8 часов, даже когда вас нет в игре.', done: () => n('altar') > 0, now: can('altar'), reward: { shards: 3 } },
+  { id: 'take', lvl: 5, title: 'Забрать золото с алтаря', text: 'Алтарь уже копит. Вернитесь в Цитадель через час-другой и заберите золото.', done: () => n('taken') > 0, now: () => CS.altarStored() >= CS.altarRate(), reward: { gold: 100, shards: 2 } },
+  { id: 'decor', lvl: 5, title: 'Обставить главный зал', text: 'Светящиеся круги в зале — места для украшений. Каждое украшение даёт постоянный бонус.', done: () => Object.keys(cs().decor || {}).length > 0, now: () => Object.values(DECOR).some(afford), reward: { shards: 3 } },
+  { id: 'trial', lvl: 6, title: 'Открыть Зал испытаний', text: 'Восточное крыло: стражи прошлого бьются прямо в Цитадели — без спуска в подземелье.', done: () => n('trial') > 0, now: can('trial'), reward: { shards: 4 } },
+  { id: 'trialwin', lvl: 6, title: 'Пройти испытание', text: 'Победите стража в Зале испытаний. Вход — печать испытаний, они восстанавливаются сами.', done: () => n('trialWins') > 0, now: () => CS.seals().n > 0, reward: { gold: 400, shards: 3 } },
+  { id: 'rift', lvl: 7, title: 'Закрыть Разлом Бездны', text: 'В северном проходе Цитадели трещит Разлом Бездны. Подойдите к нему и отбейте три волны.', done: () => n('rifts') > 0, now: () => riftOpen(), reward: { shards: 4 } },
+  { id: 'treasury', lvl: 9, title: 'Открыть Сокровищницу Бездны', text: 'Северо-западное крыло: сундуки за осколки Бездны, в них вещи вашего класса.', done: () => n('treasury') > 0, now: can('treasury'), reward: { shards: 8 } },
+  { id: 'chest', lvl: 9, title: 'Открыть сундук Бездны', text: 'Сундук в Сокровищнице стоит 8 осколков. Внутри — вещь вашего класса, иногда эпическая.', done: () => n('chests') > 0, now: () => (G.profile.shards || 0) >= CS.CHEST_SHARDS, reward: { gold: 600 } },
+  // 13 октября: продолжение цепочки с 10 по 40 уровень — у Цитадели всегда есть следующая цель
+  { id: 'altar3', lvl: 10, title: 'Усилить Алтарь золота до 3-й ступени', text: 'Чем выше ступень алтаря, тем больше золота он копит, пока вас нет.', done: () => n('altar') >= 3, now: () => afford(CS.altarUpgCost()), reward: { shards: 5 } },
+  { id: 'decor3', lvl: 11, title: 'Поставить три украшения', text: 'Светящиеся круги есть в зале и в каждой комнате. Каждое украшение даёт постоянный бонус.', done: () => Object.keys(cs().decor || {}).length >= 3, now: () => Object.values(DECOR).some(afford), reward: { gold: 600, shards: 3 } },
+  { id: 'trophyroom', lvl: 12, title: 'Открыть Зал трофеев', text: 'Северо-восточное крыло: трофеи дают постоянный бонус к урону и золоту.', done: () => n('trophy') > 0, now: can('trophy'), reward: { shards: 10 } },
+  { id: 'trophy', lvl: 12, title: 'Поставить новый трофей', text: 'Улучшите трофей в Зале трофеев: +3% урона и +5% золота навсегда.', done: () => n('trophy') >= 2, now: () => afford(CS.trophyCost()), reward: { gold: 800, shards: 5 } },
+  { id: 'rift3', lvl: 13, title: 'Закрыть три Разлома Бездны', text: 'Разлом прорывается раз в 8 часов. Заходите в Цитадель, когда в деревне над аркой горит «!».', done: () => n('rifts') >= 3, now: () => riftOpen(), reward: { shards: 8 } },
+  { id: 'chest5', lvl: 15, title: 'Открыть пять сундуков Бездны', text: 'Осколки Бездны выпадают с элиты, чемпионов, стражей, боссов и из сундуков.', done: () => n('chests') >= 5, now: () => (G.profile.shards || 0) >= CS.CHEST_SHARDS, reward: { gold: 1500 } },
+  { id: 'trophy5', lvl: 18, title: 'Поднять трофей до 5-й ступени', text: 'Каждая ступень трофея — +3% урона и +5% золота навсегда.', done: () => n('trophy') >= 5, now: () => afford(CS.trophyCost()), reward: { shards: 10 } },
+  { id: 'trial10', lvl: 20, title: 'Победить десять стражей', text: 'Зал испытаний: печати восстанавливаются сами, по одной за 3 часа.', done: () => n('trialWins') >= 10, now: () => CS.seals().n > 0, reward: { gold: 3000, shards: 8 } },
+  { id: 'decor8', lvl: 25, title: 'Обставить Цитадель: восемь украшений', text: 'Заполните круги в комнатах. Лучшие украшения стоят осколков Бездны.', done: () => Object.keys(cs().decor || {}).length >= 8, now: () => Object.values(DECOR).some(afford), reward: { shards: 15 } },
+  { id: 'altar6', lvl: 30, title: 'Усилить Алтарь золота до 6-й ступени', text: 'Шестая ступень алтаря копит втрое больше первой.', done: () => n('altar') >= 6, now: () => afford(CS.altarUpgCost()), reward: { gold: 5000, shards: 10 } },
+  { id: 'rift10', lvl: 35, title: 'Закрыть десять Разломов Бездны', text: 'Орден держит Цитадель, пока вы закрываете разломы.', done: () => n('rifts') >= 10, now: () => riftOpen(), reward: { shards: 20 } },
+  { id: 'trophy10', lvl: 40, title: 'Поднять трофей до 10-й ступени', text: 'Зал трофеев полон: Орден помнит каждого побеждённого врага.', done: () => n('trophy') >= 10, now: () => afford(CS.trophyCost()), reward: { gold: 10000, shards: 25 } },
 ];
 const started = () => { const P = G.profile; return P && P.level >= START_LVL && !earlyLock('extra') && !!(P.story.flags.bossKilled || P.level >= 5); };
 // старые сохранения (до правок 3 счётчика visits нет): что уже сделано — засчитываем без наград, иначе разом 11 окон наград

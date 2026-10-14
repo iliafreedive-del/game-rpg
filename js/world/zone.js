@@ -269,7 +269,7 @@ export class Zone {
       } else if (o.t === 'castle') {
         const d = this.add({ x: o.x, y: o.y, spr: J.village ? 'portal_sun' : 'portal_crown', anim: 'portal' });   // сборка 47: в 3D-деревне — каменная арка с солнцем (бывший лесной)
         this.addLight(o.x, o.y, { r: 5, c: [255, 200, 110], flicker: 0.3, z: 1.2 });
-        this.inter.push({ id: 'portal_castle', type: 'portal', to: 'castle', x: o.x, y: o.y, r: 1.8, label: 'Цитадель Ордена', draw: d, reqLevel: 40, plate: 'Цитадель' });
+        this.inter.push({ id: 'portal_castle', type: 'portal', to: 'castle', x: o.x, y: o.y, r: 1.8, label: 'Цитадель Ордена', draw: d, reqLevel: 5, plate: 'Цитадель' });
         this.map.circles.push({ x: o.x, y: o.y - 0.1, r: 0.2 });
       } else if (o.t === 'swordportal' || o.t === 'handsportal') {   // портал с мечами (сборка 44) и с руками (сборка 46): пока только стоят, никуда не ведут
         this.add({ x: o.x, y: o.y, spr: o.t === 'handsportal' ? 'portal_hands' : 'portal_swords', anim: 'portal' });
