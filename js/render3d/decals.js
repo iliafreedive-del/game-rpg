@@ -20,7 +20,7 @@ export class GroundDecals {
   // сборка 66 (лаги при дожде клинков): холст 1024² заливался в видеопамять каждый кадр, пока на полу что-то есть; теперь — через кадр
   // (листы и так идут ~16 кадров/с), а пустой пол не перерисовывается
   update(cx, cy, paint) {
-    if (this.dirty && (this.skip = (this.skip + 1) % 3)) return;   // ОС-15: на полу теперь и круги (порталы, метки) — обновление раз в 3 кадра (20 в секунду)
+    if (this.dirty && (this.skip = (this.skip + 1) % 4)) return;   // сборка 72: раз в 4 кадра (15 в секунду — как идут кадры листов эффектов); круги и метки теперь кольца в 3D (renderer3d.js markRings)
     this.x0 = Math.round(cx) - SIZE / 2; this.y0 = Math.round(cy) - SIZE / 2;
     const c = this.ctx; c.setTransform(1, 0, 0, 1, 0, 0); c.globalAlpha = 1; c.globalCompositeOperation = 'source-over';
     if (this.dirty) c.clearRect(0, 0, PX, PX);

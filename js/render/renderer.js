@@ -236,7 +236,7 @@ const onFloor = () => !!GC || !fxGround.on;   // рисовать часть «�
 function drawFloorRings(c, gcam) {
   const K = gcam.toScreen(1, 0)[0] - gcam.toScreen(0, 0)[0], oc = ctx;
   GC = { toScreen: (x, y) => gcam.toScreen(x, y), zoom: K / (32 * Math.SQRT2), proj: null }; FL_N = 0; ctx = c;
-  try { drawGroundFx(); drawTelegraphs(); drawMoveTo(); drawBeacon(G.guide); drawEffects(); drawPlates(); drawInteractMarker(); }
+  try { drawGroundFx(); drawTelegraphs(); drawBeacon(G.guide); drawEffects(); }   // сборка 72: «идти сюда», кольцо под рукой и круги табличек/лечебных мест — кольца в 3D-сцене (renderer3d.js markRings, plateRings)
   finally { ctx = oc; GC = null; c.globalCompositeOperation = 'source-over'; c.setLineDash([]); }
   return FL_N;
 }
