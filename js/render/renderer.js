@@ -228,7 +228,10 @@ export function drawGroundLayer(c, gcam) {
 // сборка 66 (ОС-13): круги и ауры на земле — это обруч на полу: дальняя половина должна прятаться за героем и мобами.
 // В 3D их рисует тот же код, что и в 2D, но на холст плоскости у земли (вид сверху, без сплющивания): GC — «камера» холста пола
 let GC = null, FL_N = 0;
-const iso = (k = 0.5) => { if (GC) FL_N++; else ctx.scale(1, k); };   // эллипс на экране / круг на холсте пола (и счёт нарисованного)
+// сборка 71: на холсте пола считается только то, что попало в его квадрат 32×32 м (+8 м на радиус круга). Раньше круги всех табличек зоны
+// (порталы деревни) считались «нарисованными» из любой точки — холст 1024² в деревне перерисовывался и заливался в видеокарту 20 раз в секунду всегда
+const onCanvas = () => { const m = ctx.getTransform(), W = ctx.canvas.width, M = W / 4; return m.e > -M && m.e < W + M && m.f > -M && m.f < W + M; };
+const iso = (k = 0.5) => { if (GC) { if (onCanvas()) FL_N++; } else ctx.scale(1, k); };   // эллипс на экране / круг на холсте пола (и счёт нарисованного)
 const onFloor = () => !!GC || !fxGround.on;   // рисовать часть «на полу» сейчас: в 2D — всегда, в 3D — только в проходе по холсту пола
 function drawFloorRings(c, gcam) {
   const K = gcam.toScreen(1, 0)[0] - gcam.toScreen(0, 0)[0], oc = ctx;
@@ -716,8 +719,8 @@ function drawPlates() {
     if (it.glow && !it.hidden && onFloor()) { const [sx, sy] = cam.toScreen(it.x, it.y); ctx.save(); ctx.translate(sx, sy); iso(); ctx.globalCompositeOperation = 'lighter'; const p = 0.45 + Math.sin(G.time * 3 + it.x) * 0.2; ctx.strokeStyle = `rgba(120,230,255,${p})`; ctx.lineWidth = 3; ctx.setLineDash([6, 5]); ctx.beginPath(); ctx.arc(0, 0, 26 * z, 0, 7); ctx.stroke(); ctx.fillStyle = `rgba(120,230,255,${p * 0.25})`; ctx.fill(); ctx.restore(); if (!GC) { ctx.font = `bold ${Math.round(16 * z)}px Georgia`; ctx.textAlign = 'center'; ctx.fillStyle = `rgba(160,240,255,${p + 0.2})`; ctx.fillText('+', sx, sy + 5 * z); } }
     if (!it.plate || it.hidden) continue;
     const [x, y] = cam.toScreen(it.x, it.y);
-    // glowing ground ring
-    if (onFloor()) { ctx.save(); ctx.translate(x, y); iso(); ctx.globalCompositeOperation = 'lighter';
+    // glowing ground ring (сборка 71: в 3D это кольцо в сцене — renderer3d.js plateRings, не холст пола)
+    if (!fxGround.on) { ctx.save(); ctx.translate(x, y); iso(); ctx.globalCompositeOperation = 'lighter';
     const p = 0.5 + Math.sin(G.time * 3) * 0.2;
     ctx.strokeStyle = `rgba(255,205,90,${p})`; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(0, 0, 46 * z, 0, 7); ctx.stroke(); ctx.restore();
     ctx.globalCompositeOperation = 'source-over'; }
