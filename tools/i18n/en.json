@@ -3013,5 +3013,7 @@
  "Без следов": "No trail",
  "Питомца пока нет рядом. Возьмите его у Караванщика Кофи — и возвращайтесь за обликом.": "Your pet isn't nearby yet. Get one from Kofi the Caravaneer, then come back for its look.",
  " dpr {0} js {1} враги {2} эффекты {3} частицы {4} снаряды {5} пол {6}": " dpr {0} js {1} враги {2} эффекты {3} частицы {4} снаряды {5} пол {6}",
- "<div class=\"ic\">🎭</div><div class=\"tx\"><b>Облик героя и питомца</b><div class=\"muted\">Облики, краски, ауры, нимб, корона, следы, эффекты оружия и питомца — за осколки, рекламу или ₽</div></div>": "<div class=\"ic\">🎭</div><div class=\"tx\"><b>Hero and pet looks</b><div class=\"muted\">Looks, colors, auras, halo, crown, trails, weapon and pet effects — for shards, ads or ₽</div></div>"
+ "<div class=\"ic\">🎭</div><div class=\"tx\"><b>Облик героя и питомца</b><div class=\"muted\">Облики, краски, ауры, нимб, корона, следы, эффекты оружия и питомца — за осколки, рекламу или ₽</div></div>": "<div class=\"ic\">🎭</div><div class=\"tx\"><b>Hero and pet looks</b><div class=\"muted\">Looks, colors, auras, halo, crown, trails, weapon and pet effects — for shards, ads or ₽</div></div>",
+ "Эффект облика навсегда.": "Permanent look effect.",
+ " (питомец)": " (pet)"
 }

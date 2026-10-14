@@ -3013,5 +3013,7 @@
  "Без следов": "Sem rastro",
  "Питомца пока нет рядом. Возьмите его у Караванщика Кофи — и возвращайтесь за обликом.": "Seu mascote ainda não está por perto. Pegue-o com Kofi, o caravaneiro, e volte para escolher a aparência.",
  " dpr {0} js {1} враги {2} эффекты {3} частицы {4} снаряды {5} пол {6}": " dpr {0} js {1} враги {2} эффекты {3} частицы {4} снаряды {5} пол {6}",
- "<div class=\"ic\">🎭</div><div class=\"tx\"><b>Облик героя и питомца</b><div class=\"muted\">Облики, краски, ауры, нимб, корона, следы, эффекты оружия и питомца — за осколки, рекламу или ₽</div></div>": "<div class=\"ic\">🎭</div><div class=\"tx\"><b>Aparência do herói e do mascote</b><div class=\"muted\">Aparências, cores, auras, auréola, coroa, rastros, efeitos de arma e de mascote — por fragmentos, anúncios ou ₽</div></div>"
+ "<div class=\"ic\">🎭</div><div class=\"tx\"><b>Облик героя и питомца</b><div class=\"muted\">Облики, краски, ауры, нимб, корона, следы, эффекты оружия и питомца — за осколки, рекламу или ₽</div></div>": "<div class=\"ic\">🎭</div><div class=\"tx\"><b>Aparência do herói e do mascote</b><div class=\"muted\">Aparências, cores, auras, auréola, coroa, rastros, efeitos de arma e de mascote — por fragmentos, anúncios ou ₽</div></div>",
+ "Эффект облика навсегда.": "Efeito de aparência permanente.",
+ " (питомец)": " (mascote)"
 }

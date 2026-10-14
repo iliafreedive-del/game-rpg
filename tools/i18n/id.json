@@ -3013,5 +3013,7 @@
  "Без следов": "Tanpa jejak",
  "Питомца пока нет рядом. Возьмите его у Караванщика Кофи — и возвращайтесь за обликом.": "Peliharaanmu belum ada di dekatmu. Dapatkan dari Kofi si Kafilah, lalu kembali untuk tampilannya.",
  " dpr {0} js {1} враги {2} эффекты {3} частицы {4} снаряды {5} пол {6}": " dpr {0} js {1} враги {2} эффекты {3} частицы {4} снаряды {5} пол {6}",
- "<div class=\"ic\">🎭</div><div class=\"tx\"><b>Облик героя и питомца</b><div class=\"muted\">Облики, краски, ауры, нимб, корона, следы, эффекты оружия и питомца — за осколки, рекламу или ₽</div></div>": "<div class=\"ic\">🎭</div><div class=\"tx\"><b>Tampilan pahlawan dan peliharaan</b><div class=\"muted\">Tampilan, warna, aura, lingkaran cahaya, mahkota, jejak, efek senjata dan peliharaan — dengan serpihan, iklan, atau ₽</div></div>"
+ "<div class=\"ic\">🎭</div><div class=\"tx\"><b>Облик героя и питомца</b><div class=\"muted\">Облики, краски, ауры, нимб, корона, следы, эффекты оружия и питомца — за осколки, рекламу или ₽</div></div>": "<div class=\"ic\">🎭</div><div class=\"tx\"><b>Tampilan pahlawan dan peliharaan</b><div class=\"muted\">Tampilan, warna, aura, lingkaran cahaya, mahkota, jejak, efek senjata dan peliharaan — dengan serpihan, iklan, atau ₽</div></div>",
+ "Эффект облика навсегда.": "Efek tampilan permanen.",
+ " (питомец)": " (peliharaan)"
 }

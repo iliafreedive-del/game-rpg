@@ -3013,5 +3013,7 @@
  "Без следов": "İz yok",
  "Питомца пока нет рядом. Возьмите его у Караванщика Кофи — и возвращайтесь за обликом.": "Evcil hayvanın henüz yanında değil. Onu Kervancı Kofi’den al, sonra görünümü için geri gel.",
  " dpr {0} js {1} враги {2} эффекты {3} частицы {4} снаряды {5} пол {6}": " dpr {0} js {1} враги {2} эффекты {3} частицы {4} снаряды {5} пол {6}",
- "<div class=\"ic\">🎭</div><div class=\"tx\"><b>Облик героя и питомца</b><div class=\"muted\">Облики, краски, ауры, нимб, корона, следы, эффекты оружия и питомца — за осколки, рекламу или ₽</div></div>": "<div class=\"ic\">🎭</div><div class=\"tx\"><b>Kahraman ve evcil hayvan görünümü</b><div class=\"muted\">Görünümler, renkler, auralar, hale, taç, izler, silah ve evcil hayvan efektleri — parça, reklam veya ₽ karşılığında</div></div>"
+ "<div class=\"ic\">🎭</div><div class=\"tx\"><b>Облик героя и питомца</b><div class=\"muted\">Облики, краски, ауры, нимб, корона, следы, эффекты оружия и питомца — за осколки, рекламу или ₽</div></div>": "<div class=\"ic\">🎭</div><div class=\"tx\"><b>Kahraman ve evcil hayvan görünümü</b><div class=\"muted\">Görünümler, renkler, auralar, hale, taç, izler, silah ve evcil hayvan efektleri — parça, reklam veya ₽ karşılığında</div></div>",
+ "Эффект облика навсегда.": "Kalıcı görünüm efekti.",
+ " (питомец)": " (evcil hayvan)"
 }
