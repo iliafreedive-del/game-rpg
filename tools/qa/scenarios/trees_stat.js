@@ -10,12 +10,18 @@ for (const [name, id, how] of [['деревня', 'town', {}], ['лес', 'wild'
   { let q = 12345; const R0 = Math.random; Math.random = () => ((q = (q * 1103515245 + 12345) >>> 0) / 4294967296); try { await gm.loadZone(id, how); } finally { Math.random = R0; } }
   (await import('/js/core/camzoom.js')).setZoom(1.3); for (let k = 0; k < 100 && !G.zoneReady; k++) await sleep(200); await sleep(2500);
   for (const b of document.querySelectorAll('button')) if (/Вперёд|Понятно|Закрыть|В путь/.test(b.textContent)) b.click();
-  // герой — у самой густой группы деревьев карты (на свободной клетке рядом), чтобы деревья были в кадре
-  const T = G.zone.statics.filter(d => /^tree|deadtree/.test(d.spr)), M = G.zone.map, P = G.player;
-  // ближайшая к герою группа (≥ 4 дерева в 7 м), у которой есть свободная клетка в 3,5–6 м
-  const near = T.map(t => [t, (t.x - P.x) ** 2 + (t.y - P.y) ** 2]).sort((a, b) => a[1] - b[1]).map(a => a[0]);
-  found: for (const t of near) { if (T.filter(u => (u.x - t.x) ** 2 + (u.y - t.y) ** 2 < 49).length < (how.realm === 'fjord' ? 2 : 4)) continue;   // во Фьордах ели реже
-    for (let r = 3.5; r <= 6; r += 0.5) for (const [dx, dy] of [[r, r], [r, 0], [0, r], [-r, r], [r, -r], [-r, 0], [0, -r]]) if (M.free(t.x + dx, t.y + dy, 0.3)) { P.x = t.x + dx; P.y = t.y + dy; break found; } }
+  // герой — у деревьев-акцентов («fo:…» в списках PropLayer): там, где их больше всего в 8 м; место пишется в лог (POS …).
+  // TAG=before — место берётся из /qa_pos.json ({зона: [x, y]}), чтобы «до» снять с той же точки
+  const M = G.zone.map, P = G.player, L = R3.world.props._lists, acc = [];
+  for (const [k, l] of L) if (k.startsWith('fo:')) acc.push(...l);
+  let spot = null;
+  if (tag === 'before') try { spot = (await (await fetch('/qa_pos.json')).json())[name]; } catch (e) { print('нет /qa_pos.json'); }
+  else if (acc.length) {
+    const order = acc.map(a => [a, acc.filter(b => (a.x - b.x) ** 2 + (a.y - b.y) ** 2 < 64).length]).sort((a, b) => b[1] - a[1]).map(a => a[0]);
+    found: for (const best of order) for (let r = 2.5; r <= 7; r += 0.5) for (const [dx, dy] of [[r, r], [r, 0], [0, r], [-r, r], [r, -r], [-r, 0], [0, -r], [-r, -r]]) if (M.free(best.x + dx, best.y + dy, 0.3)) { spot = [best.x + dx, best.y + dy]; break found; }
+  }
+  if (spot) { P.x = spot[0]; P.y = spot[1]; }
+  print('POS', name, JSON.stringify(spot), 'акцентов', acc.length, 'карта', M.w, M.h, acc.map(a => a.x.toFixed(0) + ',' + a.y.toFixed(0)).join(' '));
   G.paused = false; await step(40); G.paused = true;
   for (const b of document.querySelectorAll('button')) if (/Вперёд|Понятно|Закрыть|В путь/.test(b.textContent)) b.click();
   rm.render(); await sleep(300); rm.render();

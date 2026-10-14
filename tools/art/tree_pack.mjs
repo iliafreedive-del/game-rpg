@@ -98,7 +98,7 @@ for (const pair of pairs) {
     ratio *= +tgt * 3 / sim.length;
   }
   const rem = new Int32Array(n).fill(-1); let cnt = 0; for (const v of sim) if (rem[v] < 0) rem[v] = cnt++;
-  const P2 = new Float32Array(cnt * 3), N2 = new Float32Array(cnt * 3), C2 = new Uint8Array(cnt * 4), I2 = new Uint16Array(sim.length);
+  let P2 = new Float32Array(cnt * 3), N2 = new Float32Array(cnt * 3), C2 = new Uint8Array(cnt * 4), I2 = new Uint16Array(sim.length);
   const lo = [1e9, 1e9, 1e9], hi = [-1e9, -1e9, -1e9];
   for (let v = 0; v < n; v++) if (rem[v] >= 0) { P2.set(pos.subarray(v * 3, v * 3 + 3), rem[v] * 3); N2.set(nrm.subarray(v * 3, v * 3 + 3), rem[v] * 3); for (let a = 0; a < 3; a++) { lo[a] = Math.min(lo[a], pos[v * 3 + a]); hi[a] = Math.max(hi[a], pos[v * 3 + a]); } }
   for (let k = 0; k < sim.length; k++) I2[k] = rem[sim[k]];
@@ -106,7 +106,7 @@ for (const pair of pairs) {
   for (let v = 0; v < n; v++) {
     const m = rem[v]; if (m < 0) continue;
     let r = col[v * 3], g = col[v * 3 + 1], b = col[v * 3 + 2];
-    if (snow) {
+    if (snow === 'snow') {
       const hy = (pos[v * 3 + 1] - lo[1]) / (hi[1] - lo[1]), up = nrm[v * 3 + 1];
       let k = Math.min(1, Math.max(0, (up - 0.15) / 0.6)) * (0.5 + 0.5 * hy) * (0.7 + 0.6 * nz(pos[v * 3] * 40, pos[v * 3 + 1] * 40, pos[v * 3 + 2] * 40));
       if (hy < 0.1) k *= hy / 0.1; k = Math.min(0.8, k);
@@ -118,13 +118,25 @@ for (const pair of pairs) {
   const H = hi[1] - lo[1], low = []; for (let v = 0; v < cnt; v++) if (P2[v * 3 + 1] < lo[1] + H * 0.03) low.push(v);
   const bx = low.reduce((s, v) => s + P2[v * 3], 0) / low.length, bz = low.reduce((s, v) => s + P2[v * 3 + 2], 0) / low.length;
   for (let v = 0; v < cnt; v++) { P2[v * 3] = (P2[v * 3] - bx) / H; P2[v * 3 + 1] = (P2[v * 3 + 1] - lo[1]) / H; P2[v * 3 + 2] = (P2[v * 3 + 2] - bz) / H; }
-  const mn = [(lo[0] - bx) / H, 0, (lo[2] - bz) / H], mx = [(hi[0] - bx) / H, 1, (hi[2] - bz) / H];
+  // «:x» — у сухой ели Meshy сучья только в две стороны (плоская): к ней добавляются две копии, повёрнутые вокруг ствола и пониже
+  // (ствол копии уже и короче — прячется в исходном), сучья расходятся во все стороны на разной высоте
+  if (snow === 'x') {
+    const K = [[0, 1, 1], [1.45, 0.93, 0.84], [2.65, 0.88, 0.68]], P3 = new Float32Array(cnt * 9), N3 = new Float32Array(cnt * 9), C3 = new Uint8Array(cnt * 12), I3 = new Uint16Array(I2.length * 3);
+    K.forEach(([a, s, h], k) => { const c = Math.cos(a), sn = Math.sin(a);
+      for (let v = 0; v < cnt; v++) { const x = P2[v * 3], z = P2[v * 3 + 2], nx = N2[v * 3], nz = N2[v * 3 + 2], o = (k * cnt + v) * 3;
+        P3[o] = (x * c - z * sn) * s; P3[o + 1] = P2[v * 3 + 1] * h; P3[o + 2] = (x * sn + z * c) * s;
+        N3[o] = nx * c - nz * sn; N3[o + 1] = N2[v * 3 + 1]; N3[o + 2] = nx * sn + nz * c; }
+      C3.set(C2, k * cnt * 4); for (let i = 0; i < I2.length; i++) I3[k * I2.length + i] = I2[i] + k * cnt; });
+    P2 = P3; N2 = N3; C2 = C3; I2 = I3; cnt *= 3;
+  }
+  const mn = [1e9, 0, 1e9], mx = [-1e9, 1, -1e9];
+  for (let v = 0; v < cnt; v++) for (const a of [0, 2]) { mn[a] = Math.min(mn[a], P2[v * 3 + a]); mx[a] = Math.max(mx[a], P2[v * 3 + a]); }
   const a0 = accs.length;
   accs.push({ bufferView: put(P2, 34962), componentType: 5126, count: cnt, type: 'VEC3', min: mn, max: mx }, { bufferView: put(N2, 34962), componentType: 5126, count: cnt, type: 'VEC3' },
     { bufferView: put(C2, 34962), componentType: 5121, normalized: true, count: cnt, type: 'VEC4' }, { bufferView: put(I2, 34963), componentType: 5123, count: I2.length, type: 'SCALAR' });
   meshes.push({ name, primitives: [{ attributes: { POSITION: a0, NORMAL: a0 + 1, COLOR_0: a0 + 2 }, indices: a0 + 3, material: 0 }] });
   nodes.push({ name, mesh: meshes.length - 1 });
-  console.log(`  ${name}: ${c.tris.length} → ${sim.length / 3} тр., ширина ${(mx[0] - mn[0]).toFixed(2)} × ${(mx[2] - mn[2]).toFixed(2)} при высоте 1`);
+  console.log(`  ${name}: ${c.tris.length} → ${I2.length / 3} тр., ширина ${(mx[0] - mn[0]).toFixed(2)} × ${(mx[2] - mn[2]).toFixed(2)} при высоте 1`);
 }
 { const pad = (-off) & 3; if (pad) { chunks.push(Buffer.alloc(pad)); off += pad; } }
 const J = { asset: { version: '2.0', generator: 'tree_pack.mjs' }, scene: 0, scenes: [{ nodes: nodes.map((_, i) => i) }], nodes, meshes, accessors: accs, bufferViews: bvs, buffers: [{ byteLength: off }],

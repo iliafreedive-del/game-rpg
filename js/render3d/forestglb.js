@@ -1,8 +1,10 @@
 // Деревья Meshy (сборка 71): пак assets/models/trees/trees.glb (tools/art/tree_pack.mjs) — дуб, сосна, ель, берёза, молодая берёза,
-// яблоня, сухая ель, бревно и ель в снегу; у деревьев есть облегчённые «_lo» для леса за краем карты (там процедурные «_far»).
-// Действует в деревне, Старом лесу и Фьордах (PropLayer зовёт swap) и только при «Новых моделях» (SKINS.on): процедурные породы
-// подменяются моделями по таблице MAP; вариант — по позиции. Цвет запечён в вершины, текстуры нет — материал тот же, что у
-// процедурных предметов (kit.propMat: ветер, растворение перед героем, затенение у земли). Пак грузится до сборки мира (renderer3d.js).
+// рябина, сухая ель, бревно и ель в снегу, почти в полном качестве (грани плоские — как на листе Meshy); «_lo» — только для тени.
+// Это акценты: старый процедурный лес остаётся, моделями заменяется не больше LIMIT деревьев внутри карты (в деревне — новые
+// деревья у дорог и площадей, villagegen.js; в лесу и Фьордах — часть деревьев на полянах), лес у края и за краем карты — прежний. Действует в деревне, Старом лесу и Фьордах
+// (PropLayer зовёт swap) и только при «Новых моделях» (SKINS.on); порода — по таблице MAP, вариант — по позиции. Цвет запечён в
+// вершины, текстуры нет — материал тот же, что у процедурных предметов (kit.propMat: ветер, растворение перед героем, затенение у
+// земли). Пак грузится до сборки мира (renderer3d.js).
 import * as THREE from '../vendor/three.module.min.js';
 import { GLTFLoader } from '../vendor/GLTFLoader.js';
 import { SKINS } from './glbskin.js';
@@ -14,7 +16,9 @@ let wait = null, ready = false;
 export function preloadForest() {
   if (wait) return wait;
   if (typeof document === 'undefined') return (wait = Promise.resolve(false));
-  wait = new GLTFLoader().loadAsync(URL_).then(g => { g.scene.traverse(o => { if (o.isMesh) GEO.set(o.name, shared(o.geometry)); }); return (ready = true); })
+  // у ближних моделей грани плоские (нормаль на грань): гладкие нормали размывали листву в «желе»; «_lo» (тень) — как есть
+  const flat = g => { const n = g.toNonIndexed(); n.computeVertexNormals(); g.dispose(); return n; };
+  wait = new GLTFLoader().loadAsync(URL_).then(g => { g.scene.traverse(o => { if (o.isMesh) GEO.set(o.name, shared(o.name.endsWith('_lo') ? o.geometry : flat(o.geometry))); }); return (ready = true); })
     .catch(e => { console.warn('trees pack', e); return false; });
   return wait;
 }
@@ -50,18 +54,38 @@ function defOf(name, hk, wk, far, base) {
   DEFS.set(key, def); return def;
 }
 
-/** Подмена списков PropLayer: lists — Map(id → [предметы]); where — 'town' | 'forest' | 'fjord'; возвращает доп. описания (id → def) */
-export function swap(lists, PROPS, where) {
+/** Подмена списков PropLayer: lists — Map(id → [предметы]); where — 'town' | 'forest' | 'fjord'; m — карта зоны (w, h);
+ *  statics — предметы зоны (метка акцента); возвращает доп. описания (id → def). Заменяются только деревья внутри карты (не ближе EDGE клеток к краю), не больше LIMIT —
+ *  разбросанные по карте (порядок по хешу позиции); остальные остаются процедурными */
+const LIMIT = { town: 24, forest: 22, fjord: 24 }, EDGE = 3.5;
+export function swap(lists, PROPS, where, m, statics = []) {
   const extra = {}, M = MAP[where];
-  if (!forestReady() || !M) return extra;
+  if (!forestReady() || !M || !m) return extra;
+  // в деревне — деревья, которые генератор поставил акцентами у дорог (villagegen.js, opts.accent), и одинокие деревья в глубине
+  // деревни (дальше 6 клеток от края); лес у края — прежний
+  const acc = where === 'town' && statics.filter(d => d.opts && d.opts.accent),
+    isAcc = it => !acc || (it.x > 6 && it.y > 6 && it.x < m.w - 6 && it.y < m.h - 6) || acc.some(d => Math.abs(d.x - it.x) < 0.05 && Math.abs(d.y - it.y) < 0.05);
+  const cand = [];
+  for (const [id, list] of lists) {
+    const V = M[id];
+    if (id.endsWith('_far') || !V || !V.every(v => v === null || GEO.has(Array.isArray(v) ? v[0] : v))) continue;
+    for (const it of list) if (it.x > EDGE && it.y > EDGE && it.x < m.w - EDGE && it.y < m.h - EDGE && isAcc(it)) cand.push([id, it, hash(it.x * 1.7 + 5, it.y * 0.9 - 3)]);
+  }
+  cand.sort((a, b) => a[2] - b[2]);
+  const take = new Set(), picked = [];
+  for (const c of cand) {   // не ближе 4 м друг к другу — акценты по всей карте, а не кучей
+    if (picked.length >= LIMIT[where]) break;
+    if (picked.some(p => Math.hypot(p.x - c[1].x, p.y - c[1].y) < 4)) continue;
+    picked.push(c[1]); take.add(c[1]);
+  }
   for (const [id, list] of [...lists]) {
-    const far = id.endsWith('_far'), src = far ? id.slice(0, -4) : id, V = M[src];
-    if (!V || !V.every(v => v === null || GEO.has(Array.isArray(v) ? v[0] : v))) continue;
+    const V = M[id];
+    if (!V || id.endsWith('_far')) continue;
     const keep = [];
     for (const it of list) {
-      const v = V[Math.floor(hash(it.x, it.y) * V.length) % V.length];
+      const v = take.has(it) ? V[Math.floor(hash(it.x, it.y) * V.length) % V.length] : null;
       if (v === null) { keep.push(it); continue; }
-      const [name, hk, wk] = Array.isArray(v) ? v : [v, 1, 1], def = defOf(name, hk, wk, far, PROPS[id] || {});
+      const [name, hk, wk] = Array.isArray(v) ? v : [v, 1, 1], def = defOf(name, hk, wk, false, PROPS[id] || {});
       if (T[name].sway) it.s = 0.8 + (it.s - 0.75) * 0.4;   // разброс роста процедурных (1–1,75) — у новых уже в породе: ±15 %, без великанов
       extra[def.id] = def;
       if (!lists.has(def.id)) lists.set(def.id, []);
