@@ -346,8 +346,8 @@ function fxSync(a, slots, get, x, y, dt, o) {
 function syncPlayer(dt) {
   const P = G.player; if (!P) return;
   const cls = (G.profile && G.profile.cls) || 'warrior';
-  // «Новые модели» (Настройки): готовая модель художника поверх рига (glbskin.js). Переключили или модель догрузилась — пересобрать героя
-  SKINS.on = !(G.profile && G.profile.settings && G.profile.settings.skins === false);
+  // готовая модель художника поверх рига (glbskin.js). Переключили или модель догрузилась — пересобрать героя
+  SKINS.on = true;   // сборка 72: только новые модели, переключателя больше нет
   // облик (js/game/cosmetics.js): другая модель класса качается, только когда её надели; пока качается — прежняя
   const alt = SKINS.on && heroModel(G.profile); let def = HEROES[cls];
   if (alt) { if (skinLoaded(alt)) def = altDef(cls, alt); else preloadSkin(alt); }
@@ -641,7 +641,7 @@ export function prepare() {
   bgModels(false);   // сборка 66: фоновая догрузка моделей не делит канал со сменой зоны
   warming = (async () => {
     // паки Meshy (порталы деревни, пустоши) — до сборки мира, чтобы слой предметов не пересобирался уже на глазах
-    SKINS.on = !(G.profile && G.profile.settings && G.profile.settings.skins === false);
+    SKINS.on = true;   // сборка 72: только новые модели, переключателя больше нет
     const packs = [];
     if (SKINS.on && !portalsReady()) packs.push(preloadPortals());   // сборка 47: арки Meshy стоят и выходами из катакомб, походов, Цитадели
     if (SKINS.on && Z.id === 'town' && Z.json.village && !altarReady()) packs.push(preloadAltar());
