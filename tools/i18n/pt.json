@@ -3015,5 +3015,9 @@
  " dpr {0} js {1} враги {2} эффекты {3} частицы {4} снаряды {5} пол {6}": " dpr {0} js {1} враги {2} эффекты {3} частицы {4} снаряды {5} пол {6}",
  "<div class=\"ic\">🎭</div><div class=\"tx\"><b>Облик героя и питомца</b><div class=\"muted\">Облики, краски, ауры, нимб, корона, следы, эффекты оружия и питомца — за осколки, рекламу или ₽</div></div>": "<div class=\"ic\">🎭</div><div class=\"tx\"><b>Aparência do herói e do mascote</b><div class=\"muted\">Aparências, cores, auras, auréola, coroa, rastros, efeitos de arma e de mascote — por fragmentos, anúncios ou ₽</div></div>",
  "Эффект облика навсегда.": "Efeito de aparência permanente.",
- " (питомец)": " (mascote)"
+ " (питомец)": " (mascote)",
+ "К выбору героя": "Escolher herói",
+ "Сменить героя": "Trocar herói",
+ "прогресс сохранится": "o progresso fica salvo",
+ "Прогресс сохранится; герой вернётся в деревню": "O progresso fica salvo; o herói volta à vila"
 }

@@ -599,11 +599,20 @@ W.settings = () => modal('Настройки', 'sm', b => {
   const row = el('div', 'row'); row.style.marginTop = '10px';
   const sv = el('button', 'btn', 'Сохранить'); sv.onclick = () => { if (saveNow(true)) bus.emit('toast', { text: 'Игра сохранена', kind: 'good' }); else bus.emit('toast', { text: 'Не удалось сохранить', sub: 'Браузер не даёт записать (приватный режим или нет места)', kind: 'warn' }); }; row.appendChild(sv);   // С14
   const rp = el('button', 'btn', 'Восстановить покупки'); rp.onclick = () => restorePurchases(); row.appendChild(rp);
+  const hs = el('button', 'btn gold', 'К выбору героя'); hs.title = 'Прогресс сохранится; герой вернётся в деревню';   // сборка 72: сменить героя, не удаляя сохранение
+  hs.onclick = () => { hs.disabled = true; toHeroSelect(); }; row.appendChild(hs);
   const wp = el('button', 'btn', 'Начать заново'); wp.onclick = () => { if (confirm('Удалить сохранение этого героя и начать заново? Это нельзя отменить. Сохранения других героев останутся.')) { wipeLocal(G.profile.cls); G.profile = null; const go = () => location.reload(); if (platform.name !== 'demo' && platform.p && platform.p.cloudSave && platform.cloudOK) Promise.race([platform.p.cloudSave(cloudBundle(null), true), new Promise(r => setTimeout(r, 8000))]).finally(go); else go(); } }; row.appendChild(wp);   // С12: перезагрузка — после настоящей записи в облако (не дольше 8 с)
   b.appendChild(row);
   b.appendChild(el('p', 'muted', `<small>Версия 2.0 · платформа: ${platform.name}</small>`));
 });
 
+// сборка 72: выход к экрану выбора героя (титул со слотами) — сохранить, дождаться облака (не дольше 8 с), перезапустить
+let leaving = false;
+function toHeroSelect() {
+  if (leaving) return; leaving = true; saveNow();
+  const go = () => location.reload();
+  if (platform.name !== 'demo' && platform.p && platform.p.cloudSave && platform.cloudOK) Promise.race([platform.p.cloudSave(cloudBundle(G.profile), true), new Promise(r => setTimeout(r, 8000))]).finally(go); else go();
+}
 // ---------------------------------------------------------------- NPCs
 let adminOK = false;   // сборка 62: админка открыта паролем до перезапуска
 const FACES = ['elder', 'smith', 'merchant', 'trainer', 'fortune'];   // сборка 47: портреты из 3D-моделей NPC (tools/qa/scenarios/npc_faces.js)
@@ -1476,14 +1485,14 @@ W.menu = () => modal('Меню', 'md', b => {
     ['inventory', '🎒', 'Герой', 'снаряжение и сумка', 'dotInv'], ['character', '🛡', 'Персонаж', 'характеристики', 'dotChar'], ['skills', '✦', 'Навыки', 'умения и кнопки', 'dotSkill'],
     ['journal', '📜', 'Задания', 'сюжет и ежедневные'], ['map', '🗺', 'Карта', 'текущая локация'],
     ['herospath', '⚔', 'Летопись битв', 'автобои', 'dotHW'], ['shrine', '🎁', 'Источник силы', 'дары, сила источника', 'dotGift'], ['season', '🏆', 'Путь сезона', SE.seasonName() + ' · 30 ступеней', 'dotSeason'], ['codex', '📖', 'Коллекция', '+0,5% за каждую находку'],
-    ['help', '❓', 'Справка', 'подсказки и обучение'], ['settings', '⚙', 'Настройки', 'звук, графика'],
+    ['help', '❓', 'Справка', 'подсказки и обучение'], ['settings', '⚙', 'Настройки', 'звук, графика'], ['heroselect', '👥', 'Сменить героя', 'прогресс сохранится'],
   ];
   const g = el('div', 'menu-grid');
   for (const [id, ic, name, sub, badge] of tiles) {
     const locked = TOWN_ONLY[id] && G.zoneId !== 'town';
     const n = badge ? BADGES[badge] || 0 : 0;
     const t = el('button', 'menu-tile' + (locked ? ' locked' : ''), `<span class="mt-ic">${ic}</span><b>${name}</b><small>${locked ? 'в деревне' : sub}</small>${n ? `<span class="mt-dot">${n}</span>` : ''}`); t.dataset.w = id;
-    t.onclick = () => { closeModal(); openWindow(id); };
+    t.onclick = id === 'heroselect' ? () => { t.disabled = true; toHeroSelect(); } : () => { closeModal(); openWindow(id); };
     g.appendChild(t);
   }
   b.appendChild(g);

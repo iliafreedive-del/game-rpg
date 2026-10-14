@@ -3015,5 +3015,9 @@
  " dpr {0} js {1} враги {2} эффекты {3} частицы {4} снаряды {5} пол {6}": " dpr {0} js {1} враги {2} эффекты {3} частицы {4} снаряды {5} пол {6}",
  "<div class=\"ic\">🎭</div><div class=\"tx\"><b>Облик героя и питомца</b><div class=\"muted\">Облики, краски, ауры, нимб, корона, следы, эффекты оружия и питомца — за осколки, рекламу или ₽</div></div>": "<div class=\"ic\">🎭</div><div class=\"tx\"><b>Kahraman ve evcil hayvan görünümü</b><div class=\"muted\">Görünümler, renkler, auralar, hale, taç, izler, silah ve evcil hayvan efektleri — parça, reklam veya ₽ karşılığında</div></div>",
  "Эффект облика навсегда.": "Kalıcı görünüm efekti.",
- " (питомец)": " (evcil hayvan)"
+ " (питомец)": " (evcil hayvan)",
+ "К выбору героя": "Kahraman seç",
+ "Сменить героя": "Kahraman değiştir",
+ "прогресс сохранится": "ilerleme korunur",
+ "Прогресс сохранится; герой вернётся в деревню": "İlerleme korunur; kahraman köye döner"
 }
