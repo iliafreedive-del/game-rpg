@@ -3015,5 +3015,9 @@
  " dpr {0} js {1} враги {2} эффекты {3} частицы {4} снаряды {5} пол {6}": " dpr {0} js {1} враги {2} эффекты {3} частицы {4} снаряды {5} пол {6}",
  "<div class=\"ic\">🎭</div><div class=\"tx\"><b>Облик героя и питомца</b><div class=\"muted\">Облики, краски, ауры, нимб, корона, следы, эффекты оружия и питомца — за осколки, рекламу или ₽</div></div>": "<div class=\"ic\">🎭</div><div class=\"tx\"><b>Tampilan pahlawan dan peliharaan</b><div class=\"muted\">Tampilan, warna, aura, lingkaran cahaya, mahkota, jejak, efek senjata dan peliharaan — dengan serpihan, iklan, atau ₽</div></div>",
  "Эффект облика навсегда.": "Efek tampilan permanen.",
- " (питомец)": " (peliharaan)"
+ " (питомец)": " (peliharaan)",
+ "К выбору героя": "Pilih pahlawan",
+ "Сменить героя": "Ganti pahlawan",
+ "прогресс сохранится": "progres tersimpan",
+ "Прогресс сохранится; герой вернётся в деревню": "Progres tersimpan; pahlawan kembali ke desa"
 }
