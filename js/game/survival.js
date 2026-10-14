@@ -7,7 +7,7 @@ import { gainXP } from './loot.js';
 import * as C from './combat.js';
 import { getAtlas, drawFrame } from '../core/assets.js';
 import { PX_PER_M } from '../core/iso.js';
-import { drawProjSheet, drawStatusSheet, drawFxSheet, fxReady, fxGround, drawGroundGlow, statusBillboard } from '../render/fxsheets.js';
+import { drawProjSheet, drawStatusSheet, drawFxSheet, fxReady, fxGround, drawGroundGlow, statusBillboard, fxMeta } from '../render/fxsheets.js';
 import { rand, rrange } from '../core/util.js';
 const PHONE = typeof matchMedia !== 'undefined' && matchMedia('(pointer: coarse)').matches;
 
@@ -527,9 +527,21 @@ export function drawSurvivalGround(c, cam) {
   return n;
 }
 // сборка 66 (ОС-14): танцующие клинки в 3D — щиты в сцене (render3d/decals.js): за героем клинок прячется за ним
+// сборка 72: клинки почти не было видно — тёмный стальной клинок рисовался сложением (тёмное на светлом полу пропадает) и мелко.
+// Теперь клинок крупнее и выше, рисуется обычным смешением (видна сталь), поверх — копия сложением (синее сияние кромки),
+// под ним — голубой ореол, за ним — бледнеющий след из ореолов по орбите (у «Вихря стали» клинков вдвое больше — без следа). Щитов: ≤5 на клинок, не больше 36 всего
+const BLADE = { sv_orbit_blade: [2.6, 0.8], sv_evo_blades: [2.3, 0.75] }, BLADE_TRAIL = [[0.25, 0.5, 0.8], [0.5, 0.25, 0.6]];
+let haloS = null;   // ореол клинка (по центру клинка в кадре листа — он выше середины) — свой маленький лист 64² (рисуется один раз, в видеопамять — один раз)
+const bladeHalo = () => haloS || (haloS = { img: sprite('bladeHalo', 32, (x, R) => { const g = x.createRadialGradient(0, 0, 0, 0, 0, R); g.addColorStop(0, 'rgba(150,235,255,0.85)'); g.addColorStop(0.3, 'rgba(30,170,255,0.6)'); g.addColorStop(0.65, 'rgba(40,80,230,0.22)'); g.addColorStop(1, 'rgba(40,60,220,0)'); x.fillStyle = g; x.beginPath(); x.arc(0, 0, R, 0, 7); x.fill(); }), C: 64, anchor: [0.5, 0.5] });
 export function survivalUpright(L) {
   const S = G.surv; if (!S || !S.bladePts) return; const bid = S.evo.evo_blades ? 'sv_evo_blades' : 'sv_orbit_blade'; if (!fxReady(bid)) return;
-  for (const [bx, by] of S.bladePts) { const b = statusBillboard(bid, bx, by, 0.3, S.evo.evo_blades ? 1.6 : 1.2); if (b) { b.add = true; L.push(b); } }
+  const [sz, z] = BLADE[bid], pl = G.player, n = S.bladePts.length, ph = G.time / ((fxMeta(bid) || {}).dur || 0.4), H = bladeHalo(), evo = S.evo.evo_blades;
+  S.bladePts.forEach(([bx, by, a], i) => {
+    const k = (ph + i / n) % 1, R = Math.hypot(bx - pl.x, by - pl.y), b = statusBillboard(bid, bx, by, z, sz, 1, k); if (!b) return;
+    const h = { S: H, sx: 0, sy: 0, x: bx, y: by, z: z + sz * 0.18, size: evo ? 1.1 : 1.4, alpha: 0.9, flip: false, add: false };   // ореол — обычным смешением: насыщенный голубой виден на светлом полу (сложением выцветал в белое)
+    if (!evo) for (const [da, al, s] of BLADE_TRAIL) L.push({ ...h, x: pl.x + Math.cos(a - da) * R, y: pl.y + Math.sin(a - da) * R, size: h.size * s, alpha: al });
+    L.push(h, b, { ...b, size: sz * 1.1, alpha: evo ? 0.55 : 0.8, add: true });
+  });
 }
 // прежний рисунок клинка (лист не загрузился) в 3D: за спиной героя, где его заслоняет фигура, не рисуем
 export const hiddenBehind = (cam, x, y) => { const P = G.player; if (!fxGround.on || !P || x + y >= P.x + P.y) return false; const [sx] = cam.toScreen(x, y), [px] = cam.toScreen(P.x, P.y); return Math.abs(sx - px) < 26 * cam.zoom; };
@@ -584,6 +596,6 @@ export function drawSurvivalFx(ctx, cam) {
     ctx.save(); ctx.globalCompositeOperation = 'source-over'; ctx.translate(x, y - 44 - b); ctx.fillStyle = '#7ae0ff'; ctx.strokeStyle = '#06222c'; ctx.lineWidth = 3; ctx.shadowColor = '#7ae0ff'; ctx.shadowBlur = 12;
     ctx.beginPath(); ctx.moveTo(-12, -16); ctx.lineTo(12, -16); ctx.lineTo(0, 4); ctx.closePath(); ctx.stroke(); ctx.fill(); ctx.restore(); ctx.globalCompositeOperation = 'lighter';
   }
-  if (S.bladePts) { const bid = S.evo.evo_blades ? 'sv_evo_blades' : 'sv_orbit_blade', ok = fxReady(bid); if (!(ok && fxGround.on)) for (const [bx, by, a] of S.bladePts) { if (hiddenBehind(cam, bx, by)) continue; if (ok && drawStatusSheet(ctx, cam, bid, bx, by, 0.3, S.evo.evo_blades ? 1.6 : 1.2)) continue; const [x, y] = cam.toScreen(bx, by, 0.9); blit(ctx, bladeSpr(), x, y, 60 * z, a * 3); blit(ctx, bladeSpr(), x, y, 40 * z, a * 3); } }
+  if (S.bladePts) { const bid = S.evo.evo_blades ? 'sv_evo_blades' : 'sv_orbit_blade', ok = fxReady(bid); ctx.globalCompositeOperation = 'source-over'; if (!(ok && fxGround.on)) for (const [bx, by, a] of S.bladePts) { if (hiddenBehind(cam, bx, by)) continue; if (ok && drawStatusSheet(ctx, cam, bid, bx, by, BLADE[bid][1], BLADE[bid][0])) continue; const [x, y] = cam.toScreen(bx, by, 0.9); blit(ctx, bladeSpr(), x, y, 60 * z, a * 3); blit(ctx, bladeSpr(), x, y, 40 * z, a * 3); } }
   ctx.globalCompositeOperation = 'source-over';
 }
