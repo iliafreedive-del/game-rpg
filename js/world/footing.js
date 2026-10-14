@@ -14,3 +14,7 @@ export function fit(m, x, y, r, ok = null) {   // ok(x, y) — где ещё м�
 }
 // радиус пятна по виду предмета: скалы-столбы и утёсы шире, деревья и камни — средние, мелочь — узкая
 export const footOf = (id, s = 1) => (/spire|mesa|tooth|crag|peak|pillar|longship|ruin/.test(id) ? 0.95 : /tree|acacia|rock|stone|boulder|slab|ledge|shard|chunk|block|pine|spruce|birch|oak|fir/.test(id) ? 0.65 : 0.35) * s + 0.1;
+// правки 72: «сундук в скале» — то, что подбирают (сундук, тайник-бочка/ящик, схрон), не стоит внутри скалы, дерева, корабля.
+// PICK_R — пятно подбираемого предмета (м, тип объекта карты); SOLID_RE — что в него не должно врастать (zone.js и 3D-декор props.js)
+export const PICK_R = { wchest: 0.7, chest: 0.6, chest_rich_d: 0.65, stash: 0.5, cache: 0.6 };
+export const SOLID_RE = /tree|rock|bush|fern|spire|tooth|mesa|agave|stalag|crystal|mushroom|crag|stone|boulder|slab|menhir|stump|longship|boat|ruin/;

@@ -1,6 +1,6 @@
 // Слой окружения: превращает zone.statics в 3D. Модели с batch:true собираются в instanced-меши (по одному на меш модели),
 // остальные — отдельные группы с update(t). Деревьев вне карты добавляется кольцо-фон, чтобы за краем не было пустоты.
-import { onGround, fit, footOf } from '../world/footing.js';
+import { onGround, fit, footOf, SOLID_RE } from '../world/footing.js';
 import * as THREE from '../vendor/three.module.min.js';
 import { addOutlines, outlineMat } from './actor.js';
 import { PROPS, TREE_KINDS, DEAD_KINDS, ROCK_KINDS } from './registry.js';
@@ -34,6 +34,13 @@ const STEPPE_FREE = new Set(['sand_spire', 'sand_spire_b', 'sand_tooth', 'sand_m
 function pickTree(spr, h) { const L = TREE_KINDS[spr] || (spr === 'deadtree' ? DEAD_KINDS : spr === 'rocks' ? ROCK_KINDS : null); if (!L) return spr; let t = h * L.reduce((a, k) => a + k[1], 0); for (const [id, w] of L) { if ((t -= w) < 0) return id; } return L[0][0]; }
 // оттенок экземпляра: светлее/темнее, теплее/холоднее — соседние деревья одной породы не одинаковые
 function tintOf(x, y, k) { const a = hash(x * 1.3 + 7, y * 0.7), b = hash(y * 1.9, x * 2.7 + 3), l = 1 + (a - 0.5) * 2 * k, w = (b - 0.5) * k; return new THREE.Color(l * (1 + w * 0.6), l * (1 + w * 0.25), l * (1 - w * 0.8)); }
+// правки 72: полуширина модели на земле (м, при s = 1) — по меньшей стороне рамки; один раз на вид предмета
+const _modelR = new Map();
+function modelR(def, kit) {
+  if (_modelR.has(def)) return _modelR.get(def); let r = 0;
+  try { const root = def.build(kit, {}).root; root.updateMatrixWorld(true); const b = new THREE.Box3().setFromObject(root); r = Math.min(b.max.x - b.min.x, b.max.z - b.min.z) / 2; } catch (e) { r = 0; }
+  _modelR.set(def, r); return r;
+}
 let _proxyMat = null;
 const proxyMat = () => _proxyMat || (_proxyMat = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false }));
 
@@ -48,10 +55,18 @@ export class PropLayer {
     const isl = zone.id === 'wild' && !!zone.json.wild.islands, M0 = zone.map, foot = this.foot = { moved: 0, dropped: 0, hang: [] };
     // правки 5: «мобы или предметы в предметах не должны теряться» — декор, который ставит только 3D (камни кромки, кусты, мелочь), не растёт сквозь драккары и лодки
     const SHIP_R = { fj_longship: 3.4, fj_longship_b: 3.4, fj_longship_split: 4.4, fj_boat: 1.8 }, ships = zone.statics.filter(d => SHIP_R[d.model]).map(d => [d.x, d.y, SHIP_R[d.model]]);
-    if (isl) for (const d of zone.statics) if (/^chest/.test(d.spr)) ships.push([d.x, d.y, zone.json.wild.realm === 'bones' ? 1.4 : 0.7]);   // и сквозь сундуки
     const inShip = (x, y, r) => ships.some(([sx, sy, sr]) => (x - sx) ** 2 + (y - sy) ** 2 < (sr + r) ** 2);
+    // правки 72: «сундук в скале» — скалы, утёсы, деревья и корабли не стоят на сундуке, тайнике (бочка/ящик) и схроне ни в одной локации:
+    // считаем всё пятно предмета (было ×0,6 и только сундуки островов — утёс кромки Фьордов вставал на сундук). Предмет карты (fixed, с коллизией) — уменьшаем облик, остальное не ставим
+    const PK = { chest: zone.id === 'wild' && zone.json.wild.realm === 'bones' ? 1.4 : 0.7, stash: 0.5, cache: 0.6 }, picks = zone.inter.filter(i => PK[i.type]).map(i => [i.x, i.y, PK[i.type]]);
+    const onPick = (x, y, r) => picks.some(([px, py, pr]) => (x - px) ** 2 + (y - py) ** 2 < (pr + r) ** 2);
+    this.pickHit = 0;   // для проверки (tools): сколько предметов убрано/уменьшено с подбираемого
     const place = (id, x, y, s, fixed) => {
       if (!fixed && ships.length && !SHIP_R[id] && inShip(x, y, footOf(id, s) * 0.6)) { foot.dropped++; return null; }
+      if (picks.length && SOLID_RE.test(id) && onPick(x, y, footOf(id, s))) {
+        this.pickHit++; if (!fixed) return null;
+        let k = 0.85; while (k > 0.3 && onPick(x, y, footOf(id, s * k))) k -= 0.1; s *= k;
+      }
       if (!isl || /bridge/.test(id) || onGround(M0, x, y, footOf(id, s))) return [x, y, s];
       if (fixed) {   // предмет карты с коллизией (его ставит zone.js): не двигаем — уменьшаем 3D-облик (форма камня у кромки — меньше), пока не встанет на землю
         for (let k = 0.85; k >= 0.45; k -= 0.1) if (onGround(M0, x, y, footOf(id, s * k))) { foot.shrunk = (foot.shrunk || 0) + 1; return [x, y, s * k]; }
@@ -60,7 +75,7 @@ export class PropLayer {
       const p = fit(M0, x, y, footOf(id, s)); if (p) foot.moved++; else foot.dropped++; return p && [p[0], p[1], s];
     };
     const push = (id, x, y, rot, s, opts, fixed) => { const p = place(id, x, y, s, fixed); if (!p) return; [x, y, s] = p; if (!lists.has(id)) lists.set(id, []); const t = PROPS[id] && PROPS[id].tint; let col = t ? tintOf(x, y, t) : null; if (col && wildForest) col.multiply(WF_TINT);   // кроны леса темнее и холоднее земли
-      lists.get(id).push({ x, y, rot, s, opts, col }); };
+      lists.get(id).push({ x, y, rot, s, opts, col, fixed }); };
     const mode = zone.id === 'town' ? 'town' : zone.id === 'wild' ? 'wild' : 'dungeon', dungeon = mode === 'dungeon', wild = mode === 'wild', m = zone.map;
     const fj = wild && zone.json.wild.realm === 'fjord', bn = wild && zone.json.wild.realm === 'bones', open = !dungeon;   // open — открытая местность (деревня, поход); bn — Костяные пустоши
     const MODEL = { fort_hall: fj ? 'fort_hall_i' : bn ? 'bone_hall' : 'fort_hall_w', tent: fj ? 'tent_i' : bn ? 'bone_hut' : 'tent_w', fort_gate: fj ? 'fort_gate_i' : 'fort_gate_w', fort_door: fj ? 'fort_door_i' : 'fort_door_w', fort_tower: fj ? 'fort_tower' : 'watchtower' };
@@ -145,6 +160,15 @@ export class PropLayer {
     }
     if (wantBackdrop && open) this.scatterDecor(zone, push, fj);
     const extra = { ...extra0, ...(bn ? bonesSwap(lists, PROPS, kit) : {}), ...(this.tp ? templeSwap(lists) : {}) };   // храм — пак «каменная»   // Костяные пустоши: предметы из паков Meshy (только там, bonesglb.js)
+    // правки 72: второй проход по настоящему размеру модели (footOf — прикидка, утёсы и кроны в 3D шире): что всё ещё стоит на сундуке, тайнике или схроне — убрать (предмет карты — уменьшить)
+    if (picks.length) for (const [id, list] of lists) {
+      if (!SOLID_RE.test(id)) continue; const def = PROPS[id] || extra[id]; if (!def) continue;
+      const near = list.filter(t => picks.some(([px, py]) => (t.x - px) ** 2 + (t.y - py) ** 2 < 36)); if (!near.length) continue;
+      const r0 = modelR(def, kit); if (!r0) continue;
+      const hit = t => onPick(t.x, t.y, r0 * (t.s || 1) * 0.8);
+      for (const t of near) if (hit(t)) { this.pickHit++; if (t.fixed) { const s0 = t.s || 1; while (t.s > s0 * 0.35 && hit(t)) t.s -= s0 * 0.1; } else t.drop = 1; }
+      if (near.some(t => t.drop)) lists.set(id, list.filter(t => !t.drop));
+    }
     for (const [id, list] of lists) {
       const def = PROPS[id] || extra[id];
       if (def.batch) this.addBatch(def, list); else for (const it of list) this.addSingle(def, it);

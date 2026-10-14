@@ -210,6 +210,7 @@ function build(RL, mood, depth, boss, seed, attempt, force) {
   const objects = [], spawns = [], lvl = wildLevel(realm, depth);
   const placed = [];   // занятые точки декора/камп
   const near = (x, y, r) => placed.some(p => dist(p[0], p[1], x, y) < r);
+  const inBig = (x, y) => placed.some(p => p[2] > 3 && dist(p[0], p[1], x, y) < p[2] - 1);   // правки 72: сундук и тайник не внутри драккара, хижины, скелета великана (их пятно шире, чем near видит)
   const land = []; for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (seen[y * W + x] && at(x, y) === '.') land.push(y * W + x);
   const pick = (test, tries = 60) => { for (let i = 0; i < tries; i++) { const c = land[Math.floor(R() * land.length)], x = c % W + 0.15 + R() * 0.7, y = Math.floor(c / W) + 0.15 + R() * 0.7; if (test(x, y)) return [x, y]; } return null; };
   const pickIn = (v, test, tries = 60, k = 0.75) => { for (let i = 0; i < tries; i++) { const a = R() * 6.283, r = Math.sqrt(R()) * k, x = v.x + Math.cos(a) * v.rx * r, y = v.y + Math.sin(a) * v.ry * r; if (test(x, y)) return [x, y]; } return null; };
@@ -332,13 +333,13 @@ function build(RL, mood, depth, boss, seed, attempt, force) {
   let nLeaf = 0;
   for (const v of live.filter(u => role.get(u) === 'leaf')) {
     const nb = adjE(v)[0], ax = v.x - nb.x, ay = v.y - nb.y, l = Math.hypot(ax, ay) || 1;
-    const p = [[0.5, 0], [0.35, 0.2], [0.35, -0.2], [0.2, 0]].map(([k, s2]) => [v.x + ax / l * v.rx * k - ay / l * v.rx * s2, v.y + ay / l * v.ry * k + ax / l * v.ry * s2]).find(([x, y]) => free(x, y, 1) && !near(x, y, 2));
+    const p = [[0.5, 0], [0.35, 0.2], [0.35, -0.2], [0.2, 0]].map(([k, s2]) => [v.x + ax / l * v.rx * k - ay / l * v.rx * s2, v.y + ay / l * v.ry * k + ax / l * v.ry * s2]).find(([x, y]) => free(x, y, 1) && !near(x, y, 2) && !inBig(x, y));
     if (p) { placed.push([p[0], p[1], 2.5]); objects.push({ t: 'wchest', id: 'wl' + nLeaf++, rich: depth >= 3 && R() < 0.35, x: p[0], y: p[1] }); }
   }
   // отдельные сундуки и тайники в стороне от боёв
   const nChest = 2 + Math.floor(depth / 3);
-  for (let i = 0; i < nChest; i++) { const p = pick((x, y) => !inFort(x, y, 2) && dist(x, y, start[0], start[1]) > 6 && free(x, y, 1) && !near(x, y, 2.5) && !reserved(x, y, -4)); if (p) { placed.push([p[0], p[1], 2.5]); objects.push({ t: 'wchest', id: 'ws' + i, x: p[0], y: p[1] }); } }
-  for (let i = 0; i < 11; i++) { const p = pick((x, y) => !inFort(x, y, 1) && dist(x, y, start[0], start[1]) > 4 && free(x, y, 0) && !near(x, y, 1.6) && !prot[Math.floor(y) * W + Math.floor(x)]); if (p) { placed.push([p[0], p[1], 1.6]); objects.push({ t: 'stash', id: 'wt' + i, x: p[0], y: p[1], kind: i % 2 ? 'crate' : 'barrel' }); } }
+  for (let i = 0; i < nChest; i++) { const p = pick((x, y) => !inFort(x, y, 2) && dist(x, y, start[0], start[1]) > 6 && free(x, y, 1) && !near(x, y, 2.5) && !inBig(x, y) && !reserved(x, y, -4)); if (p) { placed.push([p[0], p[1], 2.5]); objects.push({ t: 'wchest', id: 'ws' + i, x: p[0], y: p[1] }); } }
+  for (let i = 0; i < 11; i++) { const p = pick((x, y) => !inFort(x, y, 1) && dist(x, y, start[0], start[1]) > 4 && free(x, y, 0) && !near(x, y, 1.6) && !inBig(x, y) && !prot[Math.floor(y) * W + Math.floor(x)]); if (p) { placed.push([p[0], p[1], 1.6]); objects.push({ t: 'stash', id: 'wt' + i, x: p[0], y: p[1], kind: i % 2 ? 'crate' : 'barrel' }); } }
   // второй схрон (с глубины 3) — подальше от старта
   if (depth >= 3 || !restV) {
     const p = pick((x, y) => !inFort(x, y, 3) && dist(x, y, start[0], start[1]) > 24 && free(x, y, 1) && !near(x, y, 3.5) && !reserved(x, y, -4), 200) || pick((x, y) => !inFort(x, y, 2) && dist(x, y, start[0], start[1]) > 8 && free(x, y, 1) && !near(x, y, 2), 200);
