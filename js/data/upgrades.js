@@ -14,7 +14,8 @@ export const upgMax = (id, P) => { const U = UPGRADES[id]; return Math.min(U.max
 // после правок 3 (тред «перед релизом»): рост цены за ступень на 30% ниже (×1,24 → ×1,168 и т. д.) — «Сила удара» до 40 стоит ≈180 тыс. вместо 1,36 млн
 // сборка 66: Проворство вдвое слабее (было +2% / +1% за ступень, «лучник имба»): +20% к 20-й ступени, +35% к 50-й
 // цена уровня: золото, у Меткости — осколки Бездны (2, 3, 4… за уровень)
-export const upgCost = (id, l) => { const U = UPGRADES[id]; if (U.shards) return 2 + l; const k = Math.min(l, U.cap0); return Math.round(U.base * Math.pow(U.mul, k) * (1 + 0.05 * Math.max(0, l - U.cap0))); };
+// сборка 72: золотые усиления Элвина дороже на 40% (×1,4), рост цены за ступень прежний; Меткость за осколки — как была
+export const upgCost = (id, l) => { const U = UPGRADES[id]; if (U.shards) return 2 + l; const k = Math.min(l, U.cap0); return Math.round(1.4 * U.base * Math.pow(U.mul, k) * (1 + 0.05 * Math.max(0, l - U.cap0))); };
 export const upgHave = (P, id) => UPGRADES[id].shards ? (P.shards || 0) : P.gold;
 
 // Citadel rooms: unlock with gold + Abyss shards (shards drop randomly from elites, bosses, chests).
