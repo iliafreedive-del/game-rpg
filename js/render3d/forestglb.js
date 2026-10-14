@@ -58,7 +58,7 @@ function defOf(name, hk, wk, lod, base) {
 /** Подмена списков PropLayer: lists — Map(id → [предметы]); where — 'town' | 'forest' | 'fjord'; m — карта зоны (w, h);
  *  statics — предметы зоны (метка акцента); возвращает доп. описания (id → def). Заменяется весь лес: до LIMIT деревьев внутри карты
  *  (не ближе EDGE клеток к краю; в деревне — акценты у дорог, villagegen.js) — в полном качестве, остальные на карте — «_mid»,
- *  лес за краем карты («_far») — «_lo» */
+ *  лес за краем карты («_far») и окраина деревни (краевые ряды, куда герой не ходит) — «_lo» */
 const LIMIT = { town: 24, forest: 22, fjord: 24 }, EDGE = 3.5;
 export function swap(lists, PROPS, where, m, statics = []) {
   const extra = {}, M = MAP[where];
@@ -86,7 +86,8 @@ export function swap(lists, PROPS, where, m, statics = []) {
     for (const it of list) {
       const v = V[Math.floor(hash(it.x, it.y) * V.length) % V.length];
       if (v === null) { keep.push(it); continue; }
-      const [name, hk, wk] = Array.isArray(v) ? v : [v, 1, 1], def = defOf(name, hk, wk, far ? '_lo' : take.has(it) ? '' : '_mid', PROPS[id] || {});
+      const [name, hk, wk] = Array.isArray(v) ? v : [v, 1, 1], edge = where === 'town' && !(it.x > EDGE && it.y > EDGE && it.x < m.w - EDGE && it.y < m.h - EDGE),
+        def = defOf(name, hk, wk, far || edge ? '_lo' : take.has(it) ? '' : '_mid', PROPS[id] || {});
       if (T[name].sway) it.s = 0.8 + (it.s - 0.75) * 0.4;   // разброс роста процедурных (1–1,75) — у новых уже в породе: ±15 %, без великанов
       extra[def.id] = def;
       if (!lists.has(def.id)) lists.set(def.id, []);
