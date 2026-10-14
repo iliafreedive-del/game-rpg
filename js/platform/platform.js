@@ -3,6 +3,7 @@
 
 import { bus } from '../game/ctx.js';
 import { VKProvider, onVK } from './vk.js';
+import { EFFECTS, PET_FX_SLOTS, HERO_FX_SLOTS } from '../data/cosmetics.js';
 
 class DemoProvider {
   constructor() { this.name = 'demo'; }
@@ -124,6 +125,13 @@ export const PRODUCTS = {
   crown_pet: { title: 'Корона пламени питомца', price: '69 ₽', desc: 'Огненная корона над питомцем навсегда.', consumable: false, icon: '✦', cosm: 'crown:pet' },
   bag_big: { title: 'Большая сумка', price: '149 ₽', desc: 'Навсегда +20 мест в сумке.', consumable: false, icon: '▤' },
 };
+
+// сборка 71: эффекты облика за рубли (окно «Облик»): следы trail_<вид>, герой <слот>_<вид>, питомец petfx_<слот>_<вид>. Навсегда, cosm — ключ открытия
+{ const FX_EXTRA = ['halo', 'halo_void', 'orbs', 'orbs_fire'], ids = slot => slot === 'extra' ? FX_EXTRA : Object.keys(EFFECTS[slot]);
+  const add = (id, title, price, cosm) => { PRODUCTS[id] = { title, price, desc: 'Эффект облика навсегда.', consumable: false, icon: '✦', cosm }; };
+  for (const k of ids('trail')) add('trail_' + k, EFFECTS.trail[k], '69 ₽', 'trail:' + k);
+  for (const slot of Object.keys(HERO_FX_SLOTS)) for (const k of ids(slot)) add(`${slot}_${k}`, EFFECTS[slot][k], slot === 'weapon' ? '99 ₽' : '69 ₽', `hfx:${slot}:${k}`);
+  for (const slot of Object.keys(PET_FX_SLOTS)) for (const k of ids(slot)) add(`petfx_${slot}_${k}`, EFFECTS[slot][k] + ' (питомец)', '49 ₽', `pfx:${slot}:${k}`); }
 
 function onYandex() {
   const h = location.hostname; return /yandex\.|playhop|games\.s3\.yandex/.test(h) || new URLSearchParams(location.search).has('yandex');
