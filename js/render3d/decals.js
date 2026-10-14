@@ -3,7 +3,7 @@
 // только «камера» — вид сверху на квадрат SIZE×SIZE м вокруг героя. Холст заливается в текстуру, только когда на полу что-то есть.
 import * as THREE from '../vendor/three.module.min.js';
 const PHONE = typeof matchMedia !== 'undefined' && matchMedia('(pointer: coarse)').matches;
-const SIZE = 32, PX = PHONE ? 512 : 1024, K = PX / SIZE;
+const SIZE = 32, PX = PHONE ? 512 : 768, K = PX / SIZE;   // сборка 72: на ПК 768² вместо 1024² — каждая заливка в видеокарту почти вдвое легче (журнал: при «пол» 30+ FPS 48–53 и в бою подземелий)
 export class GroundDecals {
   constructor(scene) {
     this.cv = document.createElement('canvas'); this.cv.width = this.cv.height = PX; this.ctx = this.cv.getContext('2d');
@@ -20,12 +20,12 @@ export class GroundDecals {
   // сборка 66 (лаги при дожде клинков): холст 1024² заливался в видеопамять каждый кадр, пока на полу что-то есть; теперь — через кадр
   // (листы и так идут ~16 кадров/с), а пустой пол не перерисовывается
   update(cx, cy, paint) {
-    if (this.dirty && (this.skip = (this.skip + 1) % 3)) return;   // ОС-15: на полу теперь и круги (порталы, метки) — обновление раз в 3 кадра (20 в секунду)
+    if (this.dirty && (this.skip = (this.skip + 1) % 4)) return;   // сборка 72: раз в 4 кадра (15 в секунду — как идут кадры листов эффектов); круги и метки теперь кольца в 3D (renderer3d.js markRings)
     this.x0 = Math.round(cx) - SIZE / 2; this.y0 = Math.round(cy) - SIZE / 2;
     const c = this.ctx; c.setTransform(1, 0, 0, 1, 0, 0); c.globalAlpha = 1; c.globalCompositeOperation = 'source-over';
     if (this.dirty) c.clearRect(0, 0, PX, PX);
     const n = paint(c, this.cam); this.dirty = n > 0; this.mesh.visible = n > 0 || !this.warm; this.warm = true;   // ОС-16: в первый кадр плоскость видна (пустая) — шейдер собирается сразу, а не рывком при первом эффекте
-    if (n > 0) { this.mesh.position.set(this.x0 + SIZE / 2, 0.07, this.y0 + SIZE / 2); this.tex.needsUpdate = true; }
+    if (n > 0) { this.mesh.position.set(this.x0 + SIZE / 2, 0.07, this.y0 + SIZE / 2); this.tex.needsUpdate = true; this.ups = (this.ups || 0) + 1; }
   }
   dispose() { this.mesh.geometry.dispose(); this.mesh.material.dispose(); this.tex.dispose(); }
 }
@@ -61,6 +61,16 @@ export class FxBillboards {
     const b = this.baseTex(img), t = new THREE.Texture(); t.source = b.source;
     for (const k of ['colorSpace', 'premultiplyAlpha', 'generateMipmaps', 'minFilter', 'magFilter', 'flipY', 'wrapS', 'wrapT']) t[k] = b[k];
     t.version = 1; return t;   // версия > 0 — three зальёт источник один раз (по source.version), дальше только привяжет
+  }
+  // сборка 71 (просадка на касте): лист эффекта (768² и больше) заливался в видеопамять в кадре первого каста.
+  // Теперь загруженные стоячие листы заливаются заранее, по одному за кадр, пока на экране тихо
+  // Листы, которые fxsheets отпустил при смене края, раньше так и оставались в видеопамяти — теперь их текстуры освобождаются
+  prewarm(renderer, imgs) {
+    if ((this.tick = (this.tick || 0) + 1) % 60 === 0 && this.base.size > imgs.length) {
+      const live = new Set(imgs);
+      for (const [img, t] of this.base) if (!live.has(img)) { t.dispose(); this.base.delete(img); for (const s of this.pool) { const T = s.userData.tex, st = T && T.get(img); if (st) { st.dispose(); T.delete(img); } if (s.userData.img === img) s.userData.img = null; } }
+    }
+    for (const img of imgs) if (!this.base.has(img)) { try { renderer.initTexture(this.baseTex(img)); } catch { } return; }
   }
   item(i) {
     let s = this.pool[i]; if (s) return s;

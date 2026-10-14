@@ -4,7 +4,7 @@
 import { G, bus } from '../game/ctx.js';
 
 const MAX = 400, lines = [], t0 = performance.now();
-let dts = [], last = 0, lastProg = 0, started = false;
+let dts = [], last = 0, lastProg = 0, lastUps = 0, started = false;
 const clock = () => { const s = Math.round((performance.now() - t0) / 1000); return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`; };
 const push = s => { lines.push(clock() + ' ' + s); if (lines.length > MAX) lines.shift(); };
 export const perfNote = s => push('· ' + s);
@@ -17,8 +17,8 @@ function sample() {
   if (lastProg && prog > lastProg) push(`· новые шейдеры +${prog - lastProg}`);
   lastProg = prog || lastProg;
   const mem = performance.memory ? Math.round(performance.memory.usedJSHeapSize / 1048576) + 'МБ' : '—';
-  const zone = (G.zone && G.zone.json && G.zone.json.name) || G.zoneId || '—';
-  push(`${zone} fps ${Math.round(1000 * n / tot)} худш ${Math.round(worst)}мс рывков ${long}` + (i ? ` отр ${i.render.calls} тр ${Math.round(i.render.triangles / 1000)}к шейд ${prog} геом ${i.memory.geometries} текст ${i.memory.textures}` : '') + ` dpr ${r ? r.getPixelRatio().toFixed(2) : '—'} js ${mem} враги ${G.enemies ? G.enemies.length : 0} эффекты ${(G.effects || []).length} частицы ${(G.particles || []).length} снаряды ${(G.projectiles || []).length}`);
+  const zone = (G.zone && G.zone.json && G.zone.json.name) || G.zoneId || '—', ups = (window.__R3 && window.__R3.floorUps) || 0, fl = ups - lastUps; lastUps = ups;   // сборка 71: «пол» — сколько раз за 2 с холст эффектов на полу ушёл в видеокарту
+  push(`${zone} fps ${Math.round(1000 * n / tot)} худш ${Math.round(worst)}мс рывков ${long}` + (i ? ` отр ${i.render.calls} тр ${Math.round(i.render.triangles / 1000)}к шейд ${prog} геом ${i.memory.geometries} текст ${i.memory.textures}` : '') + ` dpr ${r ? r.getPixelRatio().toFixed(2) : '—'} js ${mem} враги ${G.enemies ? G.enemies.length : 0} эффекты ${(G.effects || []).length} частицы ${(G.particles || []).length} снаряды ${(G.projectiles || []).length} пол ${fl}`);
 }
 export function startPerfLog() {
   if (started) return; started = true;

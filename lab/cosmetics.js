@@ -8,7 +8,7 @@ import { U, applyLook } from '../js/render3d/toon.js';
 import { grassTex } from '../js/render3d/textures.js';
 import { LIGHT, CAMERA, HERO } from '../js/render3d/style.js';
 import { Post } from '../js/render3d/post.js';
-import { Trail, Aura, Wings, Extra } from '../js/render3d/cosfx.js';
+import { Trail, Aura, Wings, Extra, WeaponFx } from '../js/render3d/cosfx.js';
 import { petFx } from '../js/render3d/models/pet/petfx.js';
 import { PET_MODELS } from '../js/render3d/models/pet/pets.js';
 import { PREMIUM_PET_MODELS } from '../js/render3d/models/pet/pets_premium.js';
@@ -42,7 +42,7 @@ const right = new THREE.Vector3(Math.cos(CAMERA.yaw), 0, -Math.sin(CAMERA.yaw)),
 const env = { wind: new THREE.Vector2(0.6, 0.3) };
 const at = (c, r) => right.clone().multiplyScalar(c).add(fwd.clone().multiplyScalar(r));   // столбец, ряд → мир
 
-const HERO_DEF = { warrior: makeWarrior(), mage: makeMage(), archer: ARCHER, warrior_vanguard: makeWarrior('warrior_vanguard'), mage_archmage: makeMage('mage_archmage') };
+const HERO_DEF = { warrior: makeWarrior(), mage: makeMage(), archer: ARCHER };
 const items = [];   // { a: Actor, x, z, tag, fx: [], walk }
 const priceOf = g => !g ? '' : [g.rub ? 'за ₽' : '', g.ads ? `или ${g.ads} реклам за неделю` : '', g.shards ? `${g.shards}◆` : ''].filter(Boolean).join(' ');
 function tag(text, sub, price) { const d = document.createElement('div'); d.className = 'tag'; d.innerHTML = text + (sub ? `<small>${sub}</small>` : '') + (price ? `<br><span class="p">${price}</span>` : ''); document.body.appendChild(d); return d; }
@@ -65,6 +65,7 @@ function addFx(it, slot, kind) {
   if (slot === 'aura') it.fx.push(new Aura(scene, kind));
   if (slot === 'wings') it.fx.push(new Wings(kind, bones.torso, { y: +(QS.wy || 0.4), z: -(QS.wz || 0.3), scale: +(QS.ws || 0.85) }));
   if (slot === 'extra') it.fx.push(new Extra(kind, scene, bones.head));
+  if (slot === 'weapon') it.fx.push(new WeaponFx(kind, scene, it.a.root, it.cls === 'archer' ? 'handL' : 'handR'));
 }
 
 // ---------------------------------------------------------------- сцены
@@ -72,7 +73,7 @@ let camDist = 14, camPitch = 0.55, camAim = new THREE.Vector3(0, 1, 0);
 const S = QS.s || 'looks', title = document.getElementById('title');
 const CLS_NAME = { warrior: 'Воин', archer: 'Лучник', mage: 'Маг' };
 async function build() {
-  await Promise.all(['warrior_knight', 'archer_raven', 'mage_staff', 'warrior_vanguard', 'mage_archmage'].map(n => kit.skin.preloadSkin(n)));
+  await Promise.all(['warrior_knight', 'archer_raven', 'mage_staff'].map(n => kit.skin.preloadSkin(n)));
   if (S === 'looks') {
     const cls = QS.cls || 'warrior', list = (QS.list || 'base,blood,frost,ember,holy,void').split(',');
     title.textContent = `${CLS_NAME[cls]}: готовые облики`;
@@ -80,7 +81,7 @@ async function build() {
     camDist = 2.4 + list.length * 1.65; camPitch = 0.3; camAim.y = 1.05;
   } else if (S === 'models') {
     title.textContent = 'Другие модели того же класса';
-    const L = [['warrior', 'Рыцарь Ордена (сейчас)'], ['warrior_vanguard', 'Фиолетовый авангард'], ['mage', 'Маг посоха (сейчас)'], ['mage_archmage', 'Звёздный архимаг']];
+    const L = [['warrior', 'Рыцарь Ордена'], ['mage', 'Маг посоха']];
     L.forEach(([k, n], i) => { const it = hero(HERO_DEF[k], null, ...xz(at((i - 1.5) * 2.1, 0))); it.tag = tag(n); });
     camDist = 12; camPitch = 0.32;
   } else if (S === 'dyes') {
@@ -131,11 +132,11 @@ async function build() {
     }
   } else if (S === 'fx') {
     const kind = QS.kind || 'trail', list = QS.only ? QS.only.split(',') : Object.keys(EFFECTS[kind]);
-    const NAMES = { trail: 'Следы шагов', aura: 'Ауры', wings: 'Крылья', extra: 'Нимб, сферы, корона' };
+    const NAMES = { trail: 'Следы шагов', aura: 'Ауры', wings: 'Крылья', extra: 'Нимб, сферы, корона', weapon: 'Эффекты оружия' };
     title.textContent = NAMES[kind];
-    const cls = ['warrior', 'archer', 'mage'];
+    const cls = QS.cls ? [QS.cls] : ['warrior', 'archer', 'mage'];
     list.forEach((k, i) => {
-      const it = hero(HERO_DEF[cls[i % 3]], null, ...xz(at((i - (list.length - 1) / 2) * 2.2, 0)), { walk: kind === 'trail' });
+      const it = hero(HERO_DEF[cls[i % cls.length]], null, ...xz(at((i - (list.length - 1) / 2) * 2.2, 0)), { walk: kind === 'trail', cls: cls[i % cls.length] });
       if (kind === 'wings') it.face = CAMERA.yaw + Math.PI - 0.25;   // крылья — со спины
       addFx(it, kind, k); it.tag = tag(EFFECTS[kind][k]);
     });
@@ -177,6 +178,7 @@ function tick(dt) {
   }
 }
 function placeCam() {
+  if (QS.d) { camDist = +QS.d; if (QS.pitch) camPitch = +QS.pitch; if (QS.ay) camAim.y = +QS.ay; }
   camera.position.set(Math.sin(CAMERA.yaw) * Math.cos(camPitch), Math.sin(camPitch), Math.cos(CAMERA.yaw) * Math.cos(camPitch)).multiplyScalar(camDist).add(camAim); camera.lookAt(camAim);
 }
 const _v = new THREE.Vector3();
@@ -187,6 +189,7 @@ function draw() {
 }
 function resize() { const w = innerWidth, h = innerHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); post.setup(w, h, { enabled: true, samples: 4, levels: 4 }); }
 addEventListener('resize', resize);
+window.__items = items;
 window.__step = n => { for (let i = 0; i < n; i++) tick(1 / 30); draw(); return true; };
 build().then(() => {
   if (QS.cd) camDist = +QS.cd; if (QS.cp) camPitch = +QS.cp;

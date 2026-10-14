@@ -57,6 +57,8 @@ function softCells(im, m, C, round) {
 // сборка 66: в 3D листы «на полу» рисует плоскость у земли (render3d/decals.js) — на 2D-холсте поверх они закрывали героя и мобов
 export const fxGround = { on: false };
 // и «объёмные» листы на земле (без высоты z) — щитами в 3D (decals.js FxBillboards); fxBillboard отдаёт кадр для щита
+// сборка 71: загруженные «стоячие» листы — их картинки щиты заранее заливают в видеопамять (decals.js prewarm), без рывка на первом касте
+export function uprightImgs() { const a = []; for (const S of sheets.values()) if (S.view === 'upright') a.push(S.img); return a; }
 export const isUprightFx = e => e.kind === 'sheet' && fxGround.on && !(e.z > 0.3) && (META[real(e.id)] || {}).view === 'upright';
 export function fxBillboard(fx, alpha, cam) {
   const S = sheets.get(real(fx.id)); if (!S) return null;
