@@ -1,6 +1,6 @@
 // Облики (сборка 59): что открыто и что надето. Только вид — на силу не влияет.
 // Сохранение — P.cosm: { own: { 'look:blood': 1, 'dye:a:crimson': 1, 'model:warrior_vanguard': 1, 'ghost:hero': 1, 'ghost:pet': 1, 'crown:hero': 1, 'crown:pet': 1 },
-//   wear: { warrior: { look, dye: { a, b, c } | null, model, ghost, crown, trail } }, petGhost, petCrown, petFx: { aura, trail, extra }, petSkin: { fennec: 'snow' }, ads: { ключ: { n, t0 } } }.
+//   wear: { warrior: { look, dye: { a, b, c } | null, model, ghost, crown, trail, aura, extra, weapon } }, petGhost, petCrown, petFx: { aura, trail, extra }, petSkin: { fennec: 'snow' }, ads: { ключ: { n, t0 } } }.
 // Вид рисует renderer3d (heroLook / petLook ниже — что передать в toon.applyLook).
 import { G, bus } from './ctx.js';
 import { HERO_LOOKS, DYES, HERO_MODELS, GHOST, DYE_PRICE, MODEL_PRICE, PET_SKINS, PET_SKIN_GET, EFFECTS } from '../data/cosmetics.js';
@@ -38,9 +38,11 @@ export function heroTrail(P = G.profile) { const k = wearOf(P).trail; return k &
 export const heroCrown = (P = G.profile) => !!(wearOf(P).crown && owns('crown:hero', P));
 export const petCrown = (P = G.profile) => !!(cosmOf(P).petCrown && owns('crown:pet', P));
 // эффект питомца в слоте (aura / trail / extra), если открыт: ключ 'pfx:<слот>:<вид>'
-export const PET_EXTRA = ['halo', 'halo_void', 'orbs', 'orbs_fire'];
-export const petFxList = slot => slot === 'extra' ? PET_EXTRA : Object.keys(EFFECTS[slot] || {});
-export function petFxOf(slot, P = G.profile) { const k = (cosmOf(P).petFx || {})[slot]; return k && petFxList(slot).includes(k) && owns(`pfx:${slot}:${k}`, P) ? k : null; }
+export const FX_EXTRA = ['halo', 'halo_void', 'orbs', 'orbs_fire'];
+export const fxList = slot => slot === 'extra' ? FX_EXTRA : Object.keys(EFFECTS[slot] || {});
+// эффект героя в слоте (aura / extra / weapon) для текущего класса: ключ 'hfx:<слот>:<вид>' (открыт для всех классов)
+export function heroFxOf(slot, P = G.profile) { const k = wearOf(P)[slot]; return k && fxList(slot).includes(k) && owns(`hfx:${slot}:${k}`, P) ? k : null; }
+export function petFxOf(slot, P = G.profile) { const k = (cosmOf(P).petFx || {})[slot]; return k && fxList(slot).includes(k) && owns(`pfx:${slot}:${k}`, P) ? k : null; }
 // облик питомца (P.cosm.petSkin: { id питомца: облик }) + призрак — что передать в applyLook
 export const petSkinOwned = (pet, id) => !!(PET_SKINS[pet] && PET_SKINS[pet][id]) && owns(`pskin:${pet}:${id}`);
 export function petSkinOf(pet, P = G.profile) { const id = (cosmOf(P).petSkin || {})[pet]; return id && petSkinOwned(pet, id) ? id : null; }

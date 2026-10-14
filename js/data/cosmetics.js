@@ -27,6 +27,9 @@ export const CROWN = { hero: { name: 'Корона пламени', get: { rub: 
 // следы шагов героя (render3d/cosfx.js Trail): за рекламу (неделя) или ₽ trail_<вид>
 export const TRAIL_GET = k => ({ rub: 'trail_' + k, ads: 80, days: 7 });
 // эффекты питомца (сборка 71): аура, следы, нимб или сферы — по одному на слот, за рекламу (неделя) или ₽ petfx_<слот>_<вид>
+// эффекты героя (сборка 71): аура, над героем (нимб, сферы), оружие — за рекламу (неделя) или ₽ <слот>_<вид>
+export const HERO_FX_SLOTS = { aura: 'Аура', extra: 'Над героем', weapon: 'Эффект оружия' };
+export const HERO_FX_GET = (slot, k) => ({ rub: `${slot}_${k}`, ads: slot === 'weapon' ? 100 : 80, days: 7 });
 export const PET_FX_SLOTS = { aura: 'Аура', trail: 'Следы', extra: 'Над питомцем' };
 export const PET_FX_GET = (slot, k) => ({ rub: `petfx_${slot}_${k}`, ads: 60, days: 7 });
 export const DYE_PRICE = 8;      // ◆ за каждую краску, кроме исходной (открывается для этого героя)
@@ -59,10 +62,11 @@ export const PREMIUM_PETS = {
   spiritwolf: { name: 'Призрачный волчонок', icon: '🐺', get: { rub: 'pet_spiritwolf', ads: 150, days: 7 }, look: { glow: 0x60d0ff, glowK: 0.4, glowAll: true } },
   phoenix:    { name: 'Феникс', icon: '🔥', get: { rub: 'pet_phoenix', ads: 200, days: 7 } },
 };
-// внешние эффекты (render3d/cosfx.js), слоты: trail — следы, aura — аура, wings — крылья, extra — нимб/сферы/корона
+// внешние эффекты (render3d/cosfx.js), слоты: trail — следы, aura — аура, wings — крылья, weapon — свечение оружия (WeaponFx), extra — нимб/сферы/корона
 export const EFFECTS = {
   trail: { fire: 'Огненные следы', ice: 'Иней', blood: 'Кровавые следы', shadow: 'Тень', gold: 'Золотые звёзды' },
   aura: { fire: 'Аура огня', frost: 'Аура холода', blood: 'Аура крови', void: 'Аура Бездны', holy: 'Свет', poison: 'Яд' },
   wings: { demon: 'Крылья демона', angel: 'Крылья ангела', frost: 'Ледяные крылья', flame: 'Крылья пламени', void: 'Крылья Бездны' },
+  weapon: { fire: 'Огненное оружие', blood: 'Кровавое оружие', frost: 'Ледяное оружие', storm: 'Грозовое оружие', void: 'Оружие Бездны', holy: 'Сияющее оружие', poison: 'Ядовитое оружие' },
   extra: { halo: 'Нимб', halo_void: 'Тёмный нимб', orbs: 'Сферы душ', orbs_fire: 'Огненные сферы', crown: 'Корона пламени' },
 };

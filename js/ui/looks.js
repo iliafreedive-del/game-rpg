@@ -2,7 +2,7 @@
 // призрак и корона пламени для героя и питомца. Только вид. Открывается из меню; герой перекрашивается сразу (окно полупрозрачное снизу).
 import { G, bus } from '../game/ctx.js';
 import { el, esc } from '../core/util.js';
-import { HERO_LOOKS, DYES, HERO_MODELS, GHOST, CROWN, DYE_PRICE, MODEL_PRICE, PET_SKINS, PET_SKIN_GET, EFFECTS, TRAIL_GET, PET_FX_SLOTS, PET_FX_GET } from '../data/cosmetics.js';
+import { HERO_LOOKS, DYES, HERO_MODELS, GHOST, CROWN, DYE_PRICE, MODEL_PRICE, PET_SKINS, PET_SKIN_GET, EFFECTS, TRAIL_GET, PET_FX_SLOTS, PET_FX_GET, HERO_FX_SLOTS, HERO_FX_GET } from '../data/cosmetics.js';
 import { PETS } from '../data/pets.js';
 import * as CO from '../game/cosmetics.js';
 import { platform } from '../platform/platform.js';
@@ -39,6 +39,19 @@ function getButtons(box, key, get, title, onShards, redraw) {
     b.onclick = async e => { e.stopPropagation(); bus.emit('cosmeticBuy', { product: get.rub, key, title }); const { buy } = await import('../platform/monetize.js'); await buy(get.rub); redraw(); }; r.appendChild(b);
   }
   box.appendChild(r);
+}
+
+// сетка эффектов одного слота: «Без эффекта» + виды; открытый надевается нажатием, закрытый — кнопки «как получить»
+function effGrid(b, title, ids, names, cur, key, get, onWear, redraw, what = 'Без эффекта') {
+  b.appendChild(el('h3', '', title));
+  const g = el('div', 'lk-grid');
+  for (const id of [null, ...ids]) {
+    const name = id ? names[id] : what, k = key(id), own = !id || CO.owns(k), on = cur === id, card = el('div', 'lk-card' + (on ? ' on' : ''), `<b>${esc(name)}</b>`);
+    if (own) { card.appendChild(el('div', 'lk-st' + (on ? ' ok' : ''), on ? '✔ Надет' : 'Нажмите, чтобы надеть')); card.onclick = () => { onWear(id); bus.emit('sfx', 'click'); redraw(); }; }
+    else getButtons(card, k, get(id), name, () => {}, redraw);
+    g.appendChild(card);
+  }
+  b.appendChild(g);
 }
 
 export function renderLooks(b, redraw) {
@@ -95,16 +108,10 @@ export function renderLooks(b, redraw) {
       b.appendChild(row);
     }
 
-    // ---- следы шагов героя
-    b.appendChild(el('h3', '', 'Следы шагов'));
-    const gt = el('div', 'lk-grid'), curT = CO.heroTrail(P);
-    for (const [id, name] of [[null, 'Без следов'], ...Object.entries(EFFECTS.trail)]) {
-      const own = !id || CO.owns('trail:' + id), on = curT === id, card = el('div', 'lk-card' + (on ? ' on' : ''), `<b>${esc(name)}</b>`);
-      if (own) { card.appendChild(el('div', 'lk-st' + (on ? ' ok' : ''), on ? '✔ Надет' : 'Нажмите, чтобы надеть')); card.onclick = () => { CO.wear({ trail: id }); bus.emit('sfx', 'click'); redraw(); }; }
-      else getButtons(card, 'trail:' + id, TRAIL_GET(id), name, () => {}, redraw);
-      gt.appendChild(card);
-    }
-    b.appendChild(gt);
+    // ---- следы шагов, аура, нимб или сферы, эффект оружия (для каждого класса свои)
+    effGrid(b, 'Следы шагов', Object.keys(EFFECTS.trail), EFFECTS.trail, CO.heroTrail(P), id => 'trail:' + id, TRAIL_GET, id => CO.wear({ trail: id }), redraw, 'Без следов');
+    for (const [slot, title] of Object.entries(HERO_FX_SLOTS))
+      effGrid(b, title, CO.fxList(slot), EFFECTS[slot], CO.heroFxOf(slot), id => `hfx:${slot}:${id}`, id => HERO_FX_GET(slot, id), id => CO.wear({ [slot]: id }), redraw);
   }
 
   // ---- облик питомца (того, что сейчас рядом)
@@ -122,18 +129,8 @@ export function renderLooks(b, redraw) {
     b.appendChild(g2);
 
     // ---- эффекты питомца: по одному в каждом слоте
-    for (const [slot, title] of Object.entries(PET_FX_SLOTS)) {
-      b.appendChild(el('h3', '', title));
-      const gf = el('div', 'lk-grid'), curF = CO.petFxOf(slot);
-      for (const id of [null, ...CO.petFxList(slot)]) {
-        const name = id ? EFFECTS[slot][id] : 'Без эффекта', key = `pfx:${slot}:${id}`;
-        const own = !id || CO.owns(key), on = curF === id, card = el('div', 'lk-card' + (on ? ' on' : ''), `<b>${esc(name)}</b>`);
-        if (own) { card.appendChild(el('div', 'lk-st' + (on ? ' ok' : ''), on ? '✔ Надет' : 'Нажмите, чтобы надеть')); card.onclick = () => { CO.setPetFx(slot, id); bus.emit('sfx', 'click'); redraw(); }; }
-        else getButtons(card, key, PET_FX_GET(slot, id), name + ' (питомец)', () => {}, redraw);
-        gf.appendChild(card);
-      }
-      b.appendChild(gf);
-    }
+    for (const [slot, title] of Object.entries(PET_FX_SLOTS))
+      effGrid(b, title, CO.fxList(slot), EFFECTS[slot], CO.petFxOf(slot), id => `pfx:${slot}:${id}`, id => PET_FX_GET(slot, id), id => CO.setPetFx(slot, id), redraw);
   }
 
   const toggles = (kind, T, title, note, rows) => {

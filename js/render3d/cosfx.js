@@ -268,7 +268,7 @@ export class Extra {
     const col = C3(E.col).multiplyScalar(2.2);
     this.mat = new THREE.MeshBasicMaterial({ color: col, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false });
     if (kind.startsWith('halo')) {
-      this.root = new THREE.Mesh(new THREE.TorusGeometry(0.2, 0.025, 6, 32), this.mat); this.root.rotation.x = Math.PI / 2; this.root.position.set(0, o.y ?? 0.42, o.z ?? -0.02);
+      this.root = new THREE.Mesh(new THREE.TorusGeometry(0.2, 0.025, 6, 32), this.mat); this.root.rotation.x = Math.PI / 2; this.root.position.set(0, o.y ?? 0.42, o.z ?? -0.02); this.y0 = this.root.position.y;
       headBone.add(this.root);
     } else if (kind === 'crown') {
       // корона из языков пламени над головой
@@ -287,7 +287,7 @@ export class Extra {
     if (this.orbs) {
       this.orbs.forEach((m, i) => { const a = t * 1.8 + i * Math.PI * 2 / this.orbs.length; m.position.set(x + Math.cos(a) * 0.75, 1.2 + Math.sin(t * 2.3 + i * 2) * 0.18, y + Math.sin(a) * 0.75); if (Math.random() < 0.5) this.motes.emit(m.position.x, m.position.y, m.position.z, 0, 0, 0, 0.45); });
       this.motes.update(dt);
-    } else if (this.kind.startsWith('halo')) { this.root.rotation.z = t * 0.6; this.root.position.y += (0.42 + Math.sin(t * 2) * 0.02 - this.root.position.y) * 0.5; }
+    } else if (this.kind.startsWith('halo')) { this.root.rotation.z = t * 0.6; this.root.position.y += (this.y0 + Math.sin(t * 2) * 0.02 - this.root.position.y) * 0.5; }
     else { this.root.rotation.y = t * 0.8; this.root.scale.y = this.s0 * (1 + Math.sin(t * 9) * 0.12); this.root.position.y = this.y0 + Math.sin(t * 2) * 0.025; }   // корона парит над головой, как нимб
   }
   dispose() { this.root.removeFromParent(); this.root.traverse(o => o.geometry && o.geometry.dispose()); this.mat.dispose(); if (this.motes) this.motes.dispose(); }
@@ -303,4 +303,60 @@ export function emitPet(m, M, dt, x, y, yaw, scale = 1) {
     m.emit(wx + (Math.random() - 0.5) * r, ay * scale + (Math.random() - 0.5) * r, wz + (Math.random() - 0.5) * r, (Math.random() - 0.5) * 0.3, M.up + Math.random() * 0.4, (Math.random() - 0.5) * 0.3, 0.5 + Math.random() * 0.6);
   }
   m.update(dt);
+}
+
+// ---------------------------------------------------------------- оружие героя (облик, в духе PoE)
+// Оружие — часть модели героя (glbskin.js), поэтому точки клинка/посоха/лука берутся из самой сетки: вершины, привязанные к кости кисти
+// дальше кулака. Частицы летят из случайных точек оружия, вдоль него — 3 светящихся пятна на кости. Цена: 1 Points + 3 спрайта.
+// rate — частиц в секунду (в ударе вдвое больше), v — скорость вверх, sp — разброс скорости, life — жизнь частицы, glow — свет пятен
+export const WEAPON_FX = {
+  fire:   { colA: 0xffd070, colB: 0xff2a00, grav: -2.2, drag: 1, size: 0.13, k: 2.2, rate: 45, v: 0.5, sp: 0.25, life: 0.6, glow: 0xff5a10, gk: 1.1 },
+  blood:  { colA: 0xff2a30, colB: 0x500008, grav: 4, drag: 0.5, size: 0.08, k: 2.0, rate: 22, v: -0.1, sp: 0.1, life: 0.7, glow: 0xb00010, gk: 0.8 },
+  frost:  { colA: 0xe8faff, colB: 0x2a70ff, grav: -0.3, drag: 1.5, size: 0.11, k: 1.8, rate: 28, v: 0.1, sp: 0.2, life: 0.9, glow: 0x60c8ff, gk: 0.9 },
+  storm:  { colA: 0xf0f6ff, colB: 0x4050ff, grav: 0, drag: 6, size: 0.09, k: 2.6, rate: 60, v: 0, sp: 2.2, life: 0.16, glow: 0x90a8ff, gk: 1.2, flicker: true },
+  void:   { colA: 0xd890ff, colB: 0x22003a, grav: -0.6, drag: 1, size: 0.15, k: 1.7, rate: 26, v: 0.15, sp: 0.15, life: 1.0, glow: 0x9030ff, gk: 0.9, wobble: 0.35 },
+  holy:   { colA: 0xfff4c0, colB: 0xffa020, grav: -0.5, drag: 1, size: 0.08, k: 2.2, rate: 32, v: 0.2, sp: 0.3, life: 0.8, glow: 0xffd060, gk: 1.3 },
+  poison: { colA: 0xc8ff70, colB: 0x1c6000, grav: 1.2, drag: 1, size: 0.1, k: 1.8, rate: 24, v: 0.1, sp: 0.12, life: 0.8, glow: 0x60ff30, gk: 0.8 },
+};
+const _w = new THREE.Vector3(), _m4 = new THREE.Matrix4();
+export class WeaponFx {
+  constructor(kind, scene, root, boneName) {
+    const K = WEAPON_FX[kind] || WEAPON_FX.fire; this.K = K; this.kind = kind; this.acc = 0;
+    let mesh = null; root.traverse(o => { if (!mesh && o.isSkinnedMesh && !o.userData.isOutline) mesh = o; });
+    const bi = mesh ? mesh.skeleton.bones.findIndex(b => b.name === boneName) : -1;
+    this.bone = bi >= 0 ? mesh.skeleton.bones[bi] : null; this.pts = []; this.glows = [];
+    if (this.bone) {
+      // вершины оружия в системе кости: boneInverse × bindMatrix × вершина; берём дальше кулака
+      const g = mesh.geometry, P = g.attributes.position, SI = g.attributes.skinIndex, SW = g.attributes.skinWeight;
+      _m4.multiplyMatrices(mesh.skeleton.boneInverses[bi], mesh.bindMatrix);
+      const all = []; let far = 0;
+      for (let i = 0; i < P.count; i++) {
+        let w = 0; for (let c = 0; c < 4; c++) if (SI.getComponent(i, c) === bi) w += SW.getComponent(i, c);
+        if (w < 0.6) continue;
+        const v = new THREE.Vector3().fromBufferAttribute(P, i).applyMatrix4(_m4); all.push(v); far = Math.max(far, v.length());
+      }
+      const r0 = Math.max(0.12, far * 0.25), step = Math.max(1, Math.floor(all.length / 300));
+      for (let i = 0; i < all.length; i += step) if (all[i].length() > r0) this.pts.push(all[i]);
+      // светящиеся пятна: вдоль оружия от одного конца до другого (меч — от гарды к острию, посох и лук — оба конца)
+      const tip = this.pts.reduce((a, b) => b.length() > a.length() ? b : a, new THREE.Vector3(0, 0.01, 0)), dir = tip.clone().normalize();
+      const lo = this.pts.reduce((a, b) => b.dot(dir) < a.dot(dir) ? b : a, tip);
+      for (const f of [0.15, 0.5, 0.85]) {
+        const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: dotTex(), color: C3(K.glow).multiplyScalar(K.gk), blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false, transparent: true, fog: false }));
+        s.position.lerpVectors(lo, tip, f); s.scale.setScalar(0.4); s.userData.noOutline = true; s.renderOrder = 5; this.bone.add(s); this.glows.push(s);
+      }
+    }
+    this.motes = new Motes(scene, 96, { ...K, size: K.size * 1.4 });
+  }
+  update(dt, attack) {
+    if (!this.bone || !this.pts.length) return;
+    const K = this.K, t = U.uTime.value; this.bone.updateWorldMatrix(true, false);
+    this.acc += dt * K.rate * (attack ? 2 : 1);
+    while (this.acc >= 1) {
+      this.acc--; _w.copy(this.pts[(Math.random() * this.pts.length) | 0]).applyMatrix4(this.bone.matrixWorld);
+      const s = K.sp; this.motes.emit(_w.x, _w.y, _w.z, (Math.random() - 0.5) * s, K.v + (Math.random() - 0.5) * s, (Math.random() - 0.5) * s, K.life * (0.6 + Math.random() * 0.6));
+    }
+    this.motes.update(dt);
+    for (let i = 0; i < this.glows.length; i++) this.glows[i].material.opacity = K.flicker ? (Math.random() < 0.3 ? 1 : 0.35) : 0.75 + 0.25 * Math.sin(t * 6 + i * 2);
+  }
+  dispose() { for (const s of this.glows) { s.removeFromParent(); s.material.dispose(); } this.motes.dispose(); }
 }
