@@ -72,11 +72,11 @@ const SWAY = /* glsl */`
   vec3 root = swM[3].xyz;
   vec3 lw = normalize(transpose(mat3(swM)) * vec3(uWind.x, 0.0, uWind.y));
   float h = max(transformed.y - uSwayBase, 0.0);
-  float k = h * h * uSwayAmt * uWindStr * 0.5;
+  float k = h * h * uSwayAmt * uWindStr * 0.2;
   float gust = 0.55 + 0.45 * sin(uTime * 0.55 + root.x * 0.09 + root.z * 0.06);
-  float s = gust * 0.75 + sin(uTime * 1.6 + root.x * 0.47 + root.z * 0.31) * 0.45 * gust;
+  float s = gust;   // только медленный наклон по ветру, без быстрой качки
   transformed += lw * s * k;
-  // сборка 72: дрожи листвы нет (три синуса на вершину каждого дерева и куста), качание вдвое слабее — спокойнее и легче для телефона
+  // сборка 72: дрожи листвы нет (три синуса на вершину каждого дерева и куста), качание в 5 раз слабее прежнего и только медленное (быстрой качки нет) — спокойнее и легче для телефона
 }
 `;
 
