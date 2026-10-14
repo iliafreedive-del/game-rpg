@@ -75,7 +75,7 @@ export function webglAvailable() {
 export function supports(z, profile) { return !!z && !!HEROES[(profile && profile.cls) || 'warrior']; }
 
 // сборка 51: всё тяжёлое (модели героев и зверей, арки порталов, алтарь) — после титульного экрана; арки деревни качаются, пока герой в склепе
-export function startPreload(cls) { preloadModels(cls); setTimeout(() => { preloadPortals(); preloadAltar(); }, 1500); }
+export function startPreload(cls) { preloadModels(cls); setTimeout(() => { preloadPortals(); preloadAltar(); preloadBoneTrees(); preloadForest(); }, 1500); }   // сборка 72: и деревья деревни (Meshy, сухое дерево у катакомб) — пока игрок на титуле, а не после «Начать игру»
 export function init() {
   canvas = document.createElement('canvas'); canvas.id = 'game3d';
   document.body.insertBefore(canvas, document.getElementById('game'));
@@ -437,7 +437,10 @@ function syncEnemies(dt) {
     else if (e.hitStun > 0) { clip = 'hit'; k = an.prog; }
     else if (c.moving) { clip = 'walk'; speed = c.v; }
     a.place(e.x, e.y); a.faceAngle(yawOfDir(e.dir));
-    a.update(dt, { clip, k, impact, speed }, env); a.flash(flashOf(e), 0xffffff);
+    // сборка 72 (рывки в катакомбах): враг за краем экрана (cullActors скрыл его в прошлом кадре) двигает кости раз в 4 кадра — 55 мобов этажа
+    // раньше каждый кадр считали анимацию и матрицы всех костей. Удар и смерть — каждый кадр (момент удара не пропустить)
+    if (!a.root.visible && !e.dead && e.state !== 'attack' && (fn + (a.lagK ??= Math.random() * 4 | 0)) % 4) { a.lag = (a.lag || 0) + dt; continue; }
+    a.update(dt + (a.lag || 0), { clip, k, impact, speed }, env); a.lag = 0; a.flash(flashOf(e), 0xffffff);
   }
   for (const [k, a] of actors) if (a.isEnemy && a.seen !== fn) {   // враг исчез — модель в пул (не больше 12 одного вида), остальное освобождаем
     actors.delete(k); let pool = enemyPool.get(a.def); if (!pool) enemyPool.set(a.def, pool = []);
