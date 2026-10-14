@@ -43,23 +43,82 @@ const MAP = {
 };
 const hash = (x, y) => { let h = (Math.round(x * 17) * 374761393 + Math.round(y * 23) * 668265263) >>> 0; h = (h ^ (h >>> 13)) * 1274126177 >>> 0; return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
 const DEFS = new Map();
-// lod: '' — полное качество (акценты), '_mid' — остальной лес на карте, '_lo' — лес за краем карты (без тени)
-function defOf(name, hk, wk, lod, base) {
-  const nm = GEO.has(name + lod) ? name + lod : name, geo = GEO.get(lod === '_lo' && GEO.has(nm + '_f') ? nm + '_f' : nm), t = T[name], far = lod === '_lo', key = 'fo:' + nm + ':' + hk + ':' + wk + ':' + (base.tint || 0);
+// lod: '' — полное качество (акценты), '_mid' — остальной лес на карте, '_lo' — лёгкие; cast — отбрасывает ли тень (лес за краем
+// карты и глубина окраины деревни — нет: под кронами тени не видно, а проход тени — вторая отрисовка)
+function defOf(name, hk, wk, lod, base, cast) {
+  const nm = GEO.has(name + lod) ? name + lod : name, geo = GEO.get(lod === '_lo' && GEO.has(nm + '_f') ? nm + '_f' : nm), t = T[name], key = 'fo:' + nm + ':' + hk + ':' + wk + ':' + (base.tint || 0) + (cast ? '' : ':ns');
   if (DEFS.has(key)) return DEFS.get(key);
-  const H = t.h * hk, def = { id: key, kind: 'prop', batch: true, outline: false, tint: base.tint, shadow: far ? false : base.shadow,   // лес за краем — без тени (треугольники вдвое)
+  const H = t.h * hk, def = { id: key, kind: 'prop', batch: true, outline: false, tint: base.tint, shadow: cast ? base.shadow : false,
     receive: false, side: 'double', rim: 0.12, rimColor: 0xe8ffb0, sway: t.sway,
     build(kit) { const root = new THREE.Group(), m = new THREE.Mesh(geo, kit.propMat(this)); m.scale.set(H * wk, H, H * wk); root.add(m); return { root }; } };
-  // тень ближнего дерева — от облегчённой «_lo» (только камера тени её видит, props.js shadowProxy): треугольников в проходе тени втрое меньше
-  if (!far && GEO.has(name + '_lo')) def.shadowProxy = () => GEO.get(name + '_lo').clone().scale(H * wk, H, H * wk);
+  // тень — от облегчённой «_lo» (только камера тени её видит, props.js shadowProxy): треугольников в проходе тени втрое меньше
+  if (cast && base.shadow !== false && GEO.has(name + '_lo')) def.shadowProxy = () => GEO.get(name + '_lo').clone().scale(H * wk, H, H * wk);
   DEFS.set(key, def); return def;
+}
+
+// Окраина деревни — «карточки»: дерево, отрисованное один раз в картинку под углом игровой камеры (она не вращается: поворот 45°,
+// наклон 0,64 — style.js CAMERA), на плоском прямоугольнике, повёрнутом к камере. 2 треугольника вместо 400–600, без тени.
+// Атлас 1024² (4 × 4 ячейки по 256): по две картинки на породу (повороты дерева 0° и 130°), свет запечён.
+const CAM_YAW = Math.PI / 4, CAM_PITCH = 0.64, CELL = 256, CARD_SPECIES = ['oak', 'birch', 'birch_small', 'rowan', 'pine', 'spruce', 'deadfir', 'spruce_snow'];
+let ATLAS = null;
+function bakeCards() {
+  if (ATLAS !== null) return ATLAS;
+  const R = typeof window !== 'undefined' && window.__R3 && window.__R3.renderer;
+  if (!R) return (ATLAS = false);
+  const rt = new THREE.WebGLRenderTarget(CELL * 4, CELL * 4, { samples: 4, colorSpace: THREE.SRGBColorSpace, generateMipmaps: true, minFilter: THREE.LinearMipmapLinearFilter }), sc = new THREE.Scene();
+  sc.add(new THREE.HemisphereLight(0xf2f6ff, 0x5a6a3a, 1.9));
+  const sun = new THREE.DirectionalLight(0xfff0d8, 2.4); sun.position.set(-0.4, 1, 0.9); sc.add(sun);
+  const dir = new THREE.Vector3(Math.sin(CAM_YAW) * Math.cos(CAM_PITCH), Math.sin(CAM_PITCH), Math.cos(CAM_YAW) * Math.cos(CAM_PITCH)),
+    right = new THREE.Vector3(0, 1, 0).cross(dir).normalize(), up = dir.clone().cross(right).normalize();
+  const mat = new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide }), cells = {};
+  const prev = { rt: R.getRenderTarget(), auto: R.autoClear, col: R.getClearColor(new THREE.Color()), a: R.getClearAlpha(), sh: R.shadowMap.enabled };
+  R.setRenderTarget(rt); R.setClearColor(0x000000, 0); R.clear(); R.autoClear = false; R.shadowMap.enabled = false;
+  let k = 0;
+  for (const name of CARD_SPECIES) for (const turn of [0, 2.27]) {
+    const g = GEO.get(name + '_mid') || GEO.get(name); if (!g) continue;
+    const m = new THREE.Mesh(g, mat); m.rotation.y = turn; m.updateMatrixWorld(true); sc.add(m);
+    // рамка дерева в плоскости камеры
+    const P = g.attributes.position, v = new THREE.Vector3(); let u0 = 1e9, u1 = -1e9, v0 = 1e9, v1 = -1e9;
+    for (let i = 0; i < P.count; i++) { v.fromBufferAttribute(P, i).applyMatrix4(m.matrixWorld); const u = v.dot(right), w = v.dot(up); if (u < u0) u0 = u; if (u > u1) u1 = u; if (w < v0) v0 = w; if (w > v1) v1 = w; }
+    const half = Math.max(u1 - u0, v1 - v0) / 2 * 1.04, cu = (u0 + u1) / 2, cv = (v0 + v1) / 2;
+    const cam = new THREE.OrthographicCamera(-half, half, half, -half, -10, 10);
+    cam.position.copy(dir).multiplyScalar(5).addScaledVector(right, cu).addScaledVector(up, cv); cam.up.copy(up); cam.lookAt(cam.position.clone().sub(dir));
+    const cx = k % 4, cy = Math.floor(k / 4);
+    R.setViewport(cx * CELL, cy * CELL, CELL, CELL); R.setScissor(cx * CELL, cy * CELL, CELL, CELL); R.setScissorTest(true);
+    R.render(sc, cam); sc.remove(m);
+    (cells[name] ||= []).push({ cx, cy, u0: cu - half, u1: cu + half, v0: cv - half, v1: cv + half });
+    k++;
+  }
+  R.setScissorTest(false); R.setViewport(0, 0, R.domElement.width, R.domElement.height); R.setRenderTarget(prev.rt); R.autoClear = prev.auto; R.setClearColor(prev.col, prev.a); R.shadowMap.enabled = prev.sh;
+  const tex = rt.texture;
+  const cardMat = new THREE.MeshBasicMaterial({ map: tex, alphaTest: 0.45, side: THREE.DoubleSide, fog: true });
+  return (ATLAS = { cells, mat: cardMat, dir, right, up });
+}
+const CARDS = new Map();
+function cardOf(name, variant, hk, wk, base) {
+  const key = 'fc:' + name + ':' + variant + ':' + hk + ':' + wk + ':' + (base.tint || 0);
+  if (CARDS.has(key)) return CARDS.get(key);
+  const t = T[name], H = t.h * hk, def = { id: key, kind: 'prop', batch: true, outline: false, tint: base.tint, shadow: false, receive: false,
+    build() {
+      const A = bakeCards(), c = A && A.cells[name] && A.cells[name][variant % A.cells[name].length];
+      const root = new THREE.Group(); if (!c) return { root };
+      // прямоугольник в плоскости камеры (её поворот не меняется), низ картинки — у основания дерева
+      const q = [[c.u0, c.v0], [c.u1, c.v0], [c.u1, c.v1], [c.u0, c.v1]], pos = [], uv = [];
+      for (const [u, w] of q) { const p = A.right.clone().multiplyScalar(u).addScaledVector(A.up, w); pos.push(p.x * H * wk, p.y * H, p.z * H * wk); }
+      for (const [a, b] of [[0, 0], [1, 0], [1, 1], [0, 1]]) uv.push((c.cx + a) / 4, (c.cy + b) / 4);
+      const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex([0, 1, 2, 0, 2, 3]);
+      root.add(new THREE.Mesh(g, A.mat)); return { root };
+    } };
+  CARDS.set(key, def); return def;
 }
 
 /** Подмена списков PropLayer: lists — Map(id → [предметы]); where — 'town' | 'forest' | 'fjord'; m — карта зоны (w, h);
  *  statics — предметы зоны (метка акцента); возвращает доп. описания (id → def). Заменяется весь лес: до LIMIT деревьев внутри карты
  *  (не ближе EDGE клеток к краю; в деревне — акценты у дорог, villagegen.js) — в полном качестве, остальные на карте — «_mid»,
- *  лес за краем карты («_far») и окраина деревни (краевые ряды, куда герой не ходит) — «_lo» */
+ *  лес за краем карты («_far») и в деревне все деревья, кроме акцентов, — «_lo» (акценты деревни — «_mid») */
 const LIMIT = { town: 24, forest: 22, fjord: 24 }, EDGE = 3.5;
+const outskirt = (m, x, y) => x < 0 || y < 0 || x >= m.w || y >= m.h || m.ch(Math.floor(x), Math.floor(y)) === 'x';
+const nearWalk = (m, x, y) => { for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const c = m.ch(Math.floor(x) + dx, Math.floor(y) + dy); if (c && c !== 'x' && c !== ' ') return true; } return false; };
 export function swap(lists, PROPS, where, m, statics = []) {
   const extra = {}, M = MAP[where];
   if (!forestReady() || !M || !m) return extra;
@@ -86,8 +145,13 @@ export function swap(lists, PROPS, where, m, statics = []) {
     for (const it of list) {
       const v = V[Math.floor(hash(it.x, it.y) * V.length) % V.length];
       if (v === null) { keep.push(it); continue; }
-      const [name, hk, wk] = Array.isArray(v) ? v : [v, 1, 1], edge = where === 'town' && !(it.x > EDGE && it.y > EDGE && it.x < m.w - EDGE && it.y < m.h - EDGE),
-        def = defOf(name, hk, wk, far || edge ? '_lo' : take.has(it) ? '' : '_mid', PROPS[id] || {});
+      // деревня — первые минуты игры: акценты — полное качество, остальные — «_lo»; окраина (клетки леса «x» и за краем, куда герой не
+      // ходит) — без тени, кроме первого ряда у проходимой земли
+      const [name, hk, wk] = Array.isArray(v) ? v : [v, 1, 1], town = where === 'town',
+        cast = !far && !(town && outskirt(m, it.x, it.y) && !nearWalk(m, it.x, it.y)),
+        card = town && !take.has(it) && T[name].sway && (far || (outskirt(m, it.x, it.y) && !nearWalk(m, it.x, it.y))),   // глубина окраины деревни — карточки
+        def = card ? cardOf(name, Math.floor(hash(it.y, it.x) * 2), hk, wk, PROPS[id] || {}) : defOf(name, hk, wk, take.has(it) ? '' : far || town ? '_lo' : '_mid', PROPS[id] || {}, cast);
+      if (card) it.rot = 0;   // карточка смотрит в камеру: без поворота предмета
       if (T[name].sway) it.s = 0.8 + (it.s - 0.75) * 0.4;   // разброс роста процедурных (1–1,75) — у новых уже в породе: ±15 %, без великанов
       extra[def.id] = def;
       if (!lists.has(def.id)) lists.set(def.id, []);

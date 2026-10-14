@@ -181,6 +181,7 @@ export class PropLayer {
       const forestEdge = c === '.' && near(px, py, 'x', 1), pathEdge = c === '.' && (near(px, py, ',', 1) || near(px, py, '#', 1));
       const nearTree = trees.some(t => (t.x - px) ** 2 + (t.y - py) ** 2 < 2.2);
       let id = null, sc = 0.8 + h2 * 0.5;
+      if (c === 'x' && zone.json.village && !near(px, py, '.', 1) && !near(px, py, ',', 1)) continue;   // сборка 71: в глубине краевого леса деревни папоротник и кусты под кронами не видны — не ставим
       if (c === 'x') { if (h1 < 0.28) { id = 'fern'; sc *= 1.15; } else if (h1 < 0.4) id = 'bush'; else if (h1 < 0.43) id = 'mushrooms'; sc *= 1.2; }
       else if (c === '.') {
         if (!clear(px, py, 0.45)) continue;
