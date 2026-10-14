@@ -68,6 +68,7 @@ const PROP = {
 export class Zone {
   constructor(id, json, profile) {
     this.id = id; this.json = json; this.name = json.name;
+    if (json.objects) json.objects = json.objects.filter(o => o.t !== 'puddle');   // правки 72: синие лужи (проп puddle) убраны совсем — во всех подземельях и затопленных залах
     if (id === 'town') json.walkableHash = true;
     this.map = new GridMap(json);
     this.floor = json.floor; this.dark = id !== 'town';
