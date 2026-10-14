@@ -15,7 +15,7 @@ for (const [name, id, how] of [['деревня', 'town', {}], ['лес', 'wild'
   const M = G.zone.map, P = G.player, L = R3.world.props._lists, acc = [];
   for (const [k, l] of L) if (k.startsWith('fo:')) acc.push(...l);
   let spot = null;
-  if (tag === 'before') try { spot = (await (await fetch('/qa_pos.json')).json())[name]; } catch (e) { print('нет /qa_pos.json'); }
+  if (tag === 'before' || tag === 'all') try { spot = (await (await fetch('/qa_pos.json')).json())[name]; } catch (e) { print('нет /qa_pos.json'); }
   else if (acc.length) {
     const order = acc.map(a => [a, acc.filter(b => (a.x - b.x) ** 2 + (a.y - b.y) ** 2 < 64).length]).sort((a, b) => b[1] - a[1]).map(a => a[0]);
     found: for (const best of order) for (let r = 2.5; r <= 7; r += 0.5) for (const [dx, dy] of [[r, r], [r, 0], [0, r], [-r, r], [r, -r], [-r, 0], [0, -r], [-r, -r]]) if (M.free(best.x + dx, best.y + dy, 0.3)) { spot = [best.x + dx, best.y + dy]; break found; }
