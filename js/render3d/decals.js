@@ -3,7 +3,7 @@
 // только «камера» — вид сверху на квадрат SIZE×SIZE м вокруг героя. Холст заливается в текстуру, только когда на полу что-то есть.
 import * as THREE from '../vendor/three.module.min.js';
 const PHONE = typeof matchMedia !== 'undefined' && matchMedia('(pointer: coarse)').matches;
-const SIZE = 32, PX = PHONE ? 512 : 1024, K = PX / SIZE;
+const SIZE = 32, PX = PHONE ? 512 : 768, K = PX / SIZE;   // сборка 72: на ПК 768² вместо 1024² — каждая заливка в видеокарту почти вдвое легче (журнал: при «пол» 30+ FPS 48–53 и в бою подземелий)
 export class GroundDecals {
   constructor(scene) {
     this.cv = document.createElement('canvas'); this.cv.width = this.cv.height = PX; this.ctx = this.cv.getContext('2d');
@@ -20,7 +20,7 @@ export class GroundDecals {
   // сборка 66 (лаги при дожде клинков): холст 1024² заливался в видеопамять каждый кадр, пока на полу что-то есть; теперь — через кадр
   // (листы и так идут ~16 кадров/с), а пустой пол не перерисовывается
   update(cx, cy, paint) {
-    if (this.dirty && (this.skip = (this.skip + 1) % 3)) return;   // ОС-15: на полу теперь и круги (порталы, метки) — обновление раз в 3 кадра (20 в секунду)
+    if (this.dirty && (this.skip = (this.skip + 1) % 4)) return;   // сборка 72: раз в 4 кадра (15 в секунду — как идут кадры листов эффектов); круги и метки теперь кольца в 3D (renderer3d.js markRings)
     this.x0 = Math.round(cx) - SIZE / 2; this.y0 = Math.round(cy) - SIZE / 2;
     const c = this.ctx; c.setTransform(1, 0, 0, 1, 0, 0); c.globalAlpha = 1; c.globalCompositeOperation = 'source-over';
     if (this.dirty) c.clearRect(0, 0, PX, PX);

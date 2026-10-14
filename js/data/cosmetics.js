@@ -36,8 +36,9 @@ export const DYE_PRICE = 8;      // ◆ за каждую краску, кром
 export const MODEL_PRICE = 25;   // ◆ за другую модель класса
 // другая модель того же класса (уже лежат в assets/models, в сборку попадали и раньше)
 export const HERO_MODELS = {
-  warrior: { warrior_knight: 'Рыцарь Ордена', warrior_vanguard: 'Фиолетовый авангард' },
-  mage: { mage_staff: 'Маг посоха', mage_archmage: 'Звёздный архимаг' },
+  // сборка 72: вторые модели (warrior_vanguard, mage_archmage) убраны — пользователь: «только новые модели»
+  warrior: { warrior_knight: 'Рыцарь Ордена' },
+  mage: { mage_staff: 'Маг посоха' },
   archer: { archer_raven: 'Вороний лучник' },
 };
 // облики питомцев: для процедурных моделей — сдвиг оттенка, насыщенность, яркость, тонировка, свечение
