@@ -7,14 +7,17 @@ export const UPGRADES = {
   mp:   { name: 'Запас маны', icon: '✦', step: 10, step2: 10, unit: '', cap0: 30, max: 100, base: 50, mul: 1.147, fmt: l => `+${upgVal('mp', l)} маны и +${(upgVal('mp', l) / 100).toFixed(1)} маны/с` },   // П27: мана за золото, растёт по уровням
   aps:  { name: 'Проворство', icon: '⚡', step: 1, step2: 0.5, unit: '%', cap0: 20, max: 50, base: 150, mul: 1.182, fmt: l => `+${upgVal('aps', l)}% скорости атаки` },
 };
-// сборка 66: усиления растут до 100-го уровня. До cap0 — как было; дальше потолок = уровень героя (не выше max),
+// сборка 66: усиления растут до 100-го уровня. До cap0 — как было; дальше (не выше max)
 // ступень вдвое слабее (step2), цена растёт линейно: +5% от цены последней «старой» ступени за каждую следующую
 export const upgVal = (id, l) => { const U = UPGRADES[id]; return +(U.step * Math.min(l, U.cap0) + U.step2 * Math.max(0, l - U.cap0)).toFixed(1); };
-export const upgMax = (id, P) => { const U = UPGRADES[id]; return Math.min(U.max, Math.max(U.cap0, (P && P.level) || 1)); };
+// сборка 71: предел по уровню героя с самого начала (было: до cap0 без ограничения — на 2-м уровне Запас маны брался до 30 за ~21 тыс.).
+// Сила удара, Крепость, Мана — ступень за уровень; Меткость — 0,75 за уровень; Проворство — за каждые 2 уровня
+export const upgMax = (id, P) => { const U = UPGRADES[id]; return Math.min(U.max, Math.ceil(((P && P.level) || 1) * U.max / 100)); };
 // после правок 3 (тред «перед релизом»): рост цены за ступень на 30% ниже (×1,24 → ×1,168 и т. д.) — «Сила удара» до 40 стоит ≈180 тыс. вместо 1,36 млн
 // сборка 66: Проворство вдвое слабее (было +2% / +1% за ступень, «лучник имба»): +20% к 20-й ступени, +35% к 50-й
 // цена уровня: золото, у Меткости — осколки Бездны (2, 3, 4… за уровень)
-export const upgCost = (id, l) => { const U = UPGRADES[id]; if (U.shards) return 2 + l; const k = Math.min(l, U.cap0); return Math.round(U.base * Math.pow(U.mul, k) * (1 + 0.05 * Math.max(0, l - U.cap0))); };
+// сборка 72: золотые усиления Элвина дороже на 40% (×1,4), рост цены за ступень прежний; Меткость за осколки — как была
+export const upgCost = (id, l) => { const U = UPGRADES[id]; if (U.shards) return 2 + l; const k = Math.min(l, U.cap0); return Math.round(1.4 * U.base * Math.pow(U.mul, k) * (1 + 0.05 * Math.max(0, l - U.cap0))); };
 export const upgHave = (P, id) => UPGRADES[id].shards ? (P.shards || 0) : P.gold;
 
 // Citadel rooms: unlock with gold + Abyss shards (shards drop randomly from elites, bosses, chests).

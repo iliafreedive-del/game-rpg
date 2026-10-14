@@ -22,7 +22,7 @@ export function wearOf(P = G.profile) {
 export const owns = (key, P = G.profile) => !!cosmOf(P).own[key];
 export function lookOwned(id) { const L = HERO_LOOKS[id]; return !!L && (!L.get || owns('look:' + id)); }
 export const dyeOwned = (part, id) => DYES[part][id] && (DYES[part][id][1] == null || owns(`dye:${part}:${id}`));
-export const modelOwned = (cls, id) => Object.keys(HERO_MODELS[cls] || {})[0] === id || owns('model:' + id);
+export const modelOwned = (cls, id) => id in (HERO_MODELS[cls] || {}) && (Object.keys(HERO_MODELS[cls])[0] === id || owns('model:' + id));   // старые модели из сохранений (warrior_vanguard, mage_archmage) не надеваются
 
 // цвета для шейдера: свои краски поверх готового облика (краска null — оставить как в облике)
 export function heroLook(P = G.profile) {
