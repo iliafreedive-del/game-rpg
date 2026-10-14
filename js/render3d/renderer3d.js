@@ -237,7 +237,7 @@ function setZone(z) {
   });
   if (((town && z.json.village) || (wild && ['forest', 'fjord', undefined].includes(z.json.wild.realm))) && kit.skin.SKINS.on && !forestReady()) preloadForest().then(ok => {   // деревья Meshy (сборка 71)
     if (!ok || !world || zone !== z) return;
-    world.props.dispose(); world.props = new PropLayer(scene, kit, z, open); world.props.cull(camera, true); applyQuality(true);
+    swapProps(z, open);   // собрать скрыто и подменить, без рывка (как у других пакетов)
   });
   if (bn && kit.skin.SKINS.on && !bonesReady()) preloadBones().then(ok => {
     if (!ok || !world || zone !== z) return;
