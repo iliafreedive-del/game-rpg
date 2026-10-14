@@ -16,6 +16,7 @@ import { preloadBones, bonesReady, preloadBoneTrees } from './bonesglb.js';
 import { preloadPortals, portalsReady } from './portalglb.js';
 import { preloadAltar, altarReady } from './altarglb.js';
 import { preloadTemple, templeReady } from './templeglb.js';
+import { preloadForest, forestReady } from './forestglb.js';
 import { PropLayer } from './props.js';
 import { buildGround } from './ground.js';
 import { Atmo } from './atmo.js';
@@ -233,6 +234,10 @@ function setZone(z) {
   if (wild && z.json.wild.realm === 'temple' && kit.skin.SKINS.on && !templeReady()) preloadTemple().then(ok => {   // Разрушенный храм: пак «каменная»
     if (!ok || !world || zone !== z) return;
     swapProps(z, open);
+  });
+  if (((town && z.json.village) || (wild && ['forest', 'fjord', undefined].includes(z.json.wild.realm))) && kit.skin.SKINS.on && !forestReady()) preloadForest().then(ok => {   // деревья Meshy (сборка 71)
+    if (!ok || !world || zone !== z) return;
+    swapProps(z, open);   // собрать скрыто и подменить, без рывка (как у других пакетов)
   });
   if (bn && kit.skin.SKINS.on && !bonesReady()) preloadBones().then(ok => {
     if (!ok || !world || zone !== z) return;
@@ -648,6 +653,7 @@ export function prepare() {
     if (SKINS.on && Z.id === 'town' && Z.json.village) packs.push(preloadBoneTrees());   // сухое дерево пустошей у входа в катакомбы   // источник силы из Meshy
     if (SKINS.on && Z.id === 'wild' && Z.json.wild.realm === 'bones' && !bonesReady()) packs.push(preloadBones());
     if (SKINS.on && Z.id === 'wild' && Z.json.wild.realm === 'temple' && !templeReady()) packs.push(preloadTemple());
+    if (SKINS.on && !forestReady() && ((Z.id === 'town' && Z.json.village) || (Z.id === 'wild' && ['forest', 'fjord', undefined].includes(Z.json.wild.realm)))) packs.push(preloadForest());   // сборка 71: деревья Meshy
     if (SKINS.on) packs.push(zoneModels(G.profile && G.profile.cls, Z, G.enemies, mobDef));   // сборка 66: только модели этой зоны (kit.js), остальное — фоном
     if (packs.length) await settle(Promise.all(packs), 8000);
     if (G.zone !== Z) return;

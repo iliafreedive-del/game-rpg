@@ -10,6 +10,7 @@ import { wallPieces } from './dungeon.js';
 import { STEPPE_ROCKS, STEPPE_SPIRES, STEPPE_TREES } from './models/prop/_steppe.js';
 import { FJ_ROCKS, FJ_CRAGS, FO_ROCKS } from './models/prop/_fjord.js';
 import { swap as bonesSwap, liveDef as bonesLive, boneDeadTree } from './bonesglb.js';
+import { swap as forestSwap } from './forestglb.js';
 import { walls as templeWalls, swap as templeSwap, liveDef as templeLive, templeReady } from './templeglb.js';
 import { SKINS } from './glbskin.js';
 import { portalsReady } from './portalglb.js';
@@ -159,16 +160,17 @@ export class PropLayer {
       }
     }
     if (wantBackdrop && open) this.scatterDecor(zone, push, fj);
-    const extra = { ...extra0, ...(bn ? bonesSwap(lists, PROPS, kit) : {}), ...(this.tp ? templeSwap(lists) : {}) };   // храм — пак «каменная»   // Костяные пустоши: предметы из паков Meshy (только там, bonesglb.js)
-    // правки 72: второй проход по настоящему размеру модели (footOf — прикидка, утёсы и кроны в 3D шире): что всё ещё стоит на сундуке, тайнике или схроне — убрать (предмет карты — уменьшить)
+    // правки 72: второй проход (до подмены паками Meshy, по исходным видам) по настоящему размеру модели (footOf — прикидка, утёсы и кроны в 3D шире): что всё ещё стоит на сундуке, тайнике или схроне — убрать (предмет карты — уменьшить)
     if (picks.length) for (const [id, list] of lists) {
-      if (!SOLID_RE.test(id)) continue; const def = PROPS[id] || extra[id]; if (!def) continue;
+      if (!SOLID_RE.test(id)) continue; const def = PROPS[id] || extra0[id]; if (!def) continue;
       const near = list.filter(t => picks.some(([px, py]) => (t.x - px) ** 2 + (t.y - py) ** 2 < 36)); if (!near.length) continue;
       const r0 = modelR(def, kit); if (!r0) continue;
       const hit = t => onPick(t.x, t.y, r0 * (t.s || 1) * 0.8);
       for (const t of near) if (hit(t)) { this.pickHit++; if (t.fixed) { const s0 = t.s || 1; while (t.s > s0 * 0.35 && hit(t)) t.s -= s0 * 0.1; } else t.drop = 1; }
       if (near.some(t => t.drop)) lists.set(id, list.filter(t => !t.drop));
     }
+    const fwhere = mode === 'town' && zone.json.village ? 'town' : wildForest ? 'forest' : fj ? 'fjord' : null;   // сборка 71: деревья Meshy (forestglb.js)
+    const extra = { ...extra0, ...(bn ? bonesSwap(lists, PROPS, kit) : {}), ...(fwhere ? forestSwap(lists, PROPS, fwhere, zone.map) : {}), ...(this.tp ? templeSwap(lists) : {}) };   // храм — пак «каменная»   // Костяные пустоши: предметы из паков Meshy (только там, bonesglb.js)
     for (const [id, list] of lists) {
       const def = PROPS[id] || extra[id];
       if (def.batch) this.addBatch(def, list); else for (const it of list) this.addSingle(def, it);
@@ -203,6 +205,7 @@ export class PropLayer {
       const forestEdge = c === '.' && near(px, py, 'x', 1), pathEdge = c === '.' && (near(px, py, ',', 1) || near(px, py, '#', 1));
       const nearTree = trees.some(t => (t.x - px) ** 2 + (t.y - py) ** 2 < 2.2);
       let id = null, sc = 0.8 + h2 * 0.5;
+      if (c === 'x' && zone.json.village && !near(px, py, '.', 1) && !near(px, py, ',', 1)) continue;   // сборка 71: в глубине краевого леса деревни папоротник и кусты под кронами не видны — не ставим
       if (c === 'x') { if (h1 < 0.28) { id = 'fern'; sc *= 1.15; } else if (h1 < 0.4) id = 'bush'; else if (h1 < 0.43) id = 'mushrooms'; sc *= 1.2; }
       else if (c === '.') {
         if (!clear(px, py, 0.45)) continue;

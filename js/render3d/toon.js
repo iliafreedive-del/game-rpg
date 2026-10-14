@@ -72,14 +72,11 @@ const SWAY = /* glsl */`
   vec3 root = swM[3].xyz;
   vec3 lw = normalize(transpose(mat3(swM)) * vec3(uWind.x, 0.0, uWind.y));
   float h = max(transformed.y - uSwayBase, 0.0);
-  float k = h * h * uSwayAmt * uWindStr;
+  float k = h * h * uSwayAmt * uWindStr * 0.2;
   float gust = 0.55 + 0.45 * sin(uTime * 0.55 + root.x * 0.09 + root.z * 0.06);
-  float s = gust * 0.75 + sin(uTime * 1.6 + root.x * 0.47 + root.z * 0.31) * 0.45 * gust;
+  float s = gust;   // только медленный наклон по ветру, без быстрой качки
   transformed += lw * s * k;
-  // дрожь листвы зависит только от положения точки (не от нормали): грани ствола с общими вершинами не «разъезжаются»
-  vec3 fp = transformed * 1.0;
-  vec3 fv = vec3(sin(uTime * 5.3 + dot(fp, vec3(3.1, 2.3, 2.7))), sin(uTime * 4.7 + dot(fp, vec3(2.1, 3.3, 1.7))), sin(uTime * 5.9 + dot(fp, vec3(1.3, 2.7, 3.9))));
-  transformed += fv * (uFlutter * uWindStr * (0.6 + gust) * step(0.0001, h));
+  // сборка 72: дрожи листвы нет (три синуса на вершину каждого дерева и куста), качание в 5 раз слабее прежнего и только медленное (быстрой качки нет) — спокойнее и легче для телефона
 }
 `;
 
