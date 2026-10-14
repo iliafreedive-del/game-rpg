@@ -993,6 +993,8 @@ W.shrine = () => modal('Источник силы', 'md', b => {
   b.appendChild(el('p', 'muted', '<small>Снаряжение в лавке меняется каждый день. Синий сет — с начала, золотые вещи — с 15 уровня, мифические — с 22-го.</small>'));   // П67
   const gearToday = shopGearToday();
   { const e = eventNow(); if (e) b.appendChild(el('div', 'offer ev-card', `<div class="ic">✷</div><div class="tx"><b>${esc(e.name)}</b><div class="muted">${esc(e.sub)} — сегодня во всех локациях</div></div>`)); }   // сборка 66: событие
+  { const o = el('div', 'offer hot', `<div class="ic">🎭</div><div class="tx"><b>Облик героя и питомца</b><div class="muted">Облики, краски, ауры, нимб, корона, следы, эффекты оружия и питомца — за осколки, рекламу или ₽</div></div>`);
+    const bt = el('button', 'btn gold', 'Открыть'); bt.onclick = () => W.looks(); o.appendChild(bt); b.appendChild(o); }   // правки: облики и эффекты — и в магазине, не только у Гадалки
   const dOff = dayOffer();
   for (const [id, p] of Object.entries(PRODUCTS)) {
     if (!platform.p.hasProduct(id)) continue;

@@ -6,7 +6,7 @@ import { G, bus } from '../game/ctx.js';
 import { PX_PER_M } from '../core/iso.js';
 import { perfNote } from '../ui/perflog.js';
 import { U, setSmoothFade, outline, applyLook } from './toon.js';
-import { heroLook, heroModel, petLook, heroCrown, petCrown } from '../game/cosmetics.js';
+import { heroLook, heroModel, petLook, heroCrown, petCrown, heroTrail, petFxOf, heroFxOf } from '../game/cosmetics.js';
 import { make as makeWarrior } from './models/hero/warrior.js';
 import { make as makeMage } from './models/hero/mage.js';
 import { makeKit, preloadModels, zoneModels, bgModels, mobAssets, assetLoaded, wantAssets } from './kit.js';
@@ -29,7 +29,7 @@ import { SKINS, skinLoaded, preloadSkin } from './glbskin.js';
 import { Post } from './post.js';
 import { Sparks } from './sparks.js';
 import { petFx } from './models/pet/petfx.js';
-import { petMotes, emitPet, Extra } from './cosfx.js';
+import { petMotes, emitPet, Extra, Trail, Aura, WeaponFx } from './cosfx.js';
 import { FORGE_HIT } from './models/npc/npc_smith.js';
 import { sfx } from '../core/audio.js';
 import { disposeObject } from './dispose.js';
@@ -101,7 +101,7 @@ export function init() {
   const sc = lights.moon.shadow.camera; sc.left = sc.bottom = -SHADOW.half; sc.right = sc.top = SHADOW.half; sc.near = 1; sc.far = 90;
   lights.moon.shadow.bias = SHADOW.bias; lights.moon.shadow.normalBias = SHADOW.normalBias; lights.moon.shadow.intensity = SHADOW.intensity; sc.updateProjectionMatrix(); sc.layers.enable(1);   // слой 1 — заменители теней крон
   U.uWindStr.value = 1;
-  window.__R3 = { scene, camera, renderer, actors, post, lights, get zone() { return zone; }, get world() { return world; } };
+  window.__R3 = { scene, camera, renderer, actors, post, lights, get zone() { return zone; }, get world() { return world; }, get trail() { return trail; } };
 }
 // three.js сам пересоздаёт свои буферы и текстуры при следующем кадре; мир зоны, цели постобработки и карту тени собираем заново
 function rebuildAfterRestore() {
@@ -168,7 +168,9 @@ function applyQuality(force) {
 }
 
 // ---------------------------------------------------------------- мир зоны
+let trail = null;   // следы героя (облик, cosfx.Trail)
 function disposeWorld() {
+  if (trail) { trail.dispose(); trail = null; }
   for (const a of actors.values()) { a.dispose(); if (a.motes) a.motes.dispose(); if (a.fxMotes) a.fxMotes.dispose(); } actors.clear();
   for (const P of [swarmPool, enemyPool]) { for (const l of P.values()) for (const a of l) a.dispose(); P.clear(); }
   if (!world) return;
@@ -265,6 +267,25 @@ function crownOn(a, on, head, o) {
   if (on && !a.crown && head) a.crown = new Extra('crown', scene, head, o);
   else if (!on && a.crown) { a.crown.dispose(); a.crown = null; }
 }
+// внешние эффекты облика на актёре (a.pfx — снимаются в actor.dispose): аура, следы, нимб или сферы, свечение оружия.
+// get(slot) — что надето; o: { auraK — размер ауры, haloY — высота нимба, hand — кость с оружием }
+const HALO_Y = { warrior: 0.5, archer: 0.55, mage: 1.0 };   // нимб героя: над шлемом, капюшоном, шляпой
+function fxSync(a, slots, get, x, y, dt, o) {
+  const fx = a.pfx || (a.pfx = {}), B = a.model.skinBones || a.model.bones, head = B && B.head;
+  for (const slot of slots) {
+    const k = get(slot, G.profile); let f = fx[slot];
+    if (f && f.kind !== k) { f.dispose(); f = fx[slot] = null; }
+    if (k && !f) {
+      if (slot === 'aura') { f = new Aura(scene, k); f.disc.scale.setScalar(o.auraK || 1); }
+      else if (slot === 'trail') f = new Trail(scene, k);
+      else if (slot === 'weapon') { if (a.model.skin) f = new WeaponFx(k, scene, a.root, o.hand); }
+      else if (head) f = new Extra(k, scene, head, { y: o.haloY, z: 0.04 });
+      if (!f) continue; f.kind = k; fx[slot] = f;
+    }
+    if (!f) continue;
+    if (slot === 'weapon') f.update(dt, a.clip === 'attack'); else f.update(dt, x, y, a.yaw);
+  }
+}
 function syncPlayer(dt) {
   const P = G.player; if (!P) return;
   const cls = (G.profile && G.profile.cls) || 'warrior';
@@ -305,6 +326,12 @@ function syncPlayer(dt) {
   a.setVisible(!G.heroHidden);   // правки 5: пока камера облетает деревню перед прологом, героя там нет (он ещё в склепе)
   a.place(P.x, P.y); a.faceAngle(yawOfDir(P.dir));
   a.update(dt, { clip, k, impact, speed, combo: (P.combo - 1) & 1 }, env); a.flash(flashOf(P), 0xffffff);
+  // следы шагов (облик): один InstancedMesh следов + искры; пересоздаётся при смене вида или зоны
+  const tk = heroTrail(G.profile);
+  if (trail && trail.kind !== tk) { trail.dispose(); trail = null; }
+  if (tk && !trail) { trail = new Trail(scene, tk); trail.kind = tk; }
+  if (trail) trail.update(dt, P.x, P.y, a.yaw);
+  fxSync(a, ['aura', 'extra', 'weapon'], heroFxOf, P.x, P.y, dt, { haloY: HALO_Y[cls] || 0.5, hand: cls === 'archer' ? 'handL' : 'handR' });
 }
 // модель из пула: тот же вид, поза покоя без перехода из позы смерти
 function enemyActor(e, def, scale) {
@@ -410,6 +437,7 @@ function syncPet(dt) {
     crownOn(a, petCrown(G.profile), a.model.bones && a.model.bones.head, { y: 0.42, z: 0.04, scale: 0.8 });
   }
   if (a.crown) a.crown.update(dt);
+  fxSync(a, ['aura', 'trail', 'extra'], petFxOf, p.x, p.y, dt, { auraK: 0.55, haloY: 0.42 });   // эффекты питомца, как в lab/cosmetics.html?s=mfx
   a.place(p.x, p.y); a.faceAngle(Math.PI / 2 - p.ang);
   const M = !a.model.skin && a.def.motes; if (M) { if (!a.motes) a.motes = petMotes(scene, M); emitPet(a.motes, M, dt, p.x, p.y, a.yaw); }   // искры — только у процедурной модели (точки под неё)
   petFx(a, scene, dt, U.uTime.value);   // модель из Meshy: искры от кости (models/pet/petfx.js)
