@@ -26,6 +26,9 @@ export const GHOST = { hero: { name: 'Призрак', get: { rub: 'look_ghost',
 export const CROWN = { hero: { name: 'Корона пламени', get: { rub: 'crown_hero', ads: 100, days: 7 } }, pet: { name: 'Корона пламени питомца', get: { rub: 'crown_pet', ads: 60, days: 7 } } };
 // следы шагов героя (render3d/cosfx.js Trail): за рекламу (неделя) или ₽ trail_<вид>
 export const TRAIL_GET = k => ({ rub: 'trail_' + k, ads: 80, days: 7 });
+// эффекты питомца (сборка 71): аура, следы, нимб или сферы — по одному на слот, за рекламу (неделя) или ₽ petfx_<слот>_<вид>
+export const PET_FX_SLOTS = { aura: 'Аура', trail: 'Следы', extra: 'Над питомцем' };
+export const PET_FX_GET = (slot, k) => ({ rub: `petfx_${slot}_${k}`, ads: 60, days: 7 });
 export const DYE_PRICE = 8;      // ◆ за каждую краску, кроме исходной (открывается для этого героя)
 export const MODEL_PRICE = 25;   // ◆ за другую модель класса
 // другая модель того же класса (уже лежат в assets/models, в сборку попадали и раньше)

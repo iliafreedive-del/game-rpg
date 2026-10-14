@@ -6,7 +6,7 @@ import { G, bus } from '../game/ctx.js';
 import { PX_PER_M } from '../core/iso.js';
 import { perfNote } from '../ui/perflog.js';
 import { U, setSmoothFade, outline, applyLook } from './toon.js';
-import { heroLook, heroModel, petLook, heroCrown, petCrown, heroTrail } from '../game/cosmetics.js';
+import { heroLook, heroModel, petLook, heroCrown, petCrown, heroTrail, petFxOf } from '../game/cosmetics.js';
 import { make as makeWarrior } from './models/hero/warrior.js';
 import { make as makeMage } from './models/hero/mage.js';
 import { makeKit, preloadModels, zoneModels, bgModels, mobAssets, assetLoaded, wantAssets } from './kit.js';
@@ -29,7 +29,7 @@ import { SKINS, skinLoaded, preloadSkin } from './glbskin.js';
 import { Post } from './post.js';
 import { Sparks } from './sparks.js';
 import { petFx } from './models/pet/petfx.js';
-import { petMotes, emitPet, Extra, Trail } from './cosfx.js';
+import { petMotes, emitPet, Extra, Trail, Aura } from './cosfx.js';
 import { FORGE_HIT } from './models/npc/npc_smith.js';
 import { sfx } from '../core/audio.js';
 import { disposeObject } from './dispose.js';
@@ -267,6 +267,21 @@ function crownOn(a, on, head, o) {
   if (on && !a.crown && head) a.crown = new Extra('crown', scene, head, o);
   else if (!on && a.crown) { a.crown.dispose(); a.crown = null; }
 }
+// эффекты питомца (облик): аура, следы, нимб или сферы — как в лаборатории (lab/cosmetics.html?s=mfx)
+function petFxSync(a, p, dt) {
+  const fx = a.pfx || (a.pfx = {}), head = a.model.bones && a.model.bones.head;
+  for (const slot of ['aura', 'trail', 'extra']) {
+    const k = petFxOf(slot, G.profile); let o = fx[slot];
+    if (o && o.kind !== k) { o.dispose(); o = fx[slot] = null; }
+    if (k && !o) {
+      if (slot === 'aura') { o = new Aura(scene, k); o.disc.scale.setScalar(0.55); }
+      else if (slot === 'trail') o = new Trail(scene, k);
+      else if (head) o = new Extra(k, scene, head, { y: 0.22, z: 0.06 });
+      if (!o) continue; o.kind = k; fx[slot] = o;
+    }
+    if (o) o.update(dt, p.x, p.y, a.yaw);
+  }
+}
 function syncPlayer(dt) {
   const P = G.player; if (!P) return;
   const cls = (G.profile && G.profile.cls) || 'warrior';
@@ -416,6 +431,7 @@ function syncPet(dt) {
     crownOn(a, petCrown(G.profile), a.model.bones && a.model.bones.head, { y: 0.42, z: 0.04, scale: 0.8 });
   }
   if (a.crown) a.crown.update(dt);
+  petFxSync(a, p, dt);
   a.place(p.x, p.y); a.faceAngle(Math.PI / 2 - p.ang);
   const M = !a.model.skin && a.def.motes; if (M) { if (!a.motes) a.motes = petMotes(scene, M); emitPet(a.motes, M, dt, p.x, p.y, a.yaw); }   // искры — только у процедурной модели (точки под неё)
   petFx(a, scene, dt, U.uTime.value);   // модель из Meshy: искры от кости (models/pet/petfx.js)

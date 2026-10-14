@@ -2,7 +2,7 @@
 // призрак и корона пламени для героя и питомца. Только вид. Открывается из меню; герой перекрашивается сразу (окно полупрозрачное снизу).
 import { G, bus } from '../game/ctx.js';
 import { el, esc } from '../core/util.js';
-import { HERO_LOOKS, DYES, HERO_MODELS, GHOST, CROWN, DYE_PRICE, MODEL_PRICE, PET_SKINS, PET_SKIN_GET, EFFECTS, TRAIL_GET } from '../data/cosmetics.js';
+import { HERO_LOOKS, DYES, HERO_MODELS, GHOST, CROWN, DYE_PRICE, MODEL_PRICE, PET_SKINS, PET_SKIN_GET, EFFECTS, TRAIL_GET, PET_FX_SLOTS, PET_FX_GET } from '../data/cosmetics.js';
 import { PETS } from '../data/pets.js';
 import * as CO from '../game/cosmetics.js';
 import { platform } from '../platform/platform.js';
@@ -120,6 +120,20 @@ export function renderLooks(b, redraw) {
       g2.appendChild(card);
     }
     b.appendChild(g2);
+
+    // ---- эффекты питомца: по одному в каждом слоте
+    for (const [slot, title] of Object.entries(PET_FX_SLOTS)) {
+      b.appendChild(el('h3', '', title));
+      const gf = el('div', 'lk-grid'), curF = CO.petFxOf(slot);
+      for (const id of [null, ...CO.petFxList(slot)]) {
+        const name = id ? EFFECTS[slot][id] : 'Без эффекта', key = `pfx:${slot}:${id}`;
+        const own = !id || CO.owns(key), on = curF === id, card = el('div', 'lk-card' + (on ? ' on' : ''), `<b>${esc(name)}</b>`);
+        if (own) { card.appendChild(el('div', 'lk-st' + (on ? ' ok' : ''), on ? '✔ Надет' : 'Нажмите, чтобы надеть')); card.onclick = () => { CO.setPetFx(slot, id); bus.emit('sfx', 'click'); redraw(); }; }
+        else getButtons(card, key, PET_FX_GET(slot, id), name + ' (питомец)', () => {}, redraw);
+        gf.appendChild(card);
+      }
+      b.appendChild(gf);
+    }
   }
 
   const toggles = (kind, T, title, note, rows) => {
