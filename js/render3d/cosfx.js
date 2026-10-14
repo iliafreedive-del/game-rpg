@@ -120,7 +120,7 @@ export class Trail {
       this.dist = 0; this.foot = -this.foot;
       const i = this.i; this.i = (i + 1) % this.N; const sx = Math.cos(yaw) * 0.16 * this.foot, sz = -Math.sin(yaw) * 0.16 * this.foot;
       const s = 0.8 + Math.random() * 0.4; this._s.set(s, 1, s * 1.25);
-      this._m.compose(this._v.set(x + sx, 0.04 + i * 0.0004, y + sz), this._q.setFromAxisAngle(this._ax, yaw), this._s); this.im.setMatrixAt(i, this._m); this.im.instanceMatrix.needsUpdate = true;
+      this._m.compose(this._v.set(x + sx, 0.12 + i * 0.0004, y + sz), this._q.setFromAxisAngle(this._ax, yaw), this._s); this.im.setMatrixAt(i, this._m); this.im.instanceMatrix.needsUpdate = true;
       this.born[i] = t; this.im.geometry.attributes.aBorn.needsUpdate = true;
       for (let k = 0; k < 6; k++) this.motes.emit(x + sx + (Math.random() - 0.5) * 0.3, 0.1, y + sz + (Math.random() - 0.5) * 0.3, (Math.random() - 0.5) * 0.4, 0.6 + Math.random() * 1.2, (Math.random() - 0.5) * 0.4, 0.6 + Math.random() * 0.7);
     }

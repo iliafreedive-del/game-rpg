@@ -6,7 +6,7 @@ import { G, bus } from '../game/ctx.js';
 import { PX_PER_M } from '../core/iso.js';
 import { perfNote } from '../ui/perflog.js';
 import { U, setSmoothFade, outline, applyLook } from './toon.js';
-import { heroLook, heroModel, petLook, heroCrown, petCrown } from '../game/cosmetics.js';
+import { heroLook, heroModel, petLook, heroCrown, petCrown, heroTrail } from '../game/cosmetics.js';
 import { make as makeWarrior } from './models/hero/warrior.js';
 import { make as makeMage } from './models/hero/mage.js';
 import { makeKit, preloadModels, zoneModels, bgModels, mobAssets, assetLoaded, wantAssets } from './kit.js';
@@ -29,7 +29,7 @@ import { SKINS, skinLoaded, preloadSkin } from './glbskin.js';
 import { Post } from './post.js';
 import { Sparks } from './sparks.js';
 import { petFx } from './models/pet/petfx.js';
-import { petMotes, emitPet, Extra } from './cosfx.js';
+import { petMotes, emitPet, Extra, Trail } from './cosfx.js';
 import { FORGE_HIT } from './models/npc/npc_smith.js';
 import { sfx } from '../core/audio.js';
 import { disposeObject } from './dispose.js';
@@ -101,7 +101,7 @@ export function init() {
   const sc = lights.moon.shadow.camera; sc.left = sc.bottom = -SHADOW.half; sc.right = sc.top = SHADOW.half; sc.near = 1; sc.far = 90;
   lights.moon.shadow.bias = SHADOW.bias; lights.moon.shadow.normalBias = SHADOW.normalBias; lights.moon.shadow.intensity = SHADOW.intensity; sc.updateProjectionMatrix(); sc.layers.enable(1);   // слой 1 — заменители теней крон
   U.uWindStr.value = 1;
-  window.__R3 = { scene, camera, renderer, actors, post, lights, get zone() { return zone; }, get world() { return world; } };
+  window.__R3 = { scene, camera, renderer, actors, post, lights, get zone() { return zone; }, get world() { return world; }, get trail() { return trail; } };
 }
 // three.js сам пересоздаёт свои буферы и текстуры при следующем кадре; мир зоны, цели постобработки и карту тени собираем заново
 function rebuildAfterRestore() {
@@ -168,7 +168,9 @@ function applyQuality(force) {
 }
 
 // ---------------------------------------------------------------- мир зоны
+let trail = null;   // следы героя (облик, cosfx.Trail)
 function disposeWorld() {
+  if (trail) { trail.dispose(); trail = null; }
   for (const a of actors.values()) { a.dispose(); if (a.motes) a.motes.dispose(); if (a.fxMotes) a.fxMotes.dispose(); } actors.clear();
   for (const P of [swarmPool, enemyPool]) { for (const l of P.values()) for (const a of l) a.dispose(); P.clear(); }
   if (!world) return;
@@ -305,6 +307,11 @@ function syncPlayer(dt) {
   a.setVisible(!G.heroHidden);   // правки 5: пока камера облетает деревню перед прологом, героя там нет (он ещё в склепе)
   a.place(P.x, P.y); a.faceAngle(yawOfDir(P.dir));
   a.update(dt, { clip, k, impact, speed, combo: (P.combo - 1) & 1 }, env); a.flash(flashOf(P), 0xffffff);
+  // следы шагов (облик): один InstancedMesh следов + искры; пересоздаётся при смене вида или зоны
+  const tk = heroTrail(G.profile);
+  if (trail && trail.kind !== tk) { trail.dispose(); trail = null; }
+  if (tk && !trail) { trail = new Trail(scene, tk); trail.kind = tk; }
+  if (trail) trail.update(dt, P.x, P.y, a.yaw);
 }
 // модель из пула: тот же вид, поза покоя без перехода из позы смерти
 function enemyActor(e, def, scale) {

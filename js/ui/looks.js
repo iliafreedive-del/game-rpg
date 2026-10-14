@@ -2,7 +2,7 @@
 // призрак и корона пламени для героя и питомца. Только вид. Открывается из меню; герой перекрашивается сразу (окно полупрозрачное снизу).
 import { G, bus } from '../game/ctx.js';
 import { el, esc } from '../core/util.js';
-import { HERO_LOOKS, DYES, HERO_MODELS, GHOST, CROWN, DYE_PRICE, MODEL_PRICE, PET_SKINS, PET_SKIN_GET } from '../data/cosmetics.js';
+import { HERO_LOOKS, DYES, HERO_MODELS, GHOST, CROWN, DYE_PRICE, MODEL_PRICE, PET_SKINS, PET_SKIN_GET, EFFECTS, TRAIL_GET } from '../data/cosmetics.js';
 import { PETS } from '../data/pets.js';
 import * as CO from '../game/cosmetics.js';
 import { platform } from '../platform/platform.js';
@@ -23,7 +23,7 @@ const CSS = `
 .lk-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:4px 0 10px}
 .ad-bar{position:relative;overflow:hidden}.ad-bar i{position:absolute;left:0;top:0;bottom:0;background:rgba(90,192,112,.35)}.ad-bar span{position:relative}
 `;
-let styled = false;
+let styled = false, tab = 'hero';   // вкладки окна: герой / питомец
 
 // кнопки «как получить»: осколки, реклама (прогресс недели), рубли (подключит лавка площадки)
 function getButtons(box, key, get, title, onShards, redraw) {
@@ -46,54 +46,71 @@ export function renderLooks(b, redraw) {
   const P = G.profile, cls = P.cls || 'warrior', w = CO.wearOf(P);
   b.appendChild(el('p', 'muted', `Только вид — сила не меняется. Осколки Бездны: <b class="c-gold">${P.shards || 0}◆</b>`));
 
-  // ---- готовые облики
-  b.appendChild(el('h3', '', 'Готовые облики'));
-  const g = el('div', 'lk-grid');
-  for (const [id, L] of Object.entries(HERO_LOOKS)) {
-    const own = CO.lookOwned(id), on = w.look === id, c = L.look || {};
-    const card = el('div', 'lk-card' + (on ? ' on' : ''), `<b>${esc(L.name)}</b><div class="lk-sw">${['a', 'b', 'c'].map(k => `<i style="background:${hex(c[k] ?? BASE_COL[k])}${c.glow && k === 'a' ? `;box-shadow:0 0 8px ${hex(c.glow)}` : ''}"></i>`).join('')}</div>`);
-    if (own) {
-      card.appendChild(el('div', 'lk-st' + (on ? ' ok' : ''), on ? '✔ Надет' : 'Нажмите, чтобы надеть'));
-      card.onclick = () => { CO.wear({ look: id, dye: null }); bus.emit('sfx', 'click'); redraw(); };
-    } else getButtons(card, 'look:' + id, L.get, L.name, () => CO.buyLook(id), redraw);
-    g.appendChild(card);
-  }
-  b.appendChild(g);
+  const tb = el('div', 'tabs big-tabs');
+  for (const [k, n] of [['hero', 'Герой'], ['pet', 'Питомец']]) { const t = el('button', 'tab' + (tab === k ? ' on' : ''), n); t.onclick = () => { tab = k; redraw(); }; tb.appendChild(t); }
+  b.appendChild(tb);
 
-  // ---- свои краски
-  b.appendChild(el('h3', '', 'Свои краски'));
-  b.appendChild(el('p', 'muted', `<small>Поверх облика: ткань, кайма и броня меняются по отдельности. Каждая новая краска — ${DYE_PRICE}◆ один раз.</small>`));
-  for (const [part, name] of [['a', 'Ткань'], ['b', 'Кайма'], ['c', 'Броня']]) {
-    b.appendChild(el('div', 'lk-lbl', name));
-    const row = el('div', 'lk-dyes'), cur = w.dye && w.dye[part];
-    for (const [id, [dn, col]] of Object.entries(DYES[part])) {
-      const own = CO.dyeOwned(part, id), on = cur ? cur === id : col == null && !(HERO_LOOKS[w.look].look || {})[part];
-      const d = el('button', 'lk-dye' + (on ? ' on' : '') + (own ? '' : ' lock')); d.style.background = hex(col ?? BASE_COL[part]); d.title = dn;
-      d.onclick = () => { if (!own && !CO.buyDye(part, id)) return; CO.setDye(part, id); bus.emit('sfx', 'click'); redraw(); };
-      row.appendChild(d);
+  if (tab === 'hero') {
+    // ---- готовые облики
+    b.appendChild(el('h3', '', 'Готовые облики'));
+    const g = el('div', 'lk-grid');
+    for (const [id, L] of Object.entries(HERO_LOOKS)) {
+      const own = CO.lookOwned(id), on = w.look === id, c = L.look || {};
+      const card = el('div', 'lk-card' + (on ? ' on' : ''), `<b>${esc(L.name)}</b><div class="lk-sw">${['a', 'b', 'c'].map(k => `<i style="background:${hex(c[k] ?? BASE_COL[k])}${c.glow && k === 'a' ? `;box-shadow:0 0 8px ${hex(c.glow)}` : ''}"></i>`).join('')}</div>`);
+      if (own) {
+        card.appendChild(el('div', 'lk-st' + (on ? ' ok' : ''), on ? '✔ Надет' : 'Нажмите, чтобы надеть'));
+        card.onclick = () => { CO.wear({ look: id, dye: null }); bus.emit('sfx', 'click'); redraw(); };
+      } else getButtons(card, 'look:' + id, L.get, L.name, () => CO.buyLook(id), redraw);
+      g.appendChild(card);
     }
-    b.appendChild(row);
-  }
-  if (w.dye) { const r = el('button', 'btn sm', 'Сбросить краски'); r.onclick = () => { CO.wear({ dye: null }); redraw(); }; b.appendChild(r); }
+    b.appendChild(g);
 
-  // ---- другая модель класса
-  const models = HERO_MODELS[cls] || {};
-  if (Object.keys(models).length > 1) {
-    b.appendChild(el('h3', '', 'Модель'));
-    const row = el('div', 'lk-row'), cur = CO.heroModel(P) || Object.keys(models)[0];
-    for (const [id, name] of Object.entries(models)) {
-      const own = CO.modelOwned(cls, id), first = id === Object.keys(models)[0];
-      const bt = el('button', 'btn' + (cur === id ? ' gold' : ''), `${esc(name)}${own ? '' : ` · ${MODEL_PRICE}◆`}`);
-      bt.onclick = () => { if (!own && !CO.buyModel(cls, id)) return; CO.wear({ model: first ? null : id }); redraw(); };
-      row.appendChild(bt);
+    // ---- свои краски
+    b.appendChild(el('h3', '', 'Свои краски'));
+    b.appendChild(el('p', 'muted', `<small>Поверх облика: ткань, кайма и броня меняются по отдельности. Каждая новая краска — ${DYE_PRICE}◆ один раз.</small>`));
+    for (const [part, name] of [['a', 'Ткань'], ['b', 'Кайма'], ['c', 'Броня']]) {
+      b.appendChild(el('div', 'lk-lbl', name));
+      const row = el('div', 'lk-dyes'), cur = w.dye && w.dye[part];
+      for (const [id, [dn, col]] of Object.entries(DYES[part])) {
+        const own = CO.dyeOwned(part, id), on = cur ? cur === id : col == null && !(HERO_LOOKS[w.look].look || {})[part];
+        const d = el('button', 'lk-dye' + (on ? ' on' : '') + (own ? '' : ' lock')); d.style.background = hex(col ?? BASE_COL[part]); d.title = dn;
+        d.onclick = () => { if (!own && !CO.buyDye(part, id)) return; CO.setDye(part, id); bus.emit('sfx', 'click'); redraw(); };
+        row.appendChild(d);
+      }
+      b.appendChild(row);
     }
-    b.appendChild(row);
+    if (w.dye) { const r = el('button', 'btn sm', 'Сбросить краски'); r.onclick = () => { CO.wear({ dye: null }); redraw(); }; b.appendChild(r); }
+
+    // ---- другая модель класса
+    const models = HERO_MODELS[cls] || {};
+    if (Object.keys(models).length > 1) {
+      b.appendChild(el('h3', '', 'Модель'));
+      const row = el('div', 'lk-row'), cur = CO.heroModel(P) || Object.keys(models)[0];
+      for (const [id, name] of Object.entries(models)) {
+        const own = CO.modelOwned(cls, id), first = id === Object.keys(models)[0];
+        const bt = el('button', 'btn' + (cur === id ? ' gold' : ''), `${esc(name)}${own ? '' : ` · ${MODEL_PRICE}◆`}`);
+        bt.onclick = () => { if (!own && !CO.buyModel(cls, id)) return; CO.wear({ model: first ? null : id }); redraw(); };
+        row.appendChild(bt);
+      }
+      b.appendChild(row);
+    }
+
+    // ---- следы шагов героя
+    b.appendChild(el('h3', '', 'Следы шагов'));
+    const gt = el('div', 'lk-grid'), curT = CO.heroTrail(P);
+    for (const [id, name] of [[null, 'Без следов'], ...Object.entries(EFFECTS.trail)]) {
+      const own = !id || CO.owns('trail:' + id), on = curT === id, card = el('div', 'lk-card' + (on ? ' on' : ''), `<b>${esc(name)}</b>`);
+      if (own) { card.appendChild(el('div', 'lk-st' + (on ? ' ok' : ''), on ? '✔ Надет' : 'Нажмите, чтобы надеть')); card.onclick = () => { CO.wear({ trail: id }); bus.emit('sfx', 'click'); redraw(); }; }
+      else getButtons(card, 'trail:' + id, TRAIL_GET(id), name, () => {}, redraw);
+      gt.appendChild(card);
+    }
+    b.appendChild(gt);
   }
 
-  // ---- призрак
   // ---- облик питомца (того, что сейчас рядом)
   const pid = (P.pets && P.pets.active) || null, PS = pid && PET_SKINS[pid];
-  if (PS) {
+  if (tab === 'pet' && !PS) b.appendChild(el('p', 'muted', 'Питомца пока нет рядом. Возьмите его у Караванщика Кофи — и возвращайтесь за обликом.'));
+  if (tab === 'pet' && PS) {
     b.appendChild(el('h3', '', 'Облик питомца: ' + esc(PETS[pid].name)));
     const g2 = el('div', 'lk-grid'), cur = CO.petSkinOf(pid);
     for (const [id, [name]] of [[null, ['Как есть']], ...Object.entries(PS)]) {
@@ -108,7 +125,7 @@ export function renderLooks(b, redraw) {
   const toggles = (kind, T, title, note, rows) => {
     b.appendChild(el('h3', '', title));
     b.appendChild(el('p', 'muted', `<small>${note}</small>`));
-    for (const [k, label, isOn, set] of rows) {
+    for (const [k, label, isOn, set] of rows.filter(r => r[0] === tab)) {
       const key = kind + ':' + k, own = CO.owns(key), row = el('div', 'lk-row');
       row.appendChild(el('b', '', label));
       if (own) { const t = el('button', 'btn' + (isOn ? ' gold' : ''), isOn ? '✔ Включён' : 'Включить'); t.onclick = () => { set(!isOn); redraw(); }; row.appendChild(t); }

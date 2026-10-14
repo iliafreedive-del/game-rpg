@@ -1,9 +1,9 @@
 // Облики (сборка 59): что открыто и что надето. Только вид — на силу не влияет.
 // Сохранение — P.cosm: { own: { 'look:blood': 1, 'dye:a:crimson': 1, 'model:warrior_vanguard': 1, 'ghost:hero': 1, 'ghost:pet': 1, 'crown:hero': 1, 'crown:pet': 1 },
-//   wear: { warrior: { look, dye: { a, b, c } | null, model, ghost, crown } }, petGhost, petCrown, petSkin: { fennec: 'snow' }, ads: { ключ: { n, t0 } } }.
+//   wear: { warrior: { look, dye: { a, b, c } | null, model, ghost, crown, trail } }, petGhost, petCrown, petSkin: { fennec: 'snow' }, ads: { ключ: { n, t0 } } }.
 // Вид рисует renderer3d (heroLook / petLook ниже — что передать в toon.applyLook).
 import { G, bus } from './ctx.js';
-import { HERO_LOOKS, DYES, HERO_MODELS, GHOST, DYE_PRICE, MODEL_PRICE, PET_SKINS, PET_SKIN_GET } from '../data/cosmetics.js';
+import { HERO_LOOKS, DYES, HERO_MODELS, GHOST, DYE_PRICE, MODEL_PRICE, PET_SKINS, PET_SKIN_GET, EFFECTS } from '../data/cosmetics.js';
 
 const DAY = 864e5;
 export function cosmOf(P = G.profile) {
@@ -34,6 +34,7 @@ export function heroLook(P = G.profile) {
 }
 export function heroModel(P = G.profile) { const w = wearOf(P); return w.model && modelOwned(P.cls || 'warrior', w.model) ? w.model : null; }
 export const petGhost = (P = G.profile) => !!(cosmOf(P).petGhost && owns('ghost:pet', P));
+export function heroTrail(P = G.profile) { const k = wearOf(P).trail; return k && EFFECTS.trail[k] && owns('trail:' + k, P) ? k : null; }
 export const heroCrown = (P = G.profile) => !!(wearOf(P).crown && owns('crown:hero', P));
 export const petCrown = (P = G.profile) => !!(cosmOf(P).petCrown && owns('crown:pet', P));
 // облик питомца (P.cosm.petSkin: { id питомца: облик }) + призрак — что передать в applyLook
