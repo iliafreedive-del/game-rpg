@@ -179,7 +179,6 @@ function golem(kit) {
 const FLY = { crow: 1, wisp: 1, skull: 1, bat: 1 };
 // искры у питомца (render3d/cosfx.js Motes, одна отрисовка): at — точка в системе питомца (вперёд +Z, до масштаба модели), rate — раз в секунду
 export const PET_MOTES = {
-  fennec: { at: [0, 1.05, -0.75], rate: 14, colA: 0xffe070, colB: 0xff3000, grav: -1.6, size: 0.11, k: 2.2, sp: 0.15, up: 0.5 },
   wisp:   { at: [0, 1.5, 0], rate: 10, colA: 0xe0ffe0, colB: 0x30c070, grav: -0.2, size: 0.09, k: 1.8, sp: 0.35, up: 0.2, wobble: 0.3 },
   skull:  { at: [0, 1.85, -0.05], rate: 12, colA: 0xc0ff90, colB: 0x10a020, grav: -1.4, size: 0.1, k: 2.0, sp: 0.12, up: 0.5 },
   bat:    { at: [0, 1.5, 0], rate: 6, colA: 0xd090ff, colB: 0x400080, grav: 0.4, size: 0.08, k: 1.5, sp: 0.3, up: -0.1, wobble: 0.2 },
