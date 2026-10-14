@@ -149,9 +149,45 @@ export function attachSkin(kit, model, name, o = {}) {
       b.quaternion.copy(pw ? _qi.copy(pw).invert().multiply(w) : w);
       // сдвиги: ось кувырка, покачивание таза и ног (ноги короче — сдвиг меньше)
       const n = b.name, k = n === 'spin' ? 1 : n === 'hips' || n === 'legL' || n === 'legR' || (o.bodyPos && n === 'body') ? legK : 0;   // bodyPos — мобы: корпус приседает вместе с тазом (правки 2, П14)
-      if (k) b.position.copy(restP.get(b)).addScaledVector(_v.subVectors(p.position, idleP.get(b)), k);
+      // пока ноги ведёт клип модели, приседание процедурной ходьбы (таз ниже на 0,14) не нужно: клип своими ногами его
+      // не повторяет, и без этого герой на ходу уходил ступнями в пол (правки 71)
+      if (k) b.position.copy(restP.get(b)).addScaledVector(_v.subVectors(p.position, idleP.get(b)), k * (n === 'spin' ? 1 : 1 - clipW));
       if (CL && n === 'body') b.position.copy(restP.get(b)).addScaledVector(_ho, clipW);
     }
+    if (CL && clipW > 0.001) ground();
+  }
+  // ступни не ниже пола: у клипов Mixamo стопа одна кость с носком — на толчке носок, на шаге пятка уходят под пол.
+  // Берём нижние точки обеих стоп (из шкуры) и, если самая низкая ниже, чем в покое, приподнимаем корпус на разницу
+  const sole = [], bodyB = byName.body;
+  if (CL) {
+    const P = geo.attributes.position, SI = geo.attributes.skinIndex, SW = geo.attributes.skinWeight, foot = new Set(['footL', 'footR', 'kneeL', 'kneeR'].map(nm => bones.indexOf(byName[nm])));
+    let y0 = Infinity; for (let i = 0; i < P.count; i++) y0 = Math.min(y0, P.getY(i));
+    const low = [];
+    for (let i = 0; i < P.count; i++) {
+      if (P.getY(i) > y0 + 0.25) continue;
+      let bi = 0, bw = -1; for (let k = 0; k < 4; k++) if (SW.getComponent(i, k) > bw) { bw = SW.getComponent(i, k); bi = SI.getComponent(i, k); }
+      if (foot.has(bi)) low.push(i);
+    }
+    const step = Math.max(1, Math.floor(low.length / 160)); for (let i = 0; i < low.length; i += step) sole.push(low[i]);
+  }
+  let soleRest = null;
+  const SM = bones.map(() => new THREE.Matrix4()), _ri = new THREE.Matrix4(), _sv = new THREE.Vector3(), _sp = new THREE.Vector3();
+  function soleMin() {   // в системе корпуса модели (root), без масштаба и положения актёра
+    byName.spin.updateMatrixWorld(true);
+    _ri.copy(root.matrixWorld).invert();
+    const SI = geo.attributes.skinIndex, SW = geo.attributes.skinWeight, P = geo.attributes.position, inv = mesh.skeleton.boneInverses;
+    bones.forEach((b, i) => SM[i].multiplyMatrices(_ri, b.matrixWorld).multiply(inv[i]).multiply(mesh.bindMatrix));
+    let m = Infinity;
+    for (const i of sole) {
+      _sp.set(0, 0, 0);
+      for (let k = 0; k < 4; k++) { const w = SW.getComponent(i, k); if (w) _sp.addScaledVector(_sv.fromBufferAttribute(P, i).applyMatrix4(SM[SI.getComponent(i, k)]), w); }
+      if (_sp.y < m) m = _sp.y;
+    }
+    return m;
+  }
+  function ground() {
+    if (!sole.length || soleRest === null) return;
+    const d = soleRest - soleMin(); if (d > 0) bodyB.position.y += d * Math.min(1, clipW * 1.5);
   }
   // ---- выстрел из лука: руки ставятся заново по длинам рук самой модели (копия позы старого рига уводила правую руку
   // в грудь и наклоняла лук). Стойка как у настоящего лучника: корпус боком к цели, левая рука с луком прямо на цель
@@ -240,6 +276,7 @@ export function attachSkin(kit, model, name, o = {}) {
     }
   }
   sync(); bowShot();
+  if (sole.length) { root.updateMatrixWorld(true); soleRest = soleMin(); }   // ступни в покое (idle t=0) — уровень пола
   // след клинка (o.trail = { bone, from, to, color }): лента по точкам от гарды до острия за последние доли секунды удара —
   // точки берутся с кости кисти каждый кадр, поэтому след повторяет путь самого меча
   let trail = null;

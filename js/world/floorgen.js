@@ -18,7 +18,7 @@ function prologue() {
   const rows = g.map(r => r.join(''));
   return { name: 'Пролог · Склеп пробуждения', floorN: 0, prologue: true, dungeon: true, w: W, h: H, rows,
     objects: [{ t: 'floor_exit', x: 21, y: 7.5, hidden: true }, { t: 'candles', x: 3.5, y: 5 }, { t: 'bones', x: 3.2, y: 9.9 }, { t: 'sarcophagus', id: 'p_sarc', x: 6.6, y: 9.4, loot: 'gold' }, { t: 'brazier', x: 18.5, y: 3.8 }, { t: 'pillar', x: 15.5, y: 4.5 }, { t: 'pillar', x: 15.5, y: 10.5 }, { t: 'skulls', x: 20, y: 10.5 }],
-    torches: [[5, 3], [18, 2]], spawns: [['skel_warrior', 17.5, 7.5, 3, 1.5, 1]], total: 3,
+    torches: [[5, 3], [18, 2]], spawns: [['skel_warrior', 17.5, 7.5, 2, 1.5, 1]], total: 2,   // сборка 72: два слабых скелета (game.js spawnFloor), а не три — новичок не должен гибнуть, пока учится управлению
     rooms: { r0: [2, 4, 6, 7], r1: [14, 3, 9, 9] }, start: [4.5, 7.5], boss: false, level: 1, story: [] };
 }
 // Комнаты-шаблоны (правки 2, П30): у каждой своя начинка — стены внутри, обстановка, кого в ней встретить.

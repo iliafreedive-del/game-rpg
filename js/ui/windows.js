@@ -560,7 +560,6 @@ W.settings = () => modal('Настройки', 'sm', b => {
     const pl = el('button', 'btn sm', '📋 Скопировать журнал скорости'); pl.title = 'FPS, рывки и события за последние ~13 минут игры — вставьте текст в чат'; pl.onclick = copyPerfLog; b.appendChild(pl); }   // сборка 68   // сборка 47
   { let cur = '3d'; try { cur = localStorage.getItem('da_render') || '3d'; } catch { } if (new URLSearchParams(location.search).get('render')) cur = new URLSearchParams(location.search).get('render');
     const g = el('div', 'attr', '<b>Графика</b>'); for (const [k, n] of [['3d', '3D (по умолчанию)'], ['2d', 'Классика 2D']]) { const bt = el('button', 'btn sm' + (cur === k ? ' gold' : ''), n); bt.onclick = () => { try { localStorage.setItem('da_render', k); } catch { } saveNow(); const u = new URL(location.href); u.searchParams.delete('render'); location.href = u.toString(); }; g.appendChild(bt); } b.appendChild(g); b.appendChild(el('p', 'muted', '<small>Смена графики перезапускает игру (прогресс сохраняется). Лучник и маг пока всегда в 2D.</small>')); }
-  { const nm = el('div', 'attr', '<b>Новые модели</b> <small class="muted">(герои)</small>'); const bn = el('button', 'btn sm', s.skins !== false ? 'Вкл' : 'Выкл'); bn.onclick = () => { s.skins = s.skins === false; bus.emit('save'); rerender(); }; nm.appendChild(bn); b.appendChild(nm); }
   { const zr = el('div', 'attr', '<b>Камера</b> <small class="muted">ближе — дальше</small>'); const i = document.createElement('input'); i.type = 'range'; i.min = zoomRange().min; i.max = zoomRange().max; i.step = 0.05; i.value = zoomNow(); i.oninput = () => setZoom(+i.value);
     const rs = el('button', 'btn sm', 'Как было'); rs.onclick = () => { setZoom(1); i.value = 1; }; zr.append(i, rs); b.appendChild(zr);
     b.appendChild(el('p', 'muted', `<small>${matchMedia('(pointer: coarse)').matches ? 'В игре: разведите или сведите два пальца на свободной части экрана.' : 'В игре: колесо мыши или щипок на тачпаде.'}</small>`)); }
@@ -599,11 +598,20 @@ W.settings = () => modal('Настройки', 'sm', b => {
   const row = el('div', 'row'); row.style.marginTop = '10px';
   const sv = el('button', 'btn', 'Сохранить'); sv.onclick = () => { if (saveNow(true)) bus.emit('toast', { text: 'Игра сохранена', kind: 'good' }); else bus.emit('toast', { text: 'Не удалось сохранить', sub: 'Браузер не даёт записать (приватный режим или нет места)', kind: 'warn' }); }; row.appendChild(sv);   // С14
   const rp = el('button', 'btn', 'Восстановить покупки'); rp.onclick = () => restorePurchases(); row.appendChild(rp);
+  const hs = el('button', 'btn gold', 'К выбору героя'); hs.title = 'Прогресс сохранится; герой вернётся в деревню';   // сборка 72: сменить героя, не удаляя сохранение
+  hs.onclick = () => { hs.disabled = true; toHeroSelect(); }; row.appendChild(hs);
   const wp = el('button', 'btn', 'Начать заново'); wp.onclick = () => { if (confirm('Удалить сохранение этого героя и начать заново? Это нельзя отменить. Сохранения других героев останутся.')) { wipeLocal(G.profile.cls); G.profile = null; const go = () => location.reload(); if (platform.name !== 'demo' && platform.p && platform.p.cloudSave && platform.cloudOK) Promise.race([platform.p.cloudSave(cloudBundle(null), true), new Promise(r => setTimeout(r, 8000))]).finally(go); else go(); } }; row.appendChild(wp);   // С12: перезагрузка — после настоящей записи в облако (не дольше 8 с)
   b.appendChild(row);
   b.appendChild(el('p', 'muted', `<small>Версия 2.0 · платформа: ${platform.name}</small>`));
 });
 
+// сборка 72: выход к экрану выбора героя (титул со слотами) — сохранить, дождаться облака (не дольше 8 с), перезапустить
+let leaving = false;
+function toHeroSelect() {
+  if (leaving) return; leaving = true; saveNow();
+  const go = () => location.reload();
+  if (platform.name !== 'demo' && platform.p && platform.p.cloudSave && platform.cloudOK) Promise.race([platform.p.cloudSave(cloudBundle(G.profile), true), new Promise(r => setTimeout(r, 8000))]).finally(go); else go();
+}
 // ---------------------------------------------------------------- NPCs
 let adminOK = false;   // сборка 62: админка открыта паролем до перезапуска
 const FACES = ['elder', 'smith', 'merchant', 'trainer', 'fortune'];   // сборка 47: портреты из 3D-моделей NPC (tools/qa/scenarios/npc_faces.js)
@@ -1428,13 +1436,13 @@ function survLevel() {
     const row = el('div', 'boons b4');   // сборка 47: карточки мельче, 4 в ряд; 3 бесплатно, 4-я случайная — за рекламу
     cs.forEach((c, i) => {
       if (i === 3 && !extra) {
-        const lock = earlyLock('extra'), card = el('button', 'boon locked', `<div class="bg">?</div><b>Ещё вариант</b><small class="lv">${lock ? 'после обучения' : '▶ за рекламу'}</small><span>Случайное усиление</span>`);
+        const lock = earlyLock('extra'), card = el('button', 'boon locked', `<div class="bg">${artTag(ART.perk('extra'), '?')}</div><b>Ещё вариант</b><small class="lv">${lock ? 'после обучения' : '▶ за рекламу'}</small><span>Случайное усиление</span>`);
         card.disabled = lock;
         card.onclick = async () => { const ok = await watchRewarded('surv_extra', offerToken('surv_extra', String(Date.now())), () => {}); if (ok) { extra = true; rerender(); } };
         row.appendChild(card); return;
       }
       const title = c.evo ? '⚡ ' + c.evo.name : c.rep ? (c.rep === 'power' ? 'Сила Бездны' : 'Стойкость') : c.gold ? 'Золото' : c.P.name, desc = c.evo ? c.evo.desc : c.rep ? (c.rep === 'power' ? '+10% урона забега (можно брать снова)' : '+10% здоровья и полное лечение (можно брать снова)') : c.gold ? '+50 золота' : c.P.desc(c.lvl), lv = c.evo ? 'ПРОБУЖДЕНИЕ' : c.gold || c.rep ? '' : c.lvl ? `ур. ${c.lvl} → ${c.lvl + 1}` : 'новое';
-      const card = el('button', 'boon' + (c.evo ? ' evo' : ''), `<div class="bg">${c.evo ? artTag(ART.evo(c.evo.id), '✹') : c.rep ? (c.rep === 'power' ? '✹' : '♥') : c.gold ? '⛁' : artTag(ART.perk(c.id), c.P.icon || '⚔')}</div><b>${esc(title)}</b><small class="lv">${lv}</small><span>${esc(desc)}</span>${c.tag ? `<small class="lv" style="color:#ffd45a">★ ${esc(c.tag)}</small>` : ''}`);
+      const card = el('button', 'boon' + (c.evo ? ' evo' : ''), `<div class="bg">${c.evo ? artTag(ART.evo(c.evo.id), '✹') : c.rep ? artTag(ART.perk(c.rep === 'power' ? 'rep_power' : 'rep_vigor'), c.rep === 'power' ? '✹' : '♥') : c.gold ? artTag(ART.perk('gold'), '⛁') : artTag(ART.perk(c.id), c.P.icon || '⚔')}</div><b>${esc(title)}</b><small class="lv">${lv}</small><span>${esc(desc)}</span>${c.tag ? `<small class="lv" style="color:#ffd45a">★ ${esc(c.tag)}</small>` : ''}`);
       card.onclick = () => { SV.take(c); closeModal(); };
       row.appendChild(card);
     });
@@ -1476,14 +1484,14 @@ W.menu = () => modal('Меню', 'md', b => {
     ['inventory', '🎒', 'Герой', 'снаряжение и сумка', 'dotInv'], ['character', '🛡', 'Персонаж', 'характеристики', 'dotChar'], ['skills', '✦', 'Навыки', 'умения и кнопки', 'dotSkill'],
     ['journal', '📜', 'Задания', 'сюжет и ежедневные'], ['map', '🗺', 'Карта', 'текущая локация'],
     ['herospath', '⚔', 'Летопись битв', 'автобои', 'dotHW'], ['shrine', '🎁', 'Источник силы', 'дары, сила источника', 'dotGift'], ['season', '🏆', 'Путь сезона', SE.seasonName() + ' · 30 ступеней', 'dotSeason'], ['codex', '📖', 'Коллекция', '+0,5% за каждую находку'],
-    ['help', '❓', 'Справка', 'подсказки и обучение'], ['settings', '⚙', 'Настройки', 'звук, графика'],
+    ['help', '❓', 'Справка', 'подсказки и обучение'], ['settings', '⚙', 'Настройки', 'звук, графика'], ['heroselect', '👥', 'Сменить героя', 'прогресс сохранится'],
   ];
   const g = el('div', 'menu-grid');
   for (const [id, ic, name, sub, badge] of tiles) {
     const locked = TOWN_ONLY[id] && G.zoneId !== 'town';
     const n = badge ? BADGES[badge] || 0 : 0;
     const t = el('button', 'menu-tile' + (locked ? ' locked' : ''), `<span class="mt-ic">${ic}</span><b>${name}</b><small>${locked ? 'в деревне' : sub}</small>${n ? `<span class="mt-dot">${n}</span>` : ''}`); t.dataset.w = id;
-    t.onclick = () => { closeModal(); openWindow(id); };
+    t.onclick = id === 'heroselect' ? () => { t.disabled = true; toHeroSelect(); } : () => { closeModal(); openWindow(id); };
     g.appendChild(t);
   }
   b.appendChild(g);

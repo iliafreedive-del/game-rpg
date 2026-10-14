@@ -39,12 +39,14 @@ export function unequip(slot) {
 export const attrCost = () => 5 + 5 * G.profile.level;
 // сборка 20: первый навык бесплатно, каждый следующий новый — вдвое дороже (25, 50, 100, 200…; 10-й ≈ 13 тыс.);
 // ранг уже изученного навыка — в 1,5 раза дороже предыдущего ранга, база растёт на 10% за уровень героя
+// сборка 72: уроки и мастерство у Элвина дороже на 40% (ELVIN_K), рост цены от навыка к навыку прежний; первый урок по обучению — как был
+const ELVIN_K = 1.4;
 export const skillCost = id => {
   const P = G.profile, n = Object.values(P.skills).filter(Boolean).length, r = P.skills[id] || 0;
-  if (!r) return n === 0 ? firstLessonCost() : Math.round(25 * Math.pow(2, n - 1));
+  if (!r) return n === 0 ? firstLessonCost() : Math.round(25 * Math.pow(2, n - 1) * ELVIN_K);
   // правки мамы (М5): второй ранг стоил 50 золота, а после Летописи у игрока ~40 — очко навыка есть, а потратить нельзя.
   // Первое повышение ранга теперь 30·1,1^(ур.−1) (33 на 2-м уровне), дальше как было
-  return Math.round(30 * (r === 1 ? 1 : Math.pow(1.5, Math.min(5, r))) * priceK(P.level));   // перед релизом: после 20 ур. цена растёт линейно (items.js priceK)
+  return Math.round(30 * (r === 1 ? 1 : Math.pow(1.5, Math.min(5, r))) * priceK(P.level) * ELVIN_K);   // перед релизом: после 20 ур. цена растёт линейно (items.js priceK)
 };
 export function addAttr(k, n = 1, pay = false) {
   const P = G.profile; n = Math.min(n, P.attrPts); if (n <= 0) return false;
@@ -83,7 +85,7 @@ export function learn(id, pay = false, first = false) {
 }
 // ---- перед релизом: мастерство (очко навыка + золото как за ранг 5) для активного умения, изученного до конца
 export const masteryOf = (P, id) => (P.mastery && P.mastery[id]) || 0;
-export const masteryCost = () => Math.round(30 * Math.pow(1.5, 5) * priceK(G.profile.level));
+export const masteryCost = () => Math.round(30 * Math.pow(1.5, 5) * priceK(G.profile.level) * ELVIN_K);
 export function canMaster(id) {
   const P = G.profile, s = SKILLS[id], r = P.skills[id] || 0, m = masteryOf(P, id), free = !!(P.cheat && P.cheat.skills);
   if (!s || s.kind !== 'active' || s.max < 5 || !inClassTree(cls(), id)) return { ok: false, why: 'Мастерство — только для активных умений' };

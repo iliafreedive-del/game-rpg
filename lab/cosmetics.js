@@ -42,7 +42,7 @@ const right = new THREE.Vector3(Math.cos(CAMERA.yaw), 0, -Math.sin(CAMERA.yaw)),
 const env = { wind: new THREE.Vector2(0.6, 0.3) };
 const at = (c, r) => right.clone().multiplyScalar(c).add(fwd.clone().multiplyScalar(r));   // столбец, ряд → мир
 
-const HERO_DEF = { warrior: makeWarrior(), mage: makeMage(), archer: ARCHER, warrior_vanguard: makeWarrior('warrior_vanguard'), mage_archmage: makeMage('mage_archmage') };
+const HERO_DEF = { warrior: makeWarrior(), mage: makeMage(), archer: ARCHER };
 const items = [];   // { a: Actor, x, z, tag, fx: [], walk }
 const priceOf = g => !g ? '' : [g.rub ? 'за ₽' : '', g.ads ? `или ${g.ads} реклам за неделю` : '', g.shards ? `${g.shards}◆` : ''].filter(Boolean).join(' ');
 function tag(text, sub, price) { const d = document.createElement('div'); d.className = 'tag'; d.innerHTML = text + (sub ? `<small>${sub}</small>` : '') + (price ? `<br><span class="p">${price}</span>` : ''); document.body.appendChild(d); return d; }
@@ -73,7 +73,7 @@ let camDist = 14, camPitch = 0.55, camAim = new THREE.Vector3(0, 1, 0);
 const S = QS.s || 'looks', title = document.getElementById('title');
 const CLS_NAME = { warrior: 'Воин', archer: 'Лучник', mage: 'Маг' };
 async function build() {
-  await Promise.all(['warrior_knight', 'archer_raven', 'mage_staff', 'warrior_vanguard', 'mage_archmage'].map(n => kit.skin.preloadSkin(n)));
+  await Promise.all(['warrior_knight', 'archer_raven', 'mage_staff'].map(n => kit.skin.preloadSkin(n)));
   if (S === 'looks') {
     const cls = QS.cls || 'warrior', list = (QS.list || 'base,blood,frost,ember,holy,void').split(',');
     title.textContent = `${CLS_NAME[cls]}: готовые облики`;
@@ -81,7 +81,7 @@ async function build() {
     camDist = 2.4 + list.length * 1.65; camPitch = 0.3; camAim.y = 1.05;
   } else if (S === 'models') {
     title.textContent = 'Другие модели того же класса';
-    const L = [['warrior', 'Рыцарь Ордена (сейчас)'], ['warrior_vanguard', 'Фиолетовый авангард'], ['mage', 'Маг посоха (сейчас)'], ['mage_archmage', 'Звёздный архимаг']];
+    const L = [['warrior', 'Рыцарь Ордена'], ['mage', 'Маг посоха']];
     L.forEach(([k, n], i) => { const it = hero(HERO_DEF[k], null, ...xz(at((i - 1.5) * 2.1, 0))); it.tag = tag(n); });
     camDist = 12; camPitch = 0.32;
   } else if (S === 'dyes') {

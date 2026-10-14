@@ -2,6 +2,7 @@
 // логика, ИИ, бой и DOM-интерфейс остаются прежними. Поверх WebGL-холста рисуется прозрачный 2D-холст игры
 // (полоски жизни, цифры урона, эффекты, телеграфы) — для него камера отдаёт проекцию через G.cam.proj.
 import * as THREE from '../vendor/three.module.min.js';
+import { mergeGeometries } from '../vendor/BufferGeometryUtils.js';
 import { G, bus } from '../game/ctx.js';
 import { PX_PER_M } from '../core/iso.js';
 import { perfNote } from '../ui/perflog.js';
@@ -175,7 +176,7 @@ function disposeWorld() {
   for (const a of actors.values()) { a.dispose(); if (a.motes) a.motes.dispose(); if (a.fxMotes) a.fxMotes.dispose(); } actors.clear();
   for (const P of [swarmPool, enemyPool]) { for (const l of P.values()) for (const a of l) a.dispose(); P.clear(); }
   if (!world) return;
-  world.ground.dispose(); world.props.dispose(); disposeObject(world.plates); disposeObject(world.glow); disposeObject(world.pool); if (world.atmo) world.atmo.dispose(); if (world.critters) world.critters.dispose(); world = null;
+  world.ground.dispose(); world.props.dispose(); disposeObject(world.plates); disposeObject(world.marks); disposeObject(world.glow); disposeObject(world.pool); if (world.atmo) world.atmo.dispose(); if (world.critters) world.critters.dispose(); world = null;
 }
 const hex = c => (c[0] << 16) | (c[1] << 8) | c[2];
 // пресет света по зоне: деревня, подземелье (с биомом глубин), цитадель/арена
@@ -221,7 +222,7 @@ function setZone(z) {
   U.uHFogCol.value.set(wf ? 0x9cc8a4 : bn ? 0xe6c88e : 0xb4c8c0);
   if (z.json.center) U.uHFogC.value.set(z.json.center[0], z.json.center[1], 17); else U.uHFogC.value.set(0, 0, wf || bn ? -0.45 : 0);   // в центре деревни тумана почти нет
   const atmo = town && z.json.village ? new Atmo(scene, z, props.smoke) : null, critters = town && z.json.village ? new Critters(scene, kit, z) : null;
-  world = { ground, props, atmo, critters, plates: plateRings(z), ...lightSets(z) };
+  world = { ground, props, atmo, critters, plates: plateRings(z), marks: markRings(z), ...lightSets(z) };
   props.cull(camera, true); applyQuality(true); ground.setQuality(quality); spawned = false;
   // Костяные пустоши: паки окружения Meshy грузятся при первом входе; пока грузятся — прежние предметы, потом слой пересобирается
   // порталы деревни из Meshy (сборка 44): пак грузится при первом входе в деревню, до загрузки — прежние арки
@@ -264,6 +265,35 @@ function plateRings(z) {
   const mat = new THREE.MeshBasicMaterial({ color: 0xffcd5a, transparent: true, opacity: 0.5, depthWrite: false, toneMapped: false, fog: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 });
   for (const it of list) { const m = new THREE.Mesh(geo, mat); m.position.set(it.x, 0.07, it.y); m.renderOrder = 5; m.userData.it = it; g.add(m); }
   scene.add(g); return g;
+}
+// сборка 72 (журнал скорости: «пол» 13–35 в деревне без боя, FPS 48–55): кольцо у предмета под рукой (G.focus), точка «идти сюда»
+// (G.moveTo) и голубые круги лечебных мест (it.glow) рисовались на холсте пола 1024² — он перерисовывался и уходил в видеокарту
+// 20 раз в секунду, пока герой стоит у жителя или ходит щелчком. Теперь это кольца в 3D-сцене, холст пола — только для эффектов боя.
+// Размеры — как на холсте пола (32 пикселя холста = √2 м... 34 px → 0,75 м). Материалы общие на все зоны: шейдер собирается один раз
+const PXM = 32 * Math.SQRT2, MK = {};
+function markMat(c) { return MK[c] || (MK[c] = new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: 0, depthWrite: false, toneMapped: false, fog: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 })); }
+function dashRing(r, w, n, fill) {   // n штрихов по кругу (как setLineDash на холсте) и, если fill, — полупрозрачный диск внутри
+  const parts = []; for (let i = 0; i < n; i++) parts.push(new THREE.RingGeometry(r - w / 2, r + w / 2, 6, 1, (i / n) * Math.PI * 2, (Math.PI * 2 / n) * 0.57));
+  const g = new THREE.Group(), ring = new THREE.Mesh(mergeGeometries(parts.map(q => q.toNonIndexed())).rotateX(-Math.PI / 2), markMat(fill ? 0x78e6ff : 0xffd778)); g.add(ring);
+  if (fill) g.add(new THREE.Mesh(new THREE.CircleGeometry(r, 32).rotateX(-Math.PI / 2), markMat(0x78e6fe)));
+  for (const m of g.children) m.renderOrder = 5;
+  return g;
+}
+function markRings(z) {
+  const g = new THREE.Group();
+  const focus = dashRing(34 / PXM, 2.5 / PXM, 14, false);
+  const move = new THREE.Mesh(new THREE.RingGeometry(1 - 0.16, 1, 40).rotateX(-Math.PI / 2), markMat(0x96e6ff)); move.renderOrder = 5;
+  const glows = (z.inter || []).filter(it => it.glow).map(it => { const r = dashRing(26 / PXM, 3 / PXM, 16, true); r.position.set(it.x, 0.07, it.y); r.userData.it = it; return r; });
+  g.add(focus, move, ...glows); g.userData = { focus, move, glows }; focus.position.y = move.position.y = 0.07;
+  scene.add(g); return g;   // все видимы в первый кадр (прозрачность 0) — шейдер соберётся под шторкой загрузки
+}
+function updateMarks() {
+  const g = world.marks; if (!g) return; const { focus, move, glows } = g.userData, on = fxGround.on, t = G.time;
+  const it = G.focus; focus.visible = !!(on && it);
+  if (focus.visible) { const p = 1 + Math.sin(t * 5) * 0.08; focus.position.set(it.x, 0.07, it.y); focus.scale.setScalar(p); focus.rotation.y = t * 20 / 34; focus.children[0].material.opacity = 0.9; }
+  const m = G.moveTo; move.visible = !!(on && m);
+  if (move.visible) { const p = ((t - m.t) * 1.6) % 1; move.position.set(m.x, 0.07, m.y); move.scale.setScalar((22 - 12 * p) / PXM); move.material.opacity = 0.9 - p * 0.5; }
+  for (const r of glows) { const q = r.userData.it; r.visible = on && !q.hidden; if (r.visible) { const p = 0.45 + Math.sin(t * 3 + q.x) * 0.2; r.children[0].material.opacity = p; r.children[1].material.opacity = p * 0.25; } }
 }
 function updatePlates() {
   const g = world.plates; if (!g || !g.children.length) return;
@@ -321,8 +351,8 @@ function fxSync(a, slots, get, x, y, dt, o) {
 function syncPlayer(dt) {
   const P = G.player; if (!P) return;
   const cls = (G.profile && G.profile.cls) || 'warrior';
-  // «Новые модели» (Настройки): готовая модель художника поверх рига (glbskin.js). Переключили или модель догрузилась — пересобрать героя
-  SKINS.on = !(G.profile && G.profile.settings && G.profile.settings.skins === false);
+  // готовая модель художника поверх рига (glbskin.js). Переключили или модель догрузилась — пересобрать героя
+  SKINS.on = true;   // сборка 72: только новые модели, переключателя больше нет
   // облик (js/game/cosmetics.js): другая модель класса качается, только когда её надели; пока качается — прежняя
   const alt = SKINS.on && heroModel(G.profile); let def = HEROES[cls];
   if (alt) { if (skinLoaded(alt)) def = altDef(cls, alt); else preloadSkin(alt); }
@@ -616,7 +646,7 @@ export function prepare() {
   bgModels(false);   // сборка 66: фоновая догрузка моделей не делит канал со сменой зоны
   warming = (async () => {
     // паки Meshy (порталы деревни, пустоши) — до сборки мира, чтобы слой предметов не пересобирался уже на глазах
-    SKINS.on = !(G.profile && G.profile.settings && G.profile.settings.skins === false);
+    SKINS.on = true;   // сборка 72: только новые модели, переключателя больше нет
     const packs = [];
     if (SKINS.on && !portalsReady()) packs.push(preloadPortals());   // сборка 47: арки Meshy стоят и выходами из катакомб, походов, Цитадели
     if (SKINS.on && Z.id === 'town' && Z.json.village && !altarReady()) packs.push(preloadAltar());
@@ -628,6 +658,8 @@ export function prepare() {
     if (packs.length) await settle(Promise.all(packs), 8000);
     if (G.zone !== Z) return;
     if (Z !== zone) setZone(Z);
+    // сборка 72: «Авто» в новой зоне начинает заново — раньше, снизив качество в бою Жатвы, оно так и оставалось «экономным» до конца игры
+    if ((govLevel || govScale < 1) && (!G.profile || !G.profile.settings || (G.profile.settings.quality || 'auto') === 'auto')) { govLevel = null; govScale = 1; govSlow = 0; govAcc = 0; govN = 0; perfNote('«Авто»: новая зона — качество снова обычное'); }
     applyQuality(); updateCamera(0); syncPlayer(0); syncEnemies(0); syncNpcs(0);   // герой, враги и жители — сразу, чтобы их шейдеры тоже собрались заранее
     await settle(renderer.compileAsync(scene, camera), 6000);
     // сборка 47: текстуры и буферы зоны — в видеопамять тоже под шторкой (compileAsync собирает только шейдеры; лес на телефоне
@@ -647,7 +679,7 @@ export function render() {
   applyQuality();
   updateCamera(dt); updateLights(tAll, dt);
   { const adt = dt * (G.timeScale ?? 1); syncPlayer(adt); syncEnemies(adt); syncSwarm(adt); syncGems(); syncNpcs(dt); syncPet(adt); } cullActors();   // С22: в стоп-кадре удара анимации тоже замирают
-  world.props.cull(camera); world.props.update(tAll); updatePlates();
+  world.props.cull(camera); world.props.update(tAll); updatePlates(); updateMarks();
   if (world.atmo) world.atmo.update(dt, tAll, G.cam.x, G.cam.y, G.player.x, G.player.y);
   if (world.critters) world.critters.update(dt, tAll, G.player, G.cam.x, G.cam.y);
   // примятая трава: герой и до 10 живых врагов — в готовые объекты (без выделений в кадре)
