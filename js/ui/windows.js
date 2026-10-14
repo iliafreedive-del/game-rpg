@@ -1437,13 +1437,13 @@ function survLevel() {
     const row = el('div', 'boons b4');   // сборка 47: карточки мельче, 4 в ряд; 3 бесплатно, 4-я случайная — за рекламу
     cs.forEach((c, i) => {
       if (i === 3 && !extra) {
-        const lock = earlyLock('extra'), card = el('button', 'boon locked', `<div class="bg">?</div><b>Ещё вариант</b><small class="lv">${lock ? 'после обучения' : '▶ за рекламу'}</small><span>Случайное усиление</span>`);
+        const lock = earlyLock('extra'), card = el('button', 'boon locked', `<div class="bg">${artTag(ART.perk('extra'), '?')}</div><b>Ещё вариант</b><small class="lv">${lock ? 'после обучения' : '▶ за рекламу'}</small><span>Случайное усиление</span>`);
         card.disabled = lock;
         card.onclick = async () => { const ok = await watchRewarded('surv_extra', offerToken('surv_extra', String(Date.now())), () => {}); if (ok) { extra = true; rerender(); } };
         row.appendChild(card); return;
       }
       const title = c.evo ? '⚡ ' + c.evo.name : c.rep ? (c.rep === 'power' ? 'Сила Бездны' : 'Стойкость') : c.gold ? 'Золото' : c.P.name, desc = c.evo ? c.evo.desc : c.rep ? (c.rep === 'power' ? '+10% урона забега (можно брать снова)' : '+10% здоровья и полное лечение (можно брать снова)') : c.gold ? '+50 золота' : c.P.desc(c.lvl), lv = c.evo ? 'ПРОБУЖДЕНИЕ' : c.gold || c.rep ? '' : c.lvl ? `ур. ${c.lvl} → ${c.lvl + 1}` : 'новое';
-      const card = el('button', 'boon' + (c.evo ? ' evo' : ''), `<div class="bg">${c.evo ? artTag(ART.evo(c.evo.id), '✹') : c.rep ? (c.rep === 'power' ? '✹' : '♥') : c.gold ? '⛁' : artTag(ART.perk(c.id), c.P.icon || '⚔')}</div><b>${esc(title)}</b><small class="lv">${lv}</small><span>${esc(desc)}</span>${c.tag ? `<small class="lv" style="color:#ffd45a">★ ${esc(c.tag)}</small>` : ''}`);
+      const card = el('button', 'boon' + (c.evo ? ' evo' : ''), `<div class="bg">${c.evo ? artTag(ART.evo(c.evo.id), '✹') : c.rep ? artTag(ART.perk(c.rep === 'power' ? 'rep_power' : 'rep_vigor'), c.rep === 'power' ? '✹' : '♥') : c.gold ? artTag(ART.perk('gold'), '⛁') : artTag(ART.perk(c.id), c.P.icon || '⚔')}</div><b>${esc(title)}</b><small class="lv">${lv}</small><span>${esc(desc)}</span>${c.tag ? `<small class="lv" style="color:#ffd45a">★ ${esc(c.tag)}</small>` : ''}`);
       card.onclick = () => { SV.take(c); closeModal(); };
       row.appendChild(card);
     });
