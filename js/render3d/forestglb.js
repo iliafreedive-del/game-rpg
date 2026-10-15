@@ -171,7 +171,7 @@ const NT_OF = (src, x, y) => { const h = hash(x + 3, y - 5);
   if (/^tree_/.test(src)) return src === 'tree_autumn' || h < 0.14 ? 'autumn' : 'broad';
   return null; };
 const LIVE = {};
-const liveOf = (kind, lo) => LIVE[kind + lo] || (LIVE[kind + lo] = { id: 'nt3:' + kind + (lo ? ':lo' : ''), kind: 'prop', batch: true, tint: 1, outline: false, shadow: !lo, receive: false,
+const liveOf = (kind, lo) => LIVE[kind + lo] || (LIVE[kind + lo] = { id: 'nt3:' + kind + (lo ? ':lo' + lo : ''), kind: 'prop', batch: true, tint: 1, outline: false, shadow: !lo, receive: false,
   shadowProxy: () => shadowGeo(kind), build() { const root = new THREE.Group(); root.add(new THREE.Mesh(liveGeo(kind, lo), matLive(kind))); return { root }; } });
 // расстояние (в клетках) от проходимой земли — для склона и затемнения за первой линией леса
 const DR = 26;
@@ -184,7 +184,7 @@ function depthField(m) {
   return (x, y) => { const ix = Math.floor(x) + DR, iy = Math.floor(y) + DR; return ix < 0 || iy < 0 || ix >= W || iy >= H ? 30 : D[iy * W + ix]; };
 }
 // за первой линией (≈2 клетки от земли) — склон вниз и плавное затемнение: деревья ниже и темнее, земля под ними тонирована полупрозрачным тёмным
-const SLOPE = d => Math.min(2.6, Math.max(0, d - 2) * 0.32), DARK = d => Math.min(0.78, Math.max(0, d - 1.5) / 9 * 0.78);
+const SLOPE = d => Math.min(1.1, Math.max(0, d - 2) * 0.18), DARK = d => Math.min(0.78, Math.max(0, d - 1.5) / 9 * 0.78);
 function shadeDef(m, depth) {
   return { id: 'nt_shade', kind: 'prop', batch: true, outline: false, shadow: false, receive: false, build() {
     const pos = [], col = [], idx = [], x0 = -DR, y0 = -DR, W = m.w + DR * 2, H = m.h + DR * 2;
@@ -213,25 +213,33 @@ function newTrees(lists, PROPS, extra, m) {
       // разная высота и толщина: у дорожек от низких до высоких, глубже крупнее, за краем карты самые большие — закрывают проплешины и край экрана
       const row1 = !edge || nearWalk(m, it.x, it.y), row2 = !row1 && nearWalk(m, it.x, it.y, 2), r = hash(it.x * 1.7, it.y + 3);
       let kind = NT_OF(src, it.x, it.y); if (edge && (kind === 'broad' || kind === 'autumn') && hash(it.x - 5, it.y * 1.3) < 0.3) kind = 'fir';   // ели среди лиственных, чтобы край не был ровной стеной крон
-      const lo = far || (edge && !row1 && !row2), def = liveOf(kind, lo);
+      const lo = far ? 2 : edge && !row1 && !row2 ? 1 : 0, def = liveOf(kind, lo);
       const big = kind === 'bush' ? 0.8 + r * 0.5 : row1 ? (r < 0.2 ? 1.45 + r : 0.7 + r * 0.6) : row2 ? 1.0 + r * 0.7 : far ? 1.6 + r * 0.8 : 1.3 + r * 0.7;
       it.rot = hash(it.x + 1, it.y + 9) * 6.283; it.s = (kind === 'bush' ? 0.7 + (it.s || 1) * 0.3 : 0.8 + ((it.s || 1) - 0.75) * 0.4) * (src === 'tree_sapling' ? 0.7 : 1) * big;
       sink(it);
       extra[def.id] = def; if (!lists.has(def.id)) lists.set(def.id, []); lists.get(def.id).push(it);
       // гуще в глубине: у дальнего дерева два соседа рядом, у крайнего ряда за картой — ещё два дальше наружу (закрывают чёрный край), у дерева глубины края — один сосед на непроходимой клетке
       if (lo && kind !== 'bush') {
-        const out = far && (it.x < minX + 3 || it.y < minY + 3), n = far ? (out ? 4 : 2) : 1;
+        const out = far && (it.x < minX + 3 || it.y < minY + 3), n = far ? (out ? 4 : 2) : 2;
         for (let k = 0; k < n; k++) {
           const a = hash(it.x + k * 3.1, it.y - k * 1.7) * 6.283, d = k < 2 ? (far ? 1.5 : 0.8) + hash(it.y + k, it.x) * 0.8 : 3 + k * 2.2, ox = k < 2 ? Math.cos(a) * d : -(it.x < minX + 3 ? d : 0) + Math.cos(a), oy = k < 2 ? Math.sin(a) * d : -(it.y < minY + 3 ? d : 0) + Math.sin(a);
           const x = it.x + ox, y = it.y + oy; if (!far && !(outskirt(m, x, y) && !nearWalk(m, x, y, 2))) continue;
-          const kk = hash(x * 1.3, y + 7) < 0.4 ? 'fir' : kind, dd = liveOf(kk, true); extra[dd.id] = dd; if (!lists.has(dd.id)) lists.set(dd.id, []);
+          const kk = hash(x * 1.3, y + 7) < 0.4 ? 'fir' : kind, dd = liveOf(kk, far ? 2 : 1); extra[dd.id] = dd; if (!lists.has(dd.id)) lists.set(dd.id, []);
           const c = { ...it, x, y, h: 0, col: null, rot: hash(x + 2, y) * 6.283, s: it.s * (0.8 + hash(y, x + 3) * 0.5) }; sink(c); lists.get(dd.id).push(c);
         }
       }
     }
     if (keep.length) lists.set(id, keep); else lists.delete(id);
   }
+  // камни деревни: светлые валуны «светились» на фоне леса — темнее и в зелёно-земляную гамму (своя копия вида, в Старом Лесу камни прежние)
+  for (const [id, list] of [...lists]) {
+    if (!/^fo_rock2_|^rocks$/.test(id) || !PROPS[id]) continue;
+    const vid = 'v:' + id, def = extra[vid] || (extra[vid] = { ...PROPS[id], id: vid, tint: 1 });
+    for (const it of list) { sink(it); it.col = (it.col || new THREE.Color(1, 1, 1)).clone().multiply(ROCK_TINT); }
+    lists.delete(id); lists.set(vid, (lists.get(vid) || []).concat(list));
+  }
 }
+const ROCK_TINT = new THREE.Color(0.5, 0.56, 0.44);
 const outskirt = (m, x, y) => x < 0 || y < 0 || x >= m.w || y >= m.h || m.ch(Math.floor(x), Math.floor(y)) === 'x';
 const nearWalk = (m, x, y, r = 1) => { for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) { const c = m.ch(Math.floor(x) + dx, Math.floor(y) + dy); if (c && c !== 'x' && c !== ' ') return true; } return false; };
 export function swap(lists, PROPS, where, m) {

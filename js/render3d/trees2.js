@@ -114,7 +114,7 @@ function fir(o, r) {
   limb(A, V(0, 0, 0), V(0, H * 0.35, 0), H * 0.035, H * 0.025, 0x4a3424, 6);
   // конус-ядро — тонкое, глубоко внутри: между лапами не должно быть видно гладкого «цилиндра»
   const seg = 12, rings = 8;
-  for (let k = 0; k < rings; k++) for (let i = 0; i < seg; i++) {
+  if (!o.noCore) for (let k = 0; k < rings; k++) for (let i = 0; i < seg; i++) {
     const P = (kk, ii) => { const y = yb + (H * 0.86 - yb) * kk / rings, a = ii / seg * 6.283, rr = Rof(y) * 0.3; const p = V(Math.cos(a) * rr, y, Math.sin(a) * rr); return { p, n: V(Math.cos(a), 0.5, Math.sin(a)).normalize(), u: NOUV, c: dk.clone().lerp(md, 0.25 + 0.2 * kk / rings) }; };
     A.tri([P(k, i), P(k + 1, i + 1), P(k, i + 1), P(k, i), P(k + 1, i), P(k + 1, i + 1)]);
   }
@@ -165,7 +165,8 @@ export const KINDS = {
 // лёгкая версия для 3D на карте: меньше кучек листвы и лап (форма та же)
 const LITE = { fir: { boughs: 150 }, firb: { boughs: 130 }, broad: { clumps: 6, cards: 4 }, autumn: { clumps: 7, cards: 4 }, bush: { clumps: 9, cards: 3 } };
 // ещё легче — для глубины леса и за краем карты (камера видит их мелко и издали)
-const LO = { fir: { boughs: 120, tiers: 9 }, firb: { boughs: 110, tiers: 8 }, broad: { clumps: 4, cards: 3 }, autumn: { clumps: 5, cards: 3 }, bush: { clumps: 6, cards: 2 } };
+const LO = { fir: { boughs: 160, noCore: 1 }, firb: { boughs: 140, noCore: 1 },   // ели вдали — как вблизи: с меньшим числом ярусов между лапами видны пустоты
+  broad: { clumps: 4, cards: 3 }, autumn: { clumps: 5, cards: 3 }, bush: { clumps: 6, cards: 2 } };
 export function buildGeo(kind, lite) { const o = lite ? { ...KINDS[kind], ...(lite === 'lo' ? LO : LITE)[kind] } : KINDS[kind], r = rng(o.seed); return o.type === 'fir' ? fir(o, r) : o.type === 'bush' ? bush(o, r) : broad(o, r); }
 let MAT = null;
 export function mat() { return MAT || (MAT = toon(0xffffff, { vc: true, rim: 0.12, rimColor: 0xe8ffb0, side: THREE.DoubleSide, ao: SHADOW.groundAO, aoH: 0.9, map: tex2(), alphaTest: 0.5 })); }
@@ -175,7 +176,17 @@ const SWAY = { fir: { base: 1.4, amt: 0.0054, flutter: 0.006 }, firb: { base: 1.
 const MATS = {};
 export function matLive(kind) { return MATS[kind] || (MATS[kind] = toon(0xffffff, { vc: true, rim: 0.12, rimColor: 0xe8ffb0, side: THREE.DoubleSide, ao: SHADOW.groundAO, aoH: 0.9, map: tex2(), alphaTest: 0.5, sway: SWAY[kind] })); }
 const GEOS = {};
-export const liveGeo = (kind, lo) => GEOS[kind + (lo ? ':lo' : '')] || (GEOS[kind + (lo ? ':lo' : '')] = buildGeo(kind, lo ? 'lo' : true));
+// lo: 0 — дерево целиком; 1 — второй ряд за передним: только верхние 60 % (низ закрыт передним рядом и склоном); 2 — дальше: только верхушка (40 %)
+const CUT = [0, 0.22, 0.32];
+function cutGeo(g, f) {
+  if (!f) return g; if (g.index) g = g.toNonIndexed();
+  const P = g.attributes.position, H = (g.computeBoundingBox(), g.boundingBox.max.y) * f, keep = [];
+  for (let t = 0; t < P.count; t += 3) if (Math.max(P.getY(t), P.getY(t + 1), P.getY(t + 2)) >= H) keep.push(t);
+  const out = new THREE.BufferGeometry();
+  for (const [k, A] of Object.entries(g.attributes)) { const n = A.itemSize, src = A.array, dst = new src.constructor(keep.length * 3 * n); keep.forEach((t, i) => dst.set(src.subarray(t * n, (t + 3) * n), i * 3 * n)); out.setAttribute(k, new THREE.BufferAttribute(dst, n, A.normalized)); }
+  return out;
+}
+export const liveGeo = (kind, lo = 0) => GEOS[kind + ':' + lo] || (GEOS[kind + ':' + lo] = cutGeo(buildGeo(kind, lo ? 'lo' : true), kind === 'bush' ? 0 : CUT[lo]));
 // тень карточки — от простой формы (только камера тени её видит): конус ели, шар кроны со стволом, полушарие куста
 export function shadowGeo(kind) {
   const o = KINDS[kind], H = o.h, parts = [];
