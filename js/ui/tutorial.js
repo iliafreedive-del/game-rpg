@@ -202,7 +202,7 @@ export function initTutorial() {
   // сборка 60 (П32): окно героя — портрет → «Герой» → сумка и сравнение. Правки 5: шаг «Надеть подарок старосты» — оружие лежит в сумке,
   // оранжевая стрелка ведёт по шагам (giftArrow ниже), строка подсказки — без пальца, чтобы палец и стрелка не спорили
   const gearStep = () => { const q = G.profile && STORY[G.profile.story.stage]; return q && q.id === 'hero_gear'; };
-  const portraitHint = () => { if (gearStep() && !G.modalOpen) pointAt(null, 'Оружие старосты в сумке. Нажмите на портрет героя — туда показывает оранжевая стрелка', { time: 12 }); };
+  const portraitHint = () => { if (gearStep() && !G.modalOpen) pointAt(null, 'Оружие старосты в сумке. Нажмите на портрет героя — туда показывает золотая стрелка', { time: 12 }); };
   bus.on('questNew', q => { if (q && q.id === 'hero_gear') setTimeout(function again(n = 0) { if (G.modalOpen && n < 30) return setTimeout(() => again(n + 1), 700); portraitHint(); }, 900); });
   // сборка 61: задание «Осмотреть снаряжение» висит, а куда жать — не видно. Пока оно не выполнено: портрет (а в меню — плитка «Герой»)
   // мигает золотом, и палец повторяется раз в 20 с, если игрок его пропустил
@@ -215,7 +215,7 @@ export function initTutorial() {
   bus.on('menuOpened', () => { T().tips.hero = 1; });
   bus.on('invOpened', () => {
     if (!hintsOn()) return; const t = T(); if (t.tips.inv1) return; t.tips.inv1 = 1; bus.emit('save');
-    if (gearStep()) { const g = document.querySelector('.eq-grid .eq-slot.gift'); if (g) pointAt(null, 'Справа — сумка. Нажмите на новое оружие — туда показывает оранжевая стрелка', { time: 14, win: true }); return; }
+    if (gearStep()) { const g = document.querySelector('.eq-grid .eq-slot.gift'); if (g) pointAt(null, 'Справа — сумка. Нажмите на новое оружие — туда показывает золотая стрелка', { time: 14, win: true }); return; }
     // правки 5: палец — только на вещь лучше надетой (▲). Раньше показывал на первую вещь сумки, а там лежал снятый старый клинок с ▼ —
     // игрок надевал его обратно
     const up = [...document.querySelectorAll('.eq-grid .eq-slot')].find(d => d.querySelector('.eq-ar.good'));
@@ -234,8 +234,8 @@ export function initTutorial() {
       if (!e) { if (ar) { ar.remove(); ar = null; } return; }
       // карточка подарка открыта: показать, на что смотреть — зелёная ▲ и урон «было → стало» (правки 5)
       if (!cmpShown && e.classList.contains('gift-wear')) { cmpShown = true; pointAt(null, 'Зелёная ▲ — эта вещь лучше надетой: урон стал выше. Нажмите «Надеть»', { time: 14, win: true }); }
-      if (!ar) { ar = el('div', 'gift-arrow'); document.body.appendChild(ar); }
-      const r = e.getBoundingClientRect(), right = r.right + 70 < innerWidth;   // стрелка справа от цели и смотрит влево; у правого края — слева, смотрит вправо
+      if (!ar) { ar = el('div', 'gift-arrow', '<i></i><i></i><i></i>'); document.body.appendChild(ar); }
+      const r = e.getBoundingClientRect(), right = r.right + 104 < innerWidth;   // стрелка справа от цели и смотрит влево; у правого края — слева, смотрит вправо
       ar.classList.toggle('flip', !right); ar.style.top = (r.top + r.height / 2) + 'px'; ar.style.left = (right ? r.right + 4 : r.left - 4) + 'px'; }, 200); }
   bus.on('skillsOpened', () => setTimeout(() => { const b = document.querySelector('.tal-learn.ok'); if (b) pointAt(b, `Нажмите «${(b.childNodes[0] && b.childNodes[0].textContent.trim()) || 'Изучить'}»`, { key: 'learn', win: true }); }, 350));
   // метки времени «первых минут» (видно в «Справке»: тестер присылает скриншот)

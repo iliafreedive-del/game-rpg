@@ -965,12 +965,16 @@ html.rm *,html.rm *::before,html.rm *::after{animation-duration:.01ms!important;
 @keyframes ldshine{from{transform:translateX(-100%)}to{transform:translateX(260%)}}
 
 #portrait.gear-hint,.menu-tile.gear-hint{animation:gearh 1s ease-in-out infinite alternate}@keyframes gearh{from{box-shadow:0 0 0 2px #ffd24a88}to{box-shadow:0 0 0 4px #ffd24a,0 0 26px 6px #ffae00}}   /* сборка 61: задание «Осмотреть снаряжение» */
-/* правки 5: оранжевая стрелка к окну героя — пока подарок старосты в сумке (tutorial.js) */
-.gift-arrow{position:fixed;z-index:300;width:62px;height:40px;margin-top:-20px;pointer-events:none;animation:giftar .8s ease-in-out infinite alternate;filter:drop-shadow(0 0 6px #ff8a00) drop-shadow(0 2px 3px #000)}
-.gift-arrow::before{content:'';position:absolute;inset:0;background:#ff8a1c;clip-path:polygon(0 50%,42% 0,42% 30%,100% 30%,100% 70%,42% 70%,42% 100%)}
-.gift-arrow.flip{margin-left:-62px}.gift-arrow.flip::before{transform:scaleX(-1)}
-@keyframes giftar{from{translate:4px 0}to{translate:16px 0}}
-.gift-arrow.flip{animation-name:giftarf}@keyframes giftarf{from{translate:-4px 0}to{translate:-16px 0}}
+/* правки 5: стрелка к окну героя — пока подарок старосты в сумке (tutorial.js). Сборка 73: в стиле золотых треугольников-стрелок на земле
+   (renderer.js drawArrow): три золотых треугольника с тёмной обводкой и свечением, волна яркости бежит к цели; чуть крупнее, чем на земле */
+.gift-arrow{position:fixed;z-index:300;width:96px;height:36px;margin-top:-18px;pointer-events:none;animation:giftar .8s ease-in-out infinite alternate;
+  filter:drop-shadow(0 0 1.2px #281400) drop-shadow(0 0 1.2px #281400) drop-shadow(0 0 7px rgba(255,210,90,.85)) drop-shadow(0 2px 3px #000a)}
+.gift-arrow i{position:absolute;top:0;width:32px;height:36px;background:linear-gradient(180deg,#fff0a0,#ffd24a 55%,#f0a800);clip-path:polygon(0 50%,100% 0,79% 50%,100% 100%);animation:giftchev .9s linear infinite}
+.gift-arrow i:nth-child(1){left:0}.gift-arrow i:nth-child(2){left:32px;animation-delay:-.3s}.gift-arrow i:nth-child(3){left:64px;animation-delay:-.6s}
+@keyframes giftchev{0%{opacity:.35}35%{opacity:1}100%{opacity:.35}}
+.gift-arrow.flip{margin-left:-96px;transform:scaleX(-1)}
+@keyframes giftar{from{translate:4px 0}to{translate:14px 0}}
+.gift-arrow.flip{animation-name:giftarf}@keyframes giftarf{from{translate:-4px 0}to{translate:-14px 0}}
 /* крестики «закрыть» везде крупнее и заметнее: светлый значок на тёмной плашке с золотой рамкой, всегда поверх содержимого */
 .mx,.ic-x,.pn-x{font:700 22px/1 sans-serif;color:#fff;background:#2a1f14e6;border:1.5px solid #c9a24a;box-shadow:0 2px 6px #000a;touch-action:manipulation;cursor:pointer;display:grid;place-items:center;padding:0}
 .mx{width:42px;height:42px;position:relative;z-index:2}
