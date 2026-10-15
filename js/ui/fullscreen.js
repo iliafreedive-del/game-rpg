@@ -9,7 +9,7 @@
 //   там полным экраном управляет сама площадка.
 const standalone = () => matchMedia('(display-mode: fullscreen), (display-mode: standalone)').matches || navigator.standalone === true;
 const coarse = () => matchMedia('(pointer: coarse)').matches;
-const isFs = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
+const isFs = () => { try { const y = window.__ysdk && window.__ysdk.screen && window.__ysdk.screen.fullscreen; if (y && y.status) return y.status === 'on'; } catch { } return !!(document.fullscreenElement || document.webkitFullscreenElement); };
 const canFs = () => !!(document.fullscreenEnabled || document.webkitFullscreenEnabled);
 const iPhone = () => /iPhone|iPod/.test(navigator.userAgent);
 const android = () => /Android/i.test(navigator.userAgent);
@@ -25,11 +25,16 @@ export function appH() {
   de.classList.toggle('ios-pwa', !!h); if (h) de.style.setProperty('--app-h', h + 'px');
   return h;
 }
+// Яндекс Игры: полный экран — через ysdk.screen.fullscreen (Другие объекты и параметры SDK), а не напрямую
+const yfs = () => { try { return window.__ysdk && window.__ysdk.screen && window.__ysdk.screen.fullscreen; } catch { return null; } };
 function requestFs() {
+  const y = yfs(); if (y && y.request) { try { const r = y.request(); if (r && r.catch) r.catch(() => { }); } catch { } return; }
   const d = document.documentElement, req = d.requestFullscreen || d.webkitRequestFullscreen;
   try { const r = req.call(d, { navigationUI: 'hide' }); if (r && r.catch) r.catch(() => { }); } catch (e) { }
 }
+let yAsked = false;
 function goFullscreen() {
+  if (yfs()) { if (yAsked || !coarse() || isFs()) return; yAsked = true; requestFs(); return; }   // Яндекс: один раз по первому касанию; вышел сам — не навязываем
   if (standalone() || !coarse() || isFs() || !canFs()) return;
   requestFs();
 }
@@ -55,7 +60,7 @@ function hudButton() {
   const menu = document.getElementById('menu'), auto = document.getElementById('btnAuto'); if (!menu || document.getElementById('btnFs')) return;
   const b = document.createElement('button'); b.id = 'btnFs'; b.className = 'mbtn';
   const upd = () => { const on = isFs(); b.textContent = on ? '⛶ Окно' : '⛶ Весь экран'; b.title = on ? 'Выйти из полного экрана (Esc)' : 'На весь экран — игра идёт плавнее (F11)'; b.classList.toggle('on', on); };
-  b.onclick = e => { e.stopPropagation(); if (isFs()) { const x = document.exitFullscreen || document.webkitExitFullscreen; try { const r = x.call(document); if (r && r.catch) r.catch(() => { }); } catch { } } else requestFs(); };
+  b.onclick = e => { e.stopPropagation(); const y = yfs(); if (y && y.exit && isFs()) { try { const r = y.exit(); if (r && r.then) r.then(upd, upd); } catch { } return; } if (y && y.request) { requestFs(); setTimeout(upd, 400); return; } if (isFs()) { const x = document.exitFullscreen || document.webkitExitFullscreen; try { const r = x.call(document); if (r && r.catch) r.catch(() => { }); } catch { } } else requestFs(); };
   for (const ev of ['fullscreenchange', 'webkitfullscreenchange']) document.addEventListener(ev, upd);
   upd(); if (auto && auto.nextSibling) menu.insertBefore(b, auto.nextSibling); else menu.appendChild(b);
 }
@@ -64,8 +69,8 @@ export function initFullscreen() {
   addEventListener('pointerup', goFullscreen, { passive: true });
   addEventListener('touchend', goFullscreen, { passive: true });
   if (standalone()) return;
+  if (framed()) return;   // внутри Яндекс Игр / VK полным экраном управляет площадка: подсказка «На экран „Домой“» там уводила бы из каталога (п. 8.4.4)
   if (iPhone()) { hint('Игра на весь экран, без строки браузера: <b>Поделиться</b> <span class="fs-ic">⬆︎</span> → <b>«На экран „Домой“»</b> и запускать с иконки.'); return; }
-  if (framed()) return;
   if (android()) {
     addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEv = e; if (document.getElementById('title')) androidHint(); });
     addEventListener('appinstalled', () => { installEv = null; const h = document.getElementById('fsHint'); if (h) h.remove(); });

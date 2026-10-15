@@ -3033,5 +3033,6 @@
  "<div class=\"name-pick\"><img class=\"pt\" src=\"assets/sprites/pick_{0}.jpg\" alt=\"\" onerror=\"this.remove()\"><div class=\"goldc\" style=\"font:600 18px Georgia\">Имя героя</div><div class=\"muted\">{1}</div></div>": "<div class=\"name-pick\"><img class=\"pt\" src=\"assets/sprites/pick_{0}.jpg\" alt=\"\" onerror=\"this.remove()\"><div class=\"goldc\" style=\"font:600 18px Georgia\">Kahraman adı</div><div class=\"muted\">{1}</div></div>",
  "Откроется в обновлении": "Güncellemeyle açılacak",
  "Портал откроется в следующем обновлении": "Bu portal bir sonraki güncellemede açılacak",
- "Новые земли уже в пути": "Yeni topraklar yolda"
+ "Новые земли уже в пути": "Yeni topraklar yolda",
+ "Реклама через {0}": "{0} sn sonra reklam"
 }

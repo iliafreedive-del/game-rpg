@@ -16,7 +16,7 @@ import { initPanel } from './ui/panel.js';
 import { initTutorial, intro, unlockAll } from './ui/tutorial.js';
 import { cinema, introShots, portalShots } from './ui/cinema.js';
 import * as CS from './game/castle.js';
-import { initPlatform, platform, gameplay } from './platform/platform.js';
+import { initPlatform, platform, gameplay, gameplayStopNow } from './platform/platform.js';
 import { restorePurchases } from './platform/monetize.js';
 import { initAnalytics, wireAnalytics, track } from './platform/analytics.js';
 import { wireEvents } from './platform/events.js';
@@ -179,11 +179,18 @@ function showPauseOv() {
   const go = el('button', 'btn gold', 'Продолжить'); go.onclick = () => { pauseOv.remove(); pauseOv = null; if (away.size) return; G.awayPause = false; if (G.hidePaused && !G.modalOpen) G.paused = false; G.hidePaused = false; bus.emit('sfx', 'click'); };
   pauseOv.firstChild.appendChild(go); document.body.appendChild(pauseOv);
 }
+let awayHidden = false;   // в этой паузе вкладку сворачивали — по возвращении ждём «Продолжить»
 const setAway = (why, on) => {
+  if (why === 'platform') setPaused(on, 'platform');   // тишина и до выбора героя (стартовая реклама Яндекса, п. 4.7); скрытую вкладку глушит сам audio.js
   if (!G.profile) return;
-  const was = away.size > 0; if (on) away.add(why); else away.delete(why); if (why === 'platform') setPaused(on, 'platform');   // скрытую вкладку глушит сам audio.js
+  const was = away.size > 0; if (on) away.add(why); else away.delete(why); if (on && why === 'hidden') awayHidden = true;
   if (on && !was) { if (!G.awayPause) { G.hidePaused = !G.paused; if (G.hidePaused) G.paused = true; } G.awayPause = true; releaseInput(); saveNow(true); gameplay(false); }
-  else if (!on && was && !away.size) showPauseOv();   // GameplayAPI.start — из цикла (loop), когда игрок нажмёт «Продолжить»
+  else if (!on && was && !away.size) {
+    // п. 1.19.4: пауза только от платформы (реклама, окно покупки) — по game_api_resume игра сразу идёт дальше, без окна «Пауза»
+    if (!awayHidden) { G.awayPause = false; if (G.hidePaused && !G.modalOpen) G.paused = false; G.hidePaused = false; return; }
+    awayHidden = false; showPauseOv();   // GameplayAPI.start — из цикла (loop), когда игрок нажмёт «Продолжить»
+    gameplayStopNow();   // п. 1.19.3: Яндекс по game_api_resume сам шлёт GameplayAPI.start — игра же стоит до «Продолжить»
+  }
 };
 document.addEventListener('visibilitychange', () => setAway('hidden', document.hidden));
 bus.on('platformPause', on => setAway('platform', on));

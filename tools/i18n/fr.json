@@ -3033,5 +3033,6 @@
  "<div class=\"name-pick\"><img class=\"pt\" src=\"assets/sprites/pick_{0}.jpg\" alt=\"\" onerror=\"this.remove()\"><div class=\"goldc\" style=\"font:600 18px Georgia\">Имя героя</div><div class=\"muted\">{1}</div></div>": "<div class=\"name-pick\"><img class=\"pt\" src=\"assets/sprites/pick_{0}.jpg\" alt=\"\" onerror=\"this.remove()\"><div class=\"goldc\" style=\"font:600 18px Georgia\">Nom du héros</div><div class=\"muted\">{1}</div></div>",
  "Откроется в обновлении": "Ouvre avec une mise à jour",
  "Портал откроется в следующем обновлении": "Ce portail ouvrira à la prochaine mise à jour",
- "Новые земли уже в пути": "De nouvelles terres arrivent"
+ "Новые земли уже в пути": "De nouvelles terres arrivent",
+ "Реклама через {0}": "Publicité dans {0}"
 }

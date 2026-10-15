@@ -3033,5 +3033,6 @@
  "<div class=\"name-pick\"><img class=\"pt\" src=\"assets/sprites/pick_{0}.jpg\" alt=\"\" onerror=\"this.remove()\"><div class=\"goldc\" style=\"font:600 18px Georgia\">Имя героя</div><div class=\"muted\">{1}</div></div>": "<div class=\"name-pick\"><img class=\"pt\" src=\"assets/sprites/pick_{0}.jpg\" alt=\"\" onerror=\"this.remove()\"><div class=\"goldc\" style=\"font:600 18px Georgia\">英雄の名前</div><div class=\"muted\">{1}</div></div>",
  "Откроется в обновлении": "アップデートで開放",
  "Портал откроется в следующем обновлении": "このポータルは次のアップデートで開放されます",
- "Новые земли уже в пути": "新たな地が近日登場"
+ "Новые земли уже в пути": "新たな地が近日登場",
+ "Реклама через {0}": "広告まで {0}"
 }

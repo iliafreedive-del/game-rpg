@@ -4,7 +4,7 @@ import { G, bus } from '../game/ctx.js';
 import { el } from '../core/util.js';
 import * as CS from '../game/castle.js';
 import { watchRewarded, offerToken, buy } from '../platform/monetize.js';
-import { platform, PRODUCTS } from '../platform/platform.js';
+import { platform, PRODUCTS, priceHTML } from '../platform/platform.js';
 
 const hm = ms => { const m = Math.ceil(ms / 60000); return m >= 60 ? `${Math.floor(m / 60)} ч ${m % 60} мин` : `${m} мин`; };
 let ov = null;
@@ -25,7 +25,7 @@ export function openEnergy(onDone) {
     box.appendChild(ad);
     if (left > 0 && left < CS.EN_AD_MAX) box.appendChild(el('p', 'muted', `Окно рекламы обновится через ${hm(reset)}`));
     if (platform.p && platform.p.hasProduct('energy_pack')) {
-      const pr = PRODUCTS.energy_pack, b = el('button', 'btn gold', `${pr.title} · ${platform.p.catalogPrice('energy_pack') || pr.price}`);
+      const pr = PRODUCTS.energy_pack, b = el('button', 'btn gold', `${pr.title} · ${priceHTML('energy_pack')}`);   // было «[object Object]» вместо цены на Яндексе
       b.onclick = async () => { const was = G.paused; await buy('energy_pack'); G.paused = was; draw(); };
       box.appendChild(b);
     }
