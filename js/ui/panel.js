@@ -195,7 +195,7 @@ function render(force) {
     box.appendChild(el('div', 'pn-big', `Накоплено: ${coin(stored)}`));
     const r1 = el('div', 'pn-row2');
     const a = el('button', 'btn gold', 'Забрать'); a.disabled = !stored; a.onclick = () => { CS.altarCollect(1); render(true); };
-    const ad = el('button', 'btn ad', 'Забрать ×2'); ad.disabled = !stored; ad.onclick = () => watchRewarded('altar_x2', offerToken('altar_x2', String(P.castle.altarAt)), () => CS.altarCollect(2)).then(() => render(true));
+    const ad = el('button', 'btn rwd', 'Забрать ×2'); ad.disabled = !stored; ad.onclick = () => watchRewarded('altar_x2', offerToken('altar_x2', String(P.castle.altarAt)), () => CS.altarCollect(2)).then(() => render(true));
     r1.append(a, ad); box.appendChild(r1);
     if (l < 10) box.appendChild(row('▲', `Улучшить алтарь до ур. ${l + 1}`, `доход → ${fmt(Math.round((35 + 25 * (l + 1)) * (1 + P.level * 0.08)))}/час`, `${fmt(uc.gold)} · ${uc.shards}◆`, P.gold >= uc.gold && P.shards >= uc.shards, () => CS.altarUpgrade()));
   } else if (T.room === 'trial') {

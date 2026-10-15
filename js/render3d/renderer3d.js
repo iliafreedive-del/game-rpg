@@ -408,6 +408,10 @@ function enemyActor(e, def, scale) {
 // пока не пришла — её файлы заказываются вне очереди. Проверка идёт только у мобов с запасной моделью (a.fb)
 for (const d of Object.values(MOBS)) if (!d.ready) { const A = mobAssets(d.id); if (A.length) d.ready = () => { for (const n of A) if (!assetLoaded(n)) { wantAssets(A); return false; } return true; }; }
 const mobDef = e => MOBS[e.model || e.type] || MOBS[e.D && e.D.model3d];
+// сборка 73: гости других краёв в Жатве (game/survival.js) — модель заказывается заранее; моб выходит, только когда она загружена
+// (каменные мобы храма грузятся вне пака храма: def.glbFile / def.skinFile — их файлы, models/mob/_stone.js)
+G.mobReady = id => { const d = MOBS[id]; if (!d) return false; if (!d.ready || !kit || !kit.skin.SKINS.on || d.ready(kit)) return true;
+  if (d.glbFile) kit.mob.preloadMob(d.glbFile); else if (d.skinFile) kit.skin.preloadSkin(d.skinFile); return false; };
 // правки 5: размер тела по модели (в покое, без поворота): длинный зверь — морда далеко впереди центра. Игра (combat.js bodyD) бьёт и подсвечивает
 // удар от морды и не пускает героя внутрь. Только у вытянутых моделей (длина больше 1,8 ширины) — у людей и скелетов круг e.r, как раньше
 const _bb = new THREE.Box3();

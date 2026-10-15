@@ -7,6 +7,7 @@ import * as THREE from '../vendor/three.module.min.js';
 import { GLTFLoader } from '../vendor/GLTFLoader.js';
 import { SKINS } from './glbskin.js';
 import { shared } from './dispose.js';
+import { U } from './toon.js';
 
 const URL_ = new URL('../../assets/models/trees/trees.glb', import.meta.url).href;
 const GEO = new Map();   // имя дерева → геометрия (высота 1, основание y = 0)
@@ -57,34 +58,40 @@ function defOf(name, hk, wk, lod, base, cast) {
 // наклон 0,64 — style.js CAMERA), на плоском прямоугольнике поперёк взгляда камеры. 2 треугольника вместо сотен, без тени и ветра.
 // Атлас 2048² (8 × 8 ячеек по 256) заполняется по мере надобности: по две картинки (повороты 0° и 130°) на породу — и прежние
 // процедурные деревья (их облик из PROPS), и ели Meshy. Свет запечён.
-const CAM_YAW = Math.PI / 4, CAM_PITCH = 0.64, CELL = 256, GRID = 8;
+// Сборка 73: картинка рисуется теми же материалами, что и 3D-дерево в игре, при свете этой зоны (копия солнца и неба сцены), ячейка
+// 512 px — карточка неотличима от дерева, кроме ветра и тени. Атлас 2048 × 4096 (4 × 8 ячеек).
+const CAM_YAW = Math.PI / 4, CAM_PITCH = 0.64, CELL = 512, GX = 4, GY = 8;
 let ATLAS = null;
 function atlas() {
   if (ATLAS !== null) return ATLAS;
   const R = typeof window !== 'undefined' && window.__R3 && window.__R3.renderer;
   if (!R) return (ATLAS = false);
-  const rt = new THREE.WebGLRenderTarget(CELL * GRID, CELL * GRID, { samples: 4, colorSpace: THREE.SRGBColorSpace, generateMipmaps: true, minFilter: THREE.LinearMipmapLinearFilter }), sc = new THREE.Scene();
-  sc.add(new THREE.HemisphereLight(0xf2f6ff, 0x5a6a3a, 1.9));
-  const sun = new THREE.DirectionalLight(0xfff0d8, 2.4); sun.position.set(-0.4, 1, 0.9); sc.add(sun);
+  const rt = new THREE.WebGLRenderTarget(CELL * GX, CELL * GY, { samples: 4, colorSpace: THREE.SRGBColorSpace, generateMipmaps: true, minFilter: THREE.LinearMipmapLinearFilter }), sc = new THREE.Scene();
   const dir = new THREE.Vector3(Math.sin(CAM_YAW) * Math.cos(CAM_PITCH), Math.sin(CAM_PITCH), Math.cos(CAM_YAW) * Math.cos(CAM_PITCH)),
     right = new THREE.Vector3(0, 1, 0).cross(dir).normalize(), up = dir.clone().cross(right).normalize();
   const mat = new THREE.MeshBasicMaterial({ map: rt.texture, alphaTest: 0.45, side: THREE.DoubleSide, fog: true });
   return (ATLAS = { R, rt, sc, dir, right, up, mat, cells: new Map(), next: 0 });
 }
-// материал для запекания: цвет вершин (без альфы — у предметов она значит «светится»), текстура листьев, вырез по альфе
-const bakeMat = (g, m) => {
-  const col = g.attributes.color; let g2 = g;
-  if (col && col.itemSize === 4) { g2 = g.clone(); const a = new Float32Array(col.count * 3); for (let i = 0; i < col.count; i++) { a[i * 3] = col.getX(i); a[i * 3 + 1] = col.getY(i); a[i * 3 + 2] = col.getZ(i); } g2.setAttribute('color', new THREE.Float32BufferAttribute(a, 3)); }
-  return [g2, new THREE.MeshLambertMaterial({ vertexColors: !!col, map: m && m.map || null, alphaTest: m && m.map ? Math.max(0.3, m.alphaTest || 0.5) : 0, color: m && m.color && !col ? m.color : 0xffffff, side: THREE.DoubleSide })];
-};
+// свет для запекания — копия неба, заполняющего и солнца игровой сцены (без точечных: факелы и свет героя)
+function bakeLights(sc) {
+  for (const l of [...sc.children]) if (l.isLight) sc.remove(l);
+  const S = window.__R3 && window.__R3.scene; if (!S) return;
+  S.traverse(l => {
+    if (!l.isLight || l.isPointLight || l.isSpotLight || !(l.intensity > 0) || !l.visible) return;
+    const c = l.isHemisphereLight ? new THREE.HemisphereLight(l.color, l.groundColor, l.intensity) : l.isAmbientLight ? new THREE.AmbientLight(l.color, l.intensity) : l.isDirectionalLight ? new THREE.DirectionalLight(l.color, l.intensity) : null;
+    if (!c) return;
+    if (l.isDirectionalLight) { l.updateMatrixWorld(); l.target.updateMatrixWorld(); c.position.setFromMatrixPosition(l.matrixWorld).sub(new THREE.Vector3().setFromMatrixPosition(l.target.matrixWorld)); }
+    sc.add(c);
+  });
+}
 /** ячейка атласа с картинкой предмета: make() — Object3D (как стоит в мире при масштабе 1), turn — поворот вокруг оси */
 function cell(key, make, turn) {
   const A = atlas(); if (!A) return null;
   if (A.cells.has(key)) return A.cells.get(key);
-  if (A.next >= GRID * GRID) return null;
+  if (A.next >= GX * GY) return null;
   const src = make(), obj = new THREE.Group(), tmp = [];
   src.rotation.y = turn; src.updateMatrixWorld(true);
-  src.traverse(o => { if (!o.isMesh || o.userData.isOutline || o.layers.mask === 2) return; const [g, mt] = bakeMat(o.geometry, Array.isArray(o.material) ? o.material[0] : o.material); const mm = new THREE.Mesh(g, mt); mm.userData.own = g !== o.geometry; o.matrixWorld.decompose(mm.position, mm.quaternion, mm.scale); obj.add(mm); tmp.push(mm); });
+  src.traverse(o => { if (!o.isMesh || o.userData.isOutline || o.layers.mask === 2) return; const mm = new THREE.Mesh(o.geometry, o.material); o.matrixWorld.decompose(mm.position, mm.quaternion, mm.scale); obj.add(mm); tmp.push(mm); });
   obj.updateMatrixWorld(true);
   const v = new THREE.Vector3(); let u0 = 1e9, u1 = -1e9, v0 = 1e9, v1 = -1e9;
   for (const mm of tmp) { const P = mm.geometry.attributes.position; for (let i = 0; i < P.count; i++) { v.fromBufferAttribute(P, i).applyMatrix4(mm.matrixWorld); const u = v.dot(A.right), w = v.dot(A.up); if (u < u0) u0 = u; if (u > u1) u1 = u; if (w < v0) v0 = w; if (w > v1) v1 = w; } }
@@ -92,14 +99,17 @@ function cell(key, make, turn) {
   const half = Math.max(u1 - u0, v1 - v0) / 2 * 1.04, cu = (u0 + u1) / 2, cv = (v0 + v1) / 2;
   const cam = new THREE.OrthographicCamera(-half, half, half, -half, -50, 50);
   cam.position.copy(A.dir).multiplyScalar(20).addScaledVector(A.right, cu).addScaledVector(A.up, cv); cam.up.copy(A.up); cam.lookAt(cam.position.clone().sub(A.dir));
-  const k = A.next++, cx = k % GRID, cy = Math.floor(k / GRID), R = A.R;
+  const k = A.next++, cx = k % GX, cy = Math.floor(k / GX), R = A.R;
   const prev = { rt: R.getRenderTarget(), auto: R.autoClear, col: R.getClearColor(new THREE.Color()), a: R.getClearAlpha(), sh: R.shadowMap.enabled, vp: R.getViewport(new THREE.Vector4()), sc: R.getScissor(new THREE.Vector4()), st: R.getScissorTest() };
   const pr = R.getPixelRatio(), c0 = CELL / pr;   // setViewport/setScissor умножают на pixelRatio экрана — в цель рисуем в её пикселях
   R.setRenderTarget(A.rt); R.autoClear = false; R.shadowMap.enabled = false; R.setClearColor(0x000000, 0);
   R.setViewport(cx * c0, cy * c0, c0, c0); R.setScissor(cx * c0, cy * c0, c0, c0); R.setScissorTest(true); R.clear();
-  A.sc.add(obj); R.render(A.sc, cam); A.sc.remove(obj);
+  // общие uniform-ы игры на время снимка: без ветра, тумана у земли и растворения у героя/врагов
+  const sv = { w: U.uWindStr.value, f: U.uHFog.value, c: U.uCam.value.clone(), h: U.uFocus.value.clone(), e: U.uFoc.value.map(q => q.clone()) };
+  U.uWindStr.value = 0; U.uHFog.value = 0; U.uCam.value.set(0, -900, 0); U.uFocus.value.set(0, -1000, 0); for (const q of U.uFoc.value) q.set(0, -50, 0, 0);
+  bakeLights(A.sc); A.sc.add(obj); R.render(A.sc, cam); A.sc.remove(obj);
+  U.uWindStr.value = sv.w; U.uHFog.value = sv.f; U.uCam.value.copy(sv.c); U.uFocus.value.copy(sv.h); U.uFoc.value.forEach((q, i) => q.copy(sv.e[i]));
   R.setScissorTest(prev.st); R.setViewport(prev.vp); R.setScissor(prev.sc); R.setRenderTarget(prev.rt); R.autoClear = prev.auto; R.setClearColor(prev.col, prev.a); R.shadowMap.enabled = prev.sh;
-  for (const mm of tmp) { mm.material.dispose(); if (mm.userData.own) mm.geometry.dispose(); }   // общие геометрии предметов не трогаем
   const c = { cx, cy, u0: cu - half, u1: cu + half, v0: cv - half, v1: cv + half }; A.cells.set(key, c); return c;
 }
 // прямоугольник карточки: вертикальный, поперёк взгляда камеры; высота растянута на 1 / cos(наклона) — на экране как в 3D. Крона спереди
@@ -108,7 +118,7 @@ function cardGeo(c) {
   const A = ATLAS, q = [[c.u0, c.v0], [c.u1, c.v0], [c.u1, c.v1], [c.u0, c.v1]], pos = [], uv = [], sp = Math.sin(CAM_PITCH), cp = Math.cos(CAM_PITCH),
     D = Math.max(0, -c.v0) / sp, hx = Math.sin(CAM_YAW), hz = Math.cos(CAM_YAW);
   for (const [u, w] of q) { const p = A.right.clone().multiplyScalar(u); pos.push(p.x + hx * D, (w + D * sp) / cp, p.z + hz * D); }
-  for (const [a, b] of [[0, 0], [1, 0], [1, 1], [0, 1]]) uv.push((c.cx + a) / GRID, (c.cy + b) / GRID);
+  for (const [a, b] of [[0, 0], [1, 0], [1, 1], [0, 1]]) uv.push((c.cx + a) / GX, (c.cy + b) / GY);
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex([0, 1, 2, 0, 2, 3]);
   return g;
 }
@@ -120,8 +130,7 @@ function cardOf(src, variant, base, PROPS, hk = 1, wk = 1) {
   const def = { id: key, kind: 'prop', batch: true, outline: false, tint: base.tint, shadow: false, receive: false,
     build(kit) {
       const root = new THREE.Group();
-      const make = T[src] ? () => { const H = T[src].h * hk, m = new THREE.Mesh(GEO.get(src + '_mid') || GEO.get(src), new THREE.MeshBasicMaterial()); m.scale.set(H * wk, H, H * wk); const g = new THREE.Group(); g.add(m); return g; }
-        : () => PROPS[src].build(kit).root;
+      const make = T[src] ? () => defOf(src, hk, wk, '_mid', base, false).build(kit).root : () => PROPS[src].build(kit).root;
       const c = cell(src + ':' + variant + ':' + hk + ':' + wk, make, variant ? 2.27 : 0);
       if (c) root.add(new THREE.Mesh(cardGeo(c), ATLAS.mat));
       return { root };
@@ -134,7 +143,7 @@ function cardOf(src, variant, base, PROPS, hk = 1, wk = 1) {
  *  за краем — «_lo». Остальные породы — прежние. В деревне глубина краевого леса (клетки «x» не у проходимой земли) и лес за краем —
  *  карточки (и ели, и прежние деревья) */
 const outskirt = (m, x, y) => x < 0 || y < 0 || x >= m.w || y >= m.h || m.ch(Math.floor(x), Math.floor(y)) === 'x';
-const nearWalk = (m, x, y) => { for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const c = m.ch(Math.floor(x) + dx, Math.floor(y) + dy); if (c && c !== 'x' && c !== ' ') return true; } return false; };
+const nearWalk = (m, x, y, r = 1) => { for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) { const c = m.ch(Math.floor(x) + dx, Math.floor(y) + dy); if (c && c !== 'x' && c !== ' ') return true; } return false; };
 export function swap(lists, PROPS, where, m) {
   const extra = {}, M = MAP[where];
   if (!forestReady() || !M || !m) return extra;
@@ -144,7 +153,9 @@ export function swap(lists, PROPS, where, m) {
     if (!V && !(town && oldTree)) continue;
     const keep = [];
     for (const it of list) {
-      const v = V && V[Math.floor(hash(it.x, it.y) * V.length) % V.length], deep = town && (far || (outskirt(m, it.x, it.y) && (!v || !nearWalk(m, it.x, it.y))));
+      const v = V && V[Math.floor(hash(it.x, it.y) * V.length) % V.length], edge = town && outskirt(m, it.x, it.y),
+        near = edge && (nearWalk(m, it.x, it.y) || (hash(it.x + 7, it.y) < 0.5 && nearWalk(m, it.x, it.y, 2))),   // сборка 73: первый ряд у проходимой земли и половина второго — объёмные
+        deep = town && (far || (edge && !near));
       let def = null;
       if (deep) {   // глубина окраины деревни — карточка
         const vr = Math.floor(hash(it.y, it.x) * 2);
@@ -153,7 +164,7 @@ export function swap(lists, PROPS, where, m) {
         if (def) it.rot = 0;   // карточка смотрит в камеру: без поворота предмета
       } else if (v) {
         const [name, hk, wk] = Array.isArray(v) ? v : [v, 1, 1];
-        def = defOf(name, hk, wk, far || (town && outskirt(m, it.x, it.y)) ? '_lo' : '_mid', PROPS[id] || {}, !far);
+        def = defOf(name, hk, wk, far ? '_lo' : '_mid', PROPS[id] || {}, !far);   // у тропы — та же ель, что согласована («_mid»)
         if (T[name].sway) it.s = 0.8 + (it.s - 0.75) * 0.4;   // разброс роста процедурных (1–1,75) — у новых уже в породе: ±15 %, без великанов
       }
       if (!def) { keep.push(it); continue; }
