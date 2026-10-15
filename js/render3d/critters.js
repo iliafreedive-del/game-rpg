@@ -149,7 +149,7 @@ export class Critters {
       if (dog && !a.m.glb && glbDog(this.kit, a.coat)) { const n = makeDog(this.kit, a.coat); if (n.glb) { a.m.root.removeFromParent(); this.scene.add(n.root); a.m = n; } }
       else if (!dog && !a.m.glb && glbChicken(this.kit, a.red)) { const n = chicken(this.kit, a.red); if (n.glb) { a.m.root.removeFromParent(); this.scene.add(n.root); a.m = n; } }
       const m = a.m;
-      m.root.visible = Math.hypot(a.x - cx, a.y - cz) < 34;
+      m.root.visible = !!m.glb && Math.hypot(a.x - cx, a.y - cz) < 34;   // 15 октября: только модель Meshy — процедурная (если модель не успела) не показывается
       a.t -= dt;
       // решение
       if (!dog && dP < 2.2 && a.st !== 'flee') { a.st = 'flee'; a.t = 0.9 + Math.random() * 0.4; const an = Math.atan2(a.y - P.y, a.x - P.x) + (Math.random() - 0.5); a.tx = a.x + Math.cos(an) * 3; a.ty = a.y + Math.sin(an) * 3; }

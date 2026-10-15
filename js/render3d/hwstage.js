@@ -39,7 +39,7 @@ function sharedRenderer() {
 }
 
 // сборка 66: модели мобов качаются по зонам — бойцов Летописи дождаться (до 3 с), иначе бой начнётся с запасными моделями
-// облик: питомец из Meshy и другая модель героя — тоже до боя (до 3 с), иначе питомец выйдет прежней процедурной моделью (у фенека с горящим хвостом)
+// облик: питомец из Meshy и другая модель героя — тоже до боя (до 3 с); не успел питомец — бой без него (процедурный не показывается никогда)
 export const stageModels = (foes, pet) => Promise.all([mobsReady(foes.map(f => MOBS[f.type] ? f.type : 'skel_warrior'), 3000),
   Promise.race([Promise.all([pet && PET_MODELS[pet] && preloadSkin('pet_' + pet), heroModel() && preloadSkin(heroModel())]).catch(() => {}), new Promise(r => setTimeout(r, 3000))])]);
 export function createStage({ cls, wt, foes, ci, pet }) {
@@ -67,7 +67,7 @@ export function createStage({ cls, wt, foes, ci, pet }) {
   { const wm = WEAPONS[WEAPON_MODEL[wt] || 'sword_iron'], off = OFFHAND_MODEL[cls] ? WEAPONS[OFFHAND_MODEL[cls]] : null;
     if (wt === 'bow') { H.a.equip('handL', wm); } else { H.a.equip('handR', wm); H.a.equip('handL', off); } }
   const F = foes.map(f => { const S = mk(MOBS[f.type] || MOBS.skel_warrior, 1.15 * (f.type === 'boss' ? 0.72 : f.type === 'elite_guard' && !f.boss ? 0.85 : 1)); for (const [slot, id] of Object.entries(S.a.model.defaultWeapons || {})) S.a.equip(slot, WEAPONS[id]); return S; });   // правки 5: мобы на 15% крупнее
-  const PT = pet && PET_MODELS[pet] ? mk(PET_MODELS[pet], 1.2) : null;   // П4-3: питомец рядом с героем (тот же масштаб, что в деревне)
+  const PT = pet && PET_MODELS[pet] && skinLoaded('pet_' + pet) ? mk(PET_MODELS[pet], 1.2) : null;   // П4-3: питомец рядом с героем (тот же масштаб, что в деревне)
   if (PT) { const L = petLook(pet); if (L) { for (const m of PT.a.mats) applyLook(m, L); if (L.ghost) PT.a.root.traverse(o => { if (o.userData.isOutline) o.visible = false; }); } }
   const pfx = [];   // эффекты питомца (как renderer3d fxSync): аура, следы, нимб/сферы, корона
   if (PT) { const head = PT.a.model.bones && PT.a.model.bones.head, au = petFxOf('aura'), tr = petFxOf('trail'), ex = petFxOf('extra');

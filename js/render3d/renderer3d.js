@@ -31,7 +31,7 @@ import { SKINS, skinLoaded, preloadSkin } from './glbskin.js';
 import { Post } from './post.js';
 import { Sparks } from './sparks.js';
 import { petFx } from './models/pet/petfx.js';
-import { petMotes, emitPet, Extra, Trail, Aura, WeaponFx } from './cosfx.js';
+import { Extra, Trail, Aura, WeaponFx } from './cosfx.js';
 import { FORGE_HIT } from './models/npc/npc_smith.js';
 import { sfx } from '../core/audio.js';
 import { disposeObject } from './dispose.js';
@@ -321,6 +321,10 @@ function getActor(key, def, o = {}) {
   if (o.scale) a.root.scale.setScalar(o.scale);
   return a;
 }
+// 15 октября: в игре только модели Meshy. Пока модель не загружена, актёр не строится (раньше на это время собиралась процедурная
+// модель, а потом пересобиралась — лишняя работа и мелькание старой модели); загрузка заказывается вне очереди
+function dropActor(key) { const a = actors.get(key); if (a) { a.dispose(); if (a.motes) a.motes.dispose(); if (a.fxMotes) a.fxMotes.dispose(); actors.delete(key); } }
+const skinReady = n => skinLoaded(n) || (preloadSkin(n), false);
 function flashOf(e) { return e.flash > 0 ? Math.min(1, e.flash * 8) : 0; }
 
 let cosmVer = 0; bus.on('cosm', () => cosmVer++);
@@ -360,10 +364,10 @@ function syncPlayer(dt) {
   // облик (js/game/cosmetics.js): другая модель класса качается, только когда её надели; пока качается — прежняя
   const alt = SKINS.on && heroModel(G.profile); let def = HEROES[cls];
   if (alt) { if (skinLoaded(alt)) def = altDef(cls, alt); else preloadSkin(alt); }
+  const sk = def.skin || HERO_SKIN[cls];
+  if (sk && !skinReady(sk)) { dropActor(P); return; }
   let a = getActor(P, def, { scale: HERO.scale });
   if (a.def !== def) { a.dispose(); actors.delete(P); a = getActor(P, def, { scale: HERO.scale }); }
-  const sk = def.skin || HERO_SKIN[cls];
-  if (sk && !!a.model.skin !== SKINS.on && (!SKINS.on || skinLoaded(sk))) { a.dispose(); actors.delete(P); a = getActor(P, def, { scale: HERO.scale }); }
   if (a.cosmVer !== cosmVer) {   // перекраска — только при смене облика или новой модели (одни числа в шейдере)
     a.cosmVer = cosmVer; const L = heroLook(G.profile);
     if (a.model.skinMat) applyLook(a.model.skinMat, L);
@@ -435,9 +439,9 @@ function syncEnemies(dt) {
     let def = mobDef(e);   // e.model — свой вид при том же типе (Страж глубин, сборка 57); model3d — чужая модель на время (мобы храма)
     if (!def) { if (!warned.has(e.type)) { warned.add(e.type); console.warn('[3D] нет модели моба «' + e.type + '» — показан скелет-воин'); } def = MOBS.skel_warrior; }
     const scale = MOB_K * (e.champion ? 1.25 : 1) * (e.bigMul || 1) * (def === MOBS[e.model || e.type] || (e.D && def === MOBS[e.D.model3d]) ? 1 : e.r / 0.34);
-    let a = enemyActor(e, def, scale); a.seen = fn;
-    // правки 2 (П17–18): моб собран запасной моделью, пока его модель грузилась, — пересобрать, когда догрузилась
-    if (def.ready && SKINS.on) { if (a.fb === undefined) a.fb = !def.ready(kit); else if (a.fb && def.ready(kit)) { a.dispose(); actors.delete(e); a = getActor(e, def, { scale }); a.isEnemy = true; a.def = def; a.seen = fn; a.fb = false; } }
+    // 15 октября: модель моба ещё грузится — моб не рисуется (раньше выходил запасной процедурной моделью и подменялся на глазах)
+    if (def.ready && !def.ready(kit)) continue;
+    const a = enemyActor(e, def, scale); a.seen = fn;
     e.body = bodyOf(a, scale, e);
     const c = measure(a, e, dt), an = e.anim; let clip = 'idle', k, impact, speed = 0;
     if (e.dead) { clip = 'death'; k = an.prog; }
@@ -455,14 +459,15 @@ function syncEnemies(dt) {
 function syncNpcs(dt) {
   for (const n of G.npcs || []) {
     if (n.echoFor) {   // Эхо павшего героя: полупрозрачный призрак (модель класса, без обводки и плаща), растворяется после слов
-      const cls = n.echoFor.cls || 'warrior', a = getActor(n, HEROES[cls] || HEROES.warrior, { scale: HERO.scale });
+      const cls = n.echoFor.cls || 'warrior'; if (!skinReady(HERO_SKIN[cls] || HERO_SKIN.warrior)) continue;
+      const a = getActor(n, HEROES[cls] || HEROES.warrior, { scale: HERO.scale });
       if (!a.ghosted) { a.ghosted = true; a.model.update = null; a.shadow.visible = false; a.root.traverse(o => { if (o.userData && o.userData.isOutline) o.visible = false; }); }
       const al = (n.alpha ?? 1) * (0.34 + Math.sin(tAll * 2 + n.x) * 0.06); for (const m of a.mats) { m.transparent = true; m.opacity = al; m.depthWrite = false; }
       a.place(n.x, n.y); a.faceAngle(yawOfDir(n.dir)); a.update(dt, { clip: 'idle' }, env); continue;
     }
     // правки 5: «сделать нпс такого же роста как герой» — жители в том же масштабе, что и герой (модели одной высоты, герой был ×1,1)
-    const def = NPCS[n.model] || NPCS.npc_elder; let a = getActor(n, def, { scale: HERO.scale });
-    if (!a.model.skin && !a.reskin && SKINS.on && skinLoaded(def.id)) { a.dispose(); actors.delete(n); a = getActor(n, def, { scale: HERO.scale }); a.reskin = true; }   // сборка 66: шкура жителя догрузилась после сборки деревни
+    const def = NPCS[n.model] || NPCS.npc_elder; if (!skinReady(def.id)) continue;   // житель — только моделью Meshy
+    const a = getActor(n, def, { scale: HERO.scale });
     a.place(n.x, n.y);
     // наставник с мечом (новая модель) бьёт чучело: удар 0.7 с, пауза 0.9 с; герой рядом или разговор — поворачивается к нему
     const P = G.player, near = P && Math.hypot(P.x - n.x, P.y - n.y) < 3.5;
@@ -495,9 +500,9 @@ function syncPet(dt) {
   const p = G.pet;
   for (const [k, a] of actors) if (a.isPet && k !== p) { a.dispose(); if (a.motes) a.motes.dispose(); if (a.fxMotes) a.fxMotes.dispose(); actors.delete(k); }
   if (!p || !PET_MODELS[p.id]) return;
-  // сборка 60: модель из Meshy качается, когда зверёк впервые вышел; пока качается — процедурный, потом подменяется
-  const skin = 'pet_' + p.id; kit.skin.preloadSkin(skin);
-  const was = actors.get(p); if (was && !was.model.skin && kit.skin.skinLoaded(skin) && kit.skin.SKINS.on) { was.dispose(); actors.delete(p); }
+  // только модель из Meshy (15 октября: у первого питомца на секунду мелькал процедурный лис): все питомцы качаются фоном
+  // после героев (kit.js PET_SKIN), фенек Кофи и выбранный — до показа деревни; не догрузился — зверька пока не видно
+  if (!skinReady('pet_' + p.id)) { dropActor(p); return; }
   const a = getActor(p, PET_MODELS[p.id]); a.isPet = true; a.turnRate = 12;
   if (!a.petGlow) { petGlow(a); a.root.scale.setScalar(PET_SCALE); }
   if (a.cosmVer !== cosmVer) {   // призрачный питомец (облик)
@@ -509,7 +514,6 @@ function syncPet(dt) {
   if (a.crown) a.crown.update(dt);
   fxSync(a, ['aura', 'trail', 'extra'], petFxOf, p.x, p.y, dt, { auraK: 0.55, haloY: 0.42 });   // эффекты питомца, как в lab/cosmetics.html?s=mfx
   a.place(p.x, p.y); a.faceAngle(Math.PI / 2 - p.ang);
-  const M = !a.model.skin && a.def.motes; if (M) { if (!a.motes) a.motes = petMotes(scene, M); emitPet(a.motes, M, dt, p.x, p.y, a.yaw); }   // искры — только у процедурной модели (точки под неё)
   petFx(a, scene, dt, U.uTime.value);   // модель из Meshy: искры от кости (models/pet/petfx.js)
   a.update(dt, p.act ? { clip: 'attack', k: Math.min(1, p.act.t / p.act.dur) } : p.speed > 0.4 ? { clip: 'walk', speed: p.speed } : { clip: 'idle' }, env);
   // правки к сборке 60: питомец ярче — светящийся силуэт (тёплая обводка дышит) и лёгкий подсвет тела.
@@ -538,6 +542,7 @@ function syncSwarm(dt) {
     let a = actors.get(e);
     if (!a) {
       const mk = e.model || e.type, def = MOBS[mk] || MOBS.skel_warrior, pool = swarmPool.get(mk);   // правки 3: стражи Жатвы — своя модель (e.model) при общем типе
+      if (!(pool && pool.length) && def.ready && !def.ready(kit)) continue;   // 15 октября: без запасной процедурной модели — ждём модель Meshy
       a = pool && pool.length ? pool.pop() : noCast(new Actor(def, kit, scene, { light: true })); a.isSwarm = true; a.seen = fn; a.swType = mk; a.root.visible = true;
       a.root.scale.setScalar(MOB_K * (e.scale || (e.boss ? 1.4 : e.elite ? 1.2 : 1))); actors.set(e, a);
     }
@@ -662,7 +667,7 @@ export function prepare() {
     if (SKINS.on && Z.id === 'wild' && Z.json.wild.realm === 'bones' && !bonesReady()) packs.push(preloadBones());
     if (SKINS.on && Z.id === 'wild' && Z.json.wild.realm === 'temple' && !templeReady()) packs.push(preloadTemple());
     if (SKINS.on && !forestReady() && ((Z.id === 'town' && Z.json.village) || (Z.id === 'wild' && ['forest', 'fjord', undefined].includes(Z.json.wild.realm)))) packs.push(preloadForest());   // сборка 71: деревья Meshy
-    if (SKINS.on) packs.push(zoneModels(G.profile && G.profile.cls, Z, G.enemies, mobDef));   // сборка 66: только модели этой зоны (kit.js), остальное — фоном
+    if (SKINS.on) packs.push(zoneModels(G.profile && G.profile.cls, Z, G.enemies, mobDef, G.profile && G.profile.pets && G.profile.pets.active));   // сборка 66: только модели этой зоны (kit.js), остальное — фоном
     if (packs.length) await settle(Promise.all(packs), 8000);
     if (G.zone !== Z) return;
     if (Z !== zone) setZone(Z);
