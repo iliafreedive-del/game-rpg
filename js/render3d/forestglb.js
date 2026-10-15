@@ -18,7 +18,7 @@ export function preloadForest() {
   if (wait) return wait;
   if (typeof document === 'undefined') return (wait = Promise.resolve(false));
   // грани плоские (нормаль на грань): гладкие нормали размывали листву в «желе»; «_lo» для тени — как есть, на показ — плоская копия «_lo_f»
-  const flat = g => { const n = g.toNonIndexed(); n.computeVertexNormals(); g.dispose(); return n; };
+  const flat = g => { if (!g.index) { g.computeVertexNormals(); return g; } const n = g.toNonIndexed(); n.computeVertexNormals(); g.dispose(); return n; };   // сборка 73: пак уже по граням
   wait = new GLTFLoader().loadAsync(URL_).then(g => { g.scene.traverse(o => { if (!o.isMesh) return; if (o.name.endsWith('_lo')) { GEO.set(o.name, shared(o.geometry)); GEO.set(o.name + '_f', shared(flat(o.geometry.clone()))); } else GEO.set(o.name, shared(flat(o.geometry))); }); return (ready = true); })
     .catch(e => { console.warn('trees pack', e); return false; });
   return wait;

@@ -52,6 +52,9 @@ if (!pairs.length) process.exit(0);
 // цвет склеенной вершины = среднее атласа (512 px, чуть размыт — без мелкого шума островков) по всем её копиям, в линейном цвете
 const mat = j.materials[pr.material || 0], img = j.images[j.textures[mat.pbrMetallicRoughness.baseColorTexture.index].source], ibv = j.bufferViews[img.bufferView];
 const T = 512, rgb = execFileSync('convert', ['-', '-resize', `${T}x${T}!`, '-blur', '0x0.6', '-depth', '8', 'rgb:-'], { input: bin.subarray(ibv.byteOffset || 0, (ibv.byteOffset || 0) + ibv.byteLength), maxBuffer: 1 << 28 });
+// env FACE=1 — цвет по граням (сборка 73): каждая грань урезанной сетки берёт цвет ближайшей грани исходника, снятый с атласа в полном
+// размере (2048, без размытия) — грани чёткие, как у лоупольной модели Meshy, а не «мыло» усреднённого цвета вершин
+const TF = 2048, rgbF = process.env.FACE ? execFileSync('convert', ['-', '-resize', `${TF}x${TF}!`, '-depth', '8', 'rgb:-'], { input: bin.subarray(ibv.byteOffset || 0, (ibv.byteOffset || 0) + ibv.byteLength), maxBuffer: 1 << 28 }) : null;
 const lin = c => { c /= 255; return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; };
 const COL = new Float32Array(nw * 3), CN = new Float32Array(nw), NW = new Float32Array(nw * 3);
 for (let v = 0; v < nv; v++) {
@@ -73,7 +76,7 @@ for (const pair of pairs) {
     const q = [W[I[t * 3]], W[I[t * 3 + 1]], W[I[t * 3 + 2]]]; if (q[0] === q[1] || q[1] === q[2] || q[0] === q[2]) continue;
     for (const w of q) { let m = map.get(w); if (m === undefined) map.set(w, m = n++); idx.push(m); }
   }
-  const pos = new Float32Array(n * 3), nrm = new Float32Array(n * 3), col = new Float32Array(n * 3);
+  let pos = new Float32Array(n * 3), nrm = new Float32Array(n * 3), col = new Float32Array(n * 3);
   for (const [w, m] of map) { pos.set(PW.subarray(w * 3, w * 3 + 3), m * 3); nrm.set(NW.subarray(w * 3, w * 3 + 3), m * 3); col.set(COL.subarray(w * 3, w * 3 + 3), m * 3); }
   // урезка по кускам: общая урезка «съедает» мелкие клочья листвы целиком (берёза оставалась голой) — каждый кусок урезается
   // в одной доле, но не меньше чем до 4 треугольников, так что клочок остаётся на месте и своего размера
@@ -96,6 +99,33 @@ for (const pair of pairs) {
     sim = Uint32Array.from(out);
     if (Math.abs(sim.length - +tgt * 3) < +tgt * 0.15) break;
     ratio *= +tgt * 3 / sim.length;
+  }
+  let FC = null;   // цвет каждой грани sim (FACE)
+  if (rgbF) {
+    const cen = new Float32Array(c.tris.length * 3), fcol = new Float32Array(c.tris.length * 3), cell = 0.01, grid = new Map(), key = (x, y, z) => Math.floor(x / cell) + ',' + Math.floor(y / cell) + ',' + Math.floor(z / cell);
+    c.tris.forEach((t, i) => {
+      for (let k = 0; k < 3; k++) for (let a = 0; a < 3; a++) cen[i * 3 + a] += P[I[t * 3 + k] * 3 + a] / 3;
+      const sm = (u, v) => { const x = Math.min(TF - 1, Math.max(0, Math.floor(u * TF))), y = Math.min(TF - 1, Math.max(0, Math.floor(v * TF))), o = (y * TF + x) * 3; return [lin(rgbF[o]), lin(rgbF[o + 1]), lin(rgbF[o + 2])]; };
+      const uv = [0, 1, 2].map(k => [UV[I[t * 3 + k] * 2], UV[I[t * 3 + k] * 2 + 1]]), us = (uv[0][0] + uv[1][0] + uv[2][0]) / 3, vs = (uv[0][1] + uv[1][1] + uv[2][1]) / 3;
+      const pts = [[us, vs], ...uv.map(([u, v]) => [(u * 2 + us) / 3, (v * 2 + vs) / 3])];
+      for (const [u, v] of pts) { const q = sm(u, v); for (let a = 0; a < 3; a++) fcol[i * 3 + a] += q[a] / pts.length; }
+      const k0 = key(cen[i * 3], cen[i * 3 + 1], cen[i * 3 + 2]); if (!grid.has(k0)) grid.set(k0, []); grid.get(k0).push(i);
+    });
+    FC = new Float32Array(sim.length);
+    for (let f = 0; f < sim.length / 3; f++) {
+      const x = (pos[sim[f * 3] * 3] + pos[sim[f * 3 + 1] * 3] + pos[sim[f * 3 + 2] * 3]) / 3, y = (pos[sim[f * 3] * 3 + 1] + pos[sim[f * 3 + 1] * 3 + 1] + pos[sim[f * 3 + 2] * 3 + 1]) / 3, z = (pos[sim[f * 3] * 3 + 2] + pos[sim[f * 3 + 1] * 3 + 2] + pos[sim[f * 3 + 2] * 3 + 2]) / 3;
+      let best = -1, bd = 1e9;
+      for (let r = 0; r < 6 && best < 0; r++) for (let dx = -r; dx <= r; dx++) for (let dy = -r; dy <= r; dy++) for (let dz = -r; dz <= r; dz++) {
+        const L = grid.get(Math.floor(x / cell + dx) + ',' + Math.floor(y / cell + dy) + ',' + Math.floor(z / cell + dz)); if (!L) continue;
+        for (const i of L) { const d = (cen[i * 3] - x) ** 2 + (cen[i * 3 + 1] - y) ** 2 + (cen[i * 3 + 2] - z) ** 2; if (d < bd) { bd = d; best = i; } }
+      }
+      if (best < 0) best = 0;
+      FC.set(fcol.subarray(best * 3, best * 3 + 3), f * 3);
+    }
+    // грани — отдельные вершины: sim раскрывается, у каждой грани свой цвет
+    const pos2 = new Float32Array(sim.length * 3), col2 = new Float32Array(sim.length * 3), nrm2 = new Float32Array(sim.length * 3), sim2 = new Uint32Array(sim.length);
+    for (let k = 0; k < sim.length; k++) { pos2.set(pos.subarray(sim[k] * 3, sim[k] * 3 + 3), k * 3); nrm2.set(nrm.subarray(sim[k] * 3, sim[k] * 3 + 3), k * 3); col2.set(FC.subarray(Math.floor(k / 3) * 3, Math.floor(k / 3) * 3 + 3), k * 3); sim2[k] = k; }
+    pos = pos2; col = col2; nrm = nrm2; sim = sim2; n = sim.length;
   }
   const rem = new Int32Array(n).fill(-1); let cnt = 0; for (const v of sim) if (rem[v] < 0) rem[v] = cnt++;
   let P2 = new Float32Array(cnt * 3), N2 = new Float32Array(cnt * 3), C2 = new Uint8Array(cnt * 4), I2 = new Uint16Array(sim.length);
