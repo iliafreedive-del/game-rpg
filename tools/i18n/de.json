@@ -3030,5 +3030,8 @@
  "Имя героя": "Heldenname",
  "Назад": "Zurück",
  "ОК": "OK",
- "<div class=\"name-pick\"><img class=\"pt\" src=\"assets/sprites/pick_{0}.jpg\" alt=\"\" onerror=\"this.remove()\"><div class=\"goldc\" style=\"font:600 18px Georgia\">Имя героя</div><div class=\"muted\">{1}</div></div>": "<div class=\"name-pick\"><img class=\"pt\" src=\"assets/sprites/pick_{0}.jpg\" alt=\"\" onerror=\"this.remove()\"><div class=\"goldc\" style=\"font:600 18px Georgia\">Heldenname</div><div class=\"muted\">{1}</div></div>"
+ "<div class=\"name-pick\"><img class=\"pt\" src=\"assets/sprites/pick_{0}.jpg\" alt=\"\" onerror=\"this.remove()\"><div class=\"goldc\" style=\"font:600 18px Georgia\">Имя героя</div><div class=\"muted\">{1}</div></div>": "<div class=\"name-pick\"><img class=\"pt\" src=\"assets/sprites/pick_{0}.jpg\" alt=\"\" onerror=\"this.remove()\"><div class=\"goldc\" style=\"font:600 18px Georgia\">Heldenname</div><div class=\"muted\">{1}</div></div>",
+ "Откроется в обновлении": "Öffnet mit einem Update",
+ "Портал откроется в следующем обновлении": "Dieses Portal öffnet mit dem nächsten Update",
+ "Новые земли уже в пути": "Neue Länder sind unterwegs"
 }

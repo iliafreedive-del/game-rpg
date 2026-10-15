@@ -3030,5 +3030,8 @@
  "Имя героя": "Nama pahlawan",
  "Назад": "Kembali",
  "ОК": "OK",
- "<div class=\"name-pick\"><img class=\"pt\" src=\"assets/sprites/pick_{0}.jpg\" alt=\"\" onerror=\"this.remove()\"><div class=\"goldc\" style=\"font:600 18px Georgia\">Имя героя</div><div class=\"muted\">{1}</div></div>": "<div class=\"name-pick\"><img class=\"pt\" src=\"assets/sprites/pick_{0}.jpg\" alt=\"\" onerror=\"this.remove()\"><div class=\"goldc\" style=\"font:600 18px Georgia\">Nama pahlawan</div><div class=\"muted\">{1}</div></div>"
+ "<div class=\"name-pick\"><img class=\"pt\" src=\"assets/sprites/pick_{0}.jpg\" alt=\"\" onerror=\"this.remove()\"><div class=\"goldc\" style=\"font:600 18px Georgia\">Имя героя</div><div class=\"muted\">{1}</div></div>": "<div class=\"name-pick\"><img class=\"pt\" src=\"assets/sprites/pick_{0}.jpg\" alt=\"\" onerror=\"this.remove()\"><div class=\"goldc\" style=\"font:600 18px Georgia\">Nama pahlawan</div><div class=\"muted\">{1}</div></div>",
+ "Откроется в обновлении": "Dibuka di pembaruan",
+ "Портал откроется в следующем обновлении": "Portal ini dibuka di pembaruan berikutnya",
+ "Новые земли уже в пути": "Negeri baru sedang dalam perjalanan"
 }
