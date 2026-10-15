@@ -235,8 +235,16 @@ export function initTutorial() {
       // карточка подарка открыта: показать, на что смотреть — зелёная ▲ и урон «было → стало» (правки 5)
       if (!cmpShown && e.classList.contains('gift-wear')) { cmpShown = true; pointAt(null, 'Зелёная ▲ — эта вещь лучше надетой: урон стал выше. Нажмите «Надеть»', { time: 14, win: true }); }
       if (!ar) { ar = el('div', 'gift-arrow', '<i></i><i></i><i></i>'); document.body.appendChild(ar); }
-      const r = e.getBoundingClientRect(), right = r.right + 104 < innerWidth;   // стрелка справа от цели и смотрит влево; у правого края — слева, смотрит вправо
-      ar.classList.toggle('flip', !right); ar.style.top = (r.top + r.height / 2) + 'px'; ar.style.left = (right ? r.right + 4 : r.left - 4) + 'px'; }, 200); }
+      // сборка 73: остриё — в точке у цели, стрелка выбирает сторону, где есть место и где она ничего не закрывает: портрет — снизу справа под 45°
+      // (не закрывать полоски здоровья и маны); плитка «Герой» — слева или сверху (не соседние плитки); «Надеть» — слева (справа «Продать»);
+      // вещь в сумке — справа. Мало места — стрелка мельче
+      const r = e.getBoundingClientRect(), W = 100, cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+      const side = { L: [r.left - 4, cy, 180, r.left - 4], R: [r.right + 4, cy, 0, innerWidth - r.right - 4], T: [cx, r.top - 4, -90, r.top - 4],
+        D: [r.right - r.width * 0.15, r.bottom - r.height * 0.15, 45, Math.min(innerWidth - r.right, innerHeight - r.bottom) * 1.41 + 20] };
+      const order = e.id === 'portrait' ? 'D' : e.classList.contains('menu-tile') ? 'LTD' : e.classList.contains('gift-wear') ? 'LR' : 'RL';
+      let [x, y, a, room] = side[order[0]]; for (const k of order) if (side[k][3] >= 70) { [x, y, a, room] = side[k]; break; }
+      const st = ar.style, rd = a * Math.PI / 180; st.left = x + 'px'; st.top = y + 'px'; st.setProperty('--a', a + 'deg'); st.setProperty('--s', Math.max(0.6, Math.min(1, (room - 6) / W)).toFixed(2));
+      st.setProperty('--dx', Math.cos(rd).toFixed(2)); st.setProperty('--dy', Math.sin(rd).toFixed(2)); }, 200); }
   bus.on('skillsOpened', () => setTimeout(() => { const b = document.querySelector('.tal-learn.ok'); if (b) pointAt(b, `Нажмите «${(b.childNodes[0] && b.childNodes[0].textContent.trim()) || 'Изучить'}»`, { key: 'learn', win: true }); }, 350));
   // метки времени «первых минут» (видно в «Справке»: тестер присылает скриншот)
   bus.on('kill', () => mark('kill1'));
