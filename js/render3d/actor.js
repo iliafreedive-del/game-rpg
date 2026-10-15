@@ -5,7 +5,7 @@ import { outline, addOutlines } from './toon.js';
 export { addOutlines };
 import { blobShadow } from './cape.js';
 import { OUTLINE } from './style.js';
-import { disposeObject } from './dispose.js';
+import { disposeObject, shared } from './dispose.js';
 
 // если у модели нет клипа, берём ближайший (так можно отдавать модель с минимумом клипов)
 export const CLIP_FALLBACK = { run: 'walk', dodge: 'walk', talk: 'idle', attack2: 'attack', slam: 'attack', lunge: 'attack', roar: 'cast', special: 'cast', stun: 'hit', spawn: 'idle' };
@@ -73,10 +73,14 @@ function warp(k, impact, hit) {
   return k < impact ? k / impact * hit : hit + (k - impact) / (1 - impact) * (1 - hit);
 }
 
+// вылет в Жатве на телефоне (15 октября): у врага со шкурой Meshy под ней остаётся спрятанная процедурная модель — у роя (до 100+
+// копий) это ≈ 15 тыс. вершин своих сеток на каждого врага, которые никогда не рисуются. o.light — такие сетки заменяются пустой общей
+const EMPTY = shared(new THREE.BufferGeometry());
 export class Actor {
   constructor(def, kit, scene, o = {}) {
     this.def = def; this.kit = kit;
     this.model = def.build(kit);
+    if (o.light) this.model.root.traverse(m => { if (m.isMesh && m.userData.skinHidden) m.geometry = EMPTY; });
     this.root = new THREE.Group(); this.root.add(this.model.root); scene.add(this.root);
     this.scene = scene;
     this.mats = this.model.materials || [];

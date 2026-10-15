@@ -33,6 +33,13 @@ export function preloadMob(name) {
   wait.set(name, p); return p;
 }
 export const mobLoaded = name => data.has(name);
+// выгрузить модель (Жатва, 15 октября: модели ушедших краёв не держим): сетки и текстуры — из видеопамяти, повторный preloadMob грузит заново
+export function unloadMob(name) {
+  const d = data.get(name); if (!d) return false;
+  data.delete(name); wait.delete(name);
+  d.gltf.scene.traverse(o => { if (o.isMesh) { o.geometry.dispose(); const m = o.material; if (m && m.map) m.map.dispose(); } });
+  return true;
+}
 // сетка и текстура модели как есть (без своего скелета): для кур, которые остаются на прежнем процедурном риге (critters.js)
 export function meshData(name) {
   const D = data.get(name); if (!D) return null;

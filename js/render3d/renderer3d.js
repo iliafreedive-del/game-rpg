@@ -10,7 +10,7 @@ import { U, setSmoothFade, outline, applyLook } from './toon.js';
 import { heroLook, heroModel, petLook, heroCrown, petCrown, heroTrail, petFxOf, heroFxOf } from '../game/cosmetics.js';
 import { make as makeWarrior } from './models/hero/warrior.js';
 import { make as makeMage } from './models/hero/mage.js';
-import { makeKit, preloadModels, zoneModels, bgModels, mobAssets, assetLoaded, wantAssets } from './kit.js';
+import { makeKit, preloadModels, zoneModels, bgModels, mobAssets, assetLoaded, wantAssets, MOB_ASSETS, loadedMobAssets, unloadAsset, bgSkip } from './kit.js';
 import { Actor, setOutlinesVisible } from './actor.js';
 import { preloadBones, bonesReady, preloadBoneTrees } from './bonesglb.js';
 import { preloadPortals, portalsReady } from './portalglb.js';
@@ -35,7 +35,7 @@ import { petMotes, emitPet, Extra, Trail, Aura, WeaponFx } from './cosfx.js';
 import { FORGE_HIT } from './models/npc/npc_smith.js';
 import { sfx } from '../core/audio.js';
 import { disposeObject } from './dispose.js';
-import { gemSprites } from '../game/survival.js';
+import { gemSprites, realmTypes } from '../game/survival.js';
 import { GroundDecals, FxBillboards } from './decals.js';
 import { fxGround, BLAST_FX, uprightImgs, flatSink } from '../render/fxsheets.js';
 
@@ -82,9 +82,13 @@ export function init() {
   renderer = new THREE.WebGLRenderer({ canvas, antialias: (window.devicePixelRatio || 1) < 2, powerPreference: 'high-performance', preserveDrawingBuffer: params.has('shot') });
   // потеря контекста WebGL (нехватка видеопамяти/драйвер): сохраняем игру и ждём, когда браузер вернёт контекст, — тогда зона
   // собирается заново (С42, сборка 60). Не вернул за 6 с — как раньше, перезагрузка страницы
-  let lostT = 0;
-  canvas.addEventListener('webglcontextlost', e => { e.preventDefault(); try { import('../game/game.js').then(m => m.saveNow()); } catch { } clearTimeout(lostT); lostT = setTimeout(() => location.reload(), 6000); });
-  canvas.addEventListener('webglcontextrestored', () => { clearTimeout(lostT); rebuildAfterRestore(); });
+  // 15 октября (вылет в Жатве на телефоне): iOS отдаёт контекст не сразу, а в фоне — только когда вкладку снова открыли; 6 с часто не хватало,
+  // и игра перезапускалась в меню. Теперь ждём 15 с, пока страница на экране (в фоне счёт не идёт)
+  let lostT = 0, lost = false;
+  const arm = () => { clearTimeout(lostT); if (lost && !document.hidden) lostT = setTimeout(() => { if (lost) location.reload(); }, 15000); };
+  canvas.addEventListener('webglcontextlost', e => { e.preventDefault(); lost = true; try { import('../game/game.js').then(m => m.saveNow()); } catch { } arm(); });
+  canvas.addEventListener('webglcontextrestored', () => { lost = false; clearTimeout(lostT); rebuildAfterRestore(); });
+  document.addEventListener('visibilitychange', arm);
   scene = new THREE.Scene(); camera = new THREE.PerspectiveCamera(CAMERA.fov, 1, CAMERA.near, CAMERA.far);
   kit = makeKit(scene); decals = new GroundDecals(scene); bills = new FxBillboards(scene);
   // сборка 46: без проверки ошибок шейдеров браузер компилирует их параллельно, а не ждёт каждый (на Android переход стоял до 20 с); ?debug — проверка включена
@@ -534,7 +538,7 @@ function syncSwarm(dt) {
     let a = actors.get(e);
     if (!a) {
       const mk = e.model || e.type, def = MOBS[mk] || MOBS.skel_warrior, pool = swarmPool.get(mk);   // правки 3: стражи Жатвы — своя модель (e.model) при общем типе
-      a = pool && pool.length ? pool.pop() : noCast(new Actor(def, kit, scene)); a.isSwarm = true; a.seen = fn; a.swType = mk; a.root.visible = true;
+      a = pool && pool.length ? pool.pop() : noCast(new Actor(def, kit, scene, { light: true })); a.isSwarm = true; a.seen = fn; a.swType = mk; a.root.visible = true;
       a.root.scale.setScalar(MOB_K * (e.scale || (e.boss ? 1.4 : e.elite ? 1.2 : 1))); actors.set(e, a);
     }
     const c = measure(a, e, dt);
@@ -670,19 +674,43 @@ export function prepare() {
     // первые секунды стоял «лысым», пока деревья и земля догружались на глазах)
     if (G.zone !== Z) return;
     const seen = new Set(); scene.traverse(o => { const ms = o.material ? [].concat(o.material) : []; for (const m of ms) for (const k of ['map', 'normalMap', 'alphaMap', 'emissiveMap']) { const t = m[k]; if (t && t.isTexture && !seen.has(t)) { seen.add(t); try { renderer.initTexture(t); } catch { } } } });
-    world.props.cull(camera, true); renderer.render(scene, camera);
-  })().finally(() => { warming = null; bgModels(SKINS.on); if (params.has('debug')) console.info('[3d] зона готова', Z.id, Math.round(performance.now() - t0) + ' мс'); });
+    if (bills) bills.prewarm(renderer, uprightImgs(), true);   // сборка 73: листы эффектов — под шторкой, а не по одному за кадр во время облёта камеры
+    // сборка 73: кадр под шторкой — без отсечения по кадру: сетки и шейдеры (и теней) того, что сейчас за краем экрана, уходят в видеокарту здесь,
+    // а не в облёте камеры к порталу после склепа (замер: +22 сетки и шейдер посреди облёта)
+    world.props.cull(camera, true); const fc = []; scene.traverse(o => { if (o.frustumCulled) { o.frustumCulled = false; fc.push(o); } });
+    try { renderer.render(scene, camera); } finally { for (const o of fc) o.frustumCulled = true; }
+  })().finally(() => { warming = null; bgOn = null; if (params.has('debug')) console.info('[3d] зона готова', Z.id, Math.round(performance.now() - t0) + ' мс'); });
   return warming;
 }
+// вылет в Жатве на телефоне (15 октября): фоновая догрузка в Жатве не тянет модели всех врагов игры, а модели врагов, которых нет в рое
+// и у пришедших гостей (survival.js держит два последних края), раз в 8 с выгружаются — вместе с их запасом моделей в пуле роя.
+// Понадобятся снова (гости, другая зона) — загрузятся заново (G.mobReady, zoneModels)
+const SURV_BASE = ['skel_warrior', 'ghoul', 'skel_archer', 'skel_mage', 'beast', 'boss', 'surv_guard', 'surv_brute'], isMobAsset = n => MOB_ASSETS.has(n);
+let trimAt = 0;
+function survTrim() {
+  const S = G.surv; if (!S || tAll < trimAt) return; trimAt = tAll + 8;
+  const keep = new Set(), add = id => { for (const n of mobAssets(id)) keep.add(n); };
+  SURV_BASE.forEach(add);
+  for (const r of [...(S.inv || []), S.invNext]) if (r) realmTypes(r).forEach(add);
+  for (const e of S.swarm) add(e.model || e.type);
+  const drop = new Set(loadedMobAssets().filter(n => !keep.has(n))); if (!drop.size) return;
+  for (const [k, list] of swarmPool) if (mobAssets(k).some(n => drop.has(n))) { for (const a of list) a.dispose(); swarmPool.delete(k); }
+  for (const n of drop) unloadAsset(n);
+  if (params.has('debug')) console.info('[3d] Жатва: выгружены модели', [...drop].join(', '));
+}
 const _blobs = Array.from({ length: 11 }, () => ({ x: 0, z: 0, r: 0, w: 1 })), put = (b, x, z, r, w) => { b.x = x; b.z = z; b.r = r; b.w = w; };
+// сборка 73 (рывки облёта после склепа): фоновая догрузка моделей стоит, пока идёт облёт камеры, — разбор файлов не ложится на кадры облёта
+let bgOn = null;
 export function render() {
   const Z = G.zone; if (!Z || !G.player || warming) return;
+  bgSkip.fn = Z.id === 'survival' ? isMobAsset : null;
+  { const on = SKINS.on && !G.cinema; if (on !== bgOn) { bgOn = on; bgModels(on); } }
   if (Z !== zone && !G.zoneReady) return;   // новая зона ещё грузится: её мир соберёт prepare(), до этого — прежний кадр под шторкой
   const now = performance.now(), dt = Math.min(0.05, (now - last) / 1000), rawDt = (now - last) / 1000; last = now; tAll += dt; U.uTime.value = tAll; governor(rawDt);
   if (Z !== zone) setZone(Z);
   applyQuality();
   updateCamera(dt); updateLights(tAll, dt);
-  { const adt = dt * (G.timeScale ?? 1); syncPlayer(adt); syncEnemies(adt); syncSwarm(adt); syncGems(); syncNpcs(dt); syncPet(adt); } cullActors();   // С22: в стоп-кадре удара анимации тоже замирают
+  { const adt = dt * (G.timeScale ?? 1); syncPlayer(adt); syncEnemies(adt); syncSwarm(adt); syncGems(); if (Z.id === 'survival' && G.zoneReady) survTrim(); syncNpcs(dt); syncPet(adt); } cullActors();   // С22: в стоп-кадре удара анимации тоже замирают
   world.props.cull(camera); world.props.update(tAll); updatePlates(); updateMarks();
   if (world.atmo) world.atmo.update(dt, tAll, G.cam.x, G.cam.y, G.player.x, G.player.y);
   if (world.critters) world.critters.update(dt, tAll, G.player, G.cam.x, G.cam.y);
@@ -695,7 +723,7 @@ export function render() {
   devSpawn();
   world.ground.shadow(lights.moon); world.ground.lod(camTarget.x + SQ * 2, camTarget.z + SQ * 2, userZoom);
   if (decals && groundPaint) { flatSink.L.length = 0; flatSink.ctx = decals.ctx; let did = false; try { did = decals.update(G.player.x, G.player.y, groundPaint); } finally { flatSink.ctx = null; } if (did && bills) bills.flat(flatSink.L); }   // сборка 72: листы «на полу» — плоскостями в 3D (decals.js flat)
-  if (bills && uprightList) { const ul = uprightList(); bills.update(ul, camera); if (!ul.length) bills.prewarm(renderer, uprightImgs()); }
+  if (bills && uprightList) { const ul = uprightList(); bills.update(ul, camera); if (!ul.length && !G.cinema) bills.prewarm(renderer, uprightImgs()); }   // сборка 73: в облёте камеры — без заливок листов
   renderer.info.reset();
   post.render(scene, camera, tAll, LV.exposure ?? 1);
 }

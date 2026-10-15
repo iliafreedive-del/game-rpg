@@ -334,6 +334,7 @@ const PROJ_FX = { w_poacher: ['fr_poacher_arrow', 'fr_arrow_hit'], b_thrower: ['
 const COL = { forest: [110, 230, 70], temple: [255, 150, 60], bones: [255, 200, 120], fjord: [150, 215, 255], crypt: [190, 120, 255] };
 const STYLE = { forest: 'roots', temple: 'stone', bones: 'bone', fjord: 'ice', crypt: 'bone' };
 const invCache = {};
+export const realmTypes = r => INV[r] ? INV[r].types : [];   // 3D: какие модели держать для пришедших краёв (renderer3d survTrim)
 // моб края → враг Жатвы: числа в масштабе роя (скелет-воин похода 22 HP ↔ скелет Жатвы 14 HP), дальше крепнет с волной, как все
 function invType(type) {
   if (invCache[type]) return invCache[type];
@@ -356,12 +357,16 @@ function prepRealm(r) {
 function invasions(S) {
   if (S.intro) return;
   if (!S.invNext && S.t >= S.invAt - 25) {   // край выбран за 25 с: модели и листы успевают загрузиться
-    const fresh = Object.keys(INV).filter(r => !S.inv.includes(r)), all = fresh.length ? fresh : Object.keys(INV);
+    const seen = S.invSeen || (S.invSeen = []), fresh = Object.keys(INV).filter(r => !seen.includes(r) && !S.inv.includes(r)), all = fresh.length ? fresh : Object.keys(INV).filter(r => !S.inv.includes(r));
     S.invNext = all[Math.floor(rand() * all.length)]; prepRealm(S.invNext);
   }
   if (!S.invNext || S.t < S.invAt || (S.bossT < 15 || S.t - (S.bossAt ?? -99) < 12)) return;   // Палач и гости не приходят вместе
   const r = S.invNext; S.invNext = null; S.invAt += INV_T;
   if (!S.inv.includes(r)) S.inv.push(r);
+  if (!(S.invSeen || (S.invSeen = [])).includes(r)) S.invSeen.push(r);
+  // вылет на телефоне (15 октября): гости приходят из двух последних краёв, самый старый уходит — когда его гости в рое кончатся,
+  // 3D выгружает модели этого края (render3d/renderer3d.js survTrim), а не держит модели всех пяти краёв до конца забега
+  while (S.inv.length > 2) S.inv.shift();
   S.invQ += 8;   // первые 8 новых врагов — гости этого края
   const R = INV[r], names = [...new Set(R.types.map(t => invType(t).name))].slice(0, 3).join(', ');
   bus.emit('toast', { text: 'Из ' + R.name + ' пришли гости!', sub: names, kind: 'warn' }); bus.emit('sfx', 'roar');

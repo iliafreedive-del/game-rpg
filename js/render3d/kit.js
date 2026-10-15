@@ -30,6 +30,11 @@ export function mobAssets(id) {
 const loadOne = n => n === 'decals' ? fur.loadDecals() : SKIN_SET.has(n) ? skin.preloadSkin(n) : mob.preloadMob(n);
 export const assetLoaded = n => SKIN_SET.has(n) ? skin.skinLoaded(n) : mob.mobLoaded(n);
 export const wantAssets = names => { for (const n of names) loadOne(n); };
+// модели врагов (не героев, не жителей, не питомцев): их Жатва держит только нужные рою и пришедшим гостям (renderer3d survTrim)
+export const MOB_ASSETS = new Set([...MOB_SKIN, ...MOBS]);
+export const loadedMobAssets = () => [...MOB_ASSETS].filter(assetLoaded);
+export const unloadAsset = n => SKIN_SET.has(n) ? skin.unloadSkin(n) : mob.unloadMob(n);
+export const bgSkip = { fn: null };   // фоновая догрузка пропускает (но не забывает) эти файлы — в Жатве модели врагов
 // бой Летописи (hwstage.js): модели бойцов — до сборки сцены, не дольше ms
 export const mobsReady = (ids, ms) => Promise.race([Promise.all(ids.flatMap(mobAssets).map(loadOne)), new Promise(r => setTimeout(r, ms))]);
 // титульный экран: герой последнего сохранения (первым) и жители деревни — первая зона почти всегда деревня
@@ -42,6 +47,7 @@ export function preloadModels(cls) {
 export function zoneModels(cls, Z, enemies, defOf) {
   const need = new Set([HERO_SKIN[cls] || HERO_SKIN.warrior]);
   if (Z.id === 'town') NPC_SKIN.forEach(n => need.add(n));
+  if (Z.id === 'town' && Z.json.village) ['dog_town', 'dog_brown', 'chicken_white', 'chicken_red'].forEach(n => need.add(n));   // сборка 73: собаки и куры деревни — до показа зоны (раньше догружались фоном и подменялись посреди облёта камеры: новые шейдеры и текстуры — рывок)
   if (Z.id === 'survival') ['skel_warrior', 'ghoul', 'skel_archer', 'skel_mage', 'beast', 'boss', 'surv_guard', 'surv_brute', 'decals'].forEach(id => (id === 'decals' ? [id] : mobAssets(id)).forEach(n => need.add(n)));   // рой Жатвы приходит волнами (survival.js), его модели — из пула
   for (const e of enemies || []) {
     need.add('decals');
@@ -57,7 +63,8 @@ export function bgModels(on) {
   if (!bgQ) bgQ = [...Object.values(HERO_SKIN), ...NPC_SKIN, 'decals', ...MOB_SKIN, ...MOBS];
   const pump = () => {
     while (bgOn && bgBusy < 2 && bgQ.length) {
-      const n = bgQ.shift(); if (n !== 'decals' && assetLoaded(n)) continue;
+      const i = bgSkip.fn ? bgQ.findIndex(n => !bgSkip.fn(n)) : 0; if (i < 0) break;
+      const n = bgQ.splice(i, 1)[0]; if (n !== 'decals' && assetLoaded(n)) continue;
       bgBusy++; loadOne(n).finally(() => { bgBusy--; pump(); });
     }
   };

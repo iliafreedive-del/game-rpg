@@ -25,6 +25,7 @@ import { dozorPending, initDozor } from './game/daily.js';
 import { showDozor } from './ui/windows.js';
 import { $, el, esc } from './core/util.js';
 import { CLASSES } from './data/items.js';
+import { nameProblem, cleanName, NAME_MAX } from './game/namefilter.js';
 import { iconURL } from './ui/icons.js';
 import { initFullscreen } from './ui/fullscreen.js';
 import { qa, initQA } from './core/qa.js';
@@ -97,13 +98,18 @@ async function boot() {
     }
   };
   const S = saves.slots, cname = c => CLASSES[c] ? CLASSES[c].name : c;
+  const hname = c => S[c] && S[c].name ? `${S[c].name} (${cname(c)})` : cname(c);   // герой с именем: «Аран (Воин)»
   // новая игра: класс, у которого уже есть сохранение, — только после «Перезаписать?»
-  const newGame = () => { sfx('click'); pickClass(btns, cls => start(newProfile(cls)), S, cls => confirm(`Перезаписать сохранение героя «${cname(cls)}» (ур. ${S[cls].level})? Его прогресс пропадёт, остальные герои останутся.`)); };
+  // сборка 73: после класса — имя героя («Назад» — снова выбор класса)
+  const named = (cls, name) => { const p = newProfile(cls); p.name = name; start(p); };
+  const NONAME = (() => { try { const q = new URLSearchParams(location.search); return q.has('shot') || q.has('noname'); } catch { return false; } })();   // автотесты (?shot) — без окна имени, как без облёта
+  const classes = () => pickClass(btns, cls => NONAME ? start(newProfile(cls)) : pickName(btns, cls, name => named(cls, name), () => { btns._picked = false; classes(); }), S, cls => confirm(`Перезаписать сохранение героя «${hname(cls)}» (ур. ${S[cls].level})? Его прогресс пропадёт, остальные герои останутся.`));
+  const newGame = () => { sfx('click'); classes(); };
   if (saves.last) {
     const lp = S[saves.last];
-    const c = el('button', 'btn gold', `Продолжить: ${esc(cname(saves.last))}, ур. ${lp.level}`); c.onclick = () => { sfx('click'); start(lp); };
+    const c = el('button', 'btn gold', `Продолжить: ${esc(hname(saves.last))}, ур. ${lp.level}`); c.onclick = () => { sfx('click'); start(lp); };
     btns.append(c);
-    for (const cls of Object.keys(S)) if (cls !== saves.last) { const o = el('button', 'btn', `${esc(cname(cls))}, ур. ${S[cls].level}`); o.onclick = () => { sfx('click'); start(S[cls]); }; btns.append(o); }
+    for (const cls of Object.keys(S)) if (cls !== saves.last) { const o = el('button', 'btn', `${esc(hname(cls))}, ур. ${S[cls].level}`); o.onclick = () => { sfx('click'); start(S[cls]); }; btns.append(o); }
     const n = el('button', 'btn', 'Новая игра'); n.onclick = newGame; btns.append(n);
   } else {
     const n = el('button', 'btn gold', 'Начать игру'); n.onclick = newGame; btns.append(n);
@@ -128,6 +134,29 @@ function pickClass(box, cb, saved = {}, askOverwrite = () => true) {
   // сборка 63: на медленной сети карточки ждут портреты (до 2,5 с), чтобы не было пустых чёрных кругов
   const imgs = [...row.querySelectorAll('img.pt')].filter(i => !i.complete);
   if (imgs.length) { row.style.opacity = '0'; const show = () => { row.style.transition = 'opacity .25s'; row.style.opacity = ''; }; Promise.race([Promise.all(imgs.map(i => i.decode().catch(() => { }))), new Promise(r => setTimeout(r, 2500))]).then(show); }
+}
+// сборка 73: имя героя после выбора класса. «ОК» — когда имя годится (длина, знаки, без мата — js/game/namefilter.js), Enter — то же, Esc — «Назад»
+function pickName(box, cls, ok, back) {
+  const C = CLASSES[cls];
+  box.innerHTML = `<div class="name-pick"><img class="pt" src="assets/sprites/pick_${cls}.jpg" alt="" onerror="this.remove()"><div class="goldc" style="font:600 18px Georgia">Имя героя</div><div class="muted">${esc(C.name)}</div></div>`;
+  const f = el('form', 'name-form'); f.noValidate = true; f.autocomplete = 'off';
+  const inp = el('input', 'name-in'); Object.assign(inp, { type: 'text', maxLength: NAME_MAX, placeholder: 'Введите имя', spellcheck: false, autocomplete: 'off' });
+  inp.setAttribute('autocapitalize', 'words'); inp.setAttribute('autocorrect', 'off'); inp.setAttribute('enterkeyhint', 'done'); inp.setAttribute('aria-label', 'Имя героя');
+  const err = el('div', 'name-err', '&nbsp;');
+  const row = el('div', 'name-row');
+  const bk = el('button', 'btn', 'Назад'); bk.type = 'button';
+  const go = el('button', 'btn gold', 'ОК'); go.type = 'submit'; go.disabled = true;
+  row.append(bk, go); f.append(inp, err, row); box.firstChild.appendChild(f);
+  // как у карточек героя (М14): палец, нажавший карточку, не должен сразу «нажать» появившуюся под ним кнопку
+  for (const b of [bk, go]) b.onpointerdown = () => { b._down = true; };
+  const fresh = e => e && e.detail && !e.currentTarget._down;
+  const check = () => { const why = nameProblem(inp.value); go.disabled = !!why; err.textContent = why && cleanName(inp.value) ? why : '\u00a0'; return why; };
+  inp.oninput = check;
+  inp.onkeydown = e => { if (e.key === 'Escape') { e.preventDefault(); bk.click(); } };
+  bk.onclick = e => { if (fresh(e)) return; inp.blur(); sfx('click'); back(); };
+  f.onsubmit = e => { e.preventDefault(); if (check() || box._named) return; box._named = true; inp.blur(); sfx('click'); ok(cleanName(inp.value)); };
+  go.onclick = e => { if (fresh(e)) e.preventDefault(); };
+  inp.focus({ preventScroll: true });
 }
 let last = performance.now(), fpsAcc = 0, fpsN = 0;
 function loop(now) {

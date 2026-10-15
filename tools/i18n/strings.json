@@ -280,15 +280,7 @@
   "w": "js/data/cosmetics.js"
  },
  {
-  "k": "Фиолетовый авангард",
-  "w": "js/data/cosmetics.js"
- },
- {
   "k": "Маг посоха",
-  "w": "js/data/cosmetics.js"
- },
- {
-  "k": "Звёздный архимаг",
   "w": "js/data/cosmetics.js"
  },
  {
@@ -1761,6 +1753,78 @@
  },
  {
   "k": "Победить босса без смерти",
+  "w": "js/data/quests.js"
+ },
+ {
+  "k": "Уничтожить 600 монстров",
+  "w": "js/data/quests.js"
+ },
+ {
+  "k": "Пройти 8000 метров",
+  "w": "js/data/quests.js"
+ },
+ {
+  "k": "Убить 30 элитных противников",
+  "w": "js/data/quests.js"
+ },
+ {
+  "k": "Открыть 50 сундуков",
+  "w": "js/data/quests.js"
+ },
+ {
+  "k": "Победить Палача трижды",
+  "w": "js/data/quests.js"
+ },
+ {
+  "k": "Пройти 15 этажей Глубин",
+  "w": "js/data/quests.js"
+ },
+ {
+  "k": "Пройти 5 этажей Глубин на ★★★",
+  "w": "js/data/quests.js"
+ },
+ {
+  "k": "Сделать 10 слияний у кузнеца",
+  "w": "js/data/quests.js"
+ },
+ {
+  "k": "Закалить вещи у кузнеца 12 раз",
+  "w": "js/data/quests.js"
+ },
+ {
+  "k": "Победить в 30 боях Летописи битв",
+  "w": "js/data/quests.js"
+ },
+ {
+  "k": "Продержаться в Жатве Бездны 15 минут (всего)",
+  "w": "js/data/quests.js"
+ },
+ {
+  "k": "Отбить 5 фортов в походах",
+  "w": "js/data/quests.js"
+ },
+ {
+  "k": "Катакомбы: упокоить 200 нежити",
+  "w": "js/data/quests.js"
+ },
+ {
+  "k": "Катакомбы: победить Хранителя или Палача 5 раз",
+  "w": "js/data/quests.js"
+ },
+ {
+  "k": "Старый Лес: убить 250 врагов",
+  "w": "js/data/quests.js"
+ },
+ {
+  "k": "Фьорды: убить 250 врагов",
+  "w": "js/data/quests.js"
+ },
+ {
+  "k": "Костяные пустоши: убить 250 врагов",
+  "w": "js/data/quests.js"
+ },
+ {
+  "k": "Разрушенный храм: убить 250 врагов",
   "w": "js/data/quests.js"
  },
  {
@@ -4584,6 +4648,30 @@
   "w": "js/game/loot.js"
  },
  {
+  "k": "Введите имя",
+  "w": "js/game/namefilter.js"
+ },
+ {
+  "k": "Имя — от {0} букв",
+  "w": "js/game/namefilter.js"
+ },
+ {
+  "k": "Имя — не длиннее {0} знаков",
+  "w": "js/game/namefilter.js"
+ },
+ {
+  "k": "Только буквы, цифры, пробел и дефис",
+  "w": "js/game/namefilter.js"
+ },
+ {
+  "k": "В имени нужна хотя бы одна буква",
+  "w": "js/game/namefilter.js"
+ },
+ {
+  "k": "Такое имя нельзя: выберите другое",
+  "w": "js/game/namefilter.js"
+ },
+ {
   "k": "Аркас",
   "w": "js/game/nemesis.js"
  },
@@ -6016,6 +6104,34 @@
   "w": "js/game/survival.js"
  },
  {
+  "k": "Старого леса",
+  "w": "js/game/survival.js"
+ },
+ {
+  "k": "Фьордов",
+  "w": "js/game/survival.js"
+ },
+ {
+  "k": "Костяных пустошей",
+  "w": "js/game/survival.js"
+ },
+ {
+  "k": "Разрушенного храма",
+  "w": "js/game/survival.js"
+ },
+ {
+  "k": "Катакомб",
+  "w": "js/game/survival.js"
+ },
+ {
+  "k": "Из ",
+  "w": "js/game/survival.js"
+ },
+ {
+  "k": " пришли гости!",
+  "w": "js/game/survival.js"
+ },
+ {
   "k": "Пробуждение: ",
   "w": "js/game/survival.js"
  },
@@ -6560,6 +6676,22 @@
   "w": "js/main.js"
  },
  {
+  "k": "<div class=\"name-pick\"><img class=\"pt\" src=\"assets/sprites/pick_{0}.jpg\" alt=\"\" onerror=\"this.remove()\"><div class=\"goldc\" style=\"font:600 18px Georgia\">Имя героя</div><div class=\"muted\">{1}</div></div>",
+  "w": "js/main.js"
+ },
+ {
+  "k": "Имя героя",
+  "w": "js/main.js"
+ },
+ {
+  "k": "Назад",
+  "w": "js/main.js"
+ },
+ {
+  "k": "ОК",
+  "w": "js/main.js"
+ },
+ {
   "k": "Пауза",
   "w": "js/main.js"
  },
@@ -7036,7 +7168,7 @@
   "w": "js/platform/platform.js"
  },
  {
-  "k": "<div class=\"demo-ad-box\"><div class=\"demo-ad-tag\">ДЕМО-РЕКЛАМА</div><div class=\"demo-ad-t\">{0}</div><div class=\"demo-ad-bar\"><i></i></div><button class=\"btn\" disabled>Подождите…</button></div>",
+  "k": "<div class=\"demo-rv-box\"><div class=\"demo-rv-tag\">ДЕМО-РЕКЛАМА</div><div class=\"demo-rv-t\">{0}</div><div class=\"demo-rv-bar\"><i></i></div><button class=\"btn\" disabled>Подождите…</button></div>",
   "w": "js/platform/platform.js"
  },
  {
@@ -7052,7 +7184,7 @@
   "w": "js/platform/platform.js"
  },
  {
-  "k": "<div class=\"demo-ad-box\"><div class=\"demo-ad-tag\">ДЕМО-ПОКУПКА</div><p>{0}</p><div class=\"row\"><button class=\"btn gold\" data-a=\"1\">Купить</button><button class=\"btn\" data-a=\"0\">Отмена</button></div></div>",
+  "k": "<div class=\"demo-rv-box\"><div class=\"demo-rv-tag\">ДЕМО-ПОКУПКА</div><p>{0}</p><div class=\"row\"><button class=\"btn gold\" data-a=\"1\">Купить</button><button class=\"btn\" data-a=\"0\">Отмена</button></div></div>",
   "w": "js/platform/platform.js"
  },
  {
@@ -7168,6 +7300,10 @@
   "w": "js/render3d/renderer3d.js"
  },
  {
+  "k": "«Авто»: новая зона — качество снова обычное",
+  "w": "js/render3d/renderer3d.js"
+ },
+ {
   "k": "[3d] зона готова",
   "w": "js/render3d/renderer3d.js"
  },
@@ -7208,7 +7344,7 @@
   "w": "js/render3d/toon.js"
  },
  {
-  "k": "\n{\n#ifdef USE_INSTANCING\n  mat4 swM = modelMatrix * instanceMatrix;\n#else\n  mat4 swM = modelMatrix;\n#endif\n  vec3 root = swM[3].xyz;\n  vec3 lw = normalize(transpose(mat3(swM)) * vec3(uWind.x, 0.0, uWind.y));\n  float h = max(transformed.y - uSwayBase, 0.0);\n  float k = h * h * uSwayAmt * uWindStr;\n  float gust = 0.55 + 0.45 * sin(uTime * 0.55 + root.x * 0.09 + root.z * 0.06);\n  float s = gust * 0.75 + sin(uTime * 1.6 + root.x * 0.47 + root.z * 0.31) * 0.45 * gust;\n  transformed += lw * s * k;\n  // дрожь листвы зависит только от положения точки (не от нормали): грани ствола с общими вершинами не «разъезжаются»\n  vec3 fp = transformed * 1.0;\n  vec3 fv = vec3(sin(uTime * 5.3 + dot(fp, vec3(3.1, 2.3, 2.7))), sin(uTime * 4.7 + dot(fp, vec3(2.1, 3.3, 1.7))), sin(uTime * 5.9 + dot(fp, vec3(1.3, 2.7, 3.9))));\n  transformed += fv * (uFlutter * uWindStr * (0.6 + gust) * step(0.0001, h));\n}\n",
+  "k": "\n{\n#ifdef USE_INSTANCING\n  mat4 swM = modelMatrix * instanceMatrix;\n#else\n  mat4 swM = modelMatrix;\n#endif\n  vec3 root = swM[3].xyz;\n  vec3 lw = normalize(transpose(mat3(swM)) * vec3(uWind.x, 0.0, uWind.y));\n  float h = max(transformed.y - uSwayBase, 0.0);\n  float k = h * h * uSwayAmt * uWindStr * 0.3;\n  float gust = 0.55 + 0.45 * sin(uTime * 0.55 + root.x * 0.09 + root.z * 0.06);\n  float s = gust * 0.75 + sin(uTime * 1.6 + root.x * 0.47 + root.z * 0.31) * 0.45 * gust;   // сборка 73: лёгкий ветер — вернул покачивание, размах 0,3 от сборки 71\n  transformed += lw * s * k;\n  // сборка 72–73: дрожи листвы нет (три синуса на вершину каждого дерева и куста), качание 0,3 от сборки 71 — лёгкий ветер, легче для телефона\n}\n",
   "w": "js/render3d/toon.js"
  },
  {
@@ -7892,6 +8028,14 @@
   "w": "js/ui/looks.js"
  },
  {
+  "k": " <small class=\"muted\">(не рядом)</small>",
+  "w": "js/ui/looks.js"
+ },
+ {
+  "k": " <small class=\"muted\">(питомца ещё нет)</small>",
+  "w": "js/ui/looks.js"
+ },
+ {
   "k": "✔ Включён",
   "w": "js/ui/looks.js"
  },
@@ -7953,6 +8097,10 @@
  },
  {
   "k": " · максимум",
+  "w": "js/ui/panel.js"
+ },
+ {
+  "k": "Нужен<br>ур. {0}",
   "w": "js/ui/panel.js"
  },
  {
@@ -8120,7 +8268,7 @@
   "w": "js/ui/panel.js"
  },
  {
-  "k": "↻ сданный вернётся через 2 д",
+  "k": "↻ сданный сменится другим",
   "w": "js/ui/panel.js"
  },
  {
@@ -9296,11 +9444,11 @@
   "w": "js/ui/windows.js"
  },
  {
-  "k": "↻ Сданный контракт вернётся через 2 дня",
+  "k": "↻ Сданный контракт уходит — на его место встанет другой",
   "w": "js/ui/windows.js"
  },
  {
-  "k": "<small>Самые трудные: счёт идёт с начала игры. Сданный контракт возвращается через двое суток.{0}</small>",
+  "k": "<small>Самые трудные. Контракты чередуются: через двое суток после сдачи на месте сданного появится другой.{0}</small>",
   "w": "js/ui/windows.js"
  },
  {
@@ -9432,10 +9580,6 @@
   "w": "js/ui/windows.js"
  },
  {
-  "k": "<b>Новые модели</b> <small class=\"muted\">(герои)</small>",
-  "w": "js/ui/windows.js"
- },
- {
   "k": "<b>Камера</b> <small class=\"muted\">ближе — дальше</small>",
   "w": "js/ui/windows.js"
  },
@@ -9557,6 +9701,14 @@
  },
  {
   "k": "Восстановить покупки",
+  "w": "js/ui/windows.js"
+ },
+ {
+  "k": "К выбору героя",
+  "w": "js/ui/windows.js"
+ },
+ {
+  "k": "Прогресс сохранится; герой вернётся в деревню",
   "w": "js/ui/windows.js"
  },
  {
@@ -9908,7 +10060,7 @@
   "w": "js/ui/windows.js"
  },
  {
-  "k": " Сданных контрактов: {0} — ближайший вернётся через {1}.",
+  "k": " Ждут замены: {0} — ближайший новый через {1}.",
   "w": "js/ui/windows.js"
  },
  {
@@ -10888,7 +11040,7 @@
   "w": "js/ui/windows.js"
  },
  {
-  "k": "<div class=\"bg\">?</div><b>Ещё вариант</b><small class=\"lv\">{0}</small><span>Случайное усиление</span>",
+  "k": "<div class=\"bg\">{0}</div><b>Ещё вариант</b><small class=\"lv\">{1}</small><span>Случайное усиление</span>",
   "w": "js/ui/windows.js"
  },
  {
@@ -11053,6 +11205,14 @@
  },
  {
   "k": "звук, графика",
+  "w": "js/ui/windows.js"
+ },
+ {
+  "k": "Сменить героя",
+  "w": "js/ui/windows.js"
+ },
+ {
+  "k": "прогресс сохранится",
   "w": "js/ui/windows.js"
  },
  {

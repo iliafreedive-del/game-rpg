@@ -3020,5 +3020,18 @@
  "Сменить героя": "Held wechseln",
  "прогресс сохранится": "Fortschritt bleibt",
  "Прогресс сохранится; герой вернётся в деревню": "Fortschritt bleibt; der Held kehrt ins Dorf zurück",
- "Нужен<br>ур. {0}": "Braucht<br>Stufe {0}"
+ "Нужен<br>ур. {0}": "Braucht<br>Stufe {0}",
+ "Введите имя": "Namen eingeben",
+ "Имя — от {0} букв": "Name: mindestens {0} Zeichen",
+ "Имя — не длиннее {0} знаков": "Name: höchstens {0} Zeichen",
+ "Только буквы, цифры, пробел и дефис": "Nur Buchstaben, Ziffern, Leerzeichen und Bindestrich",
+ "В имени нужна хотя бы одна буква": "Der Name braucht mindestens einen Buchstaben",
+ "Такое имя нельзя: выберите другое": "Dieser Name ist nicht erlaubt: wähle einen anderen",
+ "Имя героя": "Heldenname",
+ "Назад": "Zurück",
+ "ОК": "OK",
+ "<div class=\"name-pick\"><img class=\"pt\" src=\"assets/sprites/pick_{0}.jpg\" alt=\"\" onerror=\"this.remove()\"><div class=\"goldc\" style=\"font:600 18px Georgia\">Имя героя</div><div class=\"muted\">{1}</div></div>": "<div class=\"name-pick\"><img class=\"pt\" src=\"assets/sprites/pick_{0}.jpg\" alt=\"\" onerror=\"this.remove()\"><div class=\"goldc\" style=\"font:600 18px Georgia\">Heldenname</div><div class=\"muted\">{1}</div></div>",
+ "Откроется в обновлении": "Öffnet mit einem Update",
+ "Портал откроется в следующем обновлении": "Dieses Portal öffnet mit dem nächsten Update",
+ "Новые земли уже в пути": "Neue Länder sind unterwegs"
 }
