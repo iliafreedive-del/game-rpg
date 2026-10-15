@@ -157,6 +157,11 @@ export function swap(lists, PROPS, where, m) {
         near = edge && (nearWalk(m, it.x, it.y) || (hash(it.x + 7, it.y) < 0.5 && nearWalk(m, it.x, it.y, 2))),   // сборка 73: первый ряд у проходимой земли и половина второго — объёмные
         deep = town && (far || (edge && !near));
       let def = null;
+      if (near && !v && oldTree && hash(it.y - 3, it.x + 11) < 0.3) {   // сборка 73: у края деревни треть прежних деревьев — валуны: дешевле листвы, край не однообразный
+        it.s = (it.s || 1) * (1.5 + hash(it.x, it.y + 5) * 0.9); it.rot = hash(it.x + 1, it.y) * 6.283;
+        if (!lists.has('rocks')) lists.set('rocks', []);
+        lists.get('rocks').push(it); continue;
+      }
       if (deep) {   // глубина окраины деревни — карточка
         const vr = Math.floor(hash(it.y, it.x) * 2);
         if (v) { const [name, hk, wk] = Array.isArray(v) ? v : [v, 1, 1]; def = cardOf(name, vr, PROPS[id] || {}, PROPS, hk, wk); if (T[name].sway) it.s = 0.8 + (it.s - 0.75) * 0.4; }
