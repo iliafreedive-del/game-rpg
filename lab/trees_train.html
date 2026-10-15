@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Тренировка деревьев</title>
+<style>html,body{margin:0;height:100%;background:#fff;overflow:hidden}#c{width:100%;height:100%;display:block}</style></head>
+<body><canvas id="c"></canvas>
+<script type="module">
+// lab/trees_train.html?m=a|b|c&bg=white|game&d=дистанция  — ель, лиственное, осеннее и куст на травяных плитках под камерой игры
+import { THREE, U, LIGHT, CAMERA } from './trees_train.js';
+const Q = new URLSearchParams(location.search), M0 = Q.get('m') || 'c', v2 = M0 === 'd' || M0 === 'e', M = M0 === 'd' ? 'c' : M0 === 'e' ? 'b' : M0;
+const { KINDS, buildGeo, mat, bytesOf, bakeCard } = await import(v2 ? './trees_train2.js' : './trees_train.js');
+const white = (Q.get('bg') || 'white') === 'white', D = +(Q.get('d') || 17), px = +(Q.get('px') || 256);
+const R = new THREE.WebGLRenderer({ canvas: document.getElementById('c'), antialias: true, preserveDrawingBuffer: true }); R.setPixelRatio(1); R.setSize(innerWidth, innerHeight);
+R.shadowMap.enabled = true; R.shadowMap.type = THREE.PCFSoftShadowMap;
+const sc = new THREE.Scene(), L = LIGHT.village3;
+const hemi = new THREE.HemisphereLight(L.hemi.sky, L.hemi.ground, L.hemi.i), sun = new THREE.DirectionalLight(L.key.color, L.key.i);
+sun.position.set(...L.key.offset); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048); Object.assign(sun.shadow.camera, { left: -14, right: 14, top: 14, bottom: -14, near: 1, far: 80 }); sun.shadow.bias = -0.0006;
+sc.add(hemi, sun, sun.target); R.setClearColor(white ? 0xffffff : L.clear);
+if (!white) { const gr = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), new THREE.MeshLambertMaterial({ color: 0x5f8a3a })); gr.rotation.x = -Math.PI / 2; gr.receiveShadow = true; sc.add(gr); }
+// травяная плитка: зелёный верх, земляной бок
+function tile(x, z, w) {
+  const g = new THREE.Group(), top = new THREE.Mesh(new THREE.BoxGeometry(w, 0.12, w), new THREE.MeshLambertMaterial({ color: 0x6e9a3c })), side = new THREE.Mesh(new THREE.BoxGeometry(w * 0.98, 0.3, w * 0.98), new THREE.MeshLambertMaterial({ color: 0x5a4430 }));
+  top.position.y = -0.06; side.position.y = -0.24; top.receiveShadow = true; g.add(top, side); g.position.set(x, 0, z); sc.add(g);
+}
+const kinds = Q.get('k') ? Q.get('k').split(',') : v2 ? ['fir', 'firb', 'broad', 'autumn', 'bush'] : ['fir', 'broad', 'autumn', 'bush'], stats = {}, right = new THREE.Vector3(1, 0, -1).normalize();
+kinds.forEach((k, i) => {
+  const x = (i - (kinds.length - 1) / 2) * 3.9, p = right.clone().multiplyScalar(x);
+  if (white) tile(p.x, p.z, k === 'bush' ? 2.2 : 3.2);
+  const g = buildGeo(k, M === 'b' ? 'c' : M), mesh = new THREE.Mesh(g, mat(M === 'b' ? 'c' : M)); mesh.castShadow = true;
+  const tris = g.attributes.position.count / 3, bytes = bytesOf(g);
+  if (M === 'b') {
+    const { mesh: card, vram } = bakeCard(R, sc, mesh, px); card.position.copy(p); sc.add(card);
+    // тень от карточки не бывает — даём простую тень от лёгкой копии (только в проходе тени)
+    const sh = new THREE.Mesh((v2 ? buildGeo(k) : buildGeo(k, 'a')), new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false })); sh.castShadow = true; sh.position.copy(p); sc.add(sh);
+    stats[k] = { tris: 2, bytes: 4 * 5 * 4 + 12, vram, src: tris };
+  } else { mesh.position.copy(p); sc.add(mesh); stats[k] = { tris, bytes }; }
+});
+const cam = new THREE.PerspectiveCamera(CAMERA.fov, innerWidth / innerHeight, 0.5, 300), P = 0.64;
+cam.position.set(Math.sin(CAMERA.yaw) * D * Math.cos(P), D * Math.sin(P) + 1.4, Math.cos(CAMERA.yaw) * D * Math.cos(P)); cam.lookAt(0, 1.4, 0);
+U.uCam.value.set(0, -100, 0); U.uFocus.value.set(0, -101, 0); U.uWindStr.value = 0;
+R.render(sc, cam); window.__stats = { M, stats, leafTex: M === 'a' ? 0 : v2 ? 1024 * 512 * 4 * 4 / 3 : 512 * 256 * 4 * 4 / 3 }; window.__done = true;
+</script></body></html>
