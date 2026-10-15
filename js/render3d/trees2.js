@@ -162,9 +162,17 @@ export const KINDS = {
   autumn: { name: 'Осеннее', type: 'broad', h: 4.4, w: 0.37, lobes: 6, clumps: 11, cr: 0.27, cards: 5, jh: 0.04, pal: [0x5a200a, 0xb85a1c, 0xf0a040, 0xffe0a0], bark: 0x4a3426, seed: 21 },
   bush: { name: 'Куст', type: 'bush', h: 1.2, w: 0.75, clumps: 18, cr: 0.32, cards: 4, pal: [0x1c3a10, 0x4a8a28, 0xa8d850], flowers: 0xfff6ff, seed: 3 },
 };
-export function buildGeo(kind) { const o = KINDS[kind], r = rng(o.seed); return o.type === 'fir' ? fir(o, r) : o.type === 'bush' ? bush(o, r) : broad(o, r); }
+// лёгкая версия для 3D на карте: меньше кучек листвы и лап (форма та же)
+const LITE = { fir: { boughs: 150 }, firb: { boughs: 130 }, broad: { clumps: 6, cards: 4 }, autumn: { clumps: 7, cards: 4 }, bush: { clumps: 9, cards: 3 } };
+export function buildGeo(kind, lite) { const o = lite ? { ...KINDS[kind], ...LITE[kind] } : KINDS[kind], r = rng(o.seed); return o.type === 'fir' ? fir(o, r) : o.type === 'bush' ? bush(o, r) : broad(o, r); }
 let MAT = null;
 export function mat() { return MAT || (MAT = toon(0xffffff, { vc: true, rim: 0.12, rimColor: 0xe8ffb0, side: THREE.DoubleSide, ao: SHADOW.groundAO, aoH: 0.9, map: tex2(), alphaTest: 0.5 })); }
+// ветер для 3D-деревьев на карте: ель качается меньше, листва — больше, куст еле-еле
+const SWAY = { fir: { base: 1.4, amt: 0.018, flutter: 0.02 }, firb: { base: 1.4, amt: 0.018, flutter: 0.02 }, broad: { base: 1.6, amt: 0.022, flutter: 0.035 }, autumn: { base: 1.5, amt: 0.022, flutter: 0.035 }, bush: { base: 0.2, amt: 0.02, flutter: 0.03 } };
+const MATS = {};
+export function matLive(kind) { return MATS[kind] || (MATS[kind] = toon(0xffffff, { vc: true, rim: 0.12, rimColor: 0xe8ffb0, side: THREE.DoubleSide, ao: SHADOW.groundAO, aoH: 0.9, map: tex2(), alphaTest: 0.5, sway: SWAY[kind] })); }
+const GEOS = {};
+export const liveGeo = kind => GEOS[kind] || (GEOS[kind] = buildGeo(kind, true));
 // тень карточки — от простой формы (только камера тени её видит): конус ели, шар кроны со стволом, полушарие куста
 export function shadowGeo(kind) {
   const o = KINDS[kind], H = o.h, parts = [];

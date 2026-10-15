@@ -9,7 +9,7 @@ import { SKINS } from './glbskin.js';
 import { shared } from './dispose.js';
 import { U } from './toon.js';
 import { FO_ROCKS } from './models/prop/_fjord.js';
-import { makeTree, shadowGeo, KINDS as NT_KINDS } from './trees2.js';
+import { makeTree, shadowGeo, liveGeo, matLive } from './trees2.js';
 const pickW = (L, h) => { let t = h * L.reduce((a, k) => a + k[1], 0); for (const [id, w] of L) { if ((t -= w) < 0) return id; } return L[0][0]; };
 
 const URL_ = new URL('../../assets/models/trees/trees.glb', import.meta.url).href;
@@ -170,6 +170,9 @@ const NT_OF = (src, x, y) => { const h = hash(x + 3, y - 5);
   if (/fir|pine|tree_1$/.test(src)) return src === 'tree_fir_blue' || h < 0.4 ? 'firb' : 'fir';
   if (/^tree_/.test(src)) return src === 'tree_autumn' || h < 0.14 ? 'autumn' : 'broad';
   return null; };
+const LIVE = {};
+const liveOf = kind => LIVE[kind] || (LIVE[kind] = { id: 'nt3:' + kind, kind: 'prop', batch: true, outline: false, shadow: true, receive: false,
+  shadowProxy: () => shadowGeo(kind), build() { const root = new THREE.Group(); root.add(new THREE.Mesh(liveGeo(kind), matLive(kind))); return { root }; } });
 function newTrees(lists, PROPS, extra, m) {
   for (const [id, list] of [...lists]) {
     const far = id.endsWith('_far'), src = far ? id.slice(0, -4) : id;
@@ -181,8 +184,9 @@ function newTrees(lists, PROPS, extra, m) {
         it.s = (it.s || 1) * (1.1 + hash(it.x, it.y + 5) * 0.6); it.rot = hash(it.x + 1, it.y) * 6.283;
         const rid = pickW(FO_ROCKS, hash(it.x * 1.3, it.y + 2)); if (!lists.has(rid)) lists.set(rid, []); lists.get(rid).push(it); continue;
       }
-      const kind = NT_OF(src, it.x, it.y), def = cardOf('nt:' + kind, Math.floor(hash(it.y, it.x) * 2), PROPS[id] || {}, PROPS);
-      it.rot = 0; it.s = (kind === 'bush' ? 0.7 + (it.s || 1) * 0.3 : 0.8 + ((it.s || 1) - 0.75) * 0.4) * (src === 'tree_sapling' ? 0.7 : 1);
+      // у проходимой земли и в первом ряду леса — объёмное дерево с ветром (поворот свой у каждого), глубже и за краем — карточка
+      const kind = NT_OF(src, it.x, it.y), live = !far && (!edge || near), def = live ? liveOf(kind) : cardOf('nt:' + kind, Math.floor(hash(it.y, it.x) * 2), PROPS[id] || {}, PROPS);
+      it.rot = live ? hash(it.x + 1, it.y + 9) * 6.283 : 0; it.s = (kind === 'bush' ? 0.7 + (it.s || 1) * 0.3 : 0.8 + ((it.s || 1) - 0.75) * 0.4) * (src === 'tree_sapling' ? 0.7 : 1);
       extra[def.id] = def; if (!lists.has(def.id)) lists.set(def.id, []); lists.get(def.id).push(it);
     }
     if (keep.length) lists.set(id, keep); else lists.delete(id);
