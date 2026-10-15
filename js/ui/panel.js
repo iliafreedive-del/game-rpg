@@ -78,8 +78,9 @@ function render(force) {
     let nudged = rankOk;
     for (const [id, U] of Object.entries(UPGRADES)) {
       const l = (P.upg && P.upg[id]) || 0, top = upgMax(id, P), max = l >= top, cost = upgCost(id, l), can = !upLock && !max && upgHave(P, id) >= cost;
-      const r = row(U.icon, `${U.name} <span class="lv">ур. ${l}</span>`, max ? U.fmt(l) + (top < U.max ? ` · предел на вашем уровне (ещё +1 с каждым уровнем героя, до ${U.max})` : ' · максимум') : `${U.fmt(l)} → <span class="good">${U.fmt(l + 1)}</span>`, max ? '—' : upLock ? '🔒' : U.shards ? `${cost}◆` : `${fmt(cost)}`, can, () => buyUpg(id));
-      r.querySelector('.pn-btn').classList.add('cost');   // крупная цена и осколок на всю кнопку (а не мелкая цифра посреди пустой кнопки)
+      const r = row(U.icon, `${U.name} <span class="lv">ур. ${l}</span>`, max ? U.fmt(l) + (top < U.max ? ` · предел на вашем уровне (ещё +1 с каждым уровнем героя, до ${U.max})` : ' · максимум') : `${U.fmt(l)} → <span class="good">${U.fmt(l + 1)}</span>`, max ? (top < U.max ? `Нужен<br>ур. ${Math.floor(l * 100 / U.max) + 1}` : '—') : upLock ? '🔒' : U.shards ? `${cost}◆` : `${fmt(cost)}`, can, () => buyUpg(id));
+      // сборка 73: упёрлись в предел по уровню героя — вместо прочерка «Нужен ур. N» (мелко, в две строки, чтобы влезло на телефоне)
+      if (!(max && top < U.max)) r.querySelector('.pn-btn').classList.add('cost');   // крупная цена и осколок на всю кнопку (а не мелкая цифра посреди пустой кнопки)
       if (elvStep && can && !nudged && !U.shards) { r.querySelector('.pn-btn').classList.add('nudge'); r.classList.add('hot'); nudged = true; }
       box.appendChild(r);
     }
