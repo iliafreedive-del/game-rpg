@@ -9,6 +9,7 @@ import { SKINS } from './glbskin.js';
 import { shared } from './dispose.js';
 import { U } from './toon.js';
 import { FO_ROCKS } from './models/prop/_fjord.js';
+import { makeTree, shadowGeo, KINDS as NT_KINDS } from './trees2.js';
 const pickW = (L, h) => { let t = h * L.reduce((a, k) => a + k[1], 0); for (const [id, w] of L) { if ((t -= w) < 0) return id; } return L[0][0]; };
 
 const URL_ = new URL('../../assets/models/trees/trees.glb', import.meta.url).href;
@@ -146,11 +147,13 @@ function cardOf(src, variant, base, PROPS, hk = 1, wk = 1) {
   const def = { id: key, kind: 'prop', batch: true, outline: false, tint: base.tint, shadow: false, receive: false,
     build(kit) {
       const root = new THREE.Group();
-      const make = T[src] ? () => defOf(src, hk, wk, '_mid', base, false).build(kit).root : () => PROPS[src].build(kit).root;
+      const nt = src.startsWith('nt:') && src.slice(3), make = nt ? () => makeTree(nt) : T[src] ? () => defOf(src, hk, wk, '_mid', base, false).build(kit).root : () => PROPS[src].build(kit).root;
       const c = cell(src + ':' + variant + ':' + hk + ':' + wk, make, variant ? 2.27 : 0);
       if (c) root.add(new THREE.Mesh(cardGeo(c), ATLAS.mat));
       return { root };
     } };
+  // новые деревья деревни: тень от простой формы (конус / шар кроны / полушарие куста), карточка сама тени не даёт
+  if (src.startsWith('nt:')) { def.shadow = true; def.shadowProxy = () => shadowGeo(src.slice(3)); }
   CARDS.set(key, def); return def;
 }
 
@@ -158,6 +161,33 @@ function cardOf(src, variant, base, PROPS, hk = 1, wk = 1) {
  *  возвращает доп. описания (id → def). Ели (прежние tree_1 и tree_fir_blue; во Фьордах — ели в снегу) — модели Meshy: на карте «_mid»,
  *  за краем — «_lo». Остальные породы — прежние. В деревне глубина краевого леса (клетки «x» не у проходимой земли) и лес за краем —
  *  карточки (и ели, и прежние деревья) */
+// Новые деревья деревни (15 октября, тред «Тренировка лёгких деревьев»): все деревья и кусты деревни, и на карте, и за краем, —
+// карточки новых пород из trees2.js (ель / ель тёмная / лиственное / осеннее / куст), снятые под камерой игры. 2 треугольника,
+// тень — от простой формы. ?trees=old в адресе — прежние деревья (сравнить). Треть деревьев первого ряда у края — по-прежнему валуны
+const NEW_TREES = () => typeof location === 'undefined' || !(/[?&]trees=old/.test(location.search) || window.__oldTrees);
+const NT_OF = (src, x, y) => { const h = hash(x + 3, y - 5);
+  if (src === 'bush') return 'bush';
+  if (/fir|pine|tree_1$/.test(src)) return src === 'tree_fir_blue' || h < 0.4 ? 'firb' : 'fir';
+  if (/^tree_/.test(src)) return src === 'tree_autumn' || h < 0.14 ? 'autumn' : 'broad';
+  return null; };
+function newTrees(lists, PROPS, extra, m) {
+  for (const [id, list] of [...lists]) {
+    const far = id.endsWith('_far'), src = far ? id.slice(0, -4) : id;
+    if (!NT_OF(src, 0, 0) || !(PROPS[src] && PROPS[src].build) && src !== 'bush') continue;
+    const keep = [];
+    for (const it of list) {
+      const edge = outskirt(m, it.x, it.y), near = edge && (nearWalk(m, it.x, it.y) || (hash(it.x + 7, it.y) < 0.5 && nearWalk(m, it.x, it.y, 2)));
+      if (src !== 'bush' && near && hash(it.y - 3, it.x + 11) < 0.3) {   // как в сборке 73: часть деревьев у края — валуны
+        it.s = (it.s || 1) * (1.1 + hash(it.x, it.y + 5) * 0.6); it.rot = hash(it.x + 1, it.y) * 6.283;
+        const rid = pickW(FO_ROCKS, hash(it.x * 1.3, it.y + 2)); if (!lists.has(rid)) lists.set(rid, []); lists.get(rid).push(it); continue;
+      }
+      const kind = NT_OF(src, it.x, it.y), def = cardOf('nt:' + kind, Math.floor(hash(it.y, it.x) * 2), PROPS[id] || {}, PROPS);
+      it.rot = 0; it.s = (kind === 'bush' ? 0.7 + (it.s || 1) * 0.3 : 0.8 + ((it.s || 1) - 0.75) * 0.4) * (src === 'tree_sapling' ? 0.7 : 1);
+      extra[def.id] = def; if (!lists.has(def.id)) lists.set(def.id, []); lists.get(def.id).push(it);
+    }
+    if (keep.length) lists.set(id, keep); else lists.delete(id);
+  }
+}
 const outskirt = (m, x, y) => x < 0 || y < 0 || x >= m.w || y >= m.h || m.ch(Math.floor(x), Math.floor(y)) === 'x';
 const nearWalk = (m, x, y, r = 1) => { for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) { const c = m.ch(Math.floor(x) + dx, Math.floor(y) + dy); if (c && c !== 'x' && c !== ' ') return true; } return false; };
 export function swap(lists, PROPS, where, m) {
@@ -174,6 +204,7 @@ export function swap(lists, PROPS, where, m) {
     }
     if (keep.length) lists.set(id, keep); else lists.delete(id);
   }
+  if (town && NEW_TREES()) newTrees(lists, PROPS, extra, m);
   for (const [id, list] of [...lists]) {
     const far = id.endsWith('_far'), src = far ? id.slice(0, -4) : id, V = ok(M[src]) ? M[src] : null, oldTree = /^tree_/.test(src) && PROPS[src] && PROPS[src].build;
     if (!V && !(town && oldTree)) continue;
