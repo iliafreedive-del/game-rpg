@@ -42,6 +42,7 @@ export function preloadModels(cls) {
 export function zoneModels(cls, Z, enemies, defOf) {
   const need = new Set([HERO_SKIN[cls] || HERO_SKIN.warrior]);
   if (Z.id === 'town') NPC_SKIN.forEach(n => need.add(n));
+  if (Z.id === 'town' && Z.json.village) ['dog_town', 'dog_brown', 'chicken_white', 'chicken_red'].forEach(n => need.add(n));   // сборка 73: собаки и куры деревни — до показа зоны (раньше догружались фоном и подменялись посреди облёта камеры: новые шейдеры и текстуры — рывок)
   if (Z.id === 'survival') ['skel_warrior', 'ghoul', 'skel_archer', 'skel_mage', 'beast', 'boss', 'surv_guard', 'surv_brute', 'decals'].forEach(id => (id === 'decals' ? [id] : mobAssets(id)).forEach(n => need.add(n)));   // рой Жатвы приходит волнами (survival.js), его модели — из пула
   for (const e of enemies || []) {
     need.add('decals');

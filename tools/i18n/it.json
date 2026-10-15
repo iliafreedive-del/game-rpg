@@ -3020,5 +3020,15 @@
  "Сменить героя": "Cambia eroe",
  "прогресс сохранится": "progressi salvati",
  "Прогресс сохранится; герой вернётся в деревню": "I progressi restano; l'eroe torna al villaggio",
- "Нужен<br>ур. {0}": "Serve<br>liv. {0}"
+ "Нужен<br>ур. {0}": "Serve<br>liv. {0}",
+ "Введите имя": "Inserisci un nome",
+ "Имя — от {0} букв": "Nome: almeno {0} lettere",
+ "Имя — не длиннее {0} знаков": "Nome: massimo {0} caratteri",
+ "Только буквы, цифры, пробел и дефис": "Solo lettere, cifre, spazio e trattino",
+ "В имени нужна хотя бы одна буква": "Il nome deve contenere almeno una lettera",
+ "Такое имя нельзя: выберите другое": "Questo nome non è consentito: scegline un altro",
+ "Имя героя": "Nome dell'eroe",
+ "Назад": "Indietro",
+ "ОК": "OK",
+ "<div class=\"name-pick\"><img class=\"pt\" src=\"assets/sprites/pick_{0}.jpg\" alt=\"\" onerror=\"this.remove()\"><div class=\"goldc\" style=\"font:600 18px Georgia\">Имя героя</div><div class=\"muted\">{1}</div></div>": "<div class=\"name-pick\"><img class=\"pt\" src=\"assets/sprites/pick_{0}.jpg\" alt=\"\" onerror=\"this.remove()\"><div class=\"goldc\" style=\"font:600 18px Georgia\">Nome dell'eroe</div><div class=\"muted\">{1}</div></div>"
 }

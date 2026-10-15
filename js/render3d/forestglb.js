@@ -8,6 +8,8 @@ import { GLTFLoader } from '../vendor/GLTFLoader.js';
 import { SKINS } from './glbskin.js';
 import { shared } from './dispose.js';
 import { U } from './toon.js';
+import { FO_ROCKS } from './models/prop/_fjord.js';
+const pickW = (L, h) => { let t = h * L.reduce((a, k) => a + k[1], 0); for (const [id, w] of L) { if ((t -= w) < 0) return id; } return L[0][0]; };
 
 const URL_ = new URL('../../assets/models/trees/trees.glb', import.meta.url).href;
 const GEO = new Map();   // имя дерева → геометрия (высота 1, основание y = 0)
@@ -162,6 +164,16 @@ export function swap(lists, PROPS, where, m) {
   const extra = {}, M = MAP[where];
   if (!forestReady() || !M || !m) return extra;
   const ok = V => V && V.every(v => v === null || GEO.has((Array.isArray(v) ? v[0] : v) + '_mid')), town = where === 'town';
+  if (town) for (const [id, list] of [...lists]) {   // сборка 73: камни за краем проходимой земли деревни (изгородь, луг, лес) — тоже камни Старого Леса
+    if (id !== 'rocks' && !/^rock_/.test(id)) continue;
+    const keep = [];
+    for (const it of list) {
+      const c = m.ch(Math.floor(it.x), Math.floor(it.y));
+      if (c === 'x' || c === 'n' || !c) { const rid = pickW(FO_ROCKS, hash(it.x * 1.3, it.y + 2)); if (!lists.has(rid)) lists.set(rid, []); lists.get(rid).push(it); }
+      else keep.push(it);
+    }
+    if (keep.length) lists.set(id, keep); else lists.delete(id);
+  }
   for (const [id, list] of [...lists]) {
     const far = id.endsWith('_far'), src = far ? id.slice(0, -4) : id, V = ok(M[src]) ? M[src] : null, oldTree = /^tree_/.test(src) && PROPS[src] && PROPS[src].build;
     if (!V && !(town && oldTree)) continue;
@@ -172,9 +184,10 @@ export function swap(lists, PROPS, where, m) {
         deep = town && (far || (edge && !near));
       let def = null;
       if (near && !v && oldTree && hash(it.y - 3, it.x + 11) < 0.3) {   // сборка 73: у края деревни треть прежних деревьев — валуны: дешевле листвы, край не однообразный
-        it.s = (it.s || 1) * (1.5 + hash(it.x, it.y + 5) * 0.9); it.rot = hash(it.x + 1, it.y) * 6.283;
-        if (!lists.has('rocks')) lists.set('rocks', []);
-        lists.get('rocks').push(it); continue;
+        it.s = (it.s || 1) * (1.1 + hash(it.x, it.y + 5) * 0.6); it.rot = hash(it.x + 1, it.y) * 6.283;
+        const rid = pickW(FO_ROCKS, hash(it.x * 1.3, it.y + 2));   // камни Старого Леса (серые гранёные со мхом), не прежние «rocks»
+        if (!lists.has(rid)) lists.set(rid, []);
+        lists.get(rid).push(it); continue;
       }
       if (deep) {   // глубина окраины деревни — карточка
         const vr = Math.floor(hash(it.y, it.x) * 2);
