@@ -71,6 +71,9 @@ export function buildDungeonFloor(scene, zone, look) {
   const vert = (x, y) => { const k = y * (W + 1) + x; if (idx.has(k)) return idx.get(k); const i = P.length / 3; P.push(x, 0, y); E.push(edgeAt(x, y)); C.push(1, 1, 1, 1); idx.set(k, i); return i; };
   const open = (x, y) => { const c = m.ch(x, y); return !isVoid(c) && !isWall(c); };
   const nearOpen = (x, y) => { for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (open(x + dx, y + dy)) return true; return false; };
+  if (zone.id === 'survival') {   // сборка 73: бесконечное поле Жатвы — один квадрат с запасом за краем карты (2 треугольника вместо 28 тыс.), стен нет
+    const M = 40; P.push(-M, 0, -M, W + M, 0, -M, -M, 0, H + M, W + M, 0, H + M); E.push(0, 0, 0, 0); C.push(1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1); I.push(0, 2, 1, 1, 2, 3);
+  } else
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
     const c = m.ch(x, y);
     if (isVoid(c) || (isWall(c) && !nearOpen(x, y))) continue;   // пол — под проходимыми клетками и под стенами, но не под толщей скалы
