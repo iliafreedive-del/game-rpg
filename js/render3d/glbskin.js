@@ -47,6 +47,15 @@ export function preloadSkin(name) {
   wait.set(name, p); return p;
 }
 export const skinLoaded = name => data.has(name);
+// выгрузить шкуру (Жатва, 15 октября: модели ушедших краёв не держим): сетка и текстура — из видеопамяти, повторный preloadSkin грузит заново.
+// Текстура, общая с другой загруженной шкурой (meta.tex), остаётся
+export function unloadSkin(name) {
+  const d = data.get(name); if (!d) return false;
+  data.delete(name); wait.delete(name); d.geo.dispose();
+  const tk = d.meta.tex || name; let used = false; for (const [n, o] of data) if ((o.meta.tex || n) === tk) used = true;
+  if (!used) { TEX.delete(tk); d.tex.dispose(); }
+  return true;
+}
 export const skinMeta = name => data.has(name) ? data.get(name).meta : null;
 export const skinData = name => data.get(name) || null;   // сборка 60: питомцы из Meshy строят свой скелет (models/pet/petrig.js)   // сборка 57: items — оружие мобов (кость, оси)
 
@@ -63,7 +72,7 @@ export function attachSkin(kit, model, name, o = {}) {
   const d = data.get(name); if (!SKINS.on || !d) return model;
   const { meta, geo, tex } = d, B = model.bones, root = model.root;
   // спрятать процедурные меши (и не сливать их в SkinnedMesh актёра)
-  root.traverse(m => { if (m.isMesh) { m.visible = false; m.userData.noBake = true; m.userData.noOutline = true; } });
+  root.traverse(m => { if (m.isMesh) { m.visible = false; m.userData.noBake = true; m.userData.noOutline = true; m.userData.skinHidden = true; } });
   // скелет модели: кости в суставах шкуры, поворот покоя — нулевой
   const at = {}, bones = [], byName = {};
   for (const [b, p, a] of meta.bones) {
