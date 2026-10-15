@@ -3030,5 +3030,8 @@
  "Имя героя": "Nombre del héroe",
  "Назад": "Atrás",
  "ОК": "OK",
- "<div class=\"name-pick\"><img class=\"pt\" src=\"assets/sprites/pick_{0}.jpg\" alt=\"\" onerror=\"this.remove()\"><div class=\"goldc\" style=\"font:600 18px Georgia\">Имя героя</div><div class=\"muted\">{1}</div></div>": "<div class=\"name-pick\"><img class=\"pt\" src=\"assets/sprites/pick_{0}.jpg\" alt=\"\" onerror=\"this.remove()\"><div class=\"goldc\" style=\"font:600 18px Georgia\">Nombre del héroe</div><div class=\"muted\">{1}</div></div>"
+ "<div class=\"name-pick\"><img class=\"pt\" src=\"assets/sprites/pick_{0}.jpg\" alt=\"\" onerror=\"this.remove()\"><div class=\"goldc\" style=\"font:600 18px Georgia\">Имя героя</div><div class=\"muted\">{1}</div></div>": "<div class=\"name-pick\"><img class=\"pt\" src=\"assets/sprites/pick_{0}.jpg\" alt=\"\" onerror=\"this.remove()\"><div class=\"goldc\" style=\"font:600 18px Georgia\">Nombre del héroe</div><div class=\"muted\">{1}</div></div>",
+ "Откроется в обновлении": "Se abrirá en una actualización",
+ "Портал откроется в следующем обновлении": "Este portal se abrirá en la próxima actualización",
+ "Новые земли уже в пути": "Nuevas tierras en camino"
 }

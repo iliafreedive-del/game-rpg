@@ -3030,5 +3030,8 @@
  "Имя героя": "英雄の名前",
  "Назад": "戻る",
  "ОК": "OK",
- "<div class=\"name-pick\"><img class=\"pt\" src=\"assets/sprites/pick_{0}.jpg\" alt=\"\" onerror=\"this.remove()\"><div class=\"goldc\" style=\"font:600 18px Georgia\">Имя героя</div><div class=\"muted\">{1}</div></div>": "<div class=\"name-pick\"><img class=\"pt\" src=\"assets/sprites/pick_{0}.jpg\" alt=\"\" onerror=\"this.remove()\"><div class=\"goldc\" style=\"font:600 18px Georgia\">英雄の名前</div><div class=\"muted\">{1}</div></div>"
+ "<div class=\"name-pick\"><img class=\"pt\" src=\"assets/sprites/pick_{0}.jpg\" alt=\"\" onerror=\"this.remove()\"><div class=\"goldc\" style=\"font:600 18px Georgia\">Имя героя</div><div class=\"muted\">{1}</div></div>": "<div class=\"name-pick\"><img class=\"pt\" src=\"assets/sprites/pick_{0}.jpg\" alt=\"\" onerror=\"this.remove()\"><div class=\"goldc\" style=\"font:600 18px Georgia\">英雄の名前</div><div class=\"muted\">{1}</div></div>",
+ "Откроется в обновлении": "アップデートで開放",
+ "Портал откроется в следующем обновлении": "このポータルは次のアップデートで開放されます",
+ "Новые земли уже в пути": "新たな地が近日登場"
 }
