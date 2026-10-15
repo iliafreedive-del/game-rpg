@@ -27,7 +27,7 @@ bus.on('kill', e => { if (e && e.story === 'wildkeep') { const S = G.profile.sta
 // П38 (правки 2): задания по открытым местам — каждый день 2 из 3 ведут в разные уже открытые локации (лес, фьорды, пустоши, храм,
 // катакомбы с возрождающимися Хранителем и Палачом), неделя — одно крупное дело в одной из них. Счётчики — P.stats.k_<место>, fort_<поход>
 const SPOT = { forest: 'Старый Лес', fjord: 'Фьорды', bones: 'Костяные пустоши', temple: 'Разрушенный храм' };
-const opened = r => !gate(r) && G.profile.level >= REALMS[r].reqLevel && !!(G.profile.wild && G.profile.wild[r] && G.profile.wild[r].depth);   // открыт и герой там уже был
+export const opened = r => !gate(r) && G.profile.level >= REALMS[r].reqLevel && !!(G.profile.wild && G.profile.wild[r] && G.profile.wild[r].depth);   // открыт и герой там уже был
 const fortsIn = r => { const S = G.profile.wild && G.profile.wild[r]; return (S && S.stat && S.stat.forts) || 0; };
 bus.on('kill', e => {
   const P = G.profile; if (!P || !e || e.summoned) return; const S = P.stats, inc = k => { S[k] = (S[k] || 0) + 1; };

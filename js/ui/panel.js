@@ -146,14 +146,14 @@ function render(force) {
     head('Доска заданий', 'Ежедневные · недельные · долгие контракты');
     // П4-6: выполненные и сданные задания уходят из списка; когда придёт новое — в строке раздела
     // правки 5: таймер есть у каждого раздела — ближайшее новое задание после сданного, а если сданных нет — когда обновится весь список
-    // (ежедневные — в полночь, недельные — в понедельник); у долгих контрактов — когда вернётся сданный
+    // (ежедневные — в полночь, недельные — в понедельник); у долгих контрактов — когда встанет новый на место сданного
     const left = ms => { const m = Math.max(1, Math.ceil(ms / 60000)); if (m < 60) return m + ' мин'; const h = Math.ceil(ms / 3600000); return h < 48 ? h + ' ч' : Math.floor(ms / 864e5) + ' д ' + (Math.floor(ms / 3600000) % 24) + ' ч'; };
     const sec = (name, list, reset) => { const h = el('div', 'pn-sub', name), c = list.filter(q => q.claimed && q.next);
       h.appendChild(el('small', 'pn-next' + (c.length ? '' : ' muted'), c.length ? `✔ новое через ${left(Math.min(...c.map(q => q.next)))}` : `↻ новые через ${left(reset)}`)); box.appendChild(h); return list.filter(q => !q.claimed); };
     for (const q of sec('Ежедневные', DQ.dailyQuests(), DQ.dailyResetIn())) box.appendChild(row('☀', esc(q.title), `${q.cur}/${q.n}`, q.done ? 'Забрать' : null, q.done, () => DQ.claimDaily(q.id), q.done ? 'hot' : ''));
     for (const q of sec('Недельные (крупнее)', DQ.weeklyQuests(), DQ.weeklyResetIn())) box.appendChild(row('☾', esc(q.title), `${q.cur}/${q.n}`, q.done ? 'Забрать' : null, q.done, () => DQ.claimWeekly(q.id), q.done ? 'hot' : ''));
     { const h = el('div', 'pn-sub', 'Долгие контракты (трудные)'), cool = Q.repCooling();
-      h.appendChild(el('small', 'pn-next' + (cool.length ? '' : ' muted'), cool.length ? `✔ новый через ${left(Math.min(...cool))}` : '↻ сданный вернётся через 2 д')); box.appendChild(h); }
+      h.appendChild(el('small', 'pn-next' + (cool.length ? '' : ' muted'), cool.length ? `✔ новый через ${left(Math.min(...cool))}` : '↻ сданный сменится другим')); box.appendChild(h); }
     for (const r of Q.repList()) { const s = Q.repState(r); box.appendChild(row(s.done ? '✔' : '•', esc(r.title), `${s.cur}/${r.n}`, s.done ? 'Забрать' : null, s.done, () => Q.claimRep(r.id), s.done ? 'hot' : '')); }
   } else if (T.type === 'roomgate') {
     const R = ROOMS[T.room]; const c = CS.canUnlock(T.room);

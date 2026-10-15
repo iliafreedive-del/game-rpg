@@ -71,15 +71,37 @@ export const STORY = [
 ];
 
 // Ежедневные и недельные задания — js/game/daily.js; здесь — «долгие» контракты доски: прогресс идёт сам после принятия.
+// сборка 73: это пул — на доске 5 мест (js/game/quests.js REP_START); сданный контракт уходит, на его место встаёт другой из пула,
+// другого вида (fam), не тот же подряд. need: depths — был в Глубинах, boss — пал Палач, cata — вошёл в катакомбы,
+// cataBoss — побеждён Хранитель, realm:<поход> — поход открыт и герой там был. Награды — в тех же пределах, что у первых пяти.
 export const REPEATABLE = [
-  { id: 'r_kill100', title: 'Уничтожить 300 монстров', stat: 'kills', n: 300, reward: { gold: 700, xp: 900 } },
-  { id: 'r_walk1000', title: 'Пройти 4000 метров', stat: 'meters', n: 4000, reward: { gold: 400, potions: 5 } },
-  { id: 'r_gold1000', after: 'r_gold5000', title: 'Собрать 4000 золота', stat: 'gold', n: 4000, reward: { gold: 700, xp: 600 } },
-  { id: 'r_elite5', title: 'Убить 15 элитных противников', stat: 'elites', n: 15, reward: { gold: 900, items: [{ slot: 'weapon', tier: 2, rarity: 2 }] } },
-  { id: 'r_chest10', title: 'Открыть 30 сундуков', stat: 'chests', n: 30, reward: { gold: 500, potions: 5 } },
+  { id: 'r_kill100', fam: 'kill', title: 'Уничтожить 300 монстров', stat: 'kills', n: 300, reward: { gold: 700, xp: 900 } },
+  { id: 'r_walk1000', fam: 'walk', title: 'Пройти 4000 метров', stat: 'meters', n: 4000, reward: { gold: 400, potions: 5 } },
+  { id: 'r_gold1000', fam: 'gold', after: 'r_gold5000', title: 'Собрать 4000 золота', stat: 'gold', n: 4000, reward: { gold: 700, xp: 600 } },
+  { id: 'r_elite5', fam: 'elite', title: 'Убить 15 элитных противников', stat: 'elites', n: 15, reward: { gold: 900, items: [{ slot: 'weapon', tier: 2, rarity: 2 }] } },
+  { id: 'r_chest10', fam: 'chest', title: 'Открыть 30 сундуков', stat: 'chests', n: 30, reward: { gold: 500, potions: 5 } },
   // П34 (правки 2): кузнецу на серебро — 5000 золота, только добытого в бою (подобранного с врагов и сундуков и вынесенного из похода; не реклама, не покупки, не награды)
   { id: 'r_gold5000', once: true, title: 'Серебро для Горана: добыть 5000 золота', stat: 'gold', n: 5000, reward: { gold: 1500, xp: 1500, shards: 5, items: [{ slot: 'weapon', tier: 2, rarity: 2, names: { warrior: 'Посеребрённый клинок Горана', archer: 'Посеребрённый лук Горана', mage: 'Посеребрённый посох Горана' } }] } },
-  { id: 'r_boss', title: 'Победить босса без смерти', stat: 'bossNoDeath', n: 1, reward: { gold: 600, xp: 600, items: [{ slot: 'weapon', epic: true }] } },
+  { id: 'r_boss', fam: 'boss', title: 'Победить босса без смерти', stat: 'bossNoDeath', n: 1, reward: { gold: 600, xp: 600, items: [{ slot: 'weapon', epic: true }] } },
+  // сборка 73: новые контракты пула
+  { id: 'r_kill600', fam: 'kill', title: 'Уничтожить 600 монстров', stat: 'kills', n: 600, reward: { gold: 900, xp: 1200 } },
+  { id: 'r_walk8000', fam: 'walk', title: 'Пройти 8000 метров', stat: 'meters', n: 8000, reward: { gold: 600, potions: 6 } },
+  { id: 'r_elite30', fam: 'elite', title: 'Убить 30 элитных противников', stat: 'elites', n: 30, reward: { gold: 900, xp: 900, items: [{ slot: 'chest', tier: 2, rarity: 2 }] } },
+  { id: 'r_chest50', fam: 'chest', title: 'Открыть 50 сундуков', stat: 'chests', n: 50, reward: { gold: 700, potions: 6 } },
+  { id: 'r_bosses3', fam: 'boss', title: 'Победить Палача трижды', stat: 'bossKills', n: 3, reward: { gold: 700, xp: 800 }, need: 'boss' },
+  { id: 'r_floors15', fam: 'floors', title: 'Пройти 15 этажей Глубин', stat: 'floors', n: 15, reward: { gold: 800, xp: 1000 }, need: 'depths' },
+  { id: 'r_stars5', fam: 'stars', title: 'Пройти 5 этажей Глубин на ★★★', stat: 'stars3', n: 5, reward: { gold: 700, items: [{ slot: 'head', tier: 2, rarity: 2 }] }, need: 'depths' },
+  { id: 'r_merge10', fam: 'merge', title: 'Сделать 10 слияний у кузнеца', stat: 'merges', n: 10, reward: { gold: 600, xp: 700 } },
+  { id: 'r_upg12', fam: 'upg', title: 'Закалить вещи у кузнеца 12 раз', stat: 'upgrades', n: 12, reward: { gold: 700, potions: 5 } },
+  { id: 'r_hw30', fam: 'hw', title: 'Победить в 30 боях Летописи битв', stat: 'hwWins', n: 30, reward: { gold: 700, xp: 900 } },
+  { id: 'r_surv15', fam: 'surv', title: 'Продержаться в Жатве Бездны 15 минут (всего)', stat: 'survSec', n: 900, reward: { gold: 800, xp: 900 }, need: 'boss' },
+  { id: 'r_forts5', fam: 'fort', title: 'Отбить 5 фортов в походах', stat: 'forts', n: 5, reward: { gold: 900, items: [{ slot: 'head', tier: 2, rarity: 2 }] }, need: 'boss' },
+  { id: 'r_cata200', fam: 'kill', title: 'Катакомбы: упокоить 200 нежити', stat: 'k_cata', n: 200, reward: { gold: 600, xp: 800 }, need: 'cata' },
+  { id: 'r_cboss5', fam: 'boss', title: 'Катакомбы: победить Хранителя или Палача 5 раз', stat: 'k_cataBoss', n: 5, reward: { gold: 800, xp: 1000 }, need: 'cataBoss' },
+  { id: 'r_forest250', fam: 'kill', title: 'Старый Лес: убить 250 врагов', stat: 'k_forest', n: 250, reward: { gold: 700, xp: 900 }, need: 'realm:forest' },
+  { id: 'r_fjord250', fam: 'kill', title: 'Фьорды: убить 250 врагов', stat: 'k_fjord', n: 250, reward: { gold: 700, xp: 900 }, need: 'realm:fjord' },
+  { id: 'r_bones250', fam: 'kill', title: 'Костяные пустоши: убить 250 врагов', stat: 'k_bones', n: 250, reward: { gold: 700, xp: 900 }, need: 'realm:bones' },
+  { id: 'r_temple250', fam: 'kill', title: 'Разрушенный храм: убить 250 врагов', stat: 'k_temple', n: 250, reward: { gold: 700, xp: 900 }, need: 'realm:temple' },
 ];
 
 

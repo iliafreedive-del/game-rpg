@@ -500,9 +500,9 @@ W.journal = (arg = {}) => {
       const r = DQ.wqReward(); nextNote(b, wq, DQ.weeklyResetIn()); for (const q of wq.filter(q => !q.claimed)) b.appendChild(card(q.title, q.cur, q.n, { gold: r.gold, shards: r.shards }, q.claimed ? 'claimed' : q.done ? 'done' : 'go', () => DQ.claimWeekly(q.id), q.next));
       b.appendChild(el('p', 'muted', '<small>Трудные задания: выполненное уходит, новое — через сутки. Дают осколки Бездны для Цитадели.</small>'));
     } else {
-      { const c = Q.repCooling(); b.appendChild(el('p', c.length ? 'good' : 'muted', `<small>${c.length ? '✔ Новый контракт через ' + leftTxt(Math.min(...c)) : '↻ Сданный контракт вернётся через 2 дня'}</small>`)); }   // правки 5
+      { const c = Q.repCooling(); b.appendChild(el('p', c.length ? 'good' : 'muted', `<small>${c.length ? '✔ Новый контракт через ' + leftTxt(Math.min(...c)) : '↻ Сданный контракт уходит — на его место встанет другой'}</small>`)); }   // правки 5
       for (const rr of Q.repList()) { const s = Q.repState(rr); b.appendChild(card(rr.title, s.cur, rr.n, rr.reward || { gold: rr.gold }, s.done ? 'done' : 'go', () => Q.claimRep(rr.id))); }
-      b.appendChild(el('p', 'muted', `<small>Самые трудные: счёт идёт с начала игры. Сданный контракт возвращается через двое суток.${coolNote()}</small>`));
+      b.appendChild(el('p', 'muted', `<small>Самые трудные. Контракты чередуются: через двое суток после сдачи на месте сданного появится другой.${coolNote()}</small>`));
     }
   });
   m.live = true;
@@ -898,7 +898,7 @@ const qChips = r => `<div class="q-rw">${r.gold ? `<span class="chip g">💰 ${f
 // правки 3: выполненное задание уходит — на его месте новое через час (ежедневное) / сутки (недельное) / двое суток (долгий контракт)
 const leftTxt = ms => { const m = Math.max(1, Math.ceil(ms / 60000)); return m >= 2880 ? `${Math.floor(m / 1440)} д ${Math.floor(m / 60) % 24} ч` : m >= 60 ? `${Math.floor(m / 60)} ч${m % 60 ? ' ' + (m % 60) + ' мин' : ''}` : `${m} мин`; };
 const claimedTxt = next => next ? `✔ Новое через ${leftTxt(next)}` : '✔ Получено';
-const coolNote = () => { const c = Q.repCooling(); return c.length ? ` Сданных контрактов: ${c.length} — ближайший вернётся через ${leftTxt(Math.min(...c))}.` : ''; };
+const coolNote = () => { const c = Q.repCooling(); return c.length ? ` Ждут замены: ${c.length} — ближайший новый через ${leftTxt(Math.min(...c))}.` : ''; };
 // П4-6: сданные задания не висят в списке — только строка, когда придёт новое
 // правки 5: без сданных — когда обновится весь список (ежедневные в полночь, недельные в понедельник)
 const nextNote = (b, list, reset) => { const c = list.filter(q => q.claimed && q.next); if (c.length) b.appendChild(el('p', 'good', `<small>${claimedTxt(Math.min(...c.map(q => q.next)))}</small>`)); else if (reset) b.appendChild(el('p', 'muted', `<small>↻ Новые задания через ${leftTxt(reset)}</small>`)); };
@@ -923,9 +923,9 @@ W.board = () => {
       const r = DQ.wqReward(); nextNote(b, wq, DQ.weeklyResetIn()); for (const q of wq.filter(q => !q.claimed)) b.appendChild(qCard(q.title, q.cur, q.n, { gold: r.gold, shards: r.shards }, q.claimed ? 'claimed' : q.done ? 'done' : 'go', () => DQ.claimWeekly(q.id), closeModal, q.next));
       b.appendChild(el('p', 'muted', '<small>Крупные цели: выполненное уходит, новое — через сутки. Золото и осколки Бездны для Цитадели.</small>'));
     } else {
-      { const c = Q.repCooling(); b.appendChild(el('p', c.length ? 'good' : 'muted', `<small>${c.length ? '✔ Новый контракт через ' + leftTxt(Math.min(...c)) : '↻ Сданный контракт вернётся через 2 дня'}</small>`)); }   // правки 5
+      { const c = Q.repCooling(); b.appendChild(el('p', c.length ? 'good' : 'muted', `<small>${c.length ? '✔ Новый контракт через ' + leftTxt(Math.min(...c)) : '↻ Сданный контракт уходит — на его место встанет другой'}</small>`)); }   // правки 5
       for (const rr of Q.repList()) { const s = Q.repState(rr); b.appendChild(qCard(rr.title, s.cur, rr.n, rr.reward || { gold: rr.gold }, s.done ? 'done' : 'go', () => Q.claimRep(rr.id), closeModal)); }
-      b.appendChild(el('p', 'muted', `<small>Самые трудные: счёт идёт с начала игры. Сданный контракт возвращается через двое суток.${coolNote()}</small>`));
+      b.appendChild(el('p', 'muted', `<small>Самые трудные. Контракты чередуются: через двое суток после сдачи на месте сданного появится другой.${coolNote()}</small>`));
     }
   }).live = true;
 };

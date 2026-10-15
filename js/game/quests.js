@@ -10,6 +10,7 @@ import { xpToNext } from './stats.js';
 import { rint } from '../core/util.js';
 import { hasSkill } from './progress.js';
 import { SEALS } from '../data/story.js';
+import { opened as realmOpened } from './daily.js';
 
 // П57: крупные награды заданий опытом ×0,6 (+250 за задание — слишком быстро). Мелкие шаги обучения (до 100) — как были
 export const questXP = x => x >= 100 ? Math.round(x * 0.6) : x;
@@ -174,16 +175,57 @@ export function repState(r) {
   if (r.once && R && R.completions) return { accepted: true, cur: r.n, done: false, finished: true, completions: R.completions };   // разовый контракт уже выполнен
   if (!R || !R.accepted) { G.profile.repeat[r.id] = { ...(R || {}), accepted: true, base: st[r.stat] || 0 }; return repState(r); }
   // правки 3: первый раз контракт считает всё, что сделано с начала игры («300 монстров» к 5 уровню уже убиты), повторы — от прошлой награды
-  const cur = Math.max(0, Math.min(r.n, Math.floor((st[r.stat] || 0) - (R.completions || r.after ? R.base : 0))));
+  // сборка 73: контракт, вставший на доску из пула (R.slot), считает с момента, когда появился
+  const cur = Math.max(0, Math.min(r.n, Math.floor((st[r.stat] || 0) - (R.completions || r.after || R.slot ? R.base : 0))));
   return { accepted: true, cur, done: cur >= r.n, completions: R.completions || 0 };
 }
-// правки 3: на доске — только действующие контракты: разовый после награды уходит, а «Собрать 4000 золота» (тот же счётчик золота)
-// появляется, когда сдано «Серебро для Горана» — два одинаковых задания про золото рядом не висят
+// правки 3: на доске — только действующие контракты: разовый «Серебро для Горана» после награды уходит
+// сборка 73: долгие контракты чередуются. На доске пять мест (REP_START); сданный уходит, а через REP_NEXT (как раньше — двое суток,
+// чтобы не раздувать награды) на его месте встаёт ДРУГОЙ контракт из пула REPEATABLE: другого вида, не из недавно сданных
 export const REP_NEXT = 48 * 3600e3;
-export const repCooling = () => REPEATABLE.map(r => G.profile.repeat[r.id]).filter(R => R && R.coolUntil > Date.now()).map(R => R.coolUntil - Date.now());
-export const repVisible = r => { const s = repState(r); if (s.finished) return false;
-  { const R = G.profile.repeat[r.id]; if (R.coolUntil) { if (Date.now() < R.coolUntil) return false; delete R.coolUntil; R.base = G.profile.stats[r.stat] || 0; } } if (r.after) { const A = REPEATABLE.find(x => x.id === r.after); if (!(A && repState(A).finished)) return false; const R = G.profile.repeat[r.id]; if (!R.shown) { R.shown = 1; R.base = G.profile.stats[r.stat] || 0; } } return true; };
-export const repList = () => REPEATABLE.filter(repVisible);
+const REP_START = ['r_kill100', 'r_walk1000', 'r_elite5', 'r_chest10', 'r_boss'];
+const repDef = id => REPEATABLE.find(x => x.id === id);
+const famOf = r => (r && (r.fam || r.stat)) || '';
+function needOk(r) {
+  const P = G.profile, n = r.need; if (!n) return true;
+  if (n === 'depths') return !!(P.depths && P.depths.best > 0);
+  if (n === 'boss') return !!P.story.flags.bossKilled;
+  if (n === 'cata') return (P.story.done || []).includes('enter');
+  if (n === 'cataBoss') return !!P.story.flags.eliteKilled;
+  if (n.startsWith('realm:')) return realmOpened(n.slice(6));
+  return true;
+}
+const repEligible = r => !r.once && needOk(r) && (!r.after || repState(repDef(r.after)).finished);
+// следующий контракт на место сданного prev: не он сам, не тот, что уже висит, другой вид; сперва — не из последних сданных.
+// Вид выбираем первым, чтобы «убить N врагов» (их в пуле много) не выпадали чаще остальных
+function pickNext(prev) {
+  const P = G.profile, others = P.repBoard.map(s => s.id).filter(id => id !== prev), pf = famOf(repDef(prev)), hist = P.repHist || [];
+  const pool = REPEATABLE.filter(r => r.id !== prev && !others.includes(r.id) && repEligible(r));
+  const otherFams = others.map(id => famOf(repDef(id)));
+  const tiers = [pool.filter(r => famOf(r) !== pf && !otherFams.includes(famOf(r))), pool.filter(r => famOf(r) !== pf), pool];
+  for (const t of tiers) {
+    const fresh = t.filter(r => !hist.includes(r.id)), c = fresh.length ? fresh : t; if (!c.length) continue;
+    const fams = [...new Set(c.map(famOf))], f = fams[Math.floor(Math.random() * fams.length)], inF = c.filter(r => famOf(r) === f);
+    return inF[Math.floor(Math.random() * inF.length)].id;
+  }
+  return prev;
+}
+function repBoard() {
+  const P = G.profile, now = Date.now();
+  if (!P.repBoard) {   // старые сохранения: те же контракты, что висели (с прогрессом); сданный и ждущий — сразу меняется на другой
+    P.repBoard = REP_START.map(id => ({ id }));
+    { const R = P.repeat.r_gold1000; if (R && R.shown) P.repBoard.push({ id: 'r_gold1000' }); }
+    for (const s of P.repBoard) { const R = P.repeat[s.id]; if (R && R.coolUntil > now) { s.until = R.coolUntil; delete R.coolUntil; s.id = pickNext(s.id); } }
+  }
+  for (const s of P.repBoard) if (s.until && s.until <= now) {   // новый контракт встал на доску — счёт с этого момента
+    const r = repDef(s.id); delete s.until; if (!r) continue;
+    P.repeat[s.id] = { ...(P.repeat[s.id] || {}), accepted: true, base: P.stats[r.stat] || 0, slot: 1 }; delete P.repeat[s.id].coolUntil;
+  }
+  return P.repBoard;
+}
+export const repCooling = () => repBoard().filter(s => s.until > Date.now()).map(s => s.until - Date.now());
+export const repList = () => [...REPEATABLE.filter(r => r.once && !repState(r).finished), ...repBoard().filter(s => !s.until).map(s => repDef(s.id)).filter(Boolean)];
+export const repVisible = r => repList().includes(r);
 export function acceptRep(id) {
   const r = REPEATABLE.find(x => x.id === id); const st = G.profile.stats;
   G.profile.repeat[id] = { ...(G.profile.repeat[id] || {}), accepted: true, base: st[r.stat] || 0 };
@@ -191,7 +233,12 @@ export function acceptRep(id) {
 }
 export function claimRep(id) {
   const r = REPEATABLE.find(x => x.id === id); const s = repState(r); if (!s.done) return false;
-  const R = G.profile.repeat[id]; R.completions = (R.completions || 0) + 1; R.base = G.profile.stats[r.stat] || 0; R.accepted = true; if (!r.once) R.coolUntil = Date.now() + REP_NEXT;   // правки 3: снова на доске — через двое суток
+  const R = G.profile.repeat[id]; R.completions = (R.completions || 0) + 1; R.base = G.profile.stats[r.stat] || 0; R.accepted = true;
+  if (!r.once) {   // сборка 73: сданный уходит с доски, на его место через REP_NEXT встаёт другой контракт
+    const P = G.profile, s = repBoard().find(x => x.id === id && !x.until);
+    P.repHist = [id, ...(P.repHist || []).filter(x => x !== id)].slice(0, 6);
+    if (s) { s.id = pickNext(id); s.until = Date.now() + REP_NEXT; }
+  }
   // rewards scale with player level and repeat count (kept modest to avoid inflation)
   const lv = G.profile.level; const rw = { ...r.reward };
   if (rw.gold) rw.gold = Math.round(rw.gold * (1 + 0.15 * (lv - 1)));
