@@ -68,12 +68,12 @@ export class FxBillboards {
   // сборка 71 (просадка на касте): лист эффекта (768² и больше) заливался в видеопамять в кадре первого каста.
   // Теперь загруженные стоячие листы заливаются заранее, по одному за кадр, пока на экране тихо
   // Листы, которые fxsheets отпустил при смене края, раньше так и оставались в видеопамяти — теперь их текстуры освобождаются
-  prewarm(renderer, imgs) {
+  prewarm(renderer, imgs, all) {
     if ((this.tick = (this.tick || 0) + 1) % 60 === 0 && this.base.size > imgs.length) {
       const live = new Set(imgs); for (const s of this.flats) if (s.visible && s.userData.img) live.add(s.userData.img);
       for (const [img, t] of this.base) if (!live.has(img)) { t.dispose(); this.base.delete(img); for (const s of [...this.pool, ...this.flats]) { const T = s.userData.tex, st = T && T.get(img); if (st) { st.dispose(); T.delete(img); } if (s.userData.img === img) s.userData.img = null; } }
     }
-    for (const img of imgs) if (!this.base.has(img)) { try { renderer.initTexture(this.baseTex(img)); } catch { } return; }
+    for (const img of imgs) if (!this.base.has(img)) { try { renderer.initTexture(this.baseTex(img)); } catch { } if (!all) return; }   // all — все сразу, под шторкой загрузки зоны (renderer3d prepare)
   }
   item(i) {
     let s = this.pool[i]; if (s) return s;

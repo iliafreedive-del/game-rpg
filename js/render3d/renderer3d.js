@@ -670,13 +670,20 @@ export function prepare() {
     // первые секунды стоял «лысым», пока деревья и земля догружались на глазах)
     if (G.zone !== Z) return;
     const seen = new Set(); scene.traverse(o => { const ms = o.material ? [].concat(o.material) : []; for (const m of ms) for (const k of ['map', 'normalMap', 'alphaMap', 'emissiveMap']) { const t = m[k]; if (t && t.isTexture && !seen.has(t)) { seen.add(t); try { renderer.initTexture(t); } catch { } } } });
-    world.props.cull(camera, true); renderer.render(scene, camera);
-  })().finally(() => { warming = null; bgModels(SKINS.on); if (params.has('debug')) console.info('[3d] зона готова', Z.id, Math.round(performance.now() - t0) + ' мс'); });
+    if (bills) bills.prewarm(renderer, uprightImgs(), true);   // сборка 73: листы эффектов — под шторкой, а не по одному за кадр во время облёта камеры
+    // сборка 73: кадр под шторкой — без отсечения по кадру: сетки и шейдеры (и теней) того, что сейчас за краем экрана, уходят в видеокарту здесь,
+    // а не в облёте камеры к порталу после склепа (замер: +22 сетки и шейдер посреди облёта)
+    world.props.cull(camera, true); const fc = []; scene.traverse(o => { if (o.frustumCulled) { o.frustumCulled = false; fc.push(o); } });
+    try { renderer.render(scene, camera); } finally { for (const o of fc) o.frustumCulled = true; }
+  })().finally(() => { warming = null; bgOn = null; if (params.has('debug')) console.info('[3d] зона готова', Z.id, Math.round(performance.now() - t0) + ' мс'); });
   return warming;
 }
 const _blobs = Array.from({ length: 11 }, () => ({ x: 0, z: 0, r: 0, w: 1 })), put = (b, x, z, r, w) => { b.x = x; b.z = z; b.r = r; b.w = w; };
+// сборка 73 (рывки облёта после склепа): фоновая догрузка моделей стоит, пока идёт облёт камеры, — разбор файлов не ложится на кадры облёта
+let bgOn = null;
 export function render() {
   const Z = G.zone; if (!Z || !G.player || warming) return;
+  { const on = SKINS.on && !G.cinema; if (on !== bgOn) { bgOn = on; bgModels(on); } }
   if (Z !== zone && !G.zoneReady) return;   // новая зона ещё грузится: её мир соберёт prepare(), до этого — прежний кадр под шторкой
   const now = performance.now(), dt = Math.min(0.05, (now - last) / 1000), rawDt = (now - last) / 1000; last = now; tAll += dt; U.uTime.value = tAll; governor(rawDt);
   if (Z !== zone) setZone(Z);
@@ -695,7 +702,7 @@ export function render() {
   devSpawn();
   world.ground.shadow(lights.moon); world.ground.lod(camTarget.x + SQ * 2, camTarget.z + SQ * 2, userZoom);
   if (decals && groundPaint) { flatSink.L.length = 0; flatSink.ctx = decals.ctx; let did = false; try { did = decals.update(G.player.x, G.player.y, groundPaint); } finally { flatSink.ctx = null; } if (did && bills) bills.flat(flatSink.L); }   // сборка 72: листы «на полу» — плоскостями в 3D (decals.js flat)
-  if (bills && uprightList) { const ul = uprightList(); bills.update(ul, camera); if (!ul.length) bills.prewarm(renderer, uprightImgs()); }
+  if (bills && uprightList) { const ul = uprightList(); bills.update(ul, camera); if (!ul.length && !G.cinema) bills.prewarm(renderer, uprightImgs()); }   // сборка 73: в облёте камеры — без заливок листов
   renderer.info.reset();
   post.render(scene, camera, tAll, LV.exposure ?? 1);
 }
