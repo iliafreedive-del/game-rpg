@@ -21,7 +21,7 @@ async function detect() {
   if (onVK) return q.get('vk_language') || 'ru';   // язык интерфейса VK из параметров запуска (ru, uk, be, en, …)
   return (navigator.language || 'ru').slice(0, 2).toLowerCase();
 }
-function pick(l) { l = String(l || 'ru').slice(0, 2).toLowerCase(); if (['be', 'kk', 'uk', 'uz', 'ru'].includes(l)) return 'ru'; return LANGS.includes(l) ? l : (LANGS.includes('en') ? 'en' : 'ru'); }
+function pick(l) { l = String(l || 'ru').slice(0, 2).toLowerCase(); if (['be', 'kk', 'kz', 'uk', 'ua', 'uz', 'ru'].includes(l)) return 'ru'; return LANGS.includes(l) ? l : (LANGS.includes('en') ? 'en' : 'ru'); }   // kz, ua — коды vk_language
 (async () => {
   const lang = pick(await detect()); window.__LANG = lang; document.documentElement.lang = lang; if (window.__bootStep) window.__bootStep();
   if (lang !== 'ru') {

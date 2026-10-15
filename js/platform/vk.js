@@ -30,16 +30,19 @@ export class VKProvider {
     await Promise.race([this.bridge.send('VKWebAppInit'), new Promise((_, rej) => setTimeout(() => rej(new Error('VKWebAppInit timeout')), 4000))]);
     // требование модерации VK: при сворачивании игра на паузе и без звука
     this.bridge.subscribe(e => { const t = e && e.detail && e.detail.type; if (t === 'VKWebAppViewHide') bus.emit('platformPause', true); else if (t === 'VKWebAppViewRestore') bus.emit('platformPause', false); });
+    // dev.vk.ru → Реклама → Подключение: CheckNativeAds заранее и по таймеру (сам не перезапрашивает, пока прошлое не показано), показ — отдельно
+    this.preload(); setInterval(() => this.preload(), 30e3);
     return true;
   }
+  preload() { for (const f of ['reward', 'interstitial']) this.bridge.send('VKWebAppCheckNativeAds', { ad_format: f }).catch(() => { }); }
   sup(m) { try { return this.bridge.supports ? this.bridge.supports(m) : true; } catch { return true; } }
   ready() { } gameplayStart() { } gameplayStop() { }
   lang() { return new URLSearchParams(location.search).get('vk_language') || 'ru'; }   // язык из параметров запуска VK
+  // реклама уже подгружена preload(); если нет — ShowNativeAds запросит её сам (с задержкой). После показа — подгрузка следующей
   async ad(format) {
-    try {
-      const c = await this.bridge.send('VKWebAppCheckNativeAds', { ad_format: format }); if (!c || !c.result) return false;
-      const r = await this.bridge.send('VKWebAppShowNativeAds', { ad_format: format }); return !!(r && r.result);
-    } catch (e) { console.warn('vk ad', format, e); return false; }
+    try { const r = await this.bridge.send('VKWebAppShowNativeAds', { ad_format: format }); return !!(r && r.result); }
+    catch (e) { console.warn('vk ad', format, e); return false; }
+    finally { setTimeout(() => this.preload(), 1000); }
   }
   showRewarded() { return this.ad('reward'); }   // награда — только если VK ответил result: true (видео досмотрено)
   showInterstitial() { return this.ad('interstitial'); }
@@ -50,7 +53,10 @@ export class VKProvider {
   hasProduct() { return false; }
   async requestReview() { return false; }
   async setLeaderboardScore() { return false; } async getLeaderboard() { return null; }
-  async flags() { return {}; } async canShortcut() { return false; } async shortcut() { return false; }
+  async flags() { return {}; }
+  // ярлык на главный экран (Android; dev.vk.ru → Механики → «На главный экран»: бонус за добавление разрешён)
+  async canShortcut() { if (!this.sup('VKWebAppAddToHomeScreen')) return false; try { const r = await this.bridge.send('VKWebAppAddToHomeScreenInfo'); return !!(r && r.is_feature_supported && !r.is_added_to_home_screen); } catch { return false; } }
+  async shortcut() { try { const r = await this.bridge.send('VKWebAppAddToHomeScreen'); return !!(r && r.result); } catch { return false; } }
   async get(keys) { const r = await this.bridge.send('VKWebAppStorageGet', { keys }); const o = {}; for (const k of (r && r.keys) || []) o[k.key] = k.value; return o; }
   async cloudLoad() {
     let meta, got;
