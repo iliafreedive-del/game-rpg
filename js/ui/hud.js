@@ -5,14 +5,14 @@ import { G, bus, inCombat } from '../game/ctx.js';
 import { $, el, esc, fmt, fmtShort } from '../core/util.js';
 import { input, resetBase, mouse } from '../core/input.js';
 import { xpToNext } from '../game/stats.js';
-import { SKILLS } from '../data/skills.js';
+import { SKILLS, classSkillOrder } from '../data/skills.js';
 import { WEAPONS, RARITY } from '../data/items.js';
 import { CHAPTER, STORY, chapterOf } from '../data/quests.js';
 import * as Q from '../game/quests.js';
 import * as C from '../game/combat.js';
 import { interact, usePotion, useScroll, scrollZone } from '../game/game.js';
 import { drawIcon, skillIcon, iconURL } from './icons.js';
-import { ART, withArt } from './art.js';
+import { ART, ITEM_ART, artImg } from './art.js';
 import { iconOf } from '../game/items.js';
 import { dailyStatus, chestStatus, blessLeft, blessTick, autoOK, autoFree, autoLeft, autoAd, AUTO_MIN } from '../platform/monetize.js';
 import { seasonClaimable, nextGoalLine } from '../game/season.js';
@@ -74,7 +74,10 @@ export function initHUD() {
   };
   drawIcon($('potHP').querySelector('canvas'), 'potion_hp'); drawIcon($('potMP').querySelector('canvas'), 'potion_mp');
   for (const [id, k] of [['potHP', 'R'], ['potMP', 'F'], ['btnAct', 'E'], ['btnDodge', '⇧']]) { const b = $(id); if (b) b.dataset.kb = k; }   // правки 5: клавиша на кнопке (видна только на ПК, style.css .kb / [data-kb])
-  withArt(ART.item('scroll'), im => { const b = $('btnScroll'), sv = b.querySelector('svg'); if (sv) sv.replaceWith(Object.assign(im.cloneNode(), { className: 'art-scroll', alt: '' })); });   // сборка 58: нарисованный свиток вместо контура
+  { const sv = $('btnScroll').querySelector('svg'); if (sv) sv.replaceWith(Object.assign(new Image(), { src: ART.item('scroll'), className: 'art-scroll', alt: '' })); }   // нарисованный свиток сразу (15 октября: прежний контур мелькал, пока картинка грузилась)
+  // 15 октября: иконки навыков своего класса и зелья — заранее, чтобы на кнопке сразу была картинка, а не пустая плашка
+  for (const id of classSkillOrder(G.profile.cls || 'warrior')) artImg(ART.skill(id));
+  for (const k of Object.values(ITEM_ART)) artImg(ART.item(k));
   const cl = G.profile.cls || 'warrior'; $('portrait').style.backgroundImage = `url(assets/sprites/${cl === 'warrior' ? 'portrait' : 'portrait_' + cl}.png)`;
   bus.on('hud', () => { lastHud = 0; });
   bus.on('skillsChanged', refreshSkills);
