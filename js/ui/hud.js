@@ -12,7 +12,7 @@ import * as Q from '../game/quests.js';
 import * as C from '../game/combat.js';
 import { interact, usePotion, useScroll, scrollZone } from '../game/game.js';
 import { drawIcon, skillIcon, iconURL } from './icons.js';
-import { ART, ITEM_ART, artImg } from './art.js';
+import { ART, ITEM_ART, GOLD_ICO, GEAR_ART, artImg, gearArt } from './art.js';
 import { iconOf } from '../game/items.js';
 import { dailyStatus, chestStatus, blessLeft, blessTick, autoOK, autoFree, autoLeft, autoAd, AUTO_MIN } from '../platform/monetize.js';
 import { seasonClaimable, nextGoalLine } from '../game/season.js';
@@ -77,7 +77,8 @@ export function initHUD() {
   { const sv = $('btnScroll').querySelector('svg'); if (sv) sv.replaceWith(Object.assign(new Image(), { src: ART.item('scroll'), className: 'art-scroll', alt: '' })); }   // нарисованный свиток сразу (15 октября: прежний контур мелькал, пока картинка грузилась)
   // 15 октября: иконки навыков своего класса и зелья — заранее, чтобы на кнопке сразу была картинка, а не пустая плашка
   for (const id of classSkillOrder(G.profile.cls || 'warrior')) artImg(ART.skill(id));
-  for (const k of Object.values(ITEM_ART)) artImg(ART.item(k));
+  for (const k of Object.values(ITEM_ART)) artImg(ART.item(k)); artImg(GOLD_ICO);
+  for (const base of Object.keys(GEAR_ART)) for (let r = 0; r < 5; r++) artImg(gearArt({ base, rarity: r }));   // рисунки вещей (≈0,6 МБ) — для добычи на земле и сумки
   const cl = G.profile.cls || 'warrior'; $('portrait').style.backgroundImage = `url(assets/sprites/${cl === 'warrior' ? 'portrait' : 'portrait_' + cl}.png)`;
   bus.on('hud', () => { lastHud = 0; });
   bus.on('skillsChanged', refreshSkills);

@@ -4,13 +4,12 @@ import { zoomNow } from '../core/camzoom.js';
 import { getAtlas, drawFrame, loadImage, loadJSON } from '../core/assets.js';
 import { PX_PER_M, Z_PX } from '../core/iso.js';
 import { RARITY } from '../data/items.js';
-import { iconOf } from '../game/items.js';
 import { lvlOk } from '../game/progress.js';
 import { BIOMES } from '../data/biomes.js';
 import * as SV from '../game/survival.js';
 import { drawFxSheet, flatTook, drawChargeTele, preloadFxSheets, drawProjSheet, drawStatusSheet, drawBeamSheet, telePattern, fxReady, zoneRealm, fxGround, isGroundFx, isUprightFx, fxBillboard, statusBillboard, BLAST_FX, drawFxFlat } from './fxsheets.js';
 import { projSheetOf, mobRageFx } from '../game/combat.js';
-import { GOLD_ICO, artImg } from '../ui/art.js';
+import { GOLD_ICO, ART, ITEM_ART, artImg, gearArt } from '../ui/art.js';
 import { appH } from '../ui/fullscreen.js';
 
 let cv, ctx, lightCv, lctx, W = 0, H = 0, DPR = 1;
@@ -610,8 +609,9 @@ function drawBars() {
     }
   }
 }
+const artNow = src => { if (!src) return null; const r = artImg(src); return r.ok ? r.im : null; };
 function drawPickupsGround() {
-  const cam = G.cam, z = cam.zoom, icons = getAtlas('icons');
+  const cam = G.cam, z = cam.zoom;
   for (const p of G.pickups) {
     const bob = Math.min(1, p.t / 0.35); const hop = Math.sin(bob * Math.PI) * 0.6;
     const [x, y] = cam.toScreen(p.x, p.y, hop);
@@ -621,13 +621,11 @@ function drawPickupsGround() {
       if (p.item.rarity >= 1) { // loot beam
         ctx.globalCompositeOperation = 'lighter'; const g = ctx.createLinearGradient(x, y - 90 * z, x, y); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, col + '88'); ctx.fillStyle = g; ctx.fillRect(x - 5 * z, y - 90 * z, 10 * z, 90 * z); ctx.globalCompositeOperation = 'source-over';
       }
-      if (icons) drawFrame(ctx, icons, iconOf(p.item), x - 16 * z, y - 26 * z, 32 * z / 96 * 1.0);
+      const im = artNow(gearArt(p.item)); if (im) { const s = 34 * z; ctx.drawImage(im, x - s / 2, y - s * 0.85, s, s); }   // 15 октября: нарисованная вещь (не значок старого атласа); пока грузится — только луч
     } else if (p.kind === 'gold' && artImg(GOLD_ICO).ok) {   // П4-2: стопка монет вместо «пузырьков» атласа
       const s = Math.min(30, 16 + p.amount * 0.3) * z; ctx.drawImage(artImg(GOLD_ICO).im, x - s / 2, y - s * 0.8, s, s);
-    } else if (icons) {
-      const n = p.kind === 'gold' ? 'gold' : p.potion === 'hp' ? 'potion_hp' : 'potion_mp';
-      const s = (p.kind === 'gold' ? Math.min(30, 16 + p.amount * 0.3) : 26) * z;
-      drawFrame(ctx, icons, n, x - s / 2, y - s * 0.8, s / 96);
+    } else if (p.kind === 'potion') {   // нарисованное зелье; золото и зелья до загрузки картинки не рисуются (старые «пузырьки» атласа убраны)
+      const im = artNow(ART.item(ITEM_ART[p.potion === 'hp' ? 'potion_hp' : 'potion_mp'])); if (im) { const s = 28 * z; ctx.drawImage(im, x - s / 2, y - s * 0.8, s, s); }
     }
   }
 }

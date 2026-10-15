@@ -14,7 +14,7 @@ import * as CH from '../game/character.js';
 import * as EC from '../game/economy.js';
 import * as Q from '../game/quests.js';
 import { iconURL, itemURL, skillCanvas, branchImg } from './icons.js';
-import { ART, artTag, artHead } from './art.js';
+import { ART, artTag, artHead, gearArt } from './art.js';
 import { drawMap, seen, seenKey } from './hud.js';
 import { offers, buy, restorePurchases, dailyStatus, claimDaily, chestStatus, chestSkip, chestSkipsLeft, openOrderChest, DAILY, LOGIN_DAYS, watchRewarded, offerToken, blessing, blessLeft, BLESS_MIN, BLESS_CAP, BLESS_DAY, blessToday, sealActive, sealDaysLeft, SEAL_DAY, dayOffer, startDayOffer } from '../platform/monetize.js';
 import { PRODUCTS, platform } from '../platform/platform.js';
@@ -725,7 +725,7 @@ function passIcon(r) {
   if (PASS_IC[r.k]) return PASS_IC[r.k];
   if (r.k === 'hp' || r.k === 'mp') return iconURL('potion_' + r.k);
   if (r.k === 'scroll') return iconURL('scroll');
-  return iconURL(CLASSES[P.cls || 'warrior'].main);
+  return gearArt({ base: { sword: 'short_sword', bow: 'short_bow', staff: 'oak_staff' }[CLASSES[P.cls || 'warrior'].main] || 'short_sword', rarity: 3 });   // вещь — нарисованное оружие класса (15 октября: был значок старого атласа)
 }
 function passAmount(r) { const P = G.profile; return r.k === 'gold' ? fmtShort(r.n * P.level) : r.k === 'item' ? 'вещь' : String(r.n); }
 function priceLabel(id) { const pr = platform.p.catalogPrice(id); return !pr ? '' : typeof pr === 'string' ? esc(pr) : `${esc(pr.value)} ${pr.img ? `<img class="cur" src="${esc(pr.img)}" alt="${esc(pr.code)}">` : esc(pr.code)}`; }
