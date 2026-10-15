@@ -3,6 +3,7 @@
 
 import { bus } from '../game/ctx.js';
 import { VKProvider, onVK } from './vk.js';
+import { VKPlayProvider, onVKPlay } from './vkplay.js';
 import { EFFECTS, PET_FX_SLOTS, HERO_FX_SLOTS } from '../data/cosmetics.js';
 
 class DemoProvider {
@@ -155,8 +156,13 @@ let gpOn = false;
 export function gameplay(on) { if (!platform.p || on === gpOn) return; gpOn = on; if (on) platform.p.gameplayStart(); else platform.p.gameplayStop(); }
 // п. 1.19.3: по game_api_resume Яндекс сам включает GameplayAPI.start, а игра после свёрнутой вкладки ещё стоит на «Пауза» — повторяем stop
 export function gameplayStopNow() { if (!platform.p) return; gpOn = false; platform.p.gameplayStop(); setTimeout(() => { if (!gpOn) platform.p.gameplayStop(); }, 300); }
+// ветка VK: площадка задаётся сборкой (window.__PLATFORM — tools/build_zip.sh, PLATFORM=yandex|vk|vkplay) или ?platform=;
+// без неё — по адресу, как раньше. Сборка под одну площадку не тянет SDK другой.
+export function forcedPlatform() { return window.__PLATFORM || new URLSearchParams(location.search).get('platform') || ''; }
+const PROVIDERS = { yandex: YandexProvider, vk: VKProvider, vkplay: VKPlayProvider, demo: DemoProvider };
 export async function initPlatform() {
-  let prov = onYandex() ? new YandexProvider() : onVK() ? new VKProvider() : new DemoProvider();   // сборка 52: VK Игры
+  const f = forcedPlatform(), P = PROVIDERS[f] || (onYandex() ? YandexProvider : onVK() ? VKProvider : onVKPlay() ? VKPlayProvider : DemoProvider);   // сборка 52: VK Игры
+  let prov = new P();
   try { await prov.init(); } catch (e) { console.warn('platform init failed, fallback to demo', e); prov = new DemoProvider(); await prov.init(); }
   platform.p = prov; platform.name = prov.name;
   // флаги — один раз на старте, не дольше 1,5 с (без них — значения по умолчанию)

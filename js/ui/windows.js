@@ -960,7 +960,7 @@ W.ladder = () => {
       for (const e of L) list.appendChild(el('div', 'lad-row' + (e.me ? ' me' : '') + (e.rank <= 3 ? ' top' + e.rank : ''), `<i>${e.rank}</i><span>${esc(e.name)}${e.me ? ' (вы)' : ''}</span><b>${esc(T[3](e.score))}</b>`));
       b.appendChild(list);
     } else if (L) b.appendChild(el('p', 'muted', 'Пока в таблице никого нет — станьте первым!'));
-    else b.appendChild(el('p', 'muted lad-note', 'Таблица игроков появится в Яндекс Играх.'));
+    else if (!PF.p || PF.p.name === 'yandex' || PF.p.name === 'demo') b.appendChild(el('p', 'muted lad-note', 'Таблица игроков появится в Яндекс Играх.'));   // ветка VK: на VK и VK Play про Яндекс не пишем
     b.appendChild(el('p', 'muted', '<small>Рекорды записываются сами, когда вы их бьёте. Таблица обновляется раз в минуту.</small>'));
   }).ladder = true;
 };

@@ -11,6 +11,8 @@ if [ -n "${GT:-}" ] && [ -x "$GT" ]; then
   find "$STAGE/assets/models" -name '*.glb' | while read -r f; do t="${f%.glb}.tmp.glb"; "$GT" webp "$f" "$t" --quality 82 >/dev/null 2>&1 && mv "$t" "$f" || rm -f "$t"; done
   # сборка 48: выход обязательно .glb — с другим расширением gltf-transform пишет .gltf + отдельные .bin и baseColor.webp (общий на все модели — в сборке 47 текстуры перепутались)
 fi
+# ветка VK: PLATFORM=yandex|vk|vkplay — архив под одну площадку (window.__PLATFORM в index.html, js/platform/platform.js); без неё — по адресу
+if [ -n "${PLATFORM:-}" ]; then sed -i "s#<script type=\"module\" src=\"boot.js\"></script>#<script>window.__PLATFORM='${PLATFORM}'</script>\n&#" "$STAGE/index.html"; fi
 python3 - "$STAGE/assets/sprites/props_0.png" <<'PY'
 import sys
 from PIL import Image

@@ -3,8 +3,10 @@
 // Вне Яндекса — язык браузера. Принудительно: ?lang=en. be, kk, uk, uz → русский (так советует Яндекс); незнакомый язык → английский.
 const LANGS = window.__LANGS || ['ru'];   // список подставляет сборка
 const q = new URLSearchParams(location.search);
-const onYandex = /yandex\.|playhop|games\.s3\.yandex/.test(location.hostname) || q.has('yandex');
-const onVK = q.has('vk_app_id') || q.has('vk_platform') || q.has('vk');
+// ветка VK: сборка под одну площадку задаёт window.__PLATFORM (tools/build_zip.sh, PLATFORM=yandex|vk|vkplay), иначе — по адресу
+const PF = window.__PLATFORM || q.get('platform') || '';
+const onYandex = PF ? PF === 'yandex' : /yandex\.|playhop|games\.s3\.yandex/.test(location.hostname) || q.has('yandex');
+const onVK = PF ? PF === 'vk' : q.has('vk_app_id') || q.has('vk_platform') || q.has('vk');
 async function detect() {
   // требование 2.14: на Яндексе язык всегда берётся из SDK на старте, даже если в адресе есть ?lang= (тогда ?lang= лишь уточняет его)
   if (onYandex && !q.has('nosdk')) {
@@ -16,7 +18,7 @@ async function detect() {
     } catch (e) { console.warn('sdk', e); return q.get('lang') || 'ru'; }
   }
   if (q.get('lang')) return q.get('lang');
-  if (onVK) return 'ru';
+  if (onVK) return q.get('vk_language') || 'ru';   // язык интерфейса VK из параметров запуска (ru, uk, be, en, …)
   return (navigator.language || 'ru').slice(0, 2).toLowerCase();
 }
 function pick(l) { l = String(l || 'ru').slice(0, 2).toLowerCase(); if (['be', 'kk', 'uk', 'uz', 'ru'].includes(l)) return 'ru'; return LANGS.includes(l) ? l : (LANGS.includes('en') ? 'en' : 'ru'); }

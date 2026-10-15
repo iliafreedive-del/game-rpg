@@ -6,7 +6,7 @@
 import { bus } from '../game/ctx.js';
 
 export function onVK() {
-  const q = new URLSearchParams(location.search); return q.has('vk_app_id') || q.has('vk_platform') || q.has('vk');
+  const q = new URLSearchParams(location.search); return q.has('vk_app_id') || q.has('vk_platform') || q.has('vk');   // сборка под VK задаёт площадку сама (platform.js, forcedPlatform)
 }
 
 // VK Storage: значение до 4096 байт на ключ, до 1000 ключей. Сохранение — JSON → deflate (если браузер умеет) → base64,
@@ -34,7 +34,7 @@ export class VKProvider {
   }
   sup(m) { try { return this.bridge.supports ? this.bridge.supports(m) : true; } catch { return true; } }
   ready() { } gameplayStart() { } gameplayStop() { }
-  lang() { return 'ru'; }
+  lang() { return new URLSearchParams(location.search).get('vk_language') || 'ru'; }   // язык из параметров запуска VK
   async ad(format) {
     try {
       const c = await this.bridge.send('VKWebAppCheckNativeAds', { ad_format: format }); if (!c || !c.result) return false;
