@@ -324,7 +324,7 @@ W.character = (arg = {}) => {
   const edit = !!arg.npc;
   const m = modal(edit ? 'Наставник: характеристики' : 'Персонаж', 'md', b => {
     const P = G.profile, S = G.stats;
-    b.appendChild(el('div', 'row', `<b class="goldc" style="font:600 17px Georgia">${CLASSES[P.cls || 'warrior'].name} · уровень ${P.level} · ⚔ сила ${heroPower(P)}</b><span class="muted">Опыт ${fmt(P.xp)} / ${fmt(xpToNext(P.level))}</span>`));
+    b.appendChild(el('div', 'row', `<b class="goldc" style="font:600 17px Georgia">${(P.name ? esc(P.name) + ' · ' : '') + CLASSES[P.cls || 'warrior'].name} · уровень ${P.level} · ⚔ сила ${heroPower(P)}</b><span class="muted">Опыт ${fmt(P.xp)} / ${fmt(xpToNext(P.level))}</span>`));
     b.appendChild(el('h3', '', `Характеристики <span class="c-gold" style="float:right">💰 ${fmt(P.gold)} зол.</span>`));
     b.appendChild(el('p', 'muted', 'Растут сами с каждым уровнем — вкладывать очки не нужно.'));
     const hints = { str: 'урон мечом и топором', dex: 'урон луком, крит, защита', int: 'сила заклинаний, мана', vit: 'здоровье и восстановление' };

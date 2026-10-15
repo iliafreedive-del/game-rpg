@@ -6,7 +6,8 @@ import * as acorn from '/opt/node-tools/node_modules/acorn/dist/acorn.mjs';
 import * as walk from '/opt/node-tools/node_modules/acorn-walk/dist/walk.mjs';
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../..');
 const CY = /[А-Яа-яЁё]/;
-export function listJS(dir = path.join(ROOT, 'js')) { const out = []; for (const f of fs.readdirSync(dir, { withFileTypes: true })) { const p = path.join(dir, f.name); if (f.isDirectory()) { if (f.name !== 'vendor') out.push(...listJS(p)); } else if (f.name.endsWith('.js')) out.push(p); } return out; }
+// badwords.js — фильтр мата для имени героя (сборка 73): его слова не переводятся
+export function listJS(dir = path.join(ROOT, 'js')) { const out = []; for (const f of fs.readdirSync(dir, { withFileTypes: true })) { const p = path.join(dir, f.name); if (f.isDirectory()) { if (f.name !== 'vendor') out.push(...listJS(p)); } else if (f.name.endsWith('.js') && f.name !== 'badwords.js') out.push(p); } return out; }
 // строки файла: [{ start, end, kind: 'lit'|'tpl', key, quote }]
 export function scan(src) {
   const ast = acorn.parse(src, { ecmaVersion: 'latest', sourceType: 'module' }); const found = [];
