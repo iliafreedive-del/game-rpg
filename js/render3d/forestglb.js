@@ -184,9 +184,10 @@ function newTrees(lists, PROPS, extra, m) {
         it.s = (it.s || 1) * (1.1 + hash(it.x, it.y + 5) * 0.6); it.rot = hash(it.x + 1, it.y) * 6.283;
         const rid = pickW(FO_ROCKS, hash(it.x * 1.3, it.y + 2)); if (!lists.has(rid)) lists.set(rid, []); lists.get(rid).push(it); continue;
       }
-      // у проходимой земли и в первом ряду леса — объёмное дерево с ветром (поворот свой у каждого), глубже и за краем — карточка
-      const kind = NT_OF(src, it.x, it.y), live = !far && (!edge || near), def = live ? liveOf(kind) : cardOf('nt:' + kind, Math.floor(hash(it.y, it.x) * 2), PROPS[id] || {}, PROPS);
-      it.rot = live ? hash(it.x + 1, it.y + 9) * 6.283 : 0; it.s = (kind === 'bush' ? 0.7 + (it.s || 1) * 0.3 : 0.8 + ((it.s || 1) - 0.75) * 0.4) * (src === 'tree_sapling' ? 0.7 : 1);
+      // вперемешку: часть деревьев на карте и в первом ряду леса — объёмные (свой поворот, ветер), остальные и всё глубже — карточки, как раньше
+      const mix = hash(it.x - 13, it.y + 4), live = !far && (edge ? nearWalk(m, it.x, it.y) && mix < 0.45 : mix < 0.6);
+      const kind = NT_OF(src, it.x, it.y), def = live ? liveOf(kind) : cardOf('nt:' + kind, Math.floor(hash(it.y, it.x) * 2), PROPS[id] || {}, PROPS);
+      it.rot = live ? hash(it.x + 1, it.y + 9) * 6.283 : 0; it.s = (kind === 'bush' ? 0.7 + (it.s || 1) * 0.3 : 0.8 + ((it.s || 1) - 0.75) * 0.4) * (src === 'tree_sapling' ? 0.7 : 1) * (live ? 0.9 : 1);
       extra[def.id] = def; if (!lists.has(def.id)) lists.set(def.id, []); lists.get(def.id).push(it);
     }
     if (keep.length) lists.set(id, keep); else lists.delete(id);

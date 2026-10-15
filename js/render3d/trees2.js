@@ -168,7 +168,8 @@ export function buildGeo(kind, lite) { const o = lite ? { ...KINDS[kind], ...LIT
 let MAT = null;
 export function mat() { return MAT || (MAT = toon(0xffffff, { vc: true, rim: 0.12, rimColor: 0xe8ffb0, side: THREE.DoubleSide, ao: SHADOW.groundAO, aoH: 0.9, map: tex2(), alphaTest: 0.5 })); }
 // ветер для 3D-деревьев на карте: ель качается меньше, листва — больше, куст еле-еле
-const SWAY = { fir: { base: 1.4, amt: 0.018, flutter: 0.02 }, firb: { base: 1.4, amt: 0.018, flutter: 0.02 }, broad: { base: 1.6, amt: 0.022, flutter: 0.035 }, autumn: { base: 1.5, amt: 0.022, flutter: 0.035 }, bush: { base: 0.2, amt: 0.02, flutter: 0.03 } };
+// ветер 30% от прежнего (просьба 2026-10-15)
+const SWAY = { fir: { base: 1.4, amt: 0.0054, flutter: 0.006 }, firb: { base: 1.4, amt: 0.0054, flutter: 0.006 }, broad: { base: 1.6, amt: 0.0066, flutter: 0.0105 }, autumn: { base: 1.5, amt: 0.0066, flutter: 0.0105 }, bush: { base: 0.2, amt: 0.006, flutter: 0.009 } };
 const MATS = {};
 export function matLive(kind) { return MATS[kind] || (MATS[kind] = toon(0xffffff, { vc: true, rim: 0.12, rimColor: 0xe8ffb0, side: THREE.DoubleSide, ao: SHADOW.groundAO, aoH: 0.9, map: tex2(), alphaTest: 0.5, sway: SWAY[kind] })); }
 const GEOS = {};
