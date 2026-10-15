@@ -202,7 +202,7 @@ export async function loadZone(id, how = {}) {
     let n = 0; const go = () => { const sh = G.zone.inter.find(i => i.id === 'shrine'); if (G.zoneId !== 'town' || !sh || ++n > 40 || P.shrineShown) return; if (G.cinema || G.modalOpen || G.paused || G.memPending) { setTimeout(go, 1000); return; }
       P.shrineShown = 1; bus.emit('save'); cinema([{ x: sh.x, y: sh.y, zoom: 1.35, move: 1.3, hold: 2.6, text: 'Источник силы', sub: 'Дары каждый день, Сундук Ордена, лавка и сила источника — подойдите к алтарю' }]); };
     setTimeout(go, 6500); }
-  if (id === 'town' && how.from && how.from !== 'death') setTimeout(() => maybeInterstitial('return'), 1200);
+  if (id === 'town' && how.from && how.from !== 'death') setTimeout(() => maybeInterstitial('return', true), 1200);
   if (id === 'town' && P.tutorial.prologue) setTimeout(() => { if (G.zoneId === 'town') bus.emit('wallOffer'); }, 4200);   // лестница покупок: один раз у очередной «стены» (js/platform/offers.js)   // реклама только на спокойном переходе (не чаще раза в 4 минуты)
 }
 

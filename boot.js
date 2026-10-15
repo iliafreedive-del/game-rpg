@@ -6,15 +6,17 @@ const q = new URLSearchParams(location.search);
 const onYandex = /yandex\.|playhop|games\.s3\.yandex/.test(location.hostname) || q.has('yandex');
 const onVK = q.has('vk_app_id') || q.has('vk_platform') || q.has('vk');
 async function detect() {
-  if (q.get('lang')) return q.get('lang');
-  if (onVK) return 'ru';
+  // требование 2.14: на Яндексе язык всегда берётся из SDK на старте, даже если в адресе есть ?lang= (тогда ?lang= лишь уточняет его)
   if (onYandex && !q.has('nosdk')) {
     try {
       await new Promise((res, rej) => { const s = document.createElement('script'); s.src = '/sdk.js'; s.onload = res; s.onerror = rej; document.head.appendChild(s); });
       window.__ysdk = await window.YaGames.init();
-      return window.__ysdk.environment.i18n.lang;
-    } catch (e) { console.warn('sdk', e); return 'ru'; }
+      const l = window.__ysdk.environment.i18n.lang;
+      return q.get('lang') || l;
+    } catch (e) { console.warn('sdk', e); return q.get('lang') || 'ru'; }
   }
+  if (q.get('lang')) return q.get('lang');
+  if (onVK) return 'ru';
   return (navigator.language || 'ru').slice(0, 2).toLowerCase();
 }
 function pick(l) { l = String(l || 'ru').slice(0, 2).toLowerCase(); if (['be', 'kk', 'uk', 'uz', 'ru'].includes(l)) return 'ru'; return LANGS.includes(l) ? l : (LANGS.includes('en') ? 'en' : 'ru'); }

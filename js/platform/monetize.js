@@ -65,13 +65,22 @@ export function autoAd() { return watchRewarded('auto', offerToken('auto', Strin
 
 // ---- interstitial pacing (only at safe transitions, never in/near combat, disabled by purchase)
 let lastInter = Date.now();
-export async function maybeInterstitial(reason) {
+// п. 4.4: реклама посреди игры (не по кнопке игрока) — сначала 2 с «Реклама через 2, 1», игра на паузе
+function adWarn() {
+  return new Promise(res => {
+    const o = document.createElement('div'); o.className = 'pause-ov'; const b = document.createElement('div'); b.className = 'pause-box'; const t = document.createElement('div'); t.className = 'goldc pause-t';
+    b.appendChild(t); o.appendChild(b); document.body.appendChild(o);
+    let n = 2; const tick = () => { if (n <= 0) { o.remove(); res(); return; } t.textContent = `Реклама через ${n}`; n--; setTimeout(tick, 1000); }; tick();
+  });
+}
+export async function maybeInterstitial(reason, warn) {
   const P = G.profile;
   if (P.iap.noAds || platform.name === 'demo' && !P.settings.demoInter) return false;
   // сборка 54: частота меняется флагами в консоли Яндекса без новой версии: inter_gap_min (минут между показами), inter_first_sec (не раньше, сек игры)
   const F = platform.flags || {}, gap = +F.inter_gap_min > 0 ? +F.inter_gap_min : 4, first = +F.inter_first_sec >= 0 && F.inter_first_sec != null ? +F.inter_first_sec : 180;
   if (Date.now() - lastInter < gap * MIN || P.stats.playTime < first) return false;
   lastInter = Date.now(); const wasPaused = G.paused; G.paused = true; bus.emit('audioPause', true); gameplay(false);   // правки по скилам: окно, открытое до рекламы, остаётся на паузе
+  if (warn) await adWarn();
   try { await platform.p.showInterstitial(); } catch { }
   track('ad_inter', { reason: reason || '' });
   G.paused = wasPaused; bus.emit('audioPause', false); return true;

@@ -137,6 +137,13 @@ function onYandex() {
   const h = location.hostname; return /yandex\.|playhop|games\.s3\.yandex/.test(h) || new URLSearchParams(location.search).has('yandex');
 }
 export const platform = { p: null, name: 'demo', flags: {}, skew: 0 };
+// п. 1.13.2/1.13.4: цена товара для кнопки — число и валюта площадки (значок из каталога SDK, иначе код валюты); в демо — строка price
+const escH = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+export function priceHTML(id) {
+  const pr = platform.p && platform.p.catalogPrice(id); if (!pr) return escH((PRODUCTS[id] && PRODUCTS[id].price) || '');
+  if (typeof pr === 'string') return escH(pr);
+  return `${escH(pr.value)} ${pr.img ? `<img class="cur" src="${escH(pr.img)}" alt="${escH(pr.code)}">` : escH(pr.code)}`;
+}
 // сборка 66: «сейчас» по часам сервера (skew — поправка к часам телефона; без SDK — 0). Для таймеров наград, а не для анимаций
 export const now = () => Date.now() + platform.skew;
 // флаги удалённой конфигурации (консоль Яндекса → Удалённая конфигурация): число или значение по умолчанию
@@ -146,6 +153,8 @@ export const flagStr = (k, def) => { const v = platform.flags && platform.flags[
 // реклама и сворачивание выключают сразу; Яндексу уходит только смена состояния
 let gpOn = false;
 export function gameplay(on) { if (!platform.p || on === gpOn) return; gpOn = on; if (on) platform.p.gameplayStart(); else platform.p.gameplayStop(); }
+// п. 1.19.3: по game_api_resume Яндекс сам включает GameplayAPI.start, а игра после свёрнутой вкладки ещё стоит на «Пауза» — повторяем stop
+export function gameplayStopNow() { if (!platform.p) return; gpOn = false; platform.p.gameplayStop(); setTimeout(() => { if (!gpOn) platform.p.gameplayStop(); }, 300); }
 export async function initPlatform() {
   let prov = onYandex() ? new YandexProvider() : onVK() ? new VKProvider() : new DemoProvider();   // сборка 52: VK Игры
   try { await prov.init(); } catch (e) { console.warn('platform init failed, fallback to demo', e); prov = new DemoProvider(); await prov.init(); }

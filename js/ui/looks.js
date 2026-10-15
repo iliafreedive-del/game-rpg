@@ -5,7 +5,7 @@ import { el, esc } from '../core/util.js';
 import { HERO_LOOKS, DYES, HERO_MODELS, GHOST, CROWN, DYE_PRICE, MODEL_PRICE, PET_SKINS, PET_SKIN_GET, EFFECTS, TRAIL_GET, PET_FX_SLOTS, PET_FX_GET, HERO_FX_SLOTS, HERO_FX_GET } from '../data/cosmetics.js';
 import { PETS } from '../data/pets.js';
 import * as CO from '../game/cosmetics.js';
-import { platform } from '../platform/platform.js';
+import { platform, priceHTML } from '../platform/platform.js';
 
 const hex = c => '#' + (c ?? 0).toString(16).padStart(6, '0');
 const BASE_COL = { a: 0x5a1aa0, b: 0xd6a548, c: 0x6a7086 };   // исходные краски текстуры (для кружков)
@@ -35,7 +35,7 @@ function getButtons(box, key, get, title, onShards, redraw) {
     b.onclick = async e => { e.stopPropagation(); await CO.watchFor(key, get, title); redraw(); }; r.appendChild(b);
   }
   if (get.rub && platform.p && platform.p.hasProduct(get.rub)) {   // сборка 66: покупка через каталог площадки (monetize.buy), цена из каталога
-    const pr = platform.p.catalogPrice(get.rub), b = el('button', 'btn', esc(typeof pr === 'string' ? pr : pr ? `${pr.value} ${pr.code}` : '₽'));
+    const b = el('button', 'btn', priceHTML(get.rub));   // п. 1.13.2: со значком валюты из каталога SDK
     b.onclick = async e => { e.stopPropagation(); bus.emit('cosmeticBuy', { product: get.rub, key, title }); const { buy } = await import('../platform/monetize.js'); await buy(get.rub); redraw(); }; r.appendChild(b);
   }
   box.appendChild(r);
