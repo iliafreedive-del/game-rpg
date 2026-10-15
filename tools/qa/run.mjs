@@ -14,7 +14,7 @@ await p.evaluate(() => { localStorage.clear(); });
 await p.reload(); await p.waitForSelector('#titleBtns button');
 await p.click('#titleBtns button');
 await p.waitForSelector('.class-card'); await (await p.$$('.class-card'))[+(process.env.CLS || 0)].click();
-await p.waitForFunction(() => window.__G && window.__G.zone && window.__G.player && window.__G.zoneReady, null, { timeout: 60000 });
+await p.waitForFunction(() => window.__G && window.__G.zone && window.__G.player && window.__G.zoneReady, null, { timeout: +(process.env.BOOT || 60000) }).catch(e => { console.log(logs.join('\n')); throw e; });
 // сборка 49: вопроса «Показать подсказки?» нет — для сценариев подсказки выключаем (как раньше «Я опытный игрок»); TUT=1 — оставить обучение
 if (!process.env.TUT) await p.evaluate(async () => { const m = await import((window.__LANG && window.__LANG !== 'ru' ? '/js_' + window.__LANG : '/js') + '/ui/tutorial.js'); m.setHints(false); });
 await p.waitForTimeout(500);
