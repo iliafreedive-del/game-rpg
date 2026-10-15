@@ -164,7 +164,9 @@ export const KINDS = {
 };
 // лёгкая версия для 3D на карте: меньше кучек листвы и лап (форма та же)
 const LITE = { fir: { boughs: 150 }, firb: { boughs: 130 }, broad: { clumps: 6, cards: 4 }, autumn: { clumps: 7, cards: 4 }, bush: { clumps: 9, cards: 3 } };
-export function buildGeo(kind, lite) { const o = lite ? { ...KINDS[kind], ...LITE[kind] } : KINDS[kind], r = rng(o.seed); return o.type === 'fir' ? fir(o, r) : o.type === 'bush' ? bush(o, r) : broad(o, r); }
+// ещё легче — для глубины леса и за краем карты (камера видит их мелко и издали)
+const LO = { fir: { boughs: 80, tiers: 8 }, firb: { boughs: 70, tiers: 7 }, broad: { clumps: 4, cards: 3 }, autumn: { clumps: 5, cards: 3 }, bush: { clumps: 6, cards: 2 } };
+export function buildGeo(kind, lite) { const o = lite ? { ...KINDS[kind], ...(lite === 'lo' ? LO : LITE)[kind] } : KINDS[kind], r = rng(o.seed); return o.type === 'fir' ? fir(o, r) : o.type === 'bush' ? bush(o, r) : broad(o, r); }
 let MAT = null;
 export function mat() { return MAT || (MAT = toon(0xffffff, { vc: true, rim: 0.12, rimColor: 0xe8ffb0, side: THREE.DoubleSide, ao: SHADOW.groundAO, aoH: 0.9, map: tex2(), alphaTest: 0.5 })); }
 // ветер для 3D-деревьев на карте: ель качается меньше, листва — больше, куст еле-еле
@@ -173,7 +175,7 @@ const SWAY = { fir: { base: 1.4, amt: 0.0054, flutter: 0.006 }, firb: { base: 1.
 const MATS = {};
 export function matLive(kind) { return MATS[kind] || (MATS[kind] = toon(0xffffff, { vc: true, rim: 0.12, rimColor: 0xe8ffb0, side: THREE.DoubleSide, ao: SHADOW.groundAO, aoH: 0.9, map: tex2(), alphaTest: 0.5, sway: SWAY[kind] })); }
 const GEOS = {};
-export const liveGeo = kind => GEOS[kind] || (GEOS[kind] = buildGeo(kind, true));
+export const liveGeo = (kind, lo) => GEOS[kind + (lo ? ':lo' : '')] || (GEOS[kind + (lo ? ':lo' : '')] = buildGeo(kind, lo ? 'lo' : true));
 // тень карточки — от простой формы (только камера тени её видит): конус ели, шар кроны со стволом, полушарие куста
 export function shadowGeo(kind) {
   const o = KINDS[kind], H = o.h, parts = [];
