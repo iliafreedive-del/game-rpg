@@ -185,8 +185,12 @@ function newTrees(lists, PROPS, extra, m) {
         const rid = pickW(FO_ROCKS, hash(it.x * 1.3, it.y + 2)); if (!lists.has(rid)) lists.set(rid, []); lists.get(rid).push(it); continue;
       }
       // как в сборках 50+: весь лес объёмный (новые модели). У проходимой земли — облегчённые с тенью, глубже и за краем — ещё легче, без тени
-      const kind = NT_OF(src, it.x, it.y), lo = far || (edge && !nearWalk(m, it.x, it.y, 2)), def = liveOf(kind, lo);
-      it.rot = hash(it.x + 1, it.y + 9) * 6.283; it.s = (kind === 'bush' ? 0.7 + (it.s || 1) * 0.3 : 0.8 + ((it.s || 1) - 0.75) * 0.4) * (src === 'tree_sapling' ? 0.7 : 1) * 0.9;
+      // разная высота и толщина: у дорожек от низких до высоких, глубже крупнее, за краем карты самые большие — закрывают проплешины и край экрана
+      const row1 = !edge || nearWalk(m, it.x, it.y), row2 = !row1 && nearWalk(m, it.x, it.y, 2), r = hash(it.x * 1.7, it.y + 3);
+      let kind = NT_OF(src, it.x, it.y); if (edge && (kind === 'broad' || kind === 'autumn') && hash(it.x - 5, it.y * 1.3) < 0.3) kind = 'fir';   // ели среди лиственных, чтобы край не был ровной стеной крон
+      const lo = far || (edge && !row1 && !row2), def = liveOf(kind, lo);
+      const big = kind === 'bush' ? 0.8 + r * 0.5 : row1 ? (r < 0.2 ? 1.45 + r : 0.7 + r * 0.6) : row2 ? 1.0 + r * 0.7 : far ? 1.6 + r * 0.8 : 1.3 + r * 0.7;
+      it.rot = hash(it.x + 1, it.y + 9) * 6.283; it.s = (kind === 'bush' ? 0.7 + (it.s || 1) * 0.3 : 0.8 + ((it.s || 1) - 0.75) * 0.4) * (src === 'tree_sapling' ? 0.7 : 1) * big;
       extra[def.id] = def; if (!lists.has(def.id)) lists.set(def.id, []); lists.get(def.id).push(it);
     }
     if (keep.length) lists.set(id, keep); else lists.delete(id);
