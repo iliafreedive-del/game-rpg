@@ -11,10 +11,10 @@ import { arenaView } from '../game/hwbattle.js';
 import { PET_MODELS } from './models/pet/pets.js';
 import { applyLook } from './toon.js';
 import { skinLoaded, preloadSkin } from './glbskin.js';
-import { Extra, Aura, WeaponFx } from './cosfx.js';
+import { Extra, Aura, WeaponFx, Trail } from './cosfx.js';
 import { make as makeWarrior } from './models/hero/warrior.js';
 import { make as makeMage } from './models/hero/mage.js';
-import { heroLook, heroModel, petLook, heroCrown, heroFxOf } from '../game/cosmetics.js';
+import { heroLook, heroModel, petLook, heroCrown, heroFxOf, heroTrail, petCrown, petFxOf } from '../game/cosmetics.js';
 
 // освещение по главе: подземелье — холодное с тёплым факелом, лес — солнечное, снега — холодный день, скалы — закат
 const LIGHTS = [
@@ -62,12 +62,19 @@ export function createStage({ cls, wt, foes, ci, pet }) {
     const ex = heroFxOf('extra'), au = heroFxOf('aura'), wf = heroFxOf('weapon');
     if (ex && B.head) fx.push(new Extra(ex, scene, B.head, { y: HALO_Y[cls] || 0.5, z: 0.04 }));
     if (au) fx.push(new Aura(scene, au));
+    const tk = heroTrail(); if (tk) fx.push(new Trail(scene, tk));
     if (wf && H.a.model.skin) { const w = new WeaponFx(wf, scene, H.a.root, cls === 'archer' ? 'handL' : 'handR'); w.weapon = true; fx.push(w); } }
   { const wm = WEAPONS[WEAPON_MODEL[wt] || 'sword_iron'], off = OFFHAND_MODEL[cls] ? WEAPONS[OFFHAND_MODEL[cls]] : null;
     if (wt === 'bow') { H.a.equip('handL', wm); } else { H.a.equip('handR', wm); H.a.equip('handL', off); } }
   const F = foes.map(f => { const S = mk(MOBS[f.type] || MOBS.skel_warrior, 1.15 * (f.type === 'boss' ? 0.72 : f.type === 'elite_guard' && !f.boss ? 0.85 : 1)); for (const [slot, id] of Object.entries(S.a.model.defaultWeapons || {})) S.a.equip(slot, WEAPONS[id]); return S; });   // правки 5: мобы на 15% крупнее
   const PT = pet && PET_MODELS[pet] ? mk(PET_MODELS[pet], 1.2) : null;   // П4-3: питомец рядом с героем (тот же масштаб, что в деревне)
   if (PT) { const L = petLook(pet); if (L) { for (const m of PT.a.mats) applyLook(m, L); if (L.ghost) PT.a.root.traverse(o => { if (o.userData.isOutline) o.visible = false; }); } }
+  const pfx = [];   // эффекты питомца (как renderer3d fxSync): аура, следы, нимб/сферы, корона
+  if (PT) { const head = PT.a.model.bones && PT.a.model.bones.head, au = petFxOf('aura'), tr = petFxOf('trail'), ex = petFxOf('extra');
+    if (au) { const f = new Aura(scene, au); f.disc.scale.setScalar(0.55); pfx.push(f); }
+    if (tr) pfx.push(new Trail(scene, tr));
+    if (ex && head) pfx.push(new Extra(ex, scene, head, { y: 0.42, z: 0.04 }));
+    if (petCrown() && head) pfx.push(new Extra('crown', scene, head, { y: 0.42, z: 0.04, scale: 0.8 })); }
   let W = 0, Hh = 0, view = null, t = 0;
   function resize(w, h) {
     W = w; Hh = h; renderer.setPixelRatio(Math.min(2, devicePixelRatio || 1)); renderer.setSize(w, h, false);
@@ -89,10 +96,10 @@ export function createStage({ cls, wt, foes, ci, pet }) {
     height: i => (i < 0 ? H : F[i]).a.size * (i < 0 ? H : F[i]).scale,
     draw(dt, hero, foeStates, petState) {
       t += dt; U.uTime.value = t; U.uCam.value.copy(cam.position); U.uFocus.value.set(0, -50, 0); for (const v of U.uFoc.value) v.w = 0;
-      drive(H, hero, dt); for (const f of fx) { if (f.weapon) f.update(dt, hero.clip === 'attack'); else f.update(dt, hero.x, hero.z); }
-      foeStates.forEach((d, i) => drive(F[i], d, dt)); if (PT && petState) drive(PT, petState, dt); renderer.render(scene, cam);
+      drive(H, hero, dt); for (const f of fx) { if (f.weapon) f.update(dt, hero.clip === 'attack'); else f.update(dt, hero.x, hero.z, hero.yaw); }
+      foeStates.forEach((d, i) => drive(F[i], d, dt)); if (PT && petState) { drive(PT, petState, dt); for (const f of pfx) f.update(dt, petState.x, petState.z, petState.yaw); } renderer.render(scene, cam);
     },
     canvas,
-    dispose() { for (const f of fx) f.dispose(); H.a.dispose(); if (PT) PT.a.dispose(); for (const S of F) S.a.dispose(); renderer.renderLists.dispose(); renderer.clear(); },   // контекст остаётся для следующего боя
+    dispose() { for (const f of fx) f.dispose(); for (const f of pfx) f.dispose(); H.a.dispose(); if (PT) PT.a.dispose(); for (const S of F) S.a.dispose(); renderer.renderLists.dispose(); renderer.clear(); },   // контекст остаётся для следующего боя
   };
 }
