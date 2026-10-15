@@ -320,7 +320,7 @@ export const seenKey = Z => `${Z.id}:${Z.json.floorN ?? ''}:${Z.json.seed ?? ''}
 // время вышло — выключаем, но не посреди боя; иногда (не в бою) стрелка напоминает, что АВТО есть
 let remindAt = 0;
 function autoTick() {
-  const ab = $('btnAuto'), ok = autoOK(); ab.classList.toggle('ad', !ok);
+  const ab = $('btnAuto'), ok = autoOK(); ab.classList.toggle('rwd', !ok);
   if (G.auto && !ok && !inCombat()) { G.auto = false; toast({ text: 'Автобой закончился', sub: `Нажмите АВТО и посмотрите рекламу — ещё ${AUTO_MIN} минут`, kind: 'info' }); }
   const now = Date.now(), wild = G.zoneId !== 'town' && G.zoneId !== 'castle' && G.zoneId !== 'survival';
   if (!remindAt) remindAt = now + 3 * 60000;

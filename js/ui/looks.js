@@ -21,7 +21,7 @@ const CSS = `
 .lk-dye.on{outline:3px solid #f0d08a;outline-offset:1px}.lk-dye.lock::after{content:'${DYE_PRICE}\\25C6';position:absolute;inset:auto -6px -8px auto;font:700 10px sans-serif;color:#f0c050;background:#000c;border-radius:6px;padding:0 3px}
 .lk-lbl{font-size:12px;color:#a49a88;margin-top:2px}
 .lk-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:4px 0 10px}
-.ad-bar{position:relative;overflow:hidden}.ad-bar i{position:absolute;left:0;top:0;bottom:0;background:rgba(90,192,112,.35)}.ad-bar span{position:relative}
+.rwd-bar{position:relative;overflow:hidden}.rwd-bar i{position:absolute;left:0;top:0;bottom:0;background:rgba(90,192,112,.35)}.rwd-bar span{position:relative}
 `;
 let styled = false, tab = 'hero';   // вкладки окна: герой / питомец
 
@@ -30,7 +30,7 @@ function getButtons(box, key, get, title, onShards, redraw) {
   const r = el('div', 'lk-btns');
   if (get.shards) { const b = el('button', 'btn gold', `${get.shards}◆`); b.onclick = e => { e.stopPropagation(); onShards(); redraw(); }; r.appendChild(b); }
   if (get.ads) {
-    const p = CO.adProgress(key, get), b = el('button', 'btn ad ad-bar', `<i style="width:${Math.round(p.n / get.ads * 100)}%"></i><span>${p.n}/${get.ads}</span>`);
+    const p = CO.adProgress(key, get), b = el('button', 'btn rwd rwd-bar', `<i style="width:${Math.round(p.n / get.ads * 100)}%"></i><span>${p.n}/${get.ads}</span>`);
     b.title = `Реклама за вознаграждение: ${get.ads} за ${get.days || 7} дн. Осталось ${p.left} дн.`;
     b.onclick = async e => { e.stopPropagation(); await CO.watchFor(key, get, title); redraw(); }; r.appendChild(b);
   }
@@ -114,24 +114,28 @@ export function renderLooks(b, redraw) {
       effGrid(b, title, CO.fxList(slot), EFFECTS[slot], CO.heroFxOf(slot), id => `hfx:${slot}:${id}`, id => HERO_FX_GET(slot, id), id => CO.wear({ [slot]: id }), redraw);
   }
 
-  // ---- облик питомца (того, что сейчас рядом)
+  // ---- облики питомцев: сначала тот, что рядом, потом остальные (облик можно взять заранее)
   const pid = (P.pets && P.pets.active) || null, PS = pid && PET_SKINS[pid];
   if (tab === 'pet' && !PS) b.appendChild(el('p', 'muted', 'Питомца пока нет рядом. Возьмите его у Караванщика Кофи — и возвращайтесь за обликом.'));
-  if (tab === 'pet' && PS) {
-    b.appendChild(el('h3', '', 'Облик питомца: ' + esc(PETS[pid].name)));
-    const g2 = el('div', 'lk-grid'), cur = CO.petSkinOf(pid);
-    for (const [id, [name]] of [[null, ['Как есть']], ...Object.entries(PS)]) {
-      const own = !id || CO.petSkinOwned(pid, id), on = cur === id, card = el('div', 'lk-card' + (on ? ' on' : ''), `<b>${esc(name)}</b>`);
-      if (own) { card.appendChild(el('div', 'lk-st' + (on ? ' ok' : ''), on ? '✔ Надет' : 'Нажмите, чтобы надеть')); card.onclick = () => { CO.setPetSkin(pid, id); bus.emit('sfx', 'click'); redraw(); }; }
-      else getButtons(card, `pskin:${pid}:${id}`, PET_SKIN_GET(id), name, () => CO.buyPetSkin(pid, id), redraw);
+  const own = (P.pets && P.pets.own) || {};
+  const skinGrid = id => {
+    b.appendChild(el('h3', '', 'Облик питомца: ' + esc(PETS[id].name) + (id === pid ? '' : own[id] ? ' <small class="muted">(не рядом)</small>' : ' <small class="muted">(питомца ещё нет)</small>')));
+    const g2 = el('div', 'lk-grid'), cur = CO.petSkinOf(id);
+    for (const [sid, [name]] of [[null, ['Как есть']], ...Object.entries(PET_SKINS[id])]) {
+      const has = !sid || CO.petSkinOwned(id, sid), on = cur === sid, card = el('div', 'lk-card' + (on ? ' on' : ''), `<b>${esc(name)}</b>`);
+      if (has) { card.appendChild(el('div', 'lk-st' + (on ? ' ok' : ''), on ? '✔ Надет' : 'Нажмите, чтобы надеть')); card.onclick = () => { CO.setPetSkin(id, sid); bus.emit('sfx', 'click'); redraw(); }; }
+      else getButtons(card, `pskin:${id}:${sid}`, PET_SKIN_GET(sid), name, () => CO.buyPetSkin(id, sid), redraw);
       g2.appendChild(card);
     }
     b.appendChild(g2);
-
+  };
+  if (tab === 'pet' && PS) {
+    skinGrid(pid);
     // ---- эффекты питомца: по одному в каждом слоте
     for (const [slot, title] of Object.entries(PET_FX_SLOTS))
       effGrid(b, title, CO.fxList(slot), EFFECTS[slot], CO.petFxOf(slot), id => `pfx:${slot}:${id}`, id => PET_FX_GET(slot, id), id => CO.setPetFx(slot, id), redraw);
   }
+  if (tab === 'pet') for (const id of Object.keys(PET_SKINS)) if (id !== pid && PETS[id]) skinGrid(id);   // облики остальных питомцев: можно взять заранее
 
   const toggles = (kind, T, title, note, rows) => {
     b.appendChild(el('h3', '', title));

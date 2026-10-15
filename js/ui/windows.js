@@ -802,7 +802,7 @@ W.npc_merchant = () => {
       if (it) { const det = el('div', 'detail'); det.innerHTML = itemHTML(it, G.stats) + '<h3>Сравнение</h3>' + cmpTable(it, CH.slotFor(it)); const bt = el('button', 'btn gold', `Купить и надеть — ${EC.buyPrice(it)} зол.`); bt.disabled = P.gold < EC.buyPrice(it); bt.onclick = () => { EC.buyItem(sel); sel = null; rerender(); }; det.appendChild(bt); b.appendChild(det); }
       const row = el('div', 'row'); row.style.marginTop = '10px';
       const rf = el('button', 'btn', `Обновить товары — ${EC.stockRefreshPrice()} зол.`); rf.onclick = () => { EC.refreshStock(false); sel = null; rerender(); }; row.appendChild(rf);
-      const ra = el('button', 'btn ad', 'Обновить бесплатно'); ra.onclick = () => offers.shopRefresh(() => { EC.refreshStock(true); sel = null; rerender(); }); row.appendChild(ra);
+      const ra = el('button', 'btn rwd', 'Обновить бесплатно'); ra.onclick = () => offers.shopRefresh(() => { EC.refreshStock(true); sel = null; rerender(); }); row.appendChild(ra);
       b.appendChild(row);
     } else {
       const row = el('div', 'row'); const sa = el('button', 'btn', 'Продать все обычные (белые)'); sa.onclick = () => { EC.sellAllCommon(); rerender(); }; row.appendChild(sa); b.appendChild(row);
@@ -973,7 +973,7 @@ W.shrine = () => modal('Источник силы', 'md', b => {
   { const left = blessLeft(), on = left > 0, full = left > (BLESS_CAP - BLESS_MIN) * 60000;
     const c = el('div', 'bless-card' + (on ? ' on' : ''), `<div class="bl-ic">✦</div><div class="tx"><b>Сила источника</b><div>+5% золота и опыта, +3% к выпадению вещей — ${BLESS_MIN} минут</div><div class="muted">${on ? `Действует ещё <b>${Math.floor(left / 60000)}:${String(Math.floor(left / 1000) % 60).padStart(2, '0')}</b>${full ? ' · предел ' + BLESS_CAP + ' мин' : ' · можно продлить'}` : 'Посмотрите рекламу — и 10 минут всё падает щедрее'}</div></div>`);
     const used = blessToday() >= BLESS_DAY; c.appendChild(el('div', 'muted', `<small>Сегодня: ${blessToday()} из ${BLESS_DAY}</small>`));
-    const bt = el('button', 'btn ad', used ? 'Завтра' : on ? `+${BLESS_MIN} мин` : 'Получить'); bt.disabled = full || used || inCombat(); bt.onclick = () => blessing().then(rerender); c.appendChild(bt); b.appendChild(c); }
+    const bt = el('button', 'btn rwd', used ? 'Завтра' : on ? `+${BLESS_MIN} мин` : 'Получить'); bt.disabled = full || used || inCombat(); bt.onclick = () => blessing().then(rerender); c.appendChild(bt); b.appendChild(c); }
   // 2) календарь входа: 28 дней, пропуск не сбрасывает, каждый 3-й больше, 7/14/21/28 — вещь
   const ds = dailyStatus(), cur = ds.day, base = ds.streak - (ds.claimable ? 0 : 1) - (cur - 1);   // base — сколько дней было до этого круга
   b.appendChild(el('h3', '', `Дары источника · день ${cur} из ${LOGIN_DAYS}${ds.streak >= LOGIN_DAYS ? ` · круг ${Math.floor(base / LOGIN_DAYS) + 1}` : ''}`));
@@ -986,7 +986,7 @@ W.shrine = () => modal('Источник силы', 'md', b => {
   b.appendChild(cal);
   const nb = DAILY.findIndex((r, i) => i + 1 > cur && (r.big || r.mid)), nr = nb >= 0 ? DAILY[nb] : null;
   const dr = el('div', 'row'); dr.style.marginTop = '6px';
-  if (ds.claimable) { const a = el('button', 'btn gold nudge', `Забрать день ${cur}`); a.onclick = () => { claimDaily(false); rerender(); }; const x2 = el('button', 'btn ad', 'Забрать ×1,5'); x2.onclick = () => watchRewarded('daily_double', offerToken('daily_double', 'd' + new Date().toDateString()), () => claimDaily(true)).then(rerender); dr.append(a, x2); }
+  if (ds.claimable) { const a = el('button', 'btn gold nudge', `Забрать день ${cur}`); a.onclick = () => { claimDaily(false); rerender(); }; const x2 = el('button', 'btn rwd', 'Забрать ×1,5'); x2.onclick = () => watchRewarded('daily_double', offerToken('daily_double', 'd' + new Date().toDateString()), () => claimDaily(true)).then(rerender); dr.append(a, x2); }
   else dr.appendChild(el('span', 'muted', `Следующий дар — завтра.${nr ? ` Через ${nb + 1 - cur} дн.: <b>${nr.label}</b>` : ''} Пропуск дня не сбрасывает календарь.`));
   b.appendChild(dr);
   dailyBlock(b);
@@ -995,7 +995,7 @@ W.shrine = () => modal('Источник силы', 'md', b => {
   // правки 3: «что делает сундук» — понятно из подписи; часы и минуты вместо «240 мин»; раньше срока за рекламу — раз в день
   const csl = chestSkipsLeft(), cm = Math.ceil(cs.left / 60000), cleft = cm >= 60 ? `${Math.floor(cm / 60)} ч ${cm % 60} мин` : `${cm} мин`;
   const cr = el('div', 'offer', `<div class="ic">▣</div><div class="tx"><b>Вещь для вашего класса и золото — раз в 4 часа</b><div class="muted">${cs.ready ? 'Готов к открытию!' : `Откроется сам через ${cleft}.${csl ? ' Раньше — за рекламу, раз в день.' : ' За рекламу сегодня уже открывали.'}`}</div></div>`);
-  const cb = el('button', 'btn ' + (cs.ready ? 'gold' : 'ad'), cs.ready ? 'Открыть' : 'Открыть сейчас'); cb.disabled = !cs.ready && !csl; cb.onclick = () => { chestSkip().then(rerender); }; cr.appendChild(cb); b.appendChild(cr);
+  const cb = el('button', 'btn ' + (cs.ready ? 'gold' : 'rwd'), cs.ready ? 'Открыть' : 'Открыть сейчас'); cb.disabled = !cs.ready && !csl; cb.onclick = () => { chestSkip().then(rerender); }; cr.appendChild(cb); b.appendChild(cr);
   // IAP
   b.appendChild(el('h3', '', 'Лавка Ордена'));
   b.appendChild(el('p', 'muted', '<small>Снаряжение в лавке меняется каждый день. Синий сет — с начала, золотые вещи — с 15 уровня, мифические — с 22-го.</small>'));   // П67
@@ -1052,7 +1052,7 @@ W.potEmpty = k => {
     b.appendChild(el('div', 'of-pack', `<div class="of-x"><img src="${iconURL(k === 'hp' ? 'potion_hp' : 'potion_mp')}" alt=""><b>${P.potions[k]}</b><small>зелий ${name}</small></div>`));
     const r = el('div', 'row'); r.style.justifyContent = 'center';
     if (!lock) {
-      const ad = el('button', 'btn ad', A.n > 0 ? `2 зелья за рекламу · осталось ${A.n} из ${POT_ADS}` : `2 зелья за рекламу · через ${Math.ceil((A.t + POT_AD_MS - Date.now()) / 60000)} мин`); ad.disabled = A.n <= 0;
+      const ad = el('button', 'btn rwd', A.n > 0 ? `2 зелья за рекламу · осталось ${A.n} из ${POT_ADS}` : `2 зелья за рекламу · через ${Math.ceil((A.t + POT_AD_MS - Date.now()) / 60000)} мин`); ad.disabled = A.n <= 0;
       ad.onclick = async () => { if (potAds().n <= 0) return; const ok = await watchRewarded('pot_ad', offerToken('pot_ad', String(Date.now())), () => { const A2 = potAds(); if (A2.n >= POT_ADS) A2.t = Date.now(); A2.n--; P.potions[k] += 2; bus.emit('toast', { text: `+2 зелья ${name}`, kind: 'good' }); }); if (ok) closeModal(); else rerender(); };
       r.appendChild(ad);
     }
@@ -1118,7 +1118,7 @@ function showDeath() {
       d.innerHTML += `<p class="death-why">Вас убил: <b>${esc(h.name)}</b>${(() => { const n = (P.fallen || []).filter(f => f.who === h.name.replace(/^Чемпион: /, '')).length; return n > 1 ? ` (уже ${n}-й раз)` : ''; })()} — последний удар ${h.dmg}${EL[h.elem] ? ' ' + EL[h.elem] : ''}.<br><small>${tip}</small></p>`; } }
   const row = el('div', 'row'); row.style.justifyContent = 'center';
   const left = Math.max(0, MAX_REVIVES - (G.revives || 0)), canRev = left > 0 && G.zoneId !== 'castle' && G.zoneId !== 'town';
-  const ad = el('button', 'btn ad', `Воскреснуть на месте (осталось ${left})`);
+  const ad = el('button', 'btn rwd', `Воскреснуть на месте (осталось ${left})`);
   ad.onclick = async () => { const tok = offerToken('revive'); const ok = await watchRewarded('revive', tok, () => { }); if (ok) { d.classList.add('hidden'); G.paused = false; revive(true); } };
   if (inPrologue()) {   // сборка 59: в прологе — без деревни и без потери золота: склеп начинается заново
     d.querySelector('p.muted').textContent = 'Склеп пробуждения не пройден. Попробуйте ещё раз: отходите от замахов и бейте первым.';
@@ -1138,7 +1138,7 @@ function bossReward(k) {
     b.appendChild(el('p', '', k.repeat ? 'Золото и осколки Бездны рассыпаны по арене. Палач вернётся через 30 минут — таймер на месте его гибели.' : 'Золото рассыпано по арене — соберите его. Главная награда ждёт вас в окне задания.'));   // П45
     b.appendChild(el('p', 'good', 'Портал домой открылся в центре арены.'));
     const row = el('div', 'row');
-    const ad = el('button', 'btn ad', 'Дополнительный редкий предмет'); ad.onclick = () => offers.bossExtra(k.id, k.x, k.y).then(ok => { if (ok && cur === m) closeModal(); });   // правки 3: окно с вещью за рекламу встаёт на место этого — раньше его тут же закрывали
+    const ad = el('button', 'btn rwd', 'Дополнительный редкий предмет'); ad.onclick = () => offers.bossExtra(k.id, k.x, k.y).then(ok => { if (ok && cur === m) closeModal(); });   // правки 3: окно с вещью за рекламу встаёт на место этого — раньше его тут же закрывали
     const ok = el('button', 'btn gold', 'Собрать добычу'); ok.onclick = closeModal; row.append(ad, ok); b.appendChild(row);
   });
 }
@@ -1289,7 +1289,7 @@ function floorResult(r) {
       b.appendChild(el('div', 'rw-loot', `<span class="goldc">+${r.gold} золота</span> · <span style="color:#b8e3ff">+${r.xp} опыта</span>${r.first ? ' · <span style="color:#ff9a9a">+1 зелье</span>' : ''}`));
       if (r.weekly) b.appendChild(el('p', 'goldc', `${esc(r.weekly)}${r.weeklyFirst ? ' · первая победа недели: вещь в сумке/надета' : ''}${r.weeklyRec ? ' · новый личный рекорд!' : ''}`));
       const row = el('div', 'row'); row.style.justifyContent = 'center';
-      const ad = el('button', 'btn ad', `×2 золото (+${r.gold})`);
+      const ad = el('button', 'btn rwd', `×2 золото (+${r.gold})`);
       ad.onclick = () => watchRewarded('floor_x2', offerToken('floor_x2', r.token), () => { G.profile.gold += r.gold; bus.emit('toast', { text: `+${r.gold} золота`, kind: 'good' }); }).then(ok => { if (ok) { ad.disabled = true; ad.textContent = '✔ Удвоено'; } });
       const nx = el('button', 'btn gold', `Этаж ${r.floor + (r.first ? 1 : 0) + (r.first ? 0 : 1)} ▶`);
       const next = Math.max(r.floor + 1, 1);
@@ -1337,7 +1337,7 @@ export function showDozor(d) {
     b.appendChild(el('p', '', `Ваш отряд ${h ? h + ' ч ' : ''}${mi} мин патрулировал Глубины (до этажа ${G.profile.depths.best}).`));
     b.appendChild(el('div', 'rw-loot', `<span class="goldc">+${d.gold} золота</span> · <span style="color:#b8e3ff">+${d.xp} опыта</span>`));
     const row = el('div', 'row'); row.style.justifyContent = 'center';
-    const ad = el('button', 'btn ad', 'Забрать ×2'); ad.onclick = async () => { const ok = await watchRewarded('dozor_x2', offerToken('dozor_x2', String(G.profile.dozorAt)), () => DQ.claimDozor(2)); if (ok) { G.dozorChecked = true; closeModal(); } };
+    const ad = el('button', 'btn rwd', 'Забрать ×2'); ad.onclick = async () => { const ok = await watchRewarded('dozor_x2', offerToken('dozor_x2', String(G.profile.dozorAt)), () => DQ.claimDozor(2)); if (ok) { G.dozorChecked = true; closeModal(); } };
     const ok = el('button', 'btn gold', 'Забрать'); ok.onclick = () => { DQ.claimDozor(1); G.dozorChecked = true; closeModal(); };
     row.append(ad, ok); b.appendChild(row);
     { const t = CS.torches(), ds = dailyStatus(), wait = [];   // сборка 47: что ещё накопилось, пока игрока не было
@@ -1355,7 +1355,7 @@ function dailyBlock(b) {
   for (const q of list) {
     const d = el('div', 'q' + (q.done && !q.claimed ? ' cur' : '') + (q.claimed ? ' done' : ''), `<div class="qt">${q.claimed ? '✔ ' : ''}${esc(q.title)} — ${q.cur}/${q.n}</div><div class="pbar"><i style="width:${q.cur / q.n * 100}%"></i></div>`);
     if (q.done && !q.claimed) { const bt = el('button', 'btn sm gold', `Забрать: ${r.gold} зол. + зелье`); bt.style.marginTop = '6px'; bt.onclick = () => { DQ.claimDaily(q.id); rerender(); }; d.appendChild(bt); }
-    else if (!q.claimed && !q.done && DQ.rerollLeft()) { const rb = el('button', 'btn sm ad', '↻ Другое задание'); rb.style.marginTop = '6px'; rb.title = 'Заменить за рекламу, раз в день';   // сборка 66
+    else if (!q.claimed && !q.done && DQ.rerollLeft()) { const rb = el('button', 'btn sm rwd', '↻ Другое задание'); rb.style.marginTop = '6px'; rb.title = 'Заменить за рекламу, раз в день';   // сборка 66
       rb.onclick = () => watchRewarded('dq_reroll', offerToken('dq_reroll', String(G.profile.dq.day)), () => { DQ.rerollQuest(q.id); bus.emit('toast', { text: 'Задание заменено', kind: 'good' }); }).then(rerender); d.appendChild(rb); }
     b.appendChild(d);
   }
@@ -1432,7 +1432,7 @@ function survLevel() {
   let cs = SV.choices(), extra = false; bus.emit('sfx', 'levelup');
   modal(`Уровень ${S.lvl}!`, 'md reward', b => {
     b.appendChild(el('p', 'muted', 'Выберите усиление:'));
-    { const rr = el('button', 'btn ad sm', '↻ Обновить за рекламу'); rr.onclick = async () => { const ok = await watchRewarded('surv_reroll', offerToken('surv_reroll', String(Date.now())), () => { S.rerolls++; }); if (ok) { cs = SV.choices(); rerender(); } }; b.appendChild(rr); }   // сборка 47
+    { const rr = el('button', 'btn rwd sm', '↻ Обновить за рекламу'); rr.onclick = async () => { const ok = await watchRewarded('surv_reroll', offerToken('surv_reroll', String(Date.now())), () => { S.rerolls++; }); if (ok) { cs = SV.choices(); rerender(); } }; b.appendChild(rr); }   // сборка 47
     const row = el('div', 'boons b4');   // сборка 47: карточки мельче, 4 в ряд; 3 бесплатно, 4-я случайная — за рекламу
     cs.forEach((c, i) => {
       if (i === 3 && !extra) {

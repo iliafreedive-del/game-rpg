@@ -55,8 +55,8 @@ export const PET_SKINS = {
   phoenix:  { frost: ['Ледяной', { hue: 0.55 }], void: ['Бездны', { hue: 0.75 }], soul: ['Душ', { hue: 0.4 }] },
   spiritwolf: { ember: ['Пламенный', { tint: 0xff6a20, tintK: 0.7, glow: 0xff5010, glowK: 0.35, glowAll: true }], void: ['Бездны', { tint: 0x9a50ff, tintK: 0.7, glow: 0x9040ff, glowK: 0.4, glowAll: true }], blood: ['Кровавый', { tint: 0xc01818, tintK: 0.7, glow: 0xff2020, glowK: 0.3, glowAll: true }] },
 };
-// цена облика питомца: золотые — за рекламу (неделя), остальные — за осколки
-export const PET_SKIN_GET = id => id === 'gold' ? { ads: 60, days: 7 } : { shards: 20 };
+// цена облика питомца: золотые — за 40 осколков или рекламу (неделя), остальные — за осколки
+export const PET_SKIN_GET = id => id === 'gold' ? { shards: 40, ads: 60, days: 7 } : { shards: 20 };
 // особые питомцы: за рубли или за рекламу (прогресс недели)
 export const PREMIUM_PETS = {
   dragon:     { name: 'Дракончик Бездны', icon: '🐉', get: { rub: 'pet_dragon', ads: 200, days: 7 } },

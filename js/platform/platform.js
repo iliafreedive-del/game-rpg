@@ -163,20 +163,20 @@ async function syncTime() {
 // ---- demo overlays (DOM)
 function demoAd(rewarded) {
   return new Promise(res => {
-    const o = document.createElement('div'); o.className = 'demo-ad';
-    o.innerHTML = `<div class="demo-ad-box"><div class="demo-ad-tag">ДЕМО-РЕКЛАМА</div><div class="demo-ad-t">${rewarded ? 'Видео с наградой' : 'Реклама'}</div><div class="demo-ad-bar"><i></i></div><button class="btn" disabled>Подождите…</button></div>`;
+    const o = document.createElement('div'); o.className = 'demo-rv';
+    o.innerHTML = `<div class="demo-rv-box"><div class="demo-rv-tag">ДЕМО-РЕКЛАМА</div><div class="demo-rv-t">${rewarded ? 'Видео с наградой' : 'Реклама'}</div><div class="demo-rv-bar"><i></i></div><button class="btn" disabled>Подождите…</button></div>`;
     document.body.appendChild(o);
     const btn = o.querySelector('button'), bar = o.querySelector('i'); let t = 0; const T = rewarded ? 3 : 1.5;
     const iv = setInterval(() => { t += 0.1; bar.style.width = Math.min(100, t / T * 100) + '%'; if (t >= T) { clearInterval(iv); btn.disabled = false; btn.textContent = rewarded ? 'Получить награду' : 'Закрыть'; } }, 100);
     btn.onclick = () => { o.remove(); res(true); };
-    const skip = document.createElement('button'); skip.className = 'demo-ad-x'; skip.textContent = '✕'; skip.title = 'Закрыть без награды';
-    skip.onclick = () => { clearInterval(iv); o.remove(); res(t >= T && !rewarded ? true : false); }; o.querySelector('.demo-ad-box').appendChild(skip);
+    const skip = document.createElement('button'); skip.className = 'demo-rv-x'; skip.textContent = '✕'; skip.title = 'Закрыть без награды';
+    skip.onclick = () => { clearInterval(iv); o.remove(); res(t >= T && !rewarded ? true : false); }; o.querySelector('.demo-rv-box').appendChild(skip);
   });
 }
 function demoConfirm(text) {
   return new Promise(res => {
-    const o = document.createElement('div'); o.className = 'demo-ad';
-    o.innerHTML = `<div class="demo-ad-box"><div class="demo-ad-tag">ДЕМО-ПОКУПКА</div><p>${text}</p><div class="row"><button class="btn gold" data-a="1">Купить</button><button class="btn" data-a="0">Отмена</button></div></div>`;
+    const o = document.createElement('div'); o.className = 'demo-rv';
+    o.innerHTML = `<div class="demo-rv-box"><div class="demo-rv-tag">ДЕМО-ПОКУПКА</div><p>${text}</p><div class="row"><button class="btn gold" data-a="1">Купить</button><button class="btn" data-a="0">Отмена</button></div></div>`;
     document.body.appendChild(o); o.onclick = e => { const a = e.target.dataset.a; if (a != null) { o.remove(); res(a === '1'); } };
   });
 }
