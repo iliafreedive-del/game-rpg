@@ -112,10 +112,10 @@ function fir(o, r) {
   const A = Acc(), H = o.h, W = H * o.w, yb = H * 0.07, dk = C(o.pal[0]), md = C(o.pal[1]), lt = C(o.pal[2]), hi = C(o.pal[3] ?? o.pal[2]);
   const Rof = y => W * Math.pow(Math.max(0, 1 - (y - yb) / (H - yb)), o.shape ?? 0.9) + 0.05;
   limb(A, V(0, 0, 0), V(0, H * 0.35, 0), H * 0.035, H * 0.025, 0x4a3424, 6);
-  // конус-ядро
+  // конус-ядро — тонкое, глубоко внутри: между лапами не должно быть видно гладкого «цилиндра»
   const seg = 12, rings = 8;
   for (let k = 0; k < rings; k++) for (let i = 0; i < seg; i++) {
-    const P = (kk, ii) => { const y = yb + (H * 0.86 - yb) * kk / rings, a = ii / seg * 6.283, rr = Rof(y) * 0.55; const p = V(Math.cos(a) * rr, y, Math.sin(a) * rr); return { p, n: V(Math.cos(a), 0.5, Math.sin(a)).normalize(), u: NOUV, c: dk.clone().lerp(md, 0.25 + 0.2 * kk / rings) }; };
+    const P = (kk, ii) => { const y = yb + (H * 0.86 - yb) * kk / rings, a = ii / seg * 6.283, rr = Rof(y) * 0.3; const p = V(Math.cos(a) * rr, y, Math.sin(a) * rr); return { p, n: V(Math.cos(a), 0.5, Math.sin(a)).normalize(), u: NOUV, c: dk.clone().lerp(md, 0.25 + 0.2 * kk / rings) }; };
     A.tri([P(k, i), P(k + 1, i + 1), P(k, i + 1), P(k, i), P(k + 1, i), P(k + 1, i + 1)]);
   }
   // лапы мутовками (ярусами): между ярусами видна тёмная щель — ель читается «полками», как на референсе
@@ -165,7 +165,7 @@ export const KINDS = {
 // лёгкая версия для 3D на карте: меньше кучек листвы и лап (форма та же)
 const LITE = { fir: { boughs: 150 }, firb: { boughs: 130 }, broad: { clumps: 6, cards: 4 }, autumn: { clumps: 7, cards: 4 }, bush: { clumps: 9, cards: 3 } };
 // ещё легче — для глубины леса и за краем карты (камера видит их мелко и издали)
-const LO = { fir: { boughs: 80, tiers: 8 }, firb: { boughs: 70, tiers: 7 }, broad: { clumps: 4, cards: 3 }, autumn: { clumps: 5, cards: 3 }, bush: { clumps: 6, cards: 2 } };
+const LO = { fir: { boughs: 120, tiers: 9 }, firb: { boughs: 110, tiers: 8 }, broad: { clumps: 4, cards: 3 }, autumn: { clumps: 5, cards: 3 }, bush: { clumps: 6, cards: 2 } };
 export function buildGeo(kind, lite) { const o = lite ? { ...KINDS[kind], ...(lite === 'lo' ? LO : LITE)[kind] } : KINDS[kind], r = rng(o.seed); return o.type === 'fir' ? fir(o, r) : o.type === 'bush' ? bush(o, r) : broad(o, r); }
 let MAT = null;
 export function mat() { return MAT || (MAT = toon(0xffffff, { vc: true, rim: 0.12, rimColor: 0xe8ffb0, side: THREE.DoubleSide, ao: SHADOW.groundAO, aoH: 0.9, map: tex2(), alphaTest: 0.5 })); }

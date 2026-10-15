@@ -171,9 +171,34 @@ const NT_OF = (src, x, y) => { const h = hash(x + 3, y - 5);
   if (/^tree_/.test(src)) return src === 'tree_autumn' || h < 0.14 ? 'autumn' : 'broad';
   return null; };
 const LIVE = {};
-const liveOf = (kind, lo) => LIVE[kind + lo] || (LIVE[kind + lo] = { id: 'nt3:' + kind + (lo ? ':lo' : ''), kind: 'prop', batch: true, outline: false, shadow: !lo, receive: false,
+const liveOf = (kind, lo) => LIVE[kind + lo] || (LIVE[kind + lo] = { id: 'nt3:' + kind + (lo ? ':lo' : ''), kind: 'prop', batch: true, tint: 1, outline: false, shadow: !lo, receive: false,
   shadowProxy: () => shadowGeo(kind), build() { const root = new THREE.Group(); root.add(new THREE.Mesh(liveGeo(kind, lo), matLive(kind))); return { root }; } });
+// расстояние (в клетках) от проходимой земли — для склона и затемнения за первой линией леса
+const DR = 26;
+function depthField(m) {
+  const W = m.w + DR * 2, H = m.h + DR * 2, D = new Float32Array(W * H).fill(1e9);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const tx = x - DR, ty = y - DR; if (tx >= 0 && ty >= 0 && tx < m.w && ty < m.h) { const c = m.ch(tx, ty); if (c && c !== 'x' && c !== ' ') D[y * W + x] = 0; } }
+  const S2 = Math.SQRT2, at = (x, y) => x < 0 || y < 0 || x >= W || y >= H ? 1e9 : D[y * W + x];
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) D[y * W + x] = Math.min(D[y * W + x], at(x - 1, y) + 1, at(x, y - 1) + 1, at(x - 1, y - 1) + S2, at(x + 1, y - 1) + S2);
+  for (let y = H - 1; y >= 0; y--) for (let x = W - 1; x >= 0; x--) D[y * W + x] = Math.min(D[y * W + x], at(x + 1, y) + 1, at(x, y + 1) + 1, at(x + 1, y + 1) + S2, at(x - 1, y + 1) + S2);
+  return (x, y) => { const ix = Math.floor(x) + DR, iy = Math.floor(y) + DR; return ix < 0 || iy < 0 || ix >= W || iy >= H ? 30 : D[iy * W + ix]; };
+}
+// за первой линией (≈2 клетки от земли) — склон вниз и плавное затемнение: деревья ниже и темнее, земля под ними тонирована полупрозрачным тёмным
+const SLOPE = d => Math.min(2.6, Math.max(0, d - 2) * 0.32), DARK = d => Math.min(0.78, Math.max(0, d - 1.5) / 9 * 0.78);
+function shadeDef(m, depth) {
+  return { id: 'nt_shade', kind: 'prop', batch: true, outline: false, shadow: false, receive: false, build() {
+    const pos = [], col = [], idx = [], x0 = -DR, y0 = -DR, W = m.w + DR * 2, H = m.h + DR * 2;
+    for (let y = 0; y <= H; y++) for (let x = 0; x <= W; x++) { const tx = x0 + x, ty = y0 + y, d = (depth(tx - 0.5, ty - 0.5) + depth(tx, ty) + depth(tx - 0.5, ty) + depth(tx, ty - 0.5)) / 4; pos.push(tx, 0.05, ty); col.push(0.02, 0.04, 0.03, DARK(d)); }
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const a = y * (W + 1) + x, b = a + 1, c = a + W + 1, e = c + 1; idx.push(a, c, b, b, c, e); }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 4)); g.setIndex(idx);
+    const mt = new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, depthWrite: false });
+    const root = new THREE.Group(); root.add(new THREE.Mesh(g, mt)); return { root };
+  } };
+}
 function newTrees(lists, PROPS, extra, m) {
+  const depth = depthField(m), sd = shadeDef(m, depth); extra[sd.id] = sd; lists.set(sd.id, [{ x: 0, y: 0, rot: 0, s: 1 }]);
+  const sink = it => { const d = depth(it.x, it.y); it.h = Math.min(it.h || 0, -SLOPE(d)); const f = 1 - DARK(d) * 0.75; it.col = (it.col ? it.col.clone() : new THREE.Color(1, 1, 1)).multiplyScalar(f); };
+  let minX = 0, minY = 0; for (const [id, list] of lists) if (id.endsWith('_far')) for (const it of list) { minX = Math.min(minX, it.x); minY = Math.min(minY, it.y); }
   for (const [id, list] of [...lists]) {
     const far = id.endsWith('_far'), src = far ? id.slice(0, -4) : id;
     if (!NT_OF(src, 0, 0) || !(PROPS[src] && PROPS[src].build) && src !== 'bush') continue;
@@ -191,7 +216,18 @@ function newTrees(lists, PROPS, extra, m) {
       const lo = far || (edge && !row1 && !row2), def = liveOf(kind, lo);
       const big = kind === 'bush' ? 0.8 + r * 0.5 : row1 ? (r < 0.2 ? 1.45 + r : 0.7 + r * 0.6) : row2 ? 1.0 + r * 0.7 : far ? 1.6 + r * 0.8 : 1.3 + r * 0.7;
       it.rot = hash(it.x + 1, it.y + 9) * 6.283; it.s = (kind === 'bush' ? 0.7 + (it.s || 1) * 0.3 : 0.8 + ((it.s || 1) - 0.75) * 0.4) * (src === 'tree_sapling' ? 0.7 : 1) * big;
+      sink(it);
       extra[def.id] = def; if (!lists.has(def.id)) lists.set(def.id, []); lists.get(def.id).push(it);
+      // гуще в глубине: у дальнего дерева два соседа рядом, у крайнего ряда за картой — ещё два дальше наружу (закрывают чёрный край), у дерева глубины края — один сосед на непроходимой клетке
+      if (lo && kind !== 'bush') {
+        const out = far && (it.x < minX + 3 || it.y < minY + 3), n = far ? (out ? 4 : 2) : 1;
+        for (let k = 0; k < n; k++) {
+          const a = hash(it.x + k * 3.1, it.y - k * 1.7) * 6.283, d = k < 2 ? (far ? 1.5 : 0.8) + hash(it.y + k, it.x) * 0.8 : 3 + k * 2.2, ox = k < 2 ? Math.cos(a) * d : -(it.x < minX + 3 ? d : 0) + Math.cos(a), oy = k < 2 ? Math.sin(a) * d : -(it.y < minY + 3 ? d : 0) + Math.sin(a);
+          const x = it.x + ox, y = it.y + oy; if (!far && !(outskirt(m, x, y) && !nearWalk(m, x, y, 2))) continue;
+          const kk = hash(x * 1.3, y + 7) < 0.4 ? 'fir' : kind, dd = liveOf(kk, true); extra[dd.id] = dd; if (!lists.has(dd.id)) lists.set(dd.id, []);
+          const c = { ...it, x, y, h: 0, col: null, rot: hash(x + 2, y) * 6.283, s: it.s * (0.8 + hash(y, x + 3) * 0.5) }; sink(c); lists.get(dd.id).push(c);
+        }
+      }
     }
     if (keep.length) lists.set(id, keep); else lists.delete(id);
   }
