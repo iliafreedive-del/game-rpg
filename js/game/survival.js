@@ -133,7 +133,7 @@ const TYPES = [
 ];
 export function startRun(mode = G.survMode || 'std') {
   const intro = !(G.profile.story && G.profile.story.flags && G.profile.story.flags.bossKilled), M = MODES[mode] || MODES.std;
-  const S = G.surv = { t: 0, kills: 0, lvl: 1, xp: 0, next: 10, swarm: [], gems: [], projs: [], eprojs: [], pools: [], w: { main: 1 }, p: {}, evo: {}, cd: {}, spawnT: 0, eliteT: 75, guardN: 0, guardKills: 0, bossT: 600, bossKills: 0, gold: 0, over: false, hp0: G.stats.maxHP, ach: {}, orbit: 0, pending: 0, intro, rerolls: 0, pow: heroPower(), mode: intro ? 'std' : mode, goal: M.min * 60, tk: intro ? 1 : Math.pow(20 / M.min, M.min > 20 ? 0.75 : 0.35), xpK: mode === 'short' && !intro ? 0.7 : 1, builds: {}, bm: {}, drops: [], rains: [], bolts: [] };
+  const S = G.surv = { t: 0, kills: 0, lvl: 1, xp: 0, next: 10, swarm: [], gems: [], projs: [], eprojs: [], pools: [], w: { main: 1 }, p: {}, evo: {}, cd: {}, spawnT: 0, eliteT: 75, guardN: 0, guardKills: 0, bossT: 600, bossKills: 0, gold: 0, over: false, hp0: G.stats.maxHP, ach: {}, orbit: 0, pending: 0, intro, rerolls: 0, pow: heroPower(), mode: intro ? 'std' : mode, goal: M.min * 60, tk: intro ? 1 : Math.pow(20 / M.min, M.min > 20 ? 0.75 : 0.35), xpK: mode === 'short' && !intro ? 0.7 : 1, builds: {}, bm: {}, drops: [], rains: [], bolts: [], invAt: INV_T, inv: [], invSeen: [], invQ: 0 };
   if (S.mode === 'short') S.bossT = 300;
   G.player.hp = G.stats.maxHP; G.auto = false;
   setTimeout(() => bus.emit('toast', { text: 'Жатва Бездны', sub: intro ? 'Староста держит портал 3 минуты: бегайте, герой бьёт сам. Каждый уровень забега — опыт герою' : 'Только бегайте — герой бьёт сам. Каждый уровень забега даёт опыт герою.', kind: 'quest' }), 400);   // сборка 59: когда табло Жатвы уже на экране — тост встаёт под ним, а не под «Сдаться»
@@ -158,10 +158,13 @@ export function updateSurvival(dt) {
     const n = 1 + Math.floor(mins / 1.2);
     const pool = TYPES.filter(t => S.t >= t.from);
     const melee = pool.filter(t => !t.shoot), shooters = S.swarm.filter(e => e.shoot).length;
-    for (let i = 0; i < n; i++) { let t = pool[Math.floor(rand() * pool.length)]; if (t.shoot && (rand() < 0.55 || shooters > S.swarm.length * 0.22)) t = melee[Math.floor(rand() * melee.length)]; spawn(t, false); }   // стрелков — не больше пятой части толпы
+    for (let i = 0; i < n; i++) { let t = pool[Math.floor(rand() * pool.length)]; if (t.shoot && (rand() < 0.55 || shooters > S.swarm.length * 0.22)) t = melee[Math.floor(rand() * melee.length)];
+      if (S.inv.length && (S.invQ > 0 || rand() < INV_SHARE)) { const g = pickGuest(S, shooters); if (g) { t = g; if (S.invQ > 0) S.invQ--; } }   // сборка 73: гости других краёв занимают места обычных врагов
+      spawn(t, false); }   // стрелков — не больше пятой части толпы
   }
+  invasions(S);
   S.eliteT -= dt; if (S.eliteT <= 0) { S.eliteT = 90; const g = GUARDS[S.guardN++ % GUARDS.length]; spawn(g, true); bus.emit('toast', { text: g.name + '!', sub: g.tip, kind: 'warn' }); }   // правки 3: стражи по очереди разные
-  S.bossT -= dt; if (S.bossT <= 0) { S.bossT = 600; spawn({ type: 'boss', hp: 3000, spd: 2.2, dmg: 28, xp: 120 }, true, true); bus.emit('toast', { text: 'Палач жатвы пришёл за вами!', kind: 'warn' }); bus.emit('sfx', 'roar'); }
+  S.bossT -= dt; if (S.bossT <= 0) { S.bossT = 600; S.bossAt = S.t; spawn({ type: 'boss', hp: 3000, spd: 2.2, dmg: 28, xp: 120 }, true, true); bus.emit('toast', { text: 'Палач жатвы пришёл за вами!', kind: 'warn' }); bus.emit('sfx', 'roar'); }
   // enemies: chase + cheap separation via spatial hash
   const grid = new Map(); const key = (x, y) => (x | 0) * 1000 + (y | 0);
   for (const e of S.swarm) { const k = key(e.x, e.y); let a = grid.get(k); if (!a) grid.set(k, a = []); a.push(e); }
@@ -170,23 +173,25 @@ export function updateSurvival(dt) {
     e.t += dt; e.flash -= dt; e.hitCd -= dt; if (e.slowT > 0) e.slowT -= dt; if (e.burn > 0) { e.burn -= dt; hitE(e, e.burnDps * dt, true); }
     let vx = pl.x - e.x, vy = pl.y - e.y; const d = Math.hypot(vx, vy) || 1; vx /= d; vy /= d;
     if (e.g) { const v = guardAI(e, d, vx, vy, dt); vx = v[0]; vy = v[1]; }
+    else if (e.inv) { const v = guestAI(e, d, vx, vy, dt); vx = v[0]; vy = v[1]; }
     if (e.shoot) {   // стрелок держит дистанцию 5–8 м и раз в 2,6 с пускает медленный снаряд в героя: от него можно увернуться
       e.shotCd = (e.shotCd ?? 1 + rand() * 1.5) - dt; if (d >= 11 && e.shotCd < 0.5) e.shotCd = 0.5;   // далеко — ждёт с опущенным луком
       // правки 5: перед выстрелом (натяжение, 0,5 с) и сразу после стрелок стоит, а не перебирает ногами на месте
       if ((e.shotCd < 0.5 && d < 11) || e.hitCd > 0.5) { vx = 0; vy = 0; } else if (d < 5) { vx = -vx * 0.6; vy = -vy * 0.6; } else if (d < 8) { vx = 0; vy = 0; }
-      if (e.shotCd <= 0 && d < 11) { e.shotCd = 2.6; e.hitCd = 0.9; const sp = e.shoot === 'arrow' ? 8 : 6;
-        S.eprojs.push({ kind: e.shoot, x: e.x, y: e.y, vx: (pl.x - e.x) / d * sp, vy: (pl.y - e.y) / d * sp, dmg: e.dmg, life: 2.4 }); bus.emit('sfx', e.shoot === 'arrow' ? 'bow' : 'cast'); }
+      if (e.shotCd <= 0 && d < 11) { e.shotCd = 2.6; e.hitCd = 0.9; const sp = e.shoot === 'arrow' ? 8 : 6, V = e.D && e.D.abil && e.D.abil.volley, n = V ? V.n : 1;   // гость: снаряд своего края (стрела браконьера, кость, камень, сосулька), у Плакальщицы — веер
+        for (let i = 0; i < n; i++) { const a = Math.atan2(pl.y - e.y, pl.x - e.x) + (V ? (i - (n - 1) / 2) * V.spread : 0); S.eprojs.push({ kind: e.shoot, x: e.x, y: e.y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, dmg: e.dmg * (V ? 0.7 : 1), life: 2.4, src: e.inv ? e : null, t: 0 }); }
+        bus.emit('sfx', e.shoot === 'arrow' ? 'bow' : 'cast'); }
     }
     for (let gx = -1; gx <= 1; gx++) for (let gy = -1; gy <= 1; gy++) { const a = grid.get(key(e.x + gx, e.y + gy)); if (a) for (const o of a) { if (o === e) continue; const ox = e.x - o.x, oy = e.y - o.y, dd = ox * ox + oy * oy, rr = (e.r + o.r) * 0.9; if (dd < rr * rr && dd > 1e-4) { const k2 = (rr - Math.sqrt(dd)) * 3; vx += ox * k2; vy += oy * k2; } } }
     if (e.frozen > 0) e.frozen -= dt; const sp = e.spd * (e.dash > 0 ? 3.6 : 1) * (e.slowT > 0 && !(e.dash > 0) ? 0.5 : 1) * (e.frozen > 0 ? 0 : 1) * dt; const nx = e.x + vx * sp, ny = e.y + vy * sp;
     if (!map.blocked(nx | 0, ny | 0)) { e.x = nx; e.y = ny; }
     e.dir = dirOf8(vx, vy);
-    if (!e.shoot && d < e.r + pl.r + 0.15 && e.hitCd <= 0 && pl.inv <= 0) { e.hitCd = 0.9; C.hurtPlayer({ lvl: heroL() + (mins | 0) }, e.dmg * (e.dash > 0 ? 1.6 : 1) * (1 - (S.p.plate || 0) * 0.08), 'phys'); }
+    if (!e.shoot && d < e.r + pl.r + 0.15 && e.hitCd <= 0 && pl.inv <= 0) { e.hitCd = 0.9; C.hurtPlayer({ lvl: heroL() + (mins | 0), D: e.D, name: e.name }, e.dmg * (e.dash > 0 ? 1.6 : 1) * (1 - (S.p.plate || 0) * 0.08), 'phys'); if (e.inv && fxOk(S)) C.mobStrikeFx(e, pl); }   // гость: укус, когти, клыки, ледяной или каменный удар — как в его локации
   }
   weapons(dt);
   // снаряды стрелков
-  for (const p of S.eprojs) { p.life -= dt; p.x += p.vx * dt; p.y += p.vy * dt;
-    if (pl.inv <= 0 && (p.x - pl.x) ** 2 + (p.y - pl.y) ** 2 < (pl.r + 0.25) ** 2) { p.life = 0; C.hurtPlayer({ lvl: heroL() + (mins | 0) }, p.dmg * (1 - (S.p.plate || 0) * 0.08), 'phys'); }
+  for (const p of S.eprojs) { p.life -= dt; p.x += p.vx * dt; p.y += p.vy * dt; p.t = (p.t || 0) + dt;
+    if (pl.inv <= 0 && (p.x - pl.x) ** 2 + (p.y - pl.y) ** 2 < (pl.r + 0.25) ** 2) { p.life = 0; C.hurtPlayer({ lvl: heroL() + (mins | 0), D: p.src && p.src.D, name: p.src && p.src.name }, p.dmg * (1 - (S.p.plate || 0) * 0.08), p.kind === 'shard' ? 'cold' : 'phys'); if (p.src && fxOk(S)) C.projHitFx({ owner: 'e', kind: p.kind, src: p.src, vx: p.vx, vy: p.vy }, p.x, p.y); }
     else if (map.blocked(p.x | 0, p.y | 0)) p.life = 0; }
   S.eprojs = S.eprojs.filter(p => p.life > 0);
   // бесконечное поле
@@ -273,7 +278,7 @@ function spawn(t, elite, boss) {
   const [x, y] = p;
   const mins = S.t / 60 * S.tk, L = heroL(), hpMul = (elite && !boss ? 1 + mins * 0.3 : timeHP(mins)) * lvlHP(L);   // стражи крепнут медленнее толпы: их должно быть реально убить
   const D = ENEMIES[t.type];
-  S.swarm.push({ type: t.type, model: t.model, scale: t.scale, g: t.g, name: t.name, shoot: t.shoot, atlas: D.atlas, x, y, hp: t.hp * hpMul, max: t.hp * hpMul, spd: t.spd * (1 + mins * 0.02), dmg: t.dmg * lvlDmg(L) * timeDmg(mins), xp: t.xp, r: boss ? 0.8 : elite ? 0.55 : t.type === 'beast' ? 0.45 : 0.32, t: rand() * 2, flash: 0, hitCd: 0, dir: 0, elite, boss, gcd: 2 + rand() * 2 });
+  S.swarm.push({ type: t.type, model: t.model, scale: t.scale, g: t.g, name: t.name, shoot: t.shoot, atlas: D.atlas, x, y, hp: t.hp * hpMul, max: t.hp * hpMul, spd: t.spd * (1 + mins * 0.02), dmg: t.dmg * lvlDmg(L) * timeDmg(mins), xp: t.xp, r: t.r || (boss ? 0.8 : elite ? 0.55 : t.type === 'beast' ? 0.45 : 0.32), t: rand() * 2, flash: 0, hitCd: 0, dir: 0, elite, boss, gcd: 2 + rand() * 2, inv: t.inv, D: t.inv ? D : undefined, realm: t.realm, icd: 1.5 + rand() * 3 });
 }
 // ---------------------------------------------------------------- стражи жатвы (правки 3): у каждого свой вид, походка и приём
 const GUARDS = [
@@ -302,6 +307,125 @@ function guardAI(e, d, vx, vy, dt) {
     if (d < 5.5) return [-vx * 0.7, -vy * 0.7]; if (d < 8) return [vx * 0.1, vy * 0.1];
   }
   return [vx, vy];
+}
+// ---------------------------------------------------------------- гости других краёв (сборка 73)
+// Каждые 5 минут забега к рою присоединяется случайный край: Старый лес, Фьорды, Пустоши, Храм или Катакомбы. Его мобы выходят
+// вместе с нежитью Жатвы (≈ каждый третий новый враг) и бьют своими приёмами с эффектами своих локаций (листы combat.js ATK_FX, data/wild.js).
+// Потолок толпы прежний: гости занимают места обычных врагов — моделей и отрисовок в кадре не больше. Сила — от той же волны (spawn: timeHP/timeDmg)
+const INV_T = 300, INV_SHARE = 0.33;
+const INV = {
+  forest: { name: 'Старого леса', types: ['w_wolf', 'w_boar', 'w_poacher', 'w_leshy', 'w_bear'] },
+  fjord: { name: 'Фьордов', types: ['f_wolf', 'f_draugr', 'f_berserk', 'f_hag', 'f_jotun'] },
+  bones: { name: 'Костяных пустошей', types: ['b_hyena', 'b_raider', 'b_boar', 'b_thrower', 'b_shaman', 'b_scorpid'] },
+  temple: { name: 'Разрушенного храма', types: ['t_hound', 't_warden', 't_boar', 't_archer', 't_priest', 't_golem'] },
+  crypt: { name: 'Катакомб', types: ['bone_wolf', 'mb_grave_weeper'] },
+};
+const SKILL = { pack: 'lunge', charge: 'lunge', giant: 'slam', root: 'root', archer: 'shot', caster: 'shot' };
+const ALT = { fjord: 'breath', bones: 'pounce', temple: 'quake' };   // второй приём стаи края, как в походах (wildai.js PACK_ALT)
+const SLAM_FX = { w_bear: 'fr_bear_slam', f_jotun: 'fj_ice_spikes', b_scorpid: 'bn_scorpid_strike', t_golem: 'tm_stone_spikes' };
+const ROOT_FX = { w_leshy: 'fr_roots_erupt', b_shaman: 'bn_bone_spikes', t_priest: 'tm_wind_tornado' };
+const TELE_FX = { w_leshy: 'fr_roots_tele', t_priest: 'tm_wind_tele', f_jotun: 'fj_ice_tele' };
+const HIT_FX = { f_draugr: 'fj_frost_slash', f_berserk: 'fj_frost_slash', t_warden: 'tm_stone_slash' };
+const PROJ_FX = { w_poacher: ['fr_poacher_arrow', 'fr_arrow_hit'], b_thrower: ['bn_bone_javelin'], t_archer: ['tm_rock_throw', 'tm_rock_impact'], f_hag: ['fj_icicle', 'fj_icicle_hit'], mb_grave_weeper: ['ct_darkbolt', 'ct_darkbolt_hit'] };
+const COL = { forest: [110, 230, 70], temple: [255, 150, 60], bones: [255, 200, 120], fjord: [150, 215, 255], crypt: [190, 120, 255] };
+const STYLE = { forest: 'roots', temple: 'stone', bones: 'bone', fjord: 'ice', crypt: 'bone' };
+const invCache = {};
+// моб края → враг Жатвы: числа в масштабе роя (скелет-воин похода 22 HP ↔ скелет Жатвы 14 HP), дальше крепнет с волной, как все
+function invType(type) {
+  if (invCache[type]) return invCache[type];
+  const D = ENEMIES[type], ai = D.base || D.ai, k = SKILL[ai] || 'melee';
+  return (invCache[type] = { type, name: D.name, inv: k, realm: D.realm || 'crypt', hp: D.hp * 0.65, spd: D.speed * 0.8, dmg: (D.dmg[0] + D.dmg[1]) * 0.75, xp: Math.min(8, Math.max(1, Math.round(D.xp / 11))),
+    shoot: k === 'shot' ? D.proj : undefined, r: Math.min(0.6, D.radius || 0.34), w: D.abil ? 0.12 : ai === 'giant' ? 0.2 : ai === 'root' ? 0.5 : 1 });
+}
+const mobOk = t => !G.mobReady || G.mobReady(t);   // 3D: модель края уже загружена (render3d/renderer3d.js); пока нет — гость не выходит
+function pickGuest(S, shooters) {
+  let sum = 0; const list = [], giants = S.swarm.reduce((n, e) => n + (e.inv === 'slam' || (e.D && e.D.abil) ? 1 : 0), 0);   // великанов и Плакальщиц — не больше трёх разом
+  for (const r of S.inv) for (const ty of INV[r].types) { const t = invType(ty); if (t.shoot && shooters > S.swarm.length * 0.22) continue; if (t.w < 1 && giants >= 3) continue; if (!mobOk(ty)) continue; list.push(t); sum += t.w; }
+  let x = rand() * sum; for (const t of list) { x -= t.w; if (x <= 0) return t; } return null;
+}
+// эффекты гостей — не больше 6 в секунду на всех (их много, а листы — это заливки)
+function fxOk(S) { if (G.time - (S.fxAt || 0) > 1) { S.fxAt = G.time; S.fxN = 0; } return S.fxN++ < 6; }
+function prepRealm(r) {
+  for (const ty of INV[r].types) { mobOk(ty); for (const id of [SLAM_FX[ty], ROOT_FX[ty], TELE_FX[ty], HIT_FX[ty], ...(PROJ_FX[ty] || [])]) if (id) fxReady(id); }
+  for (const k of ['bite', 'claw', 'gore', 'charge_crash']) fxReady('mob_' + k);
+}
+function invasions(S) {
+  if (S.intro) return;
+  if (!S.invNext && S.t >= S.invAt - 25) {   // край выбран за 25 с: модели и листы успевают загрузиться
+    const fresh = Object.keys(INV).filter(r => !S.inv.includes(r)), all = fresh.length ? fresh : Object.keys(INV);
+    S.invNext = all[Math.floor(rand() * all.length)]; prepRealm(S.invNext);
+  }
+  if (!S.invNext || S.t < S.invAt || (S.bossT < 15 || S.t - (S.bossAt ?? -99) < 12)) return;   // Палач и гости не приходят вместе
+  const r = S.invNext; S.invNext = null; S.invAt += INV_T;
+  if (!S.inv.includes(r)) S.inv.push(r);
+  S.invQ += 8;   // первые 8 новых врагов — гости этого края
+  const R = INV[r], names = [...new Set(R.types.map(t => invType(t).name))].slice(0, 3).join(', ');
+  bus.emit('toast', { text: 'Из ' + R.name + ' пришли гости!', sub: names, kind: 'warn' }); bus.emit('sfx', 'roar');
+}
+// приёмы гостей: стая и кабаны — бросок (у стай Фьордов, Пустошей, Храма через раз — дыхание, прыжок, шипы); великаны — удар
+// по земле; леший, шаман, дух ветра — корни/кости/вихрь под героем; стрелки — обычный выстрел роя своим снарядом
+function guestAI(e, d, vx, vy, dt) {
+  const S = G.surv, pl = G.player, k = e.inv; e.icd -= dt;
+  if (e.dash > 0) { e.dash -= dt; return [e.dx, e.dy]; }
+  if (e.act) {
+    const A = e.act; A.t += dt; if (A.t < A.dur) return [vx * 1e-3, vy * 1e-3];
+    e.act = null; guestHit(e, A);
+    return e.dash > 0 ? [e.dx, e.dy] : [vx * 1e-3, vy * 1e-3];
+  }
+  if (e.icd > 0 || k === 'shot' || k === 'melee') return [vx, vy];
+  const col = COL[e.realm], a = Math.atan2(vy, vx);
+  if (k === 'lunge' && d > 2 && d < 5) {
+    const alt = ALT[e.realm] && e.type !== 'b_boar' && e.type !== 't_boar' && (e.altN = (e.altN || 0) + 1) % 2 === 0 ? ALT[e.realm] : 'lunge';
+    if (alt === 'breath' && d > 3.3) return [vx, vy];
+    e.icd = 4.5 + rand() * 1.5; e.dx = vx; e.dy = vy;
+    const tx = alt === 'pounce' ? e.x + Math.cos(a) * Math.min(4.2, d) : e.x, ty = alt === 'pounce' ? e.y + Math.sin(a) * Math.min(4.2, d) : e.y;
+    e.act = { k: alt, t: 0, dur: 0.6, a, x: tx, y: ty };
+    C.effect({ kind: 'ring', x: tx, y: ty, r: alt === 'pounce' ? 1.25 : 1.1, dur: 0.6, c: col });
+    return [vx * 1e-3, vy * 1e-3];
+  }
+  if (k === 'slam' && (d < 2.6 || (e.type === 'f_jotun' && d < 7))) {
+    const far = e.type === 'f_jotun', x = far ? pl.x : e.x, y = far ? pl.y : e.y, R = far ? 2.1 : 2.6;
+    e.icd = 4 + rand(); e.act = { k: 'slam', t: 0, dur: 0.85, x, y, r: R, a };
+    if (!(TELE_FX[e.type] && C.sheet(TELE_FX[e.type], x, y, { size: R * 2.2, dur: 0.85 }))) C.effect({ kind: 'ring', x, y, r: R, dur: 0.85, c: col });
+    return [vx * 1e-3, vy * 1e-3];
+  }
+  if (k === 'root' && d < 9) {
+    e.icd = 4.5 + rand() * 1.5; e.act = { k: 'root', t: 0, dur: 0.9, x: pl.x, y: pl.y, r: 1.8, a };
+    if (!(TELE_FX[e.type] && C.sheet(TELE_FX[e.type], pl.x, pl.y, { size: 4, dur: 0.9 }))) C.effect({ kind: 'ring', x: pl.x, y: pl.y, r: 1.8, dur: 0.9, c: col });
+    return [vx * 1e-3, vy * 1e-3];
+  }
+  return [vx, vy];
+}
+function guestHit(e, A) {
+  const S = G.surv, pl = G.player, col = COL[e.realm], st = STYLE[e.realm], mins = S.t / 60 * S.tk;
+  const hurt = (m, elem) => { if (pl.inv <= 0) C.hurtPlayer({ lvl: heroL() + (mins | 0), D: e.D, name: e.name }, e.dmg * m * (1 - (S.p.plate || 0) * 0.08), elem || 'phys'); };
+  const fx = fxOk(S);
+  if (A.k === 'lunge') { e.dash = 0.5; bus.emit('sfx', 'whirl'); return; }   // бросок: удар — при касании (updateSurvival, ×1,6), лист укуса/клыков — там же
+  if (A.k === 'breath') {   // ледяное дыхание конусом
+    const dx = pl.x - e.x, dy = pl.y - e.y, dd = Math.hypot(dx, dy), da = Math.abs(((Math.atan2(dy, dx) - A.a + 9.42) % 6.283) - 3.14);
+    if (fx) for (let i = 1; i <= 3; i++) C.effect({ kind: 'shatter', x: e.x + Math.cos(A.a) * i, y: e.y + Math.sin(A.a) * i, r: 0.3 + i * 0.1, dur: 0.6, seed: rand() * 6 });
+    if (dd < 3.4 && da < 0.5) { hurt(1, 'cold'); pl.slowT = Math.max(pl.slowT || 0, 1.6); }
+    bus.emit('sfx', 'ice'); return;
+  }
+  if (A.k === 'pounce') {   // прыжок гиены на точку: короткий бросок, удар — при касании; на месте приземления — пыль
+    const dd = Math.hypot(A.x - e.x, A.y - e.y) || 1; e.dx = (A.x - e.x) / dd; e.dy = (A.y - e.y) / dd; e.dash = Math.min(0.6, dd / (e.spd * 3.6));
+    if (fx) { C.effect({ kind: 'ring', x: A.x, y: A.y, r: 1.25, dur: 0.5, c: [210, 180, 140] }); C.particles(A.x, A.y, 10, { c: [170, 150, 120], z: 0.1, sp: 2.5, vz: 2, g: 5, size: 4, add: false }); }
+    return;
+  }
+  if (A.k === 'quake') {   // каменные шипы по прямой
+    if (fx) for (let i = 1; i <= 4; i++) C.effect({ kind: 'spikes', x: e.x + Math.cos(A.a) * i * 1.1, y: e.y + Math.sin(A.a) * i * 1.1, r: 0.6, dur: 0.7, style: 'stone', seed: rand() * 6, n: 3 });
+    const t = (pl.x - e.x) * Math.cos(A.a) + (pl.y - e.y) * Math.sin(A.a), n = Math.abs(-(pl.x - e.x) * Math.sin(A.a) + (pl.y - e.y) * Math.cos(A.a));
+    if (t > 0 && t < 4.8 && n < 0.9) hurt(1.2); bus.emit('sfx', 'boom'); return;
+  }
+  // удар по земле (великаны) и корни/кости/вихрь под героем (колдуны краёв)
+  const id = A.k === 'slam' ? SLAM_FX[e.type] : ROOT_FX[e.type];
+  if (!(id && C.sheet(id, A.x, A.y, { a: A.a, size: A.r * 2.3, ex: e.x, ey: e.y }))) {
+    if (st) C.effect({ kind: 'spikes', x: A.x, y: A.y, r: A.r, dur: 0.8, style: st, seed: rand() * 6, n: Math.round(5 + A.r * 3) });
+    else C.effect({ kind: 'wave', x: A.x, y: A.y, r: A.r, dur: 0.45, c: col });
+  }
+  if (fx) C.particles(A.x, A.y, 10, { c: col, z: 0.2, sp: 2.5, vz: 2.5, g: 6, size: 4, add: false });
+  bus.emit('sfx', A.k === 'slam' ? 'boom' : 'cast');
+  if ((pl.x - A.x) ** 2 + (pl.y - A.y) ** 2 < (A.r + pl.r) ** 2) { hurt(A.k === 'slam' ? 1.6 : 1.2, e.realm === 'fjord' ? 'cold' : 'phys'); if (A.k === 'root' || e.realm === 'fjord') pl.slowT = Math.max(pl.slowT || 0, 1.6); }
 }
 function hitE(e, d, quiet) {
   const S = G.surv; let crit = false; if (S.builds.frost && e.slowT > 0) d *= 1.25; if (!quiet && rand() < G.stats.critChance + (S.p.eye || 0) * 0.04) { d *= G.stats.critMult; crit = true; }
@@ -565,6 +689,10 @@ export function drawSurvivalFx(ctx, cam) {
     else { ctx.strokeStyle = 'rgba(170,140,255,0.5)'; ctx.lineWidth = 6 * z; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - Math.cos(ang) * 30 * z, y - Math.sin(ang) * 30 * z); ctx.stroke(); blit(ctx, boltSpr(), x, y, 52 * z); }
   }
   for (const p of S.eprojs || []) {   // снаряды стрелков — крупные и яркие, чтобы было видно, откуда летит
+    if (p.src) {   // сборка 73: снаряд гостя — лист его края (стрела браконьера, костяное копьё, камень, сосулька, тёмный сгусток)
+      const id = C.projSheetOf({ owner: 'e', kind: p.kind, src: p.src });
+      if (id && fxReady(id)) { const [x, y] = cam.toScreen(p.x, p.y, 1.0), [x2, y2] = cam.toScreen(p.x - p.vx * 0.05, p.y - p.vy * 0.05, 1.0); ctx.globalCompositeOperation = 'source-over'; const ok = drawProjSheet(ctx, cam, id, p.x, p.y, 1.0, Math.atan2(y - y2, x - x2), p.t || 0); ctx.globalCompositeOperation = 'lighter'; if (ok) continue; }
+    }
     if (p.kind === 'arrow') {   // сборка 60 (П14/П13): у лучника — стрела (светлое древко с оперением), а не огненный шар; магия — у колдунов позже
       const [x, y] = cam.toScreen(p.x, p.y, 1.0), [x2, y2] = cam.toScreen(p.x - p.vx * 0.09, p.y - p.vy * 0.09, 1.0), a = Math.atan2(y - y2, x - x2), L = Math.hypot(x - x2, y - y2) || 1;
       ctx.save(); ctx.globalCompositeOperation = 'source-over'; ctx.translate(x, y); ctx.rotate(a); ctx.lineCap = 'round';

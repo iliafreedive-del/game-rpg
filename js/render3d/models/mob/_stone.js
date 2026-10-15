@@ -17,17 +17,17 @@ const beastFb = (kit, o) => beastModel(kit, { anat: 'wolf', strip: 'short', tw: 
 // зверь на скелете волка (ригнутая GLB); h — рост в игре
 // ready(kit) — модель уже загружена; если моб был собран раньше (запасной процедурный), renderer3d пересобирает его, как только модель
 // догрузится (правки 2, П17–18: на медленной сети пак не успевал за 8 с, и мобы храма оставались скелетами до конца уровня)
-const wolfRig = (id, glb, h, fb) => ({ id, kind: 'mob', outline: 'mob', ready: kit => !!(kit.mob && kit.mob.mobLoaded(glb)), build(kit) {
+const wolfRig = (id, glb, h, fb) => ({ id, kind: 'mob', outline: 'mob', glbFile: glb, ready: kit => !!(kit.mob && kit.mob.mobLoaded(glb)), build(kit) {
   if (kit.mob && kit.skin.SKINS.on && kit.mob.mobLoaded(glb)) { const m = kit.mob.buildMob(kit, glb, { height: h, radius: 0.3 * h, shadow: 1.3 * h, rimColor: RIM, rim: RIM_K, tint: TINT }); if (m) return m; }
   return beastFb(kit, { id, ...fb });
 } });
 // зверь на риге процедурного зверя (статичная GLB, кости ставятся по сетке)
-const beastRig = (id, glb, h, fb) => ({ id, kind: 'mob', outline: 'mob', ready: kit => !!(kit.mob && kit.mob.mobLoaded(glb)), build(kit) {
+const beastRig = (id, glb, h, fb) => ({ id, kind: 'mob', outline: 'mob', glbFile: glb, ready: kit => !!(kit.mob && kit.mob.mobLoaded(glb)), build(kit) {
   if (kit.mob && kit.skin.SKINS.on && kit.mob.mobLoaded(glb)) { const m = beastGlb(kit, glb, { height: h, rimColor: RIM, rim: RIM_K, tint: TINT }); if (m) return m; }
   return beastFb(kit, { id, anat: 'boar', tusks: true, ears: 'round', ...fb });
 } });
 // воин: шкура <skin> поверх процедурного скелета
-const warrior = (id, skin, o = {}) => ({ id, kind: 'mob', outline: 'mob', ready: kit => kit.skin.skinLoaded(skin), build(kit) {
+const warrior = (id, skin, o = {}) => ({ id, kind: 'mob', outline: 'mob', skinFile: skin, ready: kit => kit.skin.skinLoaded(skin), build(kit) {
   return mobSkin(kit, skeleton(kit, { head: 'great', pal: STONE, cloth: 0x6a6a52, clothL: 0xa8a482, rimColor: RIM, weapons: {}, ...o }), skin, { rimColor: RIM, rim: RIM_K, tint: TINT });
 } });
 

@@ -449,7 +449,7 @@ export function projSheetOf(p) {
   return { arrow: realm === 'forest' ? 'fr_poacher_arrow' : realm ? null : 'ct_bone_arrow', darkbolt: 'ct_darkbolt', rock: 'tm_rock_throw', bone: 'bn_bone_javelin', shard: 'fj_icicle' }[p.kind] || null;
 }
 const PROJ_HIT = { proj_ice_shard: 'hit_ice', proj_arrow: 'hit_arrow', proj_star_bolt: 'hit_star_bolt', proj_pierce_shot: 'hit_pierce_shot', fr_poacher_arrow: 'fr_arrow_hit', ct_bone_arrow: 'hit_arrow', ct_darkbolt: 'ct_darkbolt_hit', tm_rock_throw: 'tm_rock_impact', fj_icicle: 'fj_icicle_hit' };
-function projHitFx(p, x, y, z = 0.9) { const h = PROJ_HIT[projSheetOf(p)]; return !!h && sheet(h, x, y, { z: z * 0.6, ex: x - p.vx, ey: y - p.vy }); }
+export function projHitFx(p, x, y, z = 0.9) { const h = PROJ_HIT[projSheetOf(p)]; return !!h && sheet(h, x, y, { z: z * 0.6, ex: x - p.vx, ey: y - p.vy }); }
 function projEnd(p, wall) {
   p.dead = true;
   if ((wall || p.owner !== 'p') && !p.aoe && projHitFx(p, p.x, p.y)) return;
