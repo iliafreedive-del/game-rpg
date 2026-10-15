@@ -99,9 +99,11 @@ export function heroPower(s = G.stats, cls = (G.profile && G.profile.cls) || 'wa
 // ---------------------------------------------------------------- arena
 // сборка 50: поле бесконечное, как в старой «змейке». Убранство повторяется плиткой TILE×TILE, а когда герой отходит от центра
 // дальше WRAP, весь мир (герой, враги, кристаллы, снаряды, камера) незаметно сдвигается на TILE назад — картинка та же, края нет.
-export const TILE = 40, WRAP = 20, ARENA_C = 60;
+// сборка 73: карта 200×200 (было 120) — при сдвиге герой оказывался в 38 клетках от края, и на большом экране с отдалённым зумом
+// вверху виднелась стена арены (появлялась после шага вниз, пропадала после шага вверх). Теперь до края ≥78 клеток — за кадром и в тумане
+export const TILE = 40, WRAP = 20, ARENA_C = 100;
 export function generateArena() {
-  const W = 120, H = 120, rows = [];
+  const W = 200, H = 200, rows = [];
   for (let y = 0; y < H; y++) { let r = ''; for (let x = 0; x < W; x++) r += (x < 2 || y < 2 || x >= W - 2 || y >= H - 2) ? '#' : '.'; rows.push(r); }
   let s = 99; const R = () => (s = (s * 16807) % 2147483647) / 2147483647;
   const tile = [], c = ARENA_C % TILE;
@@ -253,7 +255,7 @@ function edgePoint(dir) {
   const pl = G.player, map = G.zone.map;
   for (let k = 0; k < 6; k++) {
     const a = dir != null && k < 4 ? dir + (rand() - 0.5) * 2.2 : rand() * 6.283;
-    for (let r = 10; r < 34; r += 1.5) {
+    for (let r = 10; r < 64; r += r < 34 ? 1.5 : 3) {   // сборка 73: на ПК с отдалённым зумом верх кадра дальше 34 м — впереди по ходу «вверх» точки за кадром не находилось, и враги шли только снизу и сбоку
       const x = pl.x + Math.cos(a) * r, y = pl.y + Math.sin(a) * r;
       if (x > 3 && y > 3 && x < map.w - 3 && y < map.h - 3 && !map.blocked(x | 0, y | 0) && offscreen(x, y)) return [x, y];
     }
@@ -267,7 +269,9 @@ function catchUp() {
   if (Math.hypot(mvx, mvy) > 0.01) { S.runDir = Math.atan2(mvy, mvx); S.runT = Math.min(3, (S.runT || 0) + G.dt); } else S.runT = Math.max(0, (S.runT || 0) - G.dt * 2);
   S.lastX = pl.x; S.lastY = pl.y;
   for (const e of S.swarm) {
-    if (e.dead || e.elite || (e.x - pl.x) ** 2 + (e.y - pl.y) ** 2 < 24 * 24) continue;   // правки 3: раньше (30 м) — бегущего в одну сторону догоняли поздно; стража не переносим — он сам бежит за героем
+    const ex = e.x - pl.x, ey = e.y - pl.y, ed = Math.hypot(ex, ey);
+    if (e.dead || e.elite || ed < 24 || !offscreen(e.x, e.y)) continue;
+    if (S.runT > 0.5 && ex * Math.cos(S.runDir) + ey * Math.sin(S.runDir) > ed * 0.3) continue;   // сборка 73: враг впереди по ходу (верх кадра дальше 24 м) — он и так идёт навстречу, не переносим   // правки 3: раньше (30 м) — бегущего в одну сторону догоняли поздно; стража не переносим — он сам бежит за героем
     const p = edgePoint(S.runDir); if (p) { e.x = p[0]; e.y = p[1]; }
   }
 }

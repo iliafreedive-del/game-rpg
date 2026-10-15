@@ -397,6 +397,22 @@ export function generateVillage(plan0 = PLAN) {
   // сборка 50: так же расчищен обзор на портал Жатвы — он у нижней кромки, кусты закрывали его и героя
   for (const [key, len, lat] of [['forest', 14, 5.5], ['survival', 14, 6.5]]) { const [fx, fy] = plan.portals[key]; viewClear.push({ x: fx, y: fy, len, lat });
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const dx = x + 0.5 - fx, dy = y + 0.5 - fy, al = (dx + dy) / Math.SQRT2; if (at(x, y) === 'x' && al > 1 && al < len && Math.abs(dx - dy) / Math.SQRT2 < lat) set(x, y, 'n'); } }
+  // сборка 73: луг, куда нельзя (обзор на порталы, мельницы), отделён от проходимой земли живой изгородью — кусты и камни по краю,
+  // и опушки у порталов (там лес без деревьев) — чтобы граница была видна, а не «невидимая стена». Низкие — обзор на портал не закрывают
+  { const walk = c => c && c !== 'n' && c !== 'x' && c !== '~' && c !== ';' && c !== 'F' && c !== 'V' && c !== 'K' && c !== ' ';
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const pc = at(x, y) === 'x' && nearPortal(x + 0.5, y + 0.5, 6.2);   // лес у портала расчищен (деревьев нет), но непроходим — тоже изгородь
+      if ((at(x, y) !== 'n' && !pc) || bridges.some(b => Math.hypot(b.x + 0.5 - x, b.y + 0.5 - y) < 7.5)) continue;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        if (!walk(at(x + dx, y + dy))) continue;
+        const h = hh(x * 2 + dx, y * 2 + dy, 41), px = x + 0.5 + dx * 0.32 - dy * (h - 0.5) * 0.4, py = y + 0.5 + dy * 0.32 + dx * (h - 0.5) * 0.4;
+        put(h < 0.18 ? 'rocks' : 'bush', px, py, { nocol: 1 });
+      }
+      if (U(x, y) !== 4 && ![-2, -1, 0, 1, 2].some(d => at(x + d, y) === '~' || at(x, y + d) === '~')) {   // сам луг (не мельница и не берег ручья) не пустой: кусты, папоротник, камни, дрова
+        const q = hh(x, y, 43);
+        if (q < 0.42) put(q < 0.22 ? 'bush' : q < 0.34 ? 'fern' : q < 0.39 ? 'rocks' : 'logpile', x + 0.2 + hh(x, y, 44) * 0.6, y + 0.2 + hh(x, y, 45) * 0.6, { nocol: 1, rot: q * 40 });
+      }
+    } }
 
   // ---- деревья: рощи в остатках земли (шум задаёт пятна), не ближе 2,4 м друг к другу, не загораживают NPC и порталы
   const trees = [];

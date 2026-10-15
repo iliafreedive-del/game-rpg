@@ -139,7 +139,7 @@ export class PropLayer {
         }
       }
     }
-    if (dungeon) for (const w of wallPieces(zone)) push(w.id === 'dwall_lo' ? 'dwall_lo' : w.v < 0.62 ? 'dwall_hi' : w.v < 0.86 ? 'dwall_buttress' : 'dwall_niche', w.x, w.y, w.rot, 1);
+    if (dungeon && zone.id !== 'survival') for (const w of wallPieces(zone)) push(w.id === 'dwall_lo' ? 'dwall_lo' : w.v < 0.62 ? 'dwall_hi' : w.v < 0.86 ? 'dwall_buttress' : 'dwall_niche', w.x, w.y, w.rot, 1);   // Жатва: край поля никогда не виден (сборка 73) — стены не строим
     const VC = zone.json.viewClear || [], clearOf = (x, y) => VC.some(c => { const dx = x - c.x, dy = y - c.y, al = (dx + dy) / Math.SQRT2; return al > -2.5 && al < c.len + 4 && Math.abs(dx - dy) / Math.SQRT2 < c.lat + 1; });
     if (wantBackdrop && open && !(zone.json.wild && zone.json.wild.islands)) {  // лес за краем карты (у походов-островов за краем — бездна)
       const m = zone.map, G = zone.json.big ? 3.8 : 3.4, vil = !!zone.json.village, ring = zone.json.big ? 17 : 11, GM = zone.json.big ? 14 : 3;   // GM — край земли деревни (ground.js margin)
