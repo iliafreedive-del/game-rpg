@@ -82,9 +82,13 @@ export function init() {
   renderer = new THREE.WebGLRenderer({ canvas, antialias: (window.devicePixelRatio || 1) < 2, powerPreference: 'high-performance', preserveDrawingBuffer: params.has('shot') });
   // потеря контекста WebGL (нехватка видеопамяти/драйвер): сохраняем игру и ждём, когда браузер вернёт контекст, — тогда зона
   // собирается заново (С42, сборка 60). Не вернул за 6 с — как раньше, перезагрузка страницы
-  let lostT = 0;
-  canvas.addEventListener('webglcontextlost', e => { e.preventDefault(); try { import('../game/game.js').then(m => m.saveNow()); } catch { } clearTimeout(lostT); lostT = setTimeout(() => location.reload(), 6000); });
-  canvas.addEventListener('webglcontextrestored', () => { clearTimeout(lostT); rebuildAfterRestore(); });
+  // 15 октября (вылет в Жатве на телефоне): iOS отдаёт контекст не сразу, а в фоне — только когда вкладку снова открыли; 6 с часто не хватало,
+  // и игра перезапускалась в меню. Теперь ждём 15 с, пока страница на экране (в фоне счёт не идёт)
+  let lostT = 0, lost = false;
+  const arm = () => { clearTimeout(lostT); if (lost && !document.hidden) lostT = setTimeout(() => { if (lost) location.reload(); }, 15000); };
+  canvas.addEventListener('webglcontextlost', e => { e.preventDefault(); lost = true; try { import('../game/game.js').then(m => m.saveNow()); } catch { } arm(); });
+  canvas.addEventListener('webglcontextrestored', () => { lost = false; clearTimeout(lostT); rebuildAfterRestore(); });
+  document.addEventListener('visibilitychange', arm);
   scene = new THREE.Scene(); camera = new THREE.PerspectiveCamera(CAMERA.fov, 1, CAMERA.near, CAMERA.far);
   kit = makeKit(scene); decals = new GroundDecals(scene); bills = new FxBillboards(scene);
   // сборка 46: без проверки ошибок шейдеров браузер компилирует их параллельно, а не ждёт каждый (на Android переход стоял до 20 с); ?debug — проверка включена
