@@ -107,7 +107,7 @@ export class Trail {
     const m = new THREE.Matrix4().makeTranslation(0, -50, 0); for (let i = 0; i < N; i++) this.im.setMatrixAt(i, m);
     scene.add(this.im);
     this.motes = new Motes(scene, 56, { ...K.motes, dark: !!K.motes.dark });
-    this.i = 0; this.dist = 0; this.foot = 1; this.lx = null; this.ly = 0; this.mt = 0;
+    this.i = 0; this.dist = 0; this.foot = 1; this.lx = null; this.ly = 0; this.mt = 0; this.iv = 1; this.lt = -99;
     this._m = new THREE.Matrix4(); this._q = new THREE.Quaternion(); this._v = new THREE.Vector3(); this._s = new THREE.Vector3(1, 1, 1); this._ax = new THREE.Vector3(0, 1, 0);
   }
   // x, y — позиция героя на карте (мировые x, z), yaw — куда смотрит
@@ -118,11 +118,14 @@ export class Trail {
     const moving = d > 0.002 && d < 2; this.dist += moving ? d : 0;
     if (this.dist > 0.42) {
       this.dist = 0; this.foot = -this.foot;
+      // быстрый бег: следов N штук, старый след занимают раньше, чем он догорит. Укорачиваем жизнь шлейфа под темп шагов, чтобы последний гас сам, а не исчезал рывком
+      this.iv += (Math.min(1, t - this.lt) - this.iv) * 0.3; this.lt = t;
+      this.mat.uniforms.uLife.value = Math.min(this.K.life, Math.max(0.5, this.N * this.iv * 0.8));
       const i = this.i; this.i = (i + 1) % this.N; const sx = Math.cos(yaw) * 0.16 * this.foot, sz = -Math.sin(yaw) * 0.16 * this.foot;
       const s = 0.8 + Math.random() * 0.4; this._s.set(s, 1, s * 1.25);
       this._m.compose(this._v.set(x + sx, 0.12 + i * 0.0004, y + sz), this._q.setFromAxisAngle(this._ax, yaw), this._s); this.im.setMatrixAt(i, this._m); this.im.instanceMatrix.needsUpdate = true;
       this.born[i] = t; this.im.geometry.attributes.aBorn.needsUpdate = true;
-      for (let k = 0; k < 6; k++) this.motes.emit(x + sx + (Math.random() - 0.5) * 0.3, 0.1, y + sz + (Math.random() - 0.5) * 0.3, (Math.random() - 0.5) * 0.4, 0.6 + Math.random() * 1.2, (Math.random() - 0.5) * 0.4, 0.6 + Math.random() * 0.7);
+      for (let k = 0, n = Math.max(2, Math.min(6, Math.round(this.iv * 30))); k < n; k++) this.motes.emit(x + sx + (Math.random() - 0.5) * 0.3, 0.1, y + sz + (Math.random() - 0.5) * 0.3, (Math.random() - 0.5) * 0.4, 0.6 + Math.random() * 1.2, (Math.random() - 0.5) * 0.4, 0.6 + Math.random() * 0.7);
     }
     // стоя — изредка искра/снежинка у ног, чтобы облик было видно и в покое
     if (!moving && (this.mt += dt) > 0.22) { this.mt = 0; const a = Math.random() * 6.28, r = 0.2 + Math.random() * 0.25; this.motes.emit(x + Math.cos(a) * r, 0.08, y + Math.sin(a) * r, 0, 0.5 + Math.random() * 0.6, 0, 0.9); }
