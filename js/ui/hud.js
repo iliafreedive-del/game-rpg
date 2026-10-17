@@ -14,7 +14,7 @@ import { interact, usePotion, useScroll, scrollZone } from '../game/game.js';
 import { drawIcon, skillIcon, iconURL } from './icons.js';
 import { ART, ITEM_ART, GOLD_ICO, GEAR_ART, artImg, gearArt } from './art.js';
 import { iconOf } from '../game/items.js';
-import { dailyStatus, chestStatus, blessLeft, blessTick, autoOK, autoFree, autoLeft, autoAd, AUTO_MIN } from '../platform/monetize.js';
+import { dailyStatus, chestStatus, blessLeft, blessTick, autoOK, autoFree, autoLeft, autoAd, AUTO_MIN, adTxt } from '../platform/monetize.js';
 import { seasonClaimable, nextGoalLine } from '../game/season.js';
 import { dailyReady } from '../game/daily.js';
 import { BOONS } from '../data/boons.js';
@@ -329,5 +329,5 @@ function autoTick() {
   const now = Date.now(), wild = G.zoneId !== 'town' && G.zoneId !== 'castle' && G.zoneId !== 'survival';
   if (!remindAt) remindAt = now + 3 * 60000;
   if (G.auto || !wild || !tutUn('auto') || now < remindAt || inCombat() || G.modalOpen || !G.player || G.player.dead) return;
-  if (pointAt('btnAuto', ok ? 'АВТО: герой будет сражаться сам' : `АВТО за рекламу: ${AUTO_MIN} минут герой сражается сам`, { time: 6, force: true })) remindAt = now + 8 * 60000;
+  if (pointAt('btnAuto', ok ? 'АВТО: герой будет сражаться сам' : adTxt(`АВТО за рекламу: ${AUTO_MIN} минут герой сражается сам`, true), { time: 6, force: true })) remindAt = now + 8 * 60000;
 }

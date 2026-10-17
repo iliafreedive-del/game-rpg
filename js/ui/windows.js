@@ -16,7 +16,7 @@ import * as Q from '../game/quests.js';
 import { iconURL, itemURL, skillCanvas, branchImg } from './icons.js';
 import { ART, artTag, artHead, gearArt } from './art.js';
 import { drawMap, seen, seenKey } from './hud.js';
-import { offers, buy, restorePurchases, dailyStatus, claimDaily, chestStatus, chestSkip, chestSkipsLeft, openOrderChest, DAILY, LOGIN_DAYS, watchRewarded, offerToken, blessing, blessLeft, BLESS_MIN, BLESS_CAP, BLESS_DAY, blessToday, sealActive, sealDaysLeft, SEAL_DAY, dayOffer, startDayOffer } from '../platform/monetize.js';
+import { offers, buy, restorePurchases, dailyStatus, claimDaily, chestStatus, chestSkip, chestSkipsLeft, openOrderChest, DAILY, LOGIN_DAYS, watchRewarded, offerToken, adTxt, blessing, blessLeft, BLESS_MIN, BLESS_CAP, BLESS_DAY, blessToday, sealActive, sealDaysLeft, SEAL_DAY, dayOffer, startDayOffer } from '../platform/monetize.js';
 import { PRODUCTS, platform } from '../platform/platform.js';
 import { eventNow } from '../platform/events.js';
 import { wallOffer, markShown, streakHelp, helpGiven, shopGearToday } from '../platform/offers.js';
@@ -1052,7 +1052,7 @@ W.potEmpty = k => {
     b.appendChild(el('div', 'of-pack', `<div class="of-x"><img src="${iconURL(k === 'hp' ? 'potion_hp' : 'potion_mp')}" alt=""><b>${P.potions[k]}</b><small>зелий ${name}</small></div>`));
     const r = el('div', 'row'); r.style.justifyContent = 'center';
     if (!lock) {
-      const ad = el('button', 'btn rwd', A.n > 0 ? `2 зелья за рекламу · осталось ${A.n} из ${POT_ADS}` : `2 зелья за рекламу · через ${Math.ceil((A.t + POT_AD_MS - Date.now()) / 60000)} мин`); ad.disabled = A.n <= 0;
+      const ad = el('button', 'btn rwd', adTxt(A.n > 0 ? `2 зелья за рекламу · осталось ${A.n} из ${POT_ADS}` : `2 зелья за рекламу · через ${Math.ceil((A.t + POT_AD_MS - Date.now()) / 60000)} мин`)); ad.disabled = A.n <= 0;
       ad.onclick = async () => { if (potAds().n <= 0) return; const ok = await watchRewarded('pot_ad', offerToken('pot_ad', String(Date.now())), () => { const A2 = potAds(); if (A2.n >= POT_ADS) A2.t = Date.now(); A2.n--; P.potions[k] += 2; bus.emit('toast', { text: `+2 зелья ${name}`, kind: 'good' }); }); if (ok) closeModal(); else rerender(); };
       r.appendChild(ad);
     }
@@ -1376,7 +1376,7 @@ function boonChoice() {
     let blood = false; const tags = [];
     for (const id of pool) {
       const B = BOONS[id];
-      const c = el('button', 'boon' + (B.minus ? ' cursed' : ''), `<div class="bg" style="color:${B.color};text-shadow:0 0 18px ${B.color}">${artTag(ART.boon(id), B.glyph)}</div><b>${esc(B.name)}${B.stack ? ` · ${nOf(id) + 1}/${BOON_MAX}` : ''}</b><span>${esc(B.desc)}${B.minus ? `<em class="minus">${esc(B.minus)}</em>` : ''}</span><small class="lv">▶ за рекламу</small>`);
+      const c = el('button', 'boon' + (B.minus ? ' cursed' : ''), `<div class="bg" style="color:${B.color};text-shadow:0 0 18px ${B.color}">${artTag(ART.boon(id), B.glyph)}</div><b>${esc(B.name)}${B.stack ? ` · ${nOf(id) + 1}/${BOON_MAX}` : ''}</b><span>${esc(B.desc)}${B.minus ? `<em class="minus">${esc(B.minus)}</em>` : ''}</span><small class="lv">${adTxt('▶ за рекламу')}</small>`);
       tags.push(c.querySelector('.lv'));
       const give = () => { r.boons.push(id); G.stats = calcStats(G.profile); bus.emit('statsChanged'); bus.emit('toast', { text: 'Дар: ' + B.name, kind: 'good' }); bus.emit('sfx', 'learn'); closeModal(); };
       c.onclick = async () => {
@@ -1389,7 +1389,7 @@ function boonChoice() {
     const can = pl.hp > G.stats.maxHP * (BLOOD + 0.05);
     const bl = el('button', 'btn blood', can ? '🩸 Заплатить кровью (−30% здоровья)' : '🩸 Мало здоровья для платы кровью');
     bl.disabled = !can;
-    bl.onclick = () => { blood = !blood; bl.classList.toggle('on', blood); for (const t of tags) t.textContent = blood ? '🩸 за 30% здоровья' : '▶ за рекламу'; bl.textContent = blood ? '▶ Лучше за рекламу' : '🩸 Заплатить кровью (−30% здоровья)'; };
+    bl.onclick = () => { blood = !blood; bl.classList.toggle('on', blood); for (const t of tags) t.textContent = blood ? '🩸 за 30% здоровья' : adTxt('▶ за рекламу'); bl.textContent = blood ? adTxt('▶ Лучше за рекламу', true) : '🩸 Заплатить кровью (−30% здоровья)'; };
     b.appendChild(bl);
     const skip = el('button', 'btn', 'Без дара'); skip.onclick = () => closeModal(); b.appendChild(skip);
   }, { sticky: true });
@@ -1432,11 +1432,11 @@ function survLevel() {
   let cs = SV.choices(), extra = false; bus.emit('sfx', 'levelup');
   modal(`Уровень ${S.lvl}!`, 'md reward', b => {
     b.appendChild(el('p', 'muted', 'Выберите усиление:'));
-    { const rr = el('button', 'btn rwd sm', '↻ Обновить за рекламу'); rr.onclick = async () => { const ok = await watchRewarded('surv_reroll', offerToken('surv_reroll', String(Date.now())), () => { S.rerolls++; }); if (ok) { cs = SV.choices(); rerender(); } }; b.appendChild(rr); }   // сборка 47
+    { const rr = el('button', 'btn rwd sm', adTxt('↻ Обновить за рекламу')); rr.onclick = async () => { const ok = await watchRewarded('surv_reroll', offerToken('surv_reroll', String(Date.now())), () => { S.rerolls++; }); if (ok) { cs = SV.choices(); rerender(); } }; b.appendChild(rr); }   // сборка 47
     const row = el('div', 'boons b4');   // сборка 47: карточки мельче, 4 в ряд; 3 бесплатно, 4-я случайная — за рекламу
     cs.forEach((c, i) => {
       if (i === 3 && !extra) {
-        const lock = earlyLock('extra'), card = el('button', 'boon locked', `<div class="bg">${artTag(ART.perk('extra'), '?')}</div><b>Ещё вариант</b><small class="lv">${lock ? 'после обучения' : '▶ за рекламу'}</small><span>Случайное усиление</span>`);
+        const lock = earlyLock('extra'), card = el('button', 'boon locked', `<div class="bg">${artTag(ART.perk('extra'), '?')}</div><b>Ещё вариант</b><small class="lv">${lock ? 'после обучения' : adTxt('▶ за рекламу')}</small><span>Случайное усиление</span>`);
         card.disabled = lock;
         card.onclick = async () => { const ok = await watchRewarded('surv_extra', offerToken('surv_extra', String(Date.now())), () => {}); if (ok) { extra = true; rerender(); } };
         row.appendChild(card); return;

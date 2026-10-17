@@ -13,7 +13,7 @@ export function onVKPlay() {
 export const isVKPlay = () => (window.__PLATFORM || Q.get('platform')) === 'vkplay' || (!window.__PLATFORM && !Q.get('platform') && onVKPlay());
 
 export class VKPlayProvider {
-  constructor() { this.name = 'vkplay'; this.api = null; this.login = null; this.uid = Q.get('uid') || null; }
+  constructor() { this.name = 'vkplay'; this.adShards = true; this.api = null; this.login = null; this.uid = Q.get('uid') || null; }
   async init() {
     const id = Q.get('appid');
     if (id && /^\d+$/.test(id)) {   // вне VK Play (нет appid) — без JS API, игра работает как есть

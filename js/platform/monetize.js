@@ -26,6 +26,13 @@ export const OFFERS = {
   auto: { title: 'Автобой на 30 минут', icon: '▶' },
 };
 let busy = false;
+// ветка VK: на площадке без рекламы (VK Play — флаг провайдера adShards) те же награды — за осколки Бездны ◆, одна цена за действие
+export const AD_SHARDS = 2;
+export const adShards = () => platform.p && platform.p.adShards ? AD_SHARDS : 0;   // цена в css (html.ad-shards) — та же
+const AD_W = 'за рекламу', AD_FOR = 'за ◆';
+// на кнопке цену «◆2» рисует css, из текста «за рекламу» убираем; keep или подпись из одного «за рекламу» — «за ◆2» прямо в тексте
+export const adTxt = (s, keep) => { const n = adShards(); if (!n) return s; const t = String(s).replace(/^▶\s*/, '');
+  return keep || t.trim() === AD_W ? t.split(AD_W).join(AD_FOR + n) : t.split(' ' + AD_W).join('').split(AD_W).join('').trim(); };
 // token-based single grant: each offer instance gets a token; the reward is applied at most once per token.
 export function offerToken(kind, scope = '') { return `${kind}:${scope || uid('o')}`; }
 export async function watchRewarded(kind, token, apply) {
@@ -33,6 +40,9 @@ export async function watchRewarded(kind, token, apply) {
   if (busy) return false;
   if (kind !== 'revive' && earlyLock('extra')) { lockToast('extra'); return false; }   // сборка 47: награды за рекламу — после обучения
   if (P.ads.used[token]) { bus.emit('toast', { text: 'Эта награда уже получена', kind: 'warn' }); return false; }
+  { const n = adShards(); if (n) {   // без ролика: списываем осколки и сразу выдаём награду
+    if ((P.shards || 0) < n) { bus.emit('sfx', 'deny'); bus.emit('toast', { text: `Нужно ${n}◆ осколков Бездны`, kind: 'warn' }); return false; }
+    P.shards -= n; track('ad_shards', { kind, n }); P.ads.used[token] = Date.now(); pruneTokens(); apply(); bus.emit('save'); bus.emit('hud'); return true; } }
   // в открытом окне на паузе (Летопись битв и т. п.) время мира стоит — «недавний бой» там не считается
   const wasPaused = G.paused, frozen = wasPaused && G.modalOpen;
   if (!frozen && inCombat() && kind !== 'revive' && kind !== 'boss_extra' && kind !== 'order_help') { bus.emit('toast', { text: 'Реклама недоступна во время боя', kind: 'warn' }); return false; }
@@ -75,7 +85,7 @@ function adWarn() {
 }
 export async function maybeInterstitial(reason, warn) {
   const P = G.profile;
-  if (P.iap.noAds || platform.name === 'demo' && !P.settings.demoInter) return false;
+  if (P.iap.noAds || platform.name === 'demo' && !P.settings.demoInter || adShards()) return false;   // VK Play: рекламы нет совсем
   // сборка 54: частота меняется флагами в консоли Яндекса без новой версии: inter_gap_min (минут между показами), inter_first_sec (не раньше, сек игры)
   const F = platform.flags || {}, gap = +F.inter_gap_min > 0 ? +F.inter_gap_min : 4, first = +F.inter_first_sec >= 0 && F.inter_first_sec != null ? +F.inter_first_sec : 180;
   if (Date.now() - lastInter < gap * MIN || P.stats.playTime < first) return false;

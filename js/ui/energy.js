@@ -3,7 +3,7 @@
 import { G, bus } from '../game/ctx.js';
 import { el } from '../core/util.js';
 import * as CS from '../game/castle.js';
-import { watchRewarded, offerToken, buy } from '../platform/monetize.js';
+import { watchRewarded, offerToken, buy, adTxt } from '../platform/monetize.js';
 import { platform, PRODUCTS, priceHTML } from '../platform/platform.js';
 
 const hm = ms => { const m = Math.ceil(ms / 60000); return m >= 60 ? `${Math.floor(m / 60)} ч ${m % 60} мин` : `${m} мин`; };
@@ -19,7 +19,7 @@ export function openEnergy(onDone) {
     box.appendChild(el('div', 'demo-rv-tag', 'ЭНЕРГИЯ'));
     box.appendChild(el('div', 'en-big', `⚡ ${t.n} / ${CS.TORCH_MAX}`));
     box.appendChild(el('p', 'muted', `Тратится на бои Летописи битв (1 ⚡), повтор пройденных этажей Глубин и поражение там (1 ⚡), забег в Жатве (3 ⚡). ${next ? `Ниже ${CS.TORCH_MAX}: +1 через ${hm(next)}.` : 'Запас полон — сверх него копится только из рекламы и покупки.'}`));
-    const ad = el('button', 'btn rwd', left > 0 ? `+${CS.EN_AD} ⚡ за рекламу · осталось ${left} из ${CS.EN_AD_MAX}` : `Реклама обновится через ${hm(reset)}`);
+    const ad = el('button', 'btn rwd', left > 0 ? adTxt(`+${CS.EN_AD} ⚡ за рекламу · осталось ${left} из ${CS.EN_AD_MAX}`) : `Реклама обновится через ${hm(reset)}`);
     ad.disabled = left <= 0;
     ad.onclick = async () => { const ok = await watchRewarded('energy', offerToken('energy', String(Date.now())), () => CS.enAdGrant()); if (ok) bus.emit('toast', { text: `+${CS.EN_AD} ⚡`, kind: 'good' }); draw(); };
     box.appendChild(ad);

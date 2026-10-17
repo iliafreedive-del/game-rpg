@@ -165,6 +165,7 @@ export async function initPlatform() {
   let prov = new P();
   try { await prov.init(); } catch (e) { console.warn('platform init failed, fallback to demo', e); prov = new DemoProvider(); await prov.init(); }
   platform.p = prov; platform.name = prov.name;
+  if (prov.adShards) document.documentElement.classList.add('ad-shards');   // ветка VK: значок ◆ вместо ▶ на кнопках наград (css)
   // флаги — один раз на старте, не дольше 1,5 с (без них — значения по умолчанию)
   try { platform.flags = (await Promise.race([prov.flags ? prov.flags() : {}, new Promise(r => setTimeout(() => r({}), 1500))])) || {}; } catch { platform.flags = {}; }
   syncTime(); setInterval(syncTime, 10 * 60e3);

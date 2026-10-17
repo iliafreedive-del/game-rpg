@@ -29,7 +29,7 @@ let styled = false, tab = 'hero';   // вкладки окна: герой / п�
 function getButtons(box, key, get, title, onShards, redraw) {
   const r = el('div', 'lk-btns');
   if (get.shards) { const b = el('button', 'btn gold', `${get.shards}◆`); b.onclick = e => { e.stopPropagation(); onShards(); redraw(); }; r.appendChild(b); }
-  if (get.ads) {
+  if (get.ads && !(platform.p && platform.p.adShards)) {   // ветка VK: где рекламы нет (VK Play), облик за просмотры не предлагаем — есть ◆ и рубли
     const p = CO.adProgress(key, get), b = el('button', 'btn rwd rwd-bar', `<i style="width:${Math.round(p.n / get.ads * 100)}%"></i><span>${p.n}/${get.ads}</span>`);
     b.title = `Реклама за вознаграждение: ${get.ads} за ${get.days || 7} дн. Осталось ${p.left} дн.`;
     b.onclick = async e => { e.stopPropagation(); await CO.watchFor(key, get, title); redraw(); }; r.appendChild(b);

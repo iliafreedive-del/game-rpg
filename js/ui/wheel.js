@@ -2,6 +2,7 @@
 import { G, bus } from '../game/ctx.js';
 import { el } from '../core/util.js';
 import { adButton, adLeft } from './adbtn.js';
+import { adTxt } from '../platform/monetize.js';
 import * as CS from '../game/castle.js';
 import { makeItem } from '../game/items.js';
 import { autoEquip } from '../game/character.js';
@@ -56,7 +57,7 @@ export function openWheel(modal, closeModal, onLook) {   // onLook — кноп�
     free.onclick = () => { if (!wheelReady()) return; P.wheelFree = Date.now(); free.disabled = true; free.textContent = 'Следующая бесплатно через 8 ч'; spin(); };
     row.append(free, adButton('▶ Крутить за рекламу', 'wheel', 60 * 60e3, () => spin()));
     b.appendChild(row);
-    b.appendChild(el('p', 'muted', '<small>Бесплатно — раз в 8 часов, за рекламу — раз в час.</small>'));
+    b.appendChild(el('p', 'muted', adTxt('<small>Бесплатно — раз в 8 часов, за рекламу — раз в час.</small>', true)));
     if (onLook) { const r2 = el('div', 'row'); r2.style.justifyContent = 'center'; const lk = el('button', 'btn', '🎭 Облик героя и питомца'); lk.onclick = () => { if (!spinning) onLook(); }; r2.appendChild(lk); b.appendChild(r2); }
   });
 }
