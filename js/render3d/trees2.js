@@ -1,5 +1,5 @@
 // Новые деревья деревни (15 октября, тред «Тренировка лёгких деревьев»; проба 2 из lab/trees_train2.js). Крона — много мелких «кучек» листвы (у каждой светлый верх и тёмный низ, между ними
-// тень), ель — много мелких лап-веточек по спирали вокруг тёмного конуса. Текстура: кучка листьев с объёмом и хвойная лапа (1024 × 512).
+// тень), ель — много мелких лап-веточек по спирали вокруг тёмного конуса. Текстура: кучка листьев с объёмом, хвойная лапа и пучок сосновых игл (1536 × 512).
 // В игре дерево не рисуется мешем: forestglb.js один раз снимает его в атлас карточек под углом камеры — на карте 2 треугольника.
 import * as THREE from '../vendor/three.module.min.js';
 import { toon } from './toon.js';
@@ -13,7 +13,7 @@ const sm = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a)));
 let TEX = null;
 export function tex2(P = 512) {
   if (TEX) return TEX;
-  const cv = document.createElement('canvas'); cv.width = P * 2; cv.height = P; const g = cv.getContext('2d'), r = rng(17), k = P / 512;
+  const cv = document.createElement('canvas'); cv.width = P * 3; cv.height = P; const g = cv.getContext('2d'), r = rng(17), k = P / 512;
   // кучка: 6 под-шапок, листья рисуются от тёмных к светлым — светлые верхушки ложатся поверх тёмных щелей
   const subs = []; for (let i = 0; i < 7; i++) { const a = r() * 6.28, d = i ? (60 + r() * 90) * k : 0; subs.push([256 * k + Math.cos(a) * d, 270 * k + Math.sin(a) * d * 0.8, (95 + r() * 55) * k]); }
   const leaves = [];
@@ -47,6 +47,16 @@ export function tex2(P = 512) {
     for (const sd of [-1, 1]) branch(cx, y, sd * (0.75 + r() * 0.15), len, 3, t * 0.7, 1);
   }
   branch(cx, 505 * k, 0, 480 * k, 4, 0.1, 0);
+  // [2] пучок сосновых игл (17 октября): длинные тонкие иглы веером из одной точки снизу, к кончикам светлее
+  const nx = 2 * P + 256 * k, ny = 500 * k, nd = [];
+  for (let i = 0; i < 150; i++) { const a = (r() - 0.5) * 2.5, L = (230 + r() * 240) * k * (1 - Math.abs(a) * 0.18); nd.push([a, L, r()]); }
+  nd.sort((p, q) => p[2] - q[2]);
+  for (const [a, L, sh] of nd) {
+    const ex = nx + Math.sin(a) * L, ey = ny - Math.cos(a) * L, mx = nx + Math.sin(a) * L * 0.5 + (r() - 0.5) * 14 * k, my = ny - Math.cos(a) * L * 0.5;
+    const gr = g.createLinearGradient(nx, ny, ex, ey), v0 = 50 + 40 * sh, v1 = 140 + 110 * sh;
+    gr.addColorStop(0, `rgb(${v0 * 0.9 | 0},${v0 | 0},${v0 * 0.8 | 0})`); gr.addColorStop(1, `rgb(${v1 * 0.9 | 0},${v1 | 0},${v1 * 0.8 | 0})`);
+    g.strokeStyle = gr; g.lineWidth = (3.4 + r() * 1.6) * k; g.lineCap = 'round'; g.beginPath(); g.moveTo(nx, ny); g.quadraticCurveTo(mx, my, ex, ey); g.stroke();
+  }
   g.fillStyle = '#fff'; g.fillRect(P, 0, 12 * k, 12 * k);   // сплошное белое пятно: ствол и ядра берут цвет только из вершин
   const im = g.getImageData(0, 0, cv.width, cv.height), D = im.data;
   for (let i = 3; i < D.length; i += 4) D[i] = D[i] > 120 ? 255 : 0;
@@ -60,9 +70,9 @@ function Acc() { const a = { p: [], n: [], u: [], c: [] };
   a.tri = (vs) => { for (const v of vs) { a.p.push(v.p.x, v.p.y, v.p.z); a.n.push(v.n.x, v.n.y, v.n.z); a.u.push(v.u[0], v.u[1]); a.c.push(v.c.r, v.c.g, v.c.b); } };
   a.geo = () => { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(a.p, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(a.n, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(a.u, 2)); g.setAttribute('color', new THREE.Float32BufferAttribute(a.c, 3)); return g; };
   return a; }
-const NOUV = [0.5 + 5 / 1024, 1 - 5 / 512];   // белое пятно в углу текстуры: ядра и ствол без дыр, цвет из вершин
+const NOUV = [1 / 3 + 5 / 1536, 1 - 5 / 512];   // белое пятно в углу текстуры: ядра и ствол без дыр, цвет из вершин
 function quad(A, p, U_, V_, nrm, cols, cell) {   // cols: [низ, верх]
-  const u0 = cell * 0.5 + 0.02, u1 = cell * 0.5 + 0.48, vs = [[-1, -1, u0, 0, 0], [1, -1, u1, 0, 0], [1, 1, u1, 0.96, 1], [-1, 1, u0, 0.96, 1]].map(([x, y, u, v, ci]) => ({ p: p.clone().addScaledVector(U_, x).addScaledVector(V_, y), n: nrm(p.clone().addScaledVector(U_, x).addScaledVector(V_, y)), u: [u, v], c: cols[ci] }));
+  const u0 = (cell + 0.04) / 3, u1 = (cell + 0.96) / 3, vs = [[-1, -1, u0, 0, 0], [1, -1, u1, 0, 0], [1, 1, u1, 0.96, 1], [-1, 1, u0, 0.96, 1]].map(([x, y, u, v, ci]) => ({ p: p.clone().addScaledVector(U_, x).addScaledVector(V_, y), n: nrm(p.clone().addScaledVector(U_, x).addScaledVector(V_, y)), u: [u, v], c: cols[ci] }));
   A.tri([vs[0], vs[1], vs[2], vs[0], vs[2], vs[3]]);
 }
 // ствол/ветка — сужающийся цилиндр (цвет коры с затемнением книзу)
@@ -136,6 +146,35 @@ function fir(o, r) {
   }
   return A.geo();
 }
+// ---------- сосна (проба 17 октября, референс — Westland Survival): высокий голый рыжий ствол, редкие ветки, на концах — «помпоны» хвои ----------
+const CAMV = V(0.56, 0.6, 0.56).normalize();
+function tuft(A, c, tr, n, dk, md, lt, hi, r) {
+  for (let i = 0; i < n; i++) {
+    const a = i / n * 6.283 + r() * 0.5, el = -0.35 + r() * 0.75, dir = V(Math.cos(a) * Math.cos(el), Math.sin(el), Math.sin(a) * Math.cos(el)).normalize();
+    const side = V(0, 1, 0).cross(dir); if (side.lengthSq() < 1e-3) side.set(1, 0, 0); side.normalize().applyAxisAngle(dir, (r() - 0.5) * 1.2); if (side.clone().cross(dir).dot(CAMV) < 0) side.negate();   // лицом к камере игры: изнанка карточки темнеет
+    const L = tr * (0.85 + r() * 0.35), mid = c.clone().addScaledVector(dir, L * 0.45), lv = Math.min(1, 0.5 + Math.max(0, el) * 0.5 + r() * 0.3);
+    const cTip = lv > 0.6 ? lt.clone().lerp(hi, (lv - 0.6) * 2) : md.clone().lerp(lt, lv / 0.6);
+    quad(A, mid, side.multiplyScalar(L * 0.55), dir.clone().multiplyScalar(L * 0.55), () => V(dir.x * 0.25, 1, dir.z * 0.25).addScaledVector(CAMV, 0.5).normalize(), [dk.clone().lerp(md, 0.3), cTip], 2);
+  }
+}
+function pine(o, r) {
+  const A = Acc(), H = o.h, W = H * o.w, dk = C(o.pal[0]), md = C(o.pal[1]), lt = C(o.pal[2]), hi = C(o.pal[3] ?? o.pal[2]);
+  const lean = V((r() - 0.5) * 0.25, 0, (r() - 0.5) * 0.25), top = V(0, H * 0.9, 0).add(lean), trunkAt = t => V(0, 0, 0).lerp(top, t);
+  limb(A, V(0, 0, 0), trunkAt(0.5), H * 0.04, H * 0.028, o.bark, 8); limb(A, trunkAt(0.5), top, H * 0.028, H * 0.01, o.bark, 7);
+  const tr = H * o.tr;
+  for (let i = 0; i < o.branches; i++) {
+    const t = o.y0 + (1 - o.y0) * (i + r() * 0.6) / o.branches, a = i * 2.4 + r() * 0.8, base = trunkAt(Math.min(0.97, t));
+    const len = W * (0.55 + r() * 0.45) * (1.15 - t * 0.6), rise = 0.15 + r() * 0.3, dir = V(Math.cos(a), rise, Math.sin(a)).normalize(), end = base.clone().addScaledVector(dir, len);
+    limb(A, base, end, H * 0.014 * (1.2 - t * 0.5), H * 0.006, o.bark, 5);
+    tuft(A, end.clone().add(V(0, tr * 0.25, 0)), tr * (0.95 + r() * 0.3), o.cards, dk, md, lt, hi, r);
+    if (len > W * 0.45) {   // боковой сучок с ещё одним помпоном посередине ветки
+      const m = base.clone().lerp(end, 0.5 + r() * 0.15), sd = V(-dir.z, 0.6, dir.x).multiplyScalar(r() < 0.5 ? 1 : -1).normalize(), e2 = m.clone().addScaledVector(sd, len * 0.3);
+      limb(A, m, e2, H * 0.007, H * 0.004, o.bark, 4); tuft(A, e2.clone().add(V(0, tr * 0.2, 0)), tr * (0.75 + r() * 0.2), o.cards - 2, dk, md, lt, hi, r);
+    }
+  }
+  for (let j = 0; j < 3; j++) { const a = j * 2.1 + r(); tuft(A, top.clone().add(V(Math.cos(a) * tr * 0.5, tr * (0.3 + j * 0.15), Math.sin(a) * tr * 0.5)), tr * 0.9, o.cards, dk, md, lt, hi, r); }
+  return A.geo();
+}
 // ---------- куст: полусфера из кучек, с цветами ----------
 function bush(o, r) {
   const A = Acc(), H = o.h, Rw = H * o.w, ctr = V(0, H * 0.35, 0), dk = C(o.pal[0]), md = C(o.pal[1]), lt = C(o.pal[2]), hi = C(o.pal[3] ?? o.pal[2]);
@@ -160,19 +199,20 @@ export const KINDS = {
   firb: { name: 'Ель тёмная', type: 'fir', h: 4.6, w: 0.25, boughs: 210, tiers: 10, pal: [0x0a1c18, 0x1c4436, 0x4c8466, 0x9cc4a8], seed: 31, shape: 0.85 },
   broad: { name: 'Лиственное', type: 'broad', h: 4.8, w: 0.36, lobes: 5, clumps: 9, cr: 0.27, cards: 5, jh: 0.03, pal: [0x1c3a10, 0x4a8a28, 0x9cd048, 0xe4f8a0], bark: 0x5a4030, seed: 5 },
   autumn: { name: 'Осеннее', type: 'broad', h: 4.4, w: 0.37, lobes: 6, clumps: 11, cr: 0.27, cards: 5, jh: 0.04, pal: [0x5a200a, 0xb85a1c, 0xf0a040, 0xffe0a0], bark: 0x4a3426, seed: 21 },
+  pine: { name: 'Сосна', type: 'pine', h: 6.4, w: 0.3, branches: 14, y0: 0.42, tr: 0.135, cards: 9, pal: [0x0a2410, 0x235422, 0x5c9a3c, 0xa4cc6c], bark: 0x6a3c26, seed: 41 },
   bush: { name: 'Куст', type: 'bush', h: 1.2, w: 0.75, clumps: 18, cr: 0.32, cards: 4, pal: [0x1c3a10, 0x4a8a28, 0xa8d850], flowers: 0xfff6ff, seed: 3 },
 };
 // лёгкая версия для 3D на карте: меньше кучек листвы и лап (форма та же)
-const LITE = { fir: { boughs: 150 }, firb: { boughs: 130 }, broad: { clumps: 6, cards: 4 }, autumn: { clumps: 7, cards: 4 }, bush: { clumps: 9, cards: 3 } };
+const LITE = { pine: { cards: 8 }, fir: { boughs: 150 }, firb: { boughs: 130 }, broad: { clumps: 6, cards: 4 }, autumn: { clumps: 7, cards: 4 }, bush: { clumps: 9, cards: 3 } };
 // ещё легче — для глубины леса и за краем карты (камера видит их мелко и издали)
-const LO = { fir: { boughs: 160, noCore: 1 }, firb: { boughs: 140, noCore: 1 },   // ели вдали — как вблизи: с меньшим числом ярусов между лапами видны пустоты
+const LO = { pine: { cards: 7 }, fir: { boughs: 160, noCore: 1 }, firb: { boughs: 140, noCore: 1 },   // ели вдали — как вблизи: с меньшим числом ярусов между лапами видны пустоты
   broad: { clumps: 4, cards: 3 }, autumn: { clumps: 5, cards: 3 }, bush: { clumps: 6, cards: 2 } };
-export function buildGeo(kind, lite) { const o = lite ? { ...KINDS[kind], ...(lite === 'lo' ? LO : LITE)[kind] } : KINDS[kind], r = rng(o.seed); return o.type === 'fir' ? fir(o, r) : o.type === 'bush' ? bush(o, r) : broad(o, r); }
+export function buildGeo(kind, lite) { const o = lite ? { ...KINDS[kind], ...(lite === 'lo' ? LO : LITE)[kind] } : KINDS[kind], r = rng(o.seed); return o.type === 'fir' ? fir(o, r) : o.type === 'pine' ? pine(o, r) : o.type === 'bush' ? bush(o, r) : broad(o, r); }
 let MAT = null;
 export function mat() { return MAT || (MAT = toon(0xffffff, { vc: true, rim: 0.12, rimColor: 0xe8ffb0, side: THREE.DoubleSide, ao: SHADOW.groundAO, aoH: 0.9, map: tex2(), alphaTest: 0.5 })); }
 // ветер для 3D-деревьев на карте: ель качается меньше, листва — больше, куст еле-еле
 // ветер 30% от прежнего (просьба 2026-10-15)
-const SWAY = { fir: { base: 1.4, amt: 0.0054, flutter: 0.006 }, firb: { base: 1.4, amt: 0.0054, flutter: 0.006 }, broad: { base: 1.6, amt: 0.0066, flutter: 0.0105 }, autumn: { base: 1.5, amt: 0.0066, flutter: 0.0105 }, bush: { base: 0.2, amt: 0.006, flutter: 0.009 } };
+const SWAY = { pine: { base: 1.8, amt: 0.0054, flutter: 0.008 }, fir: { base: 1.4, amt: 0.0054, flutter: 0.006 }, firb: { base: 1.4, amt: 0.0054, flutter: 0.006 }, broad: { base: 1.6, amt: 0.0066, flutter: 0.0105 }, autumn: { base: 1.5, amt: 0.0066, flutter: 0.0105 }, bush: { base: 0.2, amt: 0.006, flutter: 0.009 } };
 const MATS = {};
 export function matLive(kind) { return MATS[kind] || (MATS[kind] = toon(0xffffff, { vc: true, rim: 0.12, rimColor: 0xe8ffb0, side: THREE.DoubleSide, ao: SHADOW.groundAO, aoH: 0.9, map: tex2(), alphaTest: 0.5, sway: SWAY[kind] })); }
 const GEOS = {};
