@@ -17,6 +17,7 @@ import { initTutorial, intro, unlockAll } from './ui/tutorial.js';
 import { cinema, introShots, portalShots } from './ui/cinema.js';
 import * as CS from './game/castle.js';
 import { initPlatform, platform, gameplay, gameplayStopNow } from './platform/platform.js';
+import { vkplaySingleTab } from './platform/vkplay.js';
 import { restorePurchases } from './platform/monetize.js';
 import { initAnalytics, wireAnalytics, track } from './platform/analytics.js';
 import { wireEvents } from './platform/events.js';
@@ -43,6 +44,8 @@ async function boot() {
   const bar = $('loadbar').firstElementChild, txt = $('loadtxt');
   // правки мамы (М14): на Android загрузка долгая и казалось, что всё зависло — к тексту добавлены проценты, полоса «переливается» (css #loadbar)
   const prog = (f, t) => { bar.style.width = Math.round(f * 100) + '%'; txt.textContent = t + (f < 1 ? ` ${Math.round(f * 100)}%` : ''); if (window.__bootStep) window.__bootStep(); };   // П42: сторож загрузки в index.html
+  // VK Play (чек-лист «Testing»): игра не идёт сразу в двух вкладках — во второй только надпись
+  if (!(await vkplaySingleTab())) { txt.textContent = 'Игра уже открыта в другой вкладке'; if (window.__bootOk) window.__bootOk(); return; }
   prog(0.05, 'Подключение платформы…');
   await initPlatform();
   prog(0.1, 'Загрузка героя и мира…');

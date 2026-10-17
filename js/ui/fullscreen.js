@@ -7,10 +7,11 @@
 //   кнопка «Установить» (событие beforeinstallprompt, Chrome/Яндекс Браузер/Samsung) или меню ⋮ → «Добавить на главный экран»;
 //   ПК — F11 или кнопка «На весь экран». Внутри Яндекс Игр / VK (страница в рамке) подсказки Android и ПК не показываем —
 //   там полным экраном управляет сама площадка.
+import { isVKPlay } from '../platform/vkplay.js';
 const standalone = () => matchMedia('(display-mode: fullscreen), (display-mode: standalone)').matches || navigator.standalone === true;
 const coarse = () => matchMedia('(pointer: coarse)').matches;
 const isFs = () => { try { const y = window.__ysdk && window.__ysdk.screen && window.__ysdk.screen.fullscreen; if (y && y.status) return y.status === 'on'; } catch { } return !!(document.fullscreenElement || document.webkitFullscreenElement); };
-const canFs = () => !!(document.fullscreenEnabled || document.webkitFullscreenEnabled);
+const canFs = () => !isVKPlay() && !!(document.fullscreenEnabled || document.webkitFullscreenEnabled);   // VK Play: кнопки полного экрана в игре быть не должно (чек-лист «Testing»)
 const iPhone = () => /iPhone|iPod/.test(navigator.userAgent);
 const android = () => /Android/i.test(navigator.userAgent);
 const framed = () => { try { return window.top !== window.self; } catch { return true; } };

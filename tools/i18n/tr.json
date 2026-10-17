@@ -1275,6 +1275,7 @@
  "«Меня сгубил {0} — он {1}. Берегись!» Рядом осталось немного золота": "«Beni bir {0} öldürdü — {1}. Sakın!» Yakında biraz altın kalmış",
  "Игрок прошёл здесь раньше и оставил немного золота": "Bir oyuncu buradan geçmiş ve biraz altın bırakmış",
  "Подключение платформы…": "Platforma bağlanılıyor…",
+ "Игра уже открыта в другой вкладке": "Oyun zaten başka bir sekmede açık",
  "Загрузка героя и мира…": "Kahraman ve dünya yükleniyor…",
  "Готово": "Hazır",
  "<div class=\"muted\">Вход в мир…</div>": "<div class=\"muted\">Dünyaya giriliyor…</div>",
