@@ -31,7 +31,7 @@ import { SKINS, skinLoaded, preloadSkin } from './glbskin.js';
 import { Post } from './post.js';
 import { Sparks } from './sparks.js';
 import { petFx } from './models/pet/petfx.js';
-import { Extra, Trail, Aura, WeaponFx } from './cosfx.js';
+import { Extra, Trail, Aura, WeaponFx, FrostAura } from './cosfx.js';
 import { FORGE_HIT } from './models/npc/npc_smith.js';
 import { sfx } from '../core/audio.js';
 import { disposeObject } from './dispose.js';
@@ -573,9 +573,17 @@ function syncGems() {
   const sz = GEM_PX * Math.max(0.8, G.cam.zoom || 1);   // размер в пикселях экрана, как у прежнего спрайта (survival.js SOUL_PX)
   gemPts.forEach((p, k) => { p.visible = n[k] > 0; p.geometry.setDrawRange(0, n[k]); p.geometry.attributes.position.needsUpdate = n[k] > 0; p.material.size = sz * (k === 1 ? 2 : 1); });
 }
+// 25 октября: «Морозная аура» Жатвы — плоскость в сцене под героем, ставится каждый кадр (на холсте пола шла рывками, раз в 4 кадра)
+let frostFx = null;
+function syncFrost(dt) {
+  const S = G.surv, on = !!(S && S.w && S.w.frost && S.frostR && G.player);
+  if (!on) { if (frostFx) { frostFx.dispose(); frostFx = null; } return; }
+  if (!frostFx) frostFx = new FrostAura(scene);
+  frostFx.visible = !G.heroHidden; frostFx.update(dt, G.player.x, G.player.y, S.frostR, !!(S.evo && S.evo.evo_frost));
+}
 const env = { wind: new THREE.Vector2() };
 // «Жатва» (сборка 50): мир сдвинулся на плитку — пол подставляет тот же рисунок, у моделей не бывает рывка скорости
-bus.on('worldShift', ({ dx, dy }) => { if (U.uWShift) { U.uWShift.value.x -= dx; U.uWShift.value.y -= dy; } for (const a of actors.values()) if (a.ctl) { a.ctl.px += dx; a.ctl.py += dy; } });
+bus.on('worldShift', ({ dx, dy }) => { if (U.uWShift) { U.uWShift.value.x -= dx; U.uWShift.value.y -= dy; } for (const a of actors.values()) if (a.ctl) { a.ctl.px += dx; a.ctl.py += dy; } if (frostFx) frostFx.shift(dx, dy); });
 
 // ---------------------------------------------------------------- камера и свет
 function updateCamera(dt) {
@@ -718,7 +726,7 @@ export function render() {
   if (Z !== zone) setZone(Z);
   applyQuality();
   updateCamera(dt); updateLights(tAll, dt);
-  { const adt = dt * (G.timeScale ?? 1); syncPlayer(adt); syncEnemies(adt); syncSwarm(adt); syncGems(); if (Z.id === 'survival' && G.zoneReady) survTrim(); syncNpcs(dt); syncPet(adt); } cullActors();   // С22: в стоп-кадре удара анимации тоже замирают
+  { const adt = dt * (G.timeScale ?? 1); syncPlayer(adt); syncEnemies(adt); syncSwarm(adt); syncGems(); syncFrost(adt); if (Z.id === 'survival' && G.zoneReady) survTrim(); syncNpcs(dt); syncPet(adt); } cullActors();   // С22: в стоп-кадре удара анимации тоже замирают
   world.props.cull(camera); world.props.update(tAll); updatePlates(); updateMarks();
   if (world.atmo) world.atmo.update(dt, tAll, G.cam.x, G.cam.y, G.player.x, G.player.y);
   if (world.critters) world.critters.update(dt, tAll, G.player, G.cam.x, G.cam.y);

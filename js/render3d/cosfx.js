@@ -180,6 +180,64 @@ export class Aura {
   dispose() { this.disc.removeFromParent(); this.disc.geometry.dispose(); this.mat.dispose(); this.motes.dispose(); }
 }
 
+// ---------------------------------------------------------------- «Морозная аура» Жатвы (оружие забега, game/survival.js S.frostR)
+// 25 октября: раньше рисовалась на холсте пола (render3d/decals.js), а он обновляется раз в 4 кадра — аура ехала за героем рывками
+// (~12–15 кадров в секунду) и держала заливку холста 768² в видеокарту всё время забега. Теперь — своя плоскость в сцене, ставится
+// под героя каждый кадр. Вид: ледяной иней по краю (зубцы-кристаллы), кольцо со снежинками, по орбите — вытянутые льдинки-ромбы
+// (были квадратики), внутри — морозные узоры; сверху — редкий снег (частицы). Цена: 2 отрисовки, 3 шума на пиксель
+const FROST_FS = /* glsl */`
+uniform float uTime; uniform vec3 uColA; uniform vec3 uColB; uniform float uEvo; varying vec2 vUv;
+${NOISE}
+// льдинка-ромб в своей системе координат: q.x — вдоль орбиты, q.y — от центра
+float rhomb(vec2 q, vec2 s) { return 1.0 - (abs(q.x) / s.x + abs(q.y) / s.y); }
+void main() {
+  vec2 p = vUv * 2.0 - 1.0; float r = length(p), a = atan(p.y, p.x); if (r > 1.0) discard;
+  float t = uTime, pu = 0.88 + 0.12 * sin(t * 2.2);
+  // иней по краю: неровная кромка и зубцы-кристаллы внутрь, медленно «дышат»
+  float n1 = vn(vec2(a * 6.0, t * 0.35));
+  float edge = 0.93 + 0.035 * n1;
+  float rim = smoothstep(0.035, 0.0, abs(r - edge)) + smoothstep(0.12, 0.0, edge - r) * 0.35 * step(r, edge);
+  float sp = pow(abs(cos(a * 14.0 + n1 * 2.0)), 10.0) * (0.6 + 0.4 * vn(vec2(a * 9.0, 3.0)));
+  float spikes = sp * smoothstep(edge - 0.24, edge, r) * step(r, edge);
+  // морозные узоры внутри: ветвистые прожилки (гребни шума), гуще к краю
+  float n2 = vn(p * 7.0 + vec2(0.0, t * 0.15)), vein = smoothstep(0.08, 0.0, abs(n2 - 0.5)) * smoothstep(0.25, 0.85, r) * 0.45;
+  float fill = smoothstep(0.15, 1.0, r) * (0.10 + 0.12 * vn(p * 3.0 - t * 0.2));
+  // кольцо рун: тонкая линия и 6 снежинок, плывут против часовой
+  float ring = smoothstep(0.012, 0.0, abs(r - 0.66)) * 0.8;
+  float ga = a + t * 0.35, sec = 6.2831 / 6.0, ca = (floor(ga / sec) + 0.5) * sec - t * 0.35;
+  vec2 gc = vec2(cos(ca), sin(ca)) * 0.66, q = p - gc; float qr = length(q), qa = atan(q.y, q.x);
+  float flake = smoothstep(0.012, 0.0, abs(sin(qa * 3.0)) * qr) * smoothstep(0.075, 0.05, qr) + smoothstep(0.025, 0.012, qr);
+  ring = max(ring * step(0.085, qr), flake);
+  // льдинки по орбите (вместо квадратиков): 8 вытянутых ромбов вдоль круга, с бликом посередине
+  float oa = a - t * 0.8, osec = 6.2831 / 8.0, oc = (floor(oa / osec) + 0.5) * osec + t * 0.8;
+  vec2 dir = vec2(cos(oc), sin(oc)), tg = vec2(-dir.y, dir.x), d = p - dir * 0.84; vec2 lq = vec2(dot(d, tg), dot(d, dir));
+  float sh = rhomb(lq, vec2(0.10, 0.035)), shard = smoothstep(0.0, 0.25, sh), glint = smoothstep(0.55, 0.9, sh);
+  float glow = smoothstep(-1.6, 0.0, sh) * 0.35 * step(sh, 0.0);
+  float A = clamp((rim + spikes * 0.8 + vein + fill + ring + glow) * pu + shard, 0.0, 1.0);
+  vec3 col = mix(uColA, uColB, clamp(rim + spikes * 0.6 + ring + shard * 0.7 + vein * 0.5, 0.0, 1.0));
+  col = mix(col, vec3(1.0), glint * 0.8 + uEvo * 0.05);
+  if (A < 0.01) discard;
+  gl_FragColor = vec4(col * (1.25 + uEvo * 0.12), A * 0.92);
+}`;
+export class FrostAura {
+  constructor(scene) {
+    this.mat = new THREE.ShaderMaterial({ uniforms: { uTime: U.uTime, uColA: { value: C3(0x2a78e8) }, uColB: { value: C3(0xd8f6ff) }, uEvo: { value: 0 } }, transparent: true, depthWrite: false,
+      vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }', fragmentShader: FROST_FS, polygonOffset: true, polygonOffsetFactor: -5, polygonOffsetUnits: -5 });
+    const g = new THREE.PlaneGeometry(2, 2); g.rotateX(-Math.PI / 2);
+    this.disc = new THREE.Mesh(g, this.mat); this.disc.renderOrder = 5; this.disc.userData.noOutline = true; this.disc.frustumCulled = false; scene.add(this.disc);
+    this.motes = new Motes(scene, 40, { colA: 0xffffff, colB: 0x6ab8ff, grav: -0.35, drag: 1, size: 0.12, wobble: 0.45, k: 1.4 }); this.et = 0;
+  }
+  // x, y — герой; R — радиус ауры в метрах; evo — пробуждение «Абсолютный ноль»
+  update(dt, x, y, R, evo) {
+    this.disc.position.set(x, 0.08, y); this.disc.scale.setScalar(R); this.mat.uniforms.uEvo.value = evo ? 1 : 0;
+    if ((this.et += dt) > (evo ? 0.05 : 0.08)) { this.et = 0; const a = Math.random() * 6.28, r = R * (0.35 + Math.random() * 0.6); this.motes.emit(x + Math.cos(a) * r, 0.1, y + Math.sin(a) * r, 0, 0.3 + Math.random() * 0.5, 0, 0.9 + Math.random() * 0.7); }
+    this.motes.update(dt);
+  }
+  shift(dx, dy) { const P = this.motes.pos; for (let j = 0; j < P.length; j += 3) { P[j] += dx; P[j + 2] += dy; } }
+  set visible(v) { this.disc.visible = this.motes.pts.visible = v; }
+  dispose() { this.disc.removeFromParent(); this.disc.geometry.dispose(); this.mat.dispose(); this.motes.dispose(); }
+}
+
 // ---------------------------------------------------------------- крылья
 // demon — перепончатые кожистые с костями и тлеющими прожилками; angel — белые перья с золотыми кончиками;
 // frost — ледяные кристаллы; flame — крылья из пламени (энергия); void — фиолетовая бездна (энергия)

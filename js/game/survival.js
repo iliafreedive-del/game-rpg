@@ -650,13 +650,13 @@ function drawFrost(c, cam, flat) {
   const pl = G.player, [cx, cy] = cam.toScreen(pl.x, pl.y), [rx] = cam.toScreen(pl.x + S.frostR, pl.y), R = Math.abs(rx - cx), pu = 0.75 + 0.25 * Math.sin(G.time * 5), d = flat ? 3 : 2;
   c.save(); c.translate(cx, cy); if (!flat) c.scale(1, 0.5); const g = c.createRadialGradient(0, 0, R * 0.3, 0, 0, R); g.addColorStop(0, 'rgba(120,200,255,0)'); g.addColorStop(0.8, `rgba(140,215,255,${0.22 * pu})`); g.addColorStop(1, 'rgba(200,240,255,0)');
   c.fillStyle = g; c.beginPath(); c.arc(0, 0, R, 0, 7); c.fill(); c.strokeStyle = `rgba(200,240,255,${0.55 * pu})`; c.lineWidth = flat ? 4 : 3; c.beginPath(); c.arc(0, 0, R * 0.96, 0, 7); c.stroke();
-  for (let i = 0; i < 10; i++) { const a = G.time * 0.8 + i * 0.628; c.fillStyle = 'rgba(230,250,255,0.9)'; c.fillRect(Math.cos(a) * R * 0.9 - d, Math.sin(a) * R * 0.9 - d, d * 2, d * 2); } c.restore(); return 1;
+  c.fillStyle = 'rgba(230,250,255,0.9)'; for (let i = 0; i < 8; i++) { const a = G.time * 0.8 + i * 0.785, x = Math.cos(a) * R * 0.88, y = Math.sin(a) * R * 0.88, tx = -Math.sin(a) * d * 3, ty = Math.cos(a) * d * 3, nx = Math.cos(a) * d, ny = Math.sin(a) * d; c.beginPath(); c.moveTo(x + tx, y + ty); c.lineTo(x + nx, y + ny); c.lineTo(x - tx, y - ty); c.lineTo(x - nx, y - ny); c.fill(); } c.restore(); return 1;   // льдинки-ромбы по орбите (были квадратики)
 }
 export function drawSurvivalGround(c, cam) {
   const S = G.surv; if (!S) return 0; let n = 0;
   if (fxReady('gr_burning_ground')) for (const q of S.pools) if (drawPool(c, cam, q)) n++;
   if (fxReady('sk_meteor_target')) for (const m of S.drops || []) if (drawFxSheet(c, cam, markFx(m), 1) && !flatTook()) n++;
-  n += drawFrost(c, cam, true);
+  // морозная аура в 3D — своя плоскость в сцене (render3d/cosfx.js FrostAura): холст пола обновляется раз в 4 кадра, и аура ехала рывками
   return n;
 }
 // сборка 66 (ОС-14): танцующие клинки в 3D — щиты в сцене (render3d/decals.js): за героем клинок прячется за ним
