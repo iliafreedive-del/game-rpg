@@ -14,7 +14,7 @@ import * as CH from '../game/character.js';
 import * as EC from '../game/economy.js';
 import * as Q from '../game/quests.js';
 import { iconURL, itemURL, skillCanvas, branchImg } from './icons.js';
-import { ART, artTag, artHead, gearArt } from './art.js';
+import { ART, artTag, artHead, gearArt, artImg } from './art.js';
 import { drawMap, seen, seenKey } from './hud.js';
 import { offers, buy, restorePurchases, dailyStatus, claimDaily, chestStatus, chestSkip, chestSkipsLeft, openOrderChest, DAILY, LOGIN_DAYS, watchRewarded, offerToken, blessing, blessLeft, BLESS_MIN, BLESS_CAP, BLESS_DAY, blessToday, sealActive, sealDaysLeft, SEAL_DAY, dayOffer, startDayOffer } from '../platform/monetize.js';
 import { PRODUCTS, platform } from '../platform/platform.js';
@@ -1426,6 +1426,10 @@ function survGo(mode, back) {
   const M = SV.MODES[mode]; if (!CS.spendEnergy(M.cost)) { bus.emit('toast', { text: `Нужно ${M.cost} ⚡ энергии`, kind: 'warn' }); bus.emit('openEnergy', back); return; }
   closeModal(); G.survMode = mode; loadZone('survival');
 }
+// сборка 75: значки усилений Жатвы грузим заранее, при входе в забег — иначе в окне уровня они первые полсекунды пустые
+bus.on('zoneEntered', id => { if (id !== 'survival') return;
+  for (const k of [...Object.keys(SV.PERKS), 'extra', 'gold', 'rep_power', 'rep_vigor']) { const r = artImg(ART.perk(k)); r.im.decode && r.im.decode().catch(() => {}); }
+  for (const e of SV.EVOS) { const r = artImg(ART.evo(e.id)); r.im.decode && r.im.decode().catch(() => {}); } });
 function survLevel() {
   const S = G.surv; if (!S || S.over) return;
   if (cur) { setTimeout(survLevel, 500); return; }
