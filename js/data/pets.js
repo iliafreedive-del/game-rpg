@@ -32,3 +32,6 @@ export const TRAIN = {
 };
 export const TRAIN_STEP = 0.05;
 export const trainCost = l => Math.round(120 * Math.pow(1.22, l));   // первого зверька Кофи дарит
+// Окошко питомца у Кофи: портреты моделей Meshy одной полосой (tools/art/pet_portraits.mjs → assets/art/pets/portraits.webp), по этому порядку
+export const PET_PIC = ['fennec', 'crow', 'scorpid', 'wisp', 'skull', 'basilisk', 'bat', 'golem'];
+export const petPicStyle = id => { const i = PET_PIC.indexOf(id); return i < 0 ? '' : `background-position:${(i / (PET_PIC.length - 1) * 100).toFixed(3)}% 50%`; };

@@ -4196,6 +4196,14 @@
   "w": "js/game/game.js"
  },
  {
+  "k": "Портал откроется в следующем обновлении",
+  "w": "js/game/game.js"
+ },
+ {
+  "k": "Новые земли уже в пути",
+  "w": "js/game/game.js"
+ },
+ {
   "k": "{0} — с {1} уровня",
   "w": "js/game/game.js"
  },
@@ -6576,7 +6584,7 @@
   "w": "js/game/wildmem.js"
  },
  {
-  "k": "2026-10-14 · сборка 72",
+  "k": "2026-10-25 · сборка 74",
   "w": "js/main.js"
  },
  {
@@ -6801,6 +6809,10 @@
  },
  {
   "k": "Награда за просмотр",
+  "w": "js/platform/monetize.js"
+ },
+ {
+  "k": "Реклама через {0}",
   "w": "js/platform/monetize.js"
  },
  {
@@ -7312,6 +7324,10 @@
   "w": "js/render3d/renderer3d.js"
  },
  {
+  "k": "[3d] Жатва: выгружены модели",
+  "w": "js/render3d/renderer3d.js"
+ },
+ {
   "k": "Низкое",
   "w": "js/render3d/style.js"
  },
@@ -7362,6 +7378,26 @@
  {
   "k": "\n{\n#if defined(USE_COLOR_ALPHA)\n  outgoingLight = mix(lkX(outgoingLight), outgoingLight, vColor.a);   // светящиеся части питомцев (огонь хвоста, глаза) — того же облика\n#endif\n  float pu = 0.75 + 0.25 * sin(uTime * uLkG2.x * 6.2831); outgoingLight += uLkG.rgb * uLkG.w * lkW * pu;\n  if (uLkGh.w > 0.0) {   // призрак: тело полупрозрачное, светится по краю силуэта, по нему бегут бледные полосы\n    float fr = pow(1.0 - saturate(abs(dot(normal, normalize(vViewPosition)))), 1.6);\n    float sc = 0.78 + 0.22 * sin(vViewPosition.y * 14.0 + uTime * 4.0);\n    outgoingLight = mix(outgoingLight, outgoingLight * 0.45 + uLkGh.rgb * (0.35 + 2.4 * fr) * sc, uLkGh.w);\n    diffuseColor.a *= mix(1.0, clamp((0.3 + 0.8 * fr) * sc, 0.0, 1.0), uLkGh.w);\n  }\n}\n",
   "w": "js/render3d/toon.js"
+ },
+ {
+  "k": "Ель",
+  "w": "js/render3d/trees2.js"
+ },
+ {
+  "k": "Ель тёмная",
+  "w": "js/render3d/trees2.js"
+ },
+ {
+  "k": "Лиственное",
+  "w": "js/render3d/trees2.js"
+ },
+ {
+  "k": "Осеннее",
+  "w": "js/render3d/trees2.js"
+ },
+ {
+  "k": "Куст",
+  "w": "js/render3d/trees2.js"
  },
  {
   "k": "{0} ч {1} мин",
@@ -8184,11 +8220,15 @@
   "w": "js/ui/panel.js"
  },
  {
-  "k": "<span style=\"color:{0}\">{1}</span> · ⚔ {2}/с · {3}",
+  "k": "Посмотреть питомца",
   "w": "js/ui/panel.js"
  },
  {
   "k": " <span class=\"lv\">ур. {0}</span>",
+  "w": "js/ui/panel.js"
+ },
+ {
+  "k": "<b>{0}{1}</b><small><span style=\"color:{2}\">{3}</span> · ⚔ {4}/с</small>",
   "w": "js/ui/panel.js"
  },
  {
@@ -10300,6 +10340,10 @@
   "w": "js/ui/windows.js"
  },
  {
+  "k": "<span style=\"{0}\"></span><small>⟲ потяните, чтобы повернуть</small>",
+  "w": "js/ui/windows.js"
+ },
+ {
   "k": "уровень <b>{0}</b> из {1}",
   "w": "js/ui/windows.js"
  },
@@ -11305,6 +11349,10 @@
  },
  {
   "k": "Спуститься в катакомбы",
+  "w": "js/world/zone.js"
+ },
+ {
+  "k": "Откроется в обновлении",
   "w": "js/world/zone.js"
  },
  {

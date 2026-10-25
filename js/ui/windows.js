@@ -45,7 +45,7 @@ import { gainXP } from '../game/loot.js';
 import { particles, effect } from '../game/combat.js';
 import { maybeInterstitial, offerPreview } from '../platform/monetize.js';
 import { petsOf, meetCaravan, petInfo } from '../game/pets.js';
-import { PETS, TIERS, PET_MAX } from '../data/pets.js';
+import { PETS, TIERS, PET_MAX, petPicStyle } from '../data/pets.js';
 import { earlyLock, firstLessonCost, POTION_RESERVE, wildDepthGate, lvlOk } from '../game/progress.js';
 import { platform as PF } from '../platform/platform.js';
 import { wipeLocal, cloudBundle } from '../game/save.js';
@@ -851,7 +851,7 @@ function petReveal() {
       b.appendChild(el('div', 'pf-hehe', '«Хе-хе!» — Кофи'));
       b.appendChild(el('div', 'pf-t', 'Поздравляем!'));
       b.appendChild(el('div', 'pf-s', 'Вот тебе питомец!'));
-      b.appendChild(el('div', 'pf-ic', D.icon));
+      b.appendChild(el('div', 'pf-ic pf-pic', `<span style="${petPicStyle(p.id)}"></span>`));   // правки к сборке 75: портрет модели вместо эмодзи
       b.appendChild(el('div', 'pf-n', `${esc(D.name)} <span style="color:${TIERS[D.tier].color}">· ${esc(TIERS[D.tier].name)}</span>`));
       b.appendChild(el('p', 'pf-d', `<b>Умение:</b> ${esc(D.desc)}`));
       b.appendChild(el('p', 'pf-d muted', 'Ходит за вами везде и сам бьётся рядом. Новых зверьков Кофи продаёт за осколки Бездны ◆.'));
@@ -1022,7 +1022,9 @@ W.shrine = () => modal('Источник силы', 'md', b => {
 // П61: страница питомца — урон (сколько и какой), скорость, дальность, дар с числами, уровень и что даст следующий
 W.petInfo = id => {
   const D = PETS[id]; if (!D) return;
-  modal(`${D.icon} ${D.name}`, 'sm', b => {
+  modal(D.name, 'sm', b => {
+    // правки к сборке 75: сверху — сам зверёк в 3D (модель Meshy), пока грузится — его портрет
+    { const st = el('div', 'pet-stage', `<span style="${petPicStyle(id)}"></span><small>⟲ потяните, чтобы повернуть</small>`); b.appendChild(st); petStage(st, id); }
     const S = petsOf(G.profile), lvl = S.own[id] || 1, I = petInfo(id, lvl), N = lvl < PET_MAX ? petInfo(id, lvl + 1) : null, T0 = TIERS[D.tier];
     const up = (a, c) => N && a !== c ? ` <span class="good">→ ${c}</span>` : '';
     b.appendChild(el('p', '', `<span style="color:${T0.color}">${T0.name}</span> · ${S.own[id] ? `уровень <b>${lvl}</b> из ${PET_MAX}` : 'ещё не куплен (показан 1-й уровень)'}${S.active === id ? ' · <b class="good">с вами</b>' : ''}`));
@@ -1035,6 +1037,24 @@ W.petInfo = id => {
     const r = el('div', 'row'); r.style.justifyContent = 'center'; const ok = el('button', 'btn gold', 'Понятно'); ok.onclick = () => closeModal(); r.appendChild(ok); b.appendChild(r);
   });
 };
+// окно питомца: живая модель (js/render3d/petview.js грузится только здесь), сама медленно крутится, пальцем/мышью — вручную.
+// Кадр рисуется, пока окно открыто; закрыли — модель и её искры убираются, WebGL-контекст общий с Летописью
+async function petStage(st, id) {
+  const M = await import('../render3d/petview.js').catch(() => null), v = M && st.isConnected && await M.petView(id).catch(() => null);
+  if (!v) return; if (!st.isConnected) { v.dispose(); return; }
+  st.insertBefore(v.canvas, st.querySelector('small')); st.classList.add('live');
+  let drag = null, spin = 0.45, last = performance.now();
+  st.onpointerdown = e => { drag = e.clientX; spin = 0; try { st.setPointerCapture(e.pointerId); } catch { } };
+  st.onpointermove = e => { if (drag == null) return; v.yaw += (e.clientX - drag) * 0.013; drag = e.clientX; };
+  st.onpointerup = st.onpointercancel = () => { drag = null; };
+  const loop = now => {
+    if (!st.isConnected || v.canvas.parentNode !== st) { v.dispose(); return; }
+    requestAnimationFrame(loop); const dt = Math.min(0.05, (now - last) / 1000); last = now;
+    if (drag == null) { spin = Math.min(0.45, spin + dt * 0.3); v.yaw += spin * dt; }
+    v.resize(st.clientWidth, st.clientHeight); v.draw(dt);
+  };
+  requestAnimationFrame(loop);
+}
 // П62: пустая банка. Реклама даёт 2 зелья; подряд — до 10 раз, потом одна попытка восстанавливается раз в 15 минут.
 // Купить — у торговки Миры (в деревне сразу из этого окна, в походе — подсказка, где купить)
 const POT_ADS = 10, POT_AD_MS = 15 * 60e3;

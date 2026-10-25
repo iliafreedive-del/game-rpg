@@ -29,7 +29,7 @@ const CROWN_Y = { warrior: 0.72, archer: 0.85, mage: 1.0 }, HALO_Y = { warrior: 
 // ограниченное число контекстов и при превышении отбирает самый старый — контекст основной игры: игра перезагружалась на выбор героя
 let shared = null;
 export const webglOK = () => { if (window.__R3 && window.__R3.renderer) return true; try { return !!sharedRenderer(); } catch { return false; } };
-function sharedRenderer() {
+export function sharedRenderer() {
   if (shared) return shared;
   const canvas = document.createElement('canvas');
   const r = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: (window.devicePixelRatio || 1) < 2 });

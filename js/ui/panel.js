@@ -19,7 +19,7 @@ import { startTrial } from '../game/game.js';
 import { adButton } from './adbtn.js';
 import { stats } from '../game/stats.js';
 import { earlyLock } from '../game/progress.js';
-import { PETS, TIERS, PET_MAX, GIFT_PET, TRAIN, TRAIN_MAX, TRAIN_STEP } from '../data/pets.js';
+import { PETS, TIERS, PET_MAX, GIFT_PET, TRAIN, TRAIN_MAX, TRAIN_STEP, petPicStyle } from '../data/pets.js';
 import * as PT from '../game/pets.js';
 
 let target = null, box = null, lastSig = '', dismissed = null;
@@ -118,15 +118,21 @@ function render(force) {
       const g = el('button', 'btn gold pet-gift', '🎁 Забрать подарок'); g.onpointerdown = e => { e.stopPropagation(); if (PT.meetCaravan()) { dismissed = target; render(true); W.petReveal(); } }; box.appendChild(g);
     }
     const btn = (r, text, ok, fn, cls = '') => { const b = el('button', 'pn-btn' + (ok ? ' ok' : '') + cls, text); b.disabled = !ok; b.onpointerdown = e => { e.stopPropagation(); fn(); render(true); }; r.appendChild(b); };
+    // правки к сборке 75: карточка питомца — портрет модели (tap → окно с 3D), имя, редкость и урон, дар во всю ширину, кнопки рядом внизу.
+    // Раньше значок-эмодзи и кнопки справа сжимали текст в узкий столбик (на телефоне по слову в строке)
     for (const [id, D] of Object.entries(PETS)) {
       const lvl = S.own[id] || 0, c = PT.petCan(id), T0 = TIERS[D.tier], on = S.active === id;
-      const sub = `<span style="color:${T0.color}">${T0.name}</span> · ⚔ ${PT.petInfo(id, lvl || 1).dps}/с · ${D.desc}`;
-      const r = row(D.icon, `${esc(D.name)}${lvl ? ` <span class="lv">ур. ${lvl}</span>` : ''}`, sub, null, false, null, on ? 'hot' : '');
-      { const ib = el('button', 'pn-btn ok pn-info', 'ℹ'); ib.title = 'Урон и дар питомца'; ib.onpointerdown = e => { e.stopPropagation(); W.petInfo(id); }; r.appendChild(ib); }   // П61
-      if (!lvl) btn(r, c.why ? '🔒 ' + c.why : `${c.cost}◆`, c.ok, () => PT.buyPet(id), c.why ? '' : ' cost');
+      const r = el('div', 'pn-row pet-card' + (on ? ' hot' : ''));
+      const pic = el('button', 'pet-pic', `<span style="${petPicStyle(id)}"></span><i>⟳ 3D</i>`); pic.title = 'Посмотреть питомца';
+      pic.onpointerdown = e => { e.stopPropagation(); W.petInfo(id); }; r.appendChild(pic);
+      r.appendChild(el('div', 'pet-hd', `<b>${esc(D.name)}${lvl ? ` <span class="lv">ур. ${lvl}</span>` : ''}</b><small><span style="color:${T0.color}">${T0.name}</span> · ⚔ ${PT.petInfo(id, lvl || 1).dps}/с</small>`));
+      r.appendChild(el('div', 'pet-desc', esc(D.desc)));
+      const bs = el('div', 'pet-btns'); r.appendChild(bs);
+      { const ib = el('button', 'pn-btn ok pn-info', 'ℹ'); ib.title = 'Урон и дар питомца'; ib.onpointerdown = e => { e.stopPropagation(); W.petInfo(id); }; bs.appendChild(ib); }   // П61
+      if (!lvl) btn(bs, c.why ? '🔒 ' + c.why : `${c.cost}◆`, c.ok, () => PT.buyPet(id), c.why ? '' : ' cost');
       else {
-        btn(r, on ? '✔ С вами' : 'Взять', !on, () => PT.choosePet(id));
-        if (lvl < PET_MAX) btn(r, `▲ ${c.cost}◆`, c.ok, () => PT.upgradePet(id), ' up cost');
+        btn(bs, on ? '✔ С вами' : 'Взять', !on, () => PT.choosePet(id));
+        if (lvl < PET_MAX) btn(bs, `▲ ${c.cost}◆`, c.ok, () => PT.upgradePet(id), ' up cost');
       }
       box.appendChild(r);
     }
