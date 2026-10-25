@@ -18,6 +18,7 @@ FX_M = dict(quality=76, alpha_quality=65, method=6)      # телефонные 
 BG = dict(quality=82, method=6)                          # фоны 1920×1080: титул, Летопись, Жатва, смерть
 VEIL = dict(quality=78, method=6)                        # картинки зон под тёмной шторкой «Загрузка…» и в шапках окон
 ICON = dict(quality=92, subsampling=0, optimize=True)    # значки 256 px: JPEG 4:4:4 (у WebP цвет мелких деталей «плывёт»)
+ICON_S = dict(ICON, quality=88, side=192)               # сборка 75: значки навыков/даров/Жатвы — 192 px (на экране ≤ 68 px, ×3 на телефоне ≈ 200): вдвое легче
 ALPHA = dict(quality=85, alpha_quality=90, method=6)
 SKIN = dict(quality=78, method=6)                        # текстуры шкур 1024 (на телефоне игра сама уменьшает до 512)
 
@@ -34,6 +35,8 @@ CHANGED = set()
 def encode(job):   # (src, dst, fmt, kw, keep_if_bigger)
     src, dst, fmt, kw, force = job
     im = Image.open(src); im.load()
+    kw = dict(kw); side = kw.pop('side', 0)
+    if side and max(im.size) > side: im = im.resize((side, side * im.size[1] // im.size[0]), Image.LANCZOS)   # сборка 75: значки 256 → 192
     if fmt == 'JPEG': im = im.convert('RGB')
     elif im.mode not in ('RGB', 'RGBA'): im = im.convert('RGBA')
     b = io.BytesIO(); im.save(b, fmt, **kw); data = b.getvalue()
@@ -78,9 +81,9 @@ for f in glob.glob(A('models', '*.webp')): jobs.append((f, f, 'WEBP', SKIN, Fals
 # ---------------------------------------------------------------- 2. арт GPT со сменой расширения
 G = 'art/gpt/'
 GROUPS = [   # (картинки, новое расширение, формат, настройки, [(файлы кода — подстрока пути, было, стало)], старый путь — регулярка для проверки)
-    ('skills/*.png', '.jpg', 'JPEG', ICON, [('ui/art.js', 'skills/${id}.png', 'skills/${id}.jpg'), ('ui/art.js', 'skills/branch_${id}.png', 'skills/branch_${id}.jpg')], r'skills/[^\'"`\s)]*\.png'),
-    ('boons/*.png', '.jpg', 'JPEG', ICON, [('ui/art.js', 'boons/${id}.png', 'boons/${id}.jpg')], r'boons/[^\'"`\s)]*\.png'),
-    ('harvest/*.png', '.jpg', 'JPEG', ICON, [('ui/art.js', 'harvest/perk_${id}.png', 'harvest/perk_${id}.jpg'), ('ui/art.js', 'harvest/${id}.png', 'harvest/${id}.jpg')], r'harvest/[^\'"`\s)]*\.png'),
+    ('skills/*.png', '.jpg', 'JPEG', ICON_S, [('ui/art.js', 'skills/${id}.png', 'skills/${id}.jpg'), ('ui/art.js', 'skills/branch_${id}.png', 'skills/branch_${id}.jpg')], r'skills/[^\'"`\s)]*\.png'),
+    ('boons/*.png', '.jpg', 'JPEG', ICON_S, [('ui/art.js', 'boons/${id}.png', 'boons/${id}.jpg')], r'boons/[^\'"`\s)]*\.png'),
+    ('harvest/*.png', '.jpg', 'JPEG', ICON_S, [('ui/art.js', 'harvest/perk_${id}.png', 'harvest/perk_${id}.jpg'), ('ui/art.js', 'harvest/${id}.png', 'harvest/${id}.jpg')], r'harvest/[^\'"`\s)]*\.png'),
     ('heroes/*.png', '.jpg', 'JPEG', ICON, [('main.js', 'heroes/${id}.png', 'heroes/${id}.jpg')], r'heroes/[^\'"`\s)]*\.png'),
     ('items/*.png', '.webp', 'WEBP', ALPHA, [('ui/art.js', 'items/${id}.png', 'items/${id}.webp')], r'items/[^\'"`\s)]*\.png'),
     ('hw/*.png', '.webp', 'WEBP', ALPHA, [('ui/art.js', "hw/${win ? 'victory' : 'defeat'}.png", "hw/${win ? 'victory' : 'defeat'}.webp")], r"'defeat'\}\.png"),

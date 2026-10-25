@@ -43,7 +43,10 @@ export const mobsReady = (ids, ms) => Promise.race([Promise.all(ids.flatMap(mobA
 // титульный экран: герой последнего сохранения (первым) и жители деревни — первая зона почти всегда деревня
 export function preloadModels(cls) {
   if (cls && HERO_SKIN[cls]) skin.preloadSkin(HERO_SKIN[cls]);
-  return Promise.all(NPC_SKIN.map(n => skin.preloadSkin(n)));
+  const p = Promise.all(NPC_SKIN.map(n => skin.preloadSkin(n)));
+  // сборка 75: лис Кофи, собаки и куры деревни — тоже на титуле: вход в деревню ждёт и их (zoneModels), раньше они начинали качаться только после выбора героя
+  p.then(() => ['pet_fennec', 'dog_town', 'dog_brown', 'chicken_white', 'chicken_red'].forEach(n => loadOne(n)));
+  return p;
 }
 // что ждать перед показом зоны: герой; в деревне — жители; где есть враги — наклейки морд зверей и модели мобов на карте
 // (и их приспешников). Собаки и куры деревни, моб, пришедший позже, — догружаются и подменяются на месте (critters.js, renderer3d syncEnemies)

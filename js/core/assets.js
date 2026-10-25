@@ -32,6 +32,30 @@ export async function loadAtlas(name) {
   atlases.set(name, p); return p;
 }
 export const atlas = name => atlases.get(name);   // promise
+// сборка 75: атлас «сначала разметка» — готов (getAtlas), как только пришёл его json (кадры, длины клипов). Листы качаются потом —
+// после входа в мир (releaseLite) или через 25 с: в 3D листы героя и мобов нужны лишь запасному 2D, а вход в мир ждал их (≈3 МБ)
+// и делил с ними канал. Пока лист не пришёл, на его месте пустой холст 1×1 — drawFrame просто ничего не рисует.
+// atlas(name)/loadGroup по-прежнему ждут листы целиком (wildmem копирует пиксели)
+const liteQ = []; let liteGo = false;
+export function releaseLite() { liteGo = true; for (const f of liteQ.splice(0)) f(); }
+setTimeout(releaseLite, 25000);
+function loadAtlasLite(name) {
+  if (ready.has(name)) return Promise.resolve(ready.get(name));
+  if (atlases.has(name)) return atlases.get(name);   // уже качается целиком — ждём, как раньше
+  let full;
+  const meta = loadJSON('sprites/' + name + '.json').then(meta => {
+    const els = meta.sheets.map(() => { const c = document.createElement('canvas'); c.width = c.height = 1; return c; });
+    const A = new Atlas(name, meta, els); ready.set(name, A);
+    full = Promise.all(meta.sheets.map((s, i) => {
+      const pr = new Promise(res => { liteGo ? res() : liteQ.push(res); }).then(() => loadImage('sprites/' + s)).then(im => { els[i] = im; return im; });
+      return pr;
+    })).then(() => A); full.catch(() => { });
+    return A;
+  });
+  atlases.set(name, meta.then(() => full));
+  return meta;
+}
+export function loadGroupLite(names) { return Promise.all(names.map(n => loadAtlasLite(n).catch(e => { console.warn('atlas failed', n, e.message); return null; }))); }
 const ready = new Map();
 export function getAtlas(name) { return ready.get(name); }
 export function putAtlas(name, A) { ready.set(name, A); atlases.set(name, Promise.resolve(A)); }   // runtime-derived atlases (recoloured/rescaled sprites)

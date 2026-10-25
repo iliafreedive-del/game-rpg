@@ -20,6 +20,8 @@ PY
 # сборка 66: картинки (листы эффектов, арт GPT, текстуры шкур) пережимаются, мёртвые файлы убираются — tools/pack_assets.py
 [ "${PACK:-1}" = 0 ] || python3 "$TOOLS/pack_assets.py" "$STAGE"
 # сборка 66: JS без комментариев и пробелов (все языки) — нужен esbuild: ESB=/путь/node_modules/esbuild (npm i esbuild@0.25)
-if [ -n "${ESB:-}" ] && [ -d "$ESB" ]; then node "$TOOLS/minify_js.mjs" "$STAGE" "$ESB"; fi
+if [ -n "${ESB:-}" ] && [ -d "$ESB" ]; then node "$TOOLS/minify_js.mjs" "$STAGE" "$ESB"
+  # сборка 75: и все модули языка — одним файлом main.js (экран «Загрузка…» ждал ~340 запросов); BUNDLE=0 — как раньше
+  [ "${BUNDLE:-1}" = 0 ] || node "$TOOLS/bundle_js.mjs" "$STAGE" "$ESB"; fi
 rm -f "$OUT"; (cd "$STAGE" && zip -9qr - .) > "$OUT"
 echo "$STAGE"; ls -l "$OUT"

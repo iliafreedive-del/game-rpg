@@ -1,6 +1,6 @@
 // Entry point: boot sequence, title screen, main loop.
 import { G, bus } from './game/ctx.js';
-import { loadGroup, getAtlas } from './core/assets.js';
+import { loadGroup, loadGroupLite, releaseLite, getAtlas } from './core/assets.js';
 import { initInput, initMouse, input, releaseInput } from './core/input.js';
 import { initCamZoom } from './core/camzoom.js';
 import { initAudio, sfx, startMusic, setVolumes, setPaused, deviceVolumes } from './core/audio.js';
@@ -57,15 +57,21 @@ async function boot() {
   platform.p.ready();
   initAnalytics();
   // сборка 51: монстры, модели героев и зверей качаются после Game Ready, пока игрок на титульном экране
-  const mons = core.then(() => loadGroup(MONSTERS)).catch(e => console.warn(e));   // сборка 64: после атласов, чтобы не делить с ними канал
-  mons.then(() => startPreload(saves.last));   // модели — после атласов: «Начать игру» ждёт именно атласы
+  // сборка 75: в 3D листы мобов (≈1,5 МБ) нужны лишь запасному 2D — вход в мир ждёт только их разметку (json), листы докачиваются позже.
+  // Модели деревни (≈7 МБ — их ждёт вход в мир) качаются сразу после атласов, пока игрок на титуле, а не после листов мобов
+  const lite = !!G.render3d;
+  const mons = core.then(() => lite ? loadGroupLite(MONSTERS) : loadGroup(MONSTERS)).catch(e => console.warn(e));   // сборка 64: после атласов, чтобы не делить с ними канал
+  // сборка 75: на ПК карточки выбора героя показывают большие портреты (heroes/*.jpg, ждут их до 2,5 с) — качаем до моделей
+  const bigPick = matchMedia('(min-width:900px) and (min-height:600px)').matches;
+  const pics = bigPick ? Promise.all(Object.keys(CLASSES).map(id => new Promise(r => { const im = new Image(); im.onload = im.onerror = r; im.src = `assets/art/gpt/heroes/${id}.png`; }))) : Promise.resolve();
+  (lite ? Promise.all([core, pics]) : mons).then(() => startPreload(saves.last));   // модели — после атласов: «Начать игру» ждёт именно атласы
   $('loadbar').classList.add('hidden'); $('loadtxt').classList.add('hidden');
   const btns = $('titleBtns'); btns.classList.remove('hidden'); $('title').classList.add('ready'); if (window.__bootOk) window.__bootOk();   // сборка 58: фон загрузки (лестница) → титульный (Тихий Брод)
   const start = async (p) => {
     btns.innerHTML = '<div class="muted">Вход в мир…</div>';
     startPreload(p.cls || 'warrior');   // сборка 66: модель героя выбранного класса — сразу (новый герой: на титуле класс ещё не известен)
     await core;
-    await loadGroup(CLASS_ATLAS[p.cls || 'warrior']).catch(() => { });
+    await (lite ? loadGroupLite : loadGroup)(CLASS_ATLAS[p.cls || 'warrior']).catch(() => { });   // сборка 75: в 3D — только разметка, листы героя докачиваются
     const dv = deviceVolumes(); if (dv) { p.settings.sfx = dv.sfx; p.settings.music = dv.music; }   // громкость — настройка устройства (одна для всех героев)
     G.profile = p; G.stats = stats(p); wireAnalytics(); wireEvents(); startPerfLog(); setVolumes(p.settings.sfx, p.settings.music); resize();
     btns.innerHTML = '<div class="muted">Вход в мир…</div>';
@@ -77,7 +83,7 @@ async function boot() {
     const crypt = !fresh && !p.tutorial.prologue;   // сборка 59: перезагрузка посреди пролога — снова в склеп, а не в деревню без пролога
     G.heroHidden = fresh;   // правки 5: новая игра — облёт деревни без героя: он «стоял слева от площади», хотя просыпается в склепе
     await loadZone(crypt ? 'depths' : 'town', crypt ? { floor: 0 } : undefined);
-    $('title').remove(); startMusic('town');
+    $('title').remove(); startMusic('town'); setTimeout(releaseLite, 3000);   // сборка 75: листы 2D героя и мобов — когда мир уже на экране
     bus.on('zoneEntered', z => startMusic(z));
     bus.on('music', z => startMusic(z || G.zoneId));   // сборка 60: бой Летописи — своя тема, потом обратно музыка зоны
     restorePurchases().catch(() => { });
