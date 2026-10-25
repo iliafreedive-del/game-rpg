@@ -1101,3 +1101,25 @@ body.ad-banner #joyZone{bottom:var(--banner-h,56px)}
 .name-row{display:flex;gap:10px}
 .name-row .btn{flex:1;min-width:0!important;min-height:46px}
 @media (max-height:500px){#title:has(.name-pick){justify-content:flex-start;padding-top:10px}.name-pick img.pt{display:none}}   /* телефон горизонтально: всё наверху, над клавиатурой */
+/* правки к сборке 75: карточка питомца у Кофи — портрет модели слева, имя/редкость/урон и дар друг над другом, кнопки рядом внизу во всю ширину */
+.pn-row.pet-card{display:grid;grid-template-columns:72px 1fr;grid-template-areas:"pic hd" "pic desc" "btn btn";column-gap:10px;row-gap:3px;align-items:start;padding:8px}
+.pet-card .pet-hd{grid-area:hd;min-width:0}.pet-card .pet-hd b{display:block;font:600 14px var(--serif);line-height:1.15}.pet-card .pet-hd small{display:block;font-size:11px;color:#cbbfa8;margin-top:1px}
+.pet-card .pet-hd .lv{color:var(--dim);font:11px sans-serif}
+.pet-card .pet-desc{grid-area:desc;font-size:11.5px;line-height:1.3;color:#e2d6c0}
+.pet-card .pet-btns{grid-area:btn;display:flex;gap:6px;margin-top:5px}.pet-card .pet-btns .pn-btn{flex:1;min-width:0;margin:0}.pet-card .pet-btns .pn-info{flex:0 0 44px}
+.pet-pic{grid-area:pic;position:relative;width:72px;height:72px;padding:0;border:1px solid #6a5226;border-radius:10px;cursor:pointer;overflow:hidden;
+  background:radial-gradient(circle at 50% 62%,#6a4a22 0,#2e2018 58%,#160f12 100%);box-shadow:inset 0 0 12px #000a,0 0 8px #d8a84a22}
+.pet-pic span{position:absolute;inset:0;background:url(../assets/art/pets/portraits.webp) no-repeat;background-size:800% 100%;filter:drop-shadow(0 2px 2px #000a);transition:transform .2s}
+.pet-pic:hover span,.pet-pic:active span{transform:scale(1.08)}
+.pet-pic i{position:absolute;right:3px;bottom:3px;font:700 9px sans-serif;font-style:normal;color:#ffe2a0;background:#000a;border-radius:4px;padding:1px 3px}
+.pn-row.pet-card.hot .pet-pic{border-color:#d8a84a;box-shadow:inset 0 0 12px #000a,0 0 10px #d8a84a66}
+/* окно питомца: модель в 3D, вращается; пальцем — крутить */
+.pet-stage{position:relative;width:100%;height:clamp(150px,34vh,260px);margin:-4px 0 8px;border-radius:10px;overflow:hidden;touch-action:none;cursor:grab;
+  background:radial-gradient(ellipse at 50% 70%,#6a4a22 0,#2a1d16 55%,#120c10 100%);border:1px solid #6a5226}
+.pet-stage>span{position:absolute;top:6%;bottom:6%;left:50%;aspect-ratio:1;transform:translateX(-50%);background:url(../assets/art/pets/portraits.webp) no-repeat;background-size:800% 100%;transition:opacity .3s}
+.pet-stage canvas{position:absolute;inset:0;width:100%!important;height:100%!important}
+.pet-stage.live>span{opacity:0}
+.pet-stage small{position:absolute;left:0;right:0;bottom:4px;text-align:center;font-size:10px;color:#cbbfa8aa;pointer-events:none}
+@media (orientation:landscape) and (max-height:500px){.pet-stage{height:150px}}
+.pf-ic.pf-pic{position:relative;width:clamp(130px,32vmin,210px);aspect-ratio:1;font-size:0;margin:0 auto}.pf-pic span{position:absolute;inset:0;background:url(../assets/art/pets/portraits.webp) no-repeat;background-size:800% 100%}
+@media (orientation:landscape) and (max-height:500px){.pf-ic.pf-pic{width:110px}}
