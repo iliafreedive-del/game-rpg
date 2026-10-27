@@ -1,6 +1,6 @@
 // Склон, лес, ворота, след доски, снежная пыль и камера.
 import * as THREE from 'three';
-import { HORIZON, SUN_DIR, terrainH, snowTint, oldTracks, resortProps, snowTextures, buildForest, makeBackdrop, sprayTexture } from './art/scenery.js';
+import { HORIZON, SUN_DIR, terrainH, snowTint, oldTracks, resortProps, snowTextures, buildForest, makeBackdrop, sprayTexture, starGeo, glowTexture, finishBanner } from './art/scenery.js';
 
 export class SlopeFrame {
   constructor(deg) { this.set(deg); }
@@ -41,6 +41,8 @@ export class World {
     this.gatesGroup = new THREE.Group();
     this.markGroup = new THREE.Group();
     this.slopeGroup.add(this.gatesGroup, this.markGroup);
+    this.starGroup = new THREE.Group(); this.finishGroup = new THREE.Group();
+    this.scene.add(this.starGroup, this.finishGroup);
     this.trail = new Trail(this);
     this.spray = new Spray(this);
     this.scene.add(this.trail.mesh, this.spray.points);
@@ -151,6 +153,55 @@ export class World {
       this.markGroup.add(g);
       return g;
     });
+  }
+  // Звёзды трассы: крутятся и покачиваются над снегом; собранная — вспыхивает и исчезает
+  setStars(list) {
+    for (const ch of [...this.starGroup.children]) this.starGroup.remove(ch);
+    this.stars = [];
+    if (!list) return;
+    this.starMat ||= new THREE.MeshStandardMaterial({ color: '#ffcf3a', emissive: '#ff9f00', emissiveIntensity: 0.45, metalness: 0.35, roughness: 0.3 });
+    this.glowMat ||= new THREE.SpriteMaterial({ map: glowTexture(), color: '#ffd76a', transparent: true, opacity: 0.55, depthWrite: false, blending: THREE.AdditiveBlending });
+    this.starG ||= starGeo();
+    const f = this.frame;
+    this.stars = list.map((p, i) => {
+      const g = new THREE.Group();
+      g.position.copy(f.p(p.u, p.s, 0)).add(new THREE.Vector3(0, 1.05, 0));
+      const m = new THREE.Mesh(this.starG, this.starMat); m.castShadow = true;
+      const glow = new THREE.Sprite(this.glowMat); glow.scale.setScalar(1.5);
+      g.add(glow, m);
+      g.userData = { base: g.position.y, ph: i * 0.7, got: null };
+      this.starGroup.add(g);
+      return g;
+    });
+  }
+  collectStar(i, t) { const g = this.stars?.[i]; if (g && g.userData.got == null) g.userData.got = t; }
+  updateStars(t) {
+    for (const g of this.stars || []) {
+      const d = g.userData, m = g.children[1];
+      if (d.got != null) {
+        const k = (t - d.got) / 0.4;
+        g.visible = k < 1;
+        g.scale.setScalar(1 + k * 0.9); g.position.y = d.base + k * 0.8; m.rotation.y += 0.4;
+        continue;
+      }
+      m.rotation.y = t * 2.2 + d.ph; g.position.y = d.base + Math.sin(t * 2.4 + d.ph) * 0.12;
+    }
+  }
+  // Финишная арка поперёк трассы
+  setFinish(s) {
+    for (const ch of [...this.finishGroup.children]) this.finishGroup.remove(ch);
+    if (s == null) return;
+    const f = this.frame, g = new THREE.Group();
+    const post = new THREE.CylinderGeometry(0.16, 0.2, 4.2, 10); post.translate(0, 2.1, 0);
+    const pm = new THREE.MeshStandardMaterial({ color: '#e5e7eb', roughness: 0.5 });
+    for (const u of [-11, 11]) { const m = new THREE.Mesh(post, pm); m.position.copy(f.p(u, s)); m.castShadow = true; g.add(m); }
+    const ban = new THREE.Mesh(new THREE.PlaneGeometry(22, 1.4), new THREE.MeshStandardMaterial({ map: finishBanner(), side: THREE.DoubleSide, roughness: 0.6 }));
+    ban.position.copy(f.p(0, s)).add(new THREE.Vector3(0, 3.7, 0));
+    g.add(ban);
+    const line = new THREE.Mesh(new THREE.PlaneGeometry(22, 0.5), new THREE.MeshBasicMaterial({ color: '#111827', transparent: true, opacity: 0.55, depthWrite: false }));
+    line.position.copy(f.p(0, s, 0.02)); line.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), f.N);
+    g.add(line);
+    this.finishGroup.add(g);
   }
   highlightTarget(i) {
     (this.targetMeshes || []).forEach((g, k) => { g.visible = k >= i; g.traverse((o) => { if (o.material) o.material.color?.set(k === i ? '#f59e0b' : '#94a3b8'); }); });
