@@ -41,8 +41,8 @@ h1 { margin: 0; font-size: 30px; letter-spacing: .3px; }
 .menu-foot { max-width: 980px; margin: 26px auto 0; color: var(--mute); font-size: 13px; }
 
 /* Брифинг */
-#brief { display: grid; place-items: center; background: rgba(15,23,42,.45); }
-.brief-card { max-width: 720px; width: 100%; padding: 22px; }
+#brief { display: flex; background: rgba(15,23,42,.45); }
+.brief-card { max-width: 720px; width: 100%; padding: 22px; margin: auto; }
 .brief-top { display: flex; align-items: center; gap: 12px; }
 .brief-top h2 { margin: 0; font-size: 24px; }
 .num { background: #0ea5e9; color: #fff; border-radius: 10px; padding: 2px 10px; font-weight: 700; }
@@ -115,7 +115,7 @@ kbd { display: inline-block; min-width: 22px; padding: 1px 6px; border-radius: 6
 
 /* Модальные окна */
 #modal { position: fixed; inset: 0; display: grid; place-items: center; background: rgba(2,6,23,.45); padding: 16px; z-index: 5; }
-#modalCard { max-width: 640px; width: 100%; padding: 22px; max-height: calc(100vh - 32px); overflow: auto; }
+#modalCard { max-width: 700px; width: 100%; padding: 22px; max-height: calc(100vh - 32px); overflow: auto; }
 #modalCard h2 { margin: 0 0 6px; }
 .fall-k { font-size: 12px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--bad); font-weight: 700; }
 .ok-k { font-size: 12px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--ok); font-weight: 700; }
@@ -153,6 +153,21 @@ kbd { display: inline-block; min-width: 22px; padding: 1px 6px; border-radius: 6
 .mitem small { color: var(--mute); display: block; font-size: 11px; }
 .quiz-q { font-size: 16px; margin: 12px 0 8px; }
 .quiz-a { display: flex; gap: 8px; }
+
+/* Голова: психология и подводящие упражнения */
+.psy { margin-top: 12px; padding: 10px 14px; background: rgba(167,139,250,.13); border-left: 3px solid #a78bfa; border-radius: 8px; }
+.psy:empty, .prep:empty { display: none; }
+.psy .h, .prep .h { color: #c4b5fd; font-weight: 700; font-size: 13px; text-transform: uppercase; letter-spacing: 1px; }
+.prep { margin-top: 12px; padding: 10px 14px; background: rgba(74,222,128,.08); border-left: 3px solid var(--ok); border-radius: 8px; }
+.prep .h { color: #86efac; }
+.prep ul, .tips ul, .blk ul { margin: 4px 0 0; padding-left: 20px; }
+.prep li { margin: 3px 0; }
+#coach .tip.psy { margin-top: 4px; padding: 0; background: none; border: 0; color: #ddd6fe; }
+.lesson.lect { background: linear-gradient(135deg, rgba(167,139,250,.22), rgba(15,23,42,.85)); }
+.lesson.lect .n { color: #c4b5fd; }
+.lect-k { font-size: 12px; text-transform: uppercase; letter-spacing: 1.5px; color: #c4b5fd; font-weight: 700; }
+.blk p { margin: 4px 0; }
+.blk li { margin: 3px 0; }
 
 /* Трассы */
 .chip.sm { padding: 3px 10px; font-size: 12px; text-transform: none; letter-spacing: 0; }
@@ -212,7 +227,10 @@ kbd { display: inline-block; min-width: 22px; padding: 1px 6px; border-radius: 6
   #studioViews { bottom: auto; top: 12px; }
   h1 { font-size: 22px; }
   .menu-head .chip { display: none; }
-  .grid.tracks { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .grid.tracks, .grid.lects { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .lesson.lect { padding: 10px 12px; min-height: 0; }
+  .lesson.lect .t { font-size: 15px; }
+  .lesson.lect .s { font-size: 12px; }
   .lesson.track { padding: 10px 10px 10px 12px; min-height: 0; }
   .lesson.track .t { font-size: 15px; }
   .lesson.track .s { font-size: 12px; }

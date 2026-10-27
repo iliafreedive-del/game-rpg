@@ -8,6 +8,7 @@ import { decorateStudio } from './art/scenery.js';
 import { PAUSE, newPauses, keyMoment } from './pauses.js';
 import { TRACKS, trackStars, trackGates, taskNames, tasksDone, fmtTime, rankOf, nextRank, trackStarsEarned, totalStars, newRun, stepRun, trackAuto, GATE_PENALTY } from './tracks.js';
 import { sfx } from './sfx.js';
+import { LECTURES, LECTURES_BY_ID } from './lectures.js';
 
 const $ = (id) => document.getElementById(id);
 const D = Math.PI / 180;
@@ -142,7 +143,8 @@ function setScreen(mode) {
 // ---------------------------------------------------------------- меню
 const GROUPS = [
   ['Основы', ['stance', 'bindings', 'posture']],
-  ['На склоне', ['heel_slip', 'toe_slip', 'leaf', 'turns']],
+  ['Голова: страхи и психология', LECTURES.map((x) => 'lect:' + x.id)],
+  ['На склоне', ['heel_slip', 'toe_slip', 'leaf', 'jturn', 'garland', 'turns']],
   ['Мастер-класс', ['carve']],
   ['Свободно', ['free', 'mistakes']],
 ];
@@ -156,13 +158,17 @@ function renderMenu() {
     const sub = !open ? `🔒 нужно ${T.need}★ · у тебя ${total}` : rec?.best != null ? `рекорд ${fmtTime(rec.best)} · ${T.length} м` : `${T.slopeDeg}° · ${T.length} м · ${trackStars(T).length} звёзд`;
     return `<button class="lesson track${open ? '' : ' locked'}" data-id="track:${T.id}" style="--c:${T.id === 'black' ? '#e2e8f0' : T.color}"><div class="n">${T.level}</div><div class="t">${T.name}</div><div class="s">${sub}</div><div class="st">${'★'.repeat(got)}${'☆'.repeat(3 - got)}</div></button>`;
   }).join('')}</div>`;
-  $('lessonList').innerHTML = tracks + GROUPS.map(([g, ids]) => `<div class="group-title">${g}</div><div class="grid">${ids.map((id) => {
+  $('lessonList').innerHTML = tracks + GROUPS.map(([g, ids]) => `<div class="group-title">${g}</div><div class="grid${ids[0].startsWith('lect:') ? ' lects' : ''}">${ids.map((id) => {
+    if (id.startsWith('lect:')) { const X = LECTURES_BY_ID[id.slice(5)]; return `<button class="lesson lect" data-id="${id}"><div class="n">Лекция</div><div class="t">${X.title}</div><div class="s">${X.short}</div></button>`; }
     if (id === 'mistakes') return `<button class="lesson special" data-id="mistakes"><div class="n">Разбор</div><div class="t">Библиотека ошибок</div><div class="s">${MISTAKES.length} типичных ошибок: «неправильно / правильно» в 3D</div></button>`;
     const L = LESSONS_BY_ID[id]; n++;
     const st = save.done[id] ? '★'.repeat(save.done[id]) : '';
     return `<button class="lesson" data-id="${id}"><div class="n">${id === 'free' ? '∞' : 'Урок ' + n}</div><div class="t">${L.title}</div><div class="s">${L.short}</div><div class="st">${st}</div></button>`;
   }).join('')}</div>`).join('');
-  $('lessonList').querySelectorAll('.lesson').forEach((b) => b.onclick = () => (b.dataset.id === 'mistakes' ? openMistakes() : openBrief(b.dataset.id)));
+  $('lessonList').querySelectorAll('.lesson').forEach((b) => b.onclick = () => {
+    const id = b.dataset.id;
+    if (id === 'mistakes') openMistakes(); else if (id.startsWith('lect:')) openLecture(id.slice(5)); else openBrief(id);
+  });
   $('soundChip').onclick = () => { save.mute = !save.mute; persist(); sfx.setMuted(save.mute); if (!save.mute) sfx.star(); renderMenu(); };
 }
 const fmtA = (a) => (a > 0 ? '+' : '') + a + '°';
@@ -203,6 +209,8 @@ function openBrief(id) {
   $('briefTitle').textContent = L.title;
   $('briefTheory').innerHTML = L.theory.map((p) => `<p>${p}</p>`).join('');
   $('briefTips').innerHTML = L.tips ? `<div class="h">Мастер-класс: фишки инструктора</div><ul>${L.tips.map((t) => `<li>${t}</li>`).join('')}</ul>` : '';
+  $('briefPrep').innerHTML = L.prep ? `<div class="h">Подводящие упражнения</div><ul>${L.prep.map((t) => `<li>${t}</li>`).join('')}</ul>` : '';
+  $('briefPsy').innerHTML = L.psy ? `<div class="h">Голова</div>${L.psy}` : '';
   $('briefGoal').innerHTML = `<b>Задание:</b> ${L.goal}`;
   $('briefKeys').innerHTML = keyLegend(L.keys).map(([k, t]) => `<span>${k} ${t}</span>`).join('');
   $('briefDemo').onclick = () => startRide(id, true);
@@ -257,6 +265,7 @@ function openTrackBrief(L) {
   $('briefTheory').innerHTML = `<p>${T.intro}</p><p class="meta">Склон ${T.slopeDeg}° · ${T.length} м · ${L.nStars} звёзд${T.gates ? ' · ворота' : ''}${rec?.best != null ? ` · твой рекорд <b>${fmtTime(rec.best)}</b>` : ''}</p>`;
   $('briefTips').innerHTML = `<div class="h">Совет инструктора</div><ul><li>${T.tip}</li><li>Упал — не страшно: встанешь на том же месте и поедешь дальше. Время при этом идёт.</li></ul>`;
   $('briefGoal').innerHTML = `<b>Три звезды за трассу:</b>${taskList(T, rec?.tasks || [])}`;
+  $('briefPrep').innerHTML = ''; $('briefPsy').innerHTML = '';
   $('briefKeys').innerHTML = keyLegend(L.keys).map(([k, t]) => `<span>${k} ${t}</span>`).join('');
   $('briefDemo').textContent = '▶ Как проехать';
   $('briefGo').textContent = open ? 'Поехали' : `🔒 Откроется на ${T.need}★`;
@@ -489,13 +498,21 @@ function updateHud(dt) {
   else if (app.lesson.maxSpeed && sim.speed > app.lesson.maxSpeed) setCoach('warn', 'Быстровато для этого упражнения. Доску поперёк склона и на верхний кант — затормози.');
   else {
     // без ошибок — цель урока и по очереди «фишки инструктора», чтобы подсказка была всегда
-    const tips = app.lesson.tips || [];
-    const tip = tips.length ? tips[Math.floor(app.t / 7) % tips.length] : '';
-    setCoach('info', app.lesson.goal + (tip ? `<div class="tip">Совет: ${tip}</div>` : ''));
+    const notes = [...(app.lesson.tips || []).map((t) => ['Совет', t]), ...(app.lesson.psy ? [['Голова', app.lesson.psy]] : [])];
+    const [h, t] = notes.length ? notes[Math.floor(app.t / 7) % notes.length] : [];
+    setCoach('info', app.lesson.goal + (t ? `<div class="tip${h === 'Голова' ? ' psy' : ''}">${h}: ${t}</div>` : ''));
   }
 }
 
 // ---------------------------------------------------------------- разбор падения
+// Сноски «Голова» в разборе падения: по очереди, чтобы не повторяться
+const FALL_PSY = [
+  'Падение — это данные, а не провал: теперь ты знаешь, что именно подвело. В первые дни все падают десятки раз.',
+  'Прежде чем встать — медленный выдох. Зажатое тело падает снова, расслабленное — держит кант.',
+  'Падая, не выставляй прямые руки: вперёд — на колени и предплечья, назад — присесть и подбородок к груди.',
+  'Страшно — и тело тянет назад, от склона. На следующей попытке нарочно перенеси вес на переднюю ногу.',
+  'Сравнивай себя с собой пять минут назад, а не с теми, кто едет мимо. Они тоже так начинали.',
+];
 function showFall(f) {
   const info = FALLS[f.type] || FALLS.out;
   show('modal', true);
@@ -505,6 +522,7 @@ function showFall(f) {
     <div class="blk why"><div class="h">Почему</div>${info.why}</div>
     <div class="blk fix"><div class="h">Как исправить</div>${info.fix}</div>
     <div class="blk drill"><div class="h">Упражнение</div>${info.drill}</div>
+    ${app.demo ? '' : `<div class="psy"><div class="h">Голова</div>${FALL_PSY[app.falls % FALL_PSY.length]}</div>`}
     <div class="row"><button class="btn ghost" id="mMenu">Меню</button><button class="btn alt" id="mReplay">⟲ Повтор в замедлении</button><button class="btn alt" id="mDemo">Как делает инструктор</button><button class="btn primary" id="mRetry">${app.demo ? 'Попробовать сам' : 'Ещё раз'}</button></div>`;
   $('mMenu').onclick = toMenu;
   $('mRetry').onclick = () => { show('modal', false); if (app.demo) startRide(app.lesson.id, false); else restart(); };
@@ -649,7 +667,7 @@ function trackDone() {
 }
 
 function nextLesson(id) {
-  const order = ['stance', 'bindings', 'posture', 'heel_slip', 'toe_slip', 'leaf', 'turns', 'carve', 'free'];
+  const order = ['stance', 'bindings', 'posture', 'heel_slip', 'toe_slip', 'leaf', 'jturn', 'garland', 'turns', 'carve', 'free'];
   const i = order.indexOf(id);
   return i >= 0 && i < order.length - 1 ? LESSONS_BY_ID[order[i + 1]] : null;
 }
@@ -670,7 +688,7 @@ function studioPose(r, pose, offset) {
   const edge = pose.edge || 0;
   r.rider.placeOnSlope(offset, new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, 1), edge * ts * D);
   r.rider.root.updateMatrixWorld(true);
-  r.rider.update({ ...pose, t: performance.now() / 1000, up: r.rider.worldUpLocal(), fall: null, crouch: 0 });
+  r.rider.update({ ...pose, t: performance.now() / 1000, up: r.rider.worldUpLocal(), fall: pose.fall || null, crouch: 0 });
 }
 const VIEWS = { side: { yaw: 0, pitch: 0.12 }, front: { yaw: Math.PI / 2, pitch: 0.15 }, behind: { yaw: -Math.PI / 2, pitch: 0.15 }, top: { yaw: Math.PI / 2, pitch: 1.2 } };
 const VIEW_NAMES = { side: 'Профиль', front: 'Спереди', behind: 'Сзади', top: 'Сверху' };
@@ -701,7 +719,8 @@ function studioViews(list = ['side', 'front', 'behind', 'top']) {
 function updateStudio() {
   const o = studio.orbit;
   const c = studio.cam;
-  const dist = o.dist * (innerWidth <= 720 ? 1.6 : 1);
+  // на телефоне кадр узкий: пара «неправильно / правильно» должна влезть целиком вместе с подписями
+  const dist = o.dist * (innerWidth <= 720 ? (studio.riders.length > 1 && !studio.riders[1].ghost ? 2.2 : 1.6) : 1);
   c.position.set(o.target.x + Math.cos(o.yaw) * Math.cos(o.pitch) * dist, o.target.y + Math.sin(o.pitch) * dist, o.target.z + Math.sin(o.yaw) * Math.cos(o.pitch) * dist);
   c.lookAt(o.target);
   // сдвигаем картинку в свободную от панели часть экрана
@@ -865,12 +884,7 @@ function openPosture() {
 function openMistakes(id = MISTAKES[0].id) {
   setScreen('studio');
   const m = MISTAKES.find((x) => x.id === id);
-  const sideBySide = m.view === 'side';
-  studioSet([{ label: '✗ НЕПРАВИЛЬНО', labelKind: 'bad', palette: { jacket: '#ef4444' } }, { label: '✓ ПРАВИЛЬНО', labelKind: 'good', palette: { jacket: '#22c55e' } }]);
-  studioViews(['side', 'front', 'behind', 'top']);
-  setView(m.view); studio.orbit.dist = 6.2;
-  const off = sideBySide ? [new THREE.Vector3(0, 0, 1.0), new THREE.Vector3(0, 0, -1.0)] : [new THREE.Vector3(-1.05, 0, 0), new THREE.Vector3(1.05, 0, 0)];
-  if (!sideBySide && toeSign() < 0 && m.view !== 'top') off.reverse();
+  mistakePair(m);
   $('studioPanel').innerHTML = `<h2>${m.title}</h2><div class="hint">${m.tag}</div>
     <div class="blk"><div class="h">Как это выглядит</div>${m.symptom}</div>
     <div class="blk why"><div class="h">Почему так происходит</div>${m.why}</div>
@@ -880,9 +894,62 @@ function openMistakes(id = MISTAKES[0].id) {
     <div class="mlist">${MISTAKES.map((x) => `<button class="mitem ${x.id === id ? 'on' : ''}" data-m="${x.id}">${x.title}<small>${x.tag}</small></button>`).join('')}</div>`;
   $('studioPanel').querySelectorAll('[data-m]').forEach((b) => b.onclick = () => openMistakes(b.dataset.m));
   $('studioPanel').scrollTop = 0;
+}
+// Два райдера «неправильно / правильно» в ракурсе, где ошибку видно лучше всего
+function mistakePair(m, labels = ['НЕПРАВИЛЬНО', 'ПРАВИЛЬНО']) {
+  const sideBySide = m.view === 'side';
+  studioSet([{ label: '✗ ' + labels[0], labelKind: 'bad', palette: { jacket: '#ef4444' } }, { label: '✓ ' + labels[1], labelKind: 'good', palette: { jacket: '#22c55e' } }]);
+  studioViews(['side', 'front', 'behind', 'top']);
+  setView(m.view); studio.orbit.dist = 6.2;
+  const off = sideBySide ? [new THREE.Vector3(0, 0, 1.0), new THREE.Vector3(0, 0, -1.0)] : [new THREE.Vector3(-1.05, 0, 0), new THREE.Vector3(1.05, 0, 0)];
+  if (!sideBySide && toeSign() < 0 && m.view !== 'top') off.reverse();
   app.studioMode = { update: () => { studioPose(studio.riders[0], m.wrong, off[0]); studioPose(studio.riders[1], m.right, off[1]); } };
 }
 
+
+// --- Лекции «Голова»: текст слева, справа — сравнение в 3D (падения, вес, взгляд)
+const LECT_PAIRS = { fear_speed: ['back_seat', 'СТРАХ: ВЕС НАЗАД', 'ВЕС ВПЕРЁД'], look_breath: ['look_down', 'ВЗГЛЯД ПОД НОГИ', 'ВЗГЛЯД ВПЕРЁД'] };
+function openLecture(id) {
+  const X = LECTURES_BY_ID[id];
+  setScreen('studio');
+  const P = $('studioPanel');
+  P.innerHTML = `<div class="lect-k">Голова · лекция</div><h2>${X.title}</h2>
+    <div class="blk"><div class="h">Что чувствуешь</div>${X.feel}</div>
+    <div class="blk why"><div class="h">Почему так</div>${X.why.map((p) => `<p>${p}</p>`).join('')}</div>
+    <div class="blk fix"><div class="h">Что делать</div><ul>${X.todo.map((t) => `<li>${t}</li>`).join('')}</ul></div>
+    <div class="blk drill"><div class="h">Упражнение</div>${X.drill}</div>
+    <div class="row" style="justify-content:flex-start">${X.links.map((l) => `<button class="btn sm alt" data-l="${l}">Урок: ${LESSONS_BY_ID[l].title}</button>`).join('')}</div>
+    <div class="group-title">Все лекции</div>
+    <div class="mlist">${LECTURES.map((x) => `<button class="mitem ${x.id === id ? 'on' : ''}" data-x="${x.id}">${x.title}<small>${x.short}</small></button>`).join('')}</div>`;
+  P.querySelectorAll('[data-l]').forEach((b) => b.onclick = () => openBrief(b.dataset.l));
+  P.querySelectorAll('[data-x]').forEach((b) => b.onclick = () => openLecture(b.dataset.x));
+  P.scrollTop = 0;
+  if (X.studio === 'falls') return fallsStudio();
+  const pair = LECT_PAIRS[id];
+  if (pair) mistakePair(MISTAKES.find((x) => x.id === pair[0]), pair.slice(1));
+  else {
+    studioSet([{}]);
+    studioViews(['side', 'front', 'behind']);
+    setView('front'); studio.orbit.dist = 4.6;
+    app.studioMode = { update: () => studioPose(studio.riders[0], GOOD_POSTURE, new THREE.Vector3(0, 0, 0)) };
+  }
+}
+// Падение по кругу: вперёд, потом назад. Слева — на прямые руки, справа — правильно.
+function fallsStudio() {
+  studioSet([{ label: '✗', labelKind: 'bad', palette: { jacket: '#ef4444' } }, { label: '✓', labelKind: 'good', palette: { jacket: '#22c55e' } }]);
+  studioViews(['side', 'front', 'behind']);
+  setView('side'); studio.orbit.dist = 6.4;
+  const off = [new THREE.Vector3(0, 0, 1.1), new THREE.Vector3(0, 0, -1.1)];
+  const CYC = 3.6, TXT = { 1: ['✗ НА ПРЯМЫЕ РУКИ', '✓ НА ПРЕДПЛЕЧЬЯ'], [-1]: ['✗ НА ЛАДОНИ', '✓ ПОДБОРОДОК К ГРУДИ'] };
+  let shown = 0;
+  app.studioMode = { update: () => {
+    const now = performance.now() / 1000, c = Math.floor(now / CYC), ph = now - c * CYC, side = c % 2 ? -1 : 1;
+    const k = ph < 0.8 ? 0 : (ph - 0.8) / 0.55;
+    if (shown !== side) { shown = side; TXT[side].forEach((t, i) => { const el = $('lbl' + i); if (el) el.textContent = t; }); }
+    studioPose(studio.riders[0], { ...GOOD_POSTURE, fall: k > 0 ? { side, k, hands: true } : null }, off[0]);
+    studioPose(studio.riders[1], { ...GOOD_POSTURE, fall: k > 0 ? { side, k } : null }, off[1]);
+  } };
+}
 
 // Врезка «вид спереди»: камера со стороны носков, низко — видно, как приподнята доска и какой кант в снегу.
 const pipCam = new THREE.PerspectiveCamera(38, 4 / 3, 0.1, 500);
@@ -916,4 +983,4 @@ function frame(now) {
 }
 toMenu();
 requestAnimationFrame(frame);
-window.__app = { app, sim, studio, THREE, startRide, openMistakes, openPosture, openBindings, openStance, openBrief, rig, updateRide };
+window.__app = { app, sim, studio, THREE, startRide, openMistakes, openPosture, openBindings, openStance, openBrief, openLecture, rig, updateRide };

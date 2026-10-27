@@ -135,7 +135,8 @@ export class Rider {
     const lookTravel = side0.clone().multiplyScalar(0.8).add(chestFwd.clone().multiplyScalar(0.35)).add(V(0, -0.1, 0)).normalize();
     const lookDown = chestFwd.clone().multiplyScalar(0.35).add(V(0, -1, 0)).normalize();
     let look = lookDown.clone().lerp(lookTravel, p.gaze).normalize();
-    if (fall) look.lerp(V(0, -0.3, fall.side), Math.min(1, fall.k)).normalize();
+    // падая назад — подбородок к груди (затылок не бьётся о снег); «неправильное» падение — голова запрокинута
+    if (fall) look.lerp(fall.side < 0 && !fall.hands ? V(0, -0.8, 0.6) : V(0, -0.3, fall.side), Math.min(1, fall.k)).normalize();
     const m = new THREE.Matrix4().lookAt(V(), look.clone().multiplyScalar(-1), spine);
     const headQ = new THREE.Quaternion().setFromRotationMatrix(m);
 
@@ -147,7 +148,14 @@ export class Rider {
     const flailR = V(-0.2, 0.22 + Math.sin(t * 8 + 2) * 0.24, 0.1 + Math.cos(t * 6) * 0.15);
     const pick = (rel, fl) => p.arms < 0.5 ? tuck.clone().lerp(rel, p.arms * 2) : rel.clone().lerp(fl, (p.arms - 0.5) * 2);
     let hF = shF.clone().add(pick(relaxedF, flailF)), hR = shR.clone().add(pick(relaxedR, flailR));
-    if (fall) { const k = Math.min(1, fall.k); hF.lerp(shF.clone().add(V(0.15, -0.3, 0.45 * fall.side)), k); hR.lerp(shR.clone().add(V(-0.15, -0.3, 0.45 * fall.side)), k); }
+    if (fall) {
+      // Правильно: вперёд — локти согнуты, кулаки у груди (падаем на колени и предплечья); назад — руки скрещены на груди.
+      // fall.hands — типичная ошибка: ловить себя прямыми руками (так ломают запястья), её показывает лекция о падениях.
+      const k = Math.min(1, fall.k);
+      const [dF, dR] = fall.hands ? [V(0.15, -0.3, 0.45 * fall.side), V(-0.15, -0.3, 0.45 * fall.side)]
+        : fall.side > 0 ? [V(-0.08, -0.14, 0.24), V(0.08, -0.16, 0.22)] : [V(-0.14, -0.2, 0.15), V(0.14, -0.2, 0.15)];
+      hF.lerp(shF.clone().add(dF), k); hR.lerp(shR.clone().add(dR), k);
+    }
     const armPoleF = V(0.1, -0.6, -0.6), armPoleR = V(-0.1, -0.6, -0.6);
     const armF = solveIK(shF, hF, UARM, FARM, armPoleF);
     const armR = solveIK(shR, hR, UARM, FARM, armPoleR);
