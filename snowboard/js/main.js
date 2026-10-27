@@ -79,6 +79,8 @@ document.querySelectorAll('#touch button').forEach((b) => {
   const k = b.dataset.k;
   const on = (e) => { e.preventDefault(); keys.add(k); b.classList.add('on'); };
   const off = (e) => { e.preventDefault(); keys.delete(k); b.classList.remove('on'); };
+  b.addEventListener('contextmenu', (e) => e.preventDefault());
+  b.addEventListener('touchstart', (e) => e.preventDefault(), { passive: false });
   b.addEventListener('pointerdown', on); b.addEventListener('pointerup', off); b.addEventListener('pointercancel', off); b.addEventListener('pointerleave', off);
 });
 
@@ -193,13 +195,13 @@ function startRide(id, demo, opts = {}) {
     $('hud').classList.toggle('demo', demo);
     show('pip', !!L.pip);
     app.demoSlow = null;
-    $('bCam').textContent = 'Камера: ' + CAM_NAMES[rig.mode];
+    $('bCam').innerHTML = 'Камера<span class="camName">: ' + CAM_NAMES[rig.mode] + '</span>';
     setCoach('info', demo ? 'Смотри, что делает тело: колени, вес, наклон. Внизу слева — кант и вес в реальном времени.' : L.goal);
   }
 }
 
 function restart() { if (app.lesson) startRide(app.lesson.id, app.demo, { keepFalls: true }); }
-function setCam(mode) { rig.mode = mode; $('bCam').textContent = 'Камера: ' + CAM_NAMES[mode]; }
+function setCam(mode) { rig.mode = mode; $('bCam').innerHTML = 'Камера<span class="camName">: ' + CAM_NAMES[mode] + '</span>'; }
 function cycleCam() { app.camManual = true; const i = CAM_MODES.indexOf(rig.mode); setCam(CAM_MODES[(i + 1) % CAM_MODES.length]); }
 // Режиссёр демонстрации: сам меняет ракурс, чтобы было видно и кант, и работу тазом.
 // Урок может задать свой список ракурсов (L.demoCams). Кнопка «Камера» отключает автосмену.
