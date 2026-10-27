@@ -491,3 +491,30 @@ export function sprayTexture() {
     x.fillStyle = g; x.fillRect(0, 0, W, W);
   }, { aniso: 1 });
 }
+
+// ---------------------------------------------------------------- трассы: звезда, свечение, финиш
+export function starGeo() {
+  const sh = new THREE.Shape();
+  for (let i = 0; i <= 10; i++) {
+    const a = Math.PI / 2 + (i / 10) * TAU, r = i % 2 ? 0.15 : 0.34;
+    if (i) sh.lineTo(Math.cos(a) * r, Math.sin(a) * r); else sh.moveTo(Math.cos(a) * r, Math.sin(a) * r);
+  }
+  const g = new THREE.ExtrudeGeometry(sh, { depth: 0.07, bevelEnabled: true, bevelThickness: 0.03, bevelSize: 0.03, bevelSegments: 2 });
+  g.translate(0, 0, -0.035);
+  return g;
+}
+export function glowTexture() {
+  return canvasTex(64, 64, (x, W) => {
+    const g = x.createRadialGradient(W / 2, W / 2, 0, W / 2, W / 2, W / 2);
+    g.addColorStop(0, 'rgba(255,240,180,1)'); g.addColorStop(0.35, 'rgba(255,210,90,0.45)'); g.addColorStop(1, 'rgba(255,200,80,0)');
+    x.fillStyle = g; x.fillRect(0, 0, W, W);
+  }, { aniso: 1 });
+}
+export function finishBanner() {
+  return canvasTex(1024, 64, (x, W, H) => {
+    x.fillStyle = '#e11d48'; x.fillRect(0, 0, W, H);
+    for (let i = 0; i < W / 16; i++) for (let j = 0; j < 2; j++) { x.fillStyle = (i + j) % 2 ? '#111827' : '#ffffff'; x.fillRect(i * 16, j * 8, 16, 8); x.fillRect(i * 16, H - 16 + j * 8, 16, 8); }
+    x.fillStyle = '#ffffff'; x.font = 'bold 34px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
+    for (const u of [0.2, 0.5, 0.8]) x.fillText('ФИНИШ', u * W, H / 2 + 1);
+  }, { aniso: 4 });
+}

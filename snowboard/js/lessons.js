@@ -395,7 +395,7 @@ function gatePathU(gates, s) {
   return pts[pts.length - 1].u;
 }
 
-function followGates(lesson, sim, { look = 6, k = 1.4, max = 0.6, rotK = 0.5, vTarget = 7, weight = 0.25 } = {}) {
+export function followGates(lesson, sim, { look = 6, k = 1.4, max = 0.6, rotK = 0.5, vTarget = 7, weight = 0.25 } = {}) {
   const ts = sim.s + look;
   const thd = Math.atan2(gatePathU(lesson.gates || lesson.path, ts) - sim.u, look);
   const vdir = sim.speed > 1 ? Math.atan2(sim.vu, sim.vs) : sim.theta;

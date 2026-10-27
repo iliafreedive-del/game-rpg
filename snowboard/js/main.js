@@ -6,6 +6,8 @@ import { Rider } from './rider.js';
 import { World, CameraRig, CAM_MODES, CAM_NAMES } from './world.js';
 import { decorateStudio } from './art/scenery.js';
 import { PAUSE, newPauses, keyMoment } from './pauses.js';
+import { TRACKS, trackStars, trackGates, taskNames, tasksDone, fmtTime, rankOf, nextRank, trackStarsEarned, totalStars, newRun, stepRun, trackAuto, GATE_PENALTY } from './tracks.js';
+import { sfx } from './sfx.js';
 
 const $ = (id) => document.getElementById(id);
 const D = Math.PI / 180;
@@ -13,10 +15,27 @@ const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 
 // ---------------------------------------------------------------- сохранение
 const SAVE_KEY = 'snowschool.v1';
-const save = Object.assign({ stance: null, front: 15, rear: 0, width: 54, height: 175, done: {} }, (() => { try { return JSON.parse(localStorage.getItem(SAVE_KEY)) || {}; } catch { return {}; } })());
+const save = Object.assign({ stance: null, front: 15, rear: 0, width: 54, height: 175, done: {}, tracks: {}, mute: false }, (() => { try { return JSON.parse(localStorage.getItem(SAVE_KEY)) || {}; } catch { return {}; } })());
 const persist = () => { try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch { /* приватный режим */ } };
 const stance = () => save.stance || 'regular';
 const toeSign = () => (stance() === 'goofy' ? -1 : 1);
+sfx.setMuted(save.mute);
+
+// Трасса как урок: тот же цикл заезда, но звёзды, время и финиш вместо задания урока
+const trackLesson = (T) => ({
+  id: 'track:' + T.id, kind: 'track', track: T, title: `${T.level} · ${T.name}`, slopeDeg: T.slopeDeg, keys: 'turn',
+  nStars: trackStars(T).length, gates: trackGates(T), demoCams: ['follow', 'front3', 'follow', 'profile'],
+  start: () => ({ u: T.line(0), s: 2, theta: 0, speed: 1 }),
+  goal: 'Собери звёзды и доедь до финиша. Упал — встанешь и поедешь дальше, время идёт.',
+  tips: [T.tip, 'Звезда засчитывается, если проехать рядом — в пределах двух метров.', 'Пропустил звезду — не возвращайся, смотри на следующую.'],
+  init: (ls) => Object.assign(ls, newRun(), { fallTypes: [], rec: [], combo: 0, lastStar: -2, vmax: 0 }),
+  check(sim, ls) { stepRun(T, ls, sim); return { done: ls.finished, text: '', p: clamp(sim.s / T.length, 0, 1) }; },
+  auto: (sim, t) => trackAuto(T, sim, t),
+});
+const TRACK_LESSONS = Object.fromEntries(TRACKS.map((T) => [`track:${T.id}`, trackLesson(T)]));
+const lessonById = (id) => LESSONS_BY_ID[id] || TRACK_LESSONS[id];
+const starsTotal = () => totalStars(save.tracks);
+const isOpen = (T) => starsTotal() >= T.need;
 
 // ---------------------------------------------------------------- рендер
 const canvas = $('view');
@@ -31,6 +50,11 @@ const world = new World(renderer);
 const rig = new CameraRig(camera);
 const rider = new Rider();
 world.scene.add(rider.root);
+// Призрак: лучший заезд на трассе, полупрозрачный голубой райдер
+const ghost = new Rider({ ghost: true, palette: { ghost: '#2563eb' } });
+ghost.root.traverse((o) => { if (o.material) o.material.opacity = 0.42; }); // на белом снегу бледный силуэт теряется
+ghost.root.visible = false;
+world.scene.add(ghost.root);
 const sim = new Sim();
 
 // Студия: отдельная сцена с ровной площадкой
@@ -101,7 +125,8 @@ function readInput(dt) {
 }
 
 // ---------------------------------------------------------------- состояние приложения
-const app = { mode: 'menu', lesson: null, ls: null, demo: false, t: 0, slow: 1, falls: 0, fallShown: false, history: [], replay: null, ended: false, hudT: 0, studioMode: null, travel: new THREE.Vector3(0, 0, -1) };
+// autoplay — инструктор ведёт и в обычном заезде (для скриншотов и проверок через window.__app)
+const app = { mode: 'menu', lesson: null, ls: null, demo: false, autoplay: false, t: 0, slow: 1, falls: 0, fallShown: false, history: [], replay: null, ended: false, hudT: 0, studioMode: null, travel: new THREE.Vector3(0, 0, -1) };
 
 function show(id, on) { $(id).classList.toggle('hidden', !on); }
 function setScreen(mode) {
@@ -124,13 +149,21 @@ const GROUPS = [
 function renderMenu() {
   $('stanceChip').textContent = `Стойка: ${save.stance ? (stance() === 'regular' ? 'Regular (левая вперёд)' : 'Goofy (правая вперёд)') : 'не выбрана'} · ${fmtA(save.front)} / ${fmtA(save.rear)}`;
   let n = 0;
-  $('lessonList').innerHTML = GROUPS.map(([g, ids]) => `<div class="group-title">${g}</div><div class="grid">${ids.map((id) => {
+  const total = starsTotal(), nr = nextRank(total);
+  const tracks = `<div class="group-title gt-row"><span>Трассы на время</span><span class="gt-r"><b class="rank">★ ${total} · ${rankOf(total)}</b>${nr ? `<small>до «${nr[1]}» ${nr[0] - total}★</small>` : ''}<button class="chip sm" id="soundChip">${save.mute ? '🔇 звук выкл' : '🔊 звук вкл'}</button></span></div>
+    <div class="grid tracks">${TRACKS.map((T) => {
+    const rec = save.tracks[T.id], got = trackStarsEarned(rec), open = total >= T.need;
+    const sub = !open ? `🔒 нужно ${T.need}★ · у тебя ${total}` : rec?.best != null ? `рекорд ${fmtTime(rec.best)} · ${T.length} м` : `${T.slopeDeg}° · ${T.length} м · ${trackStars(T).length} звёзд`;
+    return `<button class="lesson track${open ? '' : ' locked'}" data-id="track:${T.id}" style="--c:${T.id === 'black' ? '#e2e8f0' : T.color}"><div class="n">${T.level}</div><div class="t">${T.name}</div><div class="s">${sub}</div><div class="st">${'★'.repeat(got)}${'☆'.repeat(3 - got)}</div></button>`;
+  }).join('')}</div>`;
+  $('lessonList').innerHTML = tracks + GROUPS.map(([g, ids]) => `<div class="group-title">${g}</div><div class="grid">${ids.map((id) => {
     if (id === 'mistakes') return `<button class="lesson special" data-id="mistakes"><div class="n">Разбор</div><div class="t">Библиотека ошибок</div><div class="s">${MISTAKES.length} типичных ошибок: «неправильно / правильно» в 3D</div></button>`;
     const L = LESSONS_BY_ID[id]; n++;
     const st = save.done[id] ? '★'.repeat(save.done[id]) : '';
     return `<button class="lesson" data-id="${id}"><div class="n">${id === 'free' ? '∞' : 'Урок ' + n}</div><div class="t">${L.title}</div><div class="s">${L.short}</div><div class="st">${st}</div></button>`;
   }).join('')}</div>`).join('');
   $('lessonList').querySelectorAll('.lesson').forEach((b) => b.onclick = () => (b.dataset.id === 'mistakes' ? openMistakes() : openBrief(b.dataset.id)));
+  $('soundChip').onclick = () => { save.mute = !save.mute; persist(); sfx.setMuted(save.mute); if (!save.mute) sfx.star(); renderMenu(); };
 }
 const fmtA = (a) => (a > 0 ? '+' : '') + a + '°';
 $('stanceChip').onclick = () => openBrief('stance');
@@ -156,11 +189,15 @@ function keyLegend(kind) {
 }
 
 function openBrief(id) {
-  const L = LESSONS_BY_ID[id];
+  const L = lessonById(id);
   if (L.kind === 'stance') return openStance();
   if (L.kind === 'bindings') return openBindings();
   if (L.kind === 'posture') return openPosture();
+  if (L.kind === 'track') return openTrackBrief(L);
   setScreen('brief');
+  $('briefNum').style.background = '';
+  $('briefDemo').textContent = '▶ Показать инструктора';
+  $('briefGo').textContent = 'Попробовать сам'; $('briefGo').disabled = false;
   const idx = LESSONS.filter((l) => l.id !== 'free').indexOf(L) + 1;
   $('briefNum').textContent = id === 'free' ? '∞' : idx;
   $('briefTitle').textContent = L.title;
@@ -173,9 +210,65 @@ function openBrief(id) {
   $('briefBack').onclick = toMenu;
 }
 
+// Призрак хранится отдельно от сохранения: [время, u, s, theta, edge, weight, rot, lean, crouch] 20 раз в секунду
+const GHOST_KEY = (id) => 'snowschool.ghost.' + id;
+function loadGhost(id) {
+  try {
+    const g = JSON.parse(localStorage.getItem(GHOST_KEY(id)));
+    if (!g || !g.rec?.length) return null;
+    let m = -Infinity; g.sMax = g.rec.map((r) => (m = Math.max(m, r[2]))); // s призрака не убывает — для поиска по s
+    return g;
+  } catch { return null; }
+}
+function saveGhost(id, rec) {
+  try { localStorage.setItem(GHOST_KEY(id), JSON.stringify({ st: stance(), rec: rec.map((r) => r.map((v) => Math.round(v * 1000) / 1000)) })); } catch { /* нет места */ }
+}
+// Время призрака в той же точке трассы: «+» — ты медленнее
+function ghostDelta() {
+  const g = app.ghost; if (!g) return null;
+  const S = g.sMax, s = sim.s;
+  if (s < S[0] || s > S[S.length - 1]) return null;
+  let lo = 0, hi = S.length - 1;
+  while (hi - lo > 1) { const m = (lo + hi) >> 1; if (S[m] < s) lo = m; else hi = m; }
+  const a = S[hi] > S[lo] ? (s - S[lo]) / (S[hi] - S[lo]) : 0;
+  return app.ls.time - (g.rec[lo][0] + (g.rec[hi][0] - g.rec[lo][0]) * a);
+}
+function drawGhost() {
+  const g = app.ghost, R = g?.rec;
+  const t = app.ls.time;
+  ghost.root.visible = !!R && g.st === stance() && t <= R[R.length - 1][0] + 0.3;
+  if (!ghost.root.visible) return;
+  let i = Math.min(R.length - 2, Math.max(0, Math.floor(t * 20)));
+  while (i > 0 && R[i][0] > t) i--;
+  while (i < R.length - 2 && R[i + 1][0] < t) i++;
+  const a = clamp((t - R[i][0]) / ((R[i + 1][0] - R[i][0]) || 1), 0, 1), A = R[i], B = R[i + 1];
+  const h = A.map((v, j) => v + ((j === 3 ? wrapAngle(B[j] - v) : B[j] - v)) * a);
+  poseFromState(h[1], h[2], h[3], h[4], h[5], h[6], h[7], h[8], 0, null, t, ghost);
+}
+
+const taskList = (T, done, fresh = []) => `<ul class="tasks">${taskNames(T).map((t, i) => `<li class="${done[i] ? 'ok' : 'no'}"><span class="sx">${done[i] ? '★' : '☆'}</span>${t}${fresh[i] ? '<i>новая!</i>' : ''}</li>`).join('')}</ul>`;
+
+function openTrackBrief(L) {
+  const T = L.track, rec = save.tracks[T.id], open = isOpen(T);
+  setScreen('brief');
+  $('briefNum').textContent = T.level;
+  $('briefNum').style.background = T.id === 'black' ? '#334155' : T.color;
+  $('briefTitle').textContent = T.name;
+  $('briefTheory').innerHTML = `<p>${T.intro}</p><p class="meta">Склон ${T.slopeDeg}° · ${T.length} м · ${L.nStars} звёзд${T.gates ? ' · ворота' : ''}${rec?.best != null ? ` · твой рекорд <b>${fmtTime(rec.best)}</b>` : ''}</p>`;
+  $('briefTips').innerHTML = `<div class="h">Совет инструктора</div><ul><li>${T.tip}</li><li>Упал — не страшно: встанешь на том же месте и поедешь дальше. Время при этом идёт.</li></ul>`;
+  $('briefGoal').innerHTML = `<b>Три звезды за трассу:</b>${taskList(T, rec?.tasks || [])}`;
+  $('briefKeys').innerHTML = keyLegend(L.keys).map(([k, t]) => `<span>${k} ${t}</span>`).join('');
+  $('briefDemo').textContent = '▶ Как проехать';
+  $('briefGo').textContent = open ? 'Поехали' : `🔒 Откроется на ${T.need}★`;
+  $('briefGo').disabled = !open;
+  $('briefDemo').onclick = () => startRide(L.id, true);
+  $('briefGo').onclick = () => open && startRide(L.id, false);
+  $('briefBack').onclick = toMenu;
+}
+
 // ---------------------------------------------------------------- склон
 function startRide(id, demo, opts = {}) {
-  const L = LESSONS_BY_ID[id];
+  const L = lessonById(id);
   app.lesson = L; app.demo = demo; app.t = 0; app.ended = false; app.fallShown = false; app.history = []; app.replay = null;
   app.background = !!opts.background;
   if (!opts.keepFalls) app.falls = 0;
@@ -184,16 +277,25 @@ function startRide(id, demo, opts = {}) {
   world.build(L.slopeDeg);
   world.setGates(L.gates);
   world.setTargets(L.targets ? L.targets.map((u) => u * toeSign()) : null);
+  const track = L.kind === 'track';
+  world.setStars(track ? trackStars(L.track) : null);
+  world.setFinish(track ? L.track.length : null);
+  app.ghost = track && !demo && !app.background ? loadGhost(L.track.id) : null;
+  ghost.root.visible = false;
+  $('hudTop').classList.toggle('track', track);
   sim.reset({ slopeDeg: L.slopeDeg, stance: stance(), ...L.start(toeSign()) });
   ctl.edge = 0;
   rider.setConfig({ stance: stance(), front: save.front, rear: save.rear, width: save.width / 100 });
+  if (app.ghost) ghost.setConfig({ stance: stance(), front: save.front, rear: save.rear, width: save.width / 100 });
   rig.init = false;
   rig.mode = 'follow';
   app.camManual = false; app.camT = 0; app.camI = 0;
   app.travel.copy(world.frame.D);
   if (!app.background) {
     setScreen('ride');
-    $('hudTitle').textContent = (demo ? 'Демонстрация · ' : '') + L.title;
+    const best = track ? save.tracks[L.track.id]?.best : null;
+    $('hudTitle').innerHTML = (demo ? 'Демонстрация · ' : '') + L.title + (app.ghost && best != null ? ` <span class="gh">· призрак ${fmtTime(best)}</span>` : '');
+    $('toast').className = '';
     $('keyLegend').innerHTML = keyLegend(L.keys).map(([k, t]) => `<div>${k} ${t}</div>`).join('');
     show('demoBanner', demo);
     $('hud').classList.toggle('demo', demo);
@@ -249,15 +351,19 @@ function updateRide(dt) {
   if (app.replay) return updateReplay(dt);
   if (app.pause && (app.pause.left -= dt) <= 0) app.pause = null;
   if (!app.pause) acc += dt * Math.min(app.slow, app.demo && app.demoSlow ? app.demoSlow : 1);
+  const track = L.kind === 'track';
   let steps = 0;
   while (acc >= STEP && steps < 20 && !app.pause) {
-    const live = !sim.fallen && !app.ended;
+    // после финиша трассы райдер не замирает, а докатывается (ведёт автопилот)
+    const coast = track && app.ended && app.ls.finished;
+    const live = !sim.fallen && (!app.ended || coast);
     // автопилот зовём ровно раз за шаг (у него есть состояние); на паузе ввод ждёт в app.held
-    const input = !live ? null : app.demo ? (app.held || L.auto(sim, app.t, app.ls)) : readInput(STEP);
+    const input = !live ? null : app.demo || coast || app.autoplay ? (app.held || L.auto(sim, app.t, app.ls)) : readInput(STEP);
     app.held = null;
-    if (live && app.demo && !app.background && (app.pause = keyMoment(app.pauses, app.t, input))) { app.held = input; break; }
+    if (live && app.demo && !app.background && !track && (app.pause = keyMoment(app.pauses, app.t, input))) { app.held = input; break; }
     acc -= STEP; steps++;
     prevSnap = snap();
+    if (track && !app.ls.finished) app.ls.time += STEP; // время трассы идёт и пока райдер встаёт
     if (live) {
       if (app.demo) { app.caption = input.caption; app.dont = input.dont || ''; app.demoSlow = input.slow || null; app.captionKind = input.mistake ? 'danger' : 'info'; }
       sim.step(STEP, input);
@@ -265,20 +371,28 @@ function updateRide(dt) {
       if (sim.s > 1300) { app.ended = true; }
       app.history.push([sim.u, sim.s, sim.theta, sim.edge, sim.weight, sim.rot, sim.lean, sim.crouch, sim.stiff]);
       if (app.history.length > 720) app.history.shift();
+      if (track && !app.ls.finished) {
+        const ls = app.ls;
+        ls.vmax = Math.max(ls.vmax, sim.speed);
+        if (Math.round(ls.time * 120) % 6 === 0) ls.rec.push([ls.time, sim.u, sim.s, sim.theta, sim.edge, sim.weight, sim.rot, sim.lean, sim.crouch]);
+      }
       const r = L.check(sim, app.ls, STEP);
       app.lastCheck = r;
       if (!app.background && !app.ended) {
-        if (r.done) { app.ended = true; setTimeout(() => lessonDone(), 600); }
+        if (r.done) { app.ended = true; setTimeout(() => (track ? trackDone() : lessonDone()), track ? 1300 : 600); }
         else if (r.fail) { app.ended = true; setTimeout(() => lessonFail(r.fail), 400); }
       }
       if (app.background && app.t > 40) startRide('free', true, { background: true });
     } else if (sim.fallen) sim.step(STEP, {}); // после конца урока райдер замирает
     app.t += STEP;
   }
+  if (track) trackEvents();
   if (sim.fallen && !app.fallShown) {
+    if (track && app.ls.fallAt !== sim.fallen) { app.ls.fallAt = sim.fallen; sfx.fall(); }
     if (sim.time - sim.fallen.t > 1.1) {
       app.fallShown = true;
       if (app.background) startRide('free', true, { background: true });
+      else if (track) { if (!app.ended) trackRespawn(); }
       else { app.falls++; showFall(sim.fallen); }
     }
   }
@@ -287,17 +401,17 @@ function updateRide(dt) {
   drawRider(dt, sim.time);
 }
 
-function poseFromState(u, s, theta, edge, weight, rot, lean, crouch, stiff, fall, t) {
+function poseFromState(u, s, theta, edge, weight, rot, lean, crouch, stiff, fall, t, who = rider) {
   const f = world.frame, ts = toeSign();
   const pos = f.p(u, s);
   const nose = f.dir(Math.sin(theta), Math.cos(theta));
   const right = f.dir(Math.cos(theta), -Math.sin(theta));
-  rider.placeOnSlope(pos, nose, f.N, right, edge * ts * MAX_EDGE_DEG * D);
-  rider.root.updateMatrixWorld(true);
-  const danger = sim.danger || 0;
-  rider.update({
+  who.placeOnSlope(pos, nose, f.N, right, edge * ts * MAX_EDGE_DEG * D);
+  who.root.updateMatrixWorld(true);
+  const danger = who === rider ? sim.danger || 0 : 0;
+  who.update({
     knee: 0.5, hinge: 0.12, weight, rot: rot * ts, gaze: 1, arms: 0.4 + (fall ? 0 : danger * 0.45), lean, crouch, stiff, t,
-    up: rider.worldUpLocal(), fall,
+    up: who.worldUpLocal(), fall,
   });
   return { pos, nose, right };
 }
@@ -315,7 +429,10 @@ function drawRider(dt, t) {
   const toeDir = right.clone().multiplyScalar(toeSign());
   rig.update(dt, pos, app.travel, toeDir, f.N, { mode: app.background ? 'follow' : (sim.fallen && !app.replay ? 'orbit' : undefined) });
   app.pipTarget = { pos, toeDir };
-  world.follow(pos, sim.s, performance.now() / 1000);
+  const now = performance.now() / 1000;
+  world.follow(pos, sim.s, now);
+  world.updateStars(now);
+  if (app.ghost) drawGhost();
   // след и снежная пыль
   if (!sim.fallen) {
     const slip = sim.slip;
@@ -335,7 +452,12 @@ function updateHud(dt) {
   if (app.hudT > 0) return;
   app.hudT = 1 / 15;
   const r = app.lastCheck || { text: '', p: 0 };
-  $('hudGoal').textContent = r.text;
+  if (app.lesson.kind === 'track') {
+    const ls = app.ls, d = ghostDelta();
+    $('hudGoal').innerHTML = `<span class="tt">${fmtTime(ls.time)}</span><span class="ts">★ ${ls.stars.size}/${app.lesson.nStars}</span>`
+      + (d != null ? `<span class="td ${d > 0.05 ? 'bad' : d < -0.05 ? 'ok' : ''}" title="разница с призраком">${d > 0.05 ? '+' : d < -0.05 ? '−' : '±'}${Math.abs(d).toFixed(1)}</span>` : '')
+      + (ls.missed ? `<span class="tm">+${ls.missed * GATE_PENALTY} с</span>` : '');
+  } else $('hudGoal').textContent = r.text;
   $('hudProg').style.width = (r.p * 100).toFixed(0) + '%';
   // кант: вид сзади на доску; поворот рисунка — в «телесных» координатах (+ носки справа)
   const deg = sim.edgeDeg;
@@ -437,6 +559,95 @@ function lessonFail(text) {
   $('mRetry').onclick = () => { show('modal', false); restart(); };
   $('mDemo').onclick = () => { show('modal', false); startRide(app.lesson.id, true); };
 }
+// ---------------------------------------------------------------- трасса: события, падения, финиш
+function toast(html, kind = '') {
+  const el = $('toast');
+  el.innerHTML = html; el.className = kind;
+  void el.offsetWidth; // перезапуск анимации
+  el.classList.add('go');
+}
+function trackEvents() {
+  const ls = app.ls;
+  for (const e of ls.events) {
+    if (e.type === 'star') {
+      ls.combo = e.i === ls.lastStar + 1 ? ls.combo + 1 : 0; ls.lastStar = e.i;
+      world.collectStar(e.i, performance.now() / 1000);
+      sfx.star(ls.combo);
+      toast(ls.combo >= 2 ? `★ серия ×${ls.combo + 1}` : '+★');
+    } else if (e.type === 'gate') {
+      sfx.gate(e.ok);
+      if (!e.ok) toast(`Ворота мимо · +${GATE_PENALTY} с`, 'bad');
+    } else if (e.type === 'finish') sfx.finish();
+  }
+  ls.events.length = 0;
+}
+// Упал — встаём на том же месте, без разбора: на трассе важен ритм. Разбор — в итогах заезда.
+function trackRespawn() {
+  const ls = app.ls, T = app.lesson.track, f = sim.fallen;
+  ls.falls++; ls.fallTypes.push(f.type); ls.combo = 0;
+  const u = clamp(f.type === 'out' ? T.line(sim.s) : sim.u, -17, 17);
+  sim.reset({ slopeDeg: T.slopeDeg, stance: stance(), u, s: sim.s, theta: 0, speed: 0.5 });
+  prevSnap = null; ctl.edge = 0; app.fallShown = false;
+  toast(`${(FALLS[f.type] || FALLS.out).title} · встаём`, 'bad');
+}
+// Падение → урок, где отрабатывается то, что подвело
+const FALL_LESSON = { catch_toe: 'heel_slip', overlean_heel: 'heel_slip', catch_heel: 'toe_slip', tip_toe: 'toe_slip', tip_heel: 'toe_slip', overlean_toe: 'toe_slip', back_seat: 'turns', out: 'turns' };
+
+function trackDone() {
+  const L = app.lesson, T = L.track, ls = app.ls;
+  const done = tasksDone(T, ls), n = L.nStars;
+  const stats = `<div class="tstats"><span>★ <b>${ls.stars.size}/${n}</b></span><span>падений <b>${ls.falls}</b></span>${T.gates ? `<span>ворота <b>${ls.gatesOk}/${ls.gatesOk + ls.missed}</b></span>` : ''}<span>макс. <b>${(ls.vmax * 3.6).toFixed(0)}</b> км/ч</span></div>`;
+  show('modal', true);
+  if (app.demo) {
+    $('modalCard').innerHTML = `<div class="ok-k">Инструктор на финише</div><h2>${L.title}</h2><div class="ttime">${fmtTime(ls.total)}</div>${stats}
+      <p>Смотри не на скорость, а на ритм: поворот начинается до звезды, взгляд — на следующую. Твоя очередь.</p>
+      <div class="row"><button class="btn ghost" id="mMenu">Меню</button><button class="btn alt" id="mAgain">Посмотреть ещё раз</button>${isOpen(T) ? '<button class="btn primary" id="mGo">Поехали сам</button>' : ''}</div>`;
+    $('mMenu').onclick = toMenu;
+    $('mAgain').onclick = () => { show('modal', false); startRide(L.id, true); };
+    if ($('mGo')) $('mGo').onclick = () => { show('modal', false); startRide(L.id, false); };
+    return;
+  }
+  const before = starsTotal();
+  const rec = save.tracks[T.id] || (save.tracks[T.id] = { tasks: [false, false, false], best: null, bestStars: 0, runs: 0 });
+  const fresh = done.map((d, i) => d && !rec.tasks[i]);
+  rec.tasks = rec.tasks.map((d, i) => d || done[i]);
+  const prev = rec.best, record = prev == null || ls.total < prev;
+  if (record) { rec.best = ls.total; saveGhost(T.id, ls.rec); }
+  rec.bestStars = Math.max(rec.bestStars, ls.stars.size); rec.runs++;
+  persist();
+  const after = starsTotal(), nr = nextRank(after);
+  const unlocked = TRACKS.filter((t) => t.need > before && t.need <= after);
+  const next = TRACKS.slice(TRACKS.indexOf(T) + 1).find((t) => after >= t.need);
+  const locked = TRACKS.find((t) => after < t.need);
+  const cmp = prev == null ? 'Первый заезд — теперь это твой рекорд. На следующем заезде рядом поедет призрак этого заезда.'
+    : record ? `Новый рекорд: быстрее на <b>${(prev - ls.total).toFixed(1)} с</b>. Призрак обновлён.`
+    : ls.total - prev < 0.05 ? `Ровно как рекорд ${fmtTime(prev)}. Ещё чуть-чуть!` : `Рекорд ${fmtTime(prev)} — не хватило <b>${(ls.total - prev).toFixed(1)} с</b>.`;
+  const pen = ls.missed ? `<div class="hint">чистое время ${fmtTime(ls.time)} + ${ls.missed} ворот × ${GATE_PENALTY} с</div>` : '';
+  // разбор: что помешало и что потренировать
+  const advice = [];
+  if (ls.falls) {
+    const top = Object.entries(ls.fallTypes.reduce((a, t) => ((a[t] = (a[t] || 0) + 1), a), {})).sort((a, b) => b[1] - a[1])[0][0];
+    const les = LESSONS_BY_ID[FALL_LESSON[top]];
+    advice.push(`<div class="blk why"><div class="h">Что мешает</div>${(FALLS[top] || FALLS.out).title}${ls.falls > 1 ? ` (падений: ${ls.falls})` : ''}. ${(FALLS[top] || FALLS.out).fix}</div>`);
+    if (les) advice.push(`<button class="btn sm alt" id="mLesson" data-id="${les.id}">Потренировать: ${les.title}</button>`);
+  }
+  if (!done[1]) advice.push(`<div class="blk drill"><div class="h">Звёзды</div>Пропущено ${n - ls.stars.size}. ${T.tip}</div>`);
+  else if (!done[2]) advice.push(`<div class="blk drill"><div class="h">Время</div>Звёзды собраны — теперь скорость. Меньше юза: доводи дугу на канте, а не боком.</div>`);
+  $('modalCard').innerHTML = `<div class="ok-k">${record && prev != null ? 'Новый рекорд!' : 'Финиш'}</div><h2>${L.title}</h2>
+    <div class="ttime">${fmtTime(ls.total)}</div>${pen}<p class="cmp">${cmp}</p>${stats}
+    ${taskList(T, rec.tasks, fresh)}
+    <div class="rankline">Всего <b>★ ${after}</b> · звание <b>${rankOf(after)}</b>${nr ? ` · до «${nr[1]}» ещё ${nr[0] - after}★` : ''}</div>
+    ${unlocked.map((t) => `<div class="unlock">🔓 Открыта трасса: <b>${t.level} · ${t.name}</b></div>`).join('')}
+    ${!next && locked ? `<div class="hint">Следующая трасса «${locked.name}» откроется на ${locked.need}★.</div>` : ''}
+    ${advice.join('')}
+    <div class="row"><button class="btn ghost" id="mMenu">Меню</button><button class="btn alt" id="mDemo">Как проехать</button><button class="btn ${next && done.every(Boolean) ? 'alt' : 'primary'}" id="mAgain">Ещё раз</button>${next ? `<button class="btn ${done.every(Boolean) ? 'primary' : 'alt'}" id="mNext">Дальше: ${next.name}</button>` : ''}</div>`;
+  $('mMenu').onclick = toMenu;
+  $('mDemo').onclick = () => { show('modal', false); startRide(L.id, true); };
+  $('mAgain').onclick = () => { show('modal', false); startRide(L.id, false); };
+  if (next) $('mNext').onclick = () => { show('modal', false); openBrief('track:' + next.id); };
+  const ml = $('mLesson'); if (ml) ml.onclick = () => openBrief(ml.dataset.id);
+}
+
 function nextLesson(id) {
   const order = ['stance', 'bindings', 'posture', 'heel_slip', 'toe_slip', 'leaf', 'turns', 'carve', 'free'];
   const i = order.indexOf(id);
@@ -705,4 +916,4 @@ function frame(now) {
 }
 toMenu();
 requestAnimationFrame(frame);
-window.__app = { app, sim, studio, THREE, startRide, openMistakes, openPosture, openBindings, openStance, openBrief, rig };
+window.__app = { app, sim, studio, THREE, startRide, openMistakes, openPosture, openBindings, openStance, openBrief, rig, updateRide };
