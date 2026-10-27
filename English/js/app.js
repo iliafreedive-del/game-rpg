@@ -552,10 +552,24 @@ function result({ ok, answer, ru, note, say, typo, skip, user, variants, points:
     ${english ? '<div class="fb-hint">👆 Нажми на любое слово — перевод и почему оно здесь</div>' : ''}
     ${why}${rules}${lessonRule}
   </div>`));
-  const b = h(`<button class="btn big ${ok ? 'primary' : 'warn'}" id="nxt">${run.timeUp && run.timed ? 'Завершить ⏰' : 'Дальше'}</button>`);
+  const btns = h('<div class="fb-btns"></div>');
+  // после ошибки можно сразу решить то же задание ещё раз, чтобы закрепить
+  if (!ok && !skip && ex.type !== 'match') {
+    const rep = h('<button class="btn big primary" id="rep">🔁 Повторить</button>');
+    rep.onclick = () => {
+      run.lastAct = Date.now();
+      const copy = ex.type === 'build' || ex.type === 'listen' ? X.build(ex, ex.type === 'listen') : ex;
+      run.queue.splice(run.i + 1, 0, { ...copy, block: ex.block, again: true });
+      run.i++;
+      render();
+    };
+    btns.append(rep);
+  }
+  const b = h(`<button class="btn big ${ok ? 'primary' : ''}" id="nxt">${run.timeUp && run.timed ? 'Завершить ⏰' : 'Дальше'}</button>`);
   b.onclick = next;
-  foot.append(b);
-  b.focus({ preventScroll: true });
+  btns.append(b);
+  foot.append(btns);
+  (btns.firstChild).focus({ preventScroll: true });
   if (say && ok && S.settings.autoplay && !['speak'].includes(ex.type)) speak(say);
 }
 const pick = a => a[Math.floor(Math.random() * a.length)];
@@ -781,7 +795,7 @@ document.addEventListener('keydown', e => {
   if (!run || run.paused) return;
   const tag = e.target.tagName;
   if (e.key === 'Enter' && tag !== 'TEXTAREA' && !e.target.closest?.('.tile,.opt,.say')) {
-    const b = $('#nxt') || $('#chk') || $('#rf .btn.primary');
+    const b = $('#rep') || $('#nxt') || $('#chk') || $('#rf .btn.primary');
     if (b && !b.disabled) { e.preventDefault(); b.click(); }
   }
   if (/^[1-4]$/.test(e.key) && tag !== 'INPUT' && tag !== 'TEXTAREA' && !$('#nxt')) {

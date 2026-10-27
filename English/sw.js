@@ -1,5 +1,5 @@
 // Офлайн-кэш: приложение работает без интернета после первого открытия.
-const CACHE = 'english-v2';
+const CACHE = 'english-v3';
 const FILES = ['./', 'index.html', 'css/style.css', 'js/app.js', 'js/data.js', 'js/check.js', 'js/store.js',
   'js/speech.js', 'js/exercises.js', 'js/explain.js', 'js/gloss.js', 'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png'];
 
