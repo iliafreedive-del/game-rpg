@@ -126,7 +126,7 @@ class Onset extends AudioWorkletProcessor {
     const x = inputs[0] && inputs[0][0]; if(!x) return true;
     let e=0; for(let i=0;i<x.length;i++){ const d=x[i]-this.prev; this.prev=x[i]; e+=d*d; }
     e/=x.length;
-    const thr = Math.max(4e-6 / this.sens, this.slow * 5 / this.sens);
+    const thr = Math.max(1e-6 / this.sens, this.slow * 5 / this.sens);
     if (e > thr && currentTime - this.last > 0.09) { this.last = currentTime; this.port.postMessage({t: currentTime, e}); }
     this.slow = this.slow*0.985 + e*0.015;
     this.lvl = Math.max(e, this.lvl*0.9);
@@ -181,7 +181,7 @@ class Mic {
       let e = 0; for (let i = 1; i < buf.length; i++) { const d = buf[i] - buf[i - 1]; e += d * d; }
       e /= buf.length; this.level = e;
       const t = ctx().currentTime - 0.012;
-      if (e > Math.max(4e-6, slow * 5) / S.settings.sens && t - last > 0.09) { last = t; this.listeners.forEach(fn => fn(t)); }
+      if (e > Math.max(1e-6, slow * 5) / S.settings.sens && t - last > 0.09) { last = t; this.listeners.forEach(fn => fn(t)); }
       slow = slow * 0.9 + e * 0.1;
       requestAnimationFrame(loop);
     };
@@ -219,13 +219,13 @@ export function micErrorText(err) {
 }
 
 // ---- YIN: основная частота ----
-export function yin(buf, sr, thr = 0.15) {
+export function yin(buf, sr, thr = 0.2) {
   const W = 1536;
   const start = buf.length - W - 820;
   let rms = 0;
   for (let i = start; i < buf.length; i++) rms += buf[i] * buf[i];
   rms = Math.sqrt(rms / (buf.length - start));
-  if (rms < 0.006) return null;
+  if (rms < 0.0012) return null; // встроенные микрофоны ноутбуков дают тихий сигнал
   const minTau = Math.floor(sr / 1200), maxTau = Math.min(Math.floor(sr / 65), 819);
   const d = new Float32Array(maxTau + 2);
   for (let tau = 1; tau <= maxTau + 1; tau++) {
@@ -239,7 +239,13 @@ export function yin(buf, sr, thr = 0.15) {
   for (let t = minTau; t <= maxTau; t++) {
     if (d[t] < thr) { while (t + 1 <= maxTau && d[t + 1] < d[t]) t++; tau = t; break; }
   }
-  if (tau < 0) return null;
+  if (tau < 0) {
+    // нет провала ниже порога — берём глобальный минимум, если он достаточно чёткий
+    let best = minTau;
+    for (let t = minTau; t <= maxTau; t++) if (d[t] < d[best]) best = t;
+    if (d[best] > 0.4) return null;
+    tau = best;
+  }
   const a = d[tau - 1], b = d[tau], c = d[tau + 1], den = a + c - 2 * b;
   const shift = den ? (a - c) / (2 * den) : 0;
   return { freq: sr / (tau + shift), clarity: 1 - b, rms };
