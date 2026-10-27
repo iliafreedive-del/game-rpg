@@ -536,4 +536,13 @@ route();
 renderBadge();
 renderSessionBar();
 
-if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js');
+if ('serviceWorker' in navigator && location.protocol === 'https:') {
+  navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(r => r.update()).catch(() => {});
+  // вышла новая версия — перезагружаемся сразу, а если играет микрофон, метроном или таймер — при переходе на другой экран
+  let reloaded = !navigator.serviceWorker.controller; // при первой установке перезагрузка не нужна
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (reloaded) return;
+    const go = () => { reloaded = true; location.reload(); };
+    if (!activity.size) go(); else window.addEventListener('hashchange', go, { once: true });
+  });
+}
