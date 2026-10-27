@@ -142,9 +142,14 @@ class Mic {
     if (this.stream) return this;
     const c = ctx();
     this.stream = await navigator.mediaDevices.getUserMedia({
-      audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
+      audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 1 },
     });
-    this.src = c.createMediaStreamSource(this.stream);
+    const raw = c.createMediaStreamSource(this.stream);
+    // Микрофонные массивы ноутбуков (Realtek и др.) отдают 2 канала в противофазе:
+    // при обычном сведении в моно они гасят друг друга. Берём только первый канал.
+    this.src = c.createGain();
+    this.src.channelCount = 1; this.src.channelCountMode = 'explicit'; this.src.channelInterpretation = 'discrete';
+    raw.connect(this.src); this.raw = raw;
     this.an = c.createAnalyser(); this.an.fftSize = 4096; this.an.smoothingTimeConstant = 0;
     this.fan = c.createAnalyser(); this.fan.fftSize = 16384; this.fan.smoothingTimeConstant = 0.3;
     this.src.connect(this.an); this.src.connect(this.fan);
@@ -205,7 +210,7 @@ class Mic {
   stop() {
     if (!this.stream) return;
     this.stream.getTracks().forEach(t => t.stop());
-    try { this.src.disconnect(); this.node && this.node.disconnect(); } catch { /* уже отключено */ }
+    try { this.raw.disconnect(); this.src.disconnect(); this.node && this.node.disconnect(); } catch { /* уже отключено */ }
     this.stream = null; this.node = null; this.listeners.clear();
   }
 }
