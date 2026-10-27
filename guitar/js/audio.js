@@ -225,8 +225,8 @@ export function micErrorText(err) {
 
 // ---- YIN: основная частота ----
 export function yin(buf, sr, thr = 0.2) {
-  const W = 1536;
-  const start = buf.length - W - 820;
+  const W = 2048;
+  const start = buf.length - W - 821;
   let rms = 0;
   for (let i = start; i < buf.length; i++) rms += buf[i] * buf[i];
   rms = Math.sqrt(rms / (buf.length - start));
