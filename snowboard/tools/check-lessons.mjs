@@ -1,5 +1,5 @@
 // Прогоняет автопилот-инструктора по каждому уроку на склоне для обеих стоек.
-// Падение или невыполненная цель — ненулевой код выхода.
+// Падение или невыполненная цель — ненулевой код выхода (кроме задуманной ошибки в конце демо).
 import { Sim } from '../js/sim.js';
 import { LESSONS } from '../js/lessons.js';
 
@@ -15,7 +15,8 @@ for (const L of LESSONS.filter((l) => l.kind === 'ride' && !l.free)) {
       sim.step(DT, L.auto(sim, t, ls));
       r = L.check(sim, ls, DT);
     }
-    const ok = r.done && !sim.fallen;
+    // демо соскальзываний специально заканчивается типичной ошибкой — ловлей нижнего канта
+    const ok = L.demoMistake ? sim.fallen?.type === L.demoMistake && sim.time > 17 : r.done && !sim.fallen;
     if (!ok) failed++;
     console.log(`${ok ? 'ok  ' : 'FAIL'} ${L.id.padEnd(10)} ${stance.padEnd(8)} ${r.text}${sim.fallen ? ' · падение: ' + sim.fallen.type : ''}${r.fail ? ' · ' + r.fail : ''}`);
   }

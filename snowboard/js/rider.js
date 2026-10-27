@@ -120,6 +120,17 @@ export class Rider {
       this.stance.add(g); this.feet.push(g);
     }
 
+    // Центр тяжести: шар у таза + отвес на доску. Рисуется поверх тела, чтобы было видно всегда.
+    this.com = new THREE.Group(); this.com.visible = false;
+    const comMat = new THREE.MeshBasicMaterial({ color: '#22c55e', depthTest: false, transparent: true, opacity: 0.95 });
+    const top = (m) => { m.renderOrder = 20; this.com.add(m); return m; };
+    this.comBall = top(new THREE.Mesh(new THREE.SphereGeometry(0.075, 16, 12), comMat));
+    this.comLine = top(new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 1, 6), comMat));
+    this.comDot = top(new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.01, 20), comMat));
+    this.comMid = top(new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.012, 0.3), new THREE.MeshBasicMaterial({ color: '#ffffff', depthTest: false })));
+    this.comMat = comMat;
+    this.stance.add(this.com);
+
     this.cfg = { stance: 'regular', front: 15, rear: 0, width: 0.52 };
     this.pose = { knee: 0.5, hinge: 0.12, weight: 0.1, rot: 0, gaze: 1, arms: 0.4, stiff: 0, lean: 0, fall: null, t: 0, up: null };
   }
@@ -165,7 +176,7 @@ export class Rider {
 
     const mid = ankF.clone().add(ankR).multiplyScalar(0.5);
     const pelvis = mid.clone().addScaledVector(axis, LEG * hFac);
-    pelvis.x += p.weight * W * 0.32;
+    pelvis.x += p.weight * W * 0.4;
     pelvis.z -= p.hinge * 0.16; // попа назад к пяткам
     // Направление таза и груди: между креплениями
     const mAng = (aF + aR) / 2;
@@ -226,6 +237,17 @@ export class Rider {
     placeSeg(P.uarmR, shR, armR.mid); placeSeg(P.farmR, armR.mid, armR.end);
     P.elF.position.copy(armF.mid); P.elR.position.copy(armR.mid);
     P.handF.position.copy(armF.end); P.handR.position.copy(armR.end);
+
+    if (this.com.visible) {
+      const c = pelvis.clone().addScaledVector(spine, 0.12);
+      const foot = V(c.x, 0.04, c.z);
+      this.comBall.position.copy(c);
+      placeSeg(this.comLine, foot, c);
+      this.comDot.position.copy(foot);
+      this.comMid.position.set(0, 0.04, 0); // середина между креплениями — ориентир
+      const w = p.weight;
+      this.comMat.color.set(fall ? '#ef4444' : w < -0.2 ? '#ef4444' : w < 0.05 ? '#facc15' : '#22c55e');
+    }
   }
 
   // Поставить доску на склон: basis — (нос, нормаль, вправо от носа) в мире; roll — опущенная сторона (+ правая), рад

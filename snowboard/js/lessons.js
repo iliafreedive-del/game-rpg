@@ -12,6 +12,32 @@ function weightForHeading(sim, thd, gain = 2.2, lim = 0.7) {
   return clamp(gain * err / (1.8 * sn), -lim, lim);
 }
 
+// Демонстрация соскальзывания: кант — регулятор скорости. Меньше канта — быстрее, больше — медленнее,
+// тормозим плавно, а в конце — типичная ошибка: доска опущена на нижний кант.
+function slipDemo(sim, t, ls, side) { // side: −1 пятки, +1 носки
+  const th0 = side < 0 ? HEEL_FACING(sim.toeSign) : TOE_FACING(sim.toeSign);
+  const dt = Math.max(0, Math.min(0.05, t - (ls.lastT ?? t))); ls.lastT = t;
+  if (ls.m == null) ls.m = 0.4;
+  const heel = side < 0;
+  const lift = heel ? 'носки' : 'пятки', press = heel ? 'пятки' : 'носки';
+  let vt, caption, rate = 0.35, mistake = false;
+  if (t < 4) { vt = 0.8; caption = `Стою на ${heel ? 'пяточном' : 'носочном'} канте: ${lift} приподняты, скольжу медленно.`; }
+  else if (t < 9) { vt = 2.6; caption = `Чуть опускаю ${lift} — кант меньше, доска скользит быстрее. Смотри на скорость.`; }
+  else if (t < 13) { vt = 2.6 * (13 - t) / 4; caption = `Плавно поднимаю ${lift} — кант растёт, скорость падает. Тормозим постепенно, не рывком.`; }
+  else if (t < 15) { vt = 0; caption = 'Полная остановка: кант держит, доска стоит.'; }
+  else if (t < 18) { vt = 1.5; caption = 'Снова отпускаю кант — поехали.'; }
+  else { mistake = true; caption = `ОШИБКА: опустил ${lift} слишком сильно — доска легла на нижний кант, и он цепляет снег…`; }
+  let target;
+  if (mistake) { target = -0.2; rate = 0.18; } // медленно, чтобы было видно, как доска ложится на нижний кант
+  else {
+    // регулятор скорости: быстрее нужного — больше канта; кант меняется плавно
+    ls.mi = clamp((ls.mi ?? 0.3) + (sim.speed - vt) * 0.25 * dt, 0.12, 0.6);
+    target = vt === 0 ? 0.55 : clamp(ls.mi + 0.3 * (sim.speed - vt), 0.12, 0.6);
+  }
+  ls.m += clamp(target - ls.m, -rate * dt, rate * dt);
+  return { edge: side * ls.m, weight: weightForHeading(sim, th0), rot: 0, caption, slow: mistake ? 0.4 : null, mistake };
+}
+
 export const STANCE_QUIZ = [
   { q: 'Тебя неожиданно, но мягко толкнули в спину. Какая нога первой шагнёт вперёд, чтобы поймать равновесие?',
     a: [['Левая', 'regular'], ['Правая', 'goofy']] },
@@ -193,7 +219,7 @@ export const LESSONS = [
       'Никогда не опускай доску полностью плоско и не дави на носки: нижний кант зацепится, и ты упадёшь лицом вперёд.',
     ],
     tips: ['Таз над доской, а не над склоном: отклонившись назад, ты сядешь.', 'Смотри вниз по склону, а не на доску.'],
-    keys: 'pheel',
+    keys: 'pheel', pip: true, demoCams: ['follow', 'front3', 'profile'], demoMistake: 'catch_toe',
     goal: 'Спустись на 25 м боком и сделай 2 полные остановки.',
     init: (ls) => { ls.stops = 0; ls.moving = false; ls.stillT = 0; },
     check(sim, ls, dt) {
@@ -204,16 +230,7 @@ export const LESSONS = [
       const done = d >= 25 && ls.stops >= 2;
       return { done, text: `Спуск ${d.toFixed(0)}/25 м · Остановки ${Math.min(ls.stops, 2)}/2`, p: Math.min(1, d / 25) * 0.6 + Math.min(1, ls.stops / 2) * 0.4 };
     },
-    auto(sim, t, ls) {
-      const th0 = HEEL_FACING(sim.toeSign);
-      const phase = Math.floor(t / 4) % 2; // 4 с едем, 4 с стоим
-      const target = 1.4;
-      const m = phase === 0 ? clamp(0.14 + 0.25 * (sim.speed - target), 0.06, 0.8) : 0.75;
-      return {
-        edge: -m, weight: weightForHeading(sim, th0), rot: 0,
-        caption: phase === 0 ? 'Чуть отпускаю пятки — доска соскальзывает. Таз над доской, взгляд вниз.' : 'Пятки сильнее, носки вверх — кант врезается, стоп.',
-      };
-    },
+    auto(sim, t, ls) { return slipDemo(sim, t, ls, -1); },
   },
   {
     id: 'toe_slip', kind: 'ride', title: 'Соскальзывание на носках',
@@ -225,19 +242,11 @@ export const LESSONS = [
       'Падение на пяточный кант назад — самое жёсткое. Не отпускай носки до нуля.',
     ],
     tips: ['Представь, что упираешься коленями в стену перед собой.', 'Ты не видишь, куда едешь, — периодически оглядывайся через плечо.'],
-    keys: 'ptoe',
+    keys: 'ptoe', pip: true, demoCams: ['follow', 'front3', 'profile'], demoMistake: 'catch_heel',
     goal: 'Спустись на 25 м спиной вниз и сделай 2 полные остановки.',
     init: (ls) => { ls.stops = 0; ls.moving = false; ls.stillT = 0; },
     check(sim, ls, dt) { return LESSONS_BY_ID.heel_slip.check(sim, ls, dt); },
-    auto(sim, t, ls) {
-      const th0 = TOE_FACING(sim.toeSign);
-      const phase = Math.floor(t / 4) % 2;
-      const m = phase === 0 ? clamp(0.14 + 0.25 * (sim.speed - 1.4), 0.06, 0.8) : 0.75;
-      return {
-        edge: m, weight: weightForHeading(sim, th0), rot: 0,
-        caption: phase === 0 ? 'Носки чуть мягче — соскальзываю. Колени к склону, попа под себя.' : 'Носки сильнее, колени вперёд — стоп.',
-      };
-    },
+    auto(sim, t, ls) { return slipDemo(sim, t, ls, 1); },
   },
   {
     id: 'leaf', kind: 'ride', title: 'Падающий лист',
@@ -291,8 +300,7 @@ export const LESSONS = [
     init: (ls) => { ls.gi = 0; ls.ok = 0; ls.miss = 0; ls.res = []; },
     check(sim, ls) { return gateCheck(this, sim, ls, 5); },
     auto(sim, t, ls) {
-      const c = followGates(this, sim, { vTarget: 6, max: 0.45 });
-      return { ...c, caption: c.braking ? 'Скорость великовата — довожу доску поперёк, кант гасит скорость.' : Math.abs(c.err) > 0.3 ? 'Взгляд и плечи в поворот, вес вперёд — ставлю новый кант.' : 'Веду доску на канте через линию падения.' };
+      return turnPhases(followGates(this, sim, { vTarget: 6, max: 0.45 }), sim, t);
     },
   },
   {
@@ -339,12 +347,25 @@ export const LESSONS = [
     init: () => {},
     check(sim) { return { done: false, text: `${(sim.dist).toFixed(0)} м · макс. ${(sim.maxSpeed * 3.6).toFixed(0)} км/ч`, p: 0 }; },
     path: Array.from({ length: 80 }, (_, i) => ({ u: (i % 2 ? 7 : -7), s: 20 + i * 26 })),
-    auto(sim) {
-      const c = followGates(this, sim, { vTarget: 9, max: 0.6, look: 7 });
-      return { ...c, caption: 'Повороты: начало — ведение — завершение.' };
+    auto(sim, t) {
+      const c = turnPhases(followGates(this, sim, { vTarget: 9, max: 0.6, look: 7 }), sim, t);
+      if (t < 5) return { ...c, weight: 0.6, caption: 'Разгон: сдвигаю таз вперёд, над передней ногой — 70% веса на ней. Доска едет и слушается.' };
+      if (t > 24 && t < 30) {
+        return { ...c, weight: -0.45, mistake: true, caption: 'ОШИБКА новичка: страшно — и таз уходит назад, вес на задней ноге. Нос разгружен, доска не поворачивает и идёт юзом.' };
+      }
+      if (t >= 30 && t < 33) return { ...c, weight: 0.55, caption: 'Исправляю: таз снова вперёд, над передней ногой — и доска сразу пошла в поворот.' };
+      return c;
     },
   },
 ];
+
+// Работа центром тяжести по фазам поворота + подпись, что сейчас делает инструктор.
+function turnPhases(c, sim, t) {
+  if (t < 2.5) return { ...c, weight: 0.5, caption: 'Старт: таз вперёд, вес на переднюю ногу — так доска разгоняется и слушается. Новички часто «сидят» на задней.' };
+  if (c.braking) return { ...c, weight: 0, caption: 'Завершение: довожу доску поперёк склона, вес в центр — кант гасит скорость.' };
+  if (Math.abs(c.err) > 0.3) return { ...c, weight: 0.55, caption: 'Начало поворота: таз вперёд, ~65% веса на переднюю ногу, взгляд и плечи — в новый поворот.' };
+  return { ...c, weight: 0.25, caption: 'Ведение: держу кант, таз над доской, вес чуть впереди (~57%). Колени мягкие.' };
+}
 
 // Линия через центры ворот (косинусная интерполяция) — по ней едет инструктор.
 function gatePathU(gates, s) {

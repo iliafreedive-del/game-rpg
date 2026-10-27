@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { Sim, MAX_EDGE_DEG } from './sim.js';
+import { Sim, MAX_EDGE_DEG, wrapAngle } from './sim.js';
 import { LESSONS, LESSONS_BY_ID, FALLS, WARN_TEXT, STANCE_QUIZ, BINDING_PRESETS, evaluateBindings, POSTURE_PARTS, GOOD_POSTURE, evaluatePosture } from './lessons.js';
 import { MISTAKES } from './mistakes.js';
 import { Rider } from './rider.js';
@@ -49,6 +49,7 @@ const studio = (() => {
 
 function resize() {
   const w = window.innerWidth, h = window.innerHeight;
+  if (!w || !h) return; // свёрнутое окно: аспект 0/0 сломал бы камеру
   renderer.setSize(w, h, false);
   camera.aspect = w / h; camera.updateProjectionMatrix();
   studio.cam.aspect = w / h; studio.cam.updateProjectionMatrix();
@@ -104,6 +105,7 @@ function setScreen(mode) {
   show('brief', mode === 'brief');
   show('hud', mode === 'ride');
   show('studio', mode === 'studio');
+  rider.com.visible = mode === 'ride';
   if (mode !== 'ride') show('modal', false);
 }
 
@@ -172,7 +174,7 @@ function startRide(id, demo, opts = {}) {
   app.lesson = L; app.demo = demo; app.t = 0; app.ended = false; app.fallShown = false; app.history = []; app.replay = null;
   app.background = !!opts.background;
   if (!opts.keepFalls) app.falls = 0;
-  app.ls = {}; L.init(app.ls);
+  app.ls = {}; L.init(app.ls); prevSnap = null; acc = 0;
   world.build(L.slopeDeg);
   world.setGates(L.gates);
   world.setTargets(L.targets ? L.targets.map((u) => u * toeSign()) : null);
@@ -181,19 +183,34 @@ function startRide(id, demo, opts = {}) {
   rider.setConfig({ stance: stance(), front: save.front, rear: save.rear, width: save.width / 100 });
   rig.init = false;
   rig.mode = 'follow';
+  app.camManual = false; app.camT = 0; app.camI = 0;
   app.travel.copy(world.frame.D);
   if (!app.background) {
     setScreen('ride');
     $('hudTitle').textContent = (demo ? 'Демонстрация · ' : '') + L.title;
     $('keyLegend').innerHTML = keyLegend(L.keys).map(([k, t]) => `<div>${k} ${t}</div>`).join('');
     show('demoBanner', demo);
+    $('hud').classList.toggle('demo', demo);
+    show('pip', !!L.pip);
+    app.demoSlow = null;
     $('bCam').textContent = 'Камера: ' + CAM_NAMES[rig.mode];
     setCoach('info', demo ? 'Смотри, что делает тело: колени, вес, наклон. Внизу слева — кант и вес в реальном времени.' : L.goal);
   }
 }
 
 function restart() { if (app.lesson) startRide(app.lesson.id, app.demo, { keepFalls: true }); }
-function cycleCam() { const i = CAM_MODES.indexOf(rig.mode); rig.mode = CAM_MODES[(i + 1) % CAM_MODES.length]; $('bCam').textContent = 'Камера: ' + CAM_NAMES[rig.mode]; }
+function setCam(mode) { rig.mode = mode; $('bCam').textContent = 'Камера: ' + CAM_NAMES[mode]; }
+function cycleCam() { app.camManual = true; const i = CAM_MODES.indexOf(rig.mode); setCam(CAM_MODES[(i + 1) % CAM_MODES.length]); }
+// Режиссёр демонстрации: сам меняет ракурс, чтобы было видно и кант, и работу тазом.
+// Урок может задать свой список ракурсов (L.demoCams). Кнопка «Камера» отключает автосмену.
+const DEMO_CAMS = ['follow', 'profile', 'front3', 'side', 'follow', 'front'];
+function directCam() {
+  if (!app.demo || app.camManual || app.background || sim.fallen) return;
+  const list = app.lesson.demoCams || DEMO_CAMS;
+  if (app.t - app.camT < 5.5) return;
+  app.camT = app.t; app.camI = (app.camI + 1) % list.length;
+  setCam(list[app.camI]);
+}
 function toggleSlow() { app.slow = app.slow === 1 ? 0.35 : 1; $('bSlow').textContent = app.slow === 1 ? 'Замедл. ×1' : 'Замедл. ×0.35'; $('bSlow').classList.toggle('on', app.slow !== 1); }
 $('bCam').onclick = cycleCam; $('bSlow').onclick = toggleSlow; $('bRestart').onclick = restart; $('bMenu').onclick = toMenu;
 
@@ -208,16 +225,30 @@ function setCoach(kind, text) {
 
 const STEP = 1 / 120;
 let acc = 0;
+// Снимок состояния до шага: при замедлении шаг физики реже кадра,
+// поэтому рисуем райдера между двумя шагами, а не прыжками.
+const SNAP = ['u', 's', 'theta', 'edge', 'weight', 'rot', 'lean', 'crouch', 'stiff', 'time'];
+let prevSnap = null;
+const snap = () => Object.fromEntries(SNAP.map((k) => [k, sim[k]]));
+function interpState() {
+  const cur = snap();
+  if (!prevSnap || sim.fallen) return cur;
+  const a = Math.min(1, acc / STEP), o = {};
+  for (const k of SNAP) o[k] = prevSnap[k] + (cur[k] - prevSnap[k]) * a;
+  o.theta = prevSnap.theta + wrapAngle(cur.theta - prevSnap.theta) * a;
+  return o;
+}
 function updateRide(dt) {
   const L = app.lesson;
   if (app.replay) return updateReplay(dt);
-  acc += dt * app.slow;
+  acc += dt * Math.min(app.slow, app.demo && app.demoSlow ? app.demoSlow : 1);
   let steps = 0;
   while (acc >= STEP && steps < 20) {
     acc -= STEP; steps++;
+    prevSnap = snap();
     if (!sim.fallen && !app.ended) {
       const input = app.demo ? L.auto(sim, app.t, app.ls) : readInput(STEP);
-      if (app.demo) app.caption = input.caption;
+      if (app.demo) { app.caption = input.caption; app.demoSlow = input.slow || null; app.captionKind = input.mistake ? 'danger' : 'info'; }
       sim.step(STEP, input);
       if (Math.abs(sim.u) > 21) sim.fall('out');
       if (sim.s > 1300) { app.ended = true; }
@@ -230,7 +261,7 @@ function updateRide(dt) {
         else if (r.fail) { app.ended = true; setTimeout(() => lessonFail(r.fail), 400); }
       }
       if (app.background && app.t > 40) startRide('free', true, { background: true });
-    } else sim.step(STEP, {});
+    } else if (sim.fallen) sim.step(STEP, {}); // после конца урока райдер замирает
     app.t += STEP;
   }
   if (sim.fallen && !app.fallShown) {
@@ -241,6 +272,7 @@ function updateRide(dt) {
     }
   }
   if (app.lesson?.id === 'leaf') world.highlightTarget(app.ls.i);
+  directCam();
   drawRider(dt, sim.time);
 }
 
@@ -264,12 +296,14 @@ const fallSide = (f) => (/toe/.test(f.type) ? 1 : -1);
 function drawRider(dt, t) {
   const f = world.frame;
   const fall = sim.fallen ? { side: fallSide(sim.fallen), k: (sim.time - sim.fallen.t) / 0.45 } : null;
-  const { pos, right } = poseFromState(sim.u, sim.s, sim.theta, sim.edge, sim.weight, sim.rot, sim.lean, sim.crouch, sim.stiff, fall, t);
+  const st = interpState();
+  const { pos, right } = poseFromState(st.u, st.s, st.theta, st.edge, st.weight, st.rot, st.lean, st.crouch, st.stiff, fall, st.time);
   // направление камеры «сзади» — по ходу движения
   const tv = sim.speed > 1.5 ? f.dir(sim.vu, sim.vs).normalize() : f.D.clone();
   app.travel.lerp(tv, 1 - Math.exp(-dt * 2.5)).normalize();
   const toeDir = right.clone().multiplyScalar(toeSign());
   rig.update(dt, pos, app.travel, toeDir, f.N, { mode: app.background ? 'follow' : (sim.fallen && !app.replay ? 'orbit' : undefined) });
+  app.pipTarget = { pos, toeDir };
   world.follow(pos, sim.s);
   // след и снежная пыль
   if (!sim.fallen) {
@@ -300,7 +334,15 @@ function updateHud(dt) {
   $('wMark').style.left = (50 + sim.weight * 45).toFixed(0) + '%';
   const front = Math.round(50 + sim.weight * 30);
   $('bodyStats').innerHTML = `<span>Скорость</span><b>${(sim.speed * 3.6).toFixed(0)} км/ч</b><span>Вес вперёд</span><b>${front}%</b><span>Ноги</span><b>${sim.stiff > 0.5 ? 'прямые!' : sim.crouch > 0.5 ? 'присел' : 'согнуты'}</b><span>Ход</span><b>${sim.speed < 0.3 ? 'стоп' : sim.grip > 0.6 ? 'карвинг' : sim.slip > 0.6 ? 'боком' : sim.slip > 0.15 ? 'юз' : 'скольжение'}</b>`;
-  if (app.demo) { $('demoCaption').textContent = app.caption || ''; setCoach('info', app.caption || ''); return; }
+  if (app.demo) {
+    $('demoCaption').textContent = app.caption || '';
+    $('demoBanner').classList.toggle('mistake', app.captionKind === 'danger');
+    $('demoCam').textContent = CAM_NAMES[rig.mode];
+    const e = Math.abs(deg), ws = front >= 53 ? 'вперёд' : front <= 47 ? 'НАЗАД' : 'центр';
+    $('demoLive').innerHTML = `<span>кант <b>${e.toFixed(0)}°</b> ${deg > 1.5 ? 'носки' : deg < -1.5 ? 'пятки' : 'плоско'}</span><span class="${front < 47 ? 'bad' : ''}">вес <b>${front}%</b> на передней · ${ws}</span><span><b>${(sim.speed * 3.6).toFixed(0)}</b> км/ч</span>`;
+    setCoach(app.captionKind || 'info', app.caption || '');
+    return;
+  }
   if (sim.fallen) return;
   const w = sim.warnings[0];
   if (w) { const [k, txt] = WARN_TEXT[w]; setCoach(k, txt); }
@@ -312,14 +354,15 @@ function updateHud(dt) {
 function showFall(f) {
   const info = FALLS[f.type] || FALLS.out;
   show('modal', true);
-  $('modalCard').innerHTML = `<div class="fall-k">Падение · разбор</div><h2>${info.title}</h2>
+  const demoNote = app.demo ? '<p>Инструктор нарочно показал эту ошибку — вот что происходит, если опустить доску на нижний кант.</p>' : '';
+  $('modalCard').innerHTML = `<div class="fall-k">${app.demo ? 'Ошибка в демонстрации · разбор' : 'Падение · разбор'}</div><h2>${info.title}</h2>${demoNote}
     <div class="blk"><div class="h">Что произошло</div>${info.what}</div>
     <div class="blk why"><div class="h">Почему</div>${info.why}</div>
     <div class="blk fix"><div class="h">Как исправить</div>${info.fix}</div>
     <div class="blk drill"><div class="h">Упражнение</div>${info.drill}</div>
-    <div class="row"><button class="btn ghost" id="mMenu">Меню</button><button class="btn alt" id="mReplay">⟲ Повтор в замедлении</button><button class="btn alt" id="mDemo">Как делает инструктор</button><button class="btn primary" id="mRetry">Ещё раз</button></div>`;
+    <div class="row"><button class="btn ghost" id="mMenu">Меню</button><button class="btn alt" id="mReplay">⟲ Повтор в замедлении</button><button class="btn alt" id="mDemo">Как делает инструктор</button><button class="btn primary" id="mRetry">${app.demo ? 'Попробовать сам' : 'Ещё раз'}</button></div>`;
   $('mMenu').onclick = toMenu;
-  $('mRetry').onclick = () => { show('modal', false); restart(); };
+  $('mRetry').onclick = () => { show('modal', false); if (app.demo) startRide(app.lesson.id, false); else restart(); };
   $('mDemo').onclick = () => { show('modal', false); startRide(app.lesson.id, true); };
   $('mReplay').onclick = () => { show('modal', false); app.replay = { i: 0, f }; setCoach('danger', `Повтор: ${info.title.toLowerCase()}. Смотри на кант внизу слева.`); };
 }
@@ -328,7 +371,8 @@ function updateReplay(dt) {
   const R = app.replay, H = app.history;
   R.i += dt * 120 * 0.3;
   const k = Math.min(H.length - 1, Math.floor(R.i));
-  const h = H[k];
+  const h0 = H[k], h1 = H[Math.min(H.length - 1, k + 1)], a = R.i - k;
+  const h = h0.map((v, j) => v + ((j === 2 ? wrapAngle(h1[j] - v) : h1[j] - v)) * Math.min(1, a));
   const ended = k >= H.length - 1;
   const fall = ended ? { side: fallSide(R.f), k: (R.i - (H.length - 1)) / 54 } : null;
   const { pos, right } = poseFromState(h[0], h[1], h[2], h[3], h[4], h[5], h[6], h[7], h[8], fall, R.i / 120);
@@ -605,6 +649,25 @@ function openMistakes(id = MISTAKES[0].id) {
   app.studioMode = { update: () => { studioPose(studio.riders[0], m.wrong, off[0]); studioPose(studio.riders[1], m.right, off[1]); } };
 }
 
+
+// Врезка «вид спереди»: камера со стороны носков, низко — видно, как приподнята доска и какой кант в снегу.
+const pipCam = new THREE.PerspectiveCamera(38, 4 / 3, 0.1, 500);
+function renderPip() {
+  const el = $('pip'); const r = el.getBoundingClientRect();
+  if (!r.width) return;
+  const { pos, toeDir } = app.pipTarget;
+  const up = new THREE.Vector3(0, 1, 0);
+  pipCam.position.copy(pos).addScaledVector(toeDir, 3.4).addScaledVector(up, 0.55);
+  pipCam.lookAt(pos.clone().addScaledVector(up, 0.55));
+  pipCam.aspect = r.width / r.height; pipCam.updateProjectionMatrix();
+  const y = innerHeight - r.bottom;
+  renderer.setScissorTest(true);
+  renderer.setScissor(r.left, y, r.width, r.height); renderer.setViewport(r.left, y, r.width, r.height);
+  renderer.render(world.scene, pipCam);
+  renderer.setScissorTest(false);
+  renderer.setViewport(0, 0, innerWidth, innerHeight);
+}
+
 // ---------------------------------------------------------------- цикл
 let last = performance.now();
 function frame(now) {
@@ -613,6 +676,7 @@ function frame(now) {
   else {
     if (app.lesson && !(app.mode === 'ride' && !$('modal').classList.contains('hidden') && !app.replay)) updateRide(dt);
     renderer.render(world.scene, camera);
+    if (app.mode === 'ride' && app.lesson?.pip && app.pipTarget) renderPip();
   }
   requestAnimationFrame(frame);
 }

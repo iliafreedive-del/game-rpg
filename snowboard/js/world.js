@@ -272,26 +272,41 @@ class Spray {
 
 // Камера: «сзади», «сбоку», «спереди», «сверху».
 export const CAM_MODES = ['follow', 'side', 'front', 'top'];
-export const CAM_NAMES = { follow: 'Сзади', side: 'Сбоку', front: 'Спереди', top: 'Сверху' };
+export const CAM_NAMES = { follow: 'Сзади', side: 'Сбоку (носки)', front: 'Спереди', top: 'Сверху', profile: 'Профиль', front3: 'Спереди-сбоку' };
+
+const finite = (v) => Number.isFinite(v.x) && Number.isFinite(v.y) && Number.isFinite(v.z);
 
 export class CameraRig {
   constructor(camera) { this.cam = camera; this.mode = 'follow'; this.pos = new THREE.Vector3(); this.look = new THREE.Vector3(); this.init = false; this.orbit = 0; }
   update(dt, target, travel, toeDir, N, opts = {}) {
     const up = new THREE.Vector3(0, 1, 0);
+    if (!finite(travel) || travel.lengthSq() < 1e-6) travel = N.clone().cross(up).cross(N).normalize().negate();
+    const z = this.cam.aspect < 1 ? 1.5 : 1; // узкий экран телефона — отходим дальше, чтобы райдер влез
     const t = target.clone().addScaledVector(up, 0.9);
     let p, l = t.clone();
     const mode = opts.mode || this.mode;
-    if (mode === 'follow') { p = t.clone().addScaledVector(travel, -6.2).addScaledVector(up, 2.2); l.addScaledVector(travel, 3); }
-    else if (mode === 'side') { p = t.clone().addScaledVector(toeDir, 5.2).addScaledVector(up, 0.6).addScaledVector(travel, 1); }
-    else if (mode === 'front') { p = t.clone().addScaledVector(travel, 6).addScaledVector(up, 1.2); }
-    else if (mode === 'top') { p = t.clone().addScaledVector(N, 16).addScaledVector(travel, -3); l = target.clone().addScaledVector(travel, 2); }
+    if (mode === 'follow') { p = t.clone().addScaledVector(travel, -6.2 * z).addScaledVector(up, 2.2); l.addScaledVector(travel, 3 * z); }
+    else if (mode === 'side') { p = t.clone().addScaledVector(toeDir, 5.2 * z).addScaledVector(up, 0.6).addScaledVector(travel, 1 * z); }
+    else if (mode === 'profile' || mode === 'front3') {
+      // всегда с одной стороны от траектории, чтобы камера не перепрыгивала при смене канта
+      const perp = new THREE.Vector3().crossVectors(up, travel).normalize();
+      p = mode === 'profile'
+        ? t.clone().addScaledVector(perp, 5.5 * z).addScaledVector(up, 0.5).addScaledVector(travel, 0.8 * z)
+        : t.clone().addScaledVector(travel, 4.6 * z).addScaledVector(perp, 3.2 * z).addScaledVector(up, 1.3);
+    }
+    else if (mode === 'front') { p = t.clone().addScaledVector(travel, 6 * z).addScaledVector(up, 1.2); }
+    else if (mode === 'top') { p = t.clone().addScaledVector(N, 16).addScaledVector(travel, -3 * z); l = target.clone().addScaledVector(travel, 2 * z); }
     else if (mode === 'orbit') {
       this.orbit += dt * 0.5;
       const d = new THREE.Vector3(Math.cos(this.orbit), 0, Math.sin(this.orbit));
       p = t.clone().addScaledVector(d, 4.5).addScaledVector(up, 1.6); l = target.clone().addScaledVector(up, 0.4);
     }
-    const k = this.init ? 1 - Math.exp(-dt * (mode === 'top' ? 3 : 5)) : 1;
-    this.pos.lerp(p, k); this.look.lerp(l, k); this.init = true;
+    if (!finite(p) || !finite(l)) return; // испорченная цель — не трогаем камеру
+    const k = this.init ? 1 - Math.exp(-Math.max(0, dt) * (mode === 'top' ? 3 : 5)) : 1;
+    // lerp не вылечит NaN в самой камере (NaN + x = NaN) — тогда просто ставим камеру на место
+    if (!this.init || !finite(this.pos) || !finite(this.look)) { this.pos.copy(p); this.look.copy(l); }
+    else { this.pos.lerp(p, k); this.look.lerp(l, k); }
+    this.init = true;
     this.cam.position.copy(this.pos);
     this.cam.up.set(0, 1, 0);
     this.cam.lookAt(this.look);

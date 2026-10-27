@@ -40,7 +40,9 @@ export class Sim {
   }
 
   // input: { edge, weight, rot, crouch, stiff } — целевые значения
-  step(dt, input) {
+  step(dt, input = {}) {
+    // пустой ввод = нейтральная стойка (раньше давал NaN и «ломал» камеру после конца урока)
+    input = { edge: 0, weight: 0, rot: 0, crouch: false, stiff: false, ...input };
     if (this.fallen) {
       const k = Math.exp(-3 * dt);
       this.vu *= k; this.vs *= k;
@@ -116,8 +118,9 @@ export class Sim {
     let latFric;
     if (leading && slipA > 0.3) latFric = 0.05 * G * ca;
     else {
-      const mu = 0.04 + 0.9 * Math.pow(clamp(edgeDeg / 35, 0, 1), 1.3);
-      latFric = mu * G * ca + (0.4 + 2.2 * clamp(edgeDeg / 15, 0, 1)) * Math.abs(vT) + grip * 40 * Math.abs(vT);
+      // доска держит склон ~12° примерно с 15° канта; ниже — соскальзывает тем быстрее, чем меньше кант
+      const mu = 0.04 + 0.9 * Math.pow(clamp(edgeDeg / 45, 0, 1), 1.6);
+      latFric = mu * G * ca + (0.3 + 0.9 * clamp(edgeDeg / 15, 0, 1)) * Math.abs(vT) + grip * 40 * Math.abs(vT);
     }
     const dT = latFric * dt;
     vT = Math.abs(vT) <= dT ? 0 : vT - Math.sign(vT) * dT;

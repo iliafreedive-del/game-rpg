@@ -64,8 +64,18 @@ kbd { display: inline-block; min-width: 22px; padding: 1px 6px; border-radius: 6
 #hudGoal { color: var(--mute); font-size: 13px; }
 .bar { height: 5px; background: #1e293b; border-radius: 3px; margin-top: 6px; overflow: hidden; }
 .bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .2s; }
-#demoBanner { position: absolute; top: 96px; left: 50%; transform: translateX(-50%); background: rgba(14,165,233,.92); color: #fff; border-radius: 12px; padding: 8px 16px; max-width: min(640px, calc(100% - 24px)); text-align: center; }
-#demoBanner b { display: block; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; }
+#demoBanner { position: absolute; bottom: 60px; left: 50%; transform: translateX(-50%); width: min(720px, calc(100% - 480px)); min-width: 320px; background: rgba(8,47,73,.9); color: #fff; border: 1px solid rgba(56,189,248,.6); border-radius: 14px; padding: 8px 16px 10px; text-align: center; box-shadow: 0 6px 24px rgba(0,0,0,.3); }
+#demoBanner .dh { display: flex; justify-content: space-between; gap: 8px; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #7dd3fc; }
+#demoBanner .dh i { font-style: normal; text-transform: none; letter-spacing: 0; color: #bae6fd; }
+#demoCaption { font-size: 18px; line-height: 1.35; margin: 4px 0 6px; font-weight: 600; }
+#demoLive { display: flex; justify-content: center; flex-wrap: wrap; gap: 4px 14px; font-size: 13px; color: #cbd5e1; }
+#demoLive b { color: #fff; font-variant-numeric: tabular-nums; }
+#demoLive .bad, #demoLive .bad b { color: #fca5a5; }
+#hud.demo #coach, #hud.demo #keyLegend, #hud.demo #touch { display: none !important; }
+#demoBanner.mistake { background: rgba(127,29,29,.94); border-color: #f87171; }
+#demoBanner.mistake .dh { color: #fecaca; }
+#pip { position: absolute; left: 12px; top: 12px; width: 300px; height: 220px; border: 2px solid rgba(255,255,255,.85); border-radius: 12px; box-shadow: 0 6px 24px rgba(0,0,0,.3); }
+#pip span { position: absolute; left: 0; right: 0; bottom: 0; background: rgba(15,23,42,.75); color: #fff; font-size: 12px; padding: 4px 8px; border-radius: 0 0 10px 10px; }
 #coach { position: absolute; right: 12px; top: 12px; width: 300px; max-width: 42vw; background: var(--panel); border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: 12px; padding: 8px 12px; transition: border-color .2s; }
 #coach .who { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--mute); }
 #coach.warn { border-left-color: var(--warn); }
@@ -135,8 +145,14 @@ kbd { display: inline-block; min-width: 22px; padding: 1px 6px; border-radius: 6
 @media (max-width: 720px) {
   #hudTop { top: 8px; min-width: 0; width: calc(100% - 16px); padding: 6px 10px; }
   #coach { top: 76px; left: 156px; right: 8px; width: auto; max-width: none; font-size: 13px; }
-  #demoBanner, #keyLegend, #bodyStats { display: none !important; }
+  #keyLegend, #bodyStats { display: none !important; }
+  #demoBanner { width: calc(100% - 16px); min-width: 0; bottom: 52px; padding: 6px 10px 8px; }
+  #demoCaption { font-size: 15px; }
+  #demoLive { font-size: 12px; }
+  #hud.demo #pip { top: 76px; bottom: auto; }
+  #pip span { font-size: 10px; padding: 2px 6px; }
   #body { top: 76px; bottom: auto; left: 8px; width: 140px; padding: 4px 8px; }
+  #pip { top: auto; bottom: 200px; left: auto; right: 8px; width: 170px; height: 130px; }
   #hudBtns { right: 8px; bottom: 8px; left: 8px; justify-content: center; }
   #touch .tl, #touch .tr { bottom: 56px; }
   #touch .tl { left: 8px; } #touch .tr { right: 8px; }
