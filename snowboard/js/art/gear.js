@@ -146,17 +146,13 @@ function bindingGeos() {
     const h = 0.05 + 0.042 * Math.cos((a / SPAN) * Math.PI / 2) ** 0.7;
     return bootPt(phi, lerp(0.008, h, t), 0.009);
   }, 28, 3, 0.0065);
-  // хайбэк: изогнутая пластина за икрой, наклонена вперёд
-  const LEAN = 0.2, piv = V3(0, 0.07, -0.03);
+  // хайбэк: изогнутая пластина за икрой; наклоняется вместе с голенищем (кости ботинка)
   const hb = shell((s, t) => {
     const span = lerp(1.32, 0.92, t), a = (s * 2 - 1) * span;
     const yTop = 0.292 - 0.055 * Math.abs(a / span) ** 3.5;
     const y = lerp(0.04, yTop, t);
-    const p = bootPt(-Math.PI / 2 + a, y, 0.017 + 0.012 * t ** 3);
-    p.sub(piv);
-    const cy = p.y * Math.cos(LEAN) - p.z * Math.sin(LEAN), cz = p.y * Math.sin(LEAN) + p.z * Math.cos(LEAN);
-    return V3(p.x + piv.x, cy + piv.y, cz + piv.z);
-  }, 24, 12, 0.0075);
+    return bootPt(-Math.PI / 2 + a, y, 0.013 + 0.008 * t ** 3);
+  }, 24, 12, 0.007);
   // стрепы по поверхности ботинка: центр линии φ(s), высота y(φ), ширина в «развёртке»
   const strap = (phi0, span, yLow, yHigh, pw, width, thick) => shell((s, t) => {
     const at = (ss) => { const a = (ss * 2 - 1) * span; return [phi0 + a, yLow + (yHigh - yLow) * Math.cos((a / span) * Math.PI / 2) ** pw]; };
@@ -185,10 +181,9 @@ export class Foot {
     this.shaftBone.position.set(0, ANKLE_Y, 0);
     group.add(this.footBone, this.shaftBone);
     const g = bootGeo();
-    const boot = skinned(g, mats.boot, [this.footBone, this.shaftBone], [new THREE.Matrix4(), new THREE.Matrix4().makeTranslation(0, ANKLE_Y, 0)], (v) => {
-      const w = smooth(0.112, 0.17, v.y); return [[0, 1 - w], [1, w]];
-    });
-    add(boot);
+    const rest = [new THREE.Matrix4(), new THREE.Matrix4().makeTranslation(0, ANKLE_Y, 0)];
+    const ankleW = (v) => { const w = smooth(0.112, 0.17, v.y); return [[0, 1 - w], [1, w]]; };
+    add(skinned(g, mats.boot, [this.footBone, this.shaftBone], rest, ankleW));
     Foot.soleG ||= [soleGeo(0.006, 0.0, 0.016), soleGeo(0.0045, 0.014, 0.036)];
     add(new THREE.Mesh(Foot.soleG[0], mats.sole)); add(new THREE.Mesh(Foot.soleG[1], mats.midsole));
     const B = bindingGeos();
@@ -198,8 +193,9 @@ export class Foot {
     const disc = add(new THREE.Mesh(Foot.discG, mats.disc), this.disc); disc.position.y = -0.0005;
     add(new THREE.Mesh(B.baseG, mats.binding));
     add(new THREE.Mesh(B.heel, mats.binding));
-    add(new THREE.Mesh(B.hb, mats.highback));
-    add(new THREE.Mesh(B.ankle, mats.strap));
+    // хайбэк прилегает к голенищу: так икра и штанина не проходят сквозь него
+    add(skinned(B.hb, mats.highback, [this.footBone, this.shaftBone], rest, ankleW));
+    add(skinned(B.ankle, mats.strap, [this.footBone, this.shaftBone], rest, ankleW));
     add(new THREE.Mesh(B.toe, mats.strap));
     if (!ghost) {
       Foot.screwG ||= new THREE.CylinderGeometry(0.0055, 0.0055, 0.004, 10);
@@ -235,7 +231,7 @@ export class Foot {
 
   // shin — направление голени (от лодыжки к колену) в системе ноги; angle — поворот крепления
   update(shin, angle) {
-    const fwd = clamp(Math.atan2(shin.z, shin.y) * 0.9, 0.2, 0.75);
+    const fwd = clamp(Math.atan2(shin.z, shin.y), 0.05, 0.8);
     const sideT = clamp(Math.atan2(shin.x, shin.y) * 0.9, -0.28, 0.28);
     const d = V3(Math.tan(sideT), 1, Math.tan(fwd)).normalize();
     this.shaftBone.quaternion.setFromUnitVectors(V3(0, 1, 0), d);

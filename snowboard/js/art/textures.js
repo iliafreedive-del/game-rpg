@@ -21,7 +21,7 @@ export const jacketTex = (c, c2) => memo(`j${c}${c2}`, () => canvasTex(512, 512,
   x.lineTo(W, 0); x.fill();
   line(x, Array.from({ length: 65 }, (_, i) => { const u = i / 64; return [U(u), Y(0.37 + 0.035 * Math.cos((u - 0.5) * Math.PI * 2) - 0.04 * Math.exp(-(((u - 0.5) / 0.06) ** 2)))]; }), shade(c, 0.45), 2.5);
   // подол и манжета воротника
-  x.fillStyle = shade(c, -0.22); x.fillRect(0, Y(-0.125), W, H - Y(-0.125));
+  x.fillStyle = shade(c, -0.22); x.fillRect(0, Y(-0.098), W, H - Y(-0.098));
   x.fillStyle = shade(c2, -0.15); x.fillRect(0, 0, W, Y(0.585));
   // боковые швы
   for (const u of [0.25, 0.75]) line(x, [[U(u), 0], [U(u), H]], shade(c, -0.18), 1.5);
@@ -65,6 +65,9 @@ export const pantsTex = (c) => memo(`p${c}`, () => canvasTex(512, 512, (x, W, H)
   x.strokeStyle = shade(c, -0.3); x.lineWidth = 1.5; x.setLineDash([3, 3]); rrect(x, U(0.69) + 3, Y(0.31) + 3, U(0.12) - 6, Y(0.12) - Y(0.31) - 6, 5); x.stroke(); x.setLineDash([]);
   x.fillStyle = shade(c, -0.12); rrect(x, U(0.685), Y(0.325), U(0.13), 18, 5); x.fill();
   x.fillStyle = shade(c, 0.5); for (const u of [0.72, 0.78]) { x.beginPath(); x.arc(U(u), Y(0.325) + 12, 2.5, 0, 7); x.fill(); }
+  // косая молния вентиляции над карманом — яркая, как на референсе
+  line(x, [[U(0.66), Y(0.395)], [U(0.715), Y(0.34)]], '#d9cf3f', 3.5);
+  x.fillStyle = '#d9cf3f'; rrect(x, U(0.66) - 3, Y(0.395) - 2, 6, 11, 2); x.fill();
   // швы: боковой, шаговый, коленные вытачки
   line(x, [[U(0.75), 0], [U(0.75), H]], shade(c, -0.25), 1.6);
   line(x, [[U(0.25), Y(0.02)], [U(0.25), H]], shade(c, -0.25), 1.6);
@@ -141,8 +144,8 @@ export const bootTex = (c, accent) => memo(`b${c}${accent}`, () => canvasTex(256
 }, { aniso: 4 }));
 
 export const highbackTex = (accent) => memo(`hb${accent}`, () => canvasTex(128, 256, (x, W, H) => {
-  x.fillStyle = '#272b32'; x.fillRect(0, 0, W, H);
-  x.fillStyle = '#343943';
+  x.fillStyle = '#cfd4db'; x.fillRect(0, 0, W, H);
+  x.fillStyle = '#b9c0c9';
   for (let i = 0; i < 7; i++) rrect(x, 10 + i * 16, H * 0.12, 7, H * 0.66, 4), x.fill();
   x.fillStyle = accent; rrect(x, W * 0.3, H * 0.84, W * 0.4, 8, 4); x.fill();
   grain(x, W, H, 6, 17);

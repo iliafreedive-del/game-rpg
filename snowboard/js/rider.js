@@ -38,7 +38,7 @@ function solveIK(root, end, l1, l2, pole) {
 
 export class Rider {
   constructor({ ghost = false, palette = {} } = {}) {
-    const pal = { jacket: '#ff7a2f', pants: '#2b3a55', helmet: '#f3f5f7', goggles: '#ffb100', frame: '#16181c', gloves: '#1d1f24', boots: '#55606e', board: '#1f6feb', skin: '#e9b48f', accent: '#e11d48', gaiter: '#2f3e4f', ...palette };
+    const pal = { jacket: '#ff7a2f', pants: '#5f6672', helmet: '#f3f5f7', goggles: '#ffb100', frame: '#16181c', gloves: '#1d1f24', boots: '#2c3139', board: '#1f6feb', skin: '#e9b48f', accent: '#e11d48', gaiter: '#2f3e4f', ...palette };
     this.ghost = ghost;
     this.root = new THREE.Group();
     // Тело и крепления — в отражаемой группе (для goofy)
@@ -127,8 +127,8 @@ export class Rider {
     const chestFwd = new THREE.Vector3().crossVectors(shAxis, spine).normalize().multiplyScalar(-1);
     // chestFwd должен смотреть к носкам
     if (chestFwd.z < 0 && Math.abs(yaw) < 1.2) chestFwd.multiplyScalar(-1);
-    const shF = neck.clone().addScaledVector(shAxis, 0.2).addScaledVector(spine, -0.05);
-    const shR = neck.clone().addScaledVector(shAxis, -0.2).addScaledVector(spine, -0.05);
+    const shF = neck.clone().addScaledVector(shAxis, 0.18).addScaledVector(spine, -0.05);
+    const shR = neck.clone().addScaledVector(shAxis, -0.18).addScaledVector(spine, -0.05);
 
     // Голова: взгляд вперёд по ходу (к носу) или под ноги
     const headC = neck.clone().addScaledVector(spine, NECK);
