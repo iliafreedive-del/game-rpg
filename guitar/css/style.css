@@ -211,3 +211,21 @@ main { max-width: 720px; margin: 0 auto; padding: 14px 16px 20px; }
 .level-bar { flex: 1; height: 8px; background: var(--card2); border-radius: 9px; overflow: hidden; }
 .level-bar i { display: block; height: 100%; width: 0; background: var(--good); transition: width .08s; }
 .level-bar i.low { background: var(--soft); }
+
+/* Тюнер в стиле «след стрелки» */
+.tn-top { display: flex; justify-content: space-between; align-items: center; }
+.tn-left { font-size: 1.15rem; color: var(--good); }
+.tn-stage { position: relative; height: 260px; border-radius: 14px; background: #15120e; overflow: hidden; }
+.tn-trace { position: absolute; inset: 0; width: 100%; height: 100%; }
+.tn-bubble { position: absolute; top: 8px; width: 52px; height: 52px; margin-left: -26px; border-radius: 50%; display: grid; place-items: center;
+  font-weight: 800; font-size: 1.05rem; border: 3px solid var(--bad); background: #2a1512; color: var(--ink); transition: left .12s linear, border-color .2s, background .2s; }
+.tn-bubble.near { border-color: var(--mid); background: #2a2412; }
+.tn-bubble.good { border-color: var(--good); background: var(--good); color: #13261a; font-size: 1.5rem; }
+.tn-bubble.idle { border-color: var(--soft); background: transparent; left: 50%; }
+.tn-act { position: absolute; top: 22px; font-weight: 700; font-size: .95rem; color: var(--ink); background: rgba(0,0,0,.45); padding: 2px 8px; border-radius: 8px; }
+.tn-act:empty { display: none; }
+.tn-act.left { left: 12px; } .tn-act.right { right: 12px; }
+.tn-act.good { left: 50%; transform: translateX(-50%); top: 66px; color: var(--good); }
+.tn-note { position: absolute; left: 50%; top: 100px; transform: translateX(-50%); font-size: 3.4rem; font-weight: 800; text-align: center; line-height: 1; text-shadow: 0 2px 8px #000; }
+.tn-note small { display: block; font-size: .8rem; font-weight: 500; color: var(--soft); margin-top: 4px; }
+.str-btn small { font-size: .65rem; }
