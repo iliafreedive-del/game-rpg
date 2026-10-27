@@ -1,8 +1,10 @@
 import { UNITS, LESSONS, lessonById } from './data.js';
 import { S, save, reset, importData, dayKey, today, goalSec, addSec, addXP, countAnswer, streak, srsAnswer, srsAdd, dueKeys, nextDue } from './store.js';
 import { speak, listen, stopListening, srSupported, ttsSupported, englishVoices, beep } from './speech.js';
-import { checkText, speechScore, speechOk, words as normWords } from './check.js';
+import { checkText, speechScore, speechOk, words as normWords, tilesOf } from './check.js';
 import * as X from './exercises.js';
+import { explain, RULES } from './explain.js';
+import { gloss } from './gloss.js';
 
 const $ = (s, el = document) => el.querySelector(s);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -31,6 +33,39 @@ document.addEventListener('click', e => {
   const slow = lastSaid.t === t && Date.now() - lastSaid.at < 4000;
   lastSaid = { t, at: slow ? 0 : Date.now() };
   speak(t, slow ? 0.6 : undefined);
+});
+
+// ─────────────── Слова по нажатию ───────────────
+// Английская фраза, в которой каждое слово можно нажать: перевод, форма и правило.
+const tapText = (s, mark = {}) => `<span class="tap" data-s="${esc(s)}">${tilesOf(s).map((w, i) =>
+  `<span class="w ${mark[i] || ''}" data-i="${i}">${esc(w)}</span>`).join(' ')}${esc((s.match(/[.!?]+$/) || [''])[0])}</span>`;
+
+function ruleCard(key, open = false) {
+  const r = RULES[key];
+  if (!r) return '';
+  return `<details class="rule" ${open ? 'open' : ''}><summary>📘 ${r.title}</summary><p>${r.text}</p>
+    ${r.ex.map(([en, ru]) => `<div class="example">${sayBtn(en, 'sm')}<div><b>${tapText(en)}</b><small>${esc(ru)}</small></div></div>`).join('')}</details>`;
+}
+
+function openGloss(tokens, i) {
+  const g = gloss(tokens, i);
+  document.querySelector('.sheet')?.remove();
+  const sheet = h(`<div class="sheet"><div class="sheet-card">
+    <div class="sheet-head">${sayBtn(g.word)}<div><b class="sheet-word">${esc(g.word)}</b><div class="sheet-ru">${esc(g.ru || '')}</div></div><button class="x sheet-x" aria-label="Закрыть">✕</button></div>
+    ${g.phrase ? `<p>Входит в выражение <b>${esc(g.phrase[0])}</b> — ${esc(g.phrase[1])}.</p>` : ''}
+    ${g.note ? `<p>${g.note}</p>` : ''}
+    <p class="muted small">Во фразе: ${tokens.map((t, k) => k === i ? `<b>${esc(t)}</b>` : esc(t)).join(' ')}</p>
+    ${g.rule ? ruleCard(g.rule) : ''}
+  </div></div>`);
+  sheet.onclick = e => { if (e.target === sheet || e.target.closest('.sheet-x')) sheet.remove(); };
+  document.body.append(sheet);
+  speak(g.word);
+}
+document.addEventListener('click', e => {
+  const w = e.target.closest('.tap .w');
+  if (!w) return;
+  e.preventDefault();
+  openGloss(tilesOf(w.closest('.tap').dataset.s), +w.dataset.i);
 });
 
 // ─────────────── Статус в шапке ───────────────
@@ -131,7 +166,7 @@ function theoryHTML(L) {
     if (k === 'p') return `<p>${a}</p>`;
     if (k === 'tip') return `<div class="tip">💡 ${a}</div>`;
     if (k === 'f') return `<div class="formula">${a.split('\n').map(esc).join('<br>')}</div>`;
-    if (k === 'ex') return `<div class="example">${sayBtn(a)}<div><b>${esc(a)}</b><small>${esc(b)}</small></div></div>`;
+    if (k === 'ex') return `<div class="example">${sayBtn(a)}<div><b>${tapText(a)}</b><small>${esc(b)}</small></div></div>`;
     if (k === 't') return `<table class="tbl">${a.map(r => `<tr>${r.map(c => `<td>${esc(c)}</td>`).join('')}</tr>`).join('')}</table>`;
     return '';
   }).join('');
@@ -474,7 +509,7 @@ function prompt(body, title, html = '') {
 }
 
 // Итог ответа: начисления, повторение ошибок, плашка внизу.
-function result({ ok, answer, ru, note, say, typo, skip }) {
+function result({ ok, answer, ru, note, say, typo, skip, user, variants, points: extraPoints }) {
   const ex = run.queue[run.i];
   if (!skip) {
     const first = !ex.again;
@@ -491,10 +526,31 @@ function result({ ok, answer, ru, note, say, typo, skip }) {
   foot.innerHTML = '';
   foot.className = `run-foot ${skip ? 'skip' : ok ? 'ok' : 'bad'}`;
   const msg = skip ? 'Пропущено' : ok ? (typo ? 'Верно, но есть опечатка' : pick(['Отлично!', 'Верно!', 'Так держать!', 'Супер!', 'Точно!'])) : 'Не совсем';
+  const english = answer && !/[а-яё]/i.test(answer);
+
+  // разбор ошибки: что не так, почему и какое правило
+  let diff = '', why = '', rules = '';
+  const mark = {};
+  if (!ok && !skip && user && variants) {
+    const e = explain(user, variants);
+    const tw = normWords(answer), tt = tilesOf(answer);
+    if (e.target === answer && tw.length === tt.length) for (const o of e.ops) if (o.op === 'miss' || o.op === 'sub') mark[o.ti] = 'need';
+    diff = `<div class="fb-you"><small>Твой ответ:</small> ${e.ops.filter(o => o.op !== 'miss').map(o =>
+      o.op === 'eq' ? esc(o.u) : `<s>${esc(o.u)}</s>`).join(' ') || '—'}</div>`;
+    const pts = [...(extraPoints || []), ...(note ? [note] : []), ...e.points];
+    if (pts.length) why = `<div class="fb-why"><b>Почему:</b><ul>${pts.map(p => `<li>${p}</li>`).join('')}</ul></div>`;
+    rules = e.rules.slice(0, 2).map((k, i) => ruleCard(k, i === 0)).join('');
+  } else if (!ok && !skip && (note || extraPoints?.length)) {
+    why = `<div class="fb-why"><b>Почему:</b><ul>${[...(extraPoints || []), ...(note ? [note] : [])].map(p => `<li>${p}</li>`).join('')}</ul></div>`;
+  }
+  const L = lessonById[ex.lid];
+  const lessonRule = !ok && !skip && L ? `<details class="rule"><summary>📖 Правило урока «${esc(L.title)}»</summary>${theoryHTML({ theory: L.theory.filter(t => t[0] !== 'tip').slice(0, 6) })}</details>` : '';
   foot.append(h(`<div class="fb">
     <div class="fb-title">${ok ? '✓' : skip ? '→' : '✗'} ${msg}</div>
-    ${answer && (!ok || typo || ru) ? `<div class="fb-ans">${say ? sayBtn(say) : ''}<div>${!ok || typo ? '<small>Правильно:</small>' : ''}<b>${esc(answer)}</b>${ru ? `<small>${esc(ru)}</small>` : ''}</div></div>` : ''}
-    ${note && !ok ? `<div class="fb-note">💡 ${note}</div>` : ''}
+    ${diff}
+    ${answer ? `<div class="fb-ans">${say ? sayBtn(say) : ''}<div>${!ok || typo ? '<small>Правильно:</small>' : ''}<b>${english ? tapText(answer, mark) : esc(answer)}</b>${ru ? `<small>${esc(ru)}</small>` : ''}</div></div>` : ''}
+    ${english ? '<div class="fb-hint">👆 Нажми на любое слово — перевод и почему оно здесь</div>' : ''}
+    ${why}${rules}${lessonRule}
   </div>`));
   const b = h(`<button class="btn big ${ok ? 'primary' : 'warn'}" id="nxt">${run.timeUp && run.timed ? 'Завершить ⏰' : 'Дальше'}</button>`);
   b.onclick = next;
@@ -518,8 +574,11 @@ R.mc = (ex, body, foot) => {
   const el = prompt(body, 'Выбери правильный вариант', `<div class="q">${esc(ex.q).replace('___', '<span class="blank">___</span>')}</div><div class="opts"></div>`);
   let sel = -1;
   const set = checkFoot(foot, () => {
-    const ans = ex.q.includes('___') ? ex.q.replace('___', ex.o[ex.a]).replace(/ \(.*\)/, '') : ex.o[ex.a];
-    return { ok: sel === ex.a, answer: ans, note: ex.ex, say: /[а-я]/i.test(ans) ? null : ans.replace(/[—]/g, '') };
+    const fill = o => (ex.q.includes('___') ? ex.q.replace('___', o === '—' ? '' : o) : o).replace(/ \(.*\)/, '').replace(/\s+/g, ' ').trim();
+    const ans = fill(ex.o[ex.a]);
+    const en = !/[а-яё]/i.test(ans);
+    return { ok: sel === ex.a, answer: ans, note: ex.ex, say: en ? ans : null,
+      user: en && sel >= 0 ? fill(ex.o[sel]) : null, variants: [ans] };
   });
   ex.o.forEach((o, i) => {
     const b = h(`<button class="opt"><span class="k">${i + 1}</span>${esc(o)}</button>`);
@@ -536,7 +595,7 @@ R.gap = (ex, body, foot) => {
     const r = checkText(inp.value, ex.a);
     inp.disabled = true;
     const full = ex.g.replace('___', ex.a[0]);
-    return { ok: r.ok, answer: full, note: ex.ex, say: full };
+    return { ok: r.ok, answer: full, note: ex.ex, say: full, user: ex.g.replace('___', inp.value.trim()), variants: ex.a.map(a => ex.g.replace('___', a)) };
   });
   inp.oninput = () => set(inp.value.trim().length > 0);
   setTimeout(() => inp.focus(), 50);
@@ -550,8 +609,11 @@ function tileExercise(ex, body, foot, listenMode) {
   const chosen = [];
   const set = checkFoot(foot, () => {
     el.querySelectorAll('.tile').forEach(t => t.disabled = true);
-    const r = checkText(chosen.map(c => c.w).join(' '), ex.variants);
-    return { ok: r.ok, answer: ex.en, ru: ex.ru, say: ex.en };
+    const user = chosen.map(c => c.w).join(' ');
+    const r = checkText(user, ex.variants);
+    // после проверки собранные слова тоже можно нажать
+    zone.querySelectorAll('.tile').forEach((t, k) => { t.disabled = false; t.onclick = () => openGloss(chosen.map(c => c.w), k); });
+    return { ok: r.ok, answer: ex.en, ru: ex.ru, say: ex.en, user, variants: ex.variants };
   });
   ex.tiles.forEach((w, i) => {
     const t = h(`<button class="tile">${esc(w)}</button>`);
@@ -600,7 +662,7 @@ R.translate = (ex, body, foot) => {
   const set = checkFoot(foot, () => {
     inp.disabled = true;
     const r = checkText(inp.value, ex.variants);
-    return { ok: r.ok, typo: r.typo, answer: ex.en, ru: null, say: ex.en };
+    return { ok: r.ok, typo: r.typo, answer: ex.en, ru: null, say: ex.en, user: inp.value, variants: ex.variants };
   });
   inp.oninput = () => set(inp.value.trim().length > 0);
   inp.onkeydown = e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); $('#chk')?.click(); } };
@@ -652,7 +714,15 @@ R.speak = (ex, body, foot) => {
 function choose(ex, body, foot, title, shown) {
   const el = prompt(body, title, `<div class="q en-q">${sayBtn(shown)}<b>${esc(shown)}</b></div><div class="opts"></div>`);
   let sel = -1;
-  const set = checkFoot(foot, () => ({ ok: sel === ex.a, answer: ex.opts[ex.a], say: shown, ru: null }));
+  const set = checkFoot(foot, () => {
+    const pts = [];
+    if (sel !== ex.a) {
+      const other = enOf(ex.opts[sel]);
+      pts.push(`«${esc(ex.opts[sel])}» — это ${other ? `<b>${esc(other)}</b>` : 'другая фраза'}.`);
+      pts.push(`А <b>${esc(shown)}</b> — «${esc(ex.opts[ex.a])}». Нажми на слова фразы, чтобы разобрать её.`);
+    }
+    return { ok: sel === ex.a, answer: shown, ru: ex.opts[ex.a], say: shown, points: pts };
+  });
   ex.opts.forEach((o, i) => {
     const b = h(`<button class="opt"><span class="k">${i + 1}</span>${esc(o)}</button>`);
     b.onclick = () => { sel = i; el.querySelectorAll('.opt').forEach((x, j) => x.classList.toggle('sel', j === i)); set(true); };
@@ -660,13 +730,21 @@ function choose(ex, body, foot, title, shown) {
   });
   setTimeout(() => speak(shown), 250);
 }
+// русский перевод → английский оригинал (для объяснения неверного выбора)
+const enOf = ru => {
+  for (const L of LESSONS) {
+    const s = L.sents.find(x => x[1] === ru); if (s) return s[0];
+    const w = L.words.find(x => x[1] === ru); if (w) return w[0];
+  }
+  return null;
+};
 R.choose_ru = (ex, b, f) => choose(ex, b, f, 'Что означает эта фраза?', ex.en);
 R.word = (ex, b, f) => choose(ex, b, f, 'Выбери перевод слова', ex.en);
 
 R.word_type = (ex, body, foot) => {
   const el = prompt(body, 'Напиши по-английски', `<div class="q ru-q">${esc(ex.ru)}</div><input class="tr-in one" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" lang="en" placeholder="слово…">`);
   const inp = $('input', el);
-  const set = checkFoot(foot, () => { inp.disabled = true; const r = checkText(inp.value, [ex.en]); return { ok: r.ok, typo: r.typo, answer: ex.en, say: ex.en }; });
+  const set = checkFoot(foot, () => { inp.disabled = true; const r = checkText(inp.value, [ex.en]); return { ok: r.ok, typo: r.typo, answer: ex.en, ru: ex.ru, say: ex.en, points: r.ok ? [] : [`«${esc(ex.ru)}» по-английски — <b>${esc(ex.en)}</b>.`] }; });
   inp.oninput = () => set(inp.value.trim().length > 0);
   setTimeout(() => inp.focus(), 50);
 };
@@ -782,4 +860,4 @@ function closeRunSilently() {
 // ─────────────── Старт ───────────────
 route();
 if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
-window.__eng = { get run() { return run; } }; // для отладки и автотестов
+window.__eng = { get run() { return run; }, render, X };  // для отладки и автотестов

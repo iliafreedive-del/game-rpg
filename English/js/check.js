@@ -11,6 +11,10 @@ const CONTRACTIONS = {
   "i'll": 'i will', "you'll": 'you will', "he'll": 'he will', "she'll": 'she will', "it'll": 'it will',
   "we'll": 'we will', "they'll": 'they will', "i've": 'i have', "you've": 'you have', "we've": 'we have',
   "they've": 'they have', "i'd": 'i would', "let's": 'let us',
+  // то же без апострофа — на телефоне его часто не ставят
+  im: 'i am', dont: 'do not', doesnt: 'does not', didnt: 'did not', isnt: 'is not', arent: 'are not',
+  wasnt: 'was not', werent: 'were not', cant: 'can not', couldnt: 'could not', wont: 'will not',
+  shouldnt: 'should not', mustnt: 'must not', youre: 'you are', theyre: 'they are',
 };
 
 const NUM = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten',

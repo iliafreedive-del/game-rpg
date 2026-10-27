@@ -280,3 +280,36 @@ body.running .toast { bottom: calc(150px + var(--safe-b)); }
   .run-foot:not(.col) > * { margin: 0; }
   .run-foot:not(.col) { justify-content: center; }
 }
+
+/* ── разбор ошибок и слова по нажатию ── */
+.run-foot { max-height: 72vh; overflow-y: auto; }
+.tap .w { cursor: pointer; border-bottom: 1px dashed color-mix(in srgb, var(--accent) 55%, transparent); border-radius: 3px; }
+.tap .w:hover { background: var(--accent-soft); }
+.tap .w.need { color: var(--ok); background: var(--ok-soft); padding: 0 3px; border-bottom: 2px solid var(--ok); }
+.fb-you { margin-top: 6px; }
+.fb-you small { color: var(--muted); }
+.fb-you s { color: var(--bad); text-decoration-thickness: 2px; }
+.fb-hint { font-size: .82rem; color: var(--muted); margin-top: 4px; }
+.fb-why { margin-top: 8px; font-size: .95rem; }
+.fb-why ul { margin: 4px 0 0; padding-left: 20px; }
+.fb-why li { margin: 2px 0; }
+details.rule { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 8px 12px; margin-top: 8px; font-size: .93rem; }
+details.rule summary { cursor: pointer; font-weight: 700; }
+details.rule p { margin: 6px 0; }
+details.rule .formula { font-size: .88rem; padding: 8px 10px; margin: 8px 0; }
+details.rule .example { padding: 6px 8px; margin: 6px 0; }
+.sheet { position: fixed; inset: 0; z-index: 60; background: rgba(0, 0, 0, .35); display: flex; align-items: flex-end; justify-content: center; }
+.sheet-card {
+  background: var(--card); color: var(--ink); width: 100%; max-width: 560px; max-height: 80vh; overflow-y: auto;
+  border-radius: 18px 18px 0 0; padding: 16px 18px calc(18px + var(--safe-b)); box-shadow: 0 -8px 30px rgba(0, 0, 0, .2);
+  animation: up .18s ease-out;
+}
+@keyframes up { from { transform: translateY(30px); opacity: .5; } }
+.sheet-head { display: flex; align-items: center; gap: 12px; }
+.sheet-head > div { flex: 1; }
+.sheet-word { font-size: 1.5rem; }
+.sheet-ru { color: var(--accent); font-weight: 600; }
+.sheet-x { border: 0; background: none; font-size: 1.3rem; color: var(--muted); }
+.answer-zone .tile:not(:disabled) { cursor: pointer; }
+.run-foot > #nxt { position: sticky; bottom: 0; z-index: 1; }
+@media (max-width: 559px) { .run-foot { padding-bottom: 0; } .run-foot > #nxt { margin-bottom: calc(14px + var(--safe-b)); } }
