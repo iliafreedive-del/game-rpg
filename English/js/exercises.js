@@ -3,6 +3,8 @@ import { LESSONS, lessonById } from './data.js';
 import { tilesOf } from './check.js';
 import { S } from './store.js';
 import { srSupported } from './speech.js';
+import { MORE } from './drills.js';
+import { words } from './check.js';
 
 export const shuffle = arr => {
   const a = [...arr];
@@ -99,4 +101,36 @@ export function practiceKeys(n, exclude = new Set()) {
   const keys = Object.entries(S.srs).filter(([k]) => !exclude.has(k));
   const weighted = keys.map(([k, c]) => [k, c.box + Math.random() * 3 - (c.bad > c.ok ? 2 : 0)]);
   return weighted.sort((a, b) => a[1] - b[1]).slice(0, n).map(([k]) => k);
+}
+
+// ── Отработка после ошибки: похожие фразы того же урока тем же типом задания ──
+const asSent = (L, [en, ru, alts]) => ({ en, ru, variants: [en, ...(alts ? alts.split(';') : [])], lid: L.id });
+const sameType = (type, s) => type === 'listen' ? build(s, true) : type === 'translate' ? translate(s)
+  : type === 'speak' ? orSpeak(s) : type === 'choose_ru' ? chooseRu(s) : build(s);
+
+// focus — слова, на которых была ошибка: фразы с ними идут первыми.
+export function makeDrill(ex, focus = []) {
+  const L = lessonById[ex.lid];
+  if (!L) return null;
+  const again = ex.type === 'build' || ex.type === 'listen' ? build(ex, ex.type === 'listen') : { ...ex };
+  let pool;
+  if (ex.type === 'word' || ex.type === 'word_type') {
+    pool = shuffle(L.words.map((_, i) => word(L, i)).filter(w => w.en !== ex.en)).map(w => ex.type === 'word' ? wordChoose(w) : wordType(w));
+  } else if (ex.type === 'mc' || ex.type === 'gap') {
+    const ds = shuffle(L.drills.filter(d => (d.q || d.g) !== (ex.q || ex.g))).map(d => drill(L, d));
+    const ss = shuffle([...L.sents, ...(MORE[L.id] || [])].map(x => asSent(L, x))).map(s => build(s));
+    pool = ds.flatMap((d, i) => [d, ss[i]].filter(Boolean)).concat(ss.slice(ds.length));
+  } else {
+    const base = new Set(words(ex.en || ''));
+    const f = new Set(focus);
+    pool = [...L.sents, ...(MORE[L.id] || [])].filter(x => x[0] !== ex.en).map(x => asSent(L, x))
+      .map(s => { const w = words(s.en); return [s, w.filter(x => base.has(x)).length + 3 * w.filter(x => f.has(x)).length + Math.random()]; })
+      .sort((a, b) => b[1] - a[1]).map(([s]) => sameType(ex.type, s));
+  }
+  return { items: [again, ...pool.slice(0, 9), again], k: 0, streak: 0, need: 3, done: 0, max: 15, pool };
+}
+export function drillItem(d) {
+  const it = d.k < d.items.length ? d.items[d.k] : d.pool[(d.k - d.items.length) % Math.max(1, d.pool.length)] || d.items[0];
+  d.k++;
+  return it.type === 'build' || it.type === 'listen' ? build(it, it.type === 'listen') : it;
 }
