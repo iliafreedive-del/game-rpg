@@ -315,7 +315,7 @@ function drawRider(dt, t) {
   const toeDir = right.clone().multiplyScalar(toeSign());
   rig.update(dt, pos, app.travel, toeDir, f.N, { mode: app.background ? 'follow' : (sim.fallen && !app.replay ? 'orbit' : undefined) });
   app.pipTarget = { pos, toeDir };
-  world.follow(pos, sim.s);
+  world.follow(pos, sim.s, performance.now() / 1000);
   // след и снежная пыль
   if (!sim.fallen) {
     const slip = sim.slip;
