@@ -155,7 +155,7 @@ export function skinned(geo, mat, bones, rest, weight) {
     const p = geo.attributes.position, n = p.count, v = new THREE.Vector3();
     const si = new Uint16Array(n * 4), sw = new Float32Array(n * 4);
     for (let i = 0; i < n; i++) {
-      const w = weight(v.fromBufferAttribute(p, i)).filter((x) => x[1] > 1e-4).slice(0, 4);
+      const w = weight(v.fromBufferAttribute(p, i)).filter((x) => x[1] > 1e-4).sort((a, b) => b[1] - a[1]).slice(0, 4);
       const sum = w.reduce((a, x) => a + x[1], 0) || 1;
       w.forEach(([b, x], k) => { si[i * 4 + k] = b; sw[i * 4 + k] = x / sum; });
     }

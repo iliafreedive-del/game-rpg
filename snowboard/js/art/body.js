@@ -7,54 +7,58 @@ import { boardGeo, Foot } from './gear.js';
 import * as T from './textures.js';
 
 const I4 = () => new THREE.Matrix4();
+const DOWN = V3(0, -1, 0), _v = new THREE.Vector3();
 const Tr = (x, y, z) => new THREE.Matrix4().makeTranslation(x, y, z);
 const HEAD_YAW = 1.15; // голова в покое повёрнута к носу доски — так баф почти не скручивается
 const CHEST_AT = 0.27, MID_AT = 0.14;
 
 // ---------------------------------------------------------------- геометрия (общая для всех райдеров)
 // Штанина: y от тазобедренного сустава (0) до лодыжки (THIGH + SHIN). Z — к колену.
+// Прямой свободный крой: почти одна ширина от бедра до низа, внизу чуть шире — накрывает ботинок.
 const LEG = curve([
-  [0.00, 0.097, 0.100, 0.110, -0.004],
-  [0.10, 0.097, 0.100, 0.106, -0.002],
-  [0.25, 0.094, 0.096, 0.097, 0],
-  [0.38, 0.088, 0.092, 0.090, 0.002],
-  [0.45, 0.087, 0.099, 0.087, 0.004],
-  [0.52, 0.085, 0.091, 0.087, 0],
-  [0.65, 0.087, 0.089, 0.096, -0.004],
-  [0.78, 0.091, 0.093, 0.105, -0.010],
-  [0.86, 0.095, 0.097, 0.112, -0.014],
-  [0.94, 0.097, 0.099, 0.116, -0.016],
+  [0.00, 0.104, 0.108, 0.116, -0.004],
+  [0.10, 0.104, 0.108, 0.112, -0.002],
+  [0.25, 0.101, 0.105, 0.104, 0],
+  [0.38, 0.098, 0.103, 0.099, 0.002],
+  [0.45, 0.097, 0.108, 0.097, 0.004],
+  [0.52, 0.097, 0.103, 0.098, 0],
+  [0.65, 0.099, 0.102, 0.104, -0.004],
+  [0.78, 0.102, 0.104, 0.111, -0.010],
+  [0.86, 0.106, 0.108, 0.117, -0.014],
+  [0.94, 0.108, 0.110, 0.120, -0.016],
 ]);
-// Рукав: y от плеча (0) до запястья. Z — к локтю.
+// Рукав: y от плеча (0) до запястья. Z — к локтю. Свободный: манжета накрывает перчатку.
 const ARM = curve([
-  [0.00, 0.060, 0.062, 0.060, 0],
-  [0.04, 0.065, 0.067, 0.065, 0],
-  [0.08, 0.063, 0.065, 0.063, 0],
-  [0.20, 0.058, 0.061, 0.058, 0],
-  [0.29, 0.056, 0.063, 0.055, 0.003],
-  [0.36, 0.054, 0.056, 0.053, 0],
-  [0.45, 0.050, 0.052, 0.049, 0],
-  [0.52, 0.048, 0.049, 0.048, 0],
-  [0.56, 0.051, 0.052, 0.051, 0],
+  [0.00, 0.071, 0.073, 0.071, 0],
+  [0.05, 0.075, 0.077, 0.075, 0],
+  [0.12, 0.073, 0.075, 0.072, 0],
+  [0.21, 0.069, 0.072, 0.068, 0],
+  [0.29, 0.067, 0.074, 0.066, 0.003],
+  [0.36, 0.066, 0.068, 0.064, 0],
+  [0.45, 0.065, 0.066, 0.064, 0],
+  [0.51, 0.066, 0.067, 0.066, 0],
+  [0.56, 0.064, 0.065, 0.064, 0],
 ]);
-// Торс: y от таза; полуширина, глубина спереди и сзади, сдвиг центра
-const TORSO = curve([
-  [-0.13, 0.193, 0.128, 0.136, 0.000],
-  [-0.10, 0.199, 0.132, 0.141, 0.000],
-  [-0.03, 0.198, 0.133, 0.142, -0.003],
-  [0.05, 0.187, 0.129, 0.135, -0.002],
-  [0.13, 0.173, 0.124, 0.126, 0.000],
-  [0.22, 0.174, 0.130, 0.120, 0.002],
-  [0.31, 0.180, 0.138, 0.119, 0.002],
-  [0.39, 0.186, 0.134, 0.117, -0.004],
-  [0.44, 0.186, 0.123, 0.113, -0.010],
-  [0.47, 0.176, 0.111, 0.107, -0.013],
-  [0.495, 0.154, 0.101, 0.101, -0.015],
-  [0.52, 0.124, 0.093, 0.095, -0.015],
-  [0.545, 0.099, 0.087, 0.089, -0.013],
-  [0.565, 0.092, 0.090, 0.089, -0.010],
-  [0.600, 0.095, 0.095, 0.092, -0.006],
+// Куртка: y от таза; полуширина, глубина спереди и сзади, сдвиг центра. Свободный крой:
+// бока прямые от подмышек до подола (без талии), плечо спущено на рукав, высокий воротник-стойка.
+const JACKET = curve([
+  [-0.18, 0.214, 0.152, 0.166, -0.006],
+  [-0.12, 0.219, 0.156, 0.168, -0.006],
+  [-0.05, 0.217, 0.155, 0.165, -0.005],
+  [0.05, 0.211, 0.152, 0.158, -0.003],
+  [0.15, 0.207, 0.152, 0.150, 0.000],
+  [0.25, 0.209, 0.156, 0.143, 0.002],
+  [0.33, 0.213, 0.159, 0.139, 0.002],
+  [0.40, 0.216, 0.152, 0.135, -0.002],
+  [0.45, 0.212, 0.139, 0.129, -0.008],
+  [0.485, 0.196, 0.126, 0.122, -0.012],
+  [0.51, 0.165, 0.116, 0.115, -0.014],
+  [0.53, 0.132, 0.112, 0.110, -0.014],
+  [0.55, 0.115, 0.112, 0.108, -0.013],
+  [0.59, 0.111, 0.113, 0.106, -0.010],
+  [0.635, 0.114, 0.116, 0.108, -0.008],
 ]);
+const COLLAR_TOP = 0.635;
 
 // Труба вдоль +Y с куполом сверху, косым низом и подворотом; prof(y) → [rx, rz+, rz−, сдвиг z]
 function tube({ prof, top, yA, bottom, folds, ringsTo, step = 0.0125, nseg = 28, p = 2.15, maxY }) {
@@ -98,31 +102,60 @@ function legGeo(L, mirror) {
 }
 function armGeo(L, mirror) {
   const g = tube({
-    prof: ARM, top: 0.05, yA: 0.47, maxY: 0.56, ringsTo: 6, step: 0.012, nseg: 24,
-    bottom: () => L - 0.015,
+    prof: ARM, top: 0.042, yA: 0.47, maxY: 0.56, ringsTo: 6, step: 0.011, nseg: 28,
+    bottom: () => L - 0.012,
     folds: (y, phi) => {
       const inner = Math.max(0, -Math.sin(phi));
-      return 0.005 * smooth(0.22, 0.27, y) * (1 - smooth(0.32, 0.37, y)) * inner * Math.sin(y * 230 + phi)
-        + 0.0025 * smooth(0.38, 0.44, y) * Math.sin(y * 190 + 2 * Math.sin(2 * phi));
+      return 0.006 * smooth(0.21, 0.26, y) * (1 - smooth(0.33, 0.38, y)) * (0.35 + inner) * Math.sin(y * 210 + phi)
+        + 0.0045 * smooth(0.42, 0.47, y) * Math.sin(y * 170 + 1.6 * Math.sin(2 * phi + 0.5))
+        + 0.0025 * smooth(0.04, 0.1, y) * (1 - smooth(0.17, 0.22, y)) * Math.sin(phi * 5 + y * 30);
     },
   });
   return remapUV(g, -0.075, 0.565, mirror);
 }
-function torsoGeo() {
-  const ys = [];
-  for (let y = -0.13; y <= 0.6001; y += 0.0175) ys.push(y);
-  if (ys[ys.length - 1] < 0.6) ys.push(0.6);
-  const rings = [{ y: -0.117, k: 0.93 }, ...ys.map((y) => ({ y, k: 1 })), { y: 0.598, k: 0.88 }, { y: 0.575, k: 0.86 }, { y: 0.55, k: 0.85 }];
-  const g = loft(rings.length, 40, (i, u) => {
-    const { y, k } = rings[i], phi = u * TAU - Math.PI / 2;
-    const [a, bf, bb, zo] = TORSO(y);
-    const [px, pz] = superPt(phi, a, bf, bb, 2.25);
-    const side = Math.abs(Math.cos(phi));
-    const d = 0.004 * smooth(0.02, 0.08, y) * (1 - smooth(0.2, 0.26, y)) * (0.4 + side) * Math.sin(y * 120 + 2 * Math.sin(phi * 3))
-      + 0.0025 * (1 - smooth(-0.115, -0.085, y)) * Math.sin(phi * 18);
+// Куртка: подол (чуть длиннее сзади) с подворотом и тёмной подкладкой изнутри, напуск над резинкой,
+// мягкие складки на талии и спине; сверху — воротник-стойка с подворотом.
+function jacketGeo() {
+  const YA = -0.1, step = 0.0175;
+  const rings = [{ lin: 0.05, k: 0.89 }, { lin: 0.012, k: 0.905 }, { f: 0, k: 0.955, dy: -0.005 }, { f: 0, k: 0.988 }];
+  for (let i = 1; i <= 5; i++) rings.push({ f: i / 5 });
+  for (let y = YA + step; y < COLLAR_TOP - 0.004; y += step) rings.push({ y });
+  rings.push({ y: COLLAR_TOP }, { y: COLLAR_TOP - 0.004, k: 0.93 }, { y: COLLAR_TOP - 0.035, k: 0.9 });
+  const nseg = 48;
+  const g = loft(rings.length, nseg, (i, u) => {
+    const r = rings[i], phi = u * TAU - Math.PI / 2, hem = T.jacketHem(u);
+    let y = r.lin != null ? hem + r.lin : r.f != null ? lerp(hem, YA, r.f) + (r.dy || 0) : r.y;
+    const [a, bf, bb, zo] = JACKET(clamp(y, -0.18, COLLAR_TOP));
+    const [px, pz] = superPt(phi, a, bf, bb, lerp(2.6, 2.2, smooth(0.3, 0.5, y)));
+    const dh = y - hem, side = Math.abs(Math.cos(phi)), back = Math.max(0, -Math.sin(phi)), front = Math.max(0, Math.sin(phi));
+    // резинка подола и напуск ткани над ней
+    let k = (r.k || 1) * (1 - 0.022 * (1 - smooth(0.01, 0.035, dh)) + 0.012 * smooth(0.03, 0.06, dh) * (1 - smooth(0.08, 0.14, dh)));
+    const d = 0.0045 * smooth(-0.07, -0.02, y) * (1 - smooth(0.1, 0.16, y)) * (0.45 + 0.55 * side) * Math.sin(y * 95 + 1.6 * Math.sin(2 * phi + 0.4))
+      + 0.004 * (1 - smooth(-0.04, 0.08, y)) * back * Math.sin(phi * 9 + 0.7)
+      + 0.003 * (1 - smooth(-0.07, 0.05, y)) * front * Math.sin(phi * 11 + 1.3)
+      + 0.0028 * smooth(0.22, 0.27, y) * (1 - smooth(0.36, 0.42, y)) * side * Math.sin(y * 80 + phi * 4);
     return [(px + Math.cos(phi) * d) * k, y, zo + (pz + Math.sin(phi) * d) * k];
   });
-  return remapUV(g, -0.17, 0.65, false);
+  // v — по высоте; подкладке — отдельная тёмная полоса развёртки
+  const p = g.attributes.position, uv = g.attributes.uv, cols = nseg + 1;
+  for (let i = 0; i < p.count; i++) {
+    const ring = rings[Math.floor(i / cols)];
+    uv.setY(i, ring.lin != null ? T.JACKET_V(-0.235) : T.JACKET_V(p.getY(i)));
+  }
+  return g;
+}
+
+// Капюшон, сложенный на спине: валик вокруг воротника (концы уходят вперёд к ключицам),
+// посередине свисает ниже. Строится в системе торса (y от таза).
+function hoodGeo() {
+  const nr = 26, A = 1.45;
+  return loft(nr, 20, (i, u) => {
+    const s = (i / (nr - 1)) * 2 - 1, al = s * A, w = Math.cos(s * Math.PI / 2) ** 0.6;
+    const R = 0.118 + 0.012 * w, cy = 0.548 - 0.05 * s * s - 0.02 * w;
+    const th = u * TAU, ry = (0.022 + 0.034 * w) * lerp(1, 1.5, Math.max(0, -Math.sin(th)) * w), rr = 0.012 + 0.03 * w;
+    const rad = R + rr * Math.cos(th) - 0.01 * w, y = cy + ry * Math.sin(th);
+    return [rad * Math.sin(al), y, -rad * Math.cos(al) - 0.012];
+  }, { flip: true });
 }
 
 // Варежка в системе предплечья (0 — запястье, +Y — к пальцам, Z — к локтю), ладонь — внутрь (−outer·X)
@@ -242,16 +275,15 @@ function geometries(d) {
   GEO = {
     legF: legGeo(legL, false), legR: legGeo(legL, true),
     armF: armGeo(armL, false), armR: armGeo(armL, true),
-    torso: torsoGeo(),
+    torso: jacketGeo(),
     mitF: mittenGeo(1), mitR: mittenGeo(-1),
     thumb: new THREE.CapsuleGeometry(0.0135, 0.036, 4, 10),
     head: helmetParts(),
     headRest,
     gaiter: gaiterGeo(headRest),
     sphere: new THREE.SphereGeometry(1, 22, 14),
-    hood: (() => { const g = new THREE.TorusGeometry(0.1, 0.03, 10, 28, Math.PI * 1.15); g.rotateZ(-0.075 * Math.PI); g.rotateX(-Math.PI / 2); g.scale(1, 0.8, 1); return g; })(),
+    hood: hoodGeo(),
     vent: new THREE.CapsuleGeometry(0.0062, 1, 3, 10),
-    cuffRing: new THREE.TorusGeometry(0.058, 0.006, 6, 24),
   };
   return GEO;
 }
@@ -268,11 +300,11 @@ function materials(pal, ghost, ghostColor) {
   } else {
     const env = envMap();
     const S = (o) => new THREE.MeshStandardMaterial({ roughness: 0.75, metalness: 0, ...o });
-    const c2 = shade(pal.jacket, -0.55);
+    const c2 = pal.jacket2 || shade(pal.jacket, -0.55);
     M = {
-      jacket: S({ map: T.jacketTex(pal.jacket, c2), roughness: 0.62 }),
-      sleeve: S({ map: T.sleeveTex(pal.jacket, c2), roughness: 0.62 }),
-      jacketPlain: S({ color: pal.jacket, roughness: 0.66 }),
+      jacket: S({ map: T.jacketTex(pal.jacket, c2), roughness: 0.66 }),
+      sleeve: S({ map: T.sleeveTex(pal.jacket, c2), roughness: 0.66 }),
+      hood: S({ map: T.hoodTex(c2, pal.jacket), roughness: 0.7 }),
       pants: S({ map: T.pantsTex(pal.pants), roughness: 0.82 }),
       pantsPlain: S({ color: shade(pal.pants, -0.05), roughness: 0.85 }),
       gloves: S({ color: pal.gloves, roughness: 0.58 }),
@@ -334,18 +366,23 @@ export class RiderModel {
     this.legs = [limb(G.legF, M.pants, dims.THIGH, 0.08), limb(G.legR, M.pants, dims.THIGH, 0.08)];
     this.arms = [limb(G.armF, M.sleeve, dims.UARM, 0.065), limb(G.armR, M.sleeve, dims.UARM, 0.065)];
 
-    // торс: таз → середина → грудь
+    // куртка: таз → середина → грудь; низ куртки ещё и на «подольных» костях в тазобедренных суставах —
+    // перед ложится на согнутые бёдра, спина висит и только расходится вместе с ногами (см. pose)
     this.pelvis = bone(); this.mid = bone(); this.chest = bone();
-    stance.add(shadow(skinned(G.torso, M.jacket, [this.pelvis, this.mid, this.chest], [I4(), Tr(0, MID_AT, 0), Tr(0, CHEST_AT, 0)], (v) => {
+    this.hem = [bone(), bone(), bone(), bone()];
+    const hipX = [0.1, 0.1, -0.1, -0.1];
+    stance.add(shadow(skinned(G.torso, M.jacket, [this.pelvis, this.mid, this.chest, ...this.hem], [I4(), Tr(0, MID_AT, 0), Tr(0, CHEST_AT, 0), ...hipX.map((x) => Tr(x, 0, 0))], (v) => {
       const wp = 1 - smooth(0.02, 0.17, v.y), wc = smooth(0.13, 0.31, v.y);
-      return [[0, wp], [1, Math.max(0, 1 - wp - wc)], [2, wc]];
+      const fr = smooth(-0.08, 0.04, v.z), h = 0.95 * smooth(lerp(0.07, 0.12, fr), -0.11, v.y), sF = smooth(-0.07, 0.07, v.x);
+      return [[0, wp * (1 - h)], [1, Math.max(0, 1 - wp - wc) * (1 - h)], [2, wc * (1 - h)],
+        [3, h * sF * fr], [4, h * sF * (1 - fr)], [5, h * (1 - sF) * fr], [6, h * (1 - sF) * (1 - fr)]];
     })));
     const seat = new THREE.Mesh(G.sphere, M.pantsPlain);
     seat.scale.set(0.155, 0.08, 0.1); seat.position.set(0, -0.09, -0.016);
     this.pelvis.add(shadow(seat));
     if (!ghost) {
-      const hood = new THREE.Mesh(G.hood, M.jacketPlain);
-      hood.position.set(0, dims.TORSO - CHEST_AT - 0.012, -0.008); hood.rotation.x = 0.12;
+      const hood = new THREE.Mesh(G.hood, M.hood);
+      hood.position.y = -CHEST_AT;
       this.chest.add(shadow(hood));
     }
 
@@ -358,7 +395,6 @@ export class RiderModel {
       th.position.set(-outer * 0.012, 0.035, -0.042);
       th.quaternion.setFromUnitVectors(V3(0, 1, 0), V3(-outer * 0.35, 0.75, -0.55).normalize());
       g.add(th);
-      if (!ghost) { const r = new THREE.Mesh(G.cuffRing, M.accent); r.rotation.x = Math.PI / 2; r.position.y = -0.04; r.scale.set(1.04, 1.1, 1); g.add(r); }
       b[2].add(shadow(g));
     });
 
@@ -403,6 +439,17 @@ export class RiderModel {
     const cpos = J.pelvis.clone().addScaledVector(J.spine, CHEST_AT);
     setBasis(this.chest, cpos, J.shAxis, J.spine, new THREE.Vector3().crossVectors(J.shAxis, J.spine));
     this.mid.quaternion.copy(this.pelvis.quaternion).slerp(this.chest.quaternion, 0.5);
+    // подол: перед следует за сгибом бедра вперёд, спина — только за разгибом; обе части — за разведением ног
+    const qi = this.pelvis.quaternion.clone().invert();
+    [[J.hipF, J.kneeF, 1], [J.hipR, J.kneeR, -1]].forEach(([h, k, sg], i) => {
+      const d = k.clone().sub(h).normalize().applyQuaternion(qi);
+      const abd = sg * clamp(Math.asin(clamp(d.x * sg, -1, 1)), -0.25, 0.75), flex = Math.atan2(d.z, -d.y);
+      [clamp(flex, 0, 1.25), clamp(flex, -0.6, 0)].forEach((fl, j) => {
+        const b = this.hem[i * 2 + j];
+        b.quaternion.setFromUnitVectors(DOWN, _v.set(Math.sin(abd), -Math.cos(abd) * Math.cos(fl), Math.cos(abd) * Math.sin(fl))).premultiply(this.pelvis.quaternion);
+        b.position.copy(h);
+      });
+    });
     this.mid.position.copy(J.pelvis).addScaledVector(Yp, MID_AT).add(cpos.clone().addScaledVector(J.spine, MID_AT - CHEST_AT)).multiplyScalar(0.5);
     // голова и шея: «полусустав» между грудью и головой
     this.head.position.copy(J.headC); this.head.quaternion.copy(J.headQ);
