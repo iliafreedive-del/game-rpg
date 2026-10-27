@@ -1,21 +1,6 @@
 // Склон, лес, ворота, след доски, снежная пыль и камера.
 import * as THREE from 'three';
-
-const rnd = (() => { let s = 7; return () => ((s = (s * 16807) % 2147483647) / 2147483647); })();
-
-function snowTexture() {
-  const c = document.createElement('canvas'); c.width = c.height = 256;
-  const x = c.getContext('2d');
-  x.fillStyle = '#f4f8fc'; x.fillRect(0, 0, 256, 256);
-  // «вельвет» после ратрака
-  for (let i = 0; i < 256; i += 4) { x.fillStyle = i % 8 ? '#eaf0f7' : '#f7fafd'; x.fillRect(i, 0, 2, 256); }
-  const img = x.getImageData(0, 0, 256, 256);
-  for (let i = 0; i < img.data.length; i += 4) { const n = (Math.random() - 0.5) * 14; img.data[i] += n; img.data[i + 1] += n; img.data[i + 2] += n; }
-  x.putImageData(img, 0, 0);
-  const t = new THREE.CanvasTexture(c);
-  t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
-  return t;
-}
+import { HORIZON, terrainH, snowTextures, buildForest, makeBackdrop, sprayTexture } from './art/scenery.js';
 
 export class SlopeFrame {
   constructor(deg) { this.set(deg); }
@@ -33,14 +18,14 @@ export class World {
   constructor(renderer) {
     this.renderer = renderer;
     this.scene = new THREE.Scene();
-    const sky = new THREE.Color('#a9d3f5');
+    const sky = new THREE.Color(HORIZON);
     this.scene.background = sky;
-    this.scene.fog = new THREE.Fog(sky, 60, 360);
+    this.scene.fog = new THREE.Fog(sky, 50, 480);
     this.frame = new SlopeFrame(12);
 
-    const hemi = new THREE.HemisphereLight('#dceeff', '#8aa0b8', 1.35);
+    const hemi = new THREE.HemisphereLight('#d8ebff', '#8a9db5', 1.2);
     this.scene.add(hemi);
-    const sun = new THREE.DirectionalLight('#fff4e0', 2.1);
+    const sun = new THREE.DirectionalLight('#fff1dc', 2.35);
     sun.castShadow = true;
     sun.shadow.mapSize.set(2048, 2048);
     const sc = sun.shadow.camera; sc.left = -12; sc.right = 12; sc.top = 12; sc.bottom = -12; sc.near = 1; sc.far = 80;
@@ -49,8 +34,9 @@ export class World {
 
     this.slopeGroup = new THREE.Group();
     this.scene.add(this.slopeGroup);
-    this.snowTex = snowTexture();
-    this.backdrop = this.makeBackdrop();
+    this.snow = snowTextures();
+    this.snowTex = this.snow.piste;
+    this.backdrop = makeBackdrop();
     this.scene.add(this.backdrop);
     this.gatesGroup = new THREE.Group();
     this.markGroup = new THREE.Group();
@@ -65,60 +51,34 @@ export class World {
     if (this.builtDeg === deg) return;
     this.builtDeg = deg;
     this.frame.set(deg);
-    this.slopeGroup.traverse((o) => { if (o.isMesh && o.parent !== this.gatesGroup) o.geometry.dispose(); });
+    this.slopeGroup.traverse((o) => { if (o.isInstancedMesh) o.dispose(); else if (o.isMesh && o.parent !== this.gatesGroup) o.geometry.dispose(); });
     const f = this.frame;
     for (const ch of [...this.slopeGroup.children]) if (ch !== this.gatesGroup && ch !== this.markGroup) this.slopeGroup.remove(ch);
-    // поверхность
-    const W = 160, S0 = -60, S1 = 1400, nu = 40, ns = 300;
-    const g = new THREE.PlaneGeometry(1, 1, nu, ns);
-    const pos = g.attributes.position, uv = g.attributes.uv;
-    const col = new Float32Array(pos.count * 3);
-    const v = new THREE.Vector3();
-    for (let i = 0; i < pos.count; i++) {
-      const u = pos.getX(i) * W, s = S0 + (pos.getY(i) + 0.5) * (S1 - S0);
-      const off = Math.max(0, Math.abs(u) - 22);
-      const h = off > 0 ? (Math.sin(u * 0.35) * Math.cos(s * 0.27) * 0.35 + Math.sin(s * 0.05 + u * 0.1) * 0.6) * Math.min(1, off / 8) + off * 0.06 : 0;
-      f.p(u, s, h, v); pos.setXYZ(i, v.x, v.y, v.z);
-      uv.setXY(i, u / 6, s / 6);
-      const piste = off > 0 ? 0.93 : 1;
-      col[i * 3] = piste * 0.98; col[i * 3 + 1] = piste; col[i * 3 + 2] = 1;
-    }
-    g.setAttribute('color', new THREE.BufferAttribute(col, 3));
-    g.computeVertexNormals();
-    const ground = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ map: this.snowTex, vertexColors: true, roughness: 0.92 }));
-    ground.receiveShadow = true;
-    this.slopeGroup.add(ground);
-
-    // лес — кусками по 100 м, чтобы дальние куски можно было скрыть (иначе в тумане они «светятся» на фоне гор)
-    const coneG = new THREE.ConeGeometry(1, 1, 7); coneG.translate(0, 0.5, 0);
-    const trunkG = new THREE.CylinderGeometry(0.12, 0.16, 1, 6); trunkG.translate(0, 0.5, 0);
-    const folM = new THREE.MeshStandardMaterial({ color: '#2f5d46', roughness: 1, flatShading: true });
-    const capM = new THREE.MeshStandardMaterial({ color: '#f2f6fa', roughness: 1, flatShading: true });
-    const trunkM = new THREE.MeshStandardMaterial({ color: '#5b4636' });
-    const m = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3();
-    this.chunks = [];
-    const CH = 100, per = 60;
-    for (let c0 = S0; c0 < S1; c0 += CH) {
-      const fol = new THREE.InstancedMesh(coneG, folM, per * 2);
-      const snowCap = new THREE.InstancedMesh(coneG, capM, per);
-      const trunks = new THREE.InstancedMesh(trunkG, trunkM, per);
-      fol.castShadow = true;
-      for (let i = 0; i < per; i++) {
-        const side = i % 2 ? 1 : -1;
-        const u = side * (24 + Math.pow(rnd(), 0.7) * 55), s = c0 + rnd() * CH;
-        const off = Math.abs(u) - 22;
-        const h0 = (Math.sin(u * 0.35) * Math.cos(s * 0.27) * 0.35 + Math.sin(s * 0.05 + u * 0.1) * 0.6) + off * 0.06;
-        const base = f.p(u, s, h0 - 0.2);
-        const H = 4 + rnd() * 7, R = H * 0.28;
-        q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), rnd() * 6);
-        trunks.setMatrixAt(i, m.compose(base, q, sc.set(1, H * 0.3, 1)));
-        fol.setMatrixAt(i * 2, m.compose(base.clone().add(new THREE.Vector3(0, H * 0.2, 0)), q, sc.set(R, H * 0.6, R)));
-        fol.setMatrixAt(i * 2 + 1, m.compose(base.clone().add(new THREE.Vector3(0, H * 0.5, 0)), q, sc.set(R * 0.72, H * 0.5, R * 0.72)));
-        snowCap.setMatrixAt(i, m.compose(base.clone().add(new THREE.Vector3(0, H * 0.72, 0)), q, sc.set(R * 0.35, H * 0.3, R * 0.35)));
+    // поверхность: ровная трасса в вельвете и целина по краям (бровка, бугры, стены долины)
+    const S0 = -160, S1 = 1400, ns = 260;
+    const strip = (us, mat) => {
+      const g = new THREE.PlaneGeometry(1, 1, us.length - 1, ns);
+      const pos = g.attributes.position, uv = g.attributes.uv, v = new THREE.Vector3();
+      for (let i = 0; i < pos.count; i++) {
+        const j = i % us.length, u = us[j], s = S1 - (Math.floor(i / us.length) / ns) * (S1 - S0);
+        f.p(u, s, terrainH(u, s), v); pos.setXYZ(i, v.x, v.y, v.z);
+        uv.setXY(i, u / 6, s / 6);
       }
-      const g = new THREE.Group(); g.add(fol, snowCap, trunks); g.userData.s = c0 + CH / 2;
-      this.chunks.push(g); this.slopeGroup.add(g);
-    }
+      g.computeVertexNormals();
+      const m = new THREE.Mesh(g, mat); m.receiveShadow = true;
+      this.slopeGroup.add(m);
+    };
+    const offU = [22];
+    for (let u = 22.5; u < 230; u += u < 27 ? 0.5 : u < 40 ? 1.3 : u < 90 ? 4 : 10) offU.push(u);
+    const powder = new THREE.MeshStandardMaterial({ map: this.snow.powder, roughness: 0.96, color: '#f3f7fc' });
+    strip([-22, -11, 0, 11, 22], new THREE.MeshStandardMaterial({ map: this.snow.piste, bumpMap: this.snow.bump, bumpScale: 0.6, roughness: 0.9 }));
+    strip(offU, powder);
+    strip(offU.map((u) => -u).reverse(), powder);
+
+    // лес — кусками по 100 м, дальние куски скрываются (иначе в тумане они «светятся» на фоне гор)
+    this.chunks = buildForest(f, S0, S1);
+    for (const c of this.chunks) this.slopeGroup.add(c);
+    const m = new THREE.Matrix4(), sc = new THREE.Vector3();
 
     // вешки границы трассы
     const poleG = new THREE.CylinderGeometry(0.04, 0.04, 1.6, 6); poleG.translate(0, 0.8, 0);
@@ -135,26 +95,6 @@ export class World {
     this.slopeGroup.add(start);
 
     this.trail.clear(); this.spray.clear();
-  }
-
-  makeBackdrop() {
-    // Горы рисуются первыми и без буфера глубины: на таком расстоянии точности глубины не хватает (мерцание).
-    const g = new THREE.Group();
-    const opts = { fog: false, depthWrite: false, depthTest: false };
-    const mat = new THREE.MeshBasicMaterial({ color: '#8aa5c0', ...opts });
-    const cap = new THREE.MeshBasicMaterial({ color: '#eef4fb', ...opts });
-    const list = [];
-    for (let i = 0; i < 26; i++) list.push({ a: (i / 26) * Math.PI * 2 + rnd() * 0.2, r: 900 + rnd() * 200, H: 160 + rnd() * 260, rot: rnd() * 3 });
-    list.sort((x, y) => y.r - x.r);
-    list.forEach(({ a, r, H, rot }, i) => {
-      const m = new THREE.Mesh(new THREE.ConeGeometry(H * 1.1, H, 5), mat);
-      m.position.set(Math.cos(a) * r, H / 2 - 260, Math.sin(a) * r);
-      m.rotation.y = rot; m.renderOrder = -1000 + i * 2;
-      const c = new THREE.Mesh(new THREE.ConeGeometry(H * 0.38, H * 0.35, 5), cap);
-      c.position.y = H * 0.33; c.renderOrder = m.renderOrder + 1; m.add(c);
-      g.add(m);
-    });
-    return g;
   }
 
   setGates(gates) {
@@ -203,7 +143,7 @@ export class World {
   }
 
   follow(target, s = null) {
-    if (s != null && this.chunks) for (const c of this.chunks) c.visible = Math.abs(c.userData.s - s) < 330;
+    if (s != null && this.chunks) for (const c of this.chunks) c.visible = Math.abs(c.userData.s - s) < (c.userData.cull || 330);
     this.sun.position.copy(target).add(new THREE.Vector3(18, 30, 10));
     this.sun.target.position.copy(target);
     this.backdrop.position.set(target.x, target.y, target.z);
@@ -247,7 +187,7 @@ class Spray {
     this.world = world; this.N = 600; this.k = 0;
     this.p = new Float32Array(this.N * 3); this.v = new Float32Array(this.N * 3); this.life = new Float32Array(this.N);
     const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(this.p, 3));
-    this.points = new THREE.Points(g, new THREE.PointsMaterial({ color: '#ffffff', size: 0.09, transparent: true, opacity: 0.9, depthWrite: false }));
+    this.points = new THREE.Points(g, new THREE.PointsMaterial({ color: '#ffffff', map: sprayTexture(), size: 0.13, transparent: true, opacity: 0.9, depthWrite: false }));
     this.points.frustumCulled = false;
   }
   clear() { this.life.fill(0); this.p.fill(0); }

@@ -4,6 +4,7 @@ import { LESSONS, LESSONS_BY_ID, FALLS, WARN_TEXT, STANCE_QUIZ, BINDING_PRESETS,
 import { MISTAKES } from './mistakes.js';
 import { Rider } from './rider.js';
 import { World, CameraRig, CAM_MODES, CAM_NAMES } from './world.js';
+import { decorateStudio } from './art/scenery.js';
 
 const $ = (id) => document.getElementById(id);
 const D = Math.PI / 180;
@@ -42,6 +43,7 @@ const studio = (() => {
   scene.add(sun);
   const ground = new THREE.Mesh(new THREE.CircleGeometry(40, 48), new THREE.MeshStandardMaterial({ map: world.snowTex, roughness: 0.95 }));
   ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
+  decorateStudio(scene, world.snow); // лес, горы и небо вокруг площадки
   const cam = new THREE.PerspectiveCamera(40, 1, 0.1, 200);
   const orbit = { yaw: 0, pitch: 0.18, dist: 4.6, target: new THREE.Vector3(0, 0.85, 0) };
   return { scene, cam, orbit, riders: [] };
