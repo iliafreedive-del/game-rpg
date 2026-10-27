@@ -1,6 +1,7 @@
-// Звук: синтез струны, метроном, микрофон, определение высоты, хромаграмма, атаки.
+// Звук: синтез струны, метроном, микрофон (сам анализ — в dsp.js).
 import { CHORDS, chordMidis } from './data.js';
 import { S } from './store.js';
+import { PitchTracker, OnsetDetector, Spectrum, freqToMidi as dspF2M, midiToFreq as dspM2F } from './dsp.js';
 
 let _ctx = null;
 export function ctx() {
@@ -41,6 +42,7 @@ function out() {
 
 export function playNote(midi, when = 0, gain = 0.6, dur = 2) {
   const c = ctx(), t = Math.max(when, c.currentTime);
+  mic.mute(t + dur + 0.3);
   const src = c.createBufferSource(), g = c.createGain();
   src.buffer = pluckBuffer(midi);
   g.gain.setValueAtTime(gain, t);
@@ -55,8 +57,13 @@ export function strum(chord, dir = 'D', when = 0) {
   const c = ctx(), t0 = Math.max(when, c.currentTime);
   if (dir === 'X') return mutedHit(t0);
   const midis = (typeof chord === 'string' ? chordMidis(CHORDS[chord]) : chord).map((m, i) => ({ m, i })).filter(o => o.m != null);
-  let list = dir === 'U' ? midis.slice(-4).reverse() : midis;
-  list.forEach((o, k) => playNote(o.m, t0 + k * 0.012, dir === 'U' ? 0.22 : 0.28, 1.6));
+  let list = dir === 'U' ? midis.slice(-4).reverse() : dir === 'B' ? midis.slice(0, 1) : midis;
+  list.forEach((o, k) => playNote(o.m, t0 + k * 0.012, dir === 'U' ? 0.22 : dir === 'B' ? 0.42 : 0.28, 1.6));
+}
+// аккорд по одной струне, от баса к тонкой
+export function arpeggio(name, gap = 0.42) {
+  const c = ctx(), t0 = c.currentTime + 0.05;
+  chordMidis(CHORDS[name]).filter(m => m != null).forEach((m, k) => playNote(m, t0 + k * gap, 0.5, 1.4));
 }
 
 function mutedHit(t) {
@@ -118,175 +125,147 @@ export class Clock {
 }
 
 // ---- Микрофон ----
-const WORKLET = `
-class Onset extends AudioWorkletProcessor {
-  constructor(){ super(); this.prev=0; this.slow=1e-6; this.last=-1; this.sens=1; this.lvl=0; this.n=0;
-    this.port.onmessage = e => { this.sens = e.data.sens; }; }
-  process(inputs){
-    const x = inputs[0] && inputs[0][0]; if(!x) return true;
-    let e=0; for(let i=0;i<x.length;i++){ const d=x[i]-this.prev; this.prev=x[i]; e+=d*d; }
-    e/=x.length;
-    const thr = Math.max(1e-6 / this.sens, this.slow * 5 / this.sens);
-    if (e > thr && currentTime - this.last > 0.09) { this.last = currentTime; this.port.postMessage({t: currentTime, e}); }
-    this.slow = this.slow*0.985 + e*0.015;
-    this.lvl = Math.max(e, this.lvl*0.9);
-    if(++this.n % 8 === 0) this.port.postMessage({lvl: this.lvl});
+// Звук забираем «как есть» маленькими кусками (AudioWorklet), складываем в кольцевой буфер
+// и каждые ~20 мс прогоняем через dsp.js: атаки, слежение за нотой, спектр для аккордов.
+const TAP = `
+class Tap extends AudioWorkletProcessor {
+  constructor() { super(); this.buf = new Float32Array(1024); this.n = 0; this.t0 = 0; this.ch = 0; this.e = [0, 0]; }
+  process(inputs) {
+    const inp = inputs[0];
+    if (!inp || !inp.length) return true;
+    // Один канал, а не сумма: у встроенных микрофонов ноутбуков каналы бывают в противофазе
+    // и при сведении в моно гасят друг друга. Из двух берём более громкий.
+    if (inp.length > 1) {
+      for (let c = 0; c < 2; c++) { let s = 0; const x = inp[c]; for (let i = 0; i < x.length; i++) s += x[i] * x[i]; this.e[c] = this.e[c] * 0.995 + s; }
+      if (this.e[1 - this.ch] > this.e[this.ch] * 2) this.ch = 1 - this.ch;
+    }
+    const x = inp[Math.min(this.ch, inp.length - 1)];
+    for (let i = 0; i < x.length;) {
+      if (this.n === 0) this.t0 = currentTime + i / sampleRate;
+      const k = Math.min(x.length - i, this.buf.length - this.n);
+      this.buf.set(x.subarray(i, i + k), this.n); this.n += k; i += k;
+      if (this.n === this.buf.length) { this.port.postMessage({ t0: this.t0, x: this.buf }, [this.buf.buffer]); this.buf = new Float32Array(1024); this.n = 0; }
+    }
     return true;
   }
 }
-registerProcessor('onset', Onset);`;
+registerProcessor('tap', Tap);`;
 
 class Mic {
-  constructor() { this.listeners = new Set(); this.stream = null; this.level = 0; }
+  constructor() {
+    this.subs = new Set(); this.onsetSubs = new Set(); this.waits = [];
+    this.stream = null; this.users = 0; this.level = 0; this.last = null;
+  }
+  // каждый виджет берёт микрофон и потом отдаёт; выключается, когда не нужен никому
   async start() {
+    this.users++;
     if (this.stream) return this;
-    const c = ctx();
-    this.stream = await navigator.mediaDevices.getUserMedia({
-      audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 1 },
-    });
-    const raw = c.createMediaStreamSource(this.stream);
-    // Микрофонные массивы ноутбуков (Realtek и др.) отдают 2 канала в противофазе:
-    // при обычном сведении в моно они гасят друг друга. Берём только первый канал.
-    this.src = c.createGain();
-    this.src.channelCount = 1; this.src.channelCountMode = 'explicit'; this.src.channelInterpretation = 'discrete';
-    raw.connect(this.src); this.raw = raw;
-    this.an = c.createAnalyser(); this.an.fftSize = 4096; this.an.smoothingTimeConstant = 0;
-    this.fan = c.createAnalyser(); this.fan.fftSize = 16384; this.fan.smoothingTimeConstant = 0.3;
-    this.src.connect(this.an); this.src.connect(this.fan);
-    this.tbuf = new Float32Array(this.an.fftSize);
-    this.fbuf = new Float32Array(this.fan.frequencyBinCount);
-    try {
-      if (!this.workletReady) {
-        const url = URL.createObjectURL(new Blob([WORKLET], { type: 'application/javascript' }));
-        await c.audioWorklet.addModule(url);
-        this.workletReady = true;
-      }
-      this.node = new AudioWorkletNode(c, 'onset');
-      this.node.port.postMessage({ sens: S.settings.sens });
-      this.node.port.onmessage = e => {
-        if (e.data.lvl != null) this.level = e.data.lvl;
-        else this.listeners.forEach(fn => fn(e.data.t));
-      };
-      this.src.connect(this.node);
-      const mute = c.createGain(); mute.gain.value = 0;
-      this.node.connect(mute).connect(c.destination); // чтобы Safari не останавливал узел
-    } catch (err) {
-      console.warn('AudioWorklet недоступен, атаки по анализатору', err);
-      this.pollOnsets();
-    }
+    if (this.starting) { await this.starting; return this; }
+    this.starting = this.open();
+    try { await this.starting; } catch (err) { this.users = 0; throw err; } finally { this.starting = null; }
     return this;
   }
-  pollOnsets() {
-    let slow = 1e-6, last = 0;
-    const buf = new Float32Array(1024);
-    const loop = () => {
-      if (!this.stream) return;
-      this.an.getFloatTimeDomainData(this.tbuf);
-      buf.set(this.tbuf.subarray(this.tbuf.length - 1024));
-      let e = 0; for (let i = 1; i < buf.length; i++) { const d = buf[i] - buf[i - 1]; e += d * d; }
-      e /= buf.length; this.level = e;
-      const t = ctx().currentTime - 0.012;
-      if (e > Math.max(1e-6, slow * 5) / S.settings.sens && t - last > 0.09) { last = t; this.listeners.forEach(fn => fn(t)); }
-      slow = slow * 0.9 + e * 0.1;
-      requestAnimationFrame(loop);
-    };
-    loop();
+  async open() {
+    const c = ctx();
+    // Без channelCount: браузер сам свёл бы каналы в моно (см. выше), выбираем канал сами
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
+    this.stream = stream;
+    const sr = this.sr = c.sampleRate;
+    this.ring = new Float32Array(1 << 15); this.written = 0;
+    this.tracker = new PitchTracker(sr, { fmin: 60, fmax: 1100, hop: 1024 });
+    this.onsets = new OnsetDetector(sr, { sens: S.settings.sens });
+    this.win = new Float32Array(Math.max(this.tracker.size, 4096));
+    this.spec = new Spectrum(sr, 8192);
+    this.raw = c.createMediaStreamSource(stream);
+    const sink = c.createGain(); sink.gain.value = 0; sink.connect(c.destination); this.sink = sink;
+    try {
+      if (!Mic.workletReady) {
+        const url = URL.createObjectURL(new Blob([TAP], { type: 'application/javascript' }));
+        await c.audioWorklet.addModule(url);
+        Mic.workletReady = true;
+      }
+      this.node = new AudioWorkletNode(c, 'tap', { numberOfOutputs: 1, outputChannelCount: [1] });
+      this.node.port.onmessage = e => this.feed(e.data.t0, e.data.x);
+    } catch (err) {
+      // старые браузеры: ScriptProcessor работает так же, только с большей задержкой
+      console.warn('AudioWorklet недоступен', err);
+      this.node = c.createScriptProcessor(2048, 2, 1);
+      let ch = 0;
+      this.node.onaudioprocess = e => {
+        const b = e.inputBuffer, xs = [...Array(b.numberOfChannels)].map((_, k) => b.getChannelData(k));
+        if (xs.length > 1) { const en = xs.map(x => x.reduce((a, v) => a + v * v, 0)); if (en[1 - ch] > en[ch] * 2) ch = 1 - ch; }
+        this.feed(c.currentTime - b.length / sr, xs[Math.min(ch, xs.length - 1)].slice());
+      };
+    }
+    this.raw.connect(this.node); this.node.connect(sink); // узел должен быть подключён к выходу, иначе Safari его усыпит
   }
-  setSens(v) { this.node && this.node.port.postMessage({ sens: v }); }
-  onOnset(fn) { this.listeners.add(fn); return () => this.listeners.delete(fn); }
-  pitch() {
-    this.an.getFloatTimeDomainData(this.tbuf);
-    return yin(this.tbuf, ctx().sampleRate);
+  // пока приложение само играет ноту, анализ молчит, иначе проверка «услышит» эталон
+  mute(until) { this.muteUntil = Math.max(this.muteUntil || 0, until); }
+  feed(t0, x) {
+    const { ring, sr } = this, M = ring.length - 1, base = this.written;
+    for (let i = 0; i < x.length; i++) ring[(base + i) & M] = x[i];
+    this.written += x.length;
+    let e = 0; for (let i = 0; i < x.length; i++) e += x[i] * x[i];
+    const rms = Math.sqrt(e / x.length);
+    this.level = Math.max(rms, this.level * 0.85);
+    const muted = t0 < (this.muteUntil || 0);
+    if (muted !== this.wasMuted) { this.wasMuted = muted; this.tracker.release(); this.tracker.ringing = []; this.waits = []; }
+    // атаки: время удара в шкале AudioContext (для проверки ритма)
+    const start = this.onsets.sampleIndex, ons = this.onsets.push(x);
+    if (muted) return;
+    if (ons.length) {
+      this.tracker.onset();
+      for (const idx of ons) { const t = t0 + (idx - start) / sr; this.onsetSubs.forEach(fn => fn(t)); }
+    }
+    // нота
+    const W = this.win, n = W.length, end = this.written;
+    if (end >= n) {
+      for (let i = 0; i < n; i++) W[i] = ring[(end - n + i) & M];
+      const res = this.tracker.process(W);
+      res.t = t0 + x.length / sr;
+      this.last = res;
+      this.subs.forEach(fn => fn(res));
+    }
+    // спектр по заказу: «через столько-то секунд после удара»
+    if (this.waits.length) {
+      const ready = this.waits.filter(w => end >= w.at), N = this.spec.n;
+      this.waits = this.waits.filter(w => end < w.at);
+      for (const w of ready) {
+        const buf = new Float32Array(N);
+        for (let i = 0; i < N; i++) buf[i] = ring[(w.at - N + i) & M];
+        this.spec.compute(buf);
+        w.cb(this.spec);
+      }
+    }
   }
-  chroma() {
-    this.fan.getFloatFrequencyData(this.fbuf);
-    return chroma(this.fbuf, ctx().sampleRate, this.fan.fftSize);
-  }
-  rms() {
-    this.an.getFloatTimeDomainData(this.tbuf);
-    let s = 0; for (let i = 0; i < this.tbuf.length; i++) s += this.tbuf[i] ** 2;
-    return Math.sqrt(s / this.tbuf.length);
-  }
-  stop() {
-    if (!this.stream) return;
+  // fn(res) — результат слежения за нотой каждые ~20 мс (см. PitchTracker.process)
+  listen(fn) { this.subs.add(fn); return () => this.subs.delete(fn); }
+  onOnset(fn) { this.onsetSubs.add(fn); return () => this.onsetSubs.delete(fn); }
+  // спектр окна, которое начинается через delay секунд после текущего момента
+  spectrumIn(delay, cb) { this.waits.push({ at: this.written + Math.round(delay * this.sr) + this.spec.n, cb }); }
+  setSens(v) { if (this.onsets) this.onsets.sens = v; }
+  stop(force = false) {
+    this.users = force ? 0 : Math.max(0, this.users - 1);
+    if (this.users || !this.stream) return;
     this.stream.getTracks().forEach(t => t.stop());
-    try { this.raw.disconnect(); this.src.disconnect(); this.node && this.node.disconnect(); } catch { /* уже отключено */ }
-    this.stream = null; this.node = null; this.listeners.clear();
+    try { this.raw.disconnect(); this.node.disconnect(); this.sink.disconnect(); } catch { /* уже отключено */ }
+    if (this.node.port) this.node.port.onmessage = null; else this.node.onaudioprocess = null;
+    this.stream = null; this.node = null; this.last = null; this.level = 0;
+    this.subs.clear(); this.onsetSubs.clear(); this.waits = [];
   }
 }
 export const mic = new Mic();
 
 export function micErrorText(err) {
   if (!navigator.mediaDevices) return 'Браузер не даёт доступ к микрофону. Откройте приложение по https-ссылке в Chrome или Safari.';
-  if (err && err.name === 'NotAllowedError') return 'Доступ к микрофону запрещён. Разрешите его в настройках сайта (значок замка в адресной строке) и попробуйте снова.';
-  if (err && err.name === 'NotFoundError') return 'Микрофон не найден.';
+  if (err && err.name === 'NotAllowedError') return 'Доступ к микрофону запрещён. Разрешите его в настройках сайта (значок замка или «аА» в адресной строке) и попробуйте снова.';
+  if (err && err.name === 'NotFoundError') return 'Микрофон не найден. Подключите его или откройте приложение на телефоне.';
+  if (err && err.name === 'NotReadableError') return 'Микрофон занят другой программой (звонок, запись). Закройте её и попробуйте снова.';
   return 'Не удалось включить микрофон: ' + (err && err.message || err);
 }
 
-// ---- YIN: основная частота ----
-export function yin(buf, sr, thr = 0.2) {
-  const W = 2048;
-  const start = buf.length - W - 821;
-  let rms = 0;
-  for (let i = start; i < buf.length; i++) rms += buf[i] * buf[i];
-  rms = Math.sqrt(rms / (buf.length - start));
-  if (rms < 0.0012) return null; // встроенные микрофоны ноутбуков дают тихий сигнал
-  const minTau = Math.floor(sr / 1200), maxTau = Math.min(Math.floor(sr / 65), 819);
-  const d = new Float32Array(maxTau + 2);
-  for (let tau = 1; tau <= maxTau + 1; tau++) {
-    let s = 0;
-    for (let i = start; i < start + W; i++) { const x = buf[i] - buf[i + tau]; s += x * x; }
-    d[tau] = s;
-  }
-  let run = 0; d[0] = 1;
-  for (let tau = 1; tau <= maxTau + 1; tau++) { run += d[tau]; d[tau] = run ? (d[tau] * tau) / run : 1; }
-  let tau = -1;
-  for (let t = minTau; t <= maxTau; t++) {
-    if (d[t] < thr) { while (t + 1 <= maxTau && d[t + 1] < d[t]) t++; tau = t; break; }
-  }
-  if (tau < 0) {
-    // нет провала ниже порога — берём глобальный минимум, если он достаточно чёткий
-    let best = minTau;
-    for (let t = minTau; t <= maxTau; t++) if (d[t] < d[best]) best = t;
-    if (d[best] > 0.4) return null;
-    tau = best;
-  }
-  const a = d[tau - 1], b = d[tau], c = d[tau + 1], den = a + c - 2 * b;
-  const shift = den ? (a - c) / (2 * den) : 0;
-  return { freq: sr / (tau + shift), clarity: 1 - b, rms };
-}
-
-export const freqToMidi = (f, a4 = S.settings.a4) => 69 + 12 * Math.log2(f / a4);
-export const midiToFreq = (m, a4 = S.settings.a4) => a4 * 2 ** ((m - 69) / 12);
-
-// ---- Хромаграмма: сколько энергии в каждой из 12 нот ----
-export function chroma(fd, sr, size) {
-  const c = new Float32Array(12), bin = sr / size;
-  const lo = Math.floor(75 / bin), hi = Math.ceil(1500 / bin);
-  let max = -Infinity;
-  for (let i = lo; i < hi; i++) if (fd[i] > max) max = fd[i];
-  if (max < -70) return { c, max };
-  const peaks = [];
-  for (let i = lo + 1; i < hi; i++) {
-    const v = fd[i];
-    if (v < max - 40 || v <= fd[i - 1] || v < fd[i + 1]) continue;
-    const a = fd[i - 1], b = v, cc = fd[i + 1], den = a + cc - 2 * b;
-    peaks.push({ f: (i + (den ? (a - cc) / (2 * den) : 0)) * bin, a: 10 ** (v / 20) });
-  }
-  for (const p of peaks) {
-    const m = freqToMidi(p.f), r = Math.round(m);
-    if (Math.abs(m - r) > 0.3) continue;
-    // 3-я, 5-я, 6-я, 7-я гармоники дают «чужие» ноты (квинту, терцию, септиму) — почти не учитываем их
-    const harmonic = peaks.some(q => q !== p && q.a > p.a * 0.25 && [3, 5, 6, 7].some(k => Math.abs(p.f / q.f - k) < k * 0.015));
-    c[((r % 12) + 12) % 12] += p.a * (harmonic ? 0.15 : 1) * (p.f < 330 ? 1.3 : 1);
-  }
-  let sum = 0;
-  for (let k = 0; k < 12; k++) sum += c[k];
-  if (sum > 0) for (let k = 0; k < 12; k++) c[k] /= sum;
-  const spec = new Float32Array(hi);
-  for (let i = lo; i < hi; i++) spec[i] = 10 ** (fd[i] / 20);
-  return { c, max, spec, bin };
-}
+export const freqToMidi = (f, a4 = S.settings.a4) => dspF2M(f, a4);
+export const midiToFreq = (m, a4 = S.settings.a4) => dspM2F(m, a4);
 
 // Не даём экрану гаснуть во время занятий
 let wakeLock = null;

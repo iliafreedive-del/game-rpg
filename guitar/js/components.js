@@ -1,7 +1,8 @@
-// Интерактивные блоки: тюнер, проверка нот и аккордов, тренажёр боя, таймер, тест.
-import { CHORDS, OPEN, PATTERNS, COUNT, chordPcs, chordMidis, midiAt, noteName, pcName, sIdx } from './data.js';
-import { ctx, mic, micErrorText, playNote, strum, click, beep, Clock, freqToMidi, midiToFreq, keepAwake } from './audio.js';
-import { chordSVG, fretboardSVG } from './svg.js';
+// Интерактивные блоки: тюнер, проверка нот и аккордов, тренажёр боя, игры на струны, таймер, тест, запись.
+import { CHORDS, OPEN, PATTERNS, COUNT, FINGERS, chordPcs, chordMidis, midiAt, noteName, pcName, sIdx, fingerForFret, bassString } from './data.js';
+import { ctx, mic, micErrorText, playNote, strum, arpeggio, click, beep, Clock, freqToMidi, keepAwake } from './audio.js';
+import { TunerLogic, NoteMatcher, judgeChord } from './dsp.js';
+import { chordSVG, fretboardSVG, headstockSVG, tabSVG, fingerDot } from './svg.js';
 import { S, save, setBest } from './store.js';
 import { activity } from './activity.js';
 
@@ -11,6 +12,13 @@ export function html(str) {
   t.innerHTML = str.trim();
   return t.content.firstElementChild;
 }
+export function plural(n, a, b, c) { const m = n % 10, h = n % 100; return m === 1 && h !== 11 ? a : m >= 2 && m <= 4 && (h < 12 || h > 14) ? b : c; }
+const ord = n => `${n}-я`;
+const strName = n => `${ord(n)} струна`;
+// падежи: «на 6-й струне», «с 6-й», «дёрните 6-ю струну»
+const ordY = n => `${n}-й`;
+const strAcc = n => `${n}-ю струну`;
+const fretTxt = f => (f === 0 ? 'открытая' : `${f}-й лад`);
 
 async function startMic(statusEl) {
   try {
@@ -18,6 +26,7 @@ async function startMic(statusEl) {
     await mic.start();
     activity.add('mic');
     keepAwake(true);
+    if (statusEl) statusEl.innerHTML = '';
     return true;
   } catch (err) {
     if (statusEl) statusEl.innerHTML = `<div class="warn">${micErrorText(err)}</div>`;
@@ -26,415 +35,565 @@ async function startMic(statusEl) {
 }
 function stopMic() {
   mic.stop();
-  activity.delete('mic');
-  keepAwake(false);
+  if (!mic.stream) { activity.delete('mic'); keepAwake(false); }
 }
 
-// Индикатор громкости: видно, что микрофон слышит звук
-const LEVEL_HTML = '<div class="level"><span>🎤</span><div class="level-bar"><i></i></div></div>';
-function showLevel(el) {
-  const bar = el.querySelector('.level-bar i');
-  if (!bar || !mic.stream) return 0;
-  const r = mic.rms();
-  bar.style.width = `${Math.min(100, Math.sqrt(r / 0.2) * 100)}%`;
-  bar.classList.toggle('low', r < 0.0012);
-  return r;
-}
+// схемы грифа нарисованы как табулатура: сверху тонкая 1-я струна
+const FB_NOTE = '<div class="muted small center-t">на схеме сверху тонкая 1-я струна, снизу толстая 6-я</div>';
 
-const median = a => { const s = [...a].sort((x, y) => x - y); return s[Math.floor(s.length / 2)]; };
+// Полоска громкости и «что слышит микрофон»: видно, что приложение вас слышит
+const MICBAR = '<div class="micbar"><span>🎤</span><div class="level-bar"><i></i></div><span class="mb-heard"></span></div>';
+function micBar(el) {
+  const bar = $('.micbar .level-bar i', el), heard = $('.mb-heard', el);
+  let raf = 0, lastNote = '', lastAt = 0;
+  const loop = () => {
+    raf = requestAnimationFrame(loop);
+    if (!mic.stream) { bar.style.width = '0'; heard.textContent = ''; return; }
+    const l = mic.level;
+    bar.style.width = `${Math.min(100, Math.sqrt(l / 0.25) * 100)}%`;
+    bar.classList.toggle('low', l < 0.002);
+    const r = mic.last, now = performance.now();
+    if (r && r.freq > 0 && !r.weak) { const n = noteName(freqToMidi(r.freq)); lastNote = `слышу: ${n.ru} (${n.lat})`; lastAt = now; }
+    heard.textContent = now - lastAt < 1200 ? lastNote : '';
+  };
+  loop();
+  return () => cancelAnimationFrame(raf);
+}
 
 // ============ Тюнер ============
 export function Tuner(el, { onAllTuned } = {}) {
   el.innerHTML = `<div class="tuner">
-    <div class="tn-top"><b class="tn-left">Сыграйте любую струну</b><label class="chk"><input type="checkbox" class="auto" checked> Авто</label></div>
-    <div class="tn-stage">
-      <canvas class="tn-trace"></canvas>
-      <div class="tn-bubble idle"><span class="tn-cents"></span></div>
-      <div class="tn-act"></div>
-      <div class="tn-note"></div>
+    <div class="tn-top"><b class="tn-left">Сыграйте любую открытую струну</b><label class="chk"><input type="checkbox" class="auto" checked> Авто</label></div>
+    <div class="tn-main">
+      <div class="tn-head"></div>
+      <div class="tn-side">
+        <div class="tn-note"><b>—</b><small>струна</small></div>
+        <div class="tn-act">&nbsp;</div>
+        <div class="tn-cents"></div>
+      </div>
     </div>
-    <div class="tuner-hint">&nbsp;</div>
-    ${LEVEL_HTML}
-    <div class="strings-row">${[6, 5, 4, 3, 2, 1].map(n => {
-      const m = OPEN[sIdx(n)];
-      return `<button class="str-btn" data-s="${n}"><b>${noteName(m).lat}</b><small>${n} стр.</small><i class="ok">✓</i></button>`;
-    }).join('')}</div>
-    <div class="row gap center"><button class="btn ghost ref">▶ Эталон</button></div>
+    <div class="tn-stage"><canvas class="tn-trace"></canvas><div class="tn-bubble idle"></div></div>
+    <div class="tn-scale"><span>ниже ←</span><span>в строю</span><span>→ выше</span></div>
+    <div class="tn-trend">&nbsp;</div>
+    <div class="tuner-hint">Нажмите «Включить микрофон» и дёрните струну.</div>
+    ${MICBAR}
+    <div class="row gap center wrap"><button class="btn ghost ref">▶ Эталон</button></div>
     <div class="status"></div>
     <button class="btn primary start">🎤 Включить микрофон</button>
   </div>`;
-  const stage = $('.tn-stage', el), cv = $('.tn-trace', el), bubble = $('.tn-bubble', el), centsEl = $('.tn-cents', el);
-  const actEl = $('.tn-act', el), noteEl = $('.tn-note', el), hintEl = $('.tuner-hint', el), leftEl = $('.tn-left', el);
-  const auto = $('.auto', el), btns = [...el.querySelectorAll('.str-btn')];
-  const IN_TUNE = 6; // центов
-  let manual = null, running = false, timer = null, raf = 0;
-  let win = [], shown = null, lastPitchAt = 0, skipUntil = 0, lvlAvg = 0, quiet = 0, noPitch = 0, target = null;
-  const tuned = new Set(), inTuneFor = {};
-  const trace = []; // {t, c} c = null — разрыв
+  const head = $('.tn-head', el), noteEl = $('.tn-note', el), actEl = $('.tn-act', el), centsEl = $('.tn-cents', el);
+  const cv = $('.tn-trace', el), bubble = $('.tn-bubble', el), trendEl = $('.tn-trend', el), hintEl = $('.tuner-hint', el), leftEl = $('.tn-left', el);
+  const auto = $('.auto', el);
+  const lg = new TunerLogic({ a4: S.settings.a4, inTune: 5 });
+  const IN = 5;
+  let running = false, off = null, raf = 0, lastT = 0, quiet = 0, noPitch = 0, hist = [], trace = [], drawn = '';
+  const offBar = micBar(el);
 
-  const leftText = () => {
-    const n = 6 - tuned.size;
-    leftEl.textContent = n === 0 ? '🎉 Все струны настроены!' : tuned.size ? `Осталось ${n} ${plural(n, 'струна', 'струны', 'струн')}` : 'Сыграйте любую струну';
+  const drawHead = () => {
+    const key = `${lg.string}|${[...lg.tuned].join()}`;
+    if (key === drawn) return;
+    drawn = key;
+    head.innerHTML = headstockSVG(lg.manual || lg.string, lg.tuned);
+    head.querySelectorAll('.peg').forEach(p => p.addEventListener('click', () => choose(+p.dataset.s)));
   };
-  function highlight(s) { btns.forEach(b => b.classList.toggle('cur', +b.dataset.s === s)); }
-  btns.forEach(b => b.onclick = () => {
-    const s = +b.dataset.s;
-    if (manual === s) { manual = null; auto.checked = true; highlight(target); return; }
-    manual = s; auto.checked = false; highlight(s);
-    playNote(OPEN[sIdx(s)], 0, 0.5);
-  });
-  auto.onchange = () => { manual = auto.checked ? null : (target || 6); highlight(manual || target); };
-  $('.ref', el).onclick = () => playNote(OPEN[sIdx(manual || target || 6)], 0, 0.6);
+  function choose(s) {
+    if (lg.manual === s) { lg.setManual(null); auto.checked = true; }
+    else { lg.setManual(s); auto.checked = false; lg.string = s; }
+    drawn = ''; drawHead(); render();
+    hintEl.textContent = lg.manual ? `Ручной режим: тюнер считает всё от ${ordY(s)} струны (${noteName(OPEN[sIdx(s)]).ru}). Дёрните её.` : 'Авто: тюнер сам узнаёт струну.';
+  }
+  auto.onchange = () => choose(auto.checked ? lg.manual : (lg.string || 6));
+  $('.ref', el).onclick = () => playNote(OPEN[sIdx(lg.manual || lg.string || 6)], 0, 0.6, 2);
+  const leftText = () => {
+    const n = 6 - lg.tuned.size;
+    leftEl.textContent = n === 0 ? '🎉 Все струны настроены!' : lg.tuned.size ? `Осталось ${n} ${plural(n, 'струна', 'струны', 'струн')}` : 'Сыграйте любую открытую струну';
+  };
+
+  // куда движется звук, пока крутят колок: самое понятное для новичка «правильно ли я кручу»
+  function trend() {
+    const now = hist.length ? hist[hist.length - 1].t : 0, h = hist.filter(p => now - p.t < 1.2);
+    if (h.length < 12 || h[h.length - 1].t - h[0].t < 0.5) return 0;
+    const n = h.length, mt = h.reduce((a, p) => a + p.t, 0) / n, mc = h.reduce((a, p) => a + p.c, 0) / n;
+    let num = 0, den = 0; for (const p of h) { num += (p.t - mt) * (p.c - mc); den += (p.t - mt) ** 2; }
+    const slope = den ? num / den : 0; // центов в секунду
+    return Math.abs(slope) > 12 ? slope : 0;
+  }
+
+  function render() {
+    drawHead();
+    const s = lg.string, c = lg.cents;
+    if (!s || lg.state === 'idle' || c == null) {
+      noteEl.innerHTML = s ? `<b>${noteName(OPEN[sIdx(s)]).lat}</b><small>${strName(s)}</small>` : '<b>—</b><small>струна</small>';
+      actEl.textContent = ' '; actEl.className = 'tn-act'; centsEl.textContent = '';
+      bubble.className = 'tn-bubble idle'; bubble.style.left = '50%'; trendEl.innerHTML = '&nbsp;';
+      return;
+    }
+    const target = OPEN[sIdx(s)], nn = noteName(target), good = Math.abs(c) <= IN, live = lg.state === 'live';
+    noteEl.innerHTML = `<b class="${good ? 'good' : ''}">${nn.lat}</b><small>${strName(s)} · ${nn.ru}</small>`;
+    const shown = Math.max(-50, Math.min(50, c));
+    bubble.className = `tn-bubble ${good ? 'good' : Math.abs(c) < 20 ? 'near' : 'far'} ${live ? '' : 'held'}`;
+    bubble.style.left = `calc(14px + (100% - 28px) * ${(shown + 50) / 100})`;
+    bubble.textContent = good ? '✓' : `${c > 0 ? '+' : ''}${Math.round(c)}`;
+    actEl.textContent = good ? '✓ В строю' : c < 0 ? 'Подтяните ↑' : 'Ослабьте ↓';
+    actEl.className = `tn-act ${good ? 'good' : 'bad'}`;
+    centsEl.textContent = good ? '' : `${Math.abs(Math.round(c))} ${plural(Math.abs(Math.round(c)), 'цент', 'цента', 'центов')} ${c < 0 ? 'ниже' : 'выше'}`;
+    const sl = live ? trend() : 0;
+    if (!sl || good) trendEl.innerHTML = '&nbsp;';
+    else {
+      const up = sl > 0, right = (c < 0) === up;
+      trendEl.innerHTML = `<span class="${right ? 'good-t' : 'bad-t'}">${up ? '↑ Звук повышается' : '↓ Звук понижается'} — ${right ? 'так держать, крутите дальше' : c < 0 ? 'не туда! Крутите в другую сторону' : 'уже выше нужного, крутите обратно'}</span>`;
+    }
+    if (Math.abs(c) > 100) {
+      const st = Math.round(Math.abs(c) / 100);
+      hintEl.textContent = c < 0 ? `Струна ниже ${nn.ru} на ${st} ${plural(st, 'полутон', 'полутона', 'полутонов')}: подтягивайте, пока кружок не поедет к центру.` : `Струна выше ${nn.ru} на ${st} ${plural(st, 'полутон', 'полутона', 'полутонов')}: ослабьте её, чтобы не порвать.`;
+    } else if (good) hintEl.textContent = lg.tuned.size < 6 ? `${ord(s)} струна в строю. ${nextHint()}` : 'Гитара настроена. Можно играть!';
+    else hintEl.textContent = 'Крутите колок понемногу и снова дёргайте струну.';
+  }
+  const nextHint = () => { const n = [6, 5, 4, 3, 2, 1].find(k => !lg.tuned.has(k)); return n ? `Дальше: ${strName(n)} (${noteName(OPEN[sIdx(n)]).ru}).` : ''; };
 
   function draw() {
+    raf = requestAnimationFrame(draw);
     const w = cv.clientWidth, h = cv.clientHeight, dpr = window.devicePixelRatio || 1;
-    if (cv.width !== w * dpr) { cv.width = w * dpr; cv.height = h * dpr; }
+    if (!w) return;
+    if (cv.width !== Math.round(w * dpr)) { cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); }
     const g = cv.getContext('2d');
     g.setTransform(dpr, 0, 0, dpr, 0, 0);
     g.clearRect(0, 0, w, h);
     const X = c => w / 2 + (Math.max(-50, Math.min(50, c)) / 50) * (w / 2 - 14);
-    g.fillStyle = 'rgba(92,194,135,.12)';
-    g.fillRect(X(-IN_TUNE), 0, X(IN_TUNE) - X(-IN_TUNE), h);
+    g.fillStyle = 'rgba(92,194,135,.14)'; g.fillRect(X(-IN), 0, X(IN) - X(-IN), h);
     g.strokeStyle = 'rgba(255,255,255,.07)'; g.lineWidth = 1;
     for (const c of [-40, -30, -20, -10, 10, 20, 30, 40]) { g.beginPath(); g.moveTo(X(c), 0); g.lineTo(X(c), h); g.stroke(); }
-    g.strokeStyle = '#5cc287'; g.lineWidth = 2;
-    g.beginPath(); g.moveTo(X(0), 0); g.lineTo(X(0), h); g.stroke();
-    // след: свежие точки сверху, старые уплывают вниз
-    const now = performance.now(), speed = 0.07; // px/мс
+    g.strokeStyle = '#5cc287'; g.lineWidth = 2; g.beginPath(); g.moveTo(X(0), 0); g.lineTo(X(0), h); g.stroke();
+    const now = performance.now(), speed = 0.06;
     while (trace.length && (now - trace[0].t) * speed > h) trace.shift();
     g.lineWidth = 3; g.lineCap = 'round';
     for (let i = 1; i < trace.length; i++) {
       const a = trace[i - 1], b = trace[i];
       if (a.c == null || b.c == null) continue;
-      g.strokeStyle = Math.abs(b.c) <= IN_TUNE ? '#5cc287' : '#e46a5a';
+      g.strokeStyle = Math.abs(b.c) <= IN ? '#5cc287' : Math.abs(b.c) < 20 ? '#e8c24d' : '#e46a5a';
       g.beginPath(); g.moveTo(X(a.c), 30 + (now - a.t) * speed); g.lineTo(X(b.c), 30 + (now - b.t) * speed); g.stroke();
     }
-    raf = requestAnimationFrame(draw);
+    render();
   }
 
-  function setIdle() {
-    bubble.className = 'tn-bubble idle'; bubble.style.left = '50%'; centsEl.textContent = '';
-    actEl.textContent = ''; shown = null;
-  }
-
-  let last = performance.now();
-  function frame() {
-    const now = performance.now(), dt = (now - last) / 1000; last = now;
-    const lvl = showLevel(el);
-    // атака: первые 150 мс после удара высота «плывёт» — пропускаем
-    if (lvl > lvlAvg * 2.2 && lvl > 0.003) { skipUntil = now + 150; win = []; }
-    lvlAvg = lvlAvg * 0.85 + lvl * 0.15;
-    const p = now < skipUntil ? null : mic.pitch();
-    const ok = p && p.clarity > 0.75 && p.freq > 70 && p.freq < 400;
-    let cand = null;
-    if (ok) {
-      const m = freqToMidi(p.freq);
-      let t = manual, best = 99;
-      if (!t) [6, 5, 4, 3, 2, 1].forEach(n => { const d = Math.abs(m - OPEN[sIdx(n)]); if (d < best) { best = d; t = n; } });
-      if (manual || best < 2.5) cand = { m, t };
+  function onResult(res) {
+    const dt = lastT ? Math.min(0.1, Math.max(0.005, res.t - lastT)) : 0.02; lastT = res.t;
+    const prevString = lg.string;
+    lg.update(res, dt);
+    if (lg.string !== prevString || res.fresh) hist = [];
+    if (lg.state === 'live') { hist.push({ t: res.t, c: lg.cents }); if (hist.length > 80) hist.shift(); trace.push({ t: performance.now(), c: lg.cents }); }
+    else if (trace.length && trace[trace.length - 1].c != null) trace.push({ t: performance.now(), c: null });
+    if (lg.justTuned) {
+      beep(1320, 0.12); leftText(); drawn = '';
+      if (lg.tuned.size === 6 && onAllTuned) onAllTuned();
     }
-    if (!cand) {
-      if (now - lastPitchAt > 1200 && shown != null) { setIdle(); trace.push({ t: now, c: null }); }
-      if (lvl < 0.0012) { quiet += dt; noPitch = 0; if (quiet > 5) hintEl.textContent = 'Микрофон почти ничего не слышит. Поднесите гитару ближе.'; }
-      else { quiet = 0; noPitch += dt; if (noPitch > 3 && shown == null) hintEl.textContent = 'Дёрните одну струну и дайте ей звучать, остальные приглушите.'; }
-      return;
-    }
-    quiet = 0; noPitch = 0; lastPitchAt = now;
-    if (cand.t !== target) { target = cand.t; win = []; shown = null; }
-    win.push(cand.m); if (win.length > 9) win.shift();
-    if (win.length < 3) return;
-    const med = median(win);
-    const cents = (med - OPEN[sIdx(target)]) * 100;
-    shown = shown == null ? cents : shown + (cents - shown) * 0.3; // плавная стрелка
-    const c = shown, good = Math.abs(c) <= IN_TUNE;
-    trace.push({ t: now, c });
-    highlight(target);
-    const nn = OPEN[sIdx(target)];
-    noteEl.innerHTML = `${noteName(nn).lat}<small>${target}-я струна</small>`;
-    bubble.className = `tn-bubble ${good ? 'good' : Math.abs(c) < 20 ? 'near' : 'far'}`;
-    bubble.style.left = `calc(14px + (100% - 28px) * ${(Math.max(-50, Math.min(50, c)) + 50) / 100})`;
-    centsEl.textContent = good ? '✓' : `${c > 0 ? '+' : ''}${Math.round(c)}`;
-    actEl.textContent = good ? 'В строю' : c < 0 ? 'Подтяните ↑' : 'Ослабьте ↓';
-    actEl.className = `tn-act ${good ? 'good' : ''} ${c < 0 ? 'right' : 'left'}`;
-    hintEl.textContent = Math.abs(cents) > 100
-      ? (cents < 0 ? `Струна сильно ниже ${noteName(nn).lat}: закручивайте колок, пока стрелка не подойдёт к центру.` : `Струна сильно выше ${noteName(nn).lat}: ослабьте, чтобы не порвать.`)
-      : good ? `${target}-я струна в строю. Переходите к следующей.` : 'Крутите колок понемногу и снова дёргайте струну.';
-    if (good) {
-      inTuneFor[target] = (inTuneFor[target] || 0) + dt;
-      if (inTuneFor[target] > 0.6 && !tuned.has(target)) {
-        tuned.add(target);
-        btns.find(b => +b.dataset.s === target).classList.add('done');
-        leftText();
-        if (tuned.size === 6 && onAllTuned) onAllTuned();
+    // подсказки, когда ничего не слышно
+    if (lg.state === 'idle' || lg.state === 'hold') {
+      if (mic.level < 0.002) { quiet += dt; noPitch = 0; } else { quiet = 0; noPitch += dt; }
+      if (lg.state === 'idle') {
+        if (quiet > 4) hintEl.textContent = 'Микрофон почти ничего не слышит. Поднесите телефон ближе к гитаре (30–50 см).';
+        else if (noPitch > 3) hintEl.textContent = 'Слышу звук, но не ноту. Дёрните одну струну и дайте ей звучать, остальные приглушите ладонью.';
       }
-    } else inTuneFor[target] = 0;
+    } else { quiet = 0; noPitch = 0; }
   }
 
   $('.start', el).onclick = async () => {
-    if (running) { stop(); return; }
+    if (running) return stop();
     if (!(await startMic($('.status', el)))) return;
     running = true; $('.start', el).textContent = '⏹ Выключить микрофон';
-    hintEl.textContent = 'Слушаю… дёрните любую струну.';
-    stage.classList.add('on');
-    last = performance.now();
-    timer = setInterval(frame, 40);
+    hintEl.textContent = 'Слушаю… дёрните любую открытую струну.';
+    off = mic.listen(onResult);
     draw();
   };
   function stop() {
-    clearInterval(timer); cancelAnimationFrame(raf); running = false; stopMic(); setIdle();
-    stage.classList.remove('on');
+    off && off(); off = null; cancelAnimationFrame(raf); running = false; stopMic();
     $('.start', el).textContent = '🎤 Включить микрофон';
+    lg.state = 'idle'; render();
   }
-  setIdle();
-  return () => running && stop();
+  drawHead(); render();
+  return () => { running && stop(); offBar(); };
 }
-function plural(n, a, b, c) { const m = n % 10, h = n % 100; return m === 1 && h !== 11 ? a : m >= 2 && m <= 4 && (h < 12 || h > 14) ? b : c; }
 
 // ============ Проверка нот по очереди ============
-export function NoteChecker(el, { targets, onDone }) {
-  el.innerHTML = `<div class="checker">
-    <div class="fb"></div>
-    <div class="target big"></div>
+// targets: [{s, f, label?, chord?}] — струна, лад; label — палец правой руки (p, i, m, a)
+const PIMA_RU = { p: 'большой', i: 'указательный', m: 'средний', a: 'безымянный' };
+function describeWrong(heard, t) {
+  const target = midiAt(t.s, t.f), d = heard - target;
+  const hn = noteName(heard), wn = noteName(target);
+  if ((d % 12 + 12) % 12 === 0) return `Нота ${wn.ru} верная, но приложение слышит её в другой октаве — сыграйте ещё раз, увереннее.`;
+  let s = `Слышу ${hn.ru} (${hn.lat}), а нужна ${wn.ru} (${wn.lat}). `;
+  const fretOnString = heard - OPEN[sIdx(t.s)];
+  if (Math.abs(d) <= 4 && fretOnString >= 0 && fretOnString <= 12) {
+    s += fretOnString === 0
+      ? `Похоже, ${ord(t.s)} струна звучит открытой — дожмите палец на ${t.f}-м ладу.`
+      : t.f === 0 ? `Похоже, на ${ordY(t.s)} струне зажат ${fretOnString}-й лад — отпустите её, нужна открытая.`
+        : `Если вы на ${ordY(t.s)} струне, палец стоит на ${fretOnString}-м ладу, а нужен ${t.f}-й.`;
+  } else {
+    const where = [];
+    for (let n = 6; n >= 1; n--) { const f = heard - OPEN[sIdx(n)]; if (f >= 0 && f <= 4) where.push(`${ord(n)} струна, ${fretTxt(f)}`); }
+    s += `Наверное, звучит не та струна${where.length ? ` (это: ${where.join(' или ')})` : ''}. Нужна ${ord(t.s)}.`;
+  }
+  return s;
+}
+
+export function NoteChecker(el, { targets, tab, onDone }) {
+  el.innerHTML = `<div class="checker notes">
+    ${tab ? '<div class="tabv scroll-x"></div>' : ''}
+    <div class="nc-now"><div class="nc-fb scroll-x"></div>${FB_NOTE}<div class="nc-txt"></div></div>
     <div class="hint">&nbsp;</div>
-    ${LEVEL_HTML}
+    ${MICBAR}
     <div class="row gap wrap center">
       <button class="btn primary start">🎤 Слушать</button>
-      <button class="btn ghost listen">▶ Как звучит</button>
-      <button class="btn ghost skip">Пропустить →</button>
+      <button class="btn ghost sm listen">▶ Как звучит</button>
+      <button class="btn ghost sm force" hidden>✓ Засчитать</button>
+      <button class="btn ghost sm skip">Пропустить →</button>
     </div><div class="status"></div></div>`;
-  let i = 0, running = false, timer = null, offOnset = null, armed = true, stable = { r: null, since: 0 }, lastHint = 0, okNote = -1, okPeak = 0, dipped = false;
-  const fb = $('.fb', el), tgt = $('.target', el), hint = $('.hint', el);
-  const fingerFor = f => (f === 0 ? 'открытая' : `палец ${Math.min(f, 4)}`);
+  let i = 0, running = false, off = null, since = 0, timer = null;
+  const nm = new NoteMatcher({ a4: S.settings.a4 });
+  const hint = $('.hint', el), force = $('.force', el), tabv = $('.tabv', el);
+  const maxF = Math.max(4, ...targets.map(t => t.f));
+  const offBar = micBar(el);
 
   function render() {
-    fb.innerHTML = fretboardSVG(targets.map((t, k) => ({ s: t.s, f: t.f, cls: k < i ? 'done' : k === i ? 'target' : 'next' })), Math.max(5, ...targets.map(t => t.f + 1)));
-    if (i >= targets.length) { tgt.innerHTML = '🎉 Всё сыграно!'; return; }
-    const t = targets[i], n = noteName(midiAt(t.s, t.f));
-    tgt.innerHTML = `<span class="pill">${i + 1}/${targets.length}</span> Струна <b>${t.s}</b>, ${t.f === 0 ? '<b>открытая</b>' : `лад <b>${t.f}</b>`} → ${n.ru} (${n.lat}) ${t.f ? `<span class="muted">· ${fingerFor(t.f)}</span>` : ''}`;
+    if (tabv) {
+      tabv.innerHTML = tabSVG(targets, i);
+      const cur = tabv.querySelector('.tab-cur');
+      if (cur) tabv.scrollLeft = Math.max(0, cur.getBBox().x * (tabv.scrollWidth / tabv.firstElementChild.viewBox.baseVal.width) - tabv.clientWidth / 2);
+    }
+    if (i >= targets.length) {
+      $('.nc-fb', el).innerHTML = '';
+      $('.nc-txt', el).innerHTML = '<div class="big">🎉 Всё сыграно!</div>';
+      force.hidden = true;
+      return;
+    }
+    const t = targets[i], nx = targets[i + 1], n = noteName(midiAt(t.s, t.f)), fg = fingerForFret(t.f);
+    const marks = [{ s: t.s, f: t.f, cls: 'target', finger: t.chord ? 0 : fg || 0 }];
+    if (nx && !(nx.s === t.s && nx.f === t.f)) marks.unshift({ s: nx.s, f: nx.f, cls: 'next' });
+    $('.nc-fb', el).innerHTML = fretboardSVG(marks, maxF + 1, { hl: t.s });
+    const left = t.f === 0 ? '<b>открытая</b>' : `<b>${t.f}-й лад</b>${t.chord ? '' : ` · палец ${fingerDot(fg)} ${FINGERS[fg]}`}`;
+    $('.nc-txt', el).innerHTML = `<span class="pill">${i + 1}/${targets.length}</span> <b>${strName(t.s)}</b> · ${left} → <b>${n.ru}</b> (${n.lat})` +
+      (t.label ? `<div class="muted">правая рука: <b>${t.label}</b> — ${PIMA_RU[t.label]} палец${t.chord ? `, левая держит ${t.chord}` : ''}</div>` : '');
+    nm.setTarget(midiAt(t.s, t.f));
+    since = performance.now(); force.hidden = true;
   }
   render();
 
-  function describeWrong(r, t, cents) {
-    const target = midiAt(t.s, t.f), d = r - target;
-    const heard = noteName(r), want = noteName(target);
-    if (d === 0) return `Нота верная, но фальшивит на ${cents > 0 ? '+' : ''}${Math.round(cents)} центов — проверьте строй в тюнере.`;
-    let s = `Звучит ${heard.ru} (${heard.lat}), а нужна ${want.ru} (${want.lat}). `;
-    const fretOnString = r - OPEN[sIdx(t.s)];
-    if (Math.abs(d) <= 5 && fretOnString >= 0) {
-      s += fretOnString === 0
-        ? `Похоже, струна ${t.s} не прижата — дожмите палец на ${t.f}-м ладу.`
-        : `Если вы на ${t.s}-й струне, палец стоит на ${fretOnString}-м ладу, а нужен ${t.f === 0 ? 'открытый звук (отпустите струну)' : `${t.f}-й`}.`;
-    } else {
-      const where = [];
-      for (let n = 1; n <= 6; n++) { const f = r - OPEN[sIdx(n)]; if (f >= 0 && f <= 5) where.push(`${n}-я стр. ${f === 0 ? 'открытая' : f + '-й лад'}`); }
-      s += `Наверное, звучит не та струна${where.length ? ` (такая нота: ${where.join(', ')})` : ''}. Нужна ${t.s}-я.`;
-    }
-    return s;
+  function next(manual) {
+    const t = targets[i], n = noteName(midiAt(t.s, t.f));
+    i++;
+    hint.innerHTML = manual ? '&nbsp;' : `<span class="good-t">✓ ${n.ru}!${i < targets.length ? '' : ' Отлично!'}</span>`;
+    render();
+    if (i >= targets.length) { stop(); onDone && onDone(); }
   }
-
-  function frame() {
+  function onResult(res) {
     if (i >= targets.length) return;
-    const lvl = showLevel(el);
-    // повторный удар: громкость упала и снова выросла (не все микрофоны ловят атаку)
-    if (!armed) {
-      if (lvl < okPeak * 0.4) dipped = true;
-      if (dipped && lvl > Math.max(okPeak * 0.6, 0.002)) armed = true;
-    }
-    const p = mic.pitch();
-    const now = performance.now();
-    if (!p || p.clarity < 0.7) { stable = { r: null, since: now }; return; }
-    const m = freqToMidi(p.freq), r = Math.round(m), cents = (m - r) * 100;
-    if (r !== stable.r) { stable = { r, since: now }; return; }
-    if (now - stable.since < 160) return;
-    const t = targets[i], target = midiAt(t.s, t.f);
-    // другая нота, чем только что засчитанная, — значит, играют уже следующую
-    if (!armed && ((r - okNote) % 12 + 12) % 12 !== 0) armed = true;
-    if (!armed) return;
-    const sameClass = (r - target) % 12 === 0 && Math.abs(r - target) <= 12;
-    if (sameClass && Math.abs(cents) < 40) {
-      i++; armed = false; okNote = r; okPeak = lvl; dipped = false;
-      hint.innerHTML = `<span class="good-t">✓ ${noteName(r).ru}! ${i < targets.length ? 'Дальше.' : ''}</span>`;
-      render();
-      if (i >= targets.length) { stop(); onDone && onDone(); }
-    } else if (now - stable.since > 350 && now - lastHint > 900) {
-      lastHint = now;
-      hint.innerHTML = `<span class="bad-t">${describeWrong(sameClass ? target : r, t, cents)}</span>`;
-    }
+    const ev = nm.update(res);
+    if (!ev) return;
+    if (ev.type === 'hit') {
+      next(false);
+      if (ev.detuned) hint.innerHTML += ` <span class="muted">Звучит чуть ${ev.cents > 0 ? 'выше' : 'ниже'} (${ev.cents > 0 ? '+' : ''}${ev.cents} ц) — проверьте строй.</span>`;
+    } else hint.innerHTML = `<span class="bad-t">${describeWrong(ev.midi, targets[i])}</span>`;
   }
 
-  $('.listen', el).onclick = () => { const t = targets[Math.min(i, targets.length - 1)]; playNote(midiAt(t.s, t.f), 0, 0.6); };
-  $('.skip', el).onclick = () => { if (i < targets.length) { i++; render(); if (i >= targets.length) { stop(); onDone && onDone(); } } };
+  $('.listen', el).onclick = () => { const t = targets[Math.min(i, targets.length - 1)]; playNote(midiAt(t.s, t.f), 0, 0.6, 1.5); };
+  $('.skip', el).onclick = () => { if (i < targets.length) next(true); };
+  force.onclick = () => { if (i < targets.length) next(false); };
   $('.start', el).onclick = async () => {
     if (running) return stop();
     if (!(await startMic($('.status', el)))) return;
     running = true; $('.start', el).textContent = '⏹ Стоп';
-    offOnset = mic.onOnset(() => { armed = true; });
-    armed = true;
-    timer = setInterval(frame, 40);
+    off = mic.listen(onResult);
+    since = performance.now();
+    // если долго не слышим нужную ноту — даём засчитать вручную и подсказываем
+    timer = setInterval(() => {
+      if (i >= targets.length || performance.now() - since < 10000 || !force.hidden) return;
+      force.hidden = false;
+      hint.innerHTML = '<span class="muted">Не слышу нужной ноты. Поднесите телефон ближе и приглушите остальные струны. Если уверены, что играете верно, — нажмите «Засчитать».</span>';
+    }, 1000);
     hint.textContent = 'Слушаю… играйте ноту.';
   };
   function stop() {
-    clearInterval(timer); offOnset && offOnset(); running = false; stopMic();
+    off && off(); off = null; clearInterval(timer); running = false; stopMic();
     $('.start', el).textContent = '🎤 Слушать';
   }
-  return () => running && stop();
+  return () => { running && stop(); offBar(); };
 }
 
-// ============ Аккорды: разбор хромаграммы ============
-// Струны, чья основная частота почти не слышна. Проверяем только ноты,
-// которые не совпадают с обертонами более низких струн аккорда.
-function silentStrings(ch, spec) {
-  if (!spec) return [];
-  const { a, bin } = spec;
-  const amp = f => { let m = 0; for (let i = Math.floor(f * 0.983 / bin); i <= Math.ceil(f * 1.017 / bin) && i < a.length; i++) m = Math.max(m, a[i]); return m; };
-  let top = 0; for (let i = 0; i < a.length; i++) top = Math.max(top, a[i]);
-  const voiced = chordMidis(ch).map((m, i) => ({ m, i, f: midiToFreq(m) })).filter(o => o.m != null);
-  return voiced.filter(o =>
-    !voiced.some(l => l.m < o.m && [2, 3, 4, 5, 6].some(k => Math.abs(o.f / l.f - k) < 0.03 * k)) &&
-    amp(o.f) < top * 0.03).map(o => o.i);
+// ============ Найди ноту ============
+// asks: [[струна, лад]] — приложение называет ноту и струну, вы ищете лад
+export function FindNote(el, { asks, onDone }) {
+  el.innerHTML = `<div class="checker">
+    <div class="q fn-q"></div>
+    <div class="fn-fb scroll-x"></div>${FB_NOTE}
+    <div class="hint">&nbsp;</div>
+    ${MICBAR}
+    <div class="row gap wrap center"><button class="btn primary start">🎤 Слушать</button><button class="btn ghost sm help">Подсказка</button><button class="btn ghost sm skip">Пропустить →</button></div>
+    <div class="status"></div></div>`;
+  let i = 0, running = false, off = null, shown = false;
+  const nm = new NoteMatcher({ a4: S.settings.a4 }), hint = $('.hint', el);
+  const offBar = micBar(el);
+  const maxF = Math.max(4, ...asks.map(a => a[1]));
+  function render(reveal) {
+    if (i >= asks.length) { $('.fn-q', el).innerHTML = '🎉 Все ноты найдены!'; $('.fn-fb', el).innerHTML = fretboardSVG([], maxF + 1); return; }
+    const [s, f] = asks[i], n = noteName(midiAt(s, f));
+    $('.fn-q', el).innerHTML = `<span class="pill">${i + 1}/${asks.length}</span> Сыграйте ноту <b>${n.ru}</b> (${n.lat}) на <b>${ordY(s)}</b> струне`;
+    $('.fn-fb', el).innerHTML = fretboardSVG(reveal ? [{ s, f, cls: reveal, finger: fingerForFret(f), t: n.ru }] : [], maxF + 1, { hl: s });
+    nm.setTarget(midiAt(s, f));
+  }
+  render();
+  function advance(ok) {
+    const [s, f] = asks[i], n = noteName(midiAt(s, f));
+    hint.innerHTML = ok ? `<span class="good-t">✓ Верно: ${n.ru} — ${ord(s)} струна, ${fretTxt(f)}.</span>` : `${n.ru} — ${ord(s)} струна, ${fretTxt(f)}.`;
+    render('done');
+    setTimeout(() => { i++; shown = false; render(); if (i >= asks.length) { stop(); onDone && onDone(); } }, 1400);
+  }
+  function onResult(res) {
+    if (i >= asks.length || shown) return;
+    const ev = nm.update(res);
+    if (!ev) return;
+    if (ev.type === 'hit') { shown = true; advance(true); return; }
+    const [s, f] = asks[i], target = midiAt(s, f), d = target - ev.midi, hn = noteName(ev.midi);
+    hint.innerHTML = `<span class="bad-t">Это ${hn.ru} (${hn.lat}). ${Math.abs(d) <= 5 ? `Нужная нота на ${Math.abs(d)} ${plural(Math.abs(d), 'лад', 'лада', 'ладов')} ${d > 0 ? 'дальше от головы (выше)' : 'ближе к голове (ниже)'}.` : `Проверьте, на ${ordY(s)} ли вы струне.`}</span>`;
+  }
+  $('.help', el).onclick = () => { if (i < asks.length) render('hint'); };
+  $('.skip', el).onclick = () => { if (i < asks.length && !shown) { shown = true; advance(false); } };
+  $('.start', el).onclick = async () => {
+    if (running) return stop();
+    if (!(await startMic($('.status', el)))) return;
+    running = true; $('.start', el).textContent = '⏹ Стоп'; off = mic.listen(onResult);
+    hint.textContent = 'Слушаю… найдите лад и сыграйте.';
+  };
+  function stop() { off && off(); off = null; running = false; stopMic(); $('.start', el).textContent = '🎤 Слушать'; }
+  return () => { running && stop(); offBar(); };
 }
 
-export function evalChord(name, c, spec) {
-  const ch = CHORDS[name], tones = chordPcs(ch);
-  let inChord = 0; tones.forEach(pc => (inChord += c[pc]));
-  const silent = silentStrings(ch, spec);
-  const missing = tones.filter(pc => c[pc] < 0.045);
-  let foreign = null, fv = 0.13;
-  for (let pc = 0; pc < 12; pc++) if (!tones.includes(pc) && c[pc] > fv) { fv = c[pc]; foreign = pc; }
-  const ok = inChord >= 0.72 && missing.length === 0 && silent.length === 0;
-  const score = inChord - missing.length * 0.15;
-  return { ok, inChord, missing, foreign, score, silent };
-}
-
-function chordHints(name, res) {
-  const ch = CHORDS[name], hints = [], bad = [];
-  for (const pc of res.missing) {
-    const strs = ch.frets.map((f, i) => ({ f, i })).filter(o => o.f >= 0 && (OPEN[o.i] + o.f) % 12 === pc);
-    const fretted = strs.filter(o => o.f > 0), open = strs.filter(o => o.f === 0);
-    strs.forEach(o => bad.push(o.i));
-    if (fretted.length) {
-      const o = fretted[0];
-      hints.push(`Не слышно ноты ${pcName(pc)}: ${6 - o.i}-я струна, ${o.f}-й лад (палец ${ch.fingers[o.i]}). Прижмите сильнее кончиком, ближе к порожку.`);
-    } else if (open.length) {
-      hints.push(`Глушится открытая ${open.map(o => 6 - o.i).join(' и ')}-я струна (${pcName(pc)}). Её задевает соседний палец: держите пальцы круче, «домиком».`);
+// ============ Найди струну на рисунке ============
+export function StringPicker(el, { onDone }) {
+  const order = [3, 1, 6, 4, 2, 5];
+  let i = 0, streak = 0;
+  el.innerHTML = `<div class="checker"><div class="q sp-q"></div><div class="sp-fb"></div><div class="hint">&nbsp;</div>
+    <p class="muted center-t">Струны нарисованы так, как вы видите их на гитаре в руках: толстая 6-я вверху, у лица, тонкая 1-я внизу, у пола.</p></div>`;
+  const hint = $('.hint', el);
+  function render(mark) {
+    if (i >= order.length) { $('.sp-q', el).innerHTML = '🎉 Все струны найдены!'; $('.sp-fb', el).innerHTML = fretboardSVG([], 3, { dy: 32, flip: true }); return; }
+    $('.sp-q', el).innerHTML = `<span class="pill">${streak}/6</span> Нажмите на <b>${strAcc(order[i])}</b>`;
+    $('.sp-fb', el).innerHTML = fretboardSVG([], 3, { pick: true, hl: mark, nolabels: true, dy: 32, flip: true });
+    el.querySelectorAll('.s-pick').forEach(r => r.addEventListener('click', () => answer(+r.dataset.s)));
+  }
+  function answer(s) {
+    const want = order[i];
+    if (s === want) {
+      streak++; i++;
+      hint.innerHTML = `<span class="good-t">✓ Да, это ${ord(s)}${s === 1 ? ' — самая тонкая' : s === 6 ? ' — самая толстая' : ''}.</span>`;
+      render();
+      if (i >= order.length) onDone && onDone();
+    } else {
+      streak = 0;
+      hint.innerHTML = `<span class="bad-t">Это ${ord(s)}. Считайте от тонкой: 1-я — самая тонкая, 6-я — самая толстая. ${ord(want)} — ${want < s ? 'тоньше' : 'толще'}.</span>`;
+      render(s);
     }
   }
-  for (const i of res.silent || []) {
-    if (bad.includes(i)) continue;
-    bad.push(i);
-    const f = ch.frets[i];
-    hints.push(f > 0
-      ? `Не звучит ${6 - i}-я струна (${f}-й лад, палец ${ch.fingers[i]}). Дожмите её кончиком пальца ближе к порожку.`
-      : `Не звучит открытая ${6 - i}-я струна: её глушит соседний палец. Держите пальцы «домиком».`);
+  render();
+  return () => {};
+}
+
+// ============ Какая струна звучит (на слух) ============
+export function EarGame(el, { onDone, need = 5 }) {
+  el.innerHTML = `<div class="checker"><div class="q">Какая струна звучит?</div>
+    <div class="row gap center"><button class="btn primary play">▶ Сыграть струну</button></div>
+    <div class="strings-row">${[6, 5, 4, 3, 2, 1].map(n => `<button class="str-btn" data-s="${n}"><b>${n}</b><small>${noteName(OPEN[sIdx(n)]).ru}</small></button>`).join('')}</div>
+    <div class="hint">&nbsp;</div><div class="center-t muted ear-score">Верно: 0 из ${need}</div></div>`;
+  let cur = 0, score = 0, answered = true;
+  const hint = $('.hint', el);
+  const play = () => { if (answered) { let n; do n = 1 + Math.floor(Math.random() * 6); while (n === cur); cur = n; answered = false; hint.innerHTML = '&nbsp;'; } playNote(OPEN[sIdx(cur)], 0, 0.6, 1.6); };
+  $('.play', el).onclick = play;
+  el.querySelectorAll('.str-btn').forEach(b => b.onclick = () => {
+    const s = +b.dataset.s;
+    if (!cur) return play();
+    if (answered) { playNote(OPEN[sIdx(s)], 0, 0.6, 1.4); return; } // после ответа кнопки просто играют струны для сравнения
+    answered = true;
+    if (s === cur) { score++; hint.innerHTML = `<span class="good-t">✓ Верно, ${ord(cur)} (${noteName(OPEN[sIdx(cur)]).ru})!</span>`; }
+    else hint.innerHTML = `<span class="bad-t">Это была ${ord(cur)} (${noteName(OPEN[sIdx(cur)]).ru}). Нажимайте на струны, чтобы сравнить звук.</span>`;
+    $('.ear-score', el).textContent = `Верно: ${score} из ${need}`;
+    $('.play', el).textContent = '▶ Следующая струна';
+    if (score === need) { hint.innerHTML += ' 🎉 Отличный слух!'; onDone && onDone(); }
+  });
+  return () => {};
+}
+
+// ============ Аккорд по одной струне ============
+export function StringCheck(el, { chord, onDone }) {
+  const ch = CHORDS[chord];
+  const list = ch.frets.map((f, i) => ({ f, i, s: 6 - i })).filter(o => o.f >= 0);
+  const st = ch.frets.map(f => (f < 0 ? '' : 'wait'));
+  el.innerHTML = `<div class="checker"><div class="row gap center wrap"><div class="diagram"></div><div class="sc-side"><div class="sc-txt"></div></div></div>
+    <div class="hint">Поставьте ${chord} и дёргайте струны по одной, начиная с ${ordY(list[0].s)}.</div>
+    ${MICBAR}
+    <div class="row gap wrap center"><button class="btn primary start">🎤 Слушать</button><button class="btn ghost sm listen">▶ Как звучит струна</button><button class="btn ghost sm skip">Пропустить струну</button></div>
+    <div class="status"></div></div>`;
+  let k = 0, running = false, off = null, offOn = null, dead = null, cleanFor = 0;
+  const nm = new NoteMatcher({ a4: S.settings.a4, wrongAfter: 6 }), hint = $('.hint', el);
+  const offBar = micBar(el);
+  function render() {
+    const s = st.map((v, i) => (k < list.length && list[k].i === i ? 'cur' : v === 'wait' ? '' : v));
+    $('.diagram', el).innerHTML = chordSVG(chord, { st: s });
+    if (k >= list.length) { $('.sc-txt', el).innerHTML = `<div class="big good-t">✓ Все ${list.length} ${plural(list.length, 'струна звенит', 'струны звенят', 'струн звенят')}</div>`; return; }
+    const o = list[k], n = noteName(OPEN[o.i] + o.f);
+    $('.sc-txt', el).innerHTML = `<span class="pill">${k + 1}/${list.length}</span> Дёрните <b>${strAcc(o.s)}</b><div class="muted">${o.f ? `${o.f}-й лад, палец ${fingerDot(ch.fingers[o.i])} ${FINGERS[ch.fingers[o.i]]}` : 'открытая'} → ${n.ru} (${n.lat})</div>`;
+    nm.setTarget(OPEN[o.i] + o.f);
   }
-  if (res.foreign != null) {
-    const pc = res.foreign;
+  render();
+  function bad(text) { st[list[k].i] = 'bad'; hint.innerHTML = `<span class="bad-t">${text}</span>`; render(); }
+  function good() {
+    st[list[k].i] = 'ok'; dead = null; k++;
+    hint.innerHTML = `<span class="good-t">✓ Звенит!</span>`;
+    render();
+    if (k >= list.length) { stop(); onDone && onDone(); }
+  }
+  function onResult(res) {
+    if (k >= list.length) return;
+    if (dead) {
+      if (res.freq > 0 && !res.weak) cleanFor++; else cleanFor = 0;
+      if (cleanFor >= 3) dead = null;
+      else if (res.t - dead > 0.8) {
+        dead = null;
+        const o = list[k];
+        bad(o.f ? `${strName(o.s)} глухая: палец ${ch.fingers[o.i]} не дожат или его касается соседний. Ставьте кончиком у ладового порожка, «домиком».`
+          : `${strName(o.s)} глухая: её касается палец с соседней струны. Поднимите пальцы «домиком», чтобы открытая струна звенела.`);
+      }
+    }
+    const ev = nm.update(res);
+    if (!ev) return;
+    if (ev.type === 'hit') return good();
+    const o = list[k], want = OPEN[o.i] + o.f, open = OPEN[o.i], hn = noteName(ev.midi);
+    if (o.f > 0 && ev.midi === open) bad(`Звучит открытая ${ord(o.s)} струна: палец ${ch.fingers[o.i]} не прижимает её. Дожмите кончиком у порожка ${o.f}-го лада.`);
+    else if (Math.abs(ev.midi - want) <= 2) bad(`Слышу ${hn.ru} вместо ${noteName(want).ru}: палец стоит не на том ладу — нужен ${fretTxt(o.f)}.`);
+    else bad(`Слышу ${hn.ru} (${hn.lat}) — похоже, дёрнули соседнюю струну. Нужна ${ord(o.s)}.`);
+  }
+  $('.listen', el).onclick = () => { const o = list[Math.min(k, list.length - 1)]; playNote(OPEN[o.i] + o.f, 0, 0.6, 1.5); };
+  $('.skip', el).onclick = () => { if (k < list.length) { k++; render(); if (k >= list.length) { stop(); onDone && onDone(); } } };
+  $('.start', el).onclick = async () => {
+    if (running) return stop();
+    if (!(await startMic($('.status', el)))) return;
+    running = true; $('.start', el).textContent = '⏹ Стоп';
+    off = mic.listen(onResult);
+    offOn = mic.onOnset(t => { dead = t; cleanFor = 0; });
+    hint.textContent = `Слушаю… дёрните ${strAcc(list[k] ? list[k].s : 1)}.`;
+  };
+  function stop() { off && off(); offOn && offOn(); off = offOn = null; running = false; stopMic(); $('.start', el).textContent = '🎤 Слушать'; }
+  return () => { running && stop(); offBar(); };
+}
+
+// ============ Аккорд ударом ============
+function chordHints(name, r) {
+  const ch = CHORDS[name], hints = [], bad = new Set();
+  const first = 6 - ch.frets.findIndex(f => f >= 0);
+  r.dead.forEach((d, i) => {
+    if (!d) return;
+    bad.add(i);
+    const f = ch.frets[i];
+    hints.push(f > 0 ? `Не звучит ${ord(6 - i)} струна (${f}-й лад, палец ${ch.fingers[i]}). Дожмите её кончиком ближе к ладовому порожку.`
+      : `Не звучит открытая ${ord(6 - i)} струна: её глушит соседний палец. Держите пальцы «домиком».`);
+  });
+  if (r.foreign != null) {
+    const pc = r.foreign;
+    const notPressed = ch.frets.map((f, i) => ({ f, i })).find(o => o.f > 0 && OPEN[o.i] % 12 === pc);
     const mutedStr = ch.frets.map((f, i) => ({ f, i })).find(o => o.f < 0 && OPEN[o.i] % 12 === pc);
     const neighbour = ch.frets.map((f, i) => ({ f, i })).find(o => o.f > 0 && [1, 11].includes(((OPEN[o.i] + o.f - pc) % 12 + 12) % 12));
-    if (mutedStr) { hints.push(`Звучит ${6 - mutedStr.i}-я струна, которую в ${name} не играют. Начинайте удар с ${6 - ch.frets.findIndex(f => f >= 0)}-й струны.`); bad.push(mutedStr.i); }
-    else if (neighbour) { hints.push(`Слышна лишняя нота ${pcName(pc)}. Возможно, палец на ${6 - neighbour.i}-й струне стоит не на том ладу (нужен ${neighbour.f}-й).`); bad.push(neighbour.i); }
+    if (notPressed) { bad.add(notPressed.i); hints.push(`Звучит лишняя нота ${pcName(pc)} — похоже, ${ord(6 - notPressed.i)} струна звучит открытой: палец ${ch.fingers[notPressed.i]} не прижимает её на ${notPressed.f}-м ладу.`); }
+    else if (mutedStr) { bad.add(mutedStr.i); hints.push(`Звучит ${ord(6 - mutedStr.i)} струна, которую в ${name} не играют. Начинайте удар с ${ordY(first)}.`); }
+    else if (neighbour) { bad.add(neighbour.i); hints.push(`Слышна лишняя нота ${pcName(pc)}: палец на ${ordY(6 - neighbour.i)} струне, похоже, не на том ладу (нужен ${neighbour.f}-й).`); }
     else hints.push(`Слышна посторонняя нота ${pcName(pc)}. Проверьте строй тюнером.`);
   }
-  if (!hints.length) hints.push('Почти! Ударьте увереннее по всем нужным струнам и дайте аккорду прозвучать.');
-  return { hints, bad };
+  for (const pc of r.missing) {
+    const strs = ch.frets.map((f, i) => ({ f, i })).filter(o => o.f >= 0 && (OPEN[o.i] + o.f) % 12 === pc && !bad.has(o.i));
+    if (!strs.length) continue;
+    const o = strs.find(x => x.f > 0) || strs[0];
+    bad.add(o.i);
+    hints.push(o.f > 0 ? `Не слышно ноты ${pcName(pc)}: ${ord(6 - o.i)} струна, ${o.f}-й лад (палец ${ch.fingers[o.i]}). Прижмите сильнее, ближе к порожку.`
+      : `Не слышно открытой ${ordY(6 - o.i)} струны (${pcName(pc)}): её задевает палец. Пальцы «домиком».`);
+  }
+  if (!hints.length) hints.push(r.quiet.some(Boolean) ? `Бас звучит тихо: начинайте удар увереннее, с ${ordY(first)} струны.` : 'Почти! Ударьте увереннее по всем нужным струнам и дайте аккорду прозвучать.');
+  return { hints, bad: [...bad] };
 }
-
-function bestChordGuess(c, exclude) {
-  let best = null, bs = 0.6;
-  for (const n of Object.keys(CHORDS)) { const r = evalChord(n, c); if (r.score > bs && n !== exclude) { bs = r.score; best = n; } }
-  return best;
-}
-
-// Слушаем удар: ждём атаку, копим спектр ~0.45 с и выносим вердикт
-function listenStrums(onResult) {
-  let collecting = null, timer = null;
-  const off = mic.onOnset(t => {
-    if (collecting) return;
-    collecting = { start: performance.now() + 120, sum: new Float32Array(12), spec: null, n: 0, max: -200 };
-  });
-  timer = setInterval(() => {
-    if (!collecting || performance.now() < collecting.start) return;
-    const { c, max, spec, bin } = mic.chroma();
-    collecting.max = Math.max(collecting.max, max);
-    if (max > -75) {
-      for (let k = 0; k < 12; k++) collecting.sum[k] += c[k];
-      if (!collecting.spec) collecting.spec = { a: new Float32Array(spec.length), bin };
-      for (let i = 0; i < spec.length; i++) collecting.spec.a[i] += spec[i];
-      collecting.n++;
-    }
-    if (performance.now() - collecting.start > 450) {
-      const col = collecting; collecting = null;
-      let s = 0; for (let k = 0; k < 12; k++) s += col.sum[k];
-      if (col.n < 3 || s === 0) onResult(null, col.max);
-      else onResult(col.sum.map(v => v / s), col.max, col.spec);
-    }
-  }, 30);
-  return () => { off(); clearInterval(timer); };
-}
-
 function chromaBars(c, tones) {
   return `<div class="chroma">${[...Array(12)].map((_, pc) =>
     `<div class="cb ${tones.includes(pc) ? 'in' : ''}"><i style="height:${Math.round(Math.min(1, c[pc] * 2.5) * 100)}%"></i><span>${noteName(pc + 60).lat}</span></div>`).join('')}</div>`;
 }
+// слушаем удары: на каждый удар — спектр через 0,12 с и разбор аккорда
+function listenChords(strings, cb) {
+  let busy = false;
+  return mic.onOnset(() => {
+    if (busy) return;
+    busy = true;
+    mic.spectrumIn(0.12, sp => { busy = false; cb(sp); });
+  });
+}
+const tooQuiet = sp => { let m = 0; for (let k = 10; k < sp.mag.length / 8; k++) if (sp.mag[k] > m) m = sp.mag[k]; return m < 1; };
 
 export function ChordChecker(el, { chord, need = 3, onDone }) {
-  const tones = chordPcs(CHORDS[chord]);
+  const ch = CHORDS[chord], tones = chordPcs(ch), strings = chordMidis(ch);
   el.innerHTML = `<div class="checker">
     <div class="row gap center wrap"><div class="diagram">${chordSVG(chord)}</div>
-      <div class="cc-side"><div class="big cc-count">${need === Infinity ? '' : `0 / ${need}`}</div><div class="viz">${chromaBars(new Float32Array(12), tones)}</div></div></div>
-    <div class="hint">Поставьте аккорд, включите микрофон и ударьте по струнам.</div>
-    <div class="row gap center wrap"><button class="btn primary start">🎤 Слушать</button><button class="btn ghost listen">▶ Как звучит</button></div>
+      <div class="cc-side"><div class="big cc-count">${need === Infinity ? '' : `0 / ${need}`}</div><div class="viz">${chromaBars(new Float32Array(12), tones)}</div><div class="muted small">какие ноты слышны</div></div></div>
+    <div class="hint">Поставьте ${chord}, включите микрофон и ударьте по струнам сверху вниз.</div>
+    ${MICBAR}
+    <div class="row gap center wrap"><button class="btn primary start">🎤 Слушать</button><button class="btn ghost sm listen">▶ Как звучит</button><button class="btn ghost sm arp">▶ По струнам</button></div>
     <div class="status"></div></div>`;
   let running = false, off = null, good = 0;
-  const hint = $('.hint', el);
+  const hint = $('.hint', el), offBar = micBar(el);
   $('.listen', el).onclick = () => strum(chord, 'D');
+  $('.arp', el).onclick = () => arpeggio(chord);
   $('.start', el).onclick = async () => {
     if (running) return stop();
     if (!(await startMic($('.status', el)))) return;
     running = true; $('.start', el).textContent = '⏹ Стоп';
     hint.textContent = 'Слушаю… ударьте по струнам.';
-    off = listenStrums((c, max, spec) => {
-      if (!c) { hint.innerHTML = '<span class="bad-t">Слишком тихо. Ударьте сильнее или поднесите телефон ближе.</span>'; return; }
-      $('.viz', el).innerHTML = chromaBars(c, tones);
-      const r = evalChord(chord, c, spec);
+    off = listenChords(strings, sp => {
+      if (tooQuiet(sp)) { hint.innerHTML = '<span class="bad-t">Слишком тихо. Ударьте увереннее или поднесите телефон ближе.</span>'; return; }
+      const r = judgeChord(sp, strings, S.settings.a4);
+      $('.viz', el).innerHTML = chromaBars(r.c, tones);
       if (r.ok) {
         good++;
         if (need !== Infinity) $('.cc-count', el).textContent = `${Math.min(good, need)} / ${need}`;
-        hint.innerHTML = `<span class="good-t">✓ Чисто! Все струны звучат.</span>`;
+        hint.innerHTML = `<span class="good-t">✓ Чисто! ${need === Infinity ? 'Все струны звучат.' : good < need ? 'Ещё раз.' : ''}</span>`;
         $('.diagram', el).innerHTML = chordSVG(chord);
         if (good === need) { stop(); onDone && onDone(); }
       } else {
         const { hints, bad } = chordHints(chord, r);
-        const guess = bestChordGuess(c, chord);
-        hint.innerHTML = `<span class="bad-t">${hints.join('<br>')}${guess ? `<br>Сейчас звучит больше похоже на ${guess}.` : ''}</span>`;
+        hint.innerHTML = `<span class="bad-t">${hints.join('<br>')}</span>`;
         $('.diagram', el).innerHTML = chordSVG(chord, { bad });
       }
     });
   };
-  function stop() { off && off(); running = false; stopMic(); $('.start', el).textContent = '🎤 Слушать'; }
-  return () => running && stop();
+  function stop() { off && off(); off = null; running = false; stopMic(); $('.start', el).textContent = '🎤 Слушать'; }
+  return () => { running && stop(); offBar(); };
 }
 
 // ============ Смены аккордов за минуту ============
-export function ChangesCounter(el, { chords, goal = 8, onDone, bestKey }) {
+export function ChangesCounter(el, { chords, goal = 8, onDone, bestKey, tip }) {
   const [a, b] = chords;
   el.innerHTML = `<div class="checker">
     <div class="row gap center">${chords.map(n => `<div class="diagram sm" data-c="${n}">${chordSVG(n)}</div>`).join('')}</div>
-    <div class="row gap center"><div class="big time">1:00</div><div class="big cnt">0</div></div>
-    <div class="hint">Цель: ${goal} смен. Рекорд: ${S.bests[bestKey] || 0}. Микрофон сам считает смены; если он не успевает, жмите «+1».</div>
+    ${tip ? `<div class="tip">🔁 ${tip}</div>` : ''}
+    <div class="row gap center chg-stats"><div><div class="big time">1:00</div><small class="muted">осталось</small></div><div><div class="big cnt">0</div><small class="muted">смен</small></div></div>
+    <div class="hint">Цель: ${goal} смен. Рекорд: ${S.bests[bestKey] || 0}. Микрофон сам считает смены; если не успевает — жмите «+1».</div>
+    ${MICBAR}
     <div class="row gap center wrap"><button class="btn primary start">▶ Старт</button><button class="btn ghost plus">+1</button></div>
     <div class="status"></div></div>`;
   let running = false, count = 0, prev = null, end = 0, timer = null, off = null, micOn = false;
   const set = () => { $('.cnt', el).textContent = count; };
+  const offBar = micBar(el);
+  const score = (sp, n) => { const r = judgeChord(sp, chordMidis(CHORDS[n]), S.settings.a4); return r.inChord - r.missing.length * 0.15 - (r.foreign != null ? 0.1 : 0); };
   $('.plus', el).onclick = () => { if (running) { count++; set(); } };
   $('.start', el).onclick = async () => {
     if (running) return finish(false);
     count = 0; prev = null; set();
     micOn = await startMic($('.status', el));
-    if (micOn) off = listenStrums(c => {
-      if (!c) return;
-      const ra = evalChord(a, c), rb = evalChord(b, c);
-      const cur = Math.max(ra.score, rb.score) < 0.55 ? null : ra.score > rb.score ? a : b;
+    if (micOn) off = listenChords(null, sp => {
+      if (tooQuiet(sp)) return;
+      const sa = score(sp, a), sb = score(sp, b);
+      const cur = Math.max(sa, sb) < 0.55 ? null : sa > sb ? a : b;
       el.querySelectorAll('.diagram').forEach(d => d.classList.toggle('cur', d.dataset.c === cur));
       if (cur && prev && cur !== prev) { count++; set(); }
       if (cur) prev = cur;
@@ -449,18 +608,18 @@ export function ChangesCounter(el, { chords, goal = 8, onDone, bestKey }) {
     }, 200);
   };
   function finish(complete) {
-    clearInterval(timer); off && off(); running = false; activity.delete('changes');
+    clearInterval(timer); off && off(); off = null; running = false; activity.delete('changes');
     if (micOn) stopMic();
     $('.start', el).textContent = '▶ Ещё раз';
     if (!complete) return;
     beep(660, 0.4);
     const rec = setBest(bestKey, count);
     $('.hint', el).innerHTML = count >= goal
-      ? `<span class="good-t">✓ ${count} смен за минуту${rec ? ' — новый рекорд!' : ''}. Следующая цель: ${Math.max(goal * 2, count + 5)}.</span>`
-      : `<span class="bad-t">${count} смен. Цель ${goal}. Не смотрите на струны: поднимайте все пальцы вместе и ставьте их одновременно.</span>`;
+      ? `<span class="good-t">✓ ${count} смен за минуту${rec ? ' — новый рекорд!' : ''}. Следующая цель: ${Math.max(goal + 5, count + 5)}.</span>`
+      : `<span class="bad-t">${count} смен, цель ${goal}. Не смотрите на струны: поднимайте все пальцы вместе и ставьте их одновременно.</span>`;
     if (count >= goal && onDone) onDone();
   }
-  return () => running && finish(false);
+  return () => { running && finish(false); offBar(); };
 }
 
 // ============ Таймер ============
@@ -473,7 +632,7 @@ export function TimerWidget(el, { seconds, metronome, onDone }) {
   const upd = () => { $('.time', el).textContent = fmt(left); $('.pbar i', el).style.width = `${100 - (left / seconds) * 100}%`; };
   function pause() {
     clearInterval(timer); timer = null; clock && clock.stop(); clock = null; activity.delete('timer'); keepAwake(false);
-    $('.start', el).textContent = left > 0 ? '▶ Продолжить' : '▶ Старт';
+    $('.start', el).textContent = left > 0 && left < seconds ? '▶ Продолжить' : '▶ Старт';
   }
   $('.start', el).onclick = () => {
     if (timer) return pause();
@@ -494,28 +653,60 @@ export function TimerWidget(el, { seconds, metronome, onDone }) {
 export function fmt(s) { s = Math.ceil(s); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; }
 
 // ============ Вопрос ============
-export function Quiz(el, { q, options, answer, onDone }) {
+export function Quiz(el, { q, options, answer, why, onDone }) {
   el.innerHTML = `<div class="checker"><div class="q">${q}</div><div class="opts">${options.map((o, i) => `<button class="btn opt" data-i="${i}">${o}</button>`).join('')}</div><div class="hint">&nbsp;</div></div>`;
   el.querySelectorAll('.opt').forEach(b => b.onclick = () => {
     const ok = +b.dataset.i === answer;
     b.classList.add(ok ? 'right' : 'wrong');
-    $('.hint', el).innerHTML = ok ? '<span class="good-t">✓ Верно!</span>' : '<span class="bad-t">Не совсем, попробуйте ещё.</span>';
+    $('.hint', el).innerHTML = ok ? `<span class="good-t">✓ Верно!</span>${why ? ` <span class="muted">${why}</span>` : ''}` : '<span class="bad-t">Не совсем, попробуйте ещё.</span>';
     if (ok && onDone) onDone();
   });
   return () => {};
 }
 
-// ============ Тренажёр боя ============
-// mode: 'free' (всё доступно), 'tap' (проверка тапами), 'mic' (проверка микрофоном)
+// ============ Запись себя ============
+export function Recorder(el, { onDone }) {
+  el.innerHTML = `<div class="checker"><div class="big rec-time">0:00</div>
+    <div class="row gap center wrap"><button class="btn primary rec">⏺ Записать</button></div>
+    <audio class="rec-audio" controls hidden></audio><div class="hint muted">До 2 минут. Запись остаётся только на этом устройстве.</div><div class="status"></div></div>`;
+  let rec = null, stream = null, chunks = [], t0 = 0, timer = null, url = null;
+  const btn = $('.rec', el), audio = $('.rec-audio', el);
+  btn.onclick = async () => {
+    if (rec) return rec.stop();
+    if (!window.MediaRecorder) { $('.status', el).innerHTML = '<div class="warn">Этот браузер не умеет записывать звук. Попробуйте Chrome или свежий Safari.</div>'; return; }
+    try { stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: true } }); }
+    catch (err) { $('.status', el).innerHTML = `<div class="warn">${micErrorText(err)}</div>`; return; }
+    chunks = []; rec = new MediaRecorder(stream);
+    rec.ondataavailable = e => e.data.size && chunks.push(e.data);
+    rec.onstop = () => {
+      clearInterval(timer); stream.getTracks().forEach(t => t.stop()); activity.delete('rec');
+      if (url) URL.revokeObjectURL(url);
+      url = URL.createObjectURL(new Blob(chunks, { type: rec.mimeType || 'audio/webm' }));
+      audio.src = url; audio.hidden = false; rec = null;
+      btn.textContent = '⏺ Записать заново';
+      $('.hint', el).innerHTML = 'Послушайте: ровный ли ритм? Звенят ли все струны? Где запинка — то место и повторите медленно.';
+      onDone && onDone();
+    };
+    rec.start(); t0 = performance.now(); activity.add('rec');
+    btn.textContent = '⏹ Стоп';
+    timer = setInterval(() => { const s = (performance.now() - t0) / 1000; $('.rec-time', el).textContent = fmt(s); if (s >= 120) rec && rec.stop(); }, 250);
+  };
+  return () => { if (rec) rec.stop(); };
+}
+
+// ============ Тренажёр боя и «играем вместе» ============
+// mode: 'free' (всё доступно), 'tap' (проверка тапами), 'mic' (проверка микрофоном), 'song' (тапы и микрофон, схемы аккордов)
 export function StrumTrainer(el, opts) {
   const o = { pattern: 'down4', bpm: 70, bars: 4, chord: 'Am', mode: 'free', ...opts };
   const chords = Array.isArray(o.chord) ? o.chord : [o.chord];
-  const free = o.mode === 'free';
+  const free = o.mode === 'free', song = o.mode === 'song';
+  const bars = song ? Math.max(o.bars, chords.length * 2) : o.bars;
   el.innerHTML = `<div class="strum">
     ${free ? `<div class="chips">${Object.entries(PATTERNS).map(([k, p]) => `<button class="chip ${k === o.pattern ? 'on' : ''}" data-p="${k}">${p.name}</button>`).join('')}</div>
       <div class="chips">${['Am', 'Em', 'C', 'G', 'Dm', 'E', 'D', 'A'].map(n => `<button class="chip ch ${n === chords[0] ? 'on' : ''}" data-c="${n}">${n}</button>`).join('')}
-      <button class="chip ch" data-c="Am,Dm,E,Am">Am–Dm–E–Am</button><button class="chip ch" data-c="G,Em,C,D">G–Em–C–D</button></div>` : ''}
+      <button class="chip ch" data-c="Am,Dm,E,Am">Am–Dm–E–Am</button><button class="chip ch" data-c="Am,C,Dm,G">Am–C–Dm–G</button><button class="chip ch" data-c="G,D,Em,C">G–D–Em–C</button></div>` : ''}
     <div class="row gap center bpm-row"><button class="btn ghost sm minus">−5</button><div class="bpm"><b>${o.bpm}</b> уд/мин</div><button class="btn ghost sm plus">+5</button></div>
+    ${song || chords.length > 1 && chords[0] ? '<div class="song-now"><div class="sn-cur"></div><div class="sn-next"></div></div>' : ''}
     <div class="now-chord"><span class="cur-ch"></span><span class="next-ch muted"></span><span class="beat-flash"></span></div>
     <div class="grid8"></div>
     <div class="pad" tabindex="0"><div class="pad-strings">${'<i></i>'.repeat(6)}</div><div class="hand"></div><div class="pad-fb"></div></div>
@@ -534,18 +725,25 @@ export function StrumTrainer(el, opts) {
   </div>`;
 
   let pattern = o.pattern, bpm = o.bpm, prog = chords;
-  let clock = null, run = null, raf = 0;
+  let clock = null, run = null, raf = 0, shownBar = -1;
   const grid = $('.grid8', el), pad = $('.pad', el), hand = $('.hand', el), padFb = $('.pad-fb', el);
+  const arrowOf = c => (c === 'D' ? '↓' : c === 'U' ? '↑' : c === 'X' ? '✕' : c === 'B' ? 'Б' : '·');
 
   function drawGrid(marks = {}) {
     const cells = PATTERNS[pattern].cells;
-    grid.innerHTML = cells.map((c, i) => `<div class="cell ${marks[i] || ''}" data-i="${i}"><div class="arr">${c === 'D' ? '↓' : c === 'U' ? '↑' : c === 'X' ? '✕' : '·'}</div><div class="cnt">${COUNT[i]}</div></div>`).join('');
+    grid.innerHTML = cells.map((c, i) => `<div class="cell ${marks[i] || ''} ${c === 'X' ? 'mute' : ''}" data-i="${i}"><div class="arr">${arrowOf(c)}</div><div class="cnt">${COUNT[i]}</div></div>`).join('');
   }
   drawGrid();
   const setChordLabel = bar => {
     const cur = prog[bar % prog.length], nxt = prog[(bar + 1) % prog.length];
-    $('.cur-ch', el).textContent = cur || '—';
+    $('.cur-ch', el).textContent = cur || 'открытая 6-я';
     $('.next-ch', el).textContent = prog.length > 1 ? `дальше: ${nxt}` : '';
+    const sn = $('.song-now', el);
+    if (sn && cur && bar !== shownBar) {
+      shownBar = bar;
+      $('.sn-cur', sn).innerHTML = chordSVG(cur);
+      $('.sn-next', sn).innerHTML = prog.length > 1 ? `<span class="muted">дальше</span>${chordSVG(nxt)}` : '';
+    }
   };
   setChordLabel(0);
 
@@ -556,21 +754,20 @@ export function StrumTrainer(el, opts) {
     });
     el.querySelectorAll('.chip.ch').forEach(b => b.onclick = () => {
       el.querySelectorAll('.chip.ch').forEach(x => x.classList.toggle('on', x === b));
-      prog = b.dataset.c.split(','); setChordLabel(0);
+      prog = b.dataset.c.split(','); shownBar = -1; setChordLabel(0);
     });
   }
   const setBpm = v => { bpm = Math.max(40, Math.min(180, v)); $('.bpm b', el).textContent = bpm; clock && clock.setBpm(bpm); };
   $('.minus', el).onclick = () => setBpm(bpm - 5);
   $('.plus', el).onclick = () => setBpm(bpm + 5);
 
-  // run: {kind:'demo'|'tap'|'mic', t0, expected:[], strokes:[], countIn}
   function start(kind) {
     stop();
     $('.result', el).innerHTML = '';
     const c = ctx();
     const cells = PATTERNS[pattern].cells;
     const countIn = kind === 'demo' ? 0 : 8;
-    const total = kind === 'demo' ? Infinity : countIn + o.bars * 8;
+    const total = kind === 'demo' ? Infinity : countIn + bars * 8;
     const clicks = $('.clk', el).checked;
     const hp = $('.hp', el) && $('.hp', el).checked;
     run = { kind, expected: [], strokes: [], countIn, total, cells };
@@ -584,8 +781,9 @@ export function StrumTrainer(el, opts) {
         if (countClick || playClick) click(t, step % 8 === 0);
       }
       if (inPlay && cell) {
-        if (kind === 'demo') strum(prog[bar % prog.length], cell, t);
-        else run.expected.push({ t, dir: cell === 'X' ? 'D' : cell, cell: ps % 8, hit: null });
+        const chord = prog[bar % prog.length];
+        if (kind === 'demo') strum(chord || [40], cell, t);
+        else run.expected.push({ t, dir: cell === 'U' ? 'U' : 'D', cell: ps % 8, hit: null });
       }
       const delay = Math.max(0, (t - c.currentTime) * 1000);
       setTimeout(() => {
@@ -614,7 +812,7 @@ export function StrumTrainer(el, opts) {
     $('.demo', el).textContent = kind === 'demo' ? '⏹ Стоп' : '▶ Демо';
   }
 
-  function latency() { return S.settings.latency ?? 0.06; }
+  function latency() { return S.settings.latency ?? 0.05; }
 
   function animate() {
     cancelAnimationFrame(raf);
@@ -634,11 +832,11 @@ export function StrumTrainer(el, opts) {
 
   function addStroke(t, dir) {
     if (!run || run.kind === 'demo') {
-      if (dir) strum(prog[0], dir);
+      if (dir) strum(prog[0] || [40], dir);
       flashPad(dir, '');
       return;
     }
-    if (run.kind === 'tap' && dir) strum(prog[Math.max(0, Math.floor((t - run.t0) / (60 / bpm) / 4)) % prog.length], dir);
+    if (run.kind === 'tap' && dir) strum(prog[Math.max(0, Math.floor((t - run.t0) / (60 / bpm) / 4)) % prog.length] || [40], dir);
     const tol = Math.min(0.13, (60 / bpm / 2) * 0.48);
     let best = null, bd = tol;
     for (const e of run.expected) { if (e.hit) continue; const d = Math.abs(t - e.t); if (d < bd) { bd = d; best = e; } }
@@ -667,7 +865,6 @@ export function StrumTrainer(el, opts) {
     const offs = exp.filter(e => e.hit).map(e => e.off);
     const mean = offs.length ? offs.reduce((a, b) => a + b, 0) / offs.length : 0;
     const sd = offs.length ? Math.sqrt(offs.reduce((a, b) => a + (b - mean) ** 2, 0) / offs.length) : 0;
-    // по ячейкам
     const per = {};
     exp.forEach(e => { per[e.cell] = per[e.cell] || { n: 0, ok: 0, miss: 0, dir: 0 }; per[e.cell].n++; if (e.hit === 'ok') per[e.cell].ok++; else if (e.hit === 'dir') per[e.cell].dir++; else per[e.cell].miss++; });
     const marks = {};
@@ -706,7 +903,7 @@ export function StrumTrainer(el, opts) {
     grid.querySelectorAll('.cell').forEach(x => x.classList.remove('now'));
     el.querySelector('.strum').classList.remove('testing');
     $('.demo', el).textContent = '▶ Демо';
-    setChordLabel(0);
+    shownBar = -1; setChordLabel(0);
   }
 
   $('.demo', el).onclick = () => (run && run.kind === 'demo' ? stop() : start('demo'));
@@ -767,6 +964,7 @@ export function Metronome(el) {
 }
 
 // ============ Калибровка задержки микрофона ============
+const median = a => { const s = [...a].sort((x, y) => x - y); return s[Math.floor(s.length / 2)]; };
 export async function calibrateLatency(statusEl) {
   if (!(await startMic(statusEl))) return null;
   const c = ctx(), heard = [], times = [];

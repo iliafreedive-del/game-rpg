@@ -1,7 +1,7 @@
 // Офлайн-кэш: приложение работает без интернета после первого открытия.
-const CACHE = 'guitar-v4';
+const CACHE = 'guitar-v5';
 const FILES = ['./', 'index.html', 'css/style.css', 'js/app.js', 'js/components.js', 'js/audio.js', 'js/data.js',
-  'js/svg.js', 'js/store.js', 'js/activity.js', 'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png'];
+  'js/svg.js', 'js/dsp.js', 'js/store.js', 'js/activity.js', 'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png'];
 
 self.addEventListener('install', e => e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)).then(() => self.skipWaiting())));
 self.addEventListener('activate', e => e.waitUntil(
