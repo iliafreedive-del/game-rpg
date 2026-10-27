@@ -135,7 +135,7 @@ export function gloss(tokens, i) {
     let subj = null;
     for (let k = i - 1; k >= 0 && !subj; k--) if (PRON.includes(low[k]) || look(low[k]) && !F[low[k]]) subj = low[k];
     if (isQ) subj = low.slice(i + 1).find(x => PRON.includes(x) || (look(x) && !F[x])) || subj;
-    res.ru = be.startsWith('w') ? 'был(и) / была' : '(есть, является)';
+    res.ru = be.startsWith('w') ? `был / были — to be в прошлом для ${BE_FORMS[be].replace(' (прошлое)', '')}` : `«быть» — форма для ${BE_FORMS[be]}`;
     const ing = (low[i + 1] && /ing$/.test(low[i + 1])) || (low[i + 2] && /ing$/.test(low[i + 2]) && low[i + 1] === 'not');
     const going = low[i + 1] === 'going' || low[i + 2] === 'going';
     res.note = `Форма глагола <b>to be</b> («быть») для ${BE_FORMS[be]}${subj ? ` — здесь подлежащее <b>${subj === 'i' ? 'I' : subj}</b>, поэтому <b>${be}</b>` : ''}.`

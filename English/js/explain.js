@@ -7,6 +7,11 @@ export const RULES = {
     text: 'В английском у каждого предложения есть подлежащее. Где по-русски его нет — «Холодно», «Поздно», «Идёт дождь» — ставят формальное <b>It</b>. Без него фраза звучит как обрывок.',
     ex: [['It is cold.', 'Холодно.'], ['It is late.', 'Поздно.'], ['It is raining.', 'Идёт дождь.']],
   },
+  subject_pron: {
+    title: 'Без «кто» нельзя: I, you, he, she…',
+    text: 'По-русски подлежащее часто опускают: «Не уверен», «Работаю», «Устал». В английском так нельзя — <b>подлежащее есть всегда</b>: I am not sure, I work, I am tired.',
+    ex: [['I am not sure.', 'Не уверен.'], ['I work at home.', 'Работаю дома.'], ['She is tired.', 'Устала.']],
+  },
   there: {
     title: 'There is / There are',
     text: 'Когда сообщаем, что что-то где-то <b>есть</b>, начинаем с There is (одно) / There are (много). Место — в конце.',
@@ -228,7 +233,7 @@ export function explain(user, variants) {
     const w = o.t;
     if (w === 'it' && o.ti === 0 || (w === 'it' && isQ && o.ti === 1)) add('subject', '«Холодно», «Поздно» — по-русски без подлежащего, а в английском нужно <b>It</b>.');
     else if (w === 'there') add('there', 'Нужно начать с <b>There</b>: There is / There are.');
-    else if (PRON.has(w) && (o.ti === 0 || (isQ && o.ti <= 2))) add('subject', `Пропущено подлежащее <b>${w}</b> — кто делает действие.`);
+    else if (PRON.has(w) && (o.ti === 0 || (isQ && o.ti <= 2))) add('subject_pron', `Пропущено подлежащее <b>${w}</b> — кто делает действие.`);
     else if (BE.has(w) && !u.some(x => BE.has(x))) {
       const nextIng = /ing$/.test(t[o.ti + 1] || '');
       add(nextIng ? 'continuous' : 'be_missing', nextIng ? `Нужен <b>${w}</b> перед глаголом с -ing.` : `Пропущен глагол <b>${w}</b>: без него в английском предложения нет.`);
@@ -292,7 +297,7 @@ export function explain(user, variants) {
     else if (y === 'than' && x === 'then') add('compare', '«чем» — <b>than</b> (then — «потом»).');
     else add(null, `<b>${y}</b>, а не «${x}».`);
   }
-  return { ops, points, rules: [...rules], target: best.v };
+  return { ops, points, rules: [...rules], target: best.v, low: best.score < 0.5 && t.length > 2 };
 }
 
 // Для вариантов вида «go → ?» и отдельных слов — сравниваем как слова.

@@ -430,6 +430,20 @@ function next() {
   render();
 }
 
+// Следующее задание отработки (или итог, если 3 подряд верно / задания кончились).
+function drillNext(start) {
+  const d = run.drill;
+  run.lastAct = Date.now();
+  if (!d) return next();
+  let item;
+  if (!start && d.streak >= d.need) { item = { type: 'drillDone', ok: true, n: d.done }; run.drill = null; }
+  else if (d.done >= d.max) { item = { type: 'drillDone', ok: false, n: d.done }; run.drill = null; }
+  else item = { ...X.drillItem(d), drill: true, again: true };
+  run.queue.splice(run.i + 1, 0, { ...item, block: run.queue[run.i].block });
+  run.i++;
+  render();
+}
+
 function render() {
   const ex = run.queue[run.i];
   const body = $('#rb'), foot = $('#rf');
@@ -440,6 +454,10 @@ function render() {
   if (ex.type === 'theory') return renderTheory(ex, body, foot);
   if (ex.type === 'lessonDone') return renderLessonDone(ex, body, foot);
   R[ex.type](ex, body, foot);
+  if (ex.drill && run.drill) {
+    const d = run.drill;
+    body.prepend(h(`<div class="drill-bar">🎯 Отработка · подряд верно: <b>${d.streak}</b> из ${d.need} ${'●'.repeat(d.streak)}${'○'.repeat(Math.max(0, d.need - d.streak))}</div>`));
+  }
 }
 
 function endBlock(ex) {
@@ -489,6 +507,15 @@ function renderLessonDone(ex, body, foot) {
   foot.append(b);
 }
 
+R.drillDone = (ex, body, foot) => {
+  body.innerHTML = ex.ok
+    ? `<div class="center"><div class="emoji">🎯</div><h1>Закреплено!</h1><p>Три раза подряд без ошибок — правило работает. Эти фразы ещё вернутся в повторении, чтобы не забылись.</p><p class="muted">Заданий в отработке: ${ex.n}</p></div>`
+    : `<div class="center"><div class="emoji">💪</div><h1>Хорошая работа</h1><p>Сделано ${ex.n} заданий на это правило. Идём дальше — фразы вернутся в работе над ошибками и в повторении.</p></div>`;
+  const b = h('<button class="btn primary big">Дальше</button>');
+  b.onclick = next;
+  foot.append(b);
+};
+
 R.retryNote = (ex, body, foot) => {
   body.innerHTML = '<div class="center"><div class="emoji">🔄</div><h1>Работа над ошибками</h1><p>Ещё раз задания, где были ошибки. Так они запоминаются лучше всего.</p></div>';
   const b = h('<button class="btn primary big">Поехали</button>');
@@ -537,9 +564,18 @@ function result({ ok, answer, ru, note, say, typo, skip, user, variants, points:
     if (e.target === answer && tw.length === tt.length) for (const o of e.ops) if (o.op === 'miss' || o.op === 'sub') mark[o.ti] = 'need';
     diff = `<div class="fb-you"><small>Твой ответ:</small> ${e.ops.filter(o => o.op !== 'miss').map(o =>
       o.op === 'eq' ? esc(o.u) : `<s>${esc(o.u)}</s>`).join(' ') || '—'}</div>`;
-    const pts = [...(extraPoints || []), ...(note ? [note] : []), ...e.points];
-    if (pts.length) why = `<div class="fb-why"><b>Почему:</b><ul>${pts.map(p => `<li>${p}</li>`).join('')}</ul></div>`;
-    rules = e.rules.slice(0, 2).map((k, i) => ruleCard(k, i === 0)).join('');
+    run.focus = e.ops.filter(o => o.op === 'miss' || o.op === 'sub').map(o => o.t);
+    if (e.low) {
+      // ответ далёк от правильного — вместо списка мелочей разбираем фразу по словам
+      const tok = tilesOf(answer);
+      why = `<div class="fb-why"><b>Разберём фразу по словам:</b><ul>${tok.map((w, i) => `<li><b>${esc(w)}</b> — ${esc(gloss(tok, i).ru || '')}</li>`).join('')}</ul>
+        ${note || extraPoints?.length ? `<p>💡 ${[...(extraPoints || []), ...(note ? [note] : [])].join(' ')}</p>` : ''}</div>`;
+      rules = e.rules.slice(0, 1).map(k => ruleCard(k, true)).join('');
+    } else {
+      const pts = [...(extraPoints || []), ...(note ? [note] : []), ...e.points];
+      if (pts.length) why = `<div class="fb-why"><b>Почему:</b><ul>${pts.map(p => `<li>${p}</li>`).join('')}</ul></div>`;
+      rules = e.rules.slice(0, 2).map((k, i) => ruleCard(k, i === 0)).join('');
+    }
   } else if (!ok && !skip && (note || extraPoints?.length)) {
     why = `<div class="fb-why"><b>Почему:</b><ul>${[...(extraPoints || []), ...(note ? [note] : [])].map(p => `<li>${p}</li>`).join('')}</ul></div>`;
   }
@@ -553,23 +589,23 @@ function result({ ok, answer, ru, note, say, typo, skip, user, variants, points:
     ${why}${rules}${lessonRule}
   </div>`));
   const btns = h('<div class="fb-btns"></div>');
-  // после ошибки можно сразу решить то же задание ещё раз, чтобы закрепить
-  if (!ok && !skip && ex.type !== 'match') {
-    const rep = h('<button class="btn big primary" id="rep">🔁 Повторить</button>');
-    rep.onclick = () => {
-      run.lastAct = Date.now();
-      const copy = ex.type === 'build' || ex.type === 'listen' ? X.build(ex, ex.type === 'listen') : ex;
-      run.queue.splice(run.i + 1, 0, { ...copy, block: ex.block, again: true });
-      run.i++;
-      render();
-    };
-    btns.append(rep);
-  }
-  const b = h(`<button class="btn big ${ok ? 'primary' : ''}" id="nxt">${run.timeUp && run.timed ? 'Завершить ⏰' : 'Дальше'}</button>`);
-  b.onclick = next;
-  btns.append(b);
+  const btn = (id, label, primary, fn) => { const x = h(`<button class="btn big ${primary ? 'primary' : ''}" id="${id}">${label}</button>`); x.onclick = fn; btns.append(x); };
+  const inDrill = run.drill && ex.drill;
+  if (inDrill && !skip) { run.drill.done++; run.drill.streak = ok ? run.drill.streak + 1 : 0; }
+  const timeOut = run.timeUp && run.timed;
+  if (timeOut) btn('nxt', 'Завершить ⏰', true, () => { run.drill = null; next(); });
+  else if (inDrill) {
+    // в отработке: дальше — следующая похожая фраза, или выйти
+    btn(ok ? 'nxt' : 'rep', ok ? 'Дальше' : '🎯 Ещё фраза', true, () => drillNext());
+    btn('drx', 'Хватит, дальше', false, () => { run.drill = null; next(); });
+  } else if (!ok && !skip && ex.type !== 'match') {
+    // после ошибки — выбор: отработать до конца или идти дальше
+    btn('rep', '🎯 Отработать', true, () => { run.drill = X.makeDrill(ex, run.focus); run.drillOf = ex; drillNext(true); });
+    btn('nxt', 'Дальше', false, next);
+  } else btn('nxt', 'Дальше', true, next);
   foot.append(btns);
-  (btns.firstChild).focus({ preventScroll: true });
+  if (!ok && !skip && !inDrill && !timeOut && ex.type !== 'match') foot.append(h('<div class="fb-hint drill-hint">🎯 Отработать — то же задание и похожие фразы на это правило, пока не получится 3 раза подряд</div>'));
+  btns.firstChild.focus({ preventScroll: true });
   if (say && ok && S.settings.autoplay && !['speak'].includes(ex.type)) speak(say);
 }
 const pick = a => a[Math.floor(Math.random() * a.length)];
@@ -795,7 +831,7 @@ document.addEventListener('keydown', e => {
   if (!run || run.paused) return;
   const tag = e.target.tagName;
   if (e.key === 'Enter' && tag !== 'TEXTAREA' && !e.target.closest?.('.tile,.opt,.say')) {
-    const b = $('#rep') || $('#nxt') || $('#chk') || $('#rf .btn.primary');
+    const b = $('#rf .fb-btns .btn.primary') || $('#chk') || $('#rf .btn.primary');
     if (b && !b.disabled) { e.preventDefault(); b.click(); }
   }
   if (/^[1-4]$/.test(e.key) && tag !== 'INPUT' && tag !== 'TEXTAREA' && !$('#nxt')) {
@@ -873,5 +909,14 @@ function closeRunSilently() {
 
 // ─────────────── Старт ───────────────
 route();
-if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
+if ('serviceWorker' in navigator && location.protocol === 'https:') {
+  navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(r => r.update()).catch(() => {});
+  // вышла новая версия — перезагружаемся, если не идёт занятие (иначе — при выходе на главную)
+  let reloaded = !navigator.serviceWorker.controller; // при первой установке перезагрузка не нужна
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (reloaded) return;
+    const go = () => { reloaded = true; location.reload(); };
+    if (!run) go(); else window.addEventListener('hashchange', go, { once: true });
+  });
+}
 window.__eng = { get run() { return run; }, render, X };  // для отладки и автотестов

@@ -316,3 +316,6 @@ details.rule .example { padding: 6px 8px; margin: 6px 0; }
 .run-foot.bad .fb-btns, .run-foot.ok .fb-btns { padding-bottom: 2px; }
 @media (max-width: 559px) { .run-foot:not(.col) { padding-bottom: 0; } .fb-btns { padding-bottom: calc(14px + var(--safe-b)) !important; background: inherit; } }
 @media (min-width: 560px) { .run-foot:not(.col) > .fb-btns { width: auto; min-width: 200px; } }
+.drill-bar { background: var(--accent-soft); color: var(--ink); border-radius: 12px; padding: 8px 12px; margin: 6px 0 4px; font-size: .92rem; }
+.drill-bar b { color: var(--accent); }
+.drill-hint { text-align: center; }
