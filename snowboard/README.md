@@ -5,7 +5,11 @@
 ![демонстрация поворотов](docs/screens/02_turns_demo.jpg)
 ![библиотека ошибок](docs/screens/04_mistakes.jpg)
 
-## Запуск
+## Играть онлайн
+
+https://iliafreedive-del.github.io/game-rpg/snowboard/ (GitHub Pages)
+
+## Запуск локально
 
 ```
 cd snowboard
