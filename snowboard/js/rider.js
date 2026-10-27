@@ -38,7 +38,7 @@ function solveIK(root, end, l1, l2, pole) {
 
 export class Rider {
   constructor({ ghost = false, palette = {} } = {}) {
-    const pal = { jacket: '#ff7a2f', pants: '#5f6672', helmet: '#f3f5f7', goggles: '#ffb100', frame: '#16181c', gloves: '#1d1f24', boots: '#2c3139', board: '#1f6feb', skin: '#e9b48f', accent: '#e11d48', gaiter: '#2f3e4f', ...palette };
+    const pal = { jacket: '#1ba7e3', jacket2: '#22306a', pants: '#686d75', helmet: '#f3f5f7', goggles: '#ffb100', frame: '#16181c', gloves: '#1d1f24', boots: '#2c3139', board: '#1f6feb', skin: '#e9b48f', accent: '#e11d48', gaiter: '#2f3e4f', ...palette };
     this.ghost = ghost;
     this.root = new THREE.Group();
     // Тело и крепления — в отражаемой группе (для goofy)

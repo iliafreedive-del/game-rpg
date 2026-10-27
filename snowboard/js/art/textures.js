@@ -1,6 +1,6 @@
 // Текстуры экипировки на canvas: швы, молнии, карманы, рисунок доски, деления диска.
 // Кэшируются по цветам: студия часто пересоздаёт райдеров.
-import { canvasTex, grain, shade } from './kit.js';
+import { canvasTex, grain, shade, curve } from './kit.js';
 
 const cache = new Map();
 const memo = (key, make) => { if (!cache.has(key)) cache.set(key, make()); return cache.get(key); };
@@ -10,64 +10,96 @@ function line(x, pts, color, w, dash) {
   x.beginPath(); pts.forEach(([a, b], i) => (i ? x.lineTo(a, b) : x.moveTo(a, b))); x.stroke(); x.setLineDash([]);
 }
 function rrect(x, a, b, w, h, r) { x.beginPath(); x.roundRect(a, b, w, h, r); }
+// Надпись на развёртке тела: u растёт справа налево, если смотреть снаружи, поэтому пишем зеркально
+function label(x, text, a, b) { x.save(); x.translate(a, b); x.scale(-1, 1); x.fillText(text, 0, 0); x.restore(); }
 
-// Куртка: развёртка торса. u — по кругу (0 — спина, 0.5 — грудь), y — высота от таза (−0.17…0.65).
+// Куртка: развёртка торса. u — по кругу (0 — спина, 0.25 — сторона носа доски, 0.5 — грудь),
+// y — высота от таза (−0.25…0.65); полоса y < −0.21 — подкладка. Цвета как у референса:
+// c — яркий низ и рукава, c2 — тёмная кокетка, плечи, воротник и капюшон.
+export const JACKET_V = (y) => (y + 0.25) / 0.9;
+// Низ подола: сзади длиннее, чем спереди
+export const jacketHem = (u) => -0.142 - 0.034 * ((1 + Math.cos(u * Math.PI * 2)) / 2) ** 2;
+// Граница цветов: по груди наискось (выше со стороны носа), по спине — дугой
+const YOKE = curve([[-0.25, 0.17], [0, 0.29], [0.25, 0.335], [0.5, 0.255], [0.75, 0.17], [1, 0.29], [1.25, 0.335]]);
 export const jacketTex = (c, c2) => memo(`j${c}${c2}`, () => canvasTex(512, 512, (x, W, H) => {
-  const Y = (y) => (1 - (y + 0.17) / 0.82) * H, U = (u) => u * W;
+  const Y = (y) => (1 - JACKET_V(y)) * H, U = (u) => u * W;
+  const yoke = (u) => YOKE(u)[0], N = 96, us = Array.from({ length: N + 1 }, (_, i) => i / N);
   x.fillStyle = c; x.fillRect(0, 0, W, H);
-  // кокетка контрастного цвета
+  // резинка подола — темнее, вдоль косого низа
+  x.fillStyle = shade(c, -0.2); x.beginPath(); x.moveTo(0, H);
+  us.forEach((u) => x.lineTo(U(u), Y(jacketHem(u) + 0.03))); x.lineTo(W, H); x.fill();
+  line(x, us.map((u) => [U(u), Y(jacketHem(u) + 0.03)]), shade(c, -0.32), 1.5);
+  // тёмная кокетка с кантом
   x.fillStyle = c2; x.beginPath(); x.moveTo(0, 0);
-  for (let i = 0; i <= 64; i++) { const u = i / 64; x.lineTo(U(u), Y(0.37 + 0.035 * Math.cos((u - 0.5) * Math.PI * 2) - 0.04 * Math.exp(-(((u - 0.5) / 0.06) ** 2)))); }
-  x.lineTo(W, 0); x.fill();
-  line(x, Array.from({ length: 65 }, (_, i) => { const u = i / 64; return [U(u), Y(0.37 + 0.035 * Math.cos((u - 0.5) * Math.PI * 2) - 0.04 * Math.exp(-(((u - 0.5) / 0.06) ** 2)))]; }), shade(c, 0.45), 2.5);
-  // подол и манжета воротника
-  x.fillStyle = shade(c, -0.22); x.fillRect(0, Y(-0.098), W, H - Y(-0.098));
-  x.fillStyle = shade(c2, -0.15); x.fillRect(0, 0, W, Y(0.585));
+  us.forEach((u) => x.lineTo(U(u), Y(yoke(u)))); x.lineTo(W, 0); x.fill();
+  line(x, us.map((u) => [U(u), Y(yoke(u)) + 1.5]), shade(c, 0.35), 2.5);
+  // воротник-стойка: верхний кант и внутренняя сторона
+  x.fillStyle = shade(c2, -0.18); x.fillRect(0, 0, W, Y(0.6));
+  line(x, [[0, Y(0.6)], [W, Y(0.6)]], shade(c, 0.1), 2);
   // боковые швы
-  for (const u of [0.25, 0.75]) line(x, [[U(u), 0], [U(u), H]], shade(c, -0.18), 1.5);
-  // ветрозащитная планка и молния
-  x.fillStyle = shade(c, 0.08); x.fillRect(U(0.5) - 9, Y(0.6), 18, Y(-0.17) - Y(0.6));
-  line(x, [[U(0.5), 0], [U(0.5), H]], '#1b1d22', 3);
-  for (let y = 4; y < H; y += 5) line(x, [[U(0.5) - 2.5, y], [U(0.5) + 2.5, y]], '#5b6068', 1);
-  x.fillStyle = '#c9ced6'; rrect(x, U(0.5) - 3, Y(0.56), 6, 13, 2); x.fill();
-  // карманы: нагрудный на молнии и два боковых
-  line(x, [[U(0.585), Y(0.335)], [U(0.625), Y(0.245)]], '#1b1d22', 3);
-  x.fillStyle = '#c9ced6'; x.fillRect(U(0.585) - 2, Y(0.335) - 2, 4, 9);
-  for (const s of [-1, 1]) line(x, [[U(0.5 + s * 0.085), Y(0.13)], [U(0.5 + s * 0.12), Y(0.01)]], shade(c, -0.4), 3);
-  // логотип на груди
-  x.fillStyle = shade(c2, 0.85); rrect(x, U(0.405) - 15, Y(0.3), 30, 14, 3); x.fill();
-  x.fillStyle = c; x.font = 'bold 11px sans-serif'; x.textAlign = 'center'; x.fillText('❄', U(0.405), Y(0.3) + 11);
-  grain(x, W, H, 9, 3);
+  for (const u of [0.25, 0.75]) line(x, [[U(u), Y(0.42)], [U(u), Y(-0.12)]], 'rgba(0,0,0,0.18)', 1.5);
+  // ветрозащитная планка (строчка по краям) и молния
+  for (const s of [-1, 1]) line(x, [[U(0.5) + s * 9, Y(0.6)], [U(0.5) + s * 9, Y(-0.2)]], 'rgba(0,0,0,0.2)', 1.2);
+  line(x, [[U(0.5), 0], [U(0.5), H]], '#15181f', 3);
+  for (let y = 4; y < Y(-0.22); y += 5) line(x, [[U(0.5) - 2.5, y], [U(0.5) + 2.5, y]], '#4d535c', 1);
+  x.fillStyle = '#d5dae1'; rrect(x, U(0.5) - 3, Y(0.6) + 2, 6, 14, 2); x.fill();
+  // нагрудный карман на молнии и логотип на тёмной кокетке (грудь со стороны носа)
+  line(x, [[U(0.585), Y(0.43)], [U(0.6), Y(0.34)]], '#15181f', 3);
+  x.fillStyle = c; rrect(x, U(0.585) - 2, Y(0.43) - 2, 4, 10, 2); x.fill();
+  x.fillStyle = c; x.font = 'bold 12px sans-serif'; x.textAlign = 'center';
+  label(x, 'SNOW', U(0.415), Y(0.41)); x.font = '9px sans-serif'; label(x, 'SCHOOL', U(0.415), Y(0.41) + 11);
+  // боковые карманы: косые молнии
+  for (const s of [-1, 1]) {
+    line(x, [[U(0.5 + s * 0.07), Y(0.15)], [U(0.5 + s * 0.105), Y(0.02)]], shade(c, -0.42), 3);
+    x.fillStyle = shade(c, -0.55); rrect(x, U(0.5 + s * 0.07) - 2, Y(0.15) - 2, 4, 9, 2); x.fill();
+  }
+  // логотип на спине
+  x.fillStyle = shade(c, 0.6); x.font = 'bold 13px sans-serif'; label(x, 'SNOW SCHOOL', U(0), Y(0.36)); label(x, 'SNOW SCHOOL', U(1), Y(0.36));
+  // подкладка
+  x.fillStyle = shade(c2, -0.45); x.fillRect(0, Y(-0.21), W, H - Y(-0.21));
+  grain(x, W, H, 8, 3);
 }, { aniso: 8 }));
 
-// Рукав: u — по кругу (0.25 — наружная сторона), y от плеча (−0.07) до манжеты (0.55)
+// Рукав: u — по кругу (0.25 — наружная сторона), y от плеча (−0.075) до манжеты (0.55).
+// Плечо тёмное (продолжает кокетку), остальное — яркое; манжета с липучкой накрывает перчатку.
 export const sleeveTex = (c, c2) => memo(`s${c}${c2}`, () => canvasTex(256, 512, (x, W, H) => {
   const Y = (y) => (1 - (y + 0.075) / 0.64) * H, U = (u) => u * W;
+  const cap = (u) => 0.075 + 0.055 * Math.cos((u - 0.25) * Math.PI * 2), N = 48, us = Array.from({ length: N + 1 }, (_, i) => i / N);
   x.fillStyle = c; x.fillRect(0, 0, W, H);
-  x.fillStyle = c2; x.fillRect(0, Y(0.07), W, H - Y(0.07));
-  line(x, [[0, Y(0.07)], [W, Y(0.07)]], shade(c, 0.45), 2.5);
+  x.fillStyle = c2; x.beginPath(); x.moveTo(0, H);
+  us.forEach((u) => x.lineTo(U(u), Y(cap(u)))); x.lineTo(W, H); x.fill();
+  line(x, us.map((u) => [U(u), Y(cap(u)) - 1.5]), shade(c, 0.35), 2.5);
   // манжета с липучкой
-  x.fillStyle = shade(c, -0.25); x.fillRect(0, 0, W, Y(0.475));
-  x.fillStyle = shade(c, -0.4); rrect(x, U(0.22), Y(0.53), U(0.1), Y(0.49) - Y(0.53), 3); x.fill();
-  // локтевые вытачки и шов по наружной стороне
+  x.fillStyle = shade(c, -0.2); x.fillRect(0, 0, W, Y(0.49));
+  line(x, [[0, Y(0.49)], [W, Y(0.49)]], shade(c, -0.32), 1.5);
+  x.fillStyle = shade(c, -0.42); rrect(x, U(0.2), Y(0.548), U(0.1), Y(0.5) - Y(0.548), 3); x.fill();
+  // локтевые вытачки и швы
   for (const y of [0.25, 0.335]) line(x, Array.from({ length: 17 }, (_, i) => { const u = 0.32 + i * 0.0225; return [U(u), Y(y + 0.012 * Math.sin((u - 0.32) * 8.7))]; }), shade(c, -0.2), 1.5);
-  line(x, [[U(0.25), Y(0.08)], [U(0.25), Y(0.47)]], shade(c, 0.35), 2);
-  line(x, [[U(0.75), 0], [U(0.75), H]], shade(c, -0.15), 1.2);
-  grain(x, W, H, 9, 5);
+  line(x, [[U(0.75), Y(0.05)], [U(0.75), H]], 'rgba(0,0,0,0.16)', 1.2);
+  grain(x, W, H, 8, 5);
 }, { aniso: 8 }));
+
+// Капюшон: u — по кругу валика, v — вдоль (концы у ключиц); кант по краю
+export const hoodTex = (c2, c) => memo(`hd${c2}${c}`, () => canvasTex(128, 128, (x, W, H) => {
+  x.fillStyle = c2; x.fillRect(0, 0, W, H);
+  x.fillStyle = shade(c2, -0.25); x.fillRect(W * 0.18, 0, W * 0.16, H);
+  line(x, [[W * 0.18, 0], [W * 0.18, H]], shade(c, 0.1), 2);
+  grain(x, W, H, 8, 13);
+}, { aniso: 4 }));
 
 // Штаны: u — по кругу (0.75 — наружная сторона передней ноги), y от таза (−0.075) до манжеты (0.93)
 export const pantsTex = (c) => memo(`p${c}`, () => canvasTex(512, 512, (x, W, H) => {
   const Y = (y) => (1 - (y + 0.075) / 1.0) * H, U = (u) => u * W;
   x.fillStyle = c; x.fillRect(0, 0, W, H);
   // накладной карман с клапаном на бедре
-  x.fillStyle = shade(c, 0.06); rrect(x, U(0.69), Y(0.31), U(0.12), Y(0.12) - Y(0.31), 6); x.fill();
-  x.strokeStyle = shade(c, -0.3); x.lineWidth = 1.5; x.setLineDash([3, 3]); rrect(x, U(0.69) + 3, Y(0.31) + 3, U(0.12) - 6, Y(0.12) - Y(0.31) - 6, 5); x.stroke(); x.setLineDash([]);
-  x.fillStyle = shade(c, -0.12); rrect(x, U(0.685), Y(0.325), U(0.13), 18, 5); x.fill();
-  x.fillStyle = shade(c, 0.5); for (const u of [0.72, 0.78]) { x.beginPath(); x.arc(U(u), Y(0.325) + 12, 2.5, 0, 7); x.fill(); }
-  // косая молния вентиляции над карманом — яркая, как на референсе
-  line(x, [[U(0.66), Y(0.395)], [U(0.715), Y(0.34)]], '#d9cf3f', 3.5);
-  x.fillStyle = '#d9cf3f'; rrect(x, U(0.66) - 3, Y(0.395) - 2, 6, 11, 2); x.fill();
+  x.fillStyle = shade(c, 0.06); rrect(x, U(0.66), Y(0.47), U(0.12), Y(0.31) - Y(0.47), 6); x.fill();
+  x.strokeStyle = shade(c, -0.3); x.lineWidth = 1.5; x.setLineDash([3, 3]); rrect(x, U(0.66) + 3, Y(0.47) + 3, U(0.12) - 6, Y(0.31) - Y(0.47) - 6, 5); x.stroke(); x.setLineDash([]);
+  x.fillStyle = shade(c, -0.12); rrect(x, U(0.655), Y(0.48), U(0.13), 18, 5); x.fill();
+  x.fillStyle = shade(c, 0.5); for (const u of [0.69, 0.75]) { x.beginPath(); x.arc(U(u), Y(0.48) + 12, 2.5, 0, 7); x.fill(); }
+  // длинная косая молния вентиляции по наружной стороне бедра — яркая, как на референсе
+  line(x, [[U(0.775), Y(0.14)], [U(0.72), Y(0.29)]], shade(c, -0.25), 7);
+  line(x, [[U(0.775), Y(0.14)], [U(0.72), Y(0.29)]], '#d4dc2c', 3.5);
+  x.fillStyle = '#d4dc2c'; rrect(x, U(0.775) - 3, Y(0.14) - 2, 6, 12, 2); x.fill();
   // швы: боковой, шаговый, коленные вытачки
   line(x, [[U(0.75), 0], [U(0.75), H]], shade(c, -0.25), 1.6);
   line(x, [[U(0.25), Y(0.02)], [U(0.25), H]], shade(c, -0.25), 1.6);
