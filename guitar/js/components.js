@@ -30,6 +30,17 @@ function stopMic() {
   keepAwake(false);
 }
 
+// Индикатор громкости: видно, что микрофон слышит звук
+const LEVEL_HTML = '<div class="level"><span>🎤</span><div class="level-bar"><i></i></div></div>';
+function showLevel(el) {
+  const bar = el.querySelector('.level-bar i');
+  if (!bar || !mic.stream) return 0;
+  const r = mic.rms();
+  bar.style.width = `${Math.min(100, Math.sqrt(r / 0.2) * 100)}%`;
+  bar.classList.toggle('low', r < 0.0012);
+  return r;
+}
+
 const median = a => { const s = [...a].sort((x, y) => x - y); return s[Math.floor(s.length / 2)]; };
 
 // ============ Тюнер ============
@@ -37,6 +48,7 @@ export function Tuner(el, { onAllTuned } = {}) {
   el.innerHTML = `<div class="tuner">
     <div class="tuner-note"><span class="tn-name">—</span><span class="tn-oct"></span></div>
     <div class="tuner-freq muted">Дёрните струну</div>
+    ${LEVEL_HTML}
     <div class="meter"><div class="meter-scale">${[-50, -25, 0, 25, 50].map(v => `<span>${v > 0 ? '+' : ''}${v}</span>`).join('')}</div>
       <div class="meter-bar"><div class="meter-zone"></div><div class="needle"></div></div></div>
     <div class="tuner-hint">&nbsp;</div>
@@ -51,7 +63,7 @@ export function Tuner(el, { onAllTuned } = {}) {
   </div>`;
   const nameEl = $('.tn-name', el), octEl = $('.tn-oct', el), freqEl = $('.tuner-freq', el), needle = $('.needle', el), hintEl = $('.tuner-hint', el);
   const auto = $('.auto', el);
-  let manual = null, running = false, timer = null, hist = [];
+  let manual = null, running = false, timer = null, hist = [], quiet = 0, noPitch = 0;
   const tuned = new Set(), inTuneFor = {};
   const btns = [...el.querySelectorAll('.str-btn')];
 
@@ -69,8 +81,15 @@ export function Tuner(el, { onAllTuned } = {}) {
   let last = performance.now();
   function frame() {
     const now = performance.now(), dt = (now - last) / 1000; last = now;
+    const lvl = showLevel(el);
     const p = mic.pitch();
-    if (!p || p.clarity < 0.85 || p.freq < 70 || p.freq > 700) { hist = []; return; }
+    if (!p || p.clarity < 0.7 || p.freq < 70 || p.freq > 700) {
+      hist = [];
+      if (lvl < 0.0012) { quiet += dt; if (quiet > 4) hintEl.textContent = 'Микрофон почти ничего не слышит. Поднесите гитару ближе или проверьте, что в браузере выбран нужный микрофон.'; }
+      else { quiet = 0; noPitch += dt; if (noPitch > 2) hintEl.textContent = 'Слышу звук, но не могу разобрать ноту. Дёрните одну струну, остальные приглушите ладонью.'; }
+      return;
+    }
+    quiet = 0; noPitch = 0;
     hist.push(freqToMidi(p.freq)); if (hist.length > 5) hist.shift();
     const m = median(hist);
     let target = manual;
@@ -106,6 +125,7 @@ export function Tuner(el, { onAllTuned } = {}) {
     if (running) { stop(); return; }
     if (!(await startMic($('.status', el)))) return;
     running = true; $('.start', el).textContent = '⏹ Выключить микрофон';
+    hintEl.textContent = 'Слушаю… дёрните любую струну.';
     last = performance.now();
     timer = setInterval(frame, 50);
   };
@@ -122,6 +142,7 @@ export function NoteChecker(el, { targets, onDone }) {
     <div class="fb"></div>
     <div class="target big"></div>
     <div class="hint">&nbsp;</div>
+    ${LEVEL_HTML}
     <div class="row gap wrap center">
       <button class="btn primary start">🎤 Слушать</button>
       <button class="btn ghost listen">▶ Как звучит</button>
@@ -159,9 +180,10 @@ export function NoteChecker(el, { targets, onDone }) {
 
   function frame() {
     if (i >= targets.length) return;
+    showLevel(el);
     const p = mic.pitch();
     const now = performance.now();
-    if (!p || p.clarity < 0.82) { stable = { r: null, since: now }; return; }
+    if (!p || p.clarity < 0.7) { stable = { r: null, since: now }; return; }
     const m = freqToMidi(p.freq), r = Math.round(m), cents = (m - r) * 100;
     if (r !== stable.r) { stable = { r, since: now }; return; }
     if (now - stable.since < 160 || !armed) return;

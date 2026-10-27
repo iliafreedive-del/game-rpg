@@ -1,5 +1,5 @@
 // Офлайн-кэш: приложение работает без интернета после первого открытия.
-const CACHE = 'guitar-v1';
+const CACHE = 'guitar-v2';
 const FILES = ['./', 'index.html', 'css/style.css', 'js/app.js', 'js/components.js', 'js/audio.js', 'js/data.js',
   'js/svg.js', 'js/store.js', 'js/activity.js', 'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png'];
 
