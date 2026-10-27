@@ -1,6 +1,6 @@
 // Склон, лес, ворота, след доски, снежная пыль и камера.
 import * as THREE from 'three';
-import { HORIZON, terrainH, snowTextures, buildForest, makeBackdrop, sprayTexture } from './art/scenery.js';
+import { HORIZON, SUN_DIR, terrainH, snowTint, oldTracks, resortProps, snowTextures, buildForest, makeBackdrop, sprayTexture } from './art/scenery.js';
 
 export class SlopeFrame {
   constructor(deg) { this.set(deg); }
@@ -23,7 +23,7 @@ export class World {
     this.scene.fog = new THREE.Fog(sky, 50, 480);
     this.frame = new SlopeFrame(12);
 
-    const hemi = new THREE.HemisphereLight('#d8ebff', '#8a9db5', 1.2);
+    const hemi = new THREE.HemisphereLight('#d6e8ff', '#7f93b3', 1.15);
     this.scene.add(hemi);
     const sun = new THREE.DirectionalLight('#fff1dc', 2.35);
     sun.castShadow = true;
@@ -51,33 +51,47 @@ export class World {
     if (this.builtDeg === deg) return;
     this.builtDeg = deg;
     this.frame.set(deg);
+    // горы фона стоят на продолжении склона — пересобираем под его крутизну
+    this.scene.remove(this.backdrop);
+    this.backdrop.traverse((o) => { if (o.isMesh) { o.geometry.dispose(); o.material.dispose(); } });
+    this.backdrop = makeBackdrop(1, deg);
+    this.scene.add(this.backdrop);
     this.slopeGroup.traverse((o) => { if (o.isInstancedMesh) o.dispose(); else if (o.isMesh && o.parent !== this.gatesGroup) o.geometry.dispose(); });
     const f = this.frame;
     for (const ch of [...this.slopeGroup.children]) if (ch !== this.gatesGroup && ch !== this.markGroup) this.slopeGroup.remove(ch);
     // поверхность: ровная трасса в вельвете и целина по краям (бровка, бугры, стены долины)
-    const S0 = -160, S1 = 1400, ns = 260;
+    const S0 = -420, S1 = 1400, ns = 420;
     const strip = (us, mat) => {
       const g = new THREE.PlaneGeometry(1, 1, us.length - 1, ns);
-      const pos = g.attributes.position, uv = g.attributes.uv, v = new THREE.Vector3();
+      const pos = g.attributes.position, uv = g.attributes.uv, v = new THREE.Vector3(), c = new THREE.Color();
+      const col = new Float32Array(pos.count * 3);
       for (let i = 0; i < pos.count; i++) {
         const j = i % us.length, u = us[j], s = S1 - (Math.floor(i / us.length) / ns) * (S1 - S0);
         f.p(u, s, terrainH(u, s), v); pos.setXYZ(i, v.x, v.y, v.z);
         uv.setXY(i, u / 6, s / 6);
+        snowTint(u, s, c).toArray(col, i * 3);
       }
+      g.setAttribute('color', new THREE.BufferAttribute(col, 3));
       g.computeVertexNormals();
       const m = new THREE.Mesh(g, mat); m.receiveShadow = true;
       this.slopeGroup.add(m);
     };
     const offU = [22];
     for (let u = 22.5; u < 230; u += u < 27 ? 0.5 : u < 40 ? 1.3 : u < 90 ? 4 : 10) offU.push(u);
-    const powder = new THREE.MeshStandardMaterial({ map: this.snow.powder, roughness: 0.96, color: '#f3f7fc' });
-    strip([-22, -11, 0, 11, 22], new THREE.MeshStandardMaterial({ map: this.snow.piste, bumpMap: this.snow.bump, bumpScale: 0.6, roughness: 0.9 }));
+    const powder = new THREE.MeshStandardMaterial({ map: this.snow.powder, roughness: 0.96, color: '#f6f9fd', vertexColors: true });
+    const pisteU = [];
+    for (let u = -22; u <= 22.001; u += 0.55) pisteU.push(u);
+    strip(pisteU, new THREE.MeshStandardMaterial({ map: this.snow.piste, bumpMap: this.snow.bump, bumpScale: 0.6, roughness: 0.9, vertexColors: true }));
+    this.slopeGroup.add(oldTracks(f, S0 + 100, S1));
     strip(offU, powder);
     strip(offU.map((u) => -u).reverse(), powder);
 
     // лес — кусками по 100 м, дальние куски скрываются (иначе в тумане они «светятся» на фоне гор)
     this.chunks = buildForest(f, S0, S1);
     for (const c of this.chunks) this.slopeGroup.add(c);
+    // подъёмник и защитные сетки
+    this.props = resortProps(f, S0, S1);
+    this.slopeGroup.add(this.props.group);
     const m = new THREE.Matrix4(), sc = new THREE.Vector3();
 
     // вешки границы трассы
@@ -142,9 +156,10 @@ export class World {
     (this.targetMeshes || []).forEach((g, k) => { g.visible = k >= i; g.traverse((o) => { if (o.material) o.material.color?.set(k === i ? '#f59e0b' : '#94a3b8'); }); });
   }
 
-  follow(target, s = null) {
+  follow(target, s = null, t = 0) {
+    if (this.props) this.props.update(t);
     if (s != null && this.chunks) for (const c of this.chunks) c.visible = Math.abs(c.userData.s - s) < (c.userData.cull || 330);
-    this.sun.position.copy(target).add(new THREE.Vector3(18, 30, 10));
+    this.sun.position.copy(target).addScaledVector(SUN_DIR, 36);
     this.sun.target.position.copy(target);
     this.backdrop.position.set(target.x, target.y, target.z);
   }
