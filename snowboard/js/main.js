@@ -248,7 +248,7 @@ function updateRide(dt) {
     prevSnap = snap();
     if (!sim.fallen && !app.ended) {
       const input = app.demo ? L.auto(sim, app.t, app.ls) : readInput(STEP);
-      if (app.demo) { app.caption = input.caption; app.demoSlow = input.slow || null; app.captionKind = input.mistake ? 'danger' : 'info'; }
+      if (app.demo) { app.caption = input.caption; app.dont = input.dont || ''; app.demoSlow = input.slow || null; app.captionKind = input.mistake ? 'danger' : 'info'; }
       sim.step(STEP, input);
       if (Math.abs(sim.u) > 21) sim.fall('out');
       if (sim.s > 1300) { app.ended = true; }
@@ -338,6 +338,8 @@ function updateHud(dt) {
     $('demoCaption').textContent = app.caption || '';
     $('demoBanner').classList.toggle('mistake', app.captionKind === 'danger');
     $('demoCam').textContent = CAM_NAMES[rig.mode];
+    $('demoDont').innerHTML = app.dont ? `<b>${app.captionKind === 'danger' ? 'Правильно:' : 'Не делай:'}</b> ${app.dont}` : '';
+    show('demoDont', !!app.dont);
     const e = Math.abs(deg), ws = front >= 53 ? 'вперёд' : front <= 47 ? 'НАЗАД' : 'центр';
     $('demoLive').innerHTML = `<span>кант <b>${e.toFixed(0)}°</b> ${deg > 1.5 ? 'носки' : deg < -1.5 ? 'пятки' : 'плоско'}</span><span class="${front < 47 ? 'bad' : ''}">вес <b>${front}%</b> на передней · ${ws}</span><span><b>${(sim.speed * 3.6).toFixed(0)}</b> км/ч</span>`;
     setCoach(app.captionKind || 'info', app.caption || '');
@@ -347,7 +349,12 @@ function updateHud(dt) {
   const w = sim.warnings[0];
   if (w) { const [k, txt] = WARN_TEXT[w]; setCoach(k, txt); }
   else if (app.lesson.maxSpeed && sim.speed > app.lesson.maxSpeed) setCoach('warn', 'Быстровато для этого упражнения. Доску поперёк склона и на верхний кант — затормози.');
-  else setCoach('info', app.lesson.goal);
+  else {
+    // без ошибок — цель урока и по очереди «фишки инструктора», чтобы подсказка была всегда
+    const tips = app.lesson.tips || [];
+    const tip = tips.length ? tips[Math.floor(app.t / 7) % tips.length] : '';
+    setCoach('info', app.lesson.goal + (tip ? `<div class="tip">Совет: ${tip}</div>` : ''));
+  }
 }
 
 // ---------------------------------------------------------------- разбор падения
