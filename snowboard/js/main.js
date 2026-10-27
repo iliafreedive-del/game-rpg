@@ -5,6 +5,7 @@ import { MISTAKES } from './mistakes.js';
 import { Rider } from './rider.js';
 import { World, CameraRig, CAM_MODES, CAM_NAMES } from './world.js';
 import { decorateStudio } from './art/scenery.js';
+import { PAUSE, newPauses, keyMoment } from './pauses.js';
 
 const $ = (id) => document.getElementById(id);
 const D = Math.PI / 180;
@@ -179,6 +180,7 @@ function startRide(id, demo, opts = {}) {
   app.background = !!opts.background;
   if (!opts.keepFalls) app.falls = 0;
   app.ls = {}; L.init(app.ls); prevSnap = null; acc = 0;
+  app.pauses = newPauses(); app.pause = null; app.held = null;
   world.build(L.slopeDeg);
   world.setGates(L.gates);
   world.setTargets(L.targets ? L.targets.map((u) => u * toeSign()) : null);
@@ -245,13 +247,18 @@ function interpState() {
 function updateRide(dt) {
   const L = app.lesson;
   if (app.replay) return updateReplay(dt);
-  acc += dt * Math.min(app.slow, app.demo && app.demoSlow ? app.demoSlow : 1);
+  if (app.pause && (app.pause.left -= dt) <= 0) app.pause = null;
+  if (!app.pause) acc += dt * Math.min(app.slow, app.demo && app.demoSlow ? app.demoSlow : 1);
   let steps = 0;
-  while (acc >= STEP && steps < 20) {
+  while (acc >= STEP && steps < 20 && !app.pause) {
+    const live = !sim.fallen && !app.ended;
+    // автопилот зовём ровно раз за шаг (у него есть состояние); на паузе ввод ждёт в app.held
+    const input = !live ? null : app.demo ? (app.held || L.auto(sim, app.t, app.ls)) : readInput(STEP);
+    app.held = null;
+    if (live && app.demo && !app.background && (app.pause = keyMoment(app.pauses, app.t, input))) { app.held = input; break; }
     acc -= STEP; steps++;
     prevSnap = snap();
-    if (!sim.fallen && !app.ended) {
-      const input = app.demo ? L.auto(sim, app.t, app.ls) : readInput(STEP);
+    if (live) {
       if (app.demo) { app.caption = input.caption; app.dont = input.dont || ''; app.demoSlow = input.slow || null; app.captionKind = input.mistake ? 'danger' : 'info'; }
       sim.step(STEP, input);
       if (Math.abs(sim.u) > 21) sim.fall('out');
@@ -334,7 +341,10 @@ function updateHud(dt) {
   const deg = sim.edgeDeg;
   $('gBoard').setAttribute('transform', `rotate(${(-deg).toFixed(1)} 80 60)`);
   $('gDeg').textContent = `${Math.abs(deg).toFixed(0)}° ${deg > 1.5 ? 'носки' : deg < -1.5 ? 'пятки' : 'плоско'}`;
-  $('edgeGauge').setAttribute('class', sim.danger > 0.45 ? 'danger' : sim.grip > 0.6 ? 'carve' : '');
+  const P = app.demo ? app.pause : null;
+  $('edgeGauge').setAttribute('class', (sim.danger > 0.45 ? 'danger' : sim.grip > 0.6 ? 'carve' : '') + (P?.focus === 'edge' ? ' focus' : ''));
+  document.querySelector('#body .wrow').classList.toggle('focus', P?.focus === 'weight');
+  rider.comBall.scale.setScalar(P?.focus === 'weight' ? 1.6 : 1);
   $('wMark').style.left = (50 + sim.weight * 45).toFixed(0) + '%';
   const front = Math.round(50 + sim.weight * 30);
   $('bodyStats').innerHTML = `<span>Скорость</span><b>${(sim.speed * 3.6).toFixed(0)} км/ч</b><span>Вес вперёд</span><b>${front}%</b><span>Ноги</span><b>${sim.stiff > 0.5 ? 'прямые!' : sim.crouch > 0.5 ? 'присел' : 'согнуты'}</b><span>Ход</span><b>${sim.speed < 0.3 ? 'стоп' : sim.grip > 0.6 ? 'карвинг' : sim.slip > 0.6 ? 'боком' : sim.slip > 0.15 ? 'юз' : 'скольжение'}</b>`;
@@ -342,6 +352,8 @@ function updateHud(dt) {
     $('demoCaption').textContent = app.caption || '';
     $('demoBanner').classList.toggle('mistake', app.captionKind === 'danger');
     $('demoCam').textContent = CAM_NAMES[rig.mode];
+    $('demoPause').innerHTML = P ? `<b><span class="pi"></span>Пауза.</b> ${P.look}<i style="transform:scaleX(${clamp(P.left / PAUSE.len, 0, 1).toFixed(2)})"></i>` : '';
+    show('demoPause', !!P);
     $('demoDont').innerHTML = app.dont ? `<b>${app.captionKind === 'danger' ? 'Правильно:' : 'Не делай:'}</b> ${app.dont}` : '';
     show('demoDont', !!app.dont);
     const e = Math.abs(deg), ws = front >= 53 ? 'вперёд' : front <= 47 ? 'НАЗАД' : 'центр';

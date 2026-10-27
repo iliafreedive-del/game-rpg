@@ -70,6 +70,12 @@ kbd { display: inline-block; min-width: 22px; padding: 1px 6px; border-radius: 6
 #demoBanner .dh { display: flex; justify-content: space-between; gap: 8px; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #7dd3fc; }
 #demoBanner .dh i { font-style: normal; text-transform: none; letter-spacing: 0; color: #bae6fd; }
 #demoCaption { font-size: 18px; line-height: 1.35; margin: 4px 0 6px; font-weight: 600; }
+#demoPause { margin: 2px auto 6px; padding: 5px 10px; border-radius: 8px; background: rgba(250,204,21,.16); border: 1px solid #facc15; color: #fef9c3; font-size: 14px; line-height: 1.35; }
+#demoPause b { color: #facc15; }
+#demoPause .pi { display: inline-block; width: 9px; height: 11px; margin-right: 6px; border-left: 3px solid #facc15; border-right: 3px solid #facc15; box-sizing: border-box; vertical-align: -1px; }
+#demoPause i { display: block; height: 3px; margin-top: 4px; border-radius: 2px; background: #facc15; transform-origin: left; }
+#edgeGauge.focus, #body .wrow.focus { outline: 2px solid #facc15; outline-offset: 3px; border-radius: 6px; animation: focusPulse .5s ease-in-out infinite alternate; }
+@keyframes focusPulse { from { outline-color: rgba(250,204,21,.3); } to { outline-color: #facc15; } }
 #demoDont { font-size: 14px; color: #fde68a; margin: 0 0 6px; }
 #demoDont b { color: #fbbf24; }
 #demoBanner.mistake #demoDont, #demoBanner.mistake #demoDont b { color: #bbf7d0; }
@@ -156,6 +162,7 @@ kbd { display: inline-block; min-width: 22px; padding: 1px 6px; border-radius: 6
   #demoCaption { font-size: 15px; }
   #demoLive { font-size: 12px; }
   #demoDont { font-size: 13px; margin-bottom: 4px; }
+  #demoPause { font-size: 13px; padding: 4px 8px; margin-bottom: 4px; }
   #pip { top: 316px; bottom: auto; left: 8px; right: auto; width: 150px; height: 112px; }
   #hud.demo #pip { top: 76px; left: auto; right: 8px; }
   #pip span { font-size: 10px; padding: 2px 6px; }
