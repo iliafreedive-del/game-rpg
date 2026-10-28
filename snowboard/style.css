@@ -225,13 +225,13 @@ kbd { display: inline-block; min-width: 22px; padding: 1px 6px; border-radius: 6
   #demoLive { font-size: 12px; }
   #demoDont { font-size: 13px; margin-bottom: 4px; }
   #demoPause { font-size: 13px; padding: 4px 8px; margin-bottom: 4px; }
-  #pip { top: 316px; bottom: auto; left: 8px; right: auto; width: 150px; height: 112px; }
+  #pip { top: 316px; bottom: auto; left: 8px; right: auto; width: 130px; height: 96px; }
   #hud.demo #pip { top: 76px; left: auto; right: 8px; }
   #pip span { font-size: 10px; padding: 2px 6px; }
   #body { top: 76px; bottom: auto; left: 8px; width: 140px; padding: 4px 8px; }
   #hudBtns { right: 8px; bottom: 8px; left: 8px; justify-content: center; flex-wrap: nowrap; }
-  #hudBtns .btn.sm { padding: 8px 10px; font-size: 14px; white-space: nowrap; }
-  #hudBtns .camName { display: none; }
+  #hudBtns .btn.sm { padding: 8px 9px; font-size: 14px; white-space: nowrap; }
+  #hudBtns .camName, #bVoice .vt { display: none; }
   #touch .tl, #touch .tr { bottom: 56px; }
   #touch .tl { left: 8px; } #touch .tr { right: 8px; }
   #studioPanel { top: auto; height: 52%; bottom: 0; left: 0; right: 0; width: 100%; max-width: none; border-radius: 16px 16px 0 0; }
