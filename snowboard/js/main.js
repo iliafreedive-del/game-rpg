@@ -160,7 +160,7 @@ function voiceStop() { if (voice.ok) speechSynthesis.cancel(); voice.last = ''; 
 function renderVoiceBtn() {
   const b = $('bVoice'); if (!b) return;
   b.classList.toggle('hidden', !voice.ok || !app.demo);
-  b.textContent = voiceOn() ? '🔊 Голос' : '🔇 Голос';
+  b.innerHTML = (voiceOn() ? '🔊' : '🔇') + '<span class="vt"> Голос</span>'; // на телефоне остаётся только значок
   b.classList.toggle('on', voiceOn());
 }
 if (voice.ok) speechSynthesis.getVoices(); // iOS отдаёт список голосов только после первого запроса
