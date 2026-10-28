@@ -172,7 +172,8 @@ p{margin:6px 0}
 @media (max-height:500px){#title h1 img{max-height:19vh}}   /* телефон горизонтально: логотип не выше старого текстового заголовка */
 #title .sub{font:italic clamp(14px,3vw,19px) var(--serif);color:#c9b8e8}
 #title .btn{min-width:220px;font:600 17px var(--serif);padding:12px 20px}
-#titleBtns .transfer{flex-direction:row;justify-content:center;gap:8px;margin-top:2px} #titleBtns .transfer .btn{min-width:0;font-size:13px;padding:6px 12px;opacity:.85}   /* сборка 75: перенос сохранения — мелкие кнопки, не спорят с «Начать игру» */
+#titleBtns .transfer{flex-direction:row;justify-content:center;gap:8px;margin-top:2px} #titleBtns .transfer .btn{min-width:0;font-size:13px;padding:6px 12px;opacity:.85}
+.transfer .btn{white-space:nowrap}   /* сборка 75: перенос сохранения — мелкие кнопки, не спорят с «Начать игру» */
 #title .hero{width:min(34vh,200px);height:min(34vh,200px);background:center/contain no-repeat;filter:drop-shadow(0 0 20px #7a3ad0)}
 #loadbar{width:min(300px,70vw);height:6px;border-radius:3px;background:#0008;overflow:hidden;border:1px solid #3a2e30}#loadbar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#8a6320,#e9c46a)}
 #death{position:fixed;inset:0;z-index:25;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:radial-gradient(#3a0808cc,#000e 70%);text-align:center;padding:20px}
