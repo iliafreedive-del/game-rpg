@@ -36,6 +36,15 @@ h1 { margin: 0; font-size: 30px; letter-spacing: .3px; }
 .lesson .n { font-size: 12px; color: var(--accent); font-weight: 700; }
 .lesson .t { font-weight: 650; font-size: 16px; margin: 2px 0; }
 .lesson .s { color: var(--mute); font-size: 13px; }
+.lesson.next { display: block; width: 100%; margin: 4px 0 14px; padding: 14px 18px; background: linear-gradient(135deg, rgba(14,165,233,.28), rgba(15,23,42,.9)); border-color: var(--accent); min-height: 0; }
+.lesson.next .n { color: #bae6fd; }
+.lesson.next .t { font-size: 20px; }
+.lesson.next .s { color: #e2e8f0; }
+.lesson.next .bar { margin-top: 10px; height: 6px; border-radius: 3px; background: rgba(255,255,255,.14); overflow: hidden; }
+.lesson.next .bar i { display: block; height: 100%; background: var(--accent); border-radius: 3px; }
+.lesson.next.done { cursor: default; }
+.lesson.next.done:hover { transform: none; }
+.menu-foot .chip { margin-left: 8px; vertical-align: middle; }
 .lesson .st { position: absolute; top: 12px; right: 12px; color: var(--warn); letter-spacing: 1px; }
 .lesson.special { background: linear-gradient(135deg, rgba(251,146,60,.25), rgba(15,23,42,.85)); }
 .menu-foot { max-width: 980px; margin: 26px auto 0; color: var(--mute); font-size: 13px; }
@@ -53,6 +62,8 @@ h1 { margin: 0; font-size: 30px; letter-spacing: .3px; }
 .tips li { margin: 4px 0; }
 .goal { margin-top: 12px; padding: 10px 14px; background: rgba(56,189,248,.12); border-left: 3px solid var(--accent); border-radius: 8px; }
 .goal:empty { display: none; }
+.goal .variants { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+.goal .chip.v.on { background: var(--accent); color: #0b1220; border-color: var(--accent); font-weight: 600; }
 .keys { margin-top: 12px; display: flex; flex-wrap: wrap; gap: 8px 16px; color: var(--mute); font-size: 13px; }
 kbd { display: inline-block; min-width: 22px; padding: 1px 6px; border-radius: 6px; background: #1e293b; border: 1px solid #475569; color: #fff; font: 600 12px/18px ui-monospace, monospace; text-align: center; }
 
@@ -66,7 +77,7 @@ kbd { display: inline-block; min-width: 22px; padding: 1px 6px; border-radius: 6
 #hudGoal { color: var(--mute); font-size: 13px; }
 .bar { height: 5px; background: #1e293b; border-radius: 3px; margin-top: 6px; overflow: hidden; }
 .bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .2s; }
-#demoBanner { position: absolute; bottom: 60px; left: 50%; transform: translateX(-50%); width: min(720px, calc(100% - 480px)); min-width: 320px; background: rgba(8,47,73,.9); color: #fff; border: 1px solid rgba(56,189,248,.6); border-radius: 14px; padding: 8px 16px 10px; text-align: center; box-shadow: 0 6px 24px rgba(0,0,0,.3); }
+#demoBanner { position: absolute; bottom: 60px; left: 50%; transform: translateX(-50%); width: min(900px, calc(100% - 450px)); min-width: 320px; background: rgba(8,47,73,.9); color: #fff; border: 1px solid rgba(56,189,248,.6); border-radius: 14px; padding: 8px 16px 10px; text-align: center; box-shadow: 0 6px 24px rgba(0,0,0,.3); }
 #demoBanner .dh { display: flex; justify-content: space-between; gap: 8px; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #7dd3fc; }
 #demoBanner .dh i { font-style: normal; text-transform: none; letter-spacing: 0; color: #bae6fd; }
 #demoCaption { font-size: 18px; line-height: 1.35; margin: 4px 0 6px; font-weight: 600; }
@@ -239,4 +250,32 @@ kbd { display: inline-block; min-width: 22px; padding: 1px 6px; border-radius: 6
   #hudGoal .tt { font-size: 20px; }
   #toast { top: 30%; }
   .ttime { font-size: 36px; }
+}
+
+/* Телефон боком: верх — название и кнопки, низ — панель канта и субтитры, ничего не наезжает на райдера */
+@media (max-height: 500px) and (orientation: landscape) {
+  #hudTop { top: 6px; left: 8px; transform: none; min-width: 0; max-width: 42%; padding: 4px 10px; text-align: left; }
+  #hudTitle { font-size: 13px; }
+  #hudGoal { font-size: 12px; }
+  #hudTop .bar { margin-top: 4px; }
+  #hudBtns { top: 6px; bottom: auto; right: 8px; left: auto; flex-wrap: nowrap; }
+  #hudBtns .btn.sm { padding: 6px 9px; font-size: 12px; white-space: nowrap; }
+  #coach { top: 44px; right: 8px; width: 290px; max-width: 40vw; font-size: 12px; padding: 6px 10px; }
+  #coach .tip { font-size: 12px; }
+  #keyLegend, #bodyStats { display: none !important; }
+  #body { left: 8px; bottom: 8px; width: 140px; padding: 4px 8px; }
+  #pip { top: 58px; left: 8px; width: 132px; height: 96px; }
+  #pip span { font-size: 10px; padding: 2px 6px; }
+  #demoBanner { bottom: 8px; left: 158px; right: 8px; transform: none; width: auto; min-width: 0; padding: 4px 10px 6px; }
+  #demoBanner .dh { font-size: 10px; }
+  #demoCaption { font-size: 14px; line-height: 1.3; margin: 2px 0 3px; }
+  #demoPause { font-size: 12px; padding: 3px 8px; margin-bottom: 3px; }
+  #demoDont { font-size: 12px; margin-bottom: 2px; }
+  #demoLive { display: none; }
+  #touch .tl, #touch .tr { bottom: 8px; width: auto; flex-wrap: nowrap; }
+  #touch .tl { left: 158px; } #touch .tr { right: 8px; }
+  #touch button { width: 50px; height: 50px; font-size: 20px; border-radius: 12px; }
+  #toast { top: 18%; font-size: 24px; }
+  #studioPanel { top: 8px; bottom: 8px; left: 8px; width: 46%; max-width: none; overflow: auto; }
+  #studioViews { right: 8px; left: auto; bottom: 8px; }
 }

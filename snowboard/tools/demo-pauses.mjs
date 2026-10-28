@@ -6,10 +6,10 @@ import { newPauses, keyMoment } from '../js/pauses.js';
 
 const DT = 1 / 120;
 const stance = process.argv[2] || 'regular';
-for (const L of LESSONS.filter((l) => l.kind === 'ride')) {
+for (const L of LESSONS.filter((l) => l.kind === 'ride')) for (const v of L.variants ? L.variants.map((x) => x.id) : [null]) {
   const sim = new Sim();
-  sim.reset({ slopeDeg: L.slopeDeg, stance, ...L.start(stance === 'goofy' ? -1 : 1) });
-  const ls = {}; L.init(ls);
+  sim.reset({ slopeDeg: L.slopeDeg, stance, ...L.start(stance === 'goofy' ? -1 : 1, v) });
+  const ls = {}; L.init(ls, v);
   const P = newPauses(), out = [];
   const missing = new Set();
   let r = { done: false };
@@ -21,7 +21,7 @@ for (const L of LESSONS.filter((l) => l.kind === 'ride')) {
     sim.step(DT, input);
     r = L.check(sim, ls, DT);
   }
-  console.log(`${L.id} (${stance}): пауз ${out.length}, ${(sim.time).toFixed(0)} с${sim.fallen ? ', падение ' + sim.fallen.type : ''}`);
+  console.log(`${L.id}${v ? ':' + v : ''} (${stance}): пауз ${out.length}, ${(sim.time).toFixed(0)} с${sim.fallen ? ', падение ' + sim.fallen.type : ''}`);
   console.log(out.join('\n'));
   for (const c of missing) console.log(`  ! нет подсказки для «${c}»`);
 }

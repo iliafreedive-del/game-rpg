@@ -6,6 +6,13 @@
 <meta name="theme-color" content="#0f172a">
 <meta name="description" content="Обучающий симулятор сноуборда: стойка, крепления, канты, повороты, карвинг, трассы на время со звёздами и разбор типичных ошибок.">
 <title>Школа сноуборда — симулятор</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Сноуборд">
 <link rel="stylesheet" href="style.css">
 <script type="importmap">{ "imports": { "three": "./vendor/three.module.min.js" } }</script>
 </head>
@@ -23,7 +30,7 @@
     <button id="stanceChip" class="chip" title="Сменить стойку"></button>
   </header>
   <div id="lessonList"></div>
-  <footer class="menu-foot">Клавиатура: A/D — кант, W/S — вес, Q/E — плечи, Пробел — присесть, Shift — прямые ноги, C — камера, T — замедление, R — заново, Esc — меню.</footer>
+  <footer class="menu-foot"><span id="menuFoot">Клавиатура: A/D — кант, W/S — вес, Q/E — плечи, Пробел — присесть, Shift — прямые ноги, C — камера, T — замедление, R — заново, Esc — меню.</span> <button id="installChip" class="chip sm hidden">📲 Установить как приложение</button></footer>
 </section>
 
 <!-- Брифинг урока: теория + мастер-класс -->
@@ -67,6 +74,7 @@
   </div>
   <div id="keyLegend"></div>
   <div id="hudBtns">
+    <button id="bVoice" class="btn sm hidden">🔊 Голос</button>
     <button id="bCam" class="btn sm">Камера: Сзади</button>
     <button id="bSlow" class="btn sm">Замедл. ×1</button>
     <button id="bRestart" class="btn sm">Заново</button>
