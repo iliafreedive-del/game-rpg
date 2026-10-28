@@ -127,7 +127,8 @@ function readInput(dt) {
 
 // ---------------------------------------------------------------- состояние приложения
 // autoplay — инструктор ведёт и в обычном заезде (для скриншотов и проверок через window.__app)
-const app = { mode: 'menu', lesson: null, ls: null, demo: false, autoplay: false, t: 0, slow: 1, falls: 0, fallShown: false, history: [], replay: null, ended: false, hudT: 0, studioMode: null, travel: new THREE.Vector3(0, 0, -1) };
+const app = { mode: 'menu', lesson: null, ls: null, demo: false, autoplay: false, t: 0, slow: 1, falls: 0, fallShown: false, history: [], replay: null, ended: false, hudT: 0, studioMode: null, travel: new THREE.Vector3(0, 0, -1), variant: null, variantOf: {} };
+const TOUCH = 'ontouchstart' in window;
 
 function show(id, on) { $(id).classList.toggle('hidden', !on); }
 function setScreen(mode) {
@@ -137,10 +138,41 @@ function setScreen(mode) {
   show('hud', mode === 'ride');
   show('studio', mode === 'studio');
   rider.com.visible = mode === 'ride';
-  if (mode !== 'ride') show('modal', false);
+  if (mode !== 'ride') { show('modal', false); rider.edgeGlow.visible = false; voiceStop(); }
 }
 
+// ---------------------------------------------------------------- голос инструктора (речь браузера)
+// Субтитры демонстрации читаются вслух: на телефоне можно смотреть на райдера, а не на текст.
+const voice = { ok: 'speechSynthesis' in window && 'SpeechSynthesisUtterance' in window, last: '', pauseSpoken: null };
+const voiceOn = () => voice.ok && save.voice !== false;
+function speak(text, queue = false) {
+  if (!voiceOn() || !text) return;
+  const clean = text.replace(/<[^>]+>/g, '').replace(/[«»]/g, '').replace(/—/g, ',').replace(/\s+/g, ' ').trim();
+  if (!clean) return;
+  const u = new SpeechSynthesisUtterance(clean);
+  u.lang = 'ru-RU'; u.rate = 1.06; u.pitch = 1;
+  const v = speechSynthesis.getVoices().find((x) => /^ru/i.test(x.lang));
+  if (v) u.voice = v;
+  if (!queue) speechSynthesis.cancel();
+  speechSynthesis.speak(u);
+}
+function voiceStop() { if (voice.ok) speechSynthesis.cancel(); voice.last = ''; voice.pauseSpoken = null; }
+function renderVoiceBtn() {
+  const b = $('bVoice'); if (!b) return;
+  b.classList.toggle('hidden', !voice.ok || !app.demo);
+  b.textContent = voiceOn() ? '🔊 Голос' : '🔇 Голос';
+  b.classList.toggle('on', voiceOn());
+}
+if (voice.ok) speechSynthesis.getVoices(); // iOS отдаёт список голосов только после первого запроса
+
 // ---------------------------------------------------------------- меню
+// Порядок курса: по нему считается прогресс и предлагается следующий урок
+const COURSE = ['stance', 'bindings', 'posture', 'heel_slip', 'toe_slip', 'leaf', 'jturn', 'garland', 'turns', 'carve', 'free'];
+const COURSE_N = COURSE.length - 1; // «свободное катание» не считается уроком
+function nextStep() {
+  const id = COURSE.find((x) => x !== 'free' && !save.done[x]);
+  return id ? LESSONS_BY_ID[id] : null;
+}
 const GROUPS = [
   ['Основы', ['stance', 'bindings', 'posture']],
   ['Голова: страхи и психология', LECTURES.map((x) => 'lect:' + x.id)],
@@ -158,7 +190,12 @@ function renderMenu() {
     const sub = !open ? `🔒 нужно ${T.need}★ · у тебя ${total}` : rec?.best != null ? `рекорд ${fmtTime(rec.best)} · ${T.length} м` : `${T.slopeDeg}° · ${T.length} м · ${trackStars(T).length} звёзд`;
     return `<button class="lesson track${open ? '' : ' locked'}" data-id="track:${T.id}" style="--c:${T.id === 'black' ? '#e2e8f0' : T.color}"><div class="n">${T.level}</div><div class="t">${T.name}</div><div class="s">${sub}</div><div class="st">${'★'.repeat(got)}${'☆'.repeat(3 - got)}</div></button>`;
   }).join('')}</div>`;
-  $('lessonList').innerHTML = tracks + GROUPS.map(([g, ids]) => `<div class="group-title">${g}</div><div class="grid${ids[0].startsWith('lect:') ? ' lects' : ''}">${ids.map((id) => {
+  const doneN = COURSE.filter((x) => x !== 'free' && save.done[x]).length;
+  const ns = nextStep();
+  const nextCard = ns
+    ? `<button class="lesson next" data-id="${ns.id}"><div class="n">Следующий шаг · пройдено ${doneN} из ${COURSE_N}</div><div class="t">${ns.kind === 'ride' ? 'Урок ' + (COURSE.indexOf(ns.id) + 1) + ': ' : ''}${ns.title}</div><div class="s">${ns.kind === 'ride' ? ns.goal : ns.short}</div><div class="bar"><i style="width:${Math.round(100 * doneN / COURSE_N)}%"></i></div></button>`
+    : `<div class="lesson next done"><div class="n">Курс пройден · ${COURSE_N} из ${COURSE_N}</div><div class="t">Все уроки позади — дальше трассы на время и свободное катание</div><div class="bar"><i style="width:100%"></i></div></div>`;
+  $('lessonList').innerHTML = nextCard + tracks + GROUPS.map(([g, ids]) => `<div class="group-title">${g}</div><div class="grid${ids[0].startsWith('lect:') ? ' lects' : ''}">${ids.map((id) => {
     if (id.startsWith('lect:')) { const X = LECTURES_BY_ID[id.slice(5)]; return `<button class="lesson lect" data-id="${id}"><div class="n">Лекция</div><div class="t">${X.title}</div><div class="s">${X.short}</div></button>`; }
     if (id === 'mistakes') return `<button class="lesson special" data-id="mistakes"><div class="n">Разбор</div><div class="t">Библиотека ошибок</div><div class="s">${MISTAKES.length} типичных ошибок: «неправильно / правильно» в 3D</div></button>`;
     const L = LESSONS_BY_ID[id]; n++;
@@ -173,6 +210,30 @@ function renderMenu() {
 }
 const fmtA = (a) => (a > 0 ? '+' : '') + a + '°';
 $('stanceChip').onclick = () => openBrief('stance');
+if (TOUCH) $('menuFoot').textContent = 'На телефоне: ◀ ▶ — кант, ▲ ▼ — вес, ⟲ ⟳ — плечи, ⤓ — присесть. Удобнее держать телефон боком.';
+
+// ---------------------------------------------------------------- установка как приложение (PWA)
+// Chrome/Android предлагает установку событием; на iPhone — подсказка «Поделиться → На экран „Домой“».
+let installEvt = null;
+const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+function renderInstall() {
+  const b = $('installChip'); if (!b) return;
+  const ios = /iPhone|iPad|iPod/.test(navigator.userAgent) && !standalone;
+  b.classList.toggle('hidden', standalone || !(installEvt || ios));
+  b.textContent = installEvt ? '📲 Установить как приложение' : '📲 На экран «Домой»';
+  b.onclick = async () => {
+    if (installEvt) { installEvt.prompt(); const r = await installEvt.userChoice.catch(() => null); if (r?.outcome === 'accepted') { installEvt = null; renderInstall(); } return; }
+    show('modal', true);
+    $('modalCard').innerHTML = `<h2>Как установить на iPhone</h2><p>В Safari нажми кнопку «Поделиться» (квадрат со стрелкой), затем «На экран „Домой“». Приложение откроется на весь экран и будет работать без интернета.</p><div class="row"><button class="btn primary" id="mOk">Понятно</button></div>`;
+    $('mOk').onclick = () => show('modal', false);
+  };
+}
+addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); installEvt = e; renderInstall(); });
+addEventListener('appinstalled', () => { installEvt = null; renderInstall(); });
+renderInstall();
+if ('serviceWorker' in navigator && location.protocol.startsWith('http') && !location.search.includes('shots=1')) {
+  navigator.serviceWorker.register('./sw.js').catch(() => {});
+}
 
 function toMenu() {
   setScreen('menu'); renderMenu();
@@ -185,12 +246,17 @@ function toMenu() {
 // ---------------------------------------------------------------- брифинг
 function keyLegend(kind) {
   const ts = toeSign();
-  const toeKey = ts > 0 ? 'D' : 'A', heelKey = ts > 0 ? 'A' : 'D';
-  const items = [[`<kbd>${heelKey}</kbd>`, 'на пятки (пяточный кант)'], [`<kbd>${toeKey}</kbd>`, 'на носки (носочный кант)']];
-  if (kind === 'pheel' || kind === 'ptoe') items.push(['<kbd>W</kbd>/<kbd>S</kbd>', 'вес — держи доску поперёк']);
-  else items.push(['<kbd>W</kbd>/<kbd>S</kbd>', 'вес на переднюю / заднюю ногу']);
-  if (kind === 'turn' || kind === 'carve') items.push(['<kbd>Q</kbd>/<kbd>E</kbd>', 'повернуть плечи']);
-  items.push(['<kbd>Пробел</kbd>', 'присесть'], ['<kbd>Shift</kbd>', 'выпрямить ноги (ошибка)'], ['<kbd>C</kbd> <kbd>T</kbd> <kbd>R</kbd>', 'камера, замедление, заново']);
+  // на телефоне подсказки говорят про экранные кнопки, на компьютере — про клавиши
+  const K = (key, sym) => `<kbd>${TOUCH ? sym : key}</kbd>`;
+  const toeKey = ts > 0 ? K('D', '▶') : K('A', '◀'), heelKey = ts > 0 ? K('A', '◀') : K('D', '▶');
+  const items = [[heelKey, 'на пятки (пяточный кант)'], [toeKey, 'на носки (носочный кант)']];
+  const ws = `${K('W', '▲')}/${K('S', '▼')}`;
+  if (kind === 'pheel' || kind === 'ptoe') items.push([ws, 'вес — держи доску поперёк']);
+  else items.push([ws, 'вес на переднюю / заднюю ногу']);
+  if (kind === 'turn' || kind === 'carve') items.push([`${K('Q', '⟲')}/${K('E', '⟳')}`, 'повернуть плечи']);
+  items.push([K('Пробел', '⤓'), 'присесть']);
+  if (TOUCH) items.push(['кнопки сверху', 'камера, замедление, заново']);
+  else items.push(['<kbd>Shift</kbd>', 'выпрямить ноги (ошибка)'], ['<kbd>C</kbd> <kbd>T</kbd> <kbd>R</kbd>', 'камера, замедление, заново']);
   return items;
 }
 
@@ -211,11 +277,19 @@ function openBrief(id) {
   $('briefTips').innerHTML = L.tips ? `<div class="h">Мастер-класс: фишки инструктора</div><ul>${L.tips.map((t) => `<li>${t}</li>`).join('')}</ul>` : '';
   $('briefPrep').innerHTML = L.prep ? `<div class="h">Подводящие упражнения</div><ul>${L.prep.map((t) => `<li>${t}</li>`).join('')}</ul>` : '';
   $('briefPsy').innerHTML = L.psy ? `<div class="h">Голова</div>${L.psy}` : '';
-  $('briefGoal').innerHTML = `<b>Задание:</b> ${L.goal}`;
+  const vsel = L.variants ? variantOf(L) : null;
+  $('briefGoal').innerHTML = `<b>Задание:</b> ${L.goal}` + (L.variants ? `<div class="variants">${L.variants.map((v) => `<button class="chip sm v${v.id === vsel ? ' on' : ''}" data-v="${v.id}">${save.done[id + ':' + v.id] ? '✓ ' : ''}${v.name}</button>`).join('')}</div>` : '');
+  $('briefGoal').querySelectorAll('.chip.v').forEach((b) => b.onclick = () => { app.variantOf[id] = b.dataset.v; openBrief(id); });
   $('briefKeys').innerHTML = keyLegend(L.keys).map(([k, t]) => `<span>${k} ${t}</span>`).join('');
   $('briefDemo').onclick = () => startRide(id, true);
   $('briefGo').onclick = () => startRide(id, false);
   $('briefBack').onclick = toMenu;
+}
+// Вариант урока (например, «падающий лист» на пятках или на носках): выбранный в брифинге, иначе первый непройденный
+function variantOf(L) {
+  const sel = app.variantOf[L.id];
+  if (sel && L.variants.some((v) => v.id === sel)) return sel;
+  return (L.variants.find((v) => !save.done[L.id + ':' + v.id]) || L.variants[0]).id;
 }
 
 // Призрак хранится отдельно от сохранения: [время, u, s, theta, edge, weight, rot, lean, crouch] 20 раз в секунду
@@ -281,18 +355,21 @@ function startRide(id, demo, opts = {}) {
   app.lesson = L; app.demo = demo; app.t = 0; app.ended = false; app.fallShown = false; app.history = []; app.replay = null;
   app.background = !!opts.background;
   if (!opts.keepFalls) app.falls = 0;
-  app.ls = {}; L.init(app.ls); prevSnap = null; acc = 0;
+  app.variant = L.variants ? (opts.variant || variantOf(L)) : null;
+  if (app.variant) app.variantOf[id] = app.variant;
+  app.ls = {}; L.init(app.ls, app.variant); prevSnap = null; acc = 0;
   app.pauses = newPauses(); app.pause = null; app.held = null;
   world.build(L.slopeDeg);
   world.setGates(L.gates);
-  world.setTargets(L.targets ? L.targets.map((u) => u * toeSign()) : null);
+  const targets = typeof L.targets === 'function' ? L.targets(app.variant) : L.targets;
+  world.setTargets(targets ? targets.map((u) => u * toeSign()) : null);
   const track = L.kind === 'track';
   world.setStars(track ? trackStars(L.track) : null);
   world.setFinish(track ? L.track.length : null);
   app.ghost = track && !demo && !app.background ? loadGhost(L.track.id) : null;
   ghost.root.visible = false;
   $('hudTop').classList.toggle('track', track);
-  sim.reset({ slopeDeg: L.slopeDeg, stance: stance(), ...L.start(toeSign()) });
+  sim.reset({ slopeDeg: L.slopeDeg, stance: stance(), ...L.start(toeSign(), app.variant) });
   ctl.edge = 0;
   rider.setConfig({ stance: stance(), front: save.front, rear: save.rear, width: save.width / 100 });
   if (app.ghost) ghost.setConfig({ stance: stance(), front: save.front, rear: save.rear, width: save.width / 100 });
@@ -303,7 +380,8 @@ function startRide(id, demo, opts = {}) {
   if (!app.background) {
     setScreen('ride');
     const best = track ? save.tracks[L.track.id]?.best : null;
-    $('hudTitle').innerHTML = (demo ? 'Демонстрация · ' : '') + L.title + (app.ghost && best != null ? ` <span class="gh">· призрак ${fmtTime(best)}</span>` : '');
+    const vname = app.variant ? ` · ${L.variants.find((v) => v.id === app.variant).name.toLowerCase()}` : '';
+    $('hudTitle').innerHTML = (demo ? 'Демонстрация · ' : '') + L.title + vname + (app.ghost && best != null ? ` <span class="gh">· призрак ${fmtTime(best)}</span>` : '');
     $('toast').className = '';
     $('keyLegend').innerHTML = keyLegend(L.keys).map(([k, t]) => `<div>${k} ${t}</div>`).join('');
     show('demoBanner', demo);
@@ -312,6 +390,8 @@ function startRide(id, demo, opts = {}) {
     app.demoSlow = null;
     $('bCam').innerHTML = 'Камера<span class="camName">: ' + CAM_NAMES[rig.mode] + '</span>';
     setCoach('info', demo ? 'Смотри, что делает тело: колени, вес, наклон. Внизу слева — кант и вес в реальном времени.' : L.goal);
+    voiceStop(); renderVoiceBtn();
+    if (demo) speak(track ? `Инструктор показывает трассу ${L.track.name}.` : `Инструктор показывает: ${L.title}.`);
   }
 }
 
@@ -330,6 +410,7 @@ function directCam() {
 }
 function toggleSlow() { app.slow = app.slow === 1 ? 0.35 : 1; $('bSlow').textContent = app.slow === 1 ? 'Замедл. ×1' : 'Замедл. ×0.35'; $('bSlow').classList.toggle('on', app.slow !== 1); }
 $('bCam').onclick = cycleCam; $('bSlow').onclick = toggleSlow; $('bRestart').onclick = restart; $('bMenu').onclick = toMenu;
+$('bVoice').onclick = () => { save.voice = !voiceOn(); persist(); if (!save.voice) voiceStop(); else { voice.last = ''; speak('Голос инструктора включён.'); } renderVoiceBtn(); };
 
 let coachState = '';
 function setCoach(kind, text) {
@@ -356,6 +437,9 @@ function interpState() {
   return o;
 }
 function updateRide(dt) {
+  // в демонстрации картинка поднята над субтитрами: доска и колени не прячутся за текстом (применяется в кадре)
+  const want = app.mode === 'ride' && app.demo && !app.background ? $('demoBanner').offsetHeight * (innerHeight > innerWidth ? 0.6 : 0.8) : 0;
+  app.viewShift = (app.viewShift || 0) + (want - (app.viewShift || 0)) * (app.t < 0.3 ? 1 : 1 - Math.exp(-dt * 6)); // в начале заезда — сразу, дальше плавно
   const L = app.lesson;
   if (app.replay) return updateReplay(dt);
   if (app.pause && (app.pause.left -= dt) <= 0) app.pause = null;
@@ -436,8 +520,13 @@ function drawRider(dt, t) {
   const tv = sim.speed > 1.5 ? f.dir(sim.vu, sim.vs).normalize() : f.D.clone();
   app.travel.lerp(tv, 1 - Math.exp(-dt * 2.5)).normalize();
   const toeDir = right.clone().multiplyScalar(toeSign());
-  rig.update(dt, pos, app.travel, toeDir, f.N, { mode: app.background ? 'follow' : (sim.fallen && !app.replay ? 'orbit' : undefined) });
+  const demoCam = app.demo && !app.background && app.lesson.kind !== 'track';
+  // в демонстрации камера ближе и смотрит почти на райдера (а не на 3 м вперёд): видно колени, кант и центр тяжести
+  const zoom = demoCam ? 0.78 : 1;
+  rig.update(dt, pos, app.travel, toeDir, f.N, { mode: app.background ? 'follow' : (sim.fallen && !app.replay ? 'orbit' : undefined), zoom, lookAhead: demoCam ? (innerHeight > innerWidth ? 2 : 1.2) : 3 });
   app.pipTarget = { pos, toeDir };
+  // рабочий кант светится на доске: видно, какой край опущен, и зелёный он или опасный
+  rider.setEdgeGlow(Math.sign(sim.sideDown), sim.fallen || app.background ? 0 : Math.abs(sim.edge), sim.danger, app.pause?.focus === 'edge');
   const now = performance.now() / 1000;
   world.follow(pos, sim.s, now);
   world.updateStars(now);
@@ -485,6 +574,9 @@ function updateHud(dt) {
     $('demoCam').textContent = CAM_NAMES[rig.mode];
     $('demoPause').innerHTML = P ? `<b><span class="pi"></span>Пауза.</b> ${P.look}<i style="transform:scaleX(${clamp(P.left / PAUSE.len, 0, 1).toFixed(2)})"></i>` : '';
     show('demoPause', !!P);
+    // голос: новая подпись читается сразу, пояснение паузы — следом, один раз
+    if (app.caption && app.caption !== voice.last) { voice.last = app.caption; speak(app.caption); }
+    if (P && voice.pauseSpoken !== P) { voice.pauseSpoken = P; speak(P.look, true); }
     $('demoDont').innerHTML = app.dont ? `<b>${app.captionKind === 'danger' ? 'Правильно:' : 'Не делай:'}</b> ${app.dont}` : '';
     show('demoDont', !!app.dont);
     const e = Math.abs(deg), ws = front >= 53 ? 'вперёд' : front <= 47 ? 'НАЗАД' : 'центр';
@@ -543,6 +635,7 @@ function updateReplay(dt) {
   const prev = H[Math.max(0, k - 10)];
   const tv = f.dir(h[0] - prev[0], h[1] - prev[1]); if (tv.lengthSq() < 1e-6) tv.copy(f.D); tv.normalize();
   rig.update(dt, pos, tv, right.clone().multiplyScalar(toeSign()), f.N, { mode: 'side' });
+  rider.setEdgeGlow(Math.sign(h[3] * toeSign()), ended ? 0 : Math.abs(h[3]), 0, false);
   $('gBoard').setAttribute('transform', `rotate(${(-h[3] * MAX_EDGE_DEG).toFixed(1)} 80 60)`);
   $('gDeg').textContent = `${Math.abs(h[3] * MAX_EDGE_DEG).toFixed(0)}°`;
   if (ended && R.i > H.length + 60) { app.replay = null; showFall(R.f); }
@@ -557,14 +650,19 @@ function lessonDone() {
     $('mAgain').onclick = () => { show('modal', false); startRide(L.id, true); };
   } else {
     const stars = app.falls === 0 ? 3 : app.falls <= 2 ? 2 : 1;
+    if (app.variant) save.done[L.id + ':' + app.variant] = Math.max(save.done[L.id + ':' + app.variant] || 0, stars);
     save.done[L.id] = Math.max(save.done[L.id] || 0, stars); persist();
     const next = nextLesson(L.id);
+    // у урока с вариантами (пятки/носки) сначала предлагаем вторую сторону, потом следующий урок
+    const other = L.variants?.find((v) => v.id !== app.variant && !save.done[L.id + ':' + v.id]);
+    const vname = app.variant ? ` · ${L.variants.find((v) => v.id === app.variant).name.toLowerCase()}` : '';
     show('modal', true);
-    $('modalCard').innerHTML = `<div class="ok-k">Урок пройден</div><h2>${L.title}</h2><div class="stars">${'★'.repeat(stars)}${'☆'.repeat(3 - stars)}</div>
+    $('modalCard').innerHTML = `<div class="ok-k">Урок пройден</div><h2>${L.title}${vname}</h2><div class="stars">${'★'.repeat(stars)}${'☆'.repeat(3 - stars)}</div>
       <p>${app.falls ? `Падений: ${app.falls}. Каждое — это опыт: ты уже знаешь, откуда оно берётся.` : 'Без единого падения — чисто!'}</p>
-      <div class="row"><button class="btn ghost" id="mMenu">Меню</button><button class="btn alt" id="mAgain">Ещё раз</button>${next ? `<button class="btn primary" id="mNext">Дальше: ${next.title}</button>` : ''}</div>`;
+      <div class="row"><button class="btn ghost" id="mMenu">Меню</button><button class="btn alt" id="mAgain">Ещё раз</button>${other ? `<button class="btn primary" id="mVar">Теперь ${other.name.toLowerCase()}</button>` : next ? `<button class="btn primary" id="mNext">Дальше: ${next.title}</button>` : ''}</div>`;
     $('mAgain').onclick = () => { show('modal', false); startRide(L.id, false); };
-    if (next) $('mNext').onclick = () => { show('modal', false); openBrief(next.id); };
+    if (other) $('mVar').onclick = () => { show('modal', false); app.variantOf[L.id] = other.id; startRide(L.id, true, { variant: other.id }); };
+    else if (next) $('mNext').onclick = () => { show('modal', false); openBrief(next.id); };
   }
   $('mMenu').onclick = toMenu;
   const go = $('mGo'); if (go) go.onclick = () => { show('modal', false); startRide(L.id, false); };
@@ -667,9 +765,8 @@ function trackDone() {
 }
 
 function nextLesson(id) {
-  const order = ['stance', 'bindings', 'posture', 'heel_slip', 'toe_slip', 'leaf', 'jturn', 'garland', 'turns', 'carve', 'free'];
-  const i = order.indexOf(id);
-  return i >= 0 && i < order.length - 1 ? LESSONS_BY_ID[order[i + 1]] : null;
+  const i = COURSE.indexOf(id);
+  return i >= 0 && i < COURSE.length - 1 ? LESSONS_BY_ID[COURSE[i + 1]] : null;
 }
 
 // ---------------------------------------------------------------- студия
@@ -976,6 +1073,7 @@ function frame(now) {
   if (app.mode === 'studio') { updateStudio(); renderer.render(studio.scene, studio.cam); }
   else {
     if (app.lesson && !(app.mode === 'ride' && !$('modal').classList.contains('hidden') && !app.replay)) updateRide(dt);
+    if (app.viewShift > 0.5) camera.setViewOffset(innerWidth, innerHeight, 0, app.viewShift, innerWidth, innerHeight); else camera.clearViewOffset();
     renderer.render(world.scene, camera);
     if (app.mode === 'ride' && app.lesson?.pip && app.pipTarget) renderPip();
   }
@@ -983,4 +1081,4 @@ function frame(now) {
 }
 toMenu();
 requestAnimationFrame(frame);
-window.__app = { app, sim, studio, THREE, startRide, openMistakes, openPosture, openBindings, openStance, openBrief, openLecture, rig, updateRide };
+window.__app = { app, sim, studio, THREE, startRide, openMistakes, openPosture, openBindings, openStance, openBrief, openLecture, rig, updateRide, rider, world, camera, save, toMenu };

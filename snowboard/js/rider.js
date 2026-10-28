@@ -58,6 +58,19 @@ export class Rider {
     this.comMat = comMat;
     this.stance.add(this.com);
 
+    // Подсветка рабочего канта: светящаяся полоса вдоль опущенного края доски (зелёная — верхний кант держит,
+    // красная — опущен нижний кант, сейчас зацепит). В системе доски: +Z — справа от носа.
+    this.edgeGlow = new THREE.Group(); this.edgeGlow.visible = false;
+    this.edgeGlowMats = [];
+    this.edgeStrips = [1, -1].map((sg) => {
+      const m = new THREE.MeshBasicMaterial({ color: '#22c55e', transparent: true, opacity: 0, depthTest: false });
+      const s = new THREE.Mesh(new THREE.BoxGeometry(1.42, 0.02, 0.028), m);
+      s.position.set(0, 0.012, sg * 0.118); s.renderOrder = 19; s.userData.sg = sg;
+      this.edgeGlowMats.push(m); this.edgeGlow.add(s);
+      return s;
+    });
+    this.root.add(this.edgeGlow);
+
     this.cfg = { stance: 'regular', front: 15, rear: 0, width: 0.52 };
     this.pose = { knee: 0.5, hinge: 0.12, weight: 0.1, rot: 0, gaze: 1, arms: 0.4, stiff: 0, lean: 0, fall: null, t: 0, up: null };
   }
@@ -176,6 +189,19 @@ export class Rider {
       this.comMid.position.set(0, 0.04, 0); // середина между креплениями — ориентир
       const w = p.weight;
       this.comMat.color.set(fall ? '#ef4444' : w < -0.2 ? '#ef4444' : w < 0.05 ? '#facc15' : '#22c55e');
+    }
+  }
+
+  // side: +1 — опущен правый от носа край, −1 — левый, 0 — доска плоская; k 0…1 — сила канта;
+  // danger 0…1 — опущен нижний по ходу кант (красный); pulse — пауза демонстрации (полоса толще)
+  setEdgeGlow(side, k, danger = 0, pulse = false) {
+    this.edgeGlow.visible = k > 0.02;
+    const col = danger > 0.45 ? '#ef4444' : '#22c55e';
+    for (const s of this.edgeStrips) {
+      const on = s.userData.sg === side;
+      s.material.opacity = on ? Math.min(0.95, 0.35 + k * 0.9) : 0;
+      s.material.color.set(col);
+      s.scale.set(1, pulse ? 2.2 : 1, pulse ? 1.8 : 1);
     }
   }
 

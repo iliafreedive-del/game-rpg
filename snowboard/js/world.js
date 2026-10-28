@@ -287,11 +287,12 @@ export class CameraRig {
   update(dt, target, travel, toeDir, N, opts = {}) {
     const up = new THREE.Vector3(0, 1, 0);
     if (!finite(travel) || travel.lengthSq() < 1e-6) travel = N.clone().cross(up).cross(N).normalize().negate();
-    const z = this.cam.aspect < 1 ? 1.5 : 1; // узкий экран телефона — отходим дальше, чтобы райдер влез
+    // узкий экран телефона — отходим дальше, чтобы райдер влез; в демонстрации — ближе, чтобы было видно колени и кант
+    const z = (this.cam.aspect < 1 ? 1.5 : 1) * (opts.zoom || 1);
     const t = target.clone().addScaledVector(up, 0.9);
     let p, l = t.clone();
     const mode = opts.mode || this.mode;
-    if (mode === 'follow') { p = t.clone().addScaledVector(travel, -6.2 * z).addScaledVector(up, 2.2); l.addScaledVector(travel, 3 * z); }
+    if (mode === 'follow') { p = t.clone().addScaledVector(travel, -6.2 * z).addScaledVector(up, 2.2); l.addScaledVector(travel, (opts.lookAhead ?? 3) * z); }
     else if (mode === 'side') { p = t.clone().addScaledVector(toeDir, 5.2 * z).addScaledVector(up, 0.6).addScaledVector(travel, 1 * z); }
     else if (mode === 'profile' || mode === 'front3') {
       // всегда с одной стороны от траектории, чтобы камера не перепрыгивала при смене канта
@@ -299,6 +300,7 @@ export class CameraRig {
       p = mode === 'profile'
         ? t.clone().addScaledVector(perp, 5.5 * z).addScaledVector(up, 0.5).addScaledVector(travel, 0.8 * z)
         : t.clone().addScaledVector(travel, 4.6 * z).addScaledVector(perp, 3.2 * z).addScaledVector(up, 1.3);
+      l.addScaledVector(up, -0.1); // смотрим чуть ниже пояса — доска и колени ближе к центру кадра
     }
     else if (mode === 'front') { p = t.clone().addScaledVector(travel, 6 * z).addScaledVector(up, 1.2); }
     else if (mode === 'top') { p = t.clone().addScaledVector(N, 16).addScaledVector(travel, -3 * z); l = target.clone().addScaledVector(travel, 2 * z); }
@@ -309,9 +311,10 @@ export class CameraRig {
     }
     if (!finite(p) || !finite(l)) return; // испорченная цель — не трогаем камеру
     const k = this.init ? 1 - Math.exp(-Math.max(0, dt) * (mode === 'top' ? 3 : 5)) : 1;
+    const kl = this.init ? 1 - Math.exp(-Math.max(0, dt) * (mode === 'top' ? 3 : 14)) : 1; // точка взгляда догоняет быстрее, иначе на скорости райдер уезжает к краю кадра
     // lerp не вылечит NaN в самой камере (NaN + x = NaN) — тогда просто ставим камеру на место
     if (!this.init || !finite(this.pos) || !finite(this.look)) { this.pos.copy(p); this.look.copy(l); }
-    else { this.pos.lerp(p, k); this.look.lerp(l, k); }
+    else { this.pos.lerp(p, k); this.look.lerp(l, kl); }
     this.init = true;
     this.cam.position.copy(this.pos);
     this.cam.up.set(0, 1, 0);
