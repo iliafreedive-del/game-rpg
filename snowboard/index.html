@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f172a">
+<meta name="description" content="Обучающий симулятор сноуборда: стойка, крепления, канты, повороты, карвинг, трассы на время со звёздами и разбор типичных ошибок.">
+<title>Школа сноуборда — симулятор</title>
+<link rel="stylesheet" href="style.css">
+<script type="importmap">{ "imports": { "three": "./vendor/three.module.min.js" } }</script>
+</head>
+<body>
+<canvas id="view"></canvas>
+
+<!-- Главное меню -->
+<section id="menu" class="screen">
+  <header class="menu-head">
+    <div class="logo">❄</div>
+    <div>
+      <h1>Школа сноуборда</h1>
+      <p class="sub">Симулятор, который объясняет: почему падаешь и что сделать телом, чтобы поехать.</p>
+    </div>
+    <button id="stanceChip" class="chip" title="Сменить стойку"></button>
+  </header>
+  <div id="lessonList"></div>
+  <footer class="menu-foot">Клавиатура: A/D — кант, W/S — вес, Q/E — плечи, Пробел — присесть, Shift — прямые ноги, C — камера, T — замедление, R — заново, Esc — меню.</footer>
+</section>
+
+<!-- Брифинг урока: теория + мастер-класс -->
+<section id="brief" class="screen hidden">
+  <div class="card brief-card">
+    <div class="brief-top"><span id="briefNum" class="num"></span><h2 id="briefTitle"></h2></div>
+    <div id="briefTheory" class="theory"></div>
+    <div id="briefTips" class="tips"></div>
+    <div id="briefPrep" class="prep"></div>
+    <div id="briefPsy" class="psy"></div>
+    <div id="briefGoal" class="goal"></div>
+    <div id="briefKeys" class="keys"></div>
+    <div class="row">
+      <button id="briefBack" class="btn ghost">← Меню</button>
+      <button id="briefDemo" class="btn alt">▶ Показать инструктора</button>
+      <button id="briefGo" class="btn primary">Попробовать сам</button>
+    </div>
+  </div>
+</section>
+
+<!-- HUD на склоне -->
+<section id="hud" class="hidden">
+  <div id="hudTop">
+    <div id="hudTitle"></div>
+    <div id="hudGoal"></div>
+    <div class="bar"><i id="hudProg"></i></div>
+  </div>
+  <div id="toast"></div>
+  <div id="demoBanner" class="hidden"><div class="dh"><b>Инструктор показывает</b><i>камера: <span id="demoCam"></span></i></div><div id="demoCaption"></div><div id="demoPause" class="hidden"></div><div id="demoDont" class="hidden"></div><div id="demoLive"></div></div>
+  <div id="pip" class="hidden"><span>Вид спереди: смотри на носки и кант</span></div>
+  <div id="coach"><div class="who">Инструктор</div><div id="coachText"></div></div>
+  <div id="body">
+    <svg id="edgeGauge" viewBox="0 0 160 92">
+      <line x1="10" y1="62" x2="150" y2="62" class="snow"/>
+      <g id="gBoard"><rect x="30" y="56" width="100" height="8" rx="3"/><circle cx="80" cy="60" r="3" class="pivot"/></g>
+      <text id="gLeft" x="16" y="86">пятки</text><text id="gRight" x="144" y="86" text-anchor="end">носки</text>
+      <text id="gDeg" x="80" y="20" text-anchor="middle">0°</text>
+    </svg>
+    <div class="wrow"><span>хвост</span><div class="wbar"><i id="wMark"></i></div><span>нос</span></div>
+    <div id="bodyStats"></div>
+  </div>
+  <div id="keyLegend"></div>
+  <div id="hudBtns">
+    <button id="bCam" class="btn sm">Камера: Сзади</button>
+    <button id="bSlow" class="btn sm">Замедл. ×1</button>
+    <button id="bRestart" class="btn sm">Заново</button>
+    <button id="bMenu" class="btn sm">Меню</button>
+  </div>
+  <div id="touch" class="hidden">
+    <div class="tl"><button data-k="KeyA">◀</button><button data-k="KeyD">▶</button></div>
+    <div class="tr"><button data-k="KeyQ">⟲</button><button data-k="KeyW">▲</button><button data-k="KeyE">⟳</button><button data-k="Space">⤓</button><button data-k="KeyS">▼</button></div>
+  </div>
+</section>
+
+<!-- Студия: крепления, стойка, библиотека ошибок -->
+<section id="studio" class="hidden">
+  <div id="studioPanel" class="card"></div>
+  <div id="studioLabels"></div>
+  <div id="studioViews"></div>
+</section>
+
+<div id="modal" class="hidden"><div class="card" id="modalCard"></div></div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
