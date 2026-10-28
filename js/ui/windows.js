@@ -21,6 +21,7 @@ import { PRODUCTS, platform } from '../platform/platform.js';
 import { eventNow } from '../platform/events.js';
 import { wallOffer, markShown, streakHelp, helpGiven, shopGearToday } from '../platform/offers.js';
 import { inCinema } from './cinema.js';
+import { transferButtons } from './transfer.js';
 import { revive, saveNow, loadZone, depthsUnlocked, MAX_REVIVES, inPrologue } from '../game/game.js';
 import { generateFloor, isBossFloor, floorLevel } from '../world/floorgen.js';
 import { REALMS, WILD_QUESTS, wildLevel, isWildBoss, isWildFort, locationName, wildReqLevel, FIELDS_PER_FORT } from '../data/wild.js';
@@ -595,6 +596,9 @@ W.settings = () => modal('Настройки', 'sm', b => {
   }
   b.appendChild(el('h3', '', 'Управление'));
   b.appendChild(el('p', 'muted', 'Телефон/планшет: ведите пальцем в любом месте экрана — это джойстик; касание врага — выбрать цель и подбежать к нему, касание сундука или саркофага — подбежать и открыть. Навыки, рывок и зелья справа. Герой бьёт сам, когда враг рядом: ваше дело — двигаться, уклоняться и пить зелья. Щипок двумя пальцами — камера ближе/дальше. ПК: WASD/стрелки или зажатая правая кнопка мыши — движение, левая кнопка мыши — удар в точку, колесо мыши — камера ближе/дальше, Пробел — атака, 1–4 — навыки, Shift — уклонение, E — действие (двери, разговор, сундуки, порталы), R/F — зелья здоровья и маны, I/C/K/J/M — окна, T — свиток.'));
+  { // сборка 75: перенос сохранения кодом — на другое устройство или площадку (Pages ↔ архив ↔ Яндекс), все герои одной строкой
+    const tr = el('div', 'attr', '<b>Перенос сохранения</b> <small class="muted">на другой телефон, ПК или площадку: скопируйте код здесь, вставьте там</small>');
+    tr.appendChild(transferButtons(() => G.profile, t => bus.emit('toast', t))); b.appendChild(tr); }
   const row = el('div', 'row'); row.style.marginTop = '10px';
   const sv = el('button', 'btn', 'Сохранить'); sv.onclick = () => { if (saveNow(true)) bus.emit('toast', { text: 'Игра сохранена', kind: 'good' }); else bus.emit('toast', { text: 'Не удалось сохранить', sub: 'Браузер не даёт записать (приватный режим или нет места)', kind: 'warn' }); }; row.appendChild(sv);   // С14
   const rp = el('button', 'btn', 'Восстановить покупки'); rp.onclick = () => restorePurchases(); row.appendChild(rp);

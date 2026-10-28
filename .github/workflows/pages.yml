@@ -1,0 +1,49 @@
+# Игра на GitHub Pages: https://iliafreedive-del.github.io/game-rpg/umbrahold/
+# После каждого коммита в integration/all папка umbrahold/ в ветке Pages (откуда GitHub отдаёт сайт) пересобирается:
+# языки ru+en (tools/i18n/build_langs.mjs), JS одним файлом (tools/bundle_js.mjs), версия на титуле дополняется
+# «· Pages <дата> <коммит>». Архив сборки (release.yml) это не трогает: zip собирается только по release.txt.
+name: GitHub Pages
+on:
+  push:
+    branches: ['integration/all']
+  workflow_dispatch:
+permissions:
+  contents: write
+  pages: read
+concurrency: pages-sync
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { path: src }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - name: Инструменты
+        run: |
+          sudo mkdir -p /opt/node-tools && sudo chown "$USER" /opt/node-tools
+          npm i --prefix /opt/node-tools acorn acorn-walk esbuild@0.25
+      - name: Сборка (ru+en, JS одним файлом)
+        run: |
+          REV=$(git -C src rev-parse --short HEAD); echo "REV=$REV" >> "$GITHUB_ENV"
+          sed -i "s/^export const BUILD = '\([^']*\)'/export const BUILD = '\1 · Pages $(date -u +%d.%m) $REV'/" src/js/main.js
+          cd src && node tools/i18n/build_langs.mjs ../site en && node tools/bundle_js.mjs ../site /opt/node-tools/node_modules/esbuild/lib/main.js && cd ..
+          rm -f site/_headers
+          du -sh site
+      - name: Ветка, из которой GitHub отдаёт Pages
+        id: pb
+        env: { GH_TOKEN: '${{ github.token }}' }
+        run: |
+          B=$(gh api "repos/${{ github.repository }}/pages" --jq '.source.branch' 2>/dev/null || true)
+          [ -n "$B" ] || B=claude/project-thread-n4eydh
+          echo "branch=$B" >> "$GITHUB_OUTPUT"; echo "Pages branch: $B"
+      - uses: actions/checkout@v4
+        with: { ref: '${{ steps.pb.outputs.branch }}', path: pages }
+      - name: Обновить umbrahold/ и отправить
+        run: |
+          rm -rf pages/umbrahold && cp -a site pages/umbrahold && touch pages/.nojekyll
+          cd pages && git config user.name github-actions && git config user.email github-actions@github.com
+          git add -A
+          git diff --cached --quiet && { echo "без изменений"; exit 0; }
+          git commit -q -m "Pages: Umbrahold из integration/all $REV"
+          git push

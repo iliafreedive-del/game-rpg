@@ -5,7 +5,7 @@ import fs from 'fs'; import path from 'path'; import net from 'net';
 
 export const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../..');
 export const OUT = path.resolve(process.env.QA_OUT || path.join(ROOT, 'qa_out'));
-export const CHROME = fs.existsSync('/opt/pw-browsers/chromium-1194/chrome-linux/chrome') ? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' : undefined;
+export const CHROME = ['/opt/pw-browsers/chromium-1194/chrome-linux/chrome', '/opt/pw-browsers/chromium'].find(f => fs.existsSync(f));   // в облаке Chromium лежит по-разному; нет — Playwright берёт свой
 export const mkdir = d => (fs.mkdirSync(d, { recursive: true }), d);
 export const sleep = ms => new Promise(r => setTimeout(r, ms));
 

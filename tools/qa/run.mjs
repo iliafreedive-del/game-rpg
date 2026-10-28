@@ -2,8 +2,9 @@
 // Внутри можно вызывать shot('имя') — снимок в /tmp/claude-0/shots/имя.jpg (хост-функция), print(...) и sleep(мс). Вывод и ошибки консоли печатаются.
 import { chromium } from '/opt/node-tools/node_modules/playwright/index.mjs';
 import fs from 'fs';
+const CHROME = ['/opt/pw-browsers/chromium-1194/chrome-linux/chrome', '/opt/pw-browsers/chromium'].find(f => fs.existsSync(f));   // в облаке Chromium лежит по-разному; нет — Playwright берёт свой
 const [, , file, w = '844', h = '390'] = process.argv;
-const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--no-sandbox', '--ignore-gpu-blocklist'] });
+const b = await chromium.launch({ executablePath: CHROME, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--no-sandbox', '--ignore-gpu-blocklist'] });
 const p = await b.newPage({ viewport: { width: +w, height: +h }, deviceScaleFactor: +(process.env.DSF || 1) });
 const logs = []; p.on('console', m => { if (['error', 'warning'].includes(m.type()) || m.text().startsWith('>>')) logs.push(m.type() + ': ' + m.text()); }); p.on('pageerror', e => logs.push('PAGEERR: ' + e.message));
 await p.exposeFunction('shot', async name => { const c = process.env.CLIP && process.env.CLIP.split(',').map(Number); await p.screenshot({ timeout: 120000, path: `/tmp/claude-0/shots/${name}.jpg`, type: 'jpeg', quality: 82, clip: c ? { x: c[0], y: c[1], width: c[2], height: c[3] } : undefined }); });

@@ -232,6 +232,24 @@ export function mergeCloud(local, cloud) {
   if (!local.slots[local.last]) local.last = Object.keys(local.slots)[0] || null;
   return local;
 }
+// сборка 75: перенос сохранения кодом — на другой телефон/ПК или между площадками (GitHub Pages, архив, Яндекс): все герои одной строкой.
+// Код = «UH1.» + base64 той же связки, что уходит в облако (cloudBundle). Вставка заменяет героев этого устройства героями из кода.
+const TR_TAG = 'UH1.';
+export function transferCode(cur) { try { return TR_TAG + btoa(unescape(encodeURIComponent(JSON.stringify(cloudBundle(cur))))); } catch (e) { console.warn('transfer code', e); return ''; } }
+export function parseTransfer(str) {
+  const s = String(str || '').replace(/\s+/g, '');
+  if (!s.startsWith(TR_TAG)) return { why: 'Это не код переноса: он начинается с «UH1.»' };
+  let b = null; try { b = JSON.parse(decodeURIComponent(escape(atob(s.slice(TR_TAG.length))))); } catch { return { why: 'Код повреждён или скопирован не целиком' }; }
+  const slots = {};
+  for (const raw of Object.values((b && b.slots) || {})) { let p = null; try { p = migrate(raw); } catch (e) { console.warn('transfer slot', e); } if (validSave(p) && CLASS_IDS.includes(p.cls)) slots[p.cls] = p; }
+  if (!Object.keys(slots).length) return { why: 'В коде нет ни одного героя' };
+  return { slots, last: b.last && slots[b.last] ? b.last : Object.keys(slots)[0] };
+}
+export function applyTransfer(t) {
+  let n = 0; for (const p of Object.values(t.slots)) if (saveLocal(p, true)) n++;
+  try { if (n) localStorage.setItem(LAST_KEY, t.last); } catch { }
+  return n;
+}
 export function loadLocal() { const { slots, last } = loadSlots(); return last ? slots[last] : null; }
 // правки по скилам: перед записью прошлое сохранение копируется в <ключ>_bak (если новое не прочитается — loadSlots возьмёт его)
 export function saveLocal(p, keepTime) {

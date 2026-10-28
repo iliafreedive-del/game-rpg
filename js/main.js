@@ -1,5 +1,6 @@
 // Entry point: boot sequence, title screen, main loop.
 import { G, bus } from './game/ctx.js';
+import { transferButtons } from './ui/transfer.js';
 import { loadGroup, loadGroupLite, releaseLite, getAtlas } from './core/assets.js';
 import { initInput, initMouse, input, releaseInput } from './core/input.js';
 import { initCamZoom } from './core/camzoom.js';
@@ -121,6 +122,10 @@ async function boot() {
     const n = el('button', 'btn gold', 'Начать игру'); n.onclick = newGame; btns.append(n);
   }
   btns.appendChild(el('div', 'muted', `<small>Версия: ${BUILD}</small>`));
+  { // сборка 75: перенос сохранения кодом с другого устройства / площадки — ещё до входа в мир (новый телефон, GitHub Pages)
+    const note = el('div', 'muted'); note.style.minHeight = '1.2em';
+    const tb = transferButtons(null, t => { note.innerHTML = `<small class="${t.kind === 'bad' || t.kind === 'warn' ? 'bad' : 'good'}">${esc(t.text)}${t.sub ? ' — ' + esc(t.sub) : ''}</small>`; }, { copy: !!saves.last });
+    tb.title = 'Перенос сохранения между устройствами'; btns.append(tb, note); }
   btns.appendChild(el('div', 'muted ctl-tip', '<small>Телефон: ведите пальцем в любом месте экрана — герой пойдёт; коснитесь врага или сундука — побежит к нему; рывок и зелья справа · ПК: WASD, E — действие, R/F — зелья, 1–4 — умения, Shift — рывок</small>'));
   if (G.webglFail) btns.appendChild(el('div', 'muted', '<small>' + esc('3D-графика недоступна на этом устройстве — игра в 2D. Причина: ') + esc(G.webglFail) + '</small>'));   // П42
 }
