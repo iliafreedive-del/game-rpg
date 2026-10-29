@@ -28,6 +28,7 @@
       <p class="sub">Симулятор, который объясняет: почему падаешь и что сделать телом, чтобы поехать.</p>
     </div>
     <button id="stanceChip" class="chip" title="Сменить стойку"></button>
+    <button id="setChip" class="chip set" title="Настройки">⚙<span> Настройки</span></button>
   </header>
   <div id="lessonList"></div>
   <footer class="menu-foot"><span id="menuFoot">Клавиатура: A/D — кант, W/S — вес, Q/E — плечи, Пробел — присесть, Shift — прямые ноги, C — камера, T — замедление, R — заново, Esc — меню.</span> <button id="installChip" class="chip sm hidden">📲 Установить как приложение</button></footer>
@@ -36,7 +37,7 @@
 <!-- Брифинг урока: теория + мастер-класс -->
 <section id="brief" class="screen hidden">
   <div class="card brief-card">
-    <div class="brief-top"><span id="briefNum" class="num"></span><h2 id="briefTitle"></h2></div>
+    <div class="brief-top"><span id="briefNum" class="num"></span><h2 id="briefTitle"></h2><button id="briefCard" class="chip sm hidden" title="Главное для настоящего склона">📋 Шпаргалка</button></div>
     <div id="briefTheory" class="theory"></div>
     <div id="briefTips" class="tips"></div>
     <div id="briefPrep" class="prep"></div>
@@ -74,6 +75,7 @@
   </div>
   <div id="keyLegend"></div>
   <div id="hudBtns">
+    <button id="bPause" class="btn sm" title="Пауза (P)"></button>
     <button id="bVoice" class="btn sm hidden">🔊 Голос</button>
     <button id="bCam" class="btn sm">Камера: Сзади</button>
     <button id="bSlow" class="btn sm">Замедл. ×1</button>
@@ -94,6 +96,8 @@
 </section>
 
 <div id="modal" class="hidden"><div class="card" id="modalCard"></div></div>
+<!-- Шпаргалка на склон: поверх всего, закрывается туда, откуда открыли -->
+<div id="sheet" class="hidden"><div class="card" id="sheetCard"></div></div>
 
 <script type="module" src="js/main.js"></script>
 </body>

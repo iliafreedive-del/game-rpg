@@ -354,6 +354,93 @@ export function resortProps(frame, S0, S1) {
   return { group: g, update };
 }
 
+// ---------------------------------------------------------------- курорт: снежные пушки и снеговик (как в POLYGON Snow Kit)
+// Пушка-вентилятор на колёсах у края трассы: ствол смотрит через склон и чуть вверх (локально — к +X).
+function fanGunGeo() {
+  const parts = [];
+  const box = (w, h, d, x, y, z, color) => { const b = new THREE.BoxGeometry(w, h, d); b.translate(x, y, z); parts.push(tint(b, color)); };
+  const tilt = 0.42, c = V3(0, 1.75, 0), ax = V3(Math.cos(tilt), Math.sin(tilt), 0);
+  const ring = (r, len, at, color, seg = 20) => { const g = new THREE.CylinderGeometry(r, r, len, seg); g.rotateZ(-Math.PI / 2 + tilt); const p = c.clone().addScaledVector(ax, at); g.translate(p.x, p.y, p.z); parts.push(tint(g, color)); };
+  box(1.6, 0.2, 0.9, 0, 0.42, 0, '#3b424c');
+  for (const x of [-0.55, 0.55]) for (const z of [-0.5, 0.5]) { const w = new THREE.CylinderGeometry(0.3, 0.3, 0.16, 12); w.rotateX(Math.PI / 2); w.translate(x, 0.3, z); parts.push(tint(w, '#1f2329')); }
+  box(0.2, 1.15, 0.2, -0.1, 1.05, 0.38, '#64748b'); box(0.2, 1.15, 0.2, -0.1, 1.05, -0.38, '#64748b');
+  box(0.5, 0.5, 0.5, -0.55, 0.78, 0, '#e5e7eb'); // насос
+  ring(0.64, 1.6, 0, '#f1f5f9');
+  ring(0.66, 0.2, 0.1, '#dc2626');
+  ring(0.6, 0.06, 0.82, '#1f2937');   // решётка спереди
+  ring(0.67, 0.08, -0.8, '#facc15');  // жёлтое кольцо сзади
+  ring(0.1, 0.12, -0.86, '#334155', 8);
+  return merge(parts.map((g) => { if (g.attributes.uv) g.deleteAttribute('uv'); return g; }));
+}
+function snowmanGeo() {
+  const parts = [];
+  const ball = (r, y, color = '#fbfdff', x = 0, z = 0) => { const g = new THREE.SphereGeometry(r, 18, 14); g.translate(x, y, z); parts.push(tint(g, color)); };
+  ball(0.62, 0.5); ball(0.46, 1.3); ball(0.33, 1.92);
+  for (const x of [-0.11, 0.11]) ball(0.04, 2.0, '#111827', x, 0.29);
+  for (const y of [1.18, 1.36, 1.54]) ball(0.045, y, '#111827', 0, 0.45);
+  const nose = new THREE.ConeGeometry(0.06, 0.32, 10); nose.rotateX(Math.PI / 2); nose.translate(0, 1.93, 0.46); parts.push(tint(nose, '#f97316'));
+  const scarf = new THREE.TorusGeometry(0.3, 0.07, 8, 20); scarf.rotateX(Math.PI / 2); scarf.translate(0, 1.66, 0); parts.push(tint(scarf, '#dc2626'));
+  const tail = new THREE.BoxGeometry(0.14, 0.36, 0.06); tail.rotateZ(0.2); tail.translate(0.2, 1.48, 0.3); parts.push(tint(tail, '#dc2626'));
+  const hat = new THREE.CylinderGeometry(0.2, 0.24, 0.3, 14); hat.translate(0, 2.3, 0); parts.push(tint(hat, '#1e3a8a'));
+  const brim = new THREE.CylinderGeometry(0.32, 0.32, 0.04, 16); brim.translate(0, 2.16, 0); parts.push(tint(brim, '#1e3a8a'));
+  for (const k of [-1, 1]) { const arm = new THREE.CylinderGeometry(0.025, 0.03, 0.9, 5); arm.rotateZ(k * 1.05); arm.translate(k * 0.75, 1.55, 0); parts.push(tint(arm, '#5b3a1e')); }
+  return merge(parts.map((g) => { if (g.attributes.uv) g.deleteAttribute('uv'); return g; }));
+}
+// Снегоход курортной службы (как в POLYGON Snow Kit): нос к локальному +X
+function snowmobileGeo() {
+  const parts = [];
+  const box = (w, h, d, x, y, z, color, rz = 0) => { const b = new THREE.BoxGeometry(w, h, d); if (rz) b.rotateZ(rz); b.translate(x, y, z); parts.push(tint(b, color)); };
+  box(2.0, 0.42, 0.56, -0.45, 0.3, 0, '#1f2329');            // гусеница в туннеле
+  box(1.15, 0.5, 0.95, 0.75, 0.55, 0, '#dc2626');            // капот
+  box(1.17, 0.08, 0.97, 0.75, 0.64, 0, '#f8fafc');           // белая полоса
+  box(0.7, 0.3, 0.9, 1.05, 0.9, 0, '#b91c1c', -0.35);        // нос капота
+  box(0.06, 0.38, 0.78, 0.38, 1.06, 0, '#475569', 0.45);     // ветровое стекло
+  box(1.15, 0.2, 0.5, -0.55, 0.62, 0, '#111827');            // сиденье
+  box(0.6, 0.12, 0.62, -1.1, 0.56, 0, '#dc2626');            // задний багажник
+  box(0.07, 0.05, 0.25, 1.42, 0.68, 0, '#fde047');           // фара
+  const bar = new THREE.CylinderGeometry(0.025, 0.025, 0.8, 6); bar.rotateX(Math.PI / 2); bar.translate(0.2, 1.02, 0); parts.push(tint(bar, '#111827'));
+  for (const z of [-0.45, 0.45]) {
+    box(1.35, 0.05, 0.16, 0.95, 0.03, z, '#111827');         // лыжи
+    box(0.32, 0.05, 0.16, 1.68, 0.12, z, '#111827', 0.6);
+    box(0.08, 0.36, 0.08, 0.9, 0.22, z, '#334155');
+  }
+  return merge(parts.map((g) => { if (g.attributes.uv) g.deleteAttribute('uv'); return g; }));
+}
+// Снежные пушки вдоль трассы через одну сторону, снегоход и снеговики у старта — курорт живой, а не пустой склон
+export function resortExtras(frame, S0, S1) {
+  const g = new THREE.Group(), r = rng(919), M = new THREE.Matrix4(), q = new THREE.Quaternion(), one = V3(1, 1, 1), Y = V3(0, 1, 0);
+  const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.55, metalness: 0.15 });
+  const guns = [];
+  let side = 1;
+  for (let s = S0 + 90; s < S1; s += 110 + r() * 60, side = -side) guns.push([side * (PISTE + 2.4 + r() * 0.8), s, side]);
+  const gm = new THREE.InstancedMesh(fanGunGeo(), mat, guns.length);
+  guns.forEach(([u, s, sd], i) => {
+    // ствол к середине трассы и чуть вниз по склону
+    q.setFromAxisAngle(Y, sd > 0 ? Math.PI - 0.35 : 0.35);
+    gm.setMatrixAt(i, M.compose(frame.p(u, s, terrainH(u, s) - 0.05), q, one));
+  });
+  gm.castShadow = true; g.add(gm);
+  g.userData.guns = guns;
+  const men = [[-23.8, 26, 0.5], [24.5, 230, -0.6], [-24.5, 520, 0.4]];
+  const sm = new THREE.InstancedMesh(snowmanGeo(), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85 }), men.length);
+  men.forEach(([u, s, yaw], i) => { q.setFromAxisAngle(Y, yaw); sm.setMatrixAt(i, M.compose(frame.p(u, s, terrainH(u, s) - 0.15), q, one)); });
+  sm.castShadow = true; g.add(sm);
+  const sled = new THREE.Mesh(snowmobileGeo(), mat);
+  sled.position.copy(frame.p(25, 36, terrainH(25, 36) - 0.05)); sled.rotation.y = 2.1; sled.castShadow = true;
+  g.add(sled);
+  return g;
+}
+// Табличка трассы у старта: цвет сложности, уровень и название — как указатели на настоящем курорте
+export function trailSign(level, name, color, text = '#ffffff') {
+  return canvasTex(512, 320, (x, W, H) => {
+    x.fillStyle = '#f8fafc'; x.fillRect(0, 0, W, H);
+    x.fillStyle = color; x.fillRect(12, 12, W - 24, H - 24);
+    x.fillStyle = text; x.textAlign = 'center'; x.textBaseline = 'middle';
+    x.font = 'bold 84px sans-serif'; x.fillText(level.toUpperCase(), W / 2, H * 0.33);
+    x.font = 'bold 72px sans-serif'; x.fillText(name, W / 2, H * 0.71, W - 48);
+  }, { aniso: 4 });
+}
+
 // ---------------------------------------------------------------- небо и горы
 function skyDome(R) {
   const g = new THREE.SphereGeometry(R, 48, 24), p = g.attributes.position, c = [];
