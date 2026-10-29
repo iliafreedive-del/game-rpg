@@ -452,7 +452,7 @@ export const LESSONS = [
   {
     id: 'cturn', kind: 'ride', title: 'Смена канта: C-поворот',
     short: 'С пяток на носки и обратно', slopeDeg: 10, maxSpeed: 7,
-    variants: [{ id: 'ht', name: 'С пяток на носки' }, { id: 'th', name: 'С носков на пятки' }],
+    hud: 'C-поворот', variants: [{ id: 'ht', name: 'С пяток на носки', hud: 'пятки → носки' }, { id: 'th', name: 'С носков на пятки', hud: 'носки → пятки' }],
     start: (t, v) => ({ u: (v === 'th' ? -13 : 13) * t, s: 2, theta: v === 'th' ? TOE_FACING(t) : HEEL_FACING(t) }),
     theory: [
       'Смена канта — сердце поворота. Здесь делаем её <b>по одной</b>, медленно, и каждую доводим до полной остановки. След похож на букву C.',

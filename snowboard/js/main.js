@@ -590,8 +590,10 @@ function startRide(id, demo, opts = {}) {
   if (!app.background) {
     setScreen('ride');
     const best = track ? save.tracks[L.track.id]?.best : null;
-    const vname = app.variant ? ` · ${L.variants.find((v) => v.id === app.variant).name.toLowerCase()}` : '';
-    $('hudTitle').innerHTML = (demo ? 'Демонстрация · ' : '') + L.title + vname + (app.ghost && best != null ? ` <span class="gh">· призрак ${fmtTime(best)}</span>` : '');
+    // на телефоне заголовок короче, чтобы влез в одну строку и не уходил под панель канта
+    const narrow = innerWidth <= 720, vr = app.variant && L.variants.find((v) => v.id === app.variant);
+    const vname = vr ? ` · ${(narrow && vr.hud) || vr.name.toLowerCase()}` : '';
+    $('hudTitle').innerHTML = (demo ? (narrow ? 'Демо · ' : 'Демонстрация · ') : '') + ((narrow && L.hud) || L.title) + vname + (app.ghost && best != null ? ` <span class="gh">· призрак ${fmtTime(best)}</span>` : '');
     $('toast').className = '';
     $('keyLegend').innerHTML = keyLegend(L.keys).map(([k, t]) => `<div>${k} ${t}</div>`).join('');
     show('demoBanner', demo);
