@@ -63,7 +63,8 @@ await page.evaluate(ff(2)); await page.waitForTimeout(350); report('after fall �
 // плавность замедления: шаг райдера между кадрами при ×0.35 должен быть ровным
 await page.evaluate(`window.__app.startRide('turns', true)`); await page.evaluate(ff(4));
 const jitter = await page.evaluate(`(() => { const A = window.__app; A.app.slow = 0.35; const d = []; let prev = A.rider.root.position.clone();
-  for (let i = 0; i < 90; i++) { A.updateRide(1 / 60); const p = A.rider.root.position.clone(); d.push(p.distanceTo(prev)); prev = p; }
+  // кадры, где демонстрация стоит на паузе ключевого момента, — это нарочная остановка, а не рывок
+  for (let i = 0; i < 90; i++) { A.updateRide(1 / 60); const p = A.rider.root.position.clone(); if (!A.app.pause) d.push(p.distanceTo(prev)); prev = p; }
   const m = d.reduce((a, b) => a + b, 0) / d.length, sd = Math.sqrt(d.reduce((a, b) => a + (b - m) ** 2, 0) / d.length);
   A.app.slow = 1; return { mean: +m.toFixed(4), sd: +sd.toFixed(4), zeros: d.filter((x) => x < 1e-6).length }; })()`);
 console.log('slow-mo step per frame:', JSON.stringify(jitter), jitter.zeros > 10 || jitter.sd > jitter.mean * 0.6 ? 'FAIL рывки' : 'ok плавно');

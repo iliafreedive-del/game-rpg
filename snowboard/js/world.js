@@ -1,6 +1,6 @@
 // Склон, лес, ворота, след доски, снежная пыль и камера.
 import * as THREE from 'three';
-import { HORIZON, SUN_DIR, terrainH, snowTint, oldTracks, resortProps, snowTextures, buildForest, makeBackdrop, sprayTexture, starGeo, glowTexture, finishBanner } from './art/scenery.js';
+import { HORIZON, SUN_DIR, terrainH, snowTint, oldTracks, resortProps, resortExtras, trailSign, snowTextures, buildForest, makeBackdrop, sprayTexture, starGeo, glowTexture, finishBanner } from './art/scenery.js';
 
 export class SlopeFrame {
   constructor(deg) { this.set(deg); }
@@ -93,13 +93,13 @@ export class World {
     for (const c of this.chunks) this.slopeGroup.add(c);
     // подъёмник и защитные сетки
     this.props = resortProps(f, S0, S1);
-    this.slopeGroup.add(this.props.group);
+    this.slopeGroup.add(this.props.group, resortExtras(f, S0, S1));
     const m = new THREE.Matrix4(), sc = new THREE.Vector3();
 
     // вешки границы трассы
     const poleG = new THREE.CylinderGeometry(0.04, 0.04, 1.6, 6); poleG.translate(0, 0.8, 0);
     const np = Math.floor((S1 - S0) / 20) * 2;
-    const poles = new THREE.InstancedMesh(poleG, new THREE.MeshStandardMaterial({ color: '#f97316' }), np);
+    const poles = new THREE.InstancedMesh(poleG, this.poleMat || (this.poleMat = new THREE.MeshStandardMaterial({ color: '#f97316' })), np);
     let k = 0;
     for (let s = S0; s < S1 && k < np; s += 20) for (const u of [-20, 20]) { poles.setMatrixAt(k++, m.compose(f.p(u, s), new THREE.Quaternion(), sc.set(1, 1, 1))); }
     this.slopeGroup.add(poles);
@@ -186,6 +186,21 @@ export class World {
       }
       m.rotation.y = t * 2.2 + d.ph; g.position.y = d.base + Math.sin(t * 2.4 + d.ph) * 0.12;
     }
+  }
+  // Трасса на время: вешки по краям — цвета сложности (как на курорте), у старта — табличка с названием
+  setTrackLook(T) {
+    this.poleMat.color.set(T ? (T.id === 'black' ? '#111827' : T.color) : '#f97316');
+    if (this.sign) { this.finishGroup.remove(this.sign); this.sign.traverse((o) => { if (o.isMesh) { o.geometry.dispose(); o.material.map?.dispose(); o.material.dispose(); } }); this.sign = null; }
+    if (!T) return;
+    const f = this.frame, g = new THREE.Group(), dark = new THREE.MeshStandardMaterial({ color: '#334155', roughness: 0.6 });
+    const board = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 1.375), new THREE.MeshStandardMaterial({ map: trailSign(T.level, T.name, T.id === 'black' ? '#111827' : T.color), roughness: 0.7 }));
+    board.position.set(0, 2.35, 0); board.castShadow = true;
+    const back = new THREE.Mesh(new THREE.BoxGeometry(2.3, 1.47, 0.06), dark); back.position.set(0, 2.35, -0.05);
+    g.add(board, back);
+    for (const x of [-0.9, 0.9]) { const p = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 2.4, 6), dark); p.position.set(x, 1.2, -0.08); p.castShadow = true; g.add(p); }
+    // табличка у левого края, лицом вверх по склону и чуть к середине — её видно со старта
+    g.position.copy(f.p(-12.5, 22)); g.rotation.y = 0.3;
+    this.sign = g; this.finishGroup.add(g);
   }
   // Финишная арка поперёк трассы
   setFinish(s) {
@@ -278,12 +293,27 @@ class Spray {
 
 // Камера: «сзади», «сбоку», «спереди», «сверху».
 export const CAM_MODES = ['follow', 'side', 'front', 'top'];
-export const CAM_NAMES = { follow: 'Сзади', side: 'Сбоку (носки)', front: 'Спереди', top: 'Сверху', profile: 'Профиль', front3: 'Спереди-сбоку' };
+export const CAM_NAMES = { follow: 'Сзади', side: 'Сбоку (носки)', front: 'Спереди', top: 'Сверху', profile: 'Профиль', front3: 'Спереди-сбоку', user: 'Своя' };
 
 const finite = (v) => Number.isFinite(v.x) && Number.isFinite(v.y) && Number.isFinite(v.z);
 
 export class CameraRig {
-  constructor(camera) { this.cam = camera; this.mode = 'follow'; this.pos = new THREE.Vector3(); this.look = new THREE.Vector3(); this.init = false; this.orbit = 0; }
+  constructor(camera) {
+    this.cam = camera; this.mode = 'follow'; this.pos = new THREE.Vector3(); this.look = new THREE.Vector3(); this.init = false; this.orbit = 0;
+    // «своя» камера: игрок крутит её пальцем или мышью вокруг райдера — угол считается от направления «сзади»
+    this.user = { yaw: 0, pitch: 0.3, dist: 6 }; this.last = null;
+  }
+  // перейти на «свою» камеру с того места, где камера стоит сейчас, — без скачка
+  toUser() {
+    if (!this.last) return;
+    const { t, travel } = this.last, up = new THREE.Vector3(0, 1, 0);
+    const d = this.pos.clone().sub(t), dist = Math.max(2, d.length());
+    const back = travel.clone().setY(0); if (back.lengthSq() < 1e-6) back.set(0, 0, 1); back.normalize().negate();
+    const flat = d.clone().setY(0);
+    const yaw = flat.lengthSq() > 1e-6 ? Math.atan2(back.clone().cross(flat).dot(up), back.dot(flat)) : 0;
+    this.user = { yaw, pitch: Math.max(-0.05, Math.min(1.45, Math.asin(Math.max(-1, Math.min(1, d.y / dist))))), dist: Math.min(14, dist) };
+    this.mode = 'user';
+  }
   update(dt, target, travel, toeDir, N, opts = {}) {
     const up = new THREE.Vector3(0, 1, 0);
     if (!finite(travel) || travel.lengthSq() < 1e-6) travel = N.clone().cross(up).cross(N).normalize().negate();
@@ -304,13 +334,23 @@ export class CameraRig {
     }
     else if (mode === 'front') { p = t.clone().addScaledVector(travel, 6 * z).addScaledVector(up, 1.2); }
     else if (mode === 'top') { p = t.clone().addScaledVector(N, 16).addScaledVector(travel, -3 * z); l = target.clone().addScaledVector(travel, 2 * z); }
+    else if (mode === 'user') {
+      const u = this.user;
+      const back = travel.clone().setY(0); if (back.lengthSq() < 1e-6) back.set(0, 0, 1); back.normalize().negate().applyAxisAngle(up, u.yaw);
+      p = t.clone().addScaledVector(back, Math.cos(u.pitch) * u.dist).addScaledVector(up, Math.sin(u.pitch) * u.dist);
+      // не под снег: выше склона хотя бы на 0.5 м (вверх по склону земля поднимается)
+      const h = p.clone().sub(target).dot(N);
+      if (h < 0.5) p.addScaledVector(N, 0.5 - h);
+      l.addScaledVector(up, -0.2);
+    }
     else if (mode === 'orbit') {
       this.orbit += dt * 0.5;
       const d = new THREE.Vector3(Math.cos(this.orbit), 0, Math.sin(this.orbit));
       p = t.clone().addScaledVector(d, 4.5).addScaledVector(up, 1.6); l = target.clone().addScaledVector(up, 0.4);
     }
     if (!finite(p) || !finite(l)) return; // испорченная цель — не трогаем камеру
-    const k = this.init ? 1 - Math.exp(-Math.max(0, dt) * (mode === 'top' ? 3 : 5)) : 1;
+    this.last = { t, travel: travel.clone() };
+    const k = this.init ? 1 - Math.exp(-Math.max(0, dt) * (mode === 'top' ? 3 : mode === 'user' ? 14 : 5)) : 1;
     const kl = this.init ? 1 - Math.exp(-Math.max(0, dt) * (mode === 'top' ? 3 : 14)) : 1; // точка взгляда догоняет быстрее, иначе на скорости райдер уезжает к краю кадра
     // lerp не вылечит NaN в самой камере (NaN + x = NaN) — тогда просто ставим камеру на место
     if (!this.init || !finite(this.pos) || !finite(this.look)) { this.pos.copy(p); this.look.copy(l); }
