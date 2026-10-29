@@ -662,6 +662,7 @@ function updateRide(dt) {
   // в демонстрации картинка поднята над субтитрами: доска и колени не прячутся за текстом (применяется в кадре)
   const want = app.mode === 'ride' && app.demo && !app.background ? $('demoBanner').offsetHeight * (innerHeight > innerWidth ? 0.6 : 0.8) : 0;
   app.viewShift = (app.viewShift || 0) + (want - (app.viewShift || 0)) * (app.t < 0.3 ? 1 : 1 - Math.exp(-dt * 6)); // в начале заезда — сразу, дальше плавно
+  applyViewShift(); // сразу, а не в следующем кадре: первый кадр нового склона бывает долгим (компиляция шейдеров)
   const L = app.lesson;
   if (app.replay) return updateReplay(dt);
   if (app.pause && !app.userPause && (app.pause.left -= dt) <= 0) app.pause = null;
@@ -1360,13 +1361,16 @@ function renderPip() {
 }
 
 // ---------------------------------------------------------------- цикл
+function applyViewShift() {
+  if (app.viewShift > 0.5) camera.setViewOffset(innerWidth, innerHeight, 0, app.viewShift, innerWidth, innerHeight); else camera.clearViewOffset();
+}
 let last = performance.now();
 function frame(now) {
   const dt = Math.min(0.05, (now - last) / 1000); last = now;
   if (app.mode === 'studio') { updateStudio(); renderer.render(studio.scene, studio.cam); }
   else {
     if (app.lesson && !(app.mode === 'ride' && !$('modal').classList.contains('hidden') && !app.replay)) updateRide(dt);
-    if (app.viewShift > 0.5) camera.setViewOffset(innerWidth, innerHeight, 0, app.viewShift, innerWidth, innerHeight); else camera.clearViewOffset();
+    applyViewShift();
     renderer.render(world.scene, camera);
     if (app.mode === 'ride' && app.lesson?.pip && app.pipTarget) renderPip();
   }
