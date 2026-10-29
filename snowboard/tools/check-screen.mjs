@@ -38,7 +38,7 @@ const report = (tag, r) => {
   console.log(`${ok ? 'ok  ' : 'FAIL'} ${tag.padEnd(26)} cam=${r.mode.padEnd(7)} board=(${r.board.x},${r.board.y}) head.y=${r.head.y} bannerTop=${r.bannerTopNdc}${overBanner ? ' · ЗА СУБТИТРАМИ' : ''}${!inFrame ? ' · НЕ В КАДРЕ' : ''}${r.pause ? ' · пауза' : ''}${r.fallen ? ' · упал' : ''}`);
 };
 
-for (const id of ['heel_slip', 'toe_slip', 'leaf', 'jturn', 'garland', 'turns', 'carve', 'free', 'track:green']) {
+for (const id of ['heel_slip', 'toe_slip', 'leaf', 'jturn', 'garland', 'cturn', 'turns', 'speed', 'carve', 'free', 'track:green']) {
   await page.evaluate(`window.__app.startRide(${JSON.stringify(id)}, true)`); await page.waitForTimeout(400);
   let t = 0;
   for (const dt of [1, 3, 4, 4, 5]) { t += dt; await page.evaluate(ff(dt)); await page.waitForTimeout(350); report(`demo ${id} t=${t}`, await page.evaluate(probe)); }
