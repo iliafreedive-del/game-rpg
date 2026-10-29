@@ -362,3 +362,10 @@ body.big #coach .tip { font-size: 15px; }
 .brief-top #briefCard { margin-left: auto; flex: none; }
 .brief-top { flex-wrap: wrap; row-gap: 6px; }
 @media (max-width: 720px) { .brief-top #briefCard { margin-left: 0; } }
+
+/* Снаряжение: уровень катания и разбор падения → 3D */
+.presets.lv .btn { flex: 1 1 30%; text-align: left; padding: 7px 9px; font-size: 13px; }
+.presets.lv .btn small { display: block; color: var(--mute); font-size: 11px; font-weight: 400; margin-top: 1px; }
+.presets.lv .btn.on small { color: inherit; }
+.m3d { margin-top: 8px; }
+#mkBack { margin-bottom: 8px; }

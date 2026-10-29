@@ -3,7 +3,8 @@
 import * as THREE from 'three';
 import { loft, merge, paint, canvasTex, grain, rng, noise2, fbm, smooth, lerp, clamp, TAU, V3 } from './kit.js';
 
-export const HORIZON = '#d3e3f1';
+// Солнечный день как в POLYGON Snow Kit: тёплая дымка у горизонта, глубокое синее небо, сиреневые тени
+export const HORIZON = '#e4e3ef';
 // Солнце сбоку и чуть со стороны долины: склон светлый, у гор и сугробов — грани и синие тени
 export const SUN_DIR = V3(20, 24, -6).normalize();
 const SUN_XZ = new THREE.Vector2(SUN_DIR.x, SUN_DIR.z).normalize();
@@ -38,7 +39,7 @@ export function snowTint(u, s, out) {
     k = clamp(0.96 + curv * 1.4 + 0.04 * fbm(u * 0.08, s * 0.08, 2), 0.78, 1.03);
     blue = clamp(1 - (k - 0.78) / 0.24, 0, 1);
   }
-  return out.setRGB(k * (1 - 0.07 * blue), k * (1 - 0.03 * blue), Math.min(1, k * (1 + 0.03 * blue)));
+  return out.setRGB(k * (1 - 0.045 * blue), k * (1 - 0.06 * blue), Math.min(1, k * (1 + 0.03 * blue))); // тени в снегу — сиреневые
 }
 
 // Старые следы других райдеров на трассе: плавные дуги, светло-синие, полупрозрачные
@@ -406,6 +407,89 @@ function snowmobileGeo() {
   }
   return merge(parts.map((g) => { if (g.attributes.uv) g.deleteAttribute('uv'); return g; }));
 }
+// ---------------------------------------------------------------- люди у края трассы (низкополигональные, как в POLYGON Snow Kit)
+// Двухцветная куртка, прямые серые штаны, шлем с маской. Локально: стоит на y=0, лицом к +Z.
+// pose: stand — доска воткнута рядом; point — инструктор показывает рукой; sit — сидит, доска на ногах поперёк.
+const JACKETS = [['#1ba7e3', '#22306a'], ['#f97316', '#1f2937'], ['#a855f7', '#312e81'], ['#22c55e', '#14532d'], ['#f43f5e', '#4c0519'], ['#facc15', '#334155'], ['#14b8a6', '#134e4a']];
+function personGeo({ jacket, jacket2, pants = '#686d75', helmet = '#f3f5f7', board = '#1f6feb', pose = 'stand' }) {
+  const parts = [], up = V3(0, 1, 0), P = (x, y, z) => V3(x, y, z);
+  const box = (w, h, d, p, color, rx = 0, rz = 0) => { const b = new THREE.BoxGeometry(w, h, d); if (rx) b.rotateX(rx); if (rz) b.rotateZ(rz); b.translate(p.x, p.y, p.z); parts.push(tint(b, color)); };
+  // брусок от точки a до точки b
+  const limb = (a, b, w, d, color) => {
+    const dir = b.clone().sub(a), g = new THREE.BoxGeometry(w, dir.length(), d);
+    g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(up, dir.normalize()));
+    const m = a.clone().lerp(b, 0.5); g.translate(m.x, m.y, m.z); parts.push(tint(g, color));
+  };
+  const ball = (r, p, color) => { const g = new THREE.IcosahedronGeometry(r, 1); g.translate(p.x, p.y, p.z); parts.push(tint(g, color)); };
+  const sit = pose === 'sit';
+  // таз, корпус и голова: сидя — ниже и с наклоном назад
+  const hip = sit ? P(0, 0.2, -0.05) : P(0, 0.92, 0), lean = sit ? -0.35 : 0;
+  const chest = hip.clone().add(P(0, 0.62 * Math.cos(lean), 0.62 * Math.sin(lean)));
+  limb(hip, hip.clone().lerp(chest, 0.62), 0.47, 0.31, jacket);
+  limb(hip.clone().lerp(chest, 0.6), chest, 0.5, 0.33, jacket2);
+  limb(chest, chest.clone().add(P(0, 0.1, 0)), 0.2, 0.2, '#2f3e4f');
+  const head = chest.clone().add(P(0, 0.22, 0.02));
+  ball(0.135, head, helmet);
+  box(0.23, 0.075, 0.07, head.clone().add(P(0, -0.01, 0.11)), '#ffb100');
+  box(0.15, 0.07, 0.05, head.clone().add(P(0, -0.1, 0.09)), '#e9b48f');
+  // ноги и ботинки
+  for (const k of [-1, 1]) {
+    const h = hip.clone().add(P(0.11 * k, -0.04, 0));
+    if (sit) {
+      const knee = P(0.14 * k, 0.48, 0.38), foot = P(0.17 * k, 0.12, 0.62);
+      limb(h, knee, 0.17, 0.2, pants); limb(knee, foot, 0.16, 0.18, pants);
+      box(0.15, 0.13, 0.3, foot.clone().add(P(0, -0.02, 0.05)), '#2c3139', -0.5);
+    } else {
+      limb(h, P(0.12 * k, 0.14, 0), 0.19, 0.23, pants);
+      box(0.15, 0.13, 0.3, P(0.12 * k, 0.065, 0.04), '#2c3139');
+    }
+  }
+  // руки
+  for (const k of [-1, 1]) {
+    const sh = chest.clone().add(P(0.29 * k, -0.07, 0));
+    let hand;
+    if (sit) hand = P(0.36 * k, 0.05, -0.38);                                 // упёрся руками в снег сзади
+    else if (pose === 'point' && k > 0) hand = sh.clone().add(P(0.42, 0.22, 0.36)); // показывает на склон
+    else hand = sh.clone().add(P(0.06 * k, -0.52, 0.06));
+    const elbow = sh.clone().lerp(hand, 0.5).add(P(0.04 * k, 0, -0.04));
+    limb(sh, elbow, 0.15, 0.16, jacket); limb(elbow, hand, 0.14, 0.15, jacket);
+    ball(0.065, hand, '#1d1f24');
+  }
+  // доска: сидя — на ногах поперёк, стоя — воткнута в снег хвостом рядом
+  if (sit) {
+    box(1.5, 0.03, 0.27, P(0, 0.04, 0.67), board);
+    for (const k of [-1, 1]) box(0.2, 0.1, 0.24, P(0.17 * k, 0.09, 0.67), '#16181c');
+  } else {
+    box(0.27, 1.5, 0.03, P(0.55, 0.68, -0.12), board, 0, -0.08);
+    box(0.24, 0.2, 0.08, P(0.56, 0.58, -0.08), '#16181c', 0, -0.08);
+  }
+  return merge(parts);
+}
+// Группы людей у края трассы: инструктор с детьми у старта, отдыхающие, друзья с досками.
+// [u, s, поворот, поза, номер куртки, масштаб]
+const PEOPLE = [
+  [-21.2, 24, 0.35, 'point', -1, 1], [-20.5, 21.2, Math.PI + 0.25, 'stand', 4, 0.62], [-21.6, 21.8, Math.PI - 0.1, 'stand', 6, 0.6],
+  [20.8, 46, Math.PI + 0.2, 'sit', 1, 1],
+  [21.3, 150, -Math.PI / 2 - 0.6, 'stand', 2, 1], [21.1, 151.6, -Math.PI / 2 + 0.5, 'stand', 3, 0.95],
+  [-20.9, 262, Math.PI - 0.3, 'sit', 0, 1],
+  [-21.2, 384, Math.PI / 2 - 0.4, 'stand', 5, 1],
+  [20.7, 523, -0.25, 'point', -1, 1], [21.2, 520.5, Math.PI + 0.2, 'stand', 0, 1],
+  [-20.8, 700, Math.PI - 0.3, 'sit', 2, 1], [21.0, 880, -Math.PI / 2, 'stand', 6, 1],
+];
+export function slopePeople(frame) {
+  const g = new THREE.Group(), mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.7, flatShading: true });
+  const geos = new Map();
+  for (const [u, s, yaw, pose, j, k] of PEOPLE) {
+    // инструктор — в форме школы: красная куртка с белым верхом
+    const [jacket, jacket2] = j < 0 ? ['#dc2626', '#f8fafc'] : JACKETS[j];
+    const key = `${pose}${j}`;
+    if (!geos.has(key)) geos.set(key, personGeo({ jacket, jacket2, pose, helmet: j < 0 ? '#111827' : '#f3f5f7', board: j < 0 ? '#e11d48' : ['#1f6feb', '#7c3aed', '#0d9488', '#e11d48'][(j + 4) % 4] }));
+    const m = new THREE.Mesh(geos.get(key), mat);
+    m.position.copy(frame.p(u, s, terrainH(u, s) - 0.04)); m.rotation.y = yaw; m.scale.setScalar(k);
+    m.castShadow = true; g.add(m);
+  }
+  return g;
+}
 // Снежные пушки вдоль трассы через одну сторону, снегоход и снеговики у старта — курорт живой, а не пустой склон
 export function resortExtras(frame, S0, S1) {
   const g = new THREE.Group(), r = rng(919), M = new THREE.Matrix4(), q = new THREE.Quaternion(), one = V3(1, 1, 1), Y = V3(0, 1, 0);
@@ -427,7 +511,7 @@ export function resortExtras(frame, S0, S1) {
   sm.castShadow = true; g.add(sm);
   const sled = new THREE.Mesh(snowmobileGeo(), mat);
   sled.position.copy(frame.p(25, 36, terrainH(25, 36) - 0.05)); sled.rotation.y = 2.1; sled.castShadow = true;
-  g.add(sled);
+  g.add(sled, slopePeople(frame));
   return g;
 }
 // Табличка трассы у старта: цвет сложности, уровень и название — как указатели на настоящем курорте
@@ -444,12 +528,13 @@ export function trailSign(level, name, color, text = '#ffffff') {
 // ---------------------------------------------------------------- небо и горы
 function skyDome(R) {
   const g = new THREE.SphereGeometry(R, 48, 24), p = g.attributes.position, c = [];
-  const zen = new THREE.Color('#4f8fd0'), mid = new THREE.Color('#9cc6ea'), hor = new THREE.Color(HORIZON), low = new THREE.Color('#e6edf3'), warm = new THREE.Color('#fff3dc');
+  const zen = new THREE.Color('#3576d0'), mid = new THREE.Color('#80b4ec'), hor = new THREE.Color(HORIZON), low = new THREE.Color('#ece8f1'), warm = new THREE.Color('#ffdcb8'), rose = new THREE.Color('#f0d7e4');
   for (let i = 0; i < p.count; i++) {
     const v = V3(p.getX(i), p.getY(i), p.getZ(i)).normalize();
-    let col = v.y < 0 ? hor.clone().lerp(low, smooth(0, 0.2, -v.y)) : v.y < 0.18 ? hor.clone().lerp(mid, smooth(0, 0.18, v.y)) : mid.clone().lerp(zen, smooth(0.18, 0.85, v.y));
-    const sun = Math.max(0, v.x * SUN_XZ.x + v.z * SUN_XZ.y) * (1 - Math.abs(v.y));
-    col.lerp(warm, sun ** 3 * 0.35);
+    let col = v.y < 0 ? hor.clone().lerp(low, smooth(0, 0.2, -v.y)) : v.y < 0.13 ? hor.clone().lerp(mid, smooth(0, 0.13, v.y)) : mid.clone().lerp(zen, smooth(0.13, 0.8, v.y));
+    const toward = v.x * SUN_XZ.x + v.z * SUN_XZ.y, low2 = (1 - Math.abs(v.y)) ** 3;
+    col.lerp(warm, Math.max(0, toward) ** 3 * (1 - Math.abs(v.y)) * 0.5);
+    col.lerp(rose, Math.max(0, -toward) * low2 * 0.35); // напротив солнца горизонт розовеет
     c.push(col.r, col.g, col.b);
   }
   g.setAttribute('color', new THREE.Float32BufferAttribute(c, 3));
@@ -463,7 +548,7 @@ function skyDome(R) {
 // закрывают дальние. peak(θ) → [мин., макс.] высота вершин в градусах над горизонтом;
 // base(θ) — подошва в градусах (вниз по склону долина ниже, вверх — выше).
 const SUN3 = SUN_DIR;
-function massif({ R0, R1, rows, cols, seed, peak, base, haze, order, forest = 0.35, hazeC = '#b4cbe3' }) {
+function massif({ R0, R1, rows, cols, seed, peak, base, haze, order, forest = 0.35, hazeC = '#c6cbe6' }) {
   const r = rng(seed), tg = (d) => Math.tan(d * Math.PI / 180);
   const jt = Array.from({ length: (rows + 1) * cols }, () => [(r() - 0.5) * 0.5, (r() - 0.5) * 0.45]);
   const ridged = (x, z) => {
@@ -484,7 +569,7 @@ function massif({ R0, R1, rows, cols, seed, peak, base, haze, order, forest = 0.
   const grid = [];
   for (let j = 0; j <= rows; j++) for (let i = 0; i <= cols; i++) grid.push(vtx(i, j));
   const at = (i, j) => grid[j * (cols + 1) + i];
-  const cSnowL = new THREE.Color('#fdfdfb'), cSnowS = new THREE.Color('#7d95bb'), cRockL = new THREE.Color('#7d828c'), cRockS = new THREE.Color('#343d4c');
+  const cSnowL = new THREE.Color('#fffcf6'), cSnowS = new THREE.Color('#8a8ec6'), cRockL = new THREE.Color('#857f8c'), cRockS = new THREE.Color('#383a56');
   const cForL = new THREE.Color('#36513f'), cForS = new THREE.Color('#16261e'), hz = new THREE.Color(hazeC);
   const pos = [], col = [], n = new THREE.Vector3(), e1 = new THREE.Vector3(), e2 = new THREE.Vector3(), c = new THREE.Color();
   const tri = (A, B, C) => {

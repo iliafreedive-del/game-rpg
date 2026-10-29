@@ -23,9 +23,9 @@ export class World {
     this.scene.fog = new THREE.Fog(sky, 50, 480);
     this.frame = new SlopeFrame(12);
 
-    const hemi = new THREE.HemisphereLight('#d6e8ff', '#7f93b3', 1.15);
+    const hemi = new THREE.HemisphereLight('#dfe8ff', '#958cc4', 1.15); // снизу — сиреневый отсвет: тени как на солнечном склоне
     this.scene.add(hemi);
-    const sun = new THREE.DirectionalLight('#fff1dc', 2.35);
+    const sun = new THREE.DirectionalLight('#ffe4c4', 2.6);
     sun.castShadow = true;
     sun.shadow.mapSize.set(2048, 2048);
     const sc = sun.shadow.camera; sc.left = -12; sc.right = 12; sc.top = 12; sc.bottom = -12; sc.near = 1; sc.far = 80;

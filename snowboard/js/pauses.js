@@ -7,9 +7,10 @@ export const PAUSE = { after: 0.7, len: 1.3, gap: 2 };
 export const newPauses = () => ({ caption: '', since: 0, last: -9, seen: new Set() });
 
 // t — время урока, input — ход автопилота (caption, look, focus). Вернёт паузу или null.
+// input.key — главный момент урока (например, смена канта): пауза раньше и даже сразу после предыдущей.
 export function keyMoment(P, t, input) {
   if (input.caption !== P.caption) { P.caption = input.caption; P.since = t; }
-  if (!input.look || P.seen.has(input.caption) || t - P.since < PAUSE.after || t - P.last < PAUSE.gap) return null;
+  if (!input.look || P.seen.has(input.caption) || t - P.since < (input.key ? 0.25 : PAUSE.after) || (!input.key && t - P.last < PAUSE.gap)) return null;
   P.seen.add(input.caption); P.last = t;
   return { left: PAUSE.len, look: input.look, focus: input.focus || null };
 }

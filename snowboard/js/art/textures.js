@@ -1,6 +1,6 @@
 // Текстуры экипировки на canvas: швы, молнии, карманы, рисунок доски, деления диска.
 // Кэшируются по цветам: студия часто пересоздаёт райдеров.
-import { canvasTex, grain, shade, curve } from './kit.js';
+import { canvasTex, grain, shade, curve, rng } from './kit.js';
 
 const cache = new Map();
 const memo = (key, make) => { if (!cache.has(key)) cache.set(key, make()); return cache.get(key); };
@@ -204,24 +204,53 @@ export const discTex = () => memo('disc', () => canvasTex(256, 256, (x, W, H) =>
   x.fillStyle = '#1d2127'; x.beginPath(); x.arc(0, 0, 70, 0, 7); x.fill();
 }, { aniso: 4 }));
 
-// Топшит: 0…1 по длине (нос справа), 0…1 поперёк
+// Топшит: 0…1 по длине (нос справа), 0…1 поперёк. Принт как у досок из POLYGON Snow Kit:
+// ночное небо от фиолетового к бирюзе, северное сияние, три гряды гор со снежными шапками.
 export const topsheetTex = (c) => memo(`t${c}`, () => canvasTex(2048, 256, (x, W, H) => {
+  const r = rng(7);
+  // развёртка верха доски зеркальна поперёк: рисуем вверх ногами, чтобы горы стояли, а надпись читалась
+  x.translate(0, H); x.scale(1, -1);
   const g = x.createLinearGradient(0, 0, W, 0);
-  g.addColorStop(0, shade(c, -0.45)); g.addColorStop(0.2, c); g.addColorStop(0.5, shade(c, 0.12)); g.addColorStop(0.8, c); g.addColorStop(1, shade(c, -0.45));
+  g.addColorStop(0, '#1a1442'); g.addColorStop(0.3, shade(c, -0.3)); g.addColorStop(0.62, c); g.addColorStop(1, '#0e7a73');
   x.fillStyle = g; x.fillRect(0, 0, W, H);
-  // горный силуэт и тонкие линии вдоль доски
-  x.strokeStyle = 'rgba(255,255,255,0.22)'; x.lineWidth = 3;
-  for (const k of [0, 1]) {
-    x.beginPath();
-    for (let i = 0; i <= 40; i++) { const px = (i / 40) * W; x.lineTo(px, H * (0.62 + k * 0.12) - (i % 3 === 0 ? 60 : i % 3 === 1 ? 18 : 40) * (1 - k * 0.4)); }
-    x.stroke();
+  // северное сияние: мягкие волны, широкий слабый мазок под узким ярким
+  x.lineCap = 'round';
+  for (const [col, y0, amp, ph] of [['45,212,191', 0.36, 0.09, 0], ['192,132,252', 0.27, 0.07, 2.1]]) {
+    for (const [w, a] of [[46, 0.12], [24, 0.22], [9, 0.4]]) {
+      x.strokeStyle = `rgba(${col},${a})`; x.lineWidth = w; x.beginPath();
+      for (let i = 0; i <= 90; i++) x.lineTo((i / 90) * W, H * (y0 + amp * Math.sin(i * 0.21 + ph) + 0.03 * Math.sin(i * 0.7)));
+      x.stroke();
+    }
   }
-  x.fillStyle = 'rgba(255,255,255,0.75)'; x.fillRect(0, H * 0.16, W, 4); x.fillRect(0, H * 0.84 - 4, W, 4);
-  x.fillStyle = 'rgba(0,0,0,0.18)'; x.fillRect(0, H * 0.16 + 6, W, 2); x.fillRect(0, H * 0.84 - 8, W, 2);
-  x.fillStyle = '#ffffff'; x.font = '900 64px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
-  x.fillText('S N O W  ·  S C H O O L', W / 2, H / 2 + 4);
-  x.font = '900 70px sans-serif'; x.fillStyle = 'rgba(255,255,255,0.9)';
-  x.fillText('❄', W * 0.06, H / 2); x.fillText('❄', W * 0.94, H / 2);
+  // звёзды
+  for (let i = 0; i < 70; i++) {
+    x.fillStyle = `rgba(255,255,255,${0.35 + r() * 0.5})`;
+    x.beginPath(); x.arc(r() * W, H * (0.2 + r() * 0.3), 1 + r() * 2.2, 0, 7); x.fill();
+  }
+  // горы: дальняя гряда светлее, ближняя темнее; у высоких вершин — снег
+  for (const [k, top, col] of [[0, 0.34, '#6d6fb4'], [1, 0.46, '#3f3d86'], [2, 0.6, '#231f55']]) {
+    const pts = []; let px = -40;
+    while (px < W + 80) { pts.push([px, H * (top + r() * 0.16)]); px += 70 + r() * 110; pts.push([px, H * (top + 0.14 + r() * 0.1)]); px += 50 + r() * 90; }
+    x.fillStyle = col; x.beginPath(); x.moveTo(-40, H);
+    pts.forEach(([a, b]) => x.lineTo(a, b)); x.lineTo(W + 80, H); x.fill();
+    x.fillStyle = k === 2 ? 'rgba(236,240,255,0.92)' : 'rgba(236,240,255,0.75)';
+    for (let i = 0; i < pts.length - 2; i += 2) {
+      const [ax, ay] = pts[i], [lx, ly] = i ? pts[i - 1] : [ax - 80, ay + 40], [rx, ry] = pts[i + 1], f = 0.3;
+      if (ay > H * (top + 0.09)) continue;
+      x.beginPath(); x.moveTo(ax, ay); x.lineTo(ax + (rx - ax) * f, ay + (ry - ay) * f);
+      x.lineTo(ax + (rx - ax) * f * 0.5, ay + (ry - ay) * f * 0.75); x.lineTo(ax - (ax - lx) * f * 0.4, ay + (ly - ay) * f * 0.85);
+      x.lineTo(ax - (ax - lx) * f, ay + (ly - ay) * f); x.fill();
+    }
+  }
+  // полосы вдоль кантов
+  x.fillStyle = 'rgba(255,255,255,0.8)'; x.fillRect(0, H * 0.12, W, 4); x.fillRect(0, H * 0.88 - 4, W, 4);
+  x.fillStyle = '#2dd4bf'; x.fillRect(0, H * 0.12 + 7, W, 3); x.fillRect(0, H * 0.88 - 10, W, 3);
+  // надпись на ближней гряде
+  x.font = '900 60px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
+  x.fillStyle = 'rgba(0,0,0,0.25)'; x.fillText('S N O W  ·  S C H O O L', W / 2 + 3, H * 0.74 + 3);
+  x.fillStyle = '#ffffff'; x.fillText('S N O W  ·  S C H O O L', W / 2, H * 0.74);
+  x.font = '900 64px sans-serif'; x.fillStyle = 'rgba(255,255,255,0.9)';
+  x.fillText('❄', W * 0.06, H * 0.5); x.fillText('❄', W * 0.94, H * 0.5);
   grain(x, W, H, 6, 21);
 }, { aniso: 8 }));
 

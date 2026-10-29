@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { Sim, MAX_EDGE_DEG, wrapAngle } from './sim.js';
-import { LESSONS, LESSONS_BY_ID, FALLS, WARN_TEXT, STANCE_QUIZ, BINDING_PRESETS, evaluateBindings, POSTURE_PARTS, GOOD_POSTURE, evaluatePosture } from './lessons.js';
+import { LESSONS, LESSONS_BY_ID, FALLS, WARN_TEXT, STANCE_QUIZ, BINDING_PRESETS, evaluateBindings, POSTURE_PARTS, GOOD_POSTURE, evaluatePosture, GEAR_LEVELS, recommendBoard, GEAR_TIPS } from './lessons.js';
 import { MISTAKES } from './mistakes.js';
 import { Rider } from './rider.js';
 import { World, CameraRig, CAM_MODES, CAM_NAMES } from './world.js';
@@ -17,7 +17,7 @@ const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 
 // ---------------------------------------------------------------- сохранение
 const SAVE_KEY = 'snowschool.v1';
-const save = Object.assign({ stance: null, front: 15, rear: 0, width: 54, height: 175, done: {}, tracks: {}, mute: false }, (() => { try { return JSON.parse(localStorage.getItem(SAVE_KEY)) || {}; } catch { return {}; } })());
+const save = Object.assign({ stance: null, front: 15, rear: 0, width: 54, height: 175, weight: 70, boot: 42, level: 'new', done: {}, tracks: {}, mute: false }, (() => { try { return JSON.parse(localStorage.getItem(SAVE_KEY)) || {}; } catch { return {}; } })());
 const persist = () => { try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch { /* приватный режим */ } };
 const stance = () => save.stance || 'regular';
 const toeSign = () => (stance() === 'goofy' ? -1 : 1);
@@ -62,10 +62,10 @@ const sim = new Sim();
 // Студия: отдельная сцена с ровной площадкой
 const studio = (() => {
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color('#bcdcf5');
-  scene.fog = new THREE.Fog('#bcdcf5', 18, 60);
-  scene.add(new THREE.HemisphereLight('#eaf4ff', '#8aa0b8', 1.4));
-  const sun = new THREE.DirectionalLight('#fff4e0', 2.2); sun.position.set(4, 10, 6); sun.castShadow = true;
+  scene.background = new THREE.Color('#c4dcf3');
+  scene.fog = new THREE.Fog('#c4dcf3', 18, 60);
+  scene.add(new THREE.HemisphereLight('#e8f0ff', '#998fc6', 1.4));
+  const sun = new THREE.DirectionalLight('#ffe8cc', 2.4); sun.position.set(4, 10, 6); sun.castShadow = true;
   sun.shadow.mapSize.set(1024, 1024); Object.assign(sun.shadow.camera, { left: -5, right: 5, top: 5, bottom: -5 });
   scene.add(sun);
   const ground = new THREE.Mesh(new THREE.CircleGeometry(40, 48), new THREE.MeshStandardMaterial({ map: world.snowTex, roughness: 0.95 }));
@@ -188,16 +188,16 @@ if (voice.ok) speechSynthesis.getVoices(); // iOS отдаёт список го
 
 // ---------------------------------------------------------------- меню
 // Порядок курса: по нему считается прогресс и предлагается следующий урок
-const COURSE = ['stance', 'bindings', 'posture', 'heel_slip', 'toe_slip', 'leaf', 'jturn', 'garland', 'turns', 'carve', 'free'];
+const COURSE = ['stance', 'bindings', 'posture', 'gear', 'heel_slip', 'toe_slip', 'leaf', 'jturn', 'garland', 'cturn', 'turns', 'speed', 'carve', 'free'];
 const COURSE_N = COURSE.length - 1; // «свободное катание» не считается уроком
 function nextStep() {
   const id = COURSE.find((x) => x !== 'free' && !save.done[x]);
   return id ? LESSONS_BY_ID[id] : null;
 }
 const GROUPS = [
-  ['Основы', ['stance', 'bindings', 'posture']],
+  ['Основы', ['stance', 'bindings', 'posture', 'gear']],
   ['Голова: страхи и психология', LECTURES.map((x) => 'lect:' + x.id)],
-  ['На склоне', ['heel_slip', 'toe_slip', 'leaf', 'jturn', 'garland', 'turns']],
+  ['На склоне', ['heel_slip', 'toe_slip', 'leaf', 'jturn', 'garland', 'cturn', 'turns', 'speed']],
   ['Мастер-класс', ['carve']],
   ['Свободно', ['free', 'mistakes', 'cards']],
 ];
@@ -469,6 +469,7 @@ function openBrief(id) {
   if (L.kind === 'stance') return openStance();
   if (L.kind === 'bindings') return openBindings();
   if (L.kind === 'posture') return openPosture();
+  if (L.kind === 'gear') return openGear();
   if (L.kind === 'track') return openTrackBrief(L);
   setScreen('brief');
   $('briefNum').style.background = '';
@@ -589,8 +590,10 @@ function startRide(id, demo, opts = {}) {
   if (!app.background) {
     setScreen('ride');
     const best = track ? save.tracks[L.track.id]?.best : null;
-    const vname = app.variant ? ` · ${L.variants.find((v) => v.id === app.variant).name.toLowerCase()}` : '';
-    $('hudTitle').innerHTML = (demo ? 'Демонстрация · ' : '') + L.title + vname + (app.ghost && best != null ? ` <span class="gh">· призрак ${fmtTime(best)}</span>` : '');
+    // на телефоне заголовок короче, чтобы влез в одну строку и не уходил под панель канта
+    const narrow = innerWidth <= 720, vr = app.variant && L.variants.find((v) => v.id === app.variant);
+    const vname = vr ? ` · ${(narrow && vr.hud) || vr.name.toLowerCase()}` : '';
+    $('hudTitle').innerHTML = (demo ? (narrow ? 'Демо · ' : 'Демонстрация · ') : '') + ((narrow && L.hud) || L.title) + vname + (app.ghost && best != null ? ` <span class="gh">· призрак ${fmtTime(best)}</span>` : '');
     $('toast').className = '';
     $('keyLegend').innerHTML = keyLegend(L.keys).map(([k, t]) => `<div>${k} ${t}</div>`).join('');
     show('demoBanner', demo);
@@ -816,7 +819,7 @@ function updateHud(dt) {
   const hk = w ? warnKey(w) : null;
   hintKey(hk);
   if (w) { const [k, txt] = WARN_TEXT[w]; setCoach(k, txt + (hk ? ` <span class="press">Жми ${keyLabel(hk)}</span>` : '')); }
-  else if (app.lesson.maxSpeed && sim.speed > app.lesson.maxSpeed) setCoach('warn', 'Быстровато для этого упражнения. Доску поперёк склона и на верхний кант — затормози.');
+  else if (app.lesson.maxSpeed && sim.speed > app.lesson.maxSpeed) setCoach('warn', app.lesson.fastText || 'Быстровато для этого упражнения. Доску поперёк склона и на верхний кант — затормози.');
   else {
     // без ошибок — цель урока и по очереди «фишки инструктора», чтобы подсказка была всегда
     const notes = [...(app.lesson.tips || []).map((t) => ['Совет', t]), ...(app.lesson.psy ? [['Голова', app.lesson.psy]] : [])];
@@ -852,8 +855,11 @@ const FALL_PSY = [
   'Страшно — и тело тянет назад, от склона. На следующей попытке нарочно перенеси вес на переднюю ногу.',
   'Сравнивай себя с собой пять минут назад, а не с теми, кто едет мимо. Они тоже так начинали.',
 ];
+// Падение → ошибка из библиотеки: два райдера рядом показывают, что было в позе и как надо
+const FALL_MISTAKE = { catch_toe: 'flat_heel', catch_heel: 'flat_base', back_seat: 'back_seat', overlean_toe: 'overlean', overlean_heel: 'overlean' };
 function showFall(f) {
   const info = FALLS[f.type] || FALLS.out;
+  const mk = MISTAKES.find((m) => m.id === FALL_MISTAKE[f.type]);
   show('modal', true);
   const demoNote = app.demo ? '<p>Инструктор нарочно показал эту ошибку — вот что происходит, если опустить доску на нижний кант.</p>' : '';
   $('modalCard').innerHTML = `<div class="fall-k">${app.demo ? 'Ошибка в демонстрации · разбор' : 'Падение · разбор'}</div><h2>${info.title}</h2>${demoNote}
@@ -862,7 +868,10 @@ function showFall(f) {
     <div class="blk fix"><div class="h">Как исправить</div>${info.fix}</div>
     <div class="blk drill"><div class="h">Упражнение</div>${info.drill}</div>
     ${app.demo ? '' : `<div class="psy"><div class="h">Голова</div>${FALL_PSY[app.falls % FALL_PSY.length]}</div>`}
+    ${mk ? `<button class="btn sm alt m3d" id="m3d">🧍 Неправильно / правильно в 3D: ${mk.title.toLowerCase()}</button>` : ''}
     <div class="row"><button class="btn ghost" id="mMenu">Меню</button><button class="btn alt" id="mReplay">⟲ Повтор в замедлении</button><button class="btn alt" id="mDemo">Как делает инструктор</button><button class="btn primary" id="mRetry">${app.demo ? 'Попробовать сам' : 'Ещё раз'}</button></div>`;
+  const back = app.lesson.id;
+  if (mk) $('m3d').onclick = () => openMistakes(mk.id, () => openBrief(back));
   $('mMenu').onclick = toMenu;
   $('mRetry').onclick = () => { show('modal', false); if (app.demo) startRide(app.lesson.id, false); else restart(); };
   $('mDemo').onclick = () => { show('modal', false); startRide(app.lesson.id, true); };
@@ -1030,7 +1039,7 @@ function nextLesson(id) {
 
 // ---------------------------------------------------------------- студия
 function studioSet(list) {
-  for (const r of studio.riders) studio.scene.remove(r.rider.root);
+  for (const r of studio.riders) { studio.scene.remove(r.rider.root); (r.extra || []).forEach((o) => studio.scene.remove(o)); }
   studio.riders = list.map((o) => {
     const r = new Rider(o.ghost ? { ghost: true } : { palette: o.palette || {} });
     r.setConfig({ stance: stance(), front: save.front, rear: save.rear, width: save.width / 100 });
@@ -1112,8 +1121,10 @@ function updateStudio() {
   const c = studio.cam;
   // на телефоне кадр узкий: пара «неправильно / правильно» должна влезть целиком вместе с подписями
   const dist = o.dist * (innerWidth <= 720 ? (studio.riders.length > 1 && !studio.riders[1].ghost ? 2.2 : 1.6) : 1);
-  c.position.set(o.target.x + Math.cos(o.yaw) * Math.cos(o.pitch) * dist, o.target.y + Math.sin(o.pitch) * dist, o.target.z + Math.sin(o.yaw) * Math.cos(o.pitch) * dist);
-  c.lookAt(o.target);
+  // в узком кадре студия может сместить центр к соседнему предмету (доска рядом с райдером)
+  const tg = innerWidth <= 720 && app.studioMode?.shift ? o.target.clone().add(app.studioMode.shift) : o.target;
+  c.position.set(tg.x + Math.cos(o.yaw) * Math.cos(o.pitch) * dist, tg.y + Math.sin(o.pitch) * dist, tg.z + Math.sin(o.yaw) * Math.cos(o.pitch) * dist);
+  c.lookAt(tg);
   // сдвигаем картинку в свободную от панели часть экрана
   const W = innerWidth, H = innerHeight, mobile = W <= 720;
   const dx = mobile ? 0 : Math.min(W * 0.33, 424) / 2, dy = mobile ? H * 0.26 : 0;
@@ -1121,7 +1132,7 @@ function updateStudio() {
   if (app.studioMode && app.studioMode.update) app.studioMode.update();
   studio.riders.forEach((r, i) => {
     const el = $('lbl' + i); if (!el) return;
-    const p = r.rider.root.position.clone().add(new THREE.Vector3(0, 2.05, 0)).project(c);
+    const p = (r.labelPos ? r.labelPos() : r.rider.root.position.clone().add(new THREE.Vector3(0, 2.05, 0))).project(c);
     el.style.left = ((p.x + 1) / 2 * innerWidth) + 'px'; el.style.top = ((1 - p.y) / 2 * innerHeight) + 'px'; // project() уже учитывает сдвиг
   });
 }
@@ -1239,6 +1250,7 @@ function openPosture() {
   const pose = Object.fromEntries(POSTURE_PARTS.map((p) => [p.key, p.def]));
   let ghost = true;
   studioSet([{}, { ghost: true }]);
+  studio.riders[0].rider.com.visible = true; // ползунок веса двигает шар центра тяжести
   studioViews(['side', 'front', 'behind']);
   setView('side'); studio.orbit.dist = 4.2;
   const P = $('studioPanel');
@@ -1250,7 +1262,7 @@ function openPosture() {
       const el = $('pv_' + p.key); el.className = 'verdict ' + ev[p.key][0]; el.textContent = ev[p.key][1];
       $('v_' + p.key).textContent = pose[p.key].toFixed(2);
     }
-    const btn = $('pNext'); btn.disabled = !allOk; btn.textContent = allOk ? 'Отлично! На склон' : 'Исправь все пункты';
+    const btn = $('pNext'); btn.disabled = !allOk; btn.textContent = allOk ? 'Отлично! Дальше: снаряжение' : 'Исправь все пункты';
     $('pGhost').classList.toggle('on', ghost);
   };
   P.innerHTML = `<h2>${L.title}</h2>${L.theory.map((p) => `<p>${p}</p>`).join('')}
@@ -1262,7 +1274,7 @@ function openPosture() {
   P.querySelectorAll('input[type=range]').forEach((inp) => inp.oninput = () => { pose[inp.dataset.k] = +inp.value; refresh(); });
   $('pGhost').onclick = () => { ghost = !ghost; refresh(); };
   $('pBack').onclick = toMenu;
-  $('pNext').onclick = () => { if (!allOk) return; save.done.posture = 3; persist(); openBrief('heel_slip'); };
+  $('pNext').onclick = () => { if (!allOk) return; save.done.posture = 3; persist(); openGear(); };
   refresh();
   app.studioMode = { update: () => {
     studioPose(studio.riders[0], pose, new THREE.Vector3(0, 0, 0));
@@ -1272,24 +1284,27 @@ function openPosture() {
 }
 
 // --- Библиотека ошибок
-function openMistakes(id = MISTAKES[0].id) {
+// back — куда вернуться (из разбора падения — к уроку), иначе в меню
+function openMistakes(id = MISTAKES[0].id, back = null) {
   setScreen('studio');
   const m = MISTAKES.find((x) => x.id === id);
   mistakePair(m);
-  $('studioPanel').innerHTML = `<h2>${m.title}</h2><div class="hint">${m.tag}</div>
+  $('studioPanel').innerHTML = `${back ? '<button class="btn sm alt" id="mkBack">← Вернуться к уроку</button>' : ''}<h2>${m.title}</h2><div class="hint">${m.tag}</div>
     <div class="blk"><div class="h">Как это выглядит</div>${m.symptom}</div>
     <div class="blk why"><div class="h">Почему так происходит</div>${m.why}</div>
     <div class="blk fix"><div class="h">Как исправить</div>${m.fix}</div>
     <div class="blk drill"><div class="h">Упражнение</div>${m.drill}</div>
     <div class="group-title">Все ошибки</div>
     <div class="mlist">${MISTAKES.map((x) => `<button class="mitem ${x.id === id ? 'on' : ''}" data-m="${x.id}">${x.title}<small>${x.tag}</small></button>`).join('')}</div>`;
-  $('studioPanel').querySelectorAll('[data-m]').forEach((b) => b.onclick = () => openMistakes(b.dataset.m));
+  $('studioPanel').querySelectorAll('[data-m]').forEach((b) => b.onclick = () => openMistakes(b.dataset.m, back));
+  if (back) $('mkBack').onclick = back;
   $('studioPanel').scrollTop = 0;
 }
 // Два райдера «неправильно / правильно» в ракурсе, где ошибку видно лучше всего
 function mistakePair(m, labels = ['НЕПРАВИЛЬНО', 'ПРАВИЛЬНО']) {
   const sideBySide = m.view === 'side';
   studioSet([{ label: '✗ ' + labels[0], labelKind: 'bad', palette: { jacket: '#ef4444' } }, { label: '✓ ' + labels[1], labelKind: 'good', palette: { jacket: '#22c55e' } }]);
+  studio.riders.forEach((r) => { r.rider.com.visible = true; }); // шар центра тяжести, как в демонстрациях: видно, куда ушёл вес
   studioViews(['side', 'front', 'behind', 'top']);
   setView(m.view); studio.orbit.dist = 6.2;
   const off = sideBySide ? [new THREE.Vector3(0, 0, 1.0), new THREE.Vector3(0, 0, -1.0)] : [new THREE.Vector3(-1.05, 0, 0), new THREE.Vector3(1.05, 0, 0)];
@@ -1316,6 +1331,7 @@ function openLecture(id) {
   P.querySelectorAll('[data-x]').forEach((b) => b.onclick = () => openLecture(b.dataset.x));
   P.scrollTop = 0;
   if (X.studio === 'falls') return fallsStudio();
+  if (X.studio === 'warmup') return warmupStudio();
   const pair = LECT_PAIRS[id];
   if (pair) mistakePair(MISTAKES.find((x) => x.id === pair[0]), pair.slice(1));
   else {
@@ -1339,6 +1355,71 @@ function fallsStudio() {
     if (shown !== side) { shown = side; TXT[side].forEach((t, i) => { const el = $('lbl' + i); if (el) el.textContent = t; }); }
     studioPose(studio.riders[0], { ...GOOD_POSTURE, fall: k > 0 ? { side, k, hands: true } : null }, off[0]);
     studioPose(studio.riders[1], { ...GOOD_POSTURE, fall: k > 0 ? { side, k } : null }, off[1]);
+  } };
+}
+
+// Разминка на доске: перекат пятки → плоско → носки и пружинка коленями, по кругу
+function warmupStudio() {
+  studioSet([{ label: 'ПЛОСКО', labelKind: 'good' }]);
+  studioViews(['front', 'side', 'behind']);
+  setView('front'); studio.orbit.dist = 4.4;
+  const CYC = 6, NAMES = ['ПЛОСКО', 'НА ПЯТКАХ', 'ПЛОСКО', 'НА НОСКАХ'];
+  let shown = '';
+  app.studioMode = { update: () => {
+    const now = performance.now() / 1000, ph = (now % CYC) / CYC, w = Math.sin(ph * Math.PI * 2);
+    const edge = Math.abs(w) < 0.25 ? 0 : (w > 0 ? -1 : 1) * 14 * smoothstep((Math.abs(w) - 0.25) / 0.5);
+    const name = Math.abs(w) < 0.25 ? NAMES[0] : w > 0 ? NAMES[1] : NAMES[3];
+    if (name !== shown) { shown = name; const el = $('lbl0'); if (el) el.textContent = name; }
+    studioPose(studio.riders[0], { ...GOOD_POSTURE, edge, knee: 0.45 + 0.15 * Math.sin(now * 2.6) ** 2 }, new THREE.Vector3(0, 0, 0));
+  } };
+}
+const smoothstep = (x) => { const t = clamp(x, 0, 1); return t * t * (3 - 2 * t); };
+
+// --- Снаряжение и прокат: рост, вес, ботинок, уровень → длина доски, жёсткость, прогиб, ширина
+function openGear() {
+  setScreen('studio');
+  const L = LESSONS_BY_ID.gear;
+  studioSet([{ label: 'доска', labelKind: 'good' }]);
+  studioViews(['front', 'side', 'top']);
+  setView('front'); studio.orbit.dist = 4.6;
+  const P = $('studioPanel');
+  let rec = recommendBoard(save);
+  // рядом с райдером — такая же доска стоймя, как в прокате: видно, до подбородка она или выше
+  const R = studio.riders[0], stand = R.rider.board.clone();
+  stand.rotation.set(0, Math.PI / 2 * toeSign(), Math.PI / 2); // топшитом к камере «спереди» (со стороны носков)
+  stand.rotateY(Math.PI); // и надписью вверх, чтобы читалась
+  studio.scene.add(stand); R.extra = [stand];
+  R.labelPos = () => stand.position.clone().add(new THREE.Vector3(0, stand.scale.x * 0.8, 0));
+  const refresh = () => {
+    rec = recommendBoard(save);
+    $('grec').innerHTML = rec.items.map(([k, t]) => `<div class="verdict ${k}">${t}</div>`).join('');
+    for (const k of ['height', 'weight', 'boot']) { $('v_' + k).textContent = sliderVal(save[k], k === 'weight' ? ' кг' : k === 'boot' ? ' EU' : ' см'); P.querySelector(`input[data-k=${k}]`).value = save[k]; }
+    P.querySelectorAll('[data-lv]').forEach((b) => b.classList.toggle('on', b.dataset.lv === save.level));
+    const el = $('lbl0'); if (el) el.textContent = `доска ${rec.length} см`;
+  };
+  P.innerHTML = `<h2>${L.title}</h2>${L.theory.map((p) => `<p>${p}</p>`).join('')}
+    ${slider('height', 'Рост', save.height, 140, 205, 1, ' см')}
+    ${slider('weight', 'Вес', save.weight, 35, 130, 1, ' кг')}
+    ${slider('boot', 'Размер ботинка', save.boot, 34, 48, 0.5, ' EU')}
+    <div class="presets lv">${GEAR_LEVELS.map((v) => `<button class="btn" data-lv="${v.id}">${v.name}<small>${v.note}</small></button>`).join('')}</div>
+    <div class="group-title">Твоя доска</div><div id="grec"></div>
+    <div class="group-title">Остальное снаряжение</div>
+    ${GEAR_TIPS.map(([h, t]) => `<div class="blk"><div class="h">${h}</div>${t}</div>`).join('')}
+    <div class="tips"><div class="h">Мастер-класс</div><ul>${L.tips.map((t) => `<li>${t}</li>`).join('')}</ul></div>
+    <div class="row"><button class="btn ghost" id="gBack">Меню</button><button class="btn alt" id="gCard">📋 Шпаргалка для проката</button><button class="btn primary" id="gNext">Готово: на склон</button></div>`;
+  P.querySelectorAll('input[type=range]').forEach((inp) => inp.oninput = () => { save[inp.dataset.k] = +inp.value; persist(); refresh(); });
+  P.querySelectorAll('[data-lv]').forEach((b) => b.onclick = () => { save.level = b.dataset.lv; persist(); refresh(); });
+  $('gBack').onclick = toMenu;
+  $('gCard').onclick = () => openCards('rental');
+  $('gNext').onclick = () => { save.done.gear = 3; persist(); openBrief('heel_slip'); };
+  refresh();
+  P.scrollTop = 0;
+  app.studioMode = { shift: new THREE.Vector3(-0.5 * toeSign(), 0, 0), update: () => {
+    // райдер — твоего роста (модель рассчитана на 175 см), доска — рекомендованной длины (модель — 155 см)
+    const k = save.height / 175, len = rec.length / 155;
+    R.rider.root.scale.setScalar(k); R.rider.board.scale.x = len / k;
+    stand.scale.set(len, 1, 1); stand.position.set(-1.25 * toeSign(), len * 0.775 + 0.01, 0.15);
+    studioPose(R, GOOD_POSTURE, new THREE.Vector3(0, 0, 0));
   } };
 }
 
@@ -1385,4 +1466,4 @@ toMenu();
   if (c != null) openCards(c);
 }
 requestAnimationFrame(frame);
-window.__app = { app, sim, studio, THREE, startRide, openMistakes, openPosture, openBindings, openStance, openBrief, openLecture, openCards, openSettings, rig, updateRide, rider, world, camera, save, toMenu, renderMenu, lessonDone, trackDone };
+window.__app = { app, sim, studio, THREE, startRide, openMistakes, openPosture, openBindings, openStance, openGear, openBrief, openLecture, openCards, openSettings, showFall, rig, updateRide, rider, world, camera, save, toMenu, renderMenu, lessonDone, trackDone };
