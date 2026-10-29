@@ -1119,8 +1119,10 @@ function updateStudio() {
   const c = studio.cam;
   // на телефоне кадр узкий: пара «неправильно / правильно» должна влезть целиком вместе с подписями
   const dist = o.dist * (innerWidth <= 720 ? (studio.riders.length > 1 && !studio.riders[1].ghost ? 2.2 : 1.6) : 1);
-  c.position.set(o.target.x + Math.cos(o.yaw) * Math.cos(o.pitch) * dist, o.target.y + Math.sin(o.pitch) * dist, o.target.z + Math.sin(o.yaw) * Math.cos(o.pitch) * dist);
-  c.lookAt(o.target);
+  // в узком кадре студия может сместить центр к соседнему предмету (доска рядом с райдером)
+  const tg = innerWidth <= 720 && app.studioMode?.shift ? o.target.clone().add(app.studioMode.shift) : o.target;
+  c.position.set(tg.x + Math.cos(o.yaw) * Math.cos(o.pitch) * dist, tg.y + Math.sin(o.pitch) * dist, tg.z + Math.sin(o.yaw) * Math.cos(o.pitch) * dist);
+  c.lookAt(tg);
   // сдвигаем картинку в свободную от панели часть экрана
   const W = innerWidth, H = innerHeight, mobile = W <= 720;
   const dx = mobile ? 0 : Math.min(W * 0.33, 424) / 2, dy = mobile ? H * 0.26 : 0;
@@ -1410,7 +1412,7 @@ function openGear() {
   $('gNext').onclick = () => { save.done.gear = 3; persist(); openBrief('heel_slip'); };
   refresh();
   P.scrollTop = 0;
-  app.studioMode = { update: () => {
+  app.studioMode = { shift: new THREE.Vector3(-0.5 * toeSign(), 0, 0), update: () => {
     // райдер — твоего роста (модель рассчитана на 175 см), доска — рекомендованной длины (модель — 155 см)
     const k = save.height / 175, len = rec.length / 155;
     R.rider.root.scale.setScalar(k); R.rider.board.scale.x = len / k;
