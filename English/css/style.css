@@ -319,3 +319,5 @@ details.rule .example { padding: 6px 8px; margin: 6px 0; }
 .drill-bar { background: var(--accent-soft); color: var(--ink); border-radius: 12px; padding: 8px 12px; margin: 6px 0 4px; font-size: .92rem; }
 .drill-bar b { color: var(--accent); }
 .drill-hint { text-align: center; }
+.mic.wait { background: var(--gold); animation: none; }
+#rm { font-size: 1.2rem; }

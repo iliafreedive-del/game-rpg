@@ -1,6 +1,6 @@
 import { UNITS, LESSONS, lessonById } from './data.js';
 import { S, save, reset, importData, dayKey, today, goalSec, addSec, addXP, countAnswer, streak, srsAnswer, srsAdd, dueKeys, nextDue } from './store.js';
-import { speak, listen, stopListening, srSupported, ttsSupported, englishVoices, beep } from './speech.js';
+import { speak, listen, stopListening, abortListening, srSupported, ttsSupported, englishVoices, voiceScore, currentVoice, onVoices, beep } from './speech.js';
 import { checkText, speechScore, speechOk, words as normWords, tilesOf } from './check.js';
 import * as X from './exercises.js';
 import { explain, RULES } from './explain.js';
@@ -232,6 +232,8 @@ function progress() {
   main.append(el);
 }
 
+onVoices(() => { if (!run && /^#\/settings/.test(location.hash) && !document.activeElement?.closest?.('select')) route(); });
+
 function settings() {
   const st = S.settings;
   const voices = englishVoices();
@@ -239,13 +241,15 @@ function settings() {
     <section class="card"><h1>⚙️ Настройки</h1>
       <label class="row"><span>Длительность сессии</span><select id="fm">${[5, 10, 15, 20, 30].map(m => `<option value="${m}" ${m === st.focusMin ? 'selected' : ''}>${m} мин</option>`).join('')}</select></label>
       <label class="row"><span>Скорость речи</span><select id="rate">${[[0.7, 'медленно'], [0.85, 'спокойно'], [0.9, 'обычно'], [1, 'быстро']].map(([v, t]) => `<option value="${v}" ${v === st.rate ? 'selected' : ''}>${t}</option>`).join('')}</select></label>
-      ${voices.length > 1 ? `<label class="row"><span>Голос</span><select id="voice"><option value="">авто</option>${voices.map(v => `<option ${v.name === st.voice ? 'selected' : ''}>${esc(v.name)}</option>`).join('')}</select></label>` : ''}
-      <div class="row"><span>${ttsSupported ? 'Озвучка работает' : 'Браузер не умеет озвучивать текст'}</span><button class="btn sm" data-say="Hello! Let's learn English together.">🔊 Проверить</button></div>
+      ${voices.length ? `<label class="row"><span>Голос диктора</span><select id="voice"><option value="">Авто: лучший (${esc(currentVoiceName())})</option>${voices.map(v => `<option value="${esc(v.name)}" ${v.name === st.voice ? 'selected' : ''}>${voiceScore(v) >= 6 ? '⭐ ' : ''}${esc(v.name.replace(/^Microsoft |^Google /, ''))} · ${esc(v.lang)}</option>`).join('')}</select></label>` : ''}
+      <div class="row"><span>${ttsSupported ? (voices.length ? 'Послушать, как звучит' : 'Голоса ещё загружаются…') : 'Браузер не умеет озвучивать текст'}</span><button class="btn sm" data-say="Hi! I'm your English teacher. Let's practice together, step by step.">🔊 Послушать</button></div>
+      ${ttsSupported ? `<p class="muted small">⭐ — самые живые голоса. ${voiceHint()}</p>` : ''}
       <label class="row"><span>Автоозвучка правильных ответов</span><input type="checkbox" id="auto" ${st.autoplay ? 'checked' : ''}></label>
       <label class="row"><span>Звуки</span><input type="checkbox" id="sfx" ${st.sfx ? 'checked' : ''}></label>
     </section>
     <section class="card"><h2>🎙 Голос</h2>
-      ${srSupported ? `<label class="row"><span>Задания «скажи вслух» и голосовой ввод</span><input type="checkbox" id="mic" ${st.mic ? 'checked' : ''}></label>
+      ${srSupported ? `<label class="row"><span>Голосовые задания</span><select id="micm"><option value="1" ${st.mic ? 'selected' : ''}>🎙 Говорить вслух</option><option value="0" ${st.mic ? '' : 'selected'}>⌨️ Писать вместо голоса</option></select></label>
+        <p class="muted small">Если выбрать «писать», вместо «скажи вслух» будет письменный перевод той же фразы. Во время занятия режим можно переключить кнопкой 🎙 / ⌨️ вверху экрана.</p>
         <div class="row"><span id="mict" class="muted">Скажи что-нибудь по-английски</span><button class="btn sm" id="mtest">🎙 Проверить</button></div>`
       : '<p class="muted">Этот браузер не поддерживает распознавание речи. Работает в Chrome (Android, ПК) и Safari (iPhone, iOS 14.5+). Остальные задания доступны полностью.</p>'}
     </section>
@@ -267,7 +271,7 @@ function settings() {
   bind('voice', i => st.voice = i.value);
   bind('auto', i => st.autoplay = i.checked);
   bind('sfx', i => st.sfx = i.checked);
-  bind('mic', i => st.mic = i.checked);
+  bind('micm', i => st.mic = i.value === '1');
   bind('ua', i => st.unlockAll = i.checked);
   $('#mtest', el)?.addEventListener('click', async () => {
     const t = $('#mict', el);
@@ -291,11 +295,22 @@ function settings() {
   };
 }
 
+const currentVoiceName = () => (currentVoice()?.name || 'системный').replace(/^Microsoft |^Google /, '');
+// Где взять голос получше: зависит от устройства
+function voiceHint() {
+  const ua = navigator.userAgent;
+  if (/iPhone|iPad|Mac/.test(ua)) return 'На iPhone / Mac голоса лучше скачать: Настройки → Универсальный доступ → Устный контент → Голоса → English → например «Ava (улучшенный)» или «Zoe (улучшенный)», затем выбери его здесь.';
+  if (/Android/.test(ua)) return 'На Android: Настройки → Синтез речи → Google → Установить голосовые данные → English (US) — выбери голос «высокого качества».';
+  if (/Edg\//.test(ua)) return 'В Edge есть очень живые голоса «Natural» — например Aria или Jenny.';
+  return 'Самые живые голоса — в браузере Edge (Natural) и в Chrome (Google US English).';
+}
+
 function micError(e) {
   const m = e?.message || '';
   if (/not-allowed|service-not-allowed/.test(m)) return 'Нет доступа к микрофону. Разреши его в настройках браузера для этого сайта.';
   if (/network/.test(m)) return 'Распознаванию речи нужен интернет.';
-  if (/audio-capture/.test(m)) return 'Микрофон не найден.';
+  if (/audio-capture/.test(m)) return 'Микрофон не найден или занят другим приложением.';
+  if (/not-started/.test(m)) return 'Микрофон не включился. Проверь, что сайту разрешён микрофон (значок 🔒 в адресной строке), и нажми ещё раз.';
   return 'Не получилось распознать речь. Попробуй ещё раз.';
 }
 
@@ -311,8 +326,9 @@ function block(items, kind, lid) {
 }
 
 function startRun(kind, L) {
+  X.setMicSession(false);
   run = {
-    kind, queue: [], i: 0, results: [], retry: {}, xp: 0, elapsed: 0,
+    kind, queue: [], i: 0, results: [], retry: {}, xp: 0, elapsed: 0, 
     timed: kind === 'focus', total: S.settings.focusMin * 60, timeUp: false,
     paused: false, lastAct: Date.now(), used: new Set(), lessonsDone: [], last: null,
   };
@@ -324,10 +340,21 @@ function startRun(kind, L) {
   history.pushState({ run: 1 }, '');
   document.body.classList.add('running');
   runEl.hidden = false;
-  runEl.innerHTML = `<div class="run-top"><button class="x" id="rx" aria-label="Выйти">✕</button><div class="bar"><i></i></div><div class="timer" id="rt"></div><button class="x" id="rp" aria-label="Пауза" ${run.timed ? '' : 'hidden'}>⏸</button></div>
+  runEl.innerHTML = `<div class="run-top"><button class="x" id="rx" aria-label="Выйти">✕</button><div class="bar"><i></i></div><div class="timer" id="rt"></div><button class="x" id="rm" aria-label="Голосовые задания" ${srSupported && S.settings.mic ? '' : 'hidden'}></button><button class="x" id="rp" aria-label="Пауза" ${run.timed ? '' : 'hidden'}>⏸</button></div>
     <div class="run-body" id="rb"></div><div class="run-foot" id="rf"></div>`;
   $('#rx').onclick = exitRun;
   $('#rp').onclick = () => pauseRun('pause');
+  // 🎙 / ⌨️ — говорить вслух или писать вместо голосовых заданий в этом занятии
+  const rm = $('#rm');
+  const micLabel = () => { rm.textContent = X.micSessionOff() ? '⌨️' : '🎙'; rm.title = X.micSessionOff() ? 'Голосовые задания заменены письменными. Нажми, чтобы снова говорить' : 'Нажми, чтобы писать вместо голосовых заданий'; };
+  rm.onclick = () => {
+    X.setMicSession(!X.micSessionOff());
+    micLabel();
+    toast(X.micSessionOff() ? '⌨️ Голосовые задания заменены письменными до конца занятия' : '🎙 Голосовые задания снова включены');
+    const cur = run.queue[run.i];
+    if (cur?.type === 'speak' && !$('#nxt')) render();
+  };
+  micLabel();
   render();
 }
 
@@ -445,7 +472,10 @@ function drillNext(start) {
 }
 
 function render() {
-  const ex = run.queue[run.i];
+  abortListening(); // микрофон предыдущего задания больше не нужен
+  let ex = run.queue[run.i];
+  // голос выключен — вместо «скажи вслух» пишем перевод той же фразы
+  if (ex.type === 'speak' && !X.micOn()) ex = run.queue[run.i] = { ...X.translate(ex), typedInstead: true };
   const body = $('#rb'), foot = $('#rf');
   body.innerHTML = ''; foot.innerHTML = ''; foot.className = 'run-foot';
   body.scrollTop = 0;
@@ -692,20 +722,25 @@ R.listen = (ex, b, f) => tileExercise(ex, b, f, true);
 
 function micButton(onText, onState) {
   const b = h('<button class="mic" aria-label="Говорить">🎙</button>');
+  let busy = false;
   b.onclick = async () => {
     if (b.classList.contains('on')) { stopListening(); return; }
-    b.classList.add('on'); onState?.('listen');
+    if (busy) return;
+    busy = true;
+    b.classList.add('on', 'wait'); onState?.('wait');
     try {
-      const alts = await listen(t => onText(t, false));
+      const alts = await listen(t => onText(t, false), () => { b.classList.remove('wait'); onState?.('listen'); });
       onText(alts, true);
+      onState?.('idle');
     } catch (e) { onState?.('error', micError(e)); }
-    b.classList.remove('on'); onState?.('idle');
+    b.classList.remove('on', 'wait');
+    busy = false;
   };
   return b;
 }
 
 R.translate = (ex, body, foot) => {
-  const el = prompt(body, 'Переведи на английский', `<div class="q ru-q">${esc(ex.ru)}</div>
+  const el = prompt(body, ex.typedInstead ? 'Напиши по-английски (вместо голоса)' : 'Переведи на английский', `<div class="q ru-q">${esc(ex.ru)}</div>
     <textarea class="tr-in" rows="3" placeholder="Напиши по-английски…" autocomplete="off" autocapitalize="sentences" autocorrect="off" spellcheck="false" lang="en"></textarea>
     <div class="tr-tools"><span class="muted small" id="mstate"></span></div>`);
   const inp = $('textarea', el);
@@ -726,7 +761,7 @@ R.translate = (ex, body, foot) => {
         const good = t.find(a => checkText(a, ex.variants).ok);
         if (good) inp.value = good;
       }
-    }, (s, m) => st.textContent = s === 'listen' ? 'Говори…' : s === 'error' ? m : 'Можно сказать голосом'));
+    }, (s, m) => st.textContent = s === 'wait' ? 'Включаю микрофон…' : s === 'listen' ? 'Говори…' : s === 'error' ? m : 'Можно сказать голосом'));
     st.textContent = 'Можно сказать голосом';
   }
   setTimeout(() => inp.focus(), 50);
@@ -752,13 +787,18 @@ R.speak = (ex, body, foot) => {
     tries++;
     heard.innerHTML += `<br><b>${tries >= 2 ? 'Не получилось. Можно ещё раз или пропустить.' : 'Почти! Красные слова не распознаны — попробуй ещё раз.'}</b>`;
     if (tries >= 2) skip.textContent = 'Дальше (засчитать ошибку)';
-  }, (s, m) => { if (s === 'error') heard.textContent = m; if (s === 'listen') heard.textContent = 'Говори…'; });
+  }, (s, m) => { if (s === 'error') heard.textContent = m; if (s === 'wait') heard.textContent = 'Включаю микрофон…'; if (s === 'listen') heard.textContent = 'Говори…'; });
   $('.mic-wrap', el).append(mic);
   const skip = h('<button class="btn big">Пропустить</button>');
   skip.onclick = () => { stopListening(); result({ ok: false, answer: ex.en, ru: ex.ru, say: ex.en, skip: tries === 0 }); };
-  const off = h('<button class="link">🔇 Не могу говорить сейчас (на час)</button>');
-  off.onclick = () => { X.pauseMic(); stopListening(); result({ skip: true, answer: ex.en, ru: ex.ru, say: ex.en }); };
-  foot.append(skip, off);
+  // не можешь говорить вслух — пишешь перевод той же фразы
+  const type = h('<button class="btn big">⌨️ Написать вместо</button>');
+  type.onclick = () => { abortListening(); run.queue[run.i] = { ...X.translate(ex), typedInstead: true }; render(); };
+  const off = h('<button class="link">🔇 Писать вместо голоса до конца занятия</button>');
+  off.onclick = () => { X.setMicSession(true); $('#rm') && ($('#rm').textContent = '⌨️'); render(); };
+  const row = h('<div class="fb-btns"></div>');
+  row.append(type, skip);
+  foot.append(row, off);
 };
 
 function choose(ex, body, foot, title, shown) {

@@ -13,10 +13,11 @@ export const shuffle = arr => {
 };
 const pick = arr => arr[Math.floor(Math.random() * arr.length)];
 
-// «Не могу говорить сейчас» — выключает голосовые задания на час.
-let micPausedUntil = 0;
-export const pauseMic = () => { micPausedUntil = Date.now() + 3600e3; };
-export const micOn = () => srSupported && S.settings.mic && Date.now() > micPausedUntil;
+// Голосовые задания: общая настройка + переключатель на текущее занятие («сейчас не могу говорить вслух»).
+let micOffSession = false;
+export const setMicSession = off => { micOffSession = off; };
+export const micSessionOff = () => micOffSession;
+export const micOn = () => srSupported && S.settings.mic && !micOffSession;
 
 const sentence = (L, i) => {
   const [en, ru, alts] = L.sents[i];
@@ -39,19 +40,19 @@ export function build(s, listen = false) {
   const target = tilesOf(s.en);
   const lower = new Set(target.map(t => t.toLowerCase()));
   const extra = shuffle((L.distract || []).filter(d => !lower.has(d.toLowerCase()))).slice(0, target.length > 6 ? 3 : 2);
-  return { type: listen ? 'listen' : 'build', ...s, tiles: shuffle([...target, ...extra]) };
+  return { ...s, type: listen ? 'listen' : 'build', tiles: shuffle([...target, ...extra]) };
 }
-export const translate = s => ({ type: 'translate', ...s });
-export const speakEx = s => ({ type: 'speak', ...s });
+export const translate = s => ({ ...s, type: 'translate' });
+export const speakEx = s => ({ ...s, type: 'speak' });
 export function chooseRu(s) {
   const L = lessonById[s.lid];
-  return { type: 'choose_ru', ...s, ...options(s.ru, L.sents.map(x => x[1]), allRu()) };
+  return { ...s, type: 'choose_ru', ...options(s.ru, L.sents.map(x => x[1]), allRu()) };
 }
 export function wordChoose(w) {
   const L = lessonById[w.lid];
-  return { type: 'word', ...w, ...options(w.ru, L.words.map(x => x[1]), allWords()) };
+  return { ...w, type: 'word', ...options(w.ru, L.words.map(x => x[1]), allWords()) };
 }
-export const wordType = w => ({ type: 'word_type', ...w });
+export const wordType = w => ({ ...w, type: 'word_type' });
 export const match = (L, ws) => ({ type: 'match', lid: L.id, pairs: ws.map(w => [w.en, w.ru]) });
 export const drill = (L, d) => ({ type: d.g ? 'gap' : 'mc', lid: L.id, ...d });
 
