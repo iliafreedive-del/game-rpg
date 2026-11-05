@@ -1,12 +1,13 @@
 // Озвучка (speechSynthesis) и распознавание речи (Web Speech API), плюс короткие звуки.
 import { S } from './store.js';
+import { LANG } from './lang.js';
 
 const synth = window.speechSynthesis;
 export const ttsSupported = !!synth;
 let voices = [];
 const listeners = new Set();
 function loadVoices() {
-  voices = (synth?.getVoices() || []).filter(v => /^en[-_]/i.test(v.lang));
+  voices = (synth?.getVoices() || []).filter(v => LANG.voiceRe.test(v.lang) && !(LANG.voiceBad && LANG.voiceBad.test(v.lang + ' ' + v.name)));
   listeners.forEach(f => f());
 }
 if (synth) { loadVoices(); synth.addEventListener?.('voiceschanged', loadVoices); }
@@ -21,8 +22,8 @@ export function voiceScore(v) {
   if (/premium/i.test(v.name)) s += 8;
   if (/enhanced|улучш/i.test(v.name)) s += 7;
   if (/google/i.test(v.name)) s += 6;
-  if (/aria|jenny|guy|ava|emma|andrew|brian|michelle|samantha|allison|susan|tom|evan|nathan|zoe|joelle|noelle|serena/i.test(v.name)) s += 2;
-  if (/en[-_]US/i.test(v.lang)) s += 2; else if (/en[-_]GB/i.test(v.lang)) s += 1;
+  if (LANG.voiceNames.test(v.name)) s += 2;
+  if (LANG.region.test(v.lang)) s += 2; else if (/en[-_]GB/i.test(v.lang)) s += 1;
   if (/compact/i.test(v.name) || v.voiceURI?.includes('compact')) s -= 6;
   if (NOVELTY.test(v.name)) s -= 20;
   return s;
@@ -39,10 +40,10 @@ export function speak(text, rate) {
   if (!synth) return Promise.resolve();
   synth.cancel();
   return new Promise(res => {
-    const u = new SpeechSynthesisUtterance(text);
+    const u = new SpeechSynthesisUtterance(LANG.say ? LANG.say(text) : text);
     const v = pickVoice();
     if (v) u.voice = v;
-    u.lang = v?.lang || 'en-US';
+    u.lang = v?.lang || LANG.tts;
     // нейросетевые голоса звучат естественно на обычной скорости, простые — чуть медленнее
     const natural = v && voiceScore(v) >= 6;
     u.rate = (rate || S.settings.rate) * (natural ? 1 : 0.95);
@@ -84,7 +85,7 @@ export async function listen(onInterim, onStart) {
 function once(onInterim, onStart) {
   return new Promise((resolve, reject) => {
     const r = rec = new SR();
-    r.lang = 'en-US';
+    r.lang = LANG.sr;
     r.interimResults = true;
     r.maxAlternatives = 5;
     r.continuous = false;

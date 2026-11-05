@@ -321,3 +321,9 @@ details.rule .example { padding: 6px 8px; margin: 6px 0; }
 .drill-hint { text-align: center; }
 .mic.wait { background: var(--gold); animation: none; }
 #rm { font-size: 1.2rem; }
+
+/* Переключатель языка курса (🇬🇧 / 🇨🇳) */
+.stat { align-items: center; }
+.stat a.lang-sw { font-weight: 600; font-size: .85rem; padding: 3px 10px; border: 1.5px solid var(--line); border-radius: 999px; background: var(--card); white-space: nowrap; }
+.stat a.lang-sw:hover { border-color: var(--accent); }
+@media (max-width: 380px) { .logo { font-size: .92rem; } .stat { gap: 8px; } }

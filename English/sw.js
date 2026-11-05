@@ -1,7 +1,7 @@
 // Офлайн-кэш: приложение работает без интернета после первого открытия.
-const CACHE = 'english-v5';
+const CACHE = 'english-v6';
 const FILES = ['./', 'index.html', 'css/style.css', 'js/app.js', 'js/data.js', 'js/drills.js', 'js/check.js', 'js/store.js',
-  'js/speech.js', 'js/exercises.js', 'js/explain.js', 'js/gloss.js', 'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png'];
+  'js/speech.js', 'js/exercises.js', 'js/explain.js', 'js/gloss.js', 'js/lang.js', 'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png'];
 
 self.addEventListener('install', e => e.waitUntil(caches.open(CACHE)
   .then(c => c.addAll(FILES.map(f => new Request(f, { cache: 'reload' })))).then(() => self.skipWaiting())));

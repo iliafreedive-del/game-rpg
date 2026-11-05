@@ -1,5 +1,6 @@
-// Прогресс, настройки и интервальное повторение — всё в localStorage этого браузера.
-const KEY = 'english-course-v1';
+// Прогресс, настройки и интервальное повторение — всё в localStorage этого браузера (у каждого языка свой ключ).
+import { LANG } from './lang.js';
+const KEY = LANG.key;
 const DEFAULTS = {
   xp: 0,
   lessons: {},   // id -> {stars, best, times}
