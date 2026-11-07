@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0d0b0e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="description" content="Лексикон — игра-дешифровка: деревня, где говорят только по-английски. Понимай слова по контексту, записывай догадки и расшифровывай журнал.">
+<title>Лексикон — язык забытой деревни</title>
+<link rel="icon" href="assets/icon_app.png">
+<link rel="stylesheet" href="css/style.css?v=1">
+</head>
+<body>
+<canvas id="game"></canvas>
+<div id="fade"></div>
+
+<div id="hud" class="hidden">
+  <div id="hudL">
+    <div class="rk"><span id="lvl">1</span><div><b id="rank">Чужак</b><div class="xp"><i id="xpbar"></i></div></div></div>
+    <div class="stat"><span title="Свечи — подсказки">🕯️ <b id="hints">0</b></span><span title="Расшифровано слов">📖 <b id="prog">0/0</b></span></div>
+  </div>
+  <div id="goal" class="hidden"></div>
+  <div id="hudR">
+    <button class="mb" id="bJournal" title="Журнал (J)">📖<span class="dot hidden" id="dotJ"></span></button>
+    <button class="mb hidden" id="bEcho" title="Эхо-камень (R)">🔁<span class="dot hidden" id="dotE"></span></button>
+    <button class="mb" id="bSet" title="Настройки">⚙️</button>
+  </div>
+  <div id="inv"></div>
+  <button id="act" class="hidden"></button>
+  <div id="toasts"></div>
+</div>
+
+<div id="dlg" class="dlg hidden"></div>
+<div id="card" class="hidden"></div>
+<div id="over" class="hidden"></div>
+
+<div id="loading"><div class="lt">ЛЕКСИКОН</div><div class="lb"><i id="loadBar"></i></div><div id="loadMsg">Загрузка…</div></div>
+<div id="start" class="hidden">
+  <div class="st">
+    <div class="logo">ЛЕКСИКОН</div>
+    <div class="sub">язык забытой деревни</div>
+    <p>Ты попал туда, где говорят только по-английски. Слушай, догадывайся, записывай — и расшифруй язык, чтобы вернуть деревне свет.</p>
+    <ul><li>👆 Нажимай на слова, чтобы записать догадку</li><li>📖 Расшифровывай страницы журнала</li><li>🔁 Повторяй слова у Эхо-камня</li></ul>
+    <button class="btn big" id="stBtn"><span id="stTitle">Начать путь</span></button>
+    <a class="other" href="../English/">Английский курс →</a>
+  </div>
+</div>
+<script type="module" src="js/main.js?v=1"></script>
+</body>
+</html>
