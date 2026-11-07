@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#d93a2b">
+  <meta name="description" content="Китайский с нуля для русскоговорящих: тоны, пиньинь, иероглифы и построение фраз. Задания, 15-минутные сессии с таймером, повторение и голосовые упражнения.">
+  <title>Китайский с нуля</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <link rel="stylesheet" href="../English/css/style.css?v=6">
+  <link rel="stylesheet" href="css/zh.css?v=1">
+  <!-- Движок приложения общий с английским курсом (../English/js), а материал, проверка ответов,
+       разбор ошибок, подсказки и настройки языка — свои, китайские. -->
+  <script type="importmap">
+  {
+    "imports": {
+      "../English/js/lang.js": "./js/lang.js",
+      "../English/js/data.js": "./js/data.js",
+      "../English/js/drills.js": "./js/drills.js",
+      "../English/js/check.js": "./js/check.js",
+      "../English/js/explain.js": "./js/explain.js",
+      "../English/js/gloss.js": "./js/gloss.js"
+    }
+  }
+  </script>
+</head>
+<body class="lang-zh">
+  <header class="top">
+    <a href="#/course" class="logo">🇨🇳 Китайский с нуля</a>
+    <div class="stat"><a href="../English/" class="lang-sw" title="Переключиться на английский">🇬🇧 English</a><a href="#/progress" id="streak">🔥 0</a><a href="#/progress" id="xp">⭐ 0</a></div>
+  </header>
+  <main id="main"></main>
+  <nav class="nav">
+    <a href="#/course" data-v="course"><span>📚</span>Курс</a>
+    <a href="#/review" data-v="review"><span>🔁</span>Повтор</a>
+    <a href="#/ref" data-v="ref"><span>📖</span>Шпаргалка</a>
+    <a href="#/progress" data-v="progress"><span>📈</span>Прогресс</a>
+    <a href="#/settings" data-v="settings"><span>⚙️</span>Настройки</a>
+  </nav>
+  <div id="run" hidden></div>
+  <script type="module" src="../English/js/app.js?v=6"></script>
+</body>
+</html>
