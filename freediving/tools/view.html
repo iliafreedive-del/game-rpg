@@ -1,0 +1,23 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><style>html,body{margin:0;height:100%;overflow:hidden}canvas{width:100%;height:100%;display:block}</style>
+<script type="importmap">{ "imports": { "three": "../vendor/three.module.min.js" } }</script></head><body><canvas id="c"></canvas>
+<script type="module">
+import * as THREE from 'three';
+import { World } from '../js/scene.js';
+import { Diver } from '../js/diver.js';
+import { Player } from '../js/anims.js';
+const q = new URLSearchParams(location.search);
+const w = new World(document.getElementById('c'));
+const d = new Diver({ fins: q.get('fins') || 'bifins' });
+w.scene.add(d.root); if (d.finGroup) w.scene.add(d.finGroup);
+const opts = JSON.parse(q.get('o') || '{}');
+const pl = new Player(q.get('a') || 'finkick', opts, +(q.get('s') ?? 3));
+w.cam.preset(q.get('cam') || 'side', q.get('dist') ? +q.get('dist') : undefined);
+w.resize();
+let T = +(q.get('t') || 2);
+// прогон до нужного времени
+const dt = 1/60;
+for (let t = 0; t < T; t += dt) { const p = pl.update(dt); d.applyPose(p); d.updateFins(dt); w.cam.goal.set(p.pos[0], p.pos[1], p.pos[2]); w.cam.update(dt); w.update(dt); }
+w.cam.snap(); w.cam.update(0.001); w.update(0.001);
+w.render();
+window.__ready = true;
+</script></body></html>
