@@ -5,12 +5,15 @@ import { checkText, speechScore, speechOk, words as normWords, tilesOf } from '.
 import * as X from './exercises.js';
 import { explain, RULES } from './explain.js';
 import { gloss } from './gloss.js';
+import { LANG } from './lang.js';
 
 const $ = (s, el = document) => el.querySelector(s);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const h = (html) => { const t = document.createElement('template'); t.innerHTML = html.trim(); return t.content.firstElementChild; };
 const fmt = s => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 const plural = (n, a, b, c) => { const m = n % 100, k = n % 10; return m > 10 && m < 20 ? c : k === 1 ? a : k >= 2 && k <= 4 ? b : c; };
+// Текст на изучаемом языке: у китайского — с пиньинем над иероглифами.
+const show = s => LANG.show ? LANG.show(s) : esc(s);
 const sayBtn = (text, cls = '') => `<button class="say ${cls}" data-say="${esc(text)}" aria-label="Озвучить">🔊</button>`;
 
 const main = $('#main');
@@ -37,7 +40,7 @@ document.addEventListener('click', e => {
 
 // ─────────────── Слова по нажатию ───────────────
 // Английская фраза, в которой каждое слово можно нажать: перевод, форма и правило.
-const tapText = (s, mark = {}) => `<span class="tap" data-s="${esc(s)}">${tilesOf(s).map((w, i) =>
+const tapText = (s, mark = {}) => LANG.tap ? LANG.tap(s, mark) : `<span class="tap" data-s="${esc(s)}">${tilesOf(s).map((w, i) =>
   `<span class="w ${mark[i] || ''}" data-i="${i}">${esc(w)}</span>`).join(' ')}${esc((s.match(/[.!?]+$/) || [''])[0])}</span>`;
 
 function ruleCard(key, open = false) {
@@ -153,7 +156,7 @@ function review() {
     </section>
     ${hard.length ? `<section class="card"><h2>Трудные фразы</h2><ul class="phrases">${hard.map(([k, c]) => {
       const [, lid, i] = k.split(':'); const s = lessonById[lid]?.sents[i]; if (!s) return '';
-      return `<li>${sayBtn(s[0])}<div><b>${esc(s[0])}</b><small>${esc(s[1])}</small></div><span class="bad-n">✗${c.bad}</span></li>`;
+      return `<li>${sayBtn(s[0])}<div><b>${show(s[0])}</b><small>${esc(s[1])}</small></div><span class="bad-n">✗${c.bad}</span></li>`;
     }).join('')}</ul></section>` : ''}
   </div>`);
   main.append(el);
@@ -178,7 +181,7 @@ function ref() {
     const sec = h(`<section class="card ref-unit"><h2>${U.icon} ${esc(U.title)}</h2></section>`);
     for (const L of LESSONS.filter(L => L.unit === U.id)) {
       sec.append(h(`<details class="ref"><summary><b>${esc(L.title)}</b> <small>${esc(L.sub)}</small></summary><div class="theory">${theoryHTML(L)}
-        <h4>Слова урока</h4><div class="wordlist">${L.words.map(([en, ru]) => `<span>${sayBtn(en, 'sm')}<b>${esc(en)}</b> — ${esc(ru)}</span>`).join('')}</div></div></details>`));
+        <h4>Слова урока</h4><div class="wordlist">${L.words.map(([en, ru]) => `<span>${sayBtn(en, 'sm')}<b>${show(en)}</b> — ${esc(ru)}</span>`).join('')}</div></div></details>`));
     }
     el.append(sec);
   }
@@ -242,15 +245,16 @@ function settings() {
       <label class="row"><span>Длительность сессии</span><select id="fm">${[5, 10, 15, 20, 30].map(m => `<option value="${m}" ${m === st.focusMin ? 'selected' : ''}>${m} мин</option>`).join('')}</select></label>
       <label class="row"><span>Скорость речи</span><select id="rate">${[[0.7, 'медленно'], [0.85, 'спокойно'], [0.9, 'обычно'], [1, 'быстро']].map(([v, t]) => `<option value="${v}" ${v === st.rate ? 'selected' : ''}>${t}</option>`).join('')}</select></label>
       ${voices.length ? `<label class="row"><span>Голос диктора</span><select id="voice"><option value="">Авто: лучший (${esc(currentVoiceName())})</option>${voices.map(v => `<option value="${esc(v.name)}" ${v.name === st.voice ? 'selected' : ''}>${voiceScore(v) >= 6 ? '⭐ ' : ''}${esc(v.name.replace(/^Microsoft |^Google /, ''))} · ${esc(v.lang)}</option>`).join('')}</select></label>` : ''}
-      <div class="row"><span>${ttsSupported ? (voices.length ? 'Послушать, как звучит' : 'Голоса ещё загружаются…') : 'Браузер не умеет озвучивать текст'}</span><button class="btn sm" data-say="Hi! I'm your English teacher. Let's practice together, step by step.">🔊 Послушать</button></div>
+      <div class="row"><span>${ttsSupported ? (voices.length ? 'Послушать, как звучит' : 'Голоса ещё загружаются…') : 'Браузер не умеет озвучивать текст'}</span><button class="btn sm" data-say="${esc(LANG.hello)}">🔊 Послушать</button></div>
       ${ttsSupported ? `<p class="muted small">⭐ — самые живые голоса. ${voiceHint()}</p>` : ''}
+      ${LANG.code === 'zh' ? `<label class="row"><span>Пиньинь над иероглифами</span><input type="checkbox" id="py" ${st.py !== false ? 'checked' : ''}></label>` : ''}
       <label class="row"><span>Автоозвучка правильных ответов</span><input type="checkbox" id="auto" ${st.autoplay ? 'checked' : ''}></label>
       <label class="row"><span>Звуки</span><input type="checkbox" id="sfx" ${st.sfx ? 'checked' : ''}></label>
     </section>
     <section class="card"><h2>🎙 Голос</h2>
       ${srSupported ? `<label class="row"><span>Голосовые задания</span><select id="micm"><option value="1" ${st.mic ? 'selected' : ''}>🎙 Говорить вслух</option><option value="0" ${st.mic ? '' : 'selected'}>⌨️ Писать вместо голоса</option></select></label>
         <p class="muted small">Если выбрать «писать», вместо «скажи вслух» будет письменный перевод той же фразы. Во время занятия режим можно переключить кнопкой 🎙 / ⌨️ вверху экрана.</p>
-        <div class="row"><span id="mict" class="muted">Скажи что-нибудь по-английски</span><button class="btn sm" id="mtest">🎙 Проверить</button></div>`
+        <div class="row"><span id="mict" class="muted">Скажи что-нибудь ${LANG.po}</span><button class="btn sm" id="mtest">🎙 Проверить</button></div>`
       : '<p class="muted">Этот браузер не поддерживает распознавание речи. Работает в Chrome (Android, ПК) и Safari (iPhone, iOS 14.5+). Остальные задания доступны полностью.</p>'}
     </section>
     <section class="card"><h2>Уроки</h2>
@@ -270,6 +274,7 @@ function settings() {
   bind('rate', i => st.rate = +i.value);
   bind('voice', i => st.voice = i.value);
   bind('auto', i => st.autoplay = i.checked);
+  bind('py', i => { st.py = i.checked; pyClass(); });
   bind('sfx', i => st.sfx = i.checked);
   bind('micm', i => st.mic = i.value === '1');
   bind('ua', i => st.unlockAll = i.checked);
@@ -284,7 +289,7 @@ function settings() {
   $('#exp', el).onclick = () => {
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([JSON.stringify(S)], { type: 'application/json' }));
-    a.download = `english-progress-${dayKey()}.json`;
+    a.download = `${LANG.file}-progress-${dayKey()}.json`;
     a.click();
   };
   $('#imp', el).onchange = async e => {
@@ -298,11 +303,7 @@ function settings() {
 const currentVoiceName = () => (currentVoice()?.name || 'системный').replace(/^Microsoft |^Google /, '');
 // Где взять голос получше: зависит от устройства
 function voiceHint() {
-  const ua = navigator.userAgent;
-  if (/iPhone|iPad|Mac/.test(ua)) return 'На iPhone / Mac голоса лучше скачать: Настройки → Универсальный доступ → Устный контент → Голоса → English → например «Ava (улучшенный)» или «Zoe (улучшенный)», затем выбери его здесь.';
-  if (/Android/.test(ua)) return 'На Android: Настройки → Синтез речи → Google → Установить голосовые данные → English (US) — выбери голос «высокого качества».';
-  if (/Edg\//.test(ua)) return 'В Edge есть очень живые голоса «Natural» — например Aria или Jenny.';
-  return 'Самые живые голоса — в браузере Edge (Natural) и в Chrome (Google US English).';
+  return (!englishVoices().length && LANG.noVoice ? LANG.noVoice + ' ' : '') + LANG.voiceHint(navigator.userAgent);
 }
 
 function micError(e) {
@@ -522,7 +523,7 @@ function renderTheory(ex, body, foot) {
   const L = lessonById[ex.lid];
   const n = LESSONS.indexOf(L) + 1;
   body.innerHTML = `<div class="theory"><div class="kicker">Урок ${n} · теория</div><h1>${esc(L.title)}</h1>${theoryHTML(L)}
-    <h4>Новые слова</h4><div class="wordlist">${L.words.map(([en, ru]) => `<span>${sayBtn(en, 'sm')}<b>${esc(en)}</b> — ${esc(ru)}</span>`).join('')}</div></div>`;
+    <h4>Новые слова</h4><div class="wordlist">${L.words.map(([en, ru]) => `<span>${sayBtn(en, 'sm')}<b>${show(en)}</b> — ${esc(ru)}</span>`).join('')}</div></div>`;
   const b = h('<button class="btn primary big">Понятно → к заданиям</button>');
   b.onclick = next;
   foot.append(b);
@@ -651,7 +652,7 @@ function rebuild(ex) {
 }
 
 R.mc = (ex, body, foot) => {
-  const el = prompt(body, 'Выбери правильный вариант', `<div class="q">${esc(ex.q).replace('___', '<span class="blank">___</span>')}</div><div class="opts"></div>`);
+  const el = prompt(body, 'Выбери правильный вариант', `<div class="q">${show(ex.q).replace('___', '<span class="blank">___</span>')}</div><div class="opts"></div>`);
   let sel = -1;
   const set = checkFoot(foot, () => {
     const fill = o => (ex.q.includes('___') ? ex.q.replace('___', o === '—' ? '' : o) : o).replace(/ \(.*\)/, '').replace(/\s+/g, ' ').trim();
@@ -661,7 +662,7 @@ R.mc = (ex, body, foot) => {
       user: en && sel >= 0 ? fill(ex.o[sel]) : null, variants: [ans] };
   });
   ex.o.forEach((o, i) => {
-    const b = h(`<button class="opt"><span class="k">${i + 1}</span>${esc(o)}</button>`);
+    const b = h(`<button class="opt"><span class="k">${i + 1}</span>${show(o)}</button>`);
     b.onclick = () => { sel = i; $('.opts', el).querySelectorAll('.opt').forEach((x, j) => x.classList.toggle('sel', j === i)); set(true); };
     $('.opts', el).append(b);
   });
@@ -669,7 +670,7 @@ R.mc = (ex, body, foot) => {
 
 R.gap = (ex, body, foot) => {
   const [a, b] = ex.g.split('___');
-  const el = prompt(body, 'Впиши слово', `<div class="q">${esc(a)}<input class="gap-in" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" lang="en">${esc(b)}</div><div class="ru">${esc(ex.ru)}</div>`);
+  const el = prompt(body, 'Впиши слово', `<div class="q">${show(a)}<input class="gap-in" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" lang="${LANG.code}">${show(b)}</div><div class="ru">${esc(ex.ru)}</div>`);
   const inp = $('input', el);
   const set = checkFoot(foot, () => {
     const r = checkText(inp.value, ex.a);
@@ -696,13 +697,13 @@ function tileExercise(ex, body, foot, listenMode) {
     return { ok: r.ok, answer: ex.en, ru: ex.ru, say: ex.en, user, variants: ex.variants };
   });
   ex.tiles.forEach((w, i) => {
-    const t = h(`<button class="tile">${esc(w)}</button>`);
+    const t = h(`<button class="tile">${show(w)}</button>`);
     t.onclick = () => {
       const k = chosen.findIndex(c => c.i === i);
       if (k >= 0) { chosen.splice(k, 1); bank.querySelector(`[data-i="${i}"]`).classList.remove('used'); t.remove(); }
       set(chosen.length > 0);
     };
-    const src = h(`<button class="tile" data-i="${i}">${esc(w)}</button>`);
+    const src = h(`<button class="tile" data-i="${i}">${show(w)}</button>`);
     src.onclick = () => {
       if (src.classList.contains('used')) return;
       src.classList.add('used');
@@ -740,8 +741,8 @@ function micButton(onText, onState) {
 }
 
 R.translate = (ex, body, foot) => {
-  const el = prompt(body, ex.typedInstead ? 'Напиши по-английски (вместо голоса)' : 'Переведи на английский', `<div class="q ru-q">${esc(ex.ru)}</div>
-    <textarea class="tr-in" rows="3" placeholder="Напиши по-английски…" autocomplete="off" autocapitalize="sentences" autocorrect="off" spellcheck="false" lang="en"></textarea>
+  const el = prompt(body, ex.typedInstead ? `Напиши ${LANG.po} (вместо голоса)` : `Переведи ${LANG.na}`, `<div class="q ru-q">${esc(ex.ru)}</div>
+    <textarea class="tr-in" rows="3" placeholder="${esc(LANG.placeholder)}" autocomplete="off" autocapitalize="sentences" autocorrect="off" spellcheck="false" lang="${LANG.code}"></textarea>
     <div class="tr-tools"><span class="muted small" id="mstate"></span></div>`);
   const inp = $('textarea', el);
   const set = checkFoot(foot, () => {
@@ -768,7 +769,7 @@ R.translate = (ex, body, foot) => {
 };
 
 R.speak = (ex, body, foot) => {
-  const el = prompt(body, 'Скажи вслух по-английски', `<div class="speak-target">${sayBtn(ex.en)}<div><b class="words">${normWords(ex.en).length ? ex.en.split(' ').map(w => `<span>${esc(w)}</span>`).join(' ') : ''}</b><small>${esc(ex.ru)}</small></div></div>
+  const el = prompt(body, `Скажи вслух ${LANG.po}`, `<div class="speak-target">${sayBtn(ex.en)}<div><b class="words">${normWords(ex.en).length ? ex.en.split(' ').map(w => `<span>${show(w)}</span>`).join(' ') : ''}</b><small>${esc(ex.ru)}</small></div></div>
     <div class="mic-wrap"></div><div class="heard muted">Нажми на микрофон и прочитай фразу</div>`);
   let tries = 0;
   const heard = $('.heard', el);
@@ -781,7 +782,7 @@ R.speak = (ex, body, foot) => {
       if (!best || s.score > best.score) best = { ...s, heard: a, v };
     }
     const ok = speechOk(best.score, best.t.length);
-    if (best.v === ex.en && best.t.length === ex.en.split(' ').length) $('.words', el).innerHTML = best.t.map((w, i) => `<span class="${best.hit[i] ? 'hit' : 'miss'}">${esc(ex.en.split(' ')[i] ?? w)}</span>`).join(' ');
+    if (best.v === ex.en && best.t.length === ex.en.split(' ').length) $('.words', el).innerHTML = best.t.map((w, i) => `<span class="${best.hit[i] ? 'hit' : 'miss'}">${show(ex.en.split(' ')[i] ?? w)}</span>`).join(' ');
     heard.innerHTML = `Услышал: «${esc(best.heard)}»`;
     if (ok) return result({ ok: true, answer: ex.en, say: ex.en });
     tries++;
@@ -802,7 +803,7 @@ R.speak = (ex, body, foot) => {
 };
 
 function choose(ex, body, foot, title, shown) {
-  const el = prompt(body, title, `<div class="q en-q">${sayBtn(shown)}<b>${esc(shown)}</b></div><div class="opts"></div>`);
+  const el = prompt(body, title, `<div class="q en-q">${sayBtn(shown)}<b>${show(shown)}</b></div><div class="opts"></div>`);
   let sel = -1;
   const set = checkFoot(foot, () => {
     const pts = [];
@@ -832,9 +833,9 @@ R.choose_ru = (ex, b, f) => choose(ex, b, f, 'Что означает эта ф�
 R.word = (ex, b, f) => choose(ex, b, f, 'Выбери перевод слова', ex.en);
 
 R.word_type = (ex, body, foot) => {
-  const el = prompt(body, 'Напиши по-английски', `<div class="q ru-q">${esc(ex.ru)}</div><input class="tr-in one" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" lang="en" placeholder="слово…">`);
+  const el = prompt(body, `Напиши ${LANG.po}`, `<div class="q ru-q">${esc(ex.ru)}</div><input class="tr-in one" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" lang="${LANG.code}" placeholder="слово…">`);
   const inp = $('input', el);
-  const set = checkFoot(foot, () => { inp.disabled = true; const r = checkText(inp.value, [ex.en]); return { ok: r.ok, typo: r.typo, answer: ex.en, ru: ex.ru, say: ex.en, points: r.ok ? [] : [`«${esc(ex.ru)}» по-английски — <b>${esc(ex.en)}</b>.`] }; });
+  const set = checkFoot(foot, () => { inp.disabled = true; const r = checkText(inp.value, [ex.en]); return { ok: r.ok, typo: r.typo, answer: ex.en, ru: ex.ru, say: ex.en, points: r.ok ? [] : [`«${esc(ex.ru)}» ${LANG.po} — <b>${show(ex.en)}</b>.`] }; });
   inp.oninput = () => set(inp.value.trim().length > 0);
   setTimeout(() => inp.focus(), 50);
 };
@@ -855,7 +856,7 @@ R.match = (ex, body) => {
     }
   };
   X.shuffle(ex.pairs).forEach(([en], i) => {
-    const b = h(`<button class="tile m" data-k="${esc(en)}">${esc(en)}</button>`);
+    const b = h(`<button class="tile m" data-k="${esc(en)}">${show(en)}</button>`);
     b.onclick = () => { $('.l', el).querySelectorAll('.sel').forEach(x => x.classList.remove('sel')); b.classList.add('sel'); selL = b; speak(en); tryPair(); };
     $('.l', el).append(b); void i;
   });
@@ -948,6 +949,8 @@ function closeRunSilently() {
 }
 
 // ─────────────── Старт ───────────────
+function pyClass() { document.body.classList.toggle('nopy', S.settings.py === false); }
+pyClass();
 route();
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(r => r.update()).catch(() => {});

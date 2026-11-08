@@ -1,0 +1,9 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><script type="importmap">{ "imports": { "three": "../vendor/three.module.min.js" } }</script><style>html,body{margin:0;height:100%;background:#fff}canvas{width:560px;height:780px;display:block}#cap{font:14px system-ui;padding:6px;width:560px}</style></head><body><div id="cap"></div><canvas id="c"></canvas>
+<script type="module">
+import { Anatomy } from '../js/anatomy.js';
+const q = new URLSearchParams(location.search);
+const a = new Anatomy(document.getElementById('c'), { onCaption: (t) => document.getElementById('cap').textContent = t });
+a.resize(); a.setMode(q.get('m') || 'breathe');
+const T = +(q.get('t') || 2); for (let t = 0; t < T; t += 1/30) a.update(1/30);
+a.draw(); window.__ready = true;
+</script></body></html>

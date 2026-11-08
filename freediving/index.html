@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#04233a">
+<meta name="description" content="Школа фридайвинга: курс с 3D-ныряльщиком и анатомией в разрезе, упражнения в бассейне, CO2/O2-таблицы и тренировка дня.">
+<title>Школа фридайвинга</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Фридайвинг">
+<link rel="stylesheet" href="style.css">
+<script type="importmap">{ "imports": { "three": "./vendor/three.module.min.js" } }</script>
+</head>
+<body>
+<canvas id="view"></canvas>
+<div id="shade"></div>
+
+<!-- Главная -->
+<section id="home" class="screen">
+  <header class="top">
+    <div class="logo"><svg viewBox="0 0 64 64"><path d="M6 40c8-6 16-6 24 0s16 6 28 0" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round"/><circle cx="36" cy="18" r="6" fill="#fff"/><path d="M14 26l18-4 14 6" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round"/></svg></div>
+    <div class="ttl"><h1>Школа фридайвинга</h1><p class="sub">Курс, симулятор и тренер: от первой раздышки до 25 метров под водой</p></div>
+    <button class="chip" data-go="settings" title="Настройки">⚙</button>
+  </header>
+  <div class="wrap">
+    <div id="todayCard"></div>
+    <div id="stats" class="stats"></div>
+    <h3 class="gt">Практика</h3>
+    <div class="grid tiles">
+      <button class="tile big" data-go="workout"><i>🏋️</i><b>Тренировка дня</b><span>План на сегодня, как в спортзале</span></button>
+      <button class="tile" data-go="tables"><i>⏱️</i><b>CO₂ / O₂ таблицы</b><span>Конструктор и таймер</span></button>
+      <button class="tile" data-go="exercises"><i>🏊</i><b>Упражнения в бассейне</b><span>11 упражнений с 3D</span></button>
+      <button class="tile" data-go="mistakes"><i>⚠️</i><b>Библиотека ошибок</b><span>Неправильно / правильно</span></button>
+      <button class="tile" data-go="atlas"><i>🫁</i><b>Анатомия</b><span>Лёгкие, диафрагма, язык, уши</span></button>
+      <button class="tile" data-go="history"><i>📈</i><b>Прогресс</b><span>История задержек</span></button>
+    </div>
+    <div id="course"></div>
+    <p class="foot">Приложение — учебное пособие и не заменяет занятия с сертифицированным инструктором. В воду — только с партнёром. Таблицы задержки — только на суше.</p>
+  </div>
+</section>
+
+<!-- Брифинг урока -->
+<section id="brief" class="screen hidden">
+  <div class="card sheet">
+    <div class="bar"><button class="chip" data-back>←</button><span id="bNum" class="num"></span><h2 id="bTitle"></h2></div>
+    <div id="bTheory" class="theory"></div>
+    <div id="bTips" class="tips"></div>
+    <div id="bHead" class="headnote"></div>
+    <div class="row"><button class="btn" data-back>Назад</button><button id="bStart" class="btn primary">▶ Смотреть демонстрацию</button></div>
+  </div>
+</section>
+
+<!-- Проигрыватель: урок, упражнение, ошибка, тренировка -->
+<section id="player" class="hud hidden">
+  <div class="hbar">
+    <button class="chip" id="pClose">✕</button>
+    <div class="htitle"><b id="pTitle"></b><span id="pStep"></span></div>
+    <div class="hbtns">
+      <button class="chip" id="pCam" title="Ракурс">🎥<span> ракурс</span></button>
+      <button class="chip" id="pSlow" title="Замедление">🐢<span> ×1</span></button>
+      <button class="chip" id="pPause" title="Пауза">⏸</button>
+      <button class="chip" id="pFlow" title="Чувство воды">💧<span> вода</span></button>
+      <button class="chip" id="pAnat" title="Анатомия">🫁<span> анатомия</span></button>
+    </div>
+  </div>
+  <div id="labels" class="labels"></div>
+  <div id="anatPanel" class="anat hidden"><canvas id="anatCv"></canvas><div id="anatCap" class="anatcap"></div><button class="chip sm anx" id="anatClose">✕</button></div>
+  <div id="pCard" class="card caption">
+    <div id="pTag" class="tag hidden">Ошибка</div>
+    <div id="pText"></div>
+    <div id="pMore" class="more"></div>
+    <div class="row"><button class="btn" id="pPrev">← Назад</button><button class="btn primary" id="pNext">Дальше →</button></div>
+  </div>
+</section>
+
+<!-- Практика: вопросы -->
+<section id="quiz" class="screen hidden">
+  <div class="card sheet">
+    <div class="bar"><button class="chip" data-back>←</button><h2>Проверь себя</h2></div>
+    <div id="qBody"></div>
+  </div>
+</section>
+
+<!-- Универсальный список -->
+<section id="list" class="screen hidden">
+  <header class="top"><button class="chip" data-home>←</button><div class="ttl"><h1 id="lTitle"></h1><p class="sub" id="lSub"></p></div></header>
+  <div class="wrap"><div id="lBody"></div></div>
+</section>
+
+<!-- Анатомия во весь экран -->
+<section id="atlas" class="screen hidden">
+  <header class="top"><button class="chip" data-home>←</button><div class="ttl"><h1>Анатомия ныряльщика</h1><p class="sub">Сагиттальный срез: что происходит внутри на вдохе, задержке и продувке</p></div></header>
+  <div class="wrap atlas">
+    <div id="aTabs" class="tabs"></div>
+    <div class="aview"><canvas id="atlasCv"></canvas></div>
+    <div class="card acap"><b id="aTitle"></b><p id="aText"></p><div id="aDots" class="dots"></div><div class="row"><button class="btn sm" id="aSlow">🐢 ×1</button><button class="btn sm" id="aLab">Подписи</button></div></div>
+  </div>
+</section>
+
+<!-- Таблицы -->
+<section id="tables" class="screen hidden">
+  <header class="top"><button class="chip" data-home>←</button><div class="ttl"><h1>CO₂ / O₂ таблицы</h1><p class="sub">Сухие тренировки задержки — только на суше, лёжа или сидя</p></div></header>
+  <div class="wrap" id="tBody"></div>
+</section>
+
+<!-- Таймер -->
+<section id="timer" class="screen hidden">
+  <div class="tm">
+    <div class="tmTop"><button class="chip" id="tmClose">✕</button><b id="tmTitle"></b><span id="tmRound"></span></div>
+    <div class="ring"><svg viewBox="0 0 200 200"><circle cx="100" cy="100" r="88" class="trk"/><circle cx="100" cy="100" r="88" id="tmArc" class="arc"/></svg>
+      <div class="ringIn"><div id="tmPhase"></div><div id="tmLeft"></div><div id="tmNext"></div></div></div>
+    <div id="tmRows" class="tmRows"></div>
+    <div class="row c"><button class="btn big" id="tmContr">Позыв</button><button class="btn big primary" id="tmGo">Старт</button><button class="btn big" id="tmStop">Стоп</button></div>
+    <p class="hint">Кнопка «Позыв» — отметить первое сокращение диафрагмы. Головокружение или дискомфорт — сразу «Стоп».</p>
+  </div>
+</section>
+
+<!-- Тренировка дня -->
+<section id="workout" class="screen hidden">
+  <header class="top"><button class="chip" data-home>←</button><div class="ttl"><h1>Тренировка дня</h1><p class="sub" id="wSub"></p></div></header>
+  <div class="wrap" id="wBody"></div>
+</section>
+
+<!-- Настройки -->
+<section id="settings" class="screen hidden">
+  <header class="top"><button class="chip" data-home>←</button><div class="ttl"><h1>Настройки</h1></div></header>
+  <div class="wrap"><div class="card pad" id="sBody"></div></div>
+</section>
+
+<!-- Первый запуск -->
+<div id="intro" class="modal hidden">
+  <div class="card sheet">
+    <h2>Прежде чем начать</h2>
+    <p>Это учебное приложение. Оно помогает понять технику и тренироваться на суше, но <b>не заменяет обучение с сертифицированным инструктором</b>.</p>
+    <ul>
+      <li><b>Никогда не ныряйте один.</b> Один ныряет — второй страхует.</li>
+      <li><b>Без гипервентиляции.</b> Раздышка — спокойная и медленная.</li>
+      <li><b>CO₂/O₂-таблицы — только на суше</b>: лёжа или сидя, не в воде, не в ванне, не за рулём.</li>
+      <li>Головокружение, покалывание, боль в ушах — остановитесь.</li>
+    </ul>
+    <label class="lvl">Ваш уровень: <select id="introLvl"><option value="novice">Новичок</option><option value="mid">Любитель (нырял(а) в бассейне)</option><option value="adv">Спортсмен</option></select></label>
+    <div class="row"><button class="btn primary" id="introOk">Понятно, начать</button></div>
+  </div>
+</div>
+
+<div id="toast" class="toast hidden"></div>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>

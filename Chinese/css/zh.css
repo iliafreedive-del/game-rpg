@@ -1,0 +1,16 @@
+/* Китайский: пиньинь над иероглифами и цвета тонов (как в учебниках). */
+:root { --t1: #e0453a; --t2: #22a05a; --t3: #2f6bd8; --t4: #8a4fd1; --t0: var(--muted); }
+@media (prefers-color-scheme: dark) { :root { --t1: #ff7a70; --t2: #4fd88a; --t3: #7aa6ff; --t4: #c39bff; } }
+
+.zh, .tap.zh { font-family: "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", "Microsoft YaHei", system-ui, sans-serif; }
+ruby { ruby-position: over; ruby-align: center; }
+ruby rt { font-size: .5em; font-weight: 500; letter-spacing: 0; font-family: system-ui, sans-serif; line-height: 1.1; }
+rt i { font-style: normal; }
+rt i.t1 { color: var(--t1); } rt i.t2 { color: var(--t2); } rt i.t3 { color: var(--t3); } rt i.t4 { color: var(--t4); } rt i.t0 { color: var(--t0); }
+.tap.zh .w { margin: 0 .08em; }
+.tap.zh, .q .zh, .en-q .zh, .speak-target .zh { line-height: 2.1; }
+.tile ruby rt { font-size: .55em; }
+.tile.m ruby rt { font-size: .5em; }
+
+/* настройка «скрыть пиньинь» — тренировка чтения иероглифов */
+body.nopy ruby rt { visibility: hidden; }
