@@ -256,10 +256,10 @@ async function sarc(i) {
   f.wrong = (f.wrong || 0) + 1; sfx('scare');
   const pos = [[22.5, 5.5], [22.5, 9.5], [30.5, 5.5], [30.5, 9.5]][i];
   const sk = charFor('skel_' + Date.now(), 'skel_warrior_m', { glow: 0x3a80ff, glowK: 0.7 });
-  if (sk) { sk.root.position.set(pos[0] + 1.1, 0, pos[1] + 0.2); sk.root.rotation.y = Math.atan2(G.player.x - pos[0], G.player.y - pos[1]); sk.state = 'talk'; G.zone.group.add(sk.root); G.zone.actors.push(sk); }
+  if (sk) { sk.root.position.set(pos[0] + 1.1, 0, pos[1] + 0.2); sk.face(Math.atan2(G.player.x - pos[0], G.player.y - pos[1]), true); sk.state = 'talk'; sk.attach(G.zone.group); G.zone.actors.push(sk); }
   await say('skel', 'STOP! Do not open! This is not the king!', 'СТОЙ! Не открывай! Это не король!', '💀✋');
   await say('skel', 'Go! Go now!', 'Уходи! Уходи сейчас же!', '👉');
-  if (sk) { G.zone.group.remove(sk.root); G.zone.actors = G.zone.actors.filter(a => a !== sk); } takeAway('fire');
+  if (sk) { sk.detach(); G.zone.actors = G.zone.actors.filter(a => a !== sk); } takeAway('fire');
   await narrate('Ледяной вихрь гасит твой огонь и отбрасывает тебя назад, ко входу.');
   return 'tp:entry';
 }
@@ -491,7 +491,7 @@ export function objects(zone) {
     const gp = f.guard_ok ? [33.0, 41.5] : [35.5, 43.5];
     out.push({ id: 'guard', x: gp[0], y: gp[1], actor: { model: 'elite_guard_m', name: 'Guard', dir: f.guard_ok ? 0 : -Math.PI / 2 }, btn: '💬', ir: 2.1, use: guard });
     out.push({ x: 37.5, y: 43.5, mk: f.gate ? null : () => X.prop('portal_skull', 0, 0, { h: 2.6, glow: 0x7a40ff, glowK: 0.6 }), rot: -Math.PI / 2, tiles: [[37, 43]], solid: !f.gate, icon: f.gate ? null : '🚪', iconH: 3.0, ir: 2.1, use: blackDoor });
-    out.push({ id: 'king', x: 49.5, y: 46.5, actor: { model: 't_mb_king_m', name: 'The King', dir: 0.6, pose: 'king', scale: 1.25, glow: f.king_done ? 0x6a5020 : 0x3a2a80, glowK: f.king_done ? 0.25 : 0.6 }, btn: '👑', ir: 2.8, use: king });
+    out.push({ id: 'king', x: 49.5, y: 46.5, actor: { model: 't_mb_king_m', name: 'The King', dir: 0.6, scale: 0.95, glow: f.king_done ? 0x6a5020 : 0x3a2a80, glowK: f.king_done ? 0.25 : 0.6 }, btn: '👑', ir: 2.8, use: king });
     if (f.king_done) out.push({ x: 49.5, y: 52.3, mk: () => { const g = new X.THREE.Group(); g.add(X.prop('portal_verdant', 0, 0, { h: 3.2, glow: 0x80ff90, glowK: 0.4 })); g.add(X.glowDisc(0x80ff90, 1.5)); return g; }, r: 0.4, icon: '⬆️', iconH: 3.6, use: async () => 'go:village' });
   }
   for (const o of out) if (o.actor && o.id) o.actor.marker = marker(o.id);
