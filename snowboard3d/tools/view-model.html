@@ -17,7 +17,9 @@ const sun = new THREE.DirectionalLight('#fff3e0', 2.4); sun.position.set(3, 5, 4
 Object.assign(sun.shadow.camera, { left: -2, right: 2, top: 3, bottom: -1 }); scene.add(sun);
 const ground = new THREE.Mesh(new THREE.PlaneGeometry(20, 20), new THREE.MeshStandardMaterial({ color: '#f4f6fb' }));
 ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
-const gl = await new GLTFLoader().loadAsync(q.get('m'));
+const gl = await new GLTFLoader().loadAsync(q.get("m"));
+if (q.get("only")) { const keep = gl.scene.getObjectByName(q.get("only")); gl.scene.children.slice().forEach((c) => { if (c !== keep) gl.scene.remove(c); }); keep.position.set(0, 0, 0); }
+gl.scene.traverse((o) => { if (o.isMesh && o.geometry.attributes.color) { o.material.vertexColors = true; o.material.flatShading = true; o.material.needsUpdate = true; } });
 gl.scene.traverse((o) => { if (o.isMesh) { o.castShadow = o.receiveShadow = true; } });
 scene.add(gl.scene);
 const box = new THREE.Box3().setFromObject(gl.scene), c = box.getCenter(new THREE.Vector3()), s = box.getSize(new THREE.Vector3());

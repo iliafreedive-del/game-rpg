@@ -212,6 +212,9 @@ function instances(geo, mat, list, { shadow = false, color = true, seed = 1 } = 
 
 // Лес вдоль трассы кусками по 100 м (дальние куски скрываются в World.follow).
 // Каждый кусок — LOD: вблизи подробные ели с тенями, дальше — простые.
+// Поляны под домики-шале из Blender: деревья и камни здесь не растут
+const CHALETS = [[31, 14, 0], [-44, 42, 0], [32, 390, 0], [-34, 760, 0]];
+const inClearing = (u, s) => CHALETS.some(([cu, cs]) => (u - cu) ** 2 + (s - cs) ** 2 < 9 * 9);
 export function buildForest(frame, S0, S1) {
   const K = treeKit(), chunks = [], r = rng(77), CH = 100;
   const dens = (u, s) => 0.25 + 0.75 * smooth(-0.35, 0.35, noise2(u * 0.045 + 3, s * 0.045)); // поляны и чащи
@@ -219,14 +222,14 @@ export function buildForest(frame, S0, S1) {
     const near = [[], [], []], far = [], rocks = [], small = [];
     for (let i = 0; i < 190; i++) {
       const side = i % 2 ? 1 : -1, u = side * (PISTE + 2.6 + (r() ** 1.3) * 36), s = c0 + r() * CH;
-      if (r() > dens(u, s) || Math.abs(u - LIFT_U) < 5.5) continue;
+      if (r() > dens(u, s) || Math.abs(u - LIFT_U) < 5.5 || inClearing(u, s)) continue;
       const off = Math.abs(u) - PISTE, young = off < 6 ? 0.55 : 1;
       const h = (6 + r() * 11 + Math.min(5, off * 0.12)) * young;
       near[Math.floor(r() * 3)].push({ p: frame.p(u, s, terrainH(u, s) - 0.25), h, r: h * (0.82 + r() * 0.3) });
     }
     for (let i = 0; i < 24; i++) {
       const side = i % 2 ? 1 : -1, u = side * (PISTE + 1.6 + r() * 4), s = c0 + r() * CH, h = 1.2 + r() * 2.2;
-      if (Math.abs(u - LIFT_U) < 4) continue;
+      if (Math.abs(u - LIFT_U) < 4 || inClearing(u, s)) continue;
       small.push({ p: frame.p(u, s, terrainH(u, s) - 0.15), h, r: h * (0.9 + r() * 0.3) });
     }
     for (let i = 0; i < 260; i++) {
@@ -237,7 +240,7 @@ export function buildForest(frame, S0, S1) {
     }
     for (let i = 0; i < 8; i++) {
       const side = i % 2 ? 1 : -1, u = side * (PISTE + 3 + r() * 30), s = c0 + r() * CH, k = 0.4 + r() * 1.3;
-      if (Math.abs(u - LIFT_U) < 4) continue;
+      if (Math.abs(u - LIFT_U) < 4 || inClearing(u, s)) continue;
       rocks.push({ p: frame.p(u, s, terrainH(u, s) - 0.2 * k), h: k * (0.8 + r() * 0.5), r: k * (1 + r() * 0.6) });
     }
     // скальные выходы на склонах долины
@@ -524,6 +527,15 @@ export function resortExtras(frame, S0, S1) {
   const sm = new THREE.InstancedMesh(snowmanGeo(), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85 }), men.length);
   men.forEach(([u, s, yaw], i) => { q.setFromAxisAngle(Y, yaw); sm.setMatrixAt(i, M.compose(frame.p(u, s, terrainH(u, s) - 0.15), q, one)); });
   sm.castShadow = true; g.add(sm);
+  // бревенчатые шале из Blender у края трассы, дверью к склону
+  const chG = blenderGeo('Chalet'), chM = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85, flatShading: true });
+  for (const [u, s] of CHALETS) {
+    if (s < S0 || s > S1) continue;
+    const m = new THREE.Mesh(chG, chM), d = frame.dir(-Math.sign(u), 0);
+    m.rotation.y = Math.atan2(d.x, d.z);
+    m.position.copy(frame.p(u, s, terrainH(u, s) - 0.45));
+    m.castShadow = true; m.receiveShadow = true; g.add(m);
+  }
   const sled = new THREE.Mesh(snowmobileGeo(), mat);
   sled.position.copy(frame.p(25, 36, terrainH(25, 36) - 0.05)); sled.rotation.y = 2.1; sled.castShadow = true;
   g.add(sled, slopePeople(frame));
