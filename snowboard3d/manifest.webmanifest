@@ -1,0 +1,45 @@
+{
+  "name": "Школа сноуборда 3D — симулятор",
+  "short_name": "Сноуборд 3D",
+  "description": "Новая версия: райдер, доска и лес из Blender. Стойка, канты, повороты, трассы на время.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "lang": "ru",
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Шпаргалка на склон",
+      "short_name": "Шпаргалка",
+      "description": "Главное по каждому элементу крупно — открыть на подъёмнике",
+      "url": "./index.html?card",
+      "icons": [
+        {
+          "src": "icons/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    }
+  ]
+}
