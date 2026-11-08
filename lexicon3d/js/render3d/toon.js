@@ -1,0 +1,341 @@
+// Stylised materials: soft 3-band toon ramp + rim light + self-lit vertex flag + wind sway + inverted-hull outline.
+// All variants are MeshToonMaterial / MeshBasicMaterial patched in onBeforeCompile, so three.js lights & fog keep working.
+import * as THREE from '../vendor/three.module.min.js';
+import { matArray, MAT_SCALE, MAT_AMP, noiseTex } from './textures.js';
+
+// global uniforms shared by every patched shader
+export const U = {
+  uTime: { value: 0 },
+  uWind: { value: new THREE.Vector2(0.85, 0.52) },   // world-space wind direction (x, z)
+  uWindStr: { value: 1 },
+  uCam: { value: new THREE.Vector3() },      // camera position  } used to dither away whatever
+  uFocus: { value: new THREE.Vector3() },    // hero chest       } stands between them
+  uFoc: { value: [new THREE.Vector4(0, -50, 0, 0), new THREE.Vector4(0, -50, 0, 0), new THREE.Vector4(0, -50, 0, 0)] },   // три ближайших врага (xyz, w = 1 — включён): то, что их закрывает, тоже растворяется (сборка 18)
+  uBiome: { value: 0 },                      // биом подземелья для стен: 1 затопленные, 2 пепельные, 3 Бездна
+  uFadeSmooth: { value: 0 },                 // 1 — плавная прозрачность через alpha-to-coverage (нужен MSAA), 0 — мелкий дизеринг
+  uHFog: { value: 0 },                       // стелющийся туман у земли (деревня): сила; 0 — выключен
+  uHFogCol: { value: new THREE.Color(0xb4c8c0) },
+  tHNoise: { value: null },                  // шум пятен тумана (плывут по ветру)
+  uHFogC: { value: new THREE.Vector3(0, 0, 0) },   // центр деревни (x, z) и радиус: в центре тумана ~20 % от силы, к полям — полный
+};
+// Туман у земли: плавно густеет книзу (без резкой границы — переход на 2,5–4 м высоты), пятнами по шуму мира, дрейфует.
+// Один код для всех toon-материалов, травы и воды (ground.js): HFOG_PARS в объявления, HFOG_F после fog_fragment.
+U.uHTime = U.uTime;   // то же время под своим именем: uTime уже объявлен в части шейдеров
+export const HFOG_PARS = 'uniform float uHFog; uniform vec3 uHFogCol; uniform sampler2D tHNoise; uniform float uHTime; uniform vec3 uHFogC;\n';
+export const HFOG_F = /* glsl */`
+if (uHFog > 0.0) {
+  float hn = texture2D(tHNoise, hfW.xz * 0.04 + vec2(uHTime * 0.006, uHTime * 0.004)).r * 0.6 + texture2D(tHNoise, hfW.xz * 0.11 - vec2(uHTime * 0.01, 0.0)).g * 0.4;
+  float hf = uHFog * (1.0 - smoothstep(-0.2, 2.6 + hn * 1.8, hfW.y)) * (0.35 + 1.1 * hn);
+  if (uHFogC.z > 0.0) hf *= mix(0.2, 1.0, smoothstep(uHFogC.z * 0.55, uHFogC.z, length(hfW.xz - uHFogC.xy)));
+  if (uHFogC.z < 0.0) {   // правки 5: походы (лес, пустоши) — по ветру изредка пролетают плотные полосы дымки; сила полос = −uHFogC.z
+    float sn = texture2D(tHNoise, vec2(hfW.x + hfW.z, (hfW.z - hfW.x) * 3.5) * 0.03 + vec2(-uHTime * 0.035, uHTime * 0.004)).r;
+    hf += -uHFogC.z * smoothstep(0.6, 0.82, sn) * (1.0 - smoothstep(0.2, 3.4, hfW.y));
+  }
+  gl_FragColor.rgb = mix(gl_FragColor.rgb, uHFogCol, clamp(hf, 0.0, 0.4));
+}
+`;
+export function hfogTex() { if (!U.tHNoise.value && typeof document !== 'undefined') U.tHNoise.value = noiseTex(); return U.tHNoise.value; }
+
+// материалы с растворением: плавная прозрачность (alpha-to-coverage) включается, когда есть MSAA (renderer3d.applyQuality)
+const fadeMats = [];
+export function setSmoothFade(on) {
+  U.uFadeSmooth.value = on ? 1 : 0;
+  // сборка 68: alpha-to-coverage только включается и обратно не выключается. Без MSAA оно ни на что не влияет (uFadeSmooth = 0 — дизеринг),
+  // а выключение пересобирало шейдеры всех растворяемых предметов: «Авто» снижал качество посреди игры — деревня вставала рывком
+  if (on) for (const m of fadeMats) { if (!m.alphaToCoverage) { m.alphaToCoverage = true; m.needsUpdate = true; } }
+}
+let _ramp = null;
+export function ramp() {
+  if (_ramp) return _ramp;
+  // shadow · mid · lit — linear filtering gives a short soft step instead of a hard cel edge
+  const v = [92, 92, 150, 228, 255, 255];
+  const d = new Uint8Array(v.length * 4);
+  v.forEach((x, i) => d.set([x, x, x, 255], i * 4));
+  _ramp = new THREE.DataTexture(d, v.length, 1, THREE.RGBAFormat);
+  _ramp.minFilter = _ramp.magFilter = THREE.LinearFilter;
+  _ramp.needsUpdate = true;
+  return _ramp;
+}
+
+const SWAY_PARS = /* glsl */`
+uniform float uTime; uniform vec2 uWind; uniform float uWindStr;
+uniform float uSwayBase; uniform float uSwayAmt; uniform float uFlutter;
+`;
+// bends everything above uSwayBase quadratically with height; phase comes from the instance's world position
+const SWAY = /* glsl */`
+{
+#ifdef USE_INSTANCING
+  mat4 swM = modelMatrix * instanceMatrix;
+#else
+  mat4 swM = modelMatrix;
+#endif
+  vec3 root = swM[3].xyz;
+  vec3 lw = normalize(transpose(mat3(swM)) * vec3(uWind.x, 0.0, uWind.y));
+  float h = max(transformed.y - uSwayBase, 0.0);
+  float k = h * h * uSwayAmt * uWindStr * 0.3;
+  float gust = 0.55 + 0.45 * sin(uTime * 0.55 + root.x * 0.09 + root.z * 0.06);
+  float s = gust * 0.75 + sin(uTime * 1.6 + root.x * 0.47 + root.z * 0.31) * 0.45 * gust;   // сборка 73: лёгкий ветер — вернул покачивание, размах 0,3 от сборки 71
+  transformed += lw * s * k;
+  // сборка 72–73: дрожи листвы нет (три синуса на вершину каждого дерева и куста), качание 0,3 от сборки 71 — лёгкий ветер, легче для телефона
+}
+`;
+
+// screen-door fade (no sorting, no transparency pass): trees/bushes between camera and hero dissolve
+const FADE_VS = 'varying vec3 vFadeW;\n';
+const FADE_V = /* glsl */`
+#ifdef USE_INSTANCING
+  vFadeW = (modelMatrix * instanceMatrix * vec4(transformed, 1.0)).xyz;
+#else
+  vFadeW = (modelMatrix * vec4(transformed, 1.0)).xyz;
+#endif
+`;
+const FADE_FS = 'varying vec3 vFadeW; uniform vec3 uCam; uniform vec3 uFocus; uniform vec4 uFoc[3]; uniform float uFadeSmooth;\n';
+const FADE_F = /* glsl */`
+float fadeA = 1.0;
+{
+  vec3 ab = uFocus - uCam;
+  float tt = clamp(dot(vFadeW - uCam, ab) / dot(ab, ab), 0.0, 1.0);
+  float dd = length(vFadeW - (uCam + ab * tt));
+  float f = (1.0 - smoothstep(0.9, 2.6, dd)) * (1.0 - smoothstep(0.88, 0.97, tt));
+  for (int i = 0; i < 3; i++) { if (uFoc[i].w < 0.5) continue;   // враги: окно поуже, чем у героя
+    vec3 eb = uFoc[i].xyz - uCam; float te = clamp(dot(vFadeW - uCam, eb) / dot(eb, eb), 0.0, 1.0);
+    f = max(f, (1.0 - smoothstep(0.7, 1.9, length(vFadeW - (uCam + eb * te)))) * (1.0 - smoothstep(0.86, 0.96, te)) * uFoc[i].w); }
+  fadeA = 1.0 - f * 0.82;
+  // MSAA: плавная прозрачность (alpha-to-coverage); без него — мелкий дизеринг, на высоком DPR почти незаметный
+  float ign = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
+  // правки 5: «дерево перед героем рябит пикселями» (телефон без MSAA) — вместо сплошной ряби по всей кроне: ядро вырезано чисто,
+  // рябь только узкой каймой по краю окна
+  if ((uFadeSmooth < 0.5 || FADE_HARD) && ign > smoothstep(0.5, 0.62, fadeA)) discard;
+}
+`;
+// «AO по высоте»: низ предметов и персонажей темнеет у земли (контактное затенение без SSAO)
+const AO_V = /* glsl */`
+#ifdef USE_INSTANCING
+  vAOY = (modelMatrix * instanceMatrix * vec4(transformed, 1.0)).y;
+#else
+  vAOY = (modelMatrix * vec4(transformed, 1.0)).y;
+#endif
+`;
+const addAO = (sh, k, h) => {
+  sh.vertexShader = 'varying float vAOY;\n' + sh.vertexShader.replace('#include <project_vertex>', '#include <project_vertex>\n' + AO_V);
+  sh.fragmentShader = 'varying float vAOY;\n' + sh.fragmentShader.replace('#include <opaque_fragment>',
+    `outgoingLight *= mix(${k.toFixed(3)}, 1.0, smoothstep(0.0, ${h.toFixed(3)}, vAOY));\n#include <opaque_fragment>`);
+};
+// рисованные фактуры: triplanar в пространстве модели (персонажи и instanced-предметы: фактура не «плывёт» при движении).
+// id из атрибута aTex выбирает текстуру; градиенты UV считаются до ветвления, выборка — textureGrad (мипмапы без швов)
+let TEXU = null;
+const texUniforms = () => TEXU || (TEXU = { tMats: { value: matArray() } });
+const arr = a => `float[${a.length}](${a.map(v => v.toFixed(2)).join(',')})`;
+const TEX_PARS = `const float MSC[${MAT_SCALE.length}] = ${arr(MAT_SCALE)};\nconst float MAMP[${MAT_AMP.length}] = ${arr(MAT_AMP)};\n`;
+const TEX_F = /* glsl */`
+if (vTexId > 0.5) {
+  vec3 an = abs(normalize(vTN)); vec3 tw = pow(an, vec3(4.0)); tw /= (tw.x + tw.y + tw.z);
+  float id = floor(vTexId + 0.5);
+  float L = id < 2.5 ? 0.0 : id - 2.0;
+  bool vert = id == 1.0 || id == 8.0;   // волокна вдоль Y
+  float sc = MSC[int(L)];
+  vec2 ux = (vert ? vTP.yz : vTP.zy) * sc, uy = vTP.xz * sc, uz = (vert ? vTP.yx : vTP.xy) * sc;
+  if (id > 17.5) { ux.y = -ux.y; uy.y = -uy.y; uz.y = -uz.y; }   // мех: рисунок «сверху вниз» = вниз по телу и назад по спине
+  vec2 dxX = dFdx(ux), dyX = dFdy(ux), dxY = dFdx(uy), dyY = dFdy(uy), dxZ = dFdx(uz), dyZ = dFdy(uz);
+  vec3 m = textureGrad(tMats, vec3(ux, L), dxX, dyX).rgb * tw.x + textureGrad(tMats, vec3(uy, L), dxY, dyY).rgb * tw.y + textureGrad(tMats, vec3(uz, L), dxZ, dyZ).rgb * tw.z;
+  vec3 f = clamp(1.0 + (m - 0.5) * MAMP[int(L)], 0.25, 1.8);
+  // второй слой — износ: дерево, камень, штукатурка и брусчатка грязнее и темнее у земли; на камне сверху мох
+  if (id < 3.5 || id == 5.0 || id == 11.0 || id == 17.0) {
+    float nzs = 0.5 + 0.5 * sin(vTP.x * 1.9 + sin(vTP.z * 2.3 + vTP.y * 1.3) * 2.1 + vTP.y * 3.1);
+    float low = 1.0 - smoothstep(0.0, 1.15, vTP.y);
+    f *= mix(vec3(1.0), vec3(0.58, 0.52, 0.44), low * (0.45 + 0.55 * nzs) * 0.8);
+    if (id == 3.0 || id == 11.0) f *= mix(vec3(1.0), vec3(0.62, 0.98, 0.5), smoothstep(0.55, 0.95, an.y) * smoothstep(0.3, 0.8, nzs) * 0.65);
+  }
+  // стены подземелья по биому: сырость и слизь, копоть и угли, фиолетовые жилы Бездны
+  if (id == 3.0 && uBiome > 0.5) {
+    float nzb = 0.5 + 0.5 * sin(vTP.x * 1.3 + sin(vTP.z * 1.7 + vTP.y * 2.1) * 1.8 + vTP.y * 0.9);
+    float vein = (1.0 - smoothstep(0.0, 0.06, abs(sin(vTP.x * 2.1 + sin(vTP.z * 2.6 + vTP.y * 3.3) * 1.6 + vTP.y * 1.7)))) * smoothstep(0.55, 0.85, nzb);
+    if (uBiome < 1.5) { float wet = 1.0 - smoothstep(0.0, 1.7, vTP.y); f *= mix(vec3(1.0), vec3(0.5, 0.82, 0.78), wet * (0.45 + 0.55 * nzb)); f *= mix(vec3(1.0), vec3(0.62, 1.15, 0.8), smoothstep(0.65, 1.0, nzb) * 0.5); }
+    else if (uBiome < 2.5) { f *= mix(vec3(1.0), vec3(0.6, 0.52, 0.48), 0.7 * nzb); f = mix(f, vec3(1.6, 0.7, 0.2), vein * 0.8); }
+    else { f *= mix(vec3(1.0), vec3(0.8, 0.72, 0.95), 0.5); f = mix(f, vec3(1.0, 0.6, 1.7), vein * 0.8); }
+  }
+  diffuseColor.rgb *= f;
+}
+`;
+// world: фактура в мировых координатах (стены подземелья — кладка не повторяется блок к блоку)
+const TEX_WORLD = `
+#ifdef USE_INSTANCING
+  mat4 txM = modelMatrix * instanceMatrix;
+#else
+  mat4 txM = modelMatrix;
+#endif
+  vTP = (txM * vec4(position, 1.0)).xyz; vTN = mat3(txM) * normal;`;
+const addTex = (sh, world) => {
+  Object.assign(sh.uniforms, texUniforms(), { uBiome: U.uBiome });
+  sh.vertexShader = 'attribute float aTex; varying float vTexId; varying vec3 vTP; varying vec3 vTN;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvTexId = aTex; ' + (world ? TEX_WORLD : 'vTP = position; vTN = normal;'));
+  sh.fragmentShader = 'uniform highp sampler2DArray tMats; uniform float uBiome; varying float vTexId; varying vec3 vTP; varying vec3 vTN;\n' + TEX_PARS +
+    sh.fragmentShader.replace('#include <color_fragment>', '#include <color_fragment>\n' + TEX_F);
+};
+const addFade = (sh, hard) => {
+  sh.vertexShader = FADE_VS + sh.vertexShader.replace('#include <project_vertex>', '#include <project_vertex>\n' + FADE_V);
+  sh.fragmentShader = `#define FADE_HARD ${hard ? 'true' : 'false'}\n` + FADE_FS + sh.fragmentShader.replace('void main() {', 'void main() {\n' + FADE_F).replace('#include <opaque_fragment>', 'diffuseColor.a = fadeA;\n#include <opaque_fragment>');
+};
+
+const RIM = /* glsl */`
+{
+  vec3 vd = normalize(vViewPosition);
+  float r = 1.0 - saturate(dot(normal, vd));
+  r = smoothstep(0.55, 0.92, r) * (0.35 + 0.65 * saturate(normal.y + 0.6));
+  outgoingLight += uRimColor * r * uRim;
+#if defined(USE_COLOR_ALPHA)
+  outgoingLight = mix(vColor.rgb * uGlow, outgoingLight, vColor.a);
+#endif
+  outgoingLight = mix(outgoingLight, uFlashColor, uFlash);
+}
+`;
+
+/**
+ * toon(color, opts)
+ *  vc       – use vertex colours (RGBA, see geo.js)
+ *  rim      – rim light strength (0..1)
+ *  sway     – { base, amt, flutter } wind bending
+ *  fade     – dither away when standing between camera and hero
+ *  side     – THREE side
+ *  ao, aoH  – darken to `ao` at ground level, fading out by height aoH (m)
+ */
+export function toon(color = 0xffffff, o = {}) {
+  const m = new THREE.MeshToonMaterial({
+    color, gradientMap: ramp(), vertexColors: !!o.vc, side: o.side ?? THREE.FrontSide,
+    transparent: !!o.transparent, opacity: o.opacity ?? 1,
+    map: o.map ?? null, alphaTest: o.alphaTest ?? 0,
+  });
+  const sw = o.sway;
+  if (o.fade && !o.alphaTest) fadeMats.push(m);
+  m.userData.flash = { value: 0 };
+  m.userData.flashColor = { value: new THREE.Color(1, 1, 1) };
+  m.onBeforeCompile = sh => {
+    Object.assign(sh.uniforms, U, {
+      uFlash: m.userData.flash, uFlashColor: m.userData.flashColor,
+      uRim: { value: o.rim ?? 0.35 }, uRimColor: { value: new THREE.Color(o.rimColor ?? 0xfff0d0) },
+      uGlow: { value: o.glow ?? 1.25 },
+    });
+    if (sw) {
+      Object.assign(sh.uniforms, { uSwayBase: { value: sw.base ?? 0 }, uSwayAmt: { value: sw.amt ?? 0.02 }, uFlutter: { value: sw.flutter ?? 0 } });
+      sh.vertexShader = SWAY_PARS + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n' + SWAY);
+    }
+    hfogTex();
+    sh.vertexShader = 'varying vec3 hfWv;\n' + sh.vertexShader.replace('#include <project_vertex>', '#include <project_vertex>\n#ifdef USE_INSTANCING\n  hfWv = (modelMatrix * instanceMatrix * vec4(transformed, 1.0)).xyz;\n#else\n  hfWv = (modelMatrix * vec4(transformed, 1.0)).xyz;\n#endif');
+    sh.fragmentShader = 'uniform float uFlash; uniform vec3 uFlashColor; uniform float uRim; uniform vec3 uRimColor; uniform float uGlow;\nvarying vec3 hfWv;\n' + HFOG_PARS +
+      sh.fragmentShader.replace('#include <opaque_fragment>', RIM + '#include <opaque_fragment>').replace('#include <fog_fragment>', '#include <fog_fragment>\n{ vec3 hfW = hfWv;\n' + HFOG_F + '}');
+    if (o.fade) addFade(sh, !!o.alphaTest);
+    if (o.ao) addAO(sh, o.ao, o.aoH ?? 0.8);
+    if (o.tex) addTex(sh, o.texWorld);
+  };
+  m.customProgramCacheKey = () => 'toon' + (sw ? '-sway' : '') + (o.fade ? '-fade' + (m.alphaToCoverage ? 'S' : '') : '') + (o.ao ? '-ao' + o.ao + '-' + (o.aoH ?? 0.8) : '') + (o.tex ? (o.texWorld ? '-texw' : '-tex') : '');
+  return m;
+}
+
+// Inverted hull outline. Same sway as the body so the contour follows the wind.
+export function outline(o = {}) {
+  const m = new THREE.MeshBasicMaterial({ color: o.color ?? 0x1b1424, side: THREE.BackSide });
+  const sw = o.sway;
+  if (o.fade) fadeMats.push(m);
+  m.userData.width = { value: o.width ?? 0.02 };
+  m.onBeforeCompile = sh => {
+    Object.assign(sh.uniforms, U, { uOutline: m.userData.width });
+    let code = '';
+    if (sw) {
+      Object.assign(sh.uniforms, { uSwayBase: { value: sw.base ?? 0 }, uSwayAmt: { value: sw.amt ?? 0.02 }, uFlutter: { value: sw.flutter ?? 0 } });
+      sh.vertexShader = SWAY_PARS + sh.vertexShader;
+      code += SWAY;
+    }
+    code += 'transformed += normalize(normal) * uOutline;\n';
+    sh.vertexShader = 'uniform float uOutline;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n' + code);
+    if (o.fade) addFade(sh);
+  };
+  m.customProgramCacheKey = () => 'outline' + (sw ? '-sway' : '') + (o.fade ? '-fade' + (m.alphaToCoverage ? 'S' : '') : '');
+  return m;
+}
+
+// Adds an outline twin to every mesh under `root` (skips meshes flagged userData.noOutline).
+export function addOutlines(root, mat) {
+  const list = [];
+  root.traverse(o => { if (o.isMesh && !o.userData.noOutline && !o.userData.isOutline) list.push(o); });
+  for (const o of list) {
+    const ol = o.isInstancedMesh ? new THREE.InstancedMesh(o.geometry, mat, o.count) : new THREE.Mesh(o.geometry, mat);
+    if (o.isInstancedMesh) { ol.instanceMatrix = o.instanceMatrix; ol.count = o.count; ol.frustumCulled = o.frustumCulled; }
+    ol.userData.isOutline = true;
+    o.add(ol);
+  }
+  return list.length;
+}
+
+// ---------------------------------------------------------------- облики (косметика): перекраска без новых файлов
+// Текстуры героев Meshy состоят из трёх «красок»: фиолетовая ткань и камни (полоса A), золотая кайма (полоса B),
+// серо-стальная броня (C, малая насыщенность). Шейдер ищет их по оттенку и перекрашивает с сохранением яркости:
+// облик — это три цвета, свечение полосы A и общий сдвиг оттенка. Для питомцев (цвета вершин) обычно хватает сдвига,
+// насыщенности, яркости и тонировки. Один материал — одна программа: смена облика меняет только числа (uniform).
+const LOOK_PARS = /* glsl */`
+uniform vec4 uLkA; uniform vec4 uLkB; uniform vec4 uLkC; uniform vec4 uLkSrc; uniform vec4 uLkSrc2; uniform vec4 uLkHSV; uniform vec4 uLkT; uniform vec4 uLkG; uniform vec4 uLkG2; uniform vec4 uLkGh;
+vec3 lkHsv(vec3 c) { vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0); vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g)); vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r)); float d = q.x - min(q.w, q.y); return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + 1e-10)), d / (q.x + 1e-10), q.x); }
+vec3 lkRgb(vec3 c) { vec3 p = abs(fract(c.xxx + vec3(1.0, 2.0 / 3.0, 1.0 / 3.0)) * 6.0 - 3.0); return c.z * mix(vec3(1.0), clamp(p - 1.0, 0.0, 1.0), c.y); }
+vec3 lkX(vec3 c) {   // общий сдвиг оттенка/насыщенности/яркости и тонировка (после полос; и для светящихся частей)
+  if (uLkHSV.w > 0.0) { vec3 k = lkHsv(c); k.x = fract(k.x + uLkHSV.x); k.y = clamp(k.y * uLkHSV.y, 0.0, 1.0); k.z *= uLkHSV.z; c = lkRgb(k); }
+  return mix(c, uLkT.rgb * (0.25 + 1.4 * dot(c, vec3(0.2126, 0.7152, 0.0722))), uLkT.w);
+}
+`;
+const LOOK_F = /* glsl */`
+float lkW = 0.0;
+{
+  vec3 c = diffuseColor.rgb, h = lkHsv(c);
+  float L = dot(c, vec3(0.2126, 0.7152, 0.0722));
+  float dA = abs(fract(h.x - uLkSrc.x + 0.5) - 0.5), dB = abs(fract(h.x - uLkSrc.y + 0.5) - 0.5), dC = abs(fract(h.x - uLkSrc.z + 0.5) - 0.5);
+  float wA = (1.0 - smoothstep(uLkSrc2.x * 0.6, uLkSrc2.x, dA)) * smoothstep(0.3, 0.6, h.y);
+  float wB = (1.0 - smoothstep(uLkSrc2.y * 0.6, uLkSrc2.y, dB)) * smoothstep(0.3, 0.5, h.y) * (uLkSrc2.w > 0.0 ? smoothstep(uLkSrc2.w * 0.5, uLkSrc2.w, L) : 1.0);
+  float wC = max((1.0 - smoothstep(uLkSrc2.z * 0.6, uLkSrc2.z, dC)) * (1.0 - smoothstep(0.62, 0.8, h.y)), 1.0 - smoothstep(0.12, 0.3, h.y));
+  c = mix(c, min(uLkA.rgb * L, vec3(1.6)), wA * uLkA.w);
+  c = mix(c, min(uLkB.rgb * L, vec3(1.6)), wB * uLkB.w);
+  c = mix(c, min(uLkC.rgb * L, vec3(1.6)), wC * uLkC.w);
+  diffuseColor.rgb = lkX(c);
+  lkW = mix(1.0, wA, uLkG2.y);
+}
+`;
+const LOOK_GLOW = /* glsl */`
+{
+#if defined(USE_COLOR_ALPHA)
+  outgoingLight = mix(lkX(outgoingLight), outgoingLight, vColor.a);   // светящиеся части питомцев (огонь хвоста, глаза) — того же облика
+#endif
+  float pu = 0.75 + 0.25 * sin(uTime * uLkG2.x * 6.2831); outgoingLight += uLkG.rgb * uLkG.w * lkW * pu;
+  if (uLkGh.w > 0.0) {   // призрак: тело полупрозрачное, светится по краю силуэта, по нему бегут бледные полосы
+    float fr = pow(1.0 - saturate(abs(dot(normal, normalize(vViewPosition)))), 1.6);
+    float sc = 0.78 + 0.22 * sin(vViewPosition.y * 14.0 + uTime * 4.0);
+    outgoingLight = mix(outgoingLight, outgoingLight * 0.45 + uLkGh.rgb * (0.35 + 2.4 * fr) * sc, uLkGh.w);
+    diffuseColor.a *= mix(1.0, clamp((0.3 + 0.8 * fr) * sc, 0.0, 1.0), uLkGh.w);
+  }
+}
+`;
+const _lc = new THREE.Color();
+// перевести «цвет полосы» в множитель к яркости пикселя: средняя яркость исходной полосы → ровно этот цвет
+const lkVec = (u, col, ref, w = 1) => { if (col == null) { u.value.set(0, 0, 0, 0); return; } _lc.set(col); u.value.set(_lc.r / ref, _lc.g / ref, _lc.b / ref, w); };
+// look: { a, b, c — цвета полос (null — не трогать), src: [оттенок A, B, C], src2: [ширина A, B, C, порог яркости B], hue, sat, val, tint, tintK, glow, glowK, pulse, glowAll }
+export function applyLook(m, look) {
+  if (!m) return;
+  if (!m.userData.look) {
+    const u = m.userData.look = { uLkA: { value: new THREE.Vector4() }, uLkB: { value: new THREE.Vector4() }, uLkC: { value: new THREE.Vector4() }, uLkSrc: { value: new THREE.Vector4(0.71, 0.07, 0.635, 0) }, uLkSrc2: { value: new THREE.Vector4(0.06, 0.05, 0.04, 0.0) }, uLkHSV: { value: new THREE.Vector4(0, 1, 1, 0) }, uLkT: { value: new THREE.Vector4() }, uLkG: { value: new THREE.Vector4() }, uLkG2: { value: new THREE.Vector4(0.5, 1, 0, 0) }, uLkGh: { value: new THREE.Vector4() } };
+    m.userData.baseTransparent = m.transparent;
+    const ob = m.onBeforeCompile, key = m.customProgramCacheKey;
+    m.onBeforeCompile = (sh, r) => {
+      ob.call(m, sh, r); Object.assign(sh.uniforms, u, { uTime: U.uTime });
+      sh.fragmentShader = sh.fragmentShader.replace('void main() {', LOOK_PARS + (sh.fragmentShader.includes('uniform float uTime') ? '' : 'uniform float uTime;\n') + 'void main() {')
+        .replace('#include <color_fragment>', '#include <color_fragment>\n' + LOOK_F).replace('#include <opaque_fragment>', LOOK_GLOW + '#include <opaque_fragment>');
+    };
+    m.customProgramCacheKey = () => key.call(m) + '-look';
+    m.needsUpdate = true;
+  }
+  const u = m.userData.look, L = look || {};
+  lkVec(u.uLkA, L.a, L.refA ?? 0.05, L.aK ?? 1); lkVec(u.uLkB, L.b, L.refB ?? 0.22, L.bK ?? 1); lkVec(u.uLkC, L.c, L.refC ?? 0.12, L.cK ?? 1);
+  if (L.src) u.uLkSrc.value.set(...L.src); if (L.src2) u.uLkSrc2.value.set(...L.src2);
+  const hsv = L.hue != null || L.sat != null || L.val != null;
+  u.uLkHSV.value.set(L.hue || 0, L.sat ?? 1, L.val ?? 1, hsv ? 1 : 0);
+  _lc.set(L.tint ?? 0xffffff); u.uLkT.value.set(_lc.r, _lc.g, _lc.b, L.tint != null ? (L.tintK ?? 0.6) : 0);
+  _lc.set(L.glow ?? 0); u.uLkG.value.set(_lc.r, _lc.g, _lc.b, L.glow != null ? (L.glowK ?? 0.5) : 0);
+  u.uLkG2.value.set(L.pulse ?? 0.5, L.glowAll ? 0 : 1, 0, 0);
+  // ghost: цвет свечения призрака (true — голубой); материал становится прозрачным (смена прозрачности — одна перекомпиляция)
+  const gh = L.ghost; _lc.set(gh === true ? 0x8ae8ff : gh || 0); u.uLkGh.value.set(_lc.r, _lc.g, _lc.b, gh ? (L.ghostK ?? 1) : 0);
+  if (m.transparent !== !!gh && !m.userData.baseTransparent) { m.transparent = !!gh; m.needsUpdate = true; }
+}

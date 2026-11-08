@@ -1,15 +1,16 @@
 // World: zones (static decor + story objects), collision grid, hero movement, tap-to-walk, labels overlay.
 import { GridMap } from './engine/map.js';
 import * as X from './gfx.js';
+import { Char } from './actors.js';
+import { pollMove } from './input.js';
 const { THREE, V } = X;
 
-export const G = { zone: null, time: 0, player: null, path: null, target: null, lock: 0, fx: [], near: null, torch: false, chars: new Map(), skinsReady: new Map() };
-export const keys = new Set();
+export const G = { zone: null, time: 0, player: null, path: null, target: null, lock: 0, fx: [], near: null, torch: false, chars: new Map() };
 
 // ---------------------------------------------------------------- characters cache (one Char per id)
 export function charFor(id, model, o = {}) {
   let c = G.chars.get(id);
-  if (!c) { const d = G.skinsReady.get(model); if (!d) return null; c = new X.Char(model, d, o); G.chars.set(id, c); }
+  if (!c) { c = new Char(model, o); G.chars.set(id, c); }
   return c;
 }
 
@@ -39,16 +40,16 @@ export class Zone {
     if (o.actor) {
       const a = o.actor; const c = charFor(o.id, a.model, a);
       if (c) {
-        c.root.position.set(o.x, 0, o.y); if (a.dir != null) c.root.rotation.y = a.dir; c.pose = a.pose; c.state = 'idle';
+        c.root.position.set(o.x, 0, o.y); c.shadow.position.set(o.x, 0.03, o.y); c.home = a.dir || 0; c.face(c.home, true); c.state = 'idle';
         c.label = a.name; c.marker = a.marker; c.plateH = a.plateH || c.height + 0.45;
-        this.group.add(c.root); this.actors.push(c); o.actorRef = c;
+        c.attach(this.group); this.actors.push(c); o.actorRef = c;
         if (!a.ghost) this.map.circles.push({ x: o.x, y: o.y, r: 0.4 });
       }
     }
     if (o.use) this.inter.push({ ...o, obj, r: o.ir || 1.9 });
   }
   attach() { V.scene.add(this.st.group); V.scene.add(this.group); }
-  detach() { V.scene.remove(this.st.group); V.scene.remove(this.group); for (const a of this.actors) this.group.remove(a.root); }
+  detach() { V.scene.remove(this.st.group); V.scene.remove(this.group); for (const a of this.actors) if (a.root.parent === this.group) a.detach(); }
 }
 function borderRows(w, h) {
   const rows = [];
@@ -58,33 +59,31 @@ function borderRows(w, h) {
 
 // ---------------------------------------------------------------- hero
 export function makePlayer(x, y) {
-  const c = charFor('hero', 'archer_raven');
+  const c = charFor('hero', 'archer_raven', { turnRate: 34 });
   return { x, y, r: 0.32, char: c, moving: false, face: 0, speed: 0 };
 }
 export function updatePlayer(dt) {
   const P = G.player, Z = G.zone; if (!P || !Z) return;
-  let mx = 0, my = 0;
-  if (!G.lock) {
-    if (keys.has('KeyW') || keys.has('ArrowUp')) my -= 1; if (keys.has('KeyS') || keys.has('ArrowDown')) my += 1;
-    if (keys.has('KeyA') || keys.has('ArrowLeft')) mx -= 1; if (keys.has('KeyD') || keys.has('ArrowRight')) mx += 1;
-  }
-  let vx = 0, vy = 0;
-  if (mx || my) { [vx, vy] = X.screenDir(mx, my); G.path = null; G.target = null; }
+  const inp = pollMove();
+  let vx = 0, vy = 0, mag = 0;
+  if (!G.lock && inp.mag) { vx = inp.wx; vy = inp.wy; mag = inp.mag; G.path = null; G.target = null; }
   else if (G.path && !G.lock) {
     const wp = G.path[0];
-    if (wp) { const dx = wp[0] - P.x, dy = wp[1] - P.y, d = Math.hypot(dx, dy); if (d < 0.2) G.path.shift(); else { vx = dx / d; vy = dy / d; } }
+    if (wp) { const dx = wp[0] - P.x, dy = wp[1] - P.y, d = Math.hypot(dx, dy); if (d < 0.2) G.path.shift(); else { vx = dx / d; vy = dy / d; mag = 0.8; } }
     if (!G.path.length) G.path = null;
   }
-  const sp = 3.8;
-  if (vx || vy) {
+  if (mag) {
+    // Umbrahold (game/entities.js): past 55 % of the stick — run 5.4 m/s, otherwise walk 3.2 m/s with a soft start at the dead zone
+    const sp = mag > 0.55 ? 5.4 : 3.2 * Math.min(1, 0.35 + (mag - 0.12) * 3.6);
     const [nx, ny] = Z.map.move(P.x, P.y, vx * sp * dt, vy * sp * dt, P.r);
     const moved = Math.hypot(nx - P.x, ny - P.y);
     if (moved < 0.002 * sp && G.path) { G.stuck = (G.stuck || 0) + dt; if (G.stuck > 0.5) { G.path = null; G.stuck = 0; } } else G.stuck = 0;
-    P.x = nx; P.y = ny; P.speed = moved / Math.max(dt, 1e-3);
-    const want = Math.atan2(vx, vy); let d = want - P.face; d = Math.atan2(Math.sin(d), Math.cos(d)); P.face += d * Math.min(1, dt * 12);
-    P.moving = true;
-  } else { P.moving = false; P.speed = 0; }
-  const c = P.char; if (c) { c.state = P.moving ? 'walk' : 'idle'; c.root.position.set(P.x, 0, P.y); c.root.rotation.y = P.face; c.update(dt, P.speed); }
+    P.x = nx; P.y = ny; P.face = Math.atan2(vx, vy);
+  }
+  // speed from the actual displacement with walk/stand hysteresis, like renderer3d measure()
+  const raw = Math.hypot(P.x - (P.px ?? P.x), P.y - (P.py ?? P.y)) / Math.max(dt, 1e-3); P.px = P.x; P.py = P.y;
+  P.speed += (Math.min(raw, 12) - P.speed) * Math.min(1, dt * 12); P.moving = P.speed > (P.moving ? 0.35 : 0.8);
+  const c = P.char; if (c) { c.state = P.moving ? 'walk' : 'idle'; c.root.position.set(P.x, 0, P.y); c.face(P.face); c.update(dt, P.moving ? P.speed : 0); }
 }
 export function updateActors(dt) {
   for (const a of G.zone.actors) { if (a.wander) wander(a, dt); a.update(dt, a.wspeed || 0); }
@@ -105,7 +104,7 @@ function wander(a, dt) {
   if (!w.goal) { w.wait -= dt; a.state = 'idle'; a.wspeed = 0; if (w.wait <= 0) { const ang = Math.random() * 6.28, d = Math.random() * w.range; w.goal = [w.home[0] + Math.cos(ang) * d, w.home[1] + Math.sin(ang) * d]; } return; }
   const dx = w.goal[0] - r.position.x, dz = w.goal[1] - r.position.z, d = Math.hypot(dx, dz);
   if (d < 0.2) { w.goal = null; w.wait = 2 + Math.random() * 5; return; }
-  const sp = 1.2 * dt; r.position.x += dx / d * sp; r.position.z += dz / d * sp; r.rotation.y = Math.atan2(dx, dz); a.state = 'walk'; a.wspeed = 1.2;
+  const sp = 1.2 * dt; r.position.x += dx / d * sp; r.position.z += dz / d * sp; a.face(Math.atan2(dx, dz)); a.state = 'walk'; a.wspeed = 1.2;
 }
 
 // ---------------------------------------------------------------- A* pathfinding (tiles), smoothing

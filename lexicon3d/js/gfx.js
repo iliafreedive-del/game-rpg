@@ -15,7 +15,7 @@ export function initGfx(canvas, overlay) {
   r.outputColorSpace = THREE.SRGBColorSpace; r.toneMapping = THREE.ACESFilmicToneMapping; r.toneMappingExposure = 1.05;
   r.shadowMap.enabled = true; r.shadowMap.type = THREE.PCFSoftShadowMap;
   V.renderer = r; V.scene = new THREE.Scene();
-  V.cam = new THREE.PerspectiveCamera(38, 1, 0.5, 200);
+  V.cam = new THREE.PerspectiveCamera(30, 1, 0.5, 200);
   V.hemi = new THREE.HemisphereLight(0xffe9c8, 0x5a4630, 1.2); V.scene.add(V.hemi);
   const s = new THREE.DirectionalLight(0xfff0d8, 2.4); s.castShadow = true;
   const sz = low ? 1024 : 2048; s.shadow.mapSize.set(sz, sz); s.shadow.bias = -0.0006; s.shadow.normalBias = 0.03;
@@ -30,7 +30,7 @@ export function resize() {
   V.W = document.documentElement.clientWidth || innerWidth; V.H = document.documentElement.clientHeight || innerHeight;
   V.dpr = Math.min(devicePixelRatio || 1, V.low ? 1.5 : 2);
   V.renderer.setPixelRatio(V.dpr); V.renderer.setSize(V.W, V.H, false);
-  V.cam.aspect = V.W / V.H; V.cam.fov = V.W < V.H ? 48 : 36; V.cam.updateProjectionMatrix();
+  V.cam.aspect = V.W / V.H; V.cam.updateProjectionMatrix();
   V.ov.width = Math.round(V.W * V.dpr); V.ov.height = Math.round(V.H * V.dpr);
 }
 
@@ -38,11 +38,11 @@ export function resize() {
 export function setMood(kind) {
   const S = V.scene;
   if (kind === 'day') {
-    S.background = new THREE.Color(0xe7c99a); S.fog = new THREE.Fog(0xe7c99a, 34, 80);
+    S.background = new THREE.Color(0xe7c99a); S.fog = new THREE.Fog(0xe7c99a, 34, 80); V.fog = [6, 46];
     V.hemi.color.set(0xfff0d6); V.hemi.groundColor.set(0x7a5a38); V.hemi.intensity = 1.25;
     V.sun.color.set(0xffe2b8); V.sun.intensity = 2.6; V.renderer.toneMappingExposure = 1.05;
   } else {
-    S.background = new THREE.Color(0x0b0a16); S.fog = new THREE.Fog(0x0b0a16, 12, 38);
+    S.background = new THREE.Color(0x0b0a16); S.fog = new THREE.Fog(0x0b0a16, 12, 38); V.fog = [-6, 16];
     V.hemi.color.set(0x5560a0); V.hemi.groundColor.set(0x1a1410); V.hemi.intensity = 0.32;
     V.sun.color.set(0x8fa0ff); V.sun.intensity = 0.35; V.renderer.toneMappingExposure = 1.15;
   }
@@ -281,13 +281,27 @@ export function glowDisc(color, r = 1.2) {
 
 // ---------------------------------------------------------------- camera & projection
 const tmp = new THREE.Vector3();
-export const CAM = { dist: 15, h: 13.5, yaw: Math.PI / 4, x: 0, z: 0 };
+// camera exactly as Umbrahold (render3d/style.js CAMERA, renderer3d.js resize/updateCamera): fov 30°, pitch 0.64 rad
+// over the hero at 45° yaw, distance 30 m / 1.05, hero a little above the centre, portrait screens move back so the
+// view keeps its width; phones keep the same pixels per metre in both orientations. The player zoom (pinch / wheel)
+// is a 0.7…1.3 multiplier on top, smoothed.
+export const CAM = { yaw: Math.PI / 4, pitch: 0.64, dist0: 30, aim: 1.0, targetY: 0.8, zoomIn: 1.05, x: 0, z: 0, zoom: 1, uz: 1, dist: 28 };
+export const ZOOM = { min: 0.7, max: 1.3 };
+function camDist() {
+  const W = V.W, H = V.H, S = Math.min(screen.width || 0, screen.height || 0), phone = S > 0 && S < 600 && matchMedia('(pointer: coarse)').matches;
+  const portraitDist = (w, h) => CAM.dist0 * Math.min(1.5, 1 / (w / h) * 0.85);
+  const d = phone ? CAM.dist0 * 0.85 * H / S : W / H < 1 ? portraitDist(W, H) : H < 600 ? portraitDist(H, W) * H / W : CAM.dist0;
+  return d / CAM.zoomIn;
+}
 export function placeCamera(x, z, dt, snap) {
-  const k = snap ? 1 : 1 - Math.exp(-6 * dt);
+  const k = snap ? 1 : 1 - Math.exp(-7 * dt);
   CAM.x += (x - CAM.x) * k; CAM.z += (z - CAM.z) * k;
-  const portrait = V.W < V.H; const d = CAM.dist * (portrait ? 1.15 : 1), h = CAM.h * (portrait ? 1.2 : 1);
-  V.cam.position.set(CAM.x + Math.sin(CAM.yaw) * d, h, CAM.z + Math.cos(CAM.yaw) * d);
-  V.cam.lookAt(CAM.x, 0.9, CAM.z);
+  CAM.uz = snap || Math.abs(CAM.zoom - CAM.uz) < 1e-3 ? CAM.zoom : CAM.uz + (CAM.zoom - CAM.uz) * Math.min(1, dt * 12);
+  const dist = camDist() * CAM.uz; CAM.dist = dist;
+  const SQ = Math.SQRT1_2, tx = CAM.x - SQ * CAM.aim, tz = CAM.z - SQ * CAM.aim;
+  V.cam.position.set(Math.sin(CAM.yaw) * Math.cos(CAM.pitch), Math.sin(CAM.pitch), Math.cos(CAM.yaw) * Math.cos(CAM.pitch)).multiplyScalar(dist).add(tmp.set(tx, CAM.targetY, tz));
+  V.cam.lookAt(tx, CAM.targetY, tz); V.cam.updateMatrixWorld(true);
+  if (V.scene.fog && V.fog) { V.scene.fog.near = V.fog[0] + dist; V.scene.fog.far = V.fog[1] + dist; }
   V.sun.position.set(CAM.x + 14, 26, CAM.z + 6); V.sun.target.position.set(CAM.x, 0, CAM.z);
 }
 export function toScreen(x, y, z) { tmp.set(x, y, z).project(V.cam); return [(tmp.x + 1) / 2 * V.W, (1 - tmp.y) / 2 * V.H, tmp.z]; }

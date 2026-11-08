@@ -178,3 +178,8 @@ select{width:100%;background:#0008;color:var(--ink);border:1px solid #5a4a36;bor
 @media (max-width:520px){.dt{font-size:19px}.tk .gl{font-size:12px}.logo,.lt{font-size:34px}.slot .pic{font-size:38px}}
 .btn{white-space:nowrap}
 @media (max-width:759px){#goal{top:calc(96px + var(--st))}}
+
+/* floating joystick (Umbrahold): hidden, appears where the thumb lands */
+#joyBase{position:fixed;left:0;top:0;width:140px;height:140px;border-radius:50%;background:radial-gradient(#fff1 50%,#fff2 70%,#0000 71%);border:2px solid #ffffff38;opacity:0;pointer-events:none;transition:opacity .15s;z-index:3}
+#joyBase.active{opacity:.85}
+#joyKnob{position:absolute;left:44px;top:44px;width:52px;height:52px;border-radius:50%;background:radial-gradient(circle at 40% 35%,#f4e2b8,#a07a3a 70%);border:2px solid #0008;box-shadow:0 2px 8px #000}
